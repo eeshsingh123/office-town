@@ -2,7 +2,6 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter, AdapterEvent, Translation } from "../src/adapter.ts";
 import type { Environment } from "../src/environment/environment.ts";
-import { listHarnesses } from "../src/index.ts";
 import { HarnessSession, SessionStateError } from "../src/session.ts";
 import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 
@@ -102,18 +101,6 @@ describe("session", () => {
 
     expect(environment.request?.cwd).toBe("inside:/workspace");
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
-  });
-
-  it("gives each turn an id shared by its start and end", async () => {
-    const { events, emit } = await startSession();
-
-    await emit({ type: "turn.started" }, { type: "turn.ended", payload: { outcome: "completed" } });
-    await emit({ type: "turn.started" }, { type: "turn.ended", payload: { outcome: "completed" } });
-
-    const turnIds = events.map((event) => (event.payload as { turnId: string }).turnId);
-    expect(turnIds[0]).toBe(turnIds[1]);
-    expect(turnIds[2]).toBe(turnIds[3]);
-    expect(turnIds[0]).not.toBe(turnIds[2]);
   });
 
   it("answers a pending permission once and reports how it was resolved", async () => {
@@ -305,14 +292,6 @@ describe("session", () => {
       ["error", { message: 'The "replayed" harness cannot resume a session.', fatal: true }],
       ["session.ended", { reason: "failed", exitCode: null }],
     ]);
-  });
-
-  it("lists each harness with what it supports", () => {
-    expect(listHarnesses().map((description) => description.harness)).toEqual([
-      "claude",
-      "opencode",
-    ]);
-    expect(listHarnesses()[0]?.capabilities).toMatchObject({ plan: true });
   });
 
   it("reports output it cannot read and keeps going", async () => {

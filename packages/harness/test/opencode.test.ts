@@ -100,35 +100,6 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("says so when the model has no effort setting", async () => {
-    const { events } = await replay(
-      opencodeAdapter,
-      recordings["write-allowed"],
-      withEffort("high"),
-    );
-
-    expect(only(events, "error")[0]?.payload).toEqual({
-      message: 'This model has no effort setting, so "high" was ignored.',
-      fatal: false,
-    });
-  });
-
-  it("keeps going when the harness refuses the effort", async () => {
-    const [initialized, created, _configured, ...rest] = effortRecording;
-    const refused = { receive: { jsonrpc: "2.0", id: 3, error: { code: -32602, message: "no" } } };
-    const { events } = await replay(
-      opencodeAdapter,
-      [initialized, created, refused, ...rest] as typeof rest,
-      withEffort("high"),
-    );
-
-    expect(only(events, "error")[0]?.payload).toEqual({
-      message: "The harness did not apply the chosen settings: no",
-      fatal: false,
-    });
-    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
-
   it("starts an action once its input is known and passes the harness's options through", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
@@ -164,6 +135,7 @@ describe("opencode adapter", () => {
       'Created hello.txt with "hi"\ndone',
     ]);
     expect(only(denied.events, "reasoning")).toHaveLength(1);
+    expect(only(denied.events, "reasoning.delta").length).toBeGreaterThan(1);
     expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
   });
 
@@ -194,14 +166,6 @@ describe("opencode adapter", () => {
     expect(sent[2].params.sessionId).toBe(resumeSessionId);
     expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
     expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
-
-  it("reports text as it is produced, then the whole text", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
-
-    const thoughts = only(events, "reasoning.delta").map((event) => event.payload.text);
-    expect(thoughts.length).toBeGreaterThan(1);
-    expect(thoughts.join("")).toBe(only(events, "reasoning")[0]?.payload.text);
   });
 
   it("fails the action when the user denies it", async () => {

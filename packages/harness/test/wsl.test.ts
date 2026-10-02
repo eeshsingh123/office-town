@@ -8,30 +8,33 @@ import { runProcess } from "../src/process-runner.ts";
 import { ScriptedEnvironment } from "./support/replay.ts";
 
 describe("WSL path translation", () => {
-  it.each([
-    ["C:\\Projects\\office town", "/mnt/c/Projects/office town"],
-    ["d:/data/file.txt", "/mnt/d/data/file.txt"],
-    ["C:\\", "/mnt/c"],
-    ["\\\\wsl.localhost\\Ubuntu\\home\\dev\\work", "/home/dev/work"],
-    ["\\\\wsl$\\ubuntu\\home\\dev", "/home/dev"],
-    ["\\\\wsl.localhost\\Ubuntu", "/"],
-    ["/home/dev/work", "/home/dev/work"],
-  ])("maps the Windows path %s into the distro", (windowsPath, wslPath) => {
-    expect(toWslPath(windowsPath, "Ubuntu")).toBe(wslPath);
+  it("maps Windows paths into the distro, leaving another distro's share untouched", () => {
+    const otherDistro = "\\\\wsl.localhost\\Debian\\home\\dev";
+    const cases: [string, string][] = [
+      ["C:\\Projects\\office town", "/mnt/c/Projects/office town"],
+      ["d:/data/file.txt", "/mnt/d/data/file.txt"],
+      ["C:\\", "/mnt/c"],
+      ["\\\\wsl.localhost\\Ubuntu\\home\\dev\\work", "/home/dev/work"],
+      ["\\\\wsl$\\ubuntu\\home\\dev", "/home/dev"],
+      ["\\\\wsl.localhost\\Ubuntu", "/"],
+      ["/home/dev/work", "/home/dev/work"],
+      [otherDistro, otherDistro],
+    ];
+    for (const [windowsPath, wslPath] of cases) {
+      expect(toWslPath(windowsPath, "Ubuntu")).toBe(wslPath);
+    }
   });
 
-  it.each([
-    ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
-    ["/mnt/c", "C:\\"],
-    ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
-    ["relative/file.txt", "relative/file.txt"],
-  ])("maps the distro path %s back to Windows", (wslPath, windowsPath) => {
-    expect(toWindowsPath(wslPath, "Ubuntu")).toBe(windowsPath);
-  });
-
-  it("leaves another distro's share untouched", () => {
-    const path = "\\\\wsl.localhost\\Debian\\home\\dev";
-    expect(toWslPath(path, "Ubuntu")).toBe(path);
+  it("maps distro paths back to Windows", () => {
+    const cases: [string, string][] = [
+      ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
+      ["/mnt/c", "C:\\"],
+      ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
+      ["relative/file.txt", "relative/file.txt"],
+    ];
+    for (const [wslPath, windowsPath] of cases) {
+      expect(toWindowsPath(wslPath, "Ubuntu")).toBe(windowsPath);
+    }
   });
 });
 

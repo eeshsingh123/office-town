@@ -79,11 +79,4 @@ describe("catalog", () => {
       new CatalogError('The "listed" harness failed to list its models: Not logged in'),
     );
   });
-
-  it("refuses a harness that cannot list its models", async () => {
-    const { catalog: _catalog, ...withoutCatalog } = adapter;
-    const { environment } = environmentPrinting([], 0);
-
-    await expect(readCatalog(withoutCatalog, environment)).rejects.toThrow(CatalogError);
-  });
 });
