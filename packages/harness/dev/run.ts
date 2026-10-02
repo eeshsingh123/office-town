@@ -15,6 +15,7 @@ const USAGE = `Usage: pnpm dev:run "<prompt>" [options]
   --model <name>              model for the session
   --effort <level>            effort level for the session
   --workspace <path>          folder the agent works in (default: current folder)
+  --wsl <distro>              run the harness inside this WSL distro
   --permission-mode <mode>    ${permissionModeSchema.options.join(" | ")} (default: ask)
 
 While it runs: answer a permission request with its number, type a follow-up
@@ -33,6 +34,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       model: { type: "string" },
       effort: { type: "string" },
       workspace: { type: "string" },
+      wsl: { type: "string" },
       "permission-mode": { type: "string", default: "ask" },
     },
   });
@@ -42,7 +44,8 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
     prompt,
     options: {
       harness: values.harness,
-      environment: { kind: "native" },
+      environment:
+        values.wsl === undefined ? { kind: "native" } : { kind: "wsl", distro: values.wsl },
       permissionMode: permissionModeSchema.parse(values["permission-mode"]),
       ...(values.model === undefined ? {} : { model: values.model }),
       ...(values.effort === undefined ? {} : { effort: values.effort }),

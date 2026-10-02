@@ -295,6 +295,7 @@ export class AcpTranslator implements Translator {
           kind: kindOf(call),
           title: call.title ?? "Tool call",
           input: call.rawInput ?? {},
+          ...(call.locations?.length ? { locations: call.locations.map((l) => l.path) } : {}),
         },
       },
     ];

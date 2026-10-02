@@ -40,8 +40,12 @@ export function formatEvent(event: SessionEvent): string {
         .map((step) => `plan     ${STEP_MARKS[step.status]} ${step.title}`)
         .join("\n");
     case "action.started": {
-      const step = event.payload.planStepId ? ` (step ${event.payload.planStepId})` : "";
-      return `${indent(event.payload.parentActionId)}action   ${event.payload.title} [${event.payload.kind}]${step}`;
+      const { title, kind, planStepId, parentActionId, locations = [] } = event.payload;
+      const step = planStepId ? ` (step ${planStepId})` : "";
+      return [
+        `${indent(parentActionId)}action   ${title} [${kind}]${step}`,
+        ...locations.map((location) => `${indent(parentActionId)}         at ${location}`),
+      ].join("\n");
     }
     case "action.updated":
       return `action   … ${preview(event.payload.output ?? event.payload.title ?? "")}`;

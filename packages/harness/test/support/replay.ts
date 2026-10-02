@@ -1,13 +1,8 @@
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { PassThrough, Writable } from "node:stream";
-import type {
-  PermissionOption,
-  SessionCommand,
-  SessionEvent,
-  SessionOptions,
-} from "@office-town/contract";
-import type { Adapter } from "../../src/adapter.ts";
+import type { PermissionOption, SessionCommand, SessionEvent } from "@office-town/contract";
+import type { Adapter, LaunchOptions } from "../../src/adapter.ts";
 import type {
   Environment,
   LaunchedProcess,
@@ -55,6 +50,14 @@ export class ScriptedEnvironment implements Environment {
     };
   }
 
+  toEnvironmentPath(hostPath: string): string {
+    return hostPath;
+  }
+
+  toHostPath(environmentPath: string): string {
+    return environmentPath;
+  }
+
   async emitLine(line: string): Promise<void> {
     // Listeners run in order, so the session has handled the line once this one fires.
     const delivered = once(this.#stdout, "data");
@@ -69,10 +72,11 @@ export class ScriptedEnvironment implements Environment {
   }
 }
 
-export const replayOptions: SessionOptions = {
+export const replayOptions: LaunchOptions = {
   harness: "replayed",
   environment: { kind: "native" },
   permissionMode: "ask",
+  workspacePath: "/workspace",
 };
 
 function commandFor(recorded: RecordedCommand, events: SessionEvent[]): SessionCommand {

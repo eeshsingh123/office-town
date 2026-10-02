@@ -22,4 +22,6 @@ export interface LaunchedProcess {
 
 export interface Environment {
   launch(request: LaunchRequest): Promise<LaunchedProcess>;
+  toEnvironmentPath(hostPath: string): string;
+  toHostPath(environmentPath: string): string;
 }

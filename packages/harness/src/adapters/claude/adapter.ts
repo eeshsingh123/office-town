@@ -1,5 +1,5 @@
-import type { PermissionMode, SessionOptions } from "@office-town/contract";
-import type { Adapter, HarnessCommand } from "../../adapter.ts";
+import type { PermissionMode } from "@office-town/contract";
+import type { Adapter, HarnessCommand, LaunchOptions } from "../../adapter.ts";
 import { ClaudeTranslator } from "./translator.ts";
 
 const PERMISSION_MODES: Record<PermissionMode, string> = {
@@ -8,7 +8,7 @@ const PERMISSION_MODES: Record<PermissionMode, string> = {
   bypass: "bypassPermissions",
 };
 
-function buildCommand(options: SessionOptions): HarnessCommand {
+function buildCommand(options: LaunchOptions): HarnessCommand {
   const args = [
     "--print",
     "--verbose",

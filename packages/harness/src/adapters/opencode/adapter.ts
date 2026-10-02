@@ -1,5 +1,5 @@
-import type { PermissionMode, SessionOptions } from "@office-town/contract";
-import type { HarnessCommand } from "../../adapter.ts";
+import type { PermissionMode } from "@office-town/contract";
+import type { HarnessCommand, LaunchOptions } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
 
 type Rule = "ask" | "allow";
@@ -10,7 +10,7 @@ const PERMISSIONS: Record<PermissionMode, { edit: Rule; bash: Rule; webfetch: Ru
   bypass: { edit: "allow", bash: "allow", webfetch: "allow" },
 };
 
-function buildCommand(options: SessionOptions): HarnessCommand {
+function buildCommand(options: LaunchOptions): HarnessCommand {
   // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
   const config = {
     permission: PERMISSIONS[options.permissionMode],
