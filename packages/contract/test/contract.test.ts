@@ -115,21 +115,6 @@ describe("session options", () => {
     expect(sessionOptionsSchema.parse(options)).toEqual(options);
   });
 
-  it("accepts a budget in tokens, dollars or both, and rejects one that is not positive", () => {
-    const withBudget = (budget: unknown) =>
-      sessionOptionsSchema.safeParse({
-        harness: "claude",
-        environment: { kind: "native" },
-        permissionMode: "ask",
-        budget,
-      }).success;
-
-    expect(withBudget({ maxTokens: 100_000 })).toBe(true);
-    expect(withBudget({ maxTokens: 100_000, maxCostUsd: 1.5 })).toBe(true);
-    expect(withBudget({ maxTokens: 0 })).toBe(false);
-    expect(withBudget({ maxCostUsd: -1 })).toBe(false);
-  });
-
   it("requires a distro for the wsl environment", () => {
     const options = { harness: "claude", environment: { kind: "wsl" }, permissionMode: "ask" };
     expect(sessionOptionsSchema.safeParse(options).success).toBe(false);

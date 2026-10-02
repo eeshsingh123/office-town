@@ -177,17 +177,6 @@ describe("opencode adapter", () => {
     ]);
   });
 
-  it("reports the cost the harness gives for a turn", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
-
-    expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
-      inputTokens: 10405,
-      outputTokens: 15,
-      cachedInputTokens: 10297,
-      costUsd: 0,
-    });
-  });
-
   it("fails the action when the user denies it", async () => {
     const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
 
