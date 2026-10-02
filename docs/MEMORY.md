@@ -4,9 +4,9 @@ Last updated: 2026-10-02
 
 ## State
 
-- M1 (harness core) is implemented and verified end to end: Claude Code and OpenCode, each natively and inside WSL Ubuntu. It is waiting for the owner's review as seven stacked PRs, #2 (M1.1) to #8 (M1.7). Merge in order; each PR's base is the one before it.
+- M1 (harness core) is implemented and verified end to end: Claude Code and OpenCode, each natively and inside WSL Ubuntu. It is waiting for the owner's review as seven stacked PRs, #2 (M1.1) to #8 (M1.7). Merge in order; each PR's base is the one before it. The review fixes are one more PR on top of #9 (`fix/m1-review`).
 - Next after merge: the M2 open items below, then M2.1. Follow the build protocol in AGENTS.md.
-- D-1 to D-14 accepted. Proposed and awaiting the owner: D-15 (storage), D-16 (sandbox deferred), D-17 (HTTP plus SSE), D-19 (no build step), D-20 (replay-tested translators), D-21 (locations), D-22 (WSL kill by marker). D-9, D-11 and D-18 need their own design sessions.
+- D-1 to D-14 accepted. Proposed and awaiting the owner: D-15 (storage), D-16 (sandbox deferred), D-17 (HTTP plus SSE), D-19 (no build step), D-20 (replay-tested translators), D-21 (locations), D-22 (WSL kill by marker), D-24 (allow always is session-only). D-9, D-11 and D-18 need their own design sessions.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -18,7 +18,7 @@ Last updated: 2026-10-02
 
 ## What M1 taught us about the harnesses
 
-- Claude Code 2.1.287: permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty, so no reasoning events yet. `total_cost_usd` is cumulative, so no per-turn cost.
+- Claude Code 2.1.287: permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty, so no reasoning events yet. `total_cost_usd` is cumulative, so no per-turn cost. A question to the user (`AskUserQuestion`) arrives as a permission request marked `requires_user_interaction`, and the answer goes back as `answers` (question text to chosen label) inside `updatedInput`.
 - OpenCode 1.18.34 over ACP: the todo list is a `todowrite` tool call, not a plan update. A sub-agent's inner steps are not forwarded; it appears as one `delegate` action. Model list and current model come back from `session/new`.
 
 ## Owner requirements not yet placed in a decision
@@ -35,6 +35,8 @@ Last updated: 2026-10-02
 
 ## Open questions for the owner
 
+- Agent questions: the contract can only allow or deny, so a Claude question to the user is "allowed" with no answer. Confirmed on the live CLI. Needs a contract change (a question event and an answer command) before M2.1 stores events; the owner decides the shape.
+- Permissions per agent: the owner wants an explicit way to set what an agent may do when it is created, designed with the UI (M3.3, M4). Until then "allow always" only makes session-long changes (D-24).
 - Streaming: M1 emits whole messages only. Live text deltas would be an additive `message.delta` event; decide before M3.4.
 - Model list and effort values: the capability flags say whether a harness supports them, but nothing returns the actual lists yet. M3.3 needs them before a session exists, so this is likely an M2 query, not an event.
 - Resume: both harnesses can resume by their own session id; the `resume` capability is false until M2.2 adds the option.
@@ -53,6 +55,7 @@ Last updated: 2026-10-02
 
 - The CLIs' wire formats are not versioned contracts. A CLI upgrade can break an adapter; the recordings are the safety net and must be re-recorded when it happens.
 - WSL path mapping assumes the default `/mnt/<drive>` automount root.
+- Known limits, left as they are: on Windows, if the harness's main process has already exited, anything it left running is not killed (a real fix needs native code). Binary lookup may read a different `PATH` than the child gets when the environment has both `Path` and `PATH`; nothing overrides `PATH` today. `costUsd` and `action.updated.title` are in the contract but never filled. `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
 - Vendor billing and policy for third-party use of subscriptions is still changing (D-6).
 
 ## Reference notes

@@ -1,4 +1,8 @@
-import { type SessionOptions, sessionOptionsSchema } from "@office-town/contract";
+import {
+  type AdapterCapabilities,
+  type SessionOptions,
+  sessionOptionsSchema,
+} from "@office-town/contract";
 import { adapters, findAdapter } from "./adapters/registry.ts";
 import type { Environment } from "./environment/environment.ts";
 import { NativeEnvironment } from "./environment/native.ts";
@@ -24,6 +28,11 @@ export function createSession(input: SessionOptions): Session {
   return new HarnessSession(options, findAdapter(options.harness), environmentFor(options));
 }
 
-export function listHarnesses(): string[] {
-  return adapters.map((adapter) => adapter.harness);
+export interface HarnessDescription {
+  harness: string;
+  capabilities: AdapterCapabilities;
+}
+
+export function listHarnesses(): HarnessDescription[] {
+  return adapters.map(({ harness, capabilities }) => ({ harness, capabilities }));
 }

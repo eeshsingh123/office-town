@@ -82,17 +82,57 @@ describe("claude adapter", () => {
     });
   });
 
-  it("returns the harness's own suggestion when the user allows always", async () => {
+  it("says what allowing always will change, and returns that change to the harness", async () => {
     const allowAlways = recordings["write-allowed"].map(
       (entry): RecordingEntry =>
         "send" in entry && entry.send.type === "answerPermission"
           ? { send: { type: "answerPermission", choose: "allow_always" } }
           : entry,
     );
-    const { written } = await replay(claudeAdapter, allowAlways);
+    const { events, written } = await replay(claudeAdapter, allowAlways);
 
+    const options = only(events, "permission.requested")[0]?.payload.options;
+    expect(options?.find((option) => option.kind === "allow_always")?.label).toBe(
+      "Allow all file edits for this session",
+    );
     expect(JSON.parse(written[1] as string).response.response.updatedPermissions).toEqual([
       { type: "setMode", mode: "acceptEdits", destination: "session" },
+    ]);
+  });
+
+  it("offers only changes that end with the session", async () => {
+    const sessionRule = {
+      type: "addRules",
+      rules: [{ toolName: "Bash", ruleContent: "npm test" }],
+      behavior: "allow",
+      destination: "session",
+    };
+    const request = (id: string, suggestions: unknown[]): RecordingEntry => ({
+      receive: {
+        type: "control_request",
+        request_id: id,
+        request: {
+          subtype: "can_use_tool",
+          tool_name: "Bash",
+          input: {},
+          permission_suggestions: suggestions,
+        },
+      },
+    });
+    const { events, written } = await replay(claudeAdapter, [
+      request("saved-to-disk", [{ ...sessionRule, destination: "localSettings" }]),
+      request("mixed", [sessionRule, { type: "setMode", mode: "acceptEdits" }]),
+      { send: { type: "answerPermission", choose: "allow_always" } },
+    ]);
+
+    const [savedToDisk, mixed] = only(events, "permission.requested");
+    expect(savedToDisk?.payload.options.map((option) => option.kind)).toEqual([
+      "allow_once",
+      "reject_once",
+    ]);
+    expect(mixed?.payload.options[1]?.label).toBe("Always allow Bash (npm test) for this session");
+    expect(JSON.parse(written[0] as string).response.response.updatedPermissions).toEqual([
+      sessionRule,
     ]);
   });
 

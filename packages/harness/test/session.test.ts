@@ -2,6 +2,7 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter, AdapterEvent, Translation } from "../src/adapter.ts";
 import type { Environment } from "../src/environment/environment.ts";
+import { listHarnesses } from "../src/index.ts";
 import { HarnessSession, SessionStateError } from "../src/session.ts";
 import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 
@@ -176,6 +177,87 @@ describe("session", () => {
       ],
       ["session.ended", { reason: "failed", exitCode: 1 }],
     ]);
+  });
+
+  it("fails the actions still running when the harness dies", async () => {
+    const environment = new ScriptedEnvironment();
+    const { session, events, emit } = await startSession(environment);
+    await emit(action("finished"), action("running"), {
+      type: "action.ended",
+      payload: { actionId: "finished", outcome: "completed", result: "ok" },
+    });
+
+    await session.send({ type: "stop" });
+
+    const ended = events.filter((event) => event.type === "action.ended");
+    expect(ended.map((event) => [event.payload.actionId, event.payload.outcome])).toEqual([
+      ["finished", "completed"],
+      ["running", "failed"],
+    ]);
+  });
+
+  it("stops a session that is still starting once the launch settles", async () => {
+    const environment = new ScriptedEnvironment();
+    const launch = environment.launch.bind(environment);
+    const gate = Promise.withResolvers<void>();
+    environment.launch = async (request) => {
+      await gate.promise;
+      return launch(request);
+    };
+    const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    const started = session.send({ type: "start" });
+    const stopped = session.send({ type: "stop" });
+    gate.resolve();
+    await Promise.all([started, stopped]);
+
+    expect(events.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
+  });
+
+  it("keeps going when a subscriber throws, and reports it", async () => {
+    const environment = new ScriptedEnvironment();
+    const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe(() => {
+      throw new Error("store is full");
+    });
+    session.subscribe((event) => events.push(event));
+    await session.send({ type: "start" });
+
+    await environment.emitLine(JSON.stringify([{ type: "turn.started" }]));
+    await session.send({ type: "stop" });
+
+    expect(events[0]?.type).toBe("turn.started");
+    expect(events[1]).toMatchObject({
+      type: "error",
+      payload: { message: "A subscriber failed to handle an event: store is full", fatal: false },
+    });
+    expect(events.at(-1)?.type).toBe("session.ended");
+  });
+
+  it("says so when the harness cannot use the chosen effort", async () => {
+    const session = new HarnessSession(
+      { ...replayOptions, effort: "high" },
+      passthroughAdapter,
+      new ScriptedEnvironment(),
+    );
+    const events: SessionEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await session.send({ type: "start" });
+
+    expect(events[0]).toMatchObject({ type: "error", payload: { fatal: false } });
+    expect(events[0]?.payload).toMatchObject({ message: expect.stringContaining('"high"') });
+  });
+
+  it("lists each harness with what it supports", () => {
+    expect(listHarnesses().map((description) => description.harness)).toEqual([
+      "claude",
+      "opencode",
+    ]);
+    expect(listHarnesses()[0]?.capabilities).toMatchObject({ plan: true });
   });
 
   it("reports output it cannot read and keeps going", async () => {

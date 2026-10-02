@@ -71,6 +71,18 @@ export const permissionRequestSchema = z.looseObject({
   permission_suggestions: z.array(z.unknown()).optional(),
 });
 
+export const permissionSuggestionSchema = z.looseObject({
+  type: z.string(),
+  destination: z.string().optional(),
+  mode: z.string().optional(),
+  behavior: z.string().optional(),
+  rules: z
+    .array(z.looseObject({ toolName: z.string(), ruleContent: z.string().optional() }))
+    .optional(),
+  directories: z.array(z.string()).optional(),
+});
+export type PermissionSuggestion = z.infer<typeof permissionSuggestionSchema>;
+
 export const controlCancelSchema = z.looseObject({ request_id: z.string() });
 
 export const resultSchema = z.looseObject({

@@ -116,3 +116,8 @@ Why: measured on the owner's machine, killing the relay alone leaves detached ch
 The product must run on macOS as well as Windows, but no Mac-specific work is done until someone can test on a Mac. Until then: no macOS-only code paths, no macOS CI job, and nothing that would block macOS is introduced (the stack in D-12 is cross-platform; platform differences stay behind `Environment`).
 Why: the owner has no Mac, and untested platform code is worse than none.
 Known work when it is picked up: add `macos-latest` to CI; resolve harness binaries through the user's login shell, because an app launched from Finder or the Dock does not inherit the shell PATH; code signing and notarisation; a manual run of both adapters on a real Mac.
+
+## D-24 "Allow always" only changes the current session — proposed (2026-10-02)
+
+When a harness offers to stop asking, the adapter offers that choice only for changes that end with the session, and the option's label says exactly what will change. A change the harness would save to a settings file is not offered.
+Why: Claude Code's suggestion for one file write is "accept all edits", which is far wider than the question asked, and a saved rule would silently outlive the session. Lasting permissions per agent are a UI decision for later (M3.3, M4).

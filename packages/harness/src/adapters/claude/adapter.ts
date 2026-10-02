@@ -29,7 +29,8 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
 
 export const claudeAdapter: Adapter = {
   harness: "claude",
-  capabilities: { reasoning: true, plan: true, effort: true, modelList: false, resume: false },
+  // The CLI sends thinking blocks with their text left empty, so there is no reasoning to report.
+  capabilities: { reasoning: false, plan: true, effort: true, modelList: false, resume: false },
   buildCommand,
   createTranslator: () => new ClaudeTranslator(),
 };
