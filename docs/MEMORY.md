@@ -1,14 +1,26 @@
 # Memory
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## State
 
-- M1 (harness core) is implemented and verified end to end: Claude Code and OpenCode, each natively and inside WSL Ubuntu. It is waiting for the owner's review as seven stacked PRs, #2 (M1.1) to #8 (M1.7). Merge in order; each PR's base is the one before it. On top of #9 come #10 (review fixes) and one more for agent questions (D-25).
-- Next after merge: the M2 open items below, then M2.1. Follow the build protocol in AGENTS.md.
-- D-1 to D-14 accepted. Proposed and awaiting the owner: D-15 (storage), D-16 (sandbox deferred), D-17 (HTTP plus SSE), D-19 (no build step), D-20 (replay-tested translators), D-21 (locations), D-22 (WSL kill by marker), D-24 (allow always is session-only), D-25 (agent questions). D-9, D-11 and D-18 need their own design sessions.
+- M1 (harness core) is merged to `main` (PRs #2 to #11) and verified end to end: Claude Code and OpenCode, each natively and inside WSL Ubuntu.
+- Next: the pre-M2 work below (the owner gave the go-ahead on 2026-10-03), then M2.1. Follow the build protocol in AGENTS.md.
+- D-1 to D-14 accepted. Proposed and awaiting the owner: D-15 (storage), D-16 (sandbox deferred), D-17 (HTTP plus SSE), D-19 (no build step; the owner left the choice to the agent, priority is performance), D-20 (replay-tested translators), D-21 (locations), D-22 (WSL kill by marker), D-24 (allow always is session-only), D-25 (agent questions). The owner asked what they are and was told on 2026-10-03; mark them accepted once the owner says so. D-9, D-11 and D-18 need their own design sessions.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
+
+## Pre-M2 work
+
+- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, budget, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
+- Catalog query: each adapter reports its models and the effort values per model, so forms are built from data. The owner wants to talk this through before it is built.
+- Effort: show each harness's own values, with a popup explaining what each means. OpenCode calls it "variant" and our adapter does not send it yet; not confirmed live.
+- Budget: tokens and dollars, per agent and per department. Built once in the shared session layer. When it runs out: pause and ask (shows in the blocked queue).
+- Usage display: show the subscription's usage limit where the harness reports it (Claude Code sends `rate_limit_info` with the share of the 5-hour window used), otherwise tokens. OpenCode not checked.
+- Cost: adapters report the running total; the session derives per-turn cost.
+- Live text streaming: yes. Additive `message.delta` event; deltas are not stored.
+- Resume: a core feature. Agents must persist and resume their sessions and work. Add the option to the adapters, not only to M2.2.
+- All of the above join the shared conformance suite so every adapter must support them or declare that it cannot.
 
 ## How to run
 
@@ -24,9 +36,10 @@ Last updated: 2026-10-02
 ## Owner requirements not yet placed in a decision
 
 - Trace: plan steps with nested sub-steps, everything auditable. Reasoning hidden by default, expandable.
-- Model and effort selectable per employee.
+- Agents are customisable like a character creator: memory, role, purpose, effort, model and more, per agent, with the lead and the workers of one department set differently. How agent memory works is undesigned.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
-- Workspace: a chosen folder or files, or none; with none, ask where results go and remember it.
+- Workspace: a chosen folder or files, or none; with none, ask where results go and remember it. A workspace can be several folders. Reaching a folder outside it works like Claude Code: the agent asks first, or it has been given full autonomy. Either way the access must be safe and guarded; the guardrails are undesigned (M2.4, M4).
+- History is kept until the user deletes it, with a warning when the store grows large. The harness's raw native messages are stored too, for audit and re-translation.
 - Departments are created automatically from the user's description.
 - A department works in one existing folder the user points it at, like opening Claude Code in a directory. Sharing the folder across the department's agents is expected. Agreed direction, to be designed at M4: one git worktree and branch per agent.
 - SDLC cycle with GitHub pull and push is optional: only for departments doing code work in a repo. Not tested through the app yet.
@@ -36,11 +49,7 @@ Last updated: 2026-10-02
 ## Open questions for the owner
 
 - Permissions per agent: the owner wants an explicit way to set what an agent may do when it is created, designed with the UI (M3.3, M4). Until then "allow always" only makes session-long changes (D-24).
-- Streaming: M1 emits whole messages only. Live text deltas would be an additive `message.delta` event; decide before M3.4.
-- Model list and effort values: the capability flags say whether a harness supports them, but nothing returns the actual lists yet. M3.3 needs them before a session exists, so this is likely an M2 query, not an event.
-- Resume: both harnesses can resume by their own session id; the `resume` capability is false until M2.2 adds the option.
 - Background running: tray, detached core, or OS service (see MODULES.md, M2 open items).
-- M2 items: retention, raw-message audit copy, multi-folder workspaces.
 - macOS (D-23): parked tech debt, nothing verified on a Mac. Do not add Mac-specific code until it can be tested; the work list is in D-23.
 - Interface design session (D-9), connector deep dive (D-11), final name.
 
