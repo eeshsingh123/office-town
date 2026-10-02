@@ -61,7 +61,14 @@ const catalog: CatalogQuery = {
 export const claudeAdapter: Adapter = {
   harness: "claude",
   // The CLI sends thinking blocks with their text left empty, so there is no reasoning to report.
-  capabilities: { reasoning: false, plan: true, effort: true, modelList: true, resume: false },
+  capabilities: {
+    reasoning: false,
+    plan: true,
+    effort: true,
+    modelList: true,
+    resume: false,
+    usageLimits: true,
+  },
   catalog,
   buildCommand,
   createTranslator: () => new ClaudeTranslator(),

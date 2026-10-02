@@ -11,6 +11,7 @@ import {
   permissionRequestSchema,
   permissionSuggestionSchema,
   questionsInputSchema,
+  rateLimitSchema,
   resultSchema,
   type TaskUpdateInput,
   type ToolResult,
@@ -156,6 +157,7 @@ export class ClaudeTranslator implements Translator {
     user: (message) => this.#user(message),
     control_request: (message) => this.#controlRequest(message),
     control_cancel_request: (message) => this.#controlCancel(message),
+    rate_limit_event: (message) => this.#rateLimit(message),
     result: (message) => this.#result(message),
   };
 
@@ -432,6 +434,18 @@ export class ClaudeTranslator implements Translator {
     this.#pendingPermissions.delete(request_id);
     const type = pending.isQuestion ? "question.resolved" : "permission.resolved";
     return translated([{ type, payload: { requestId: request_id, outcome: "cancelled" } }]);
+  }
+
+  // Reported for subscriptions only: the share of each usage window spent, and when it resets.
+  #rateLimit(message: unknown): Translation {
+    const windows = rateLimitSchema.parse(message).rate_limit_info.unifiedWindows ?? {};
+    const limits = Object.entries(windows).map(([id, { utilization, resetsAt }]) => ({
+      id,
+      label: id.replaceAll("_", " "),
+      usedFraction: utilization,
+      ...(resetsAt === undefined ? {} : { resetsAt: new Date(resetsAt * 1000).toISOString() }),
+    }));
+    return translated(limits.length === 0 ? [] : [{ type: "limits.updated", payload: { limits } }]);
   }
 
   #result(message: unknown): Translation {

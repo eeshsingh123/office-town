@@ -67,6 +67,19 @@ const bodies: SessionEventBody[] = [
       answers: [{ questionId: "1", selected: ["Blue"] }],
     },
   },
+  {
+    type: "limits.updated",
+    payload: {
+      limits: [
+        {
+          id: "five_hour",
+          label: "five hour",
+          usedFraction: 0.4,
+          resetsAt: "2026-10-02T15:00:00.000Z",
+        },
+      ],
+    },
+  },
   { type: "error", payload: { message: "boom", fatal: true } },
 ];
 

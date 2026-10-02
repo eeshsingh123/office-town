@@ -28,7 +28,10 @@ export function formatEvent(event: SessionEvent): string {
       return "turn     started";
     case "turn.ended": {
       const { usage, outcome } = event.payload;
-      const tokens = usage ? ` (${usage.inputTokens} in, ${usage.outputTokens} out)` : "";
+      const cached = usage?.cachedInputTokens ?? 0;
+      const tokens = usage
+        ? ` (${usage.inputTokens - cached} new in, ${cached} cached, ${usage.outputTokens} out)`
+        : "";
       return `turn     ${outcome}${tokens}`;
     }
     case "message":
@@ -68,6 +71,10 @@ export function formatEvent(event: SessionEvent): string {
         .join("\n");
     case "question.resolved":
       return `QUESTION ${event.payload.outcome}`;
+    case "limits.updated":
+      return event.payload.limits
+        .map((limit) => `limit    ${limit.label}: ${Math.round(limit.usedFraction * 100)}% used`)
+        .join("\n");
     case "error": {
       const detail = event.payload.detail ? `\n         ${preview(event.payload.detail)}` : "";
       return `ERROR    ${event.payload.message}${detail}`;

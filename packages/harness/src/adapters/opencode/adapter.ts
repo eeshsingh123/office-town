@@ -56,7 +56,14 @@ const catalog: CatalogQuery = {
 
 export const opencodeAdapter = createAcpAdapter({
   harness: "opencode",
-  capabilities: { reasoning: true, plan: true, effort: true, modelList: true, resume: false },
+  capabilities: {
+    reasoning: true,
+    plan: true,
+    effort: true,
+    modelList: true,
+    resume: false,
+    usageLimits: false,
+  },
   catalog,
   buildCommand,
 });

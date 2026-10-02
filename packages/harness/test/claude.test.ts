@@ -75,6 +75,7 @@ describe("claude adapter", () => {
       "permission.resolved",
       "action.ended",
       "action.started",
+      "limits.updated",
       "action.ended",
       "message",
       "turn.ended",
@@ -107,6 +108,25 @@ describe("claude adapter", () => {
       outcome: "completed",
       usage: { inputTokens: 72122, outputTokens: 453, cachedInputTokens: 34545 },
     });
+  });
+
+  it("reports how much of each subscription window is used and when it resets", async () => {
+    const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
+
+    expect(only(events, "limits.updated")[0]?.payload.limits).toEqual([
+      {
+        id: "five_hour",
+        label: "five hour",
+        usedFraction: 0.04,
+        resetsAt: "2026-10-02T16:40:00.000Z",
+      },
+      {
+        id: "seven_day",
+        label: "seven day",
+        usedFraction: 0.04,
+        resetsAt: "2026-10-06T13:00:00.000Z",
+      },
+    ]);
   });
 
   it("says what allowing always will change, and returns that change to the harness", async () => {
