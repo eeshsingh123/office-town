@@ -11,7 +11,8 @@
     "format": "biome check --write",
     "typecheck": "pnpm --recursive typecheck",
     "test": "vitest run",
-    "check": "pnpm lint && pnpm typecheck && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "dev:run": "node packages/harness/dev/run.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
