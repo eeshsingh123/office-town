@@ -3,10 +3,10 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { opencodeAdapter } from "../src/adapters/opencode/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadRecording, replay, replayOptions } from "./support/replay.ts";
+import { loadLines, loadRecording, replay, replayOptions } from "./support/replay.ts";
 
-const recording = (name: string) =>
-  loadRecording(path.join(import.meta.dirname, "fixtures", "opencode", `${name}.jsonl`));
+const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "opencode", name);
+const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
 
 const recordings = {
   "write-allowed": recording("write-allowed"),
@@ -15,8 +15,12 @@ const recordings = {
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
 };
+// Recorded with an effort chosen, so it only replays correctly with one.
+const effortRecording = recording("effort");
+const catalogOutput = loadLines(fixture("catalog.txt"));
+const withEffort = (effort: string) => ({ ...replayOptions, effort });
 
-describeAdapterConformance(opencodeAdapter, recordings);
+describeAdapterConformance(opencodeAdapter, recordings, catalogOutput);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -54,6 +58,75 @@ describe("opencode adapter", () => {
       harnessSessionId: "ses_f02f3e6afffe7FEhhi26uQhMlv",
       model: "opencode/big-pickle",
     });
+  });
+
+  it("reads its models from the CLI's list, with a model's variants as its effort values", () => {
+    expect(opencodeAdapter.catalog?.parse(catalogOutput).models).toEqual([
+      { id: "opencode/big-pickle", name: "Big Pickle", efforts: [] },
+      {
+        id: "opencode/ling-3.1-flash-free",
+        name: "Ling 3.1 Flash Free",
+        efforts: ["low", "medium", "high"],
+      },
+    ]);
+  });
+
+  it("sets the chosen effort on the new session before the first prompt", async () => {
+    const { events, written } = await replay(opencodeAdapter, effortRecording, withEffort("high"));
+
+    const sent = written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/new",
+      "session/set_config_option",
+      "session/prompt",
+    ]);
+    expect(sent[2].params).toMatchObject({ configId: "effort", value: "high" });
+    expect(only(events, "error")).toEqual([]);
+    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
+  });
+
+  it("says which effort values the model offers when the chosen one is not among them", async () => {
+    const { events, written } = await replay(
+      opencodeAdapter,
+      effortRecording.slice(0, 2),
+      withEffort("extreme"),
+    );
+
+    expect(written.some((line) => line.includes("session/set_config_option"))).toBe(false);
+    expect(only(events, "error")[0]?.payload).toEqual({
+      message: `This model's effort can be low, medium, high, default, so "extreme" was ignored.`,
+      fatal: false,
+    });
+  });
+
+  it("says so when the model has no effort setting", async () => {
+    const { events } = await replay(
+      opencodeAdapter,
+      recordings["write-allowed"],
+      withEffort("high"),
+    );
+
+    expect(only(events, "error")[0]?.payload).toEqual({
+      message: 'This model has no effort setting, so "high" was ignored.',
+      fatal: false,
+    });
+  });
+
+  it("keeps going when the harness refuses the effort", async () => {
+    const [initialized, created, _configured, ...rest] = effortRecording;
+    const refused = { receive: { jsonrpc: "2.0", id: 3, error: { code: -32602, message: "no" } } };
+    const { events } = await replay(
+      opencodeAdapter,
+      [initialized, created, refused, ...rest] as typeof rest,
+      withEffort("high"),
+    );
+
+    expect(only(events, "error")[0]?.payload).toEqual({
+      message: "The harness did not apply the chosen settings: no",
+      fatal: false,
+    });
+    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
   });
 
   it("starts an action once its input is known and passes the harness's options through", async () => {

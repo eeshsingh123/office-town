@@ -58,12 +58,13 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 - **M1.5 Dev command.** `pnpm dev:run "<prompt>" --harness claude` prints events as readable lines and asks on the console when a permission is requested. This is the module's demo and manual test.
 - **M1.6 OpenCode adapter.** Shared JSON-RPC client plus an ACP adapter driving `opencode acp`. Any contract change this forces is made here, before anything is stored.
 - **M1.7 WSL environment.** Second `Environment`: launch through `wsl.exe` in a chosen distro, find the binary through the distro's login shell, translate paths both ways (command arguments and paths inside events), kill across the boundary.
+- **M1.8 Catalog and effort.** Each adapter says how to ask its CLI for the models it offers and the effort values each model accepts; one shared function runs that query in any environment. Effort is applied on ACP harnesses through the protocol's own session setting. `pnpm dev:catalog` prints the list.
 
 Out of scope: storage, more than one session, orchestration, any UI, Codex and Antigravity adapters, connectors.
 
 ### Integration
 
-`packages/harness` exports one entry point: create a session from options, send commands, subscribe to events. M2 is its only consumer in the product. The dev command is a second consumer that proves the API is usable without M2.
+`packages/harness` exports one entry point: create a session from options, send commands, subscribe to events, and describe what a harness offers. M2 is its only consumer in the product. The dev command is a second consumer that proves the API is usable without M2.
 
 ---
 

@@ -2,6 +2,7 @@ import { type ActionKind, actionKindSchema, type PermissionOption } from "@offic
 import type { AdapterEvent, Translation, Translator } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
 import {
+  type ConfigOption,
   chunkSchema,
   delegationInputSchema,
   newSessionResultSchema,
@@ -15,6 +16,8 @@ import {
 } from "./messages.ts";
 
 const PROTOCOL_VERSION = 1;
+const SET_OPTION = "session/set_config_option";
+const EFFORT_CATEGORY = "thought_level";
 const NOTHING: Translation = { events: [], outgoing: [] };
 
 interface TextStream {
@@ -56,12 +59,15 @@ export class AcpTranslator implements Translator {
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
+  readonly #effort: string | undefined;
   #sessionId: string | undefined;
+  #configuring = false;
   #turnActive = false;
   #stream: TextStream | undefined;
 
-  constructor(cwd: string) {
+  constructor(cwd: string, effort?: string) {
     this.#cwd = cwd;
+    this.#effort = effort;
   }
 
   open(): string[] {
@@ -133,11 +139,16 @@ export class AcpTranslator implements Translator {
       return { events: [], outgoing: [request] };
     }
     if (method === "session/new") return this.#sessionCreated(result);
+    if (method === SET_OPTION) return this.#configured([]);
     if (method === "session/prompt") return this.#turnEnded(result);
     return NOTHING;
   }
 
   #failure(method: string, message: string): Translation {
+    if (method === SET_OPTION) {
+      const error = `The harness did not apply the chosen settings: ${message}`;
+      return this.#configured([{ type: "error", payload: { message: error, fatal: false } }]);
+    }
     if (method !== "session/prompt") {
       const error = `The harness rejected "${method}": ${message}`;
       return {
@@ -167,8 +178,33 @@ export class AcpTranslator implements Translator {
         ...(typeof model === "string" ? { model } : {}),
       },
     };
+    const effort = this.#applyEffort(session.configOptions ?? []);
+    if (this.#configuring) return { events: [started], outgoing: effort.outgoing };
+    return this.#configured([started, ...effort.events]);
+  }
+
+  // Effort is a setting of the session's model, so it can only be chosen once the session exists.
+  #applyEffort(options: ConfigOption[]): Translation {
+    if (this.#effort === undefined) return NOTHING;
+    const setting = options.find((option) => option.category === EFFORT_CATEGORY);
+    const offered = (setting?.options ?? []).flatMap((option) => option.value ?? []);
+    if (setting === undefined || !offered.includes(this.#effort)) {
+      const reason =
+        offered.length === 0
+          ? "This model has no effort setting"
+          : `This model's effort can be ${offered.join(", ")}`;
+      const message = `${reason}, so "${this.#effort}" was ignored.`;
+      return { events: [{ type: "error", payload: { message, fatal: false } }], outgoing: [] };
+    }
+    this.#configuring = true;
+    const params = { sessionId: this.#sessionId, configId: setting.id, value: this.#effort };
+    return { events: [], outgoing: [this.#peer.request(SET_OPTION, params)] };
+  }
+
+  #configured(events: AdapterEvent[]): Translation {
+    this.#configuring = false;
     const next = this.#nextPrompt();
-    return { events: [started, ...next.events], outgoing: next.outgoing };
+    return { events: [...events, ...next.events], outgoing: next.outgoing };
   }
 
   #turnEnded(result: unknown): Translation {
@@ -201,7 +237,7 @@ export class AcpTranslator implements Translator {
   }
 
   #nextPrompt(): Translation {
-    if (this.#sessionId === undefined || this.#turnActive) return NOTHING;
+    if (this.#sessionId === undefined || this.#configuring || this.#turnActive) return NOTHING;
     const text = this.#queuedPrompts.shift();
     if (text === undefined) return NOTHING;
     this.#turnActive = true;

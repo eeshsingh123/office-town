@@ -3,10 +3,16 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { claudeAdapter } from "../src/adapters/claude/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadRecording, type RecordingEntry, replay, replayOptions } from "./support/replay.ts";
+import {
+  loadLines,
+  loadRecording,
+  type RecordingEntry,
+  replay,
+  replayOptions,
+} from "./support/replay.ts";
 
-const recording = (name: string) =>
-  loadRecording(path.join(import.meta.dirname, "fixtures", "claude", `${name}.jsonl`));
+const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "claude", name);
+const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
 
 const recordings = {
   "write-allowed": recording("write-allowed"),
@@ -17,7 +23,9 @@ const recordings = {
   "question-answered": recording("question-answered"),
 };
 
-describeAdapterConformance(claudeAdapter, recordings);
+const catalogOutput = loadLines(fixture("catalog.jsonl")).filter((line) => line !== "");
+
+describeAdapterConformance(claudeAdapter, recordings, catalogOutput);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -34,6 +42,24 @@ describe("claude adapter", () => {
     expect(plain.args).not.toContain("--model");
     expect(plain.args).not.toContain("--effort");
     expect(tuned.args.join(" ")).toContain("--model sonnet --effort high");
+  });
+
+  it("reads its models and their effort values from the CLI's description of itself", () => {
+    expect(claudeAdapter.catalog?.parse(catalogOutput).models).toEqual([
+      {
+        id: "default",
+        name: "Default (recommended)",
+        description: "Opus 5.5 · Best for everyday, complex tasks",
+        efforts: ["low", "medium", "high", "xhigh", "max"],
+      },
+      {
+        id: "sonnet",
+        name: "Sonnet 5.5",
+        description: "Efficient for routine tasks",
+        efforts: ["low", "medium", "high", "xhigh", "max"],
+      },
+      { id: "haiku", name: "Haiku 4.5", description: "Fastest for quick answers", efforts: [] },
+    ]);
   });
 
   it("reports a write, asks permission for it and completes it once allowed", async () => {
