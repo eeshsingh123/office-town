@@ -16,7 +16,7 @@
 - Small functions, early returns, no dead code, no commented-out code.
 - Types on every public boundary. Validate data at the edges, trust it inside.
 - Errors are handled where something can be done about them; otherwise they propagate. No silent catches.
-- Tests cover behaviour at module boundaries, not implementation details.
+- Tests are few and focused: core behaviour at module boundaries and flows that cross layers. One test per rule, not per example. No tests for what the type checker or the schema library already proves, and none added only for coverage.
 
 ## Git
 
