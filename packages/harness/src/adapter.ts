@@ -1,5 +1,6 @@
 import type {
   AdapterCapabilities,
+  HarnessCatalog,
   PermissionOption,
   Question,
   SessionEventBody,
@@ -44,9 +45,18 @@ export interface Translator {
   interrupt(): Translation;
 }
 
+// How to ask a harness what it offers: a command that runs to its end once its input is closed,
+// and a pure reading of what it printed.
+export interface CatalogQuery {
+  command: HarnessCommand;
+  input: string[];
+  parse(output: string[]): HarnessCatalog;
+}
+
 export interface Adapter {
   readonly harness: string;
   readonly capabilities: AdapterCapabilities;
+  readonly catalog?: CatalogQuery;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

@@ -126,3 +126,9 @@ Why: Claude Code's suggestion for one file write is "accept all edits", which is
 
 `question.requested` carries one or more questions with their options; the caller replies with the `answerQuestion` command (per question: the chosen labels, or the user's own words), and `question.resolved` records the answers or a cancellation. It is not a permission request.
 Why: a permission can only be allowed or denied, so a question sent through it would be "allowed" with no answer and the agent would carry on blind. Claude Code's `AskUserQuestion` works this way on the wire (confirmed on the live CLI). The blocked queue (D-10) needs to tell "approve this" apart from "answer this".
+
+## D-26 A harness describes itself through a catalog query on its adapter — proposed (2026-10-03)
+
+An adapter may carry a catalog query: the command to run, the lines to send it, and a pure function that reads the models and each model's effort values from what it printed. One shared function runs the query in any environment. Effort values are the harness's own words and are never mapped to a common scale.
+Why: the form that creates an agent needs these lists before any session exists, and it must be built from data so that a new harness needs no UI change. Keeping the reading pure follows D-20, so it is tested against recorded output. A common effort scale would hide options and could map wrongly: the same model offers different values on different harnesses.
+Measured: Claude Code answers in about 2 seconds, OpenCode in about 3. M2 should cache the answer rather than ask on every form open.

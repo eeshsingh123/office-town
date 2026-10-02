@@ -19,9 +19,12 @@ type RecordedCommand =
 
 export type RecordingEntry = { receive: unknown } | { send: RecordedCommand };
 
+export function loadLines(file: string): string[] {
+  return readFileSync(file, "utf8").split("\n");
+}
+
 export function loadRecording(file: string): RecordingEntry[] {
-  return readFileSync(file, "utf8")
-    .split("\n")
+  return loadLines(file)
     .filter((line) => line !== "")
     .map((line) => JSON.parse(line) as RecordingEntry);
 }
@@ -115,9 +118,13 @@ export interface Replay {
   written: string[];
 }
 
-export async function replay(adapter: Adapter, recording: RecordingEntry[]): Promise<Replay> {
+export async function replay(
+  adapter: Adapter,
+  recording: RecordingEntry[],
+  options: LaunchOptions = replayOptions,
+): Promise<Replay> {
   const environment = new ScriptedEnvironment();
-  const session = new HarnessSession(replayOptions, adapter, environment);
+  const session = new HarnessSession(options, adapter, environment);
   const events: SessionEvent[] = [];
   session.subscribe((event) => events.push(event));
 

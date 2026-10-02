@@ -1,0 +1,113 @@
+opencode/big-pickle
+{
+  "id": "big-pickle",
+  "api": {
+    "id": "big-pickle",
+    "npm": "@ai-sdk/openai-compatible",
+    "url": "https://opencode.ai/inference/openai/v1"
+  },
+  "status": "active",
+  "name": "Big Pickle",
+  "providerID": "opencode",
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "options": {},
+  "limit": {
+    "context": 200000,
+    "input": 160000,
+    "output": 32000
+  },
+  "headers": {},
+  "family": "big-pickle",
+  "release_date": "2025-10-17",
+  "variants": {}
+}
+opencode/ling-3.1-flash-free
+{
+  "id": "ling-3.1-flash-free",
+  "api": {
+    "id": "ling-3.1-flash-free",
+    "npm": "@ai-sdk/openai-compatible",
+    "url": "https://opencode.ai/inference/openai/v1"
+  },
+  "status": "active",
+  "name": "Ling 3.1 Flash Free",
+  "providerID": "opencode",
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": false
+  },
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "options": {},
+  "limit": {
+    "context": 262144,
+    "output": 32768
+  },
+  "headers": {},
+  "family": "ling",
+  "release_date": "2026-09-29",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "medium": {
+      "reasoningEffort": "medium"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    }
+  }
+}

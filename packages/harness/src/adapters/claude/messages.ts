@@ -36,6 +36,21 @@ export const initSchema = z.looseObject({
   model: z.string().optional(),
 });
 
+export const initializeResponseSchema = z.looseObject({
+  response: z.looseObject({
+    response: z.looseObject({
+      models: z.array(
+        z.looseObject({
+          value: z.string(),
+          displayName: z.string(),
+          description: z.string().optional(),
+          supportedEffortLevels: z.array(z.string()).optional(),
+        }),
+      ),
+    }),
+  }),
+});
+
 export const assistantSchema = z.looseObject({
   message: z.looseObject({ content: z.array(blockSchema) }),
   parent_tool_use_id: z.string().nullish(),

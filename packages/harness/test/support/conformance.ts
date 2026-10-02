@@ -1,8 +1,10 @@
 import {
   adapterCapabilitiesSchema,
+  harnessCatalogSchema,
   permissionModeSchema,
   type SessionEvent,
   sessionEventSchema,
+  sessionOptionsSchema,
 } from "@office-town/contract";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { Adapter } from "../../src/adapter.ts";
@@ -17,6 +19,7 @@ function payloadsOf<T extends SessionEvent["type"]>(events: SessionEvent[], type
 export function describeAdapterConformance(
   adapter: Adapter,
   recordings: Record<string, RecordingEntry[]>,
+  catalogOutput: string[],
 ): void {
   describe(`${adapter.harness} adapter conformance`, () => {
     it("declares valid capabilities", () => {
@@ -27,6 +30,18 @@ export function describeAdapterConformance(
       const command = adapter.buildCommand({ ...replayOptions, permissionMode: mode });
       expect(command.binary).not.toBe("");
       expect(command.args.every((arg) => typeof arg === "string")).toBe(true);
+    });
+
+    it("lists its models, each usable as a session's model, exactly when it says it can", () => {
+      expect(adapter.catalog !== undefined).toBe(adapter.capabilities.modelList);
+      if (adapter.catalog === undefined) return;
+      const { models } = harnessCatalogSchema.parse(adapter.catalog.parse(catalogOutput));
+      expect(models.length).toBeGreaterThan(0);
+      expect(models.some((model) => model.efforts.length > 0)).toBe(adapter.capabilities.effort);
+      for (const model of models) {
+        const options = { ...replayOptions, model: model.id, effort: model.efforts[0] };
+        expect(sessionOptionsSchema.safeParse(options).success).toBe(true);
+      }
     });
 
     describe.each(Object.entries(recordings))("replaying %s", (_name, recording) => {

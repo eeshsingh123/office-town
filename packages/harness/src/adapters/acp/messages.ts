@@ -1,10 +1,16 @@
 import { z } from "zod";
 
+const configOptionSchema = z.looseObject({
+  id: z.string(),
+  category: z.string().optional(),
+  currentValue: z.unknown().optional(),
+  options: z.array(z.looseObject({ value: z.string().optional() })).optional(),
+});
+export type ConfigOption = z.infer<typeof configOptionSchema>;
+
 export const newSessionResultSchema = z.looseObject({
   sessionId: z.string(),
-  configOptions: z
-    .array(z.looseObject({ id: z.string(), currentValue: z.unknown().optional() }))
-    .optional(),
+  configOptions: z.array(configOptionSchema).optional(),
 });
 
 export const promptResultSchema = z.looseObject({
