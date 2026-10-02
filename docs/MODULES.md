@@ -47,10 +47,10 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 
 - **M1.1 Tooling.** pnpm workspace, strict TypeScript, Biome (lint and format), Vitest, GitHub Actions running lint, typecheck and tests on every PR. Empty `contract` and `harness` packages that build.
 - **M1.2 Event contract.** In `packages/contract`: schemas and inferred types for
-  - session options: harness, environment, workspace path (optional), model, effort, permission mode, budget;
+  - session options: harness, environment, workspace path (optional), model, effort, permission mode, budget, session to resume;
   - commands: start, prompt, answer permission, answer question, interrupt, stop;
   - the event envelope: id, session id, sequence, timestamp, type, payload;
-  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, question requested / resolved, limits updated, error;
+  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, and a delta of each, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, question requested / resolved, limits updated, error;
   - adapter capabilities: which of reasoning, plan, effort, model list, resume, usage limits a harness supports.
   Nesting rule: an action with a parent action id is a sub-step (this is how a harness's own sub-agents appear). An action with no parent is attributed to the plan step that was in progress when it started.
 - **M1.3 Process runner and native environment.** `Environment` interface with a native implementation; binary lookup on PATH; line-framed stdout; clean kill of the whole process tree on Windows; no console window flash.
@@ -60,6 +60,7 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 - **M1.7 WSL environment.** Second `Environment`: launch through `wsl.exe` in a chosen distro, find the binary through the distro's login shell, translate paths both ways (command arguments and paths inside events), kill across the boundary.
 - **M1.8 Catalog and effort.** Each adapter says how to ask its CLI for the models it offers and the effort values each model accepts; one shared function runs that query in any environment. Effort is applied on ACP harnesses through the protocol's own session setting. `pnpm dev:catalog` prints the list.
 - **M1.9 Usage and budget.** Each turn reports what it cost. A harness that knows the user's subscription limits reports them as `limits.updated`. A session takes an optional budget in tokens, dollars or both; when a turn ends over it, the session asks whether to continue and takes no new prompt until answered.
+- **M1.10 Resume and live text.** A session can continue an earlier one by the harness's own session id. Text is reported in fragments as it is produced (`message.delta`, `reasoning.delta`), always followed by the whole message.
 
 Out of scope: storage, more than one session, orchestration, any UI, Codex and Antigravity adapters, connectors.
 
@@ -78,7 +79,7 @@ The long-running local process behind the app. It runs many sessions at once, st
 ### Scope
 
 - **M2.1 Store.** SQLite file in the OS app-data folder. Append-only event log plus tables for sessions, tasks, workspaces and settings; versioned migrations. Streaming text deltas are not stored, only completed messages. Large action results go to files beside the database, referenced from the event, with a size cap.
-- **M2.2 Session registry.** Start, stop, list and look up sessions; every event is written to the store before it is published. After a core restart, an unfinished session is marked interrupted and can be resumed through the harness's own session id.
+- **M2.2 Session registry.** Start, stop, list and look up sessions; every event is written to the store before it is published. After a core restart, an unfinished session is marked interrupted and can be resumed through the harness's own session id (the `resumeSessionId` option from M1.10).
 - **M2.3 API.** HTTP on localhost with a per-launch token. Requests for commands and queries; one server-sent event stream that resumes from a sequence number, so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
 - **M2.4 Workspaces and pending approvals.** A session may have a workspace folder or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests across sessions: the data behind the blocked queue.
 

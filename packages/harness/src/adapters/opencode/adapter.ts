@@ -61,7 +61,7 @@ export const opencodeAdapter = createAcpAdapter({
     plan: true,
     effort: true,
     modelList: true,
-    resume: false,
+    resume: true,
     usageLimits: false,
   },
   catalog,

@@ -21,6 +21,8 @@ const PERMISSION_MODES: Record<PermissionMode, string> = {
 function buildCommand(options: LaunchOptions): HarnessCommand {
   const args = [
     ...STREAM_ARGS,
+    // Adds the text of a reply as it is produced, ahead of the whole message.
+    "--include-partial-messages",
     // Routes permission prompts to us as control requests on stdout.
     "--permission-prompt-tool",
     "stdio",
@@ -29,6 +31,7 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   ];
   if (options.model !== undefined) args.push("--model", options.model);
   if (options.effort !== undefined) args.push("--effort", options.effort);
+  if (options.resumeSessionId !== undefined) args.push("--resume", options.resumeSessionId);
   return { binary: "claude", args };
 }
 
@@ -66,7 +69,7 @@ export const claudeAdapter: Adapter = {
     plan: true,
     effort: true,
     modelList: true,
-    resume: false,
+    resume: true,
     usageLimits: true,
   },
   catalog,

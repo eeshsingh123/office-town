@@ -95,6 +95,20 @@ export function describeAdapterConformance(
         expect(resolved.sort()).toEqual(requested.sort());
       });
 
+      it("streams text in fragments that add up to the whole text that follows", () => {
+        const streamed = new Map<string, string>();
+        for (const event of events) {
+          if (event.type === "message.delta" || event.type === "reasoning.delta") {
+            const key = `${event.type.replace(".delta", "")}:${event.payload.parentActionId}`;
+            streamed.set(key, (streamed.get(key) ?? "") + event.payload.text);
+          } else if (event.type === "message" || event.type === "reasoning") {
+            const key = `${event.type}:${event.payload.parentActionId}`;
+            if (streamed.has(key)) expect(streamed.get(key)).toBe(event.payload.text);
+            streamed.delete(key);
+          }
+        }
+      });
+
       it("reports subscription limits only when it says it can", () => {
         if (adapter.capabilities.usageLimits) return;
         expect(payloadsOf(events, "limits.updated")).toEqual([]);

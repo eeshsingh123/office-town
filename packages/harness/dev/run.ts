@@ -21,6 +21,7 @@ const USAGE = `Usage: pnpm dev:run "<prompt>" [options]
   --workspace <path>          folder the agent works in (default: current folder)
   --wsl <distro>              run the harness inside this WSL distro
   --permission-mode <mode>    ${permissionModeSchema.options.join(" | ")} (default: ask)
+  --resume <session id>       continue an earlier session, by the id printed when it started
   --max-tokens <count>        ask before continuing once this many tokens are used
   --max-cost <dollars>        ask before continuing once this many dollars are spent
 
@@ -54,6 +55,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       workspace: { type: "string" },
       wsl: { type: "string" },
       "permission-mode": { type: "string", default: "ask" },
+      resume: { type: "string" },
       "max-tokens": { type: "string" },
       "max-cost": { type: "string" },
     },
@@ -77,6 +79,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       ...(values.effort === undefined ? {} : { effort: values.effort }),
       ...(values.workspace === undefined ? {} : { workspacePath: values.workspace }),
       ...(Object.keys(budget).length === 0 ? {} : { budget }),
+      ...(values.resume === undefined ? {} : { resumeSessionId: values.resume }),
     },
   };
 }
@@ -96,7 +99,8 @@ async function main(): Promise<void> {
   let ended = false;
 
   const onEvent = (event: SessionEvent): void => {
-    console.log(formatEvent(event));
+    const line = formatEvent(event);
+    if (line !== undefined) console.log(line);
     if (event.type === "permission.requested") pending.push(event.payload);
     if (event.type === "permission.resolved") {
       const index = pending.findIndex((p) => p.requestId === event.payload.requestId);

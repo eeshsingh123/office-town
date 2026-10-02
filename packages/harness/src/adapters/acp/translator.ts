@@ -1,14 +1,14 @@
 import { type ActionKind, actionKindSchema, type PermissionOption } from "@office-town/contract";
-import type { AdapterEvent, Translation, Translator } from "../../adapter.ts";
+import type { AdapterEvent, LaunchOptions, Translation, Translator } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
 import {
   type ConfigOption,
   chunkSchema,
   delegationInputSchema,
-  newSessionResultSchema,
   permissionParamsSchema,
   planSchema,
   promptResultSchema,
+  sessionResultSchema,
   type ToolCall,
   todoInputSchema,
   toolCallSchema,
@@ -17,6 +17,7 @@ import {
 } from "./messages.ts";
 
 const PROTOCOL_VERSION = 1;
+const SESSION_METHODS = new Set(["session/new", "session/resume"]);
 const SET_OPTION = "session/set_config_option";
 const EFFORT_CATEGORY = "thought_level";
 const NOTHING: Translation = { events: [], outgoing: [] };
@@ -61,15 +62,17 @@ export class AcpTranslator implements Translator {
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
   readonly #effort: string | undefined;
+  readonly #resumeSessionId: string | undefined;
   #sessionId: string | undefined;
   #configuring = false;
   #turnActive = false;
   #stream: TextStream | undefined;
   #totalCostUsd: number | undefined;
 
-  constructor(cwd: string, effort?: string) {
-    this.#cwd = cwd;
-    this.#effort = effort;
+  constructor(options: Pick<LaunchOptions, "workspacePath" | "effort" | "resumeSessionId">) {
+    this.#cwd = options.workspacePath;
+    this.#effort = options.effort;
+    this.#resumeSessionId = options.resumeSessionId;
   }
 
   open(): string[] {
@@ -137,10 +140,14 @@ export class AcpTranslator implements Translator {
 
   #result(method: string, result: unknown): Translation {
     if (method === "initialize") {
-      const request = this.#peer.request("session/new", { cwd: this.#cwd, mcpServers: [] });
+      const location = { cwd: this.#cwd, mcpServers: [] };
+      const request =
+        this.#resumeSessionId === undefined
+          ? this.#peer.request("session/new", location)
+          : this.#peer.request("session/resume", { sessionId: this.#resumeSessionId, ...location });
       return { events: [], outgoing: [request] };
     }
-    if (method === "session/new") return this.#sessionCreated(result);
+    if (SESSION_METHODS.has(method)) return this.#sessionCreated(result);
     if (method === SET_OPTION) return this.#configured([]);
     if (method === "session/prompt") return this.#turnEnded(result);
     return NOTHING;
@@ -170,13 +177,15 @@ export class AcpTranslator implements Translator {
   }
 
   #sessionCreated(result: unknown): Translation {
-    const session = newSessionResultSchema.parse(result);
-    this.#sessionId = session.sessionId;
+    const session = sessionResultSchema.parse(result);
+    const sessionId = session.sessionId ?? this.#resumeSessionId;
+    if (sessionId === undefined) throw new Error("The harness did not name the new session.");
+    this.#sessionId = sessionId;
     const model = session.configOptions?.find((option) => option.id === "model")?.currentValue;
     const started: AdapterEvent = {
       type: "session.started",
       payload: {
-        harnessSessionId: session.sessionId,
+        harnessSessionId: sessionId,
         ...(typeof model === "string" ? { model } : {}),
       },
     };
@@ -279,13 +288,14 @@ export class AcpTranslator implements Translator {
   #chunk(type: TextStream["type"], update: unknown): AdapterEvent[] {
     const { messageId, content } = chunkSchema.parse(update);
     const text = content.text ?? "";
+    const delta: AdapterEvent[] = text === "" ? [] : [{ type: `${type}.delta`, payload: { text } }];
     if (this.#stream?.type === type && this.#stream.messageId === messageId) {
       this.#stream.text += text;
-      return [];
+      return delta;
     }
     const events = this.#flush();
     this.#stream = { type, messageId, text };
-    return events;
+    return [...events, ...delta];
   }
 
   #flush(): AdapterEvent[] {
