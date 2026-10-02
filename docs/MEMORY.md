@@ -28,6 +28,8 @@ Last updated: 2026-10-02
 - Human-in-the-loop UI starts simple but must extend without rewrites.
 - Workspace: a chosen folder or files, or none; with none, ask where results go and remember it.
 - Departments are created automatically from the user's description.
+- A department works in one existing folder the user points it at, like opening Claude Code in a directory. Sharing the folder across the department's agents is expected. Agreed direction, to be designed at M4: one git worktree and branch per agent.
+- SDLC cycle with GitHub pull and push is optional: only for departments doing code work in a repo. Not tested through the app yet.
 - Agents must keep running with the window closed. How is undecided; discuss with the owner before building M3.1.
 - The owner delegates well-scoped stories to other agents (OpenCode); this agent writes the briefs and verifies the results on request.
 
@@ -38,6 +40,7 @@ Last updated: 2026-10-02
 - Resume: both harnesses can resume by their own session id; the `resume` capability is false until M2.2 adds the option.
 - Background running: tray, detached core, or OS service (see MODULES.md, M2 open items).
 - M2 items: retention, raw-message audit copy, multi-folder workspaces.
+- macOS (D-23): parked tech debt, nothing verified on a Mac. Do not add Mac-specific code until it can be tested; the work list is in D-23.
 - Interface design session (D-9), connector deep dive (D-11), final name.
 
 ## Environment (owner's machine, Windows 11)
