@@ -14,7 +14,8 @@ import { HarnessSession } from "../../src/session.ts";
 type RecordedCommand =
   | { type: "prompt"; text: string }
   | { type: "interrupt" }
-  | { type: "answerPermission"; choose: PermissionOption["kind"] };
+  | { type: "answerPermission"; choose: PermissionOption["kind"] }
+  | { type: "answerQuestion"; choose: string };
 
 export type RecordingEntry = { receive: unknown } | { send: RecordedCommand };
 
@@ -79,7 +80,23 @@ export const replayOptions: LaunchOptions = {
   workspacePath: "/workspace",
 };
 
+function answerFor(choose: string, events: SessionEvent[]): SessionCommand {
+  const request = events.findLast((event) => event.type === "question.requested");
+  if (request === undefined) {
+    throw new Error(`The recording answers "${choose}" but no question is pending.`);
+  }
+  return {
+    type: "answerQuestion",
+    requestId: request.payload.requestId,
+    answers: request.payload.questions.map(({ questionId }) => ({
+      questionId,
+      selected: [choose],
+    })),
+  };
+}
+
 function commandFor(recorded: RecordedCommand, events: SessionEvent[]): SessionCommand {
+  if (recorded.type === "answerQuestion") return answerFor(recorded.choose, events);
   if (recorded.type !== "answerPermission") return recorded;
   const request = events.findLast((event) => event.type === "permission.requested");
   const option = request?.payload.options.find((candidate) => candidate.kind === recorded.choose);

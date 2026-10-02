@@ -20,6 +20,10 @@ const passthroughAdapter: Adapter = {
       events: [],
       outgoing: [`${requestId}:${option.optionId}`],
     }),
+    answerQuestion: (requestId, answered) => ({
+      events: [],
+      outgoing: [`${requestId}:${answered.map((a) => a.selected.join("+")).join(",")}`],
+    }),
     interrupt: () => ({ events: [], outgoing: ["interrupt"] }),
   }),
 };
@@ -120,6 +124,34 @@ describe("session", () => {
     await expect(
       session.send({ type: "answerPermission", requestId: "request-1", optionId: "no" }),
     ).rejects.toBeInstanceOf(SessionStateError);
+  });
+
+  it("answers a pending question only when every question has an answer", async () => {
+    const environment = new ScriptedEnvironment();
+    const { session, events, emit } = await startSession(environment);
+    const question = (questionId: string) => ({
+      questionId,
+      text: `Question ${questionId}?`,
+      options: [{ label: "Red" }, { label: "Blue" }],
+      multiSelect: true,
+    });
+    await emit({
+      type: "question.requested",
+      payload: { requestId: "ask-1", questions: [question("1"), question("2")] },
+    });
+
+    const first = { questionId: "1", selected: ["Red", "Blue"] };
+    await expect(
+      session.send({ type: "answerQuestion", requestId: "ask-1", answers: [first] }),
+    ).rejects.toBeInstanceOf(SessionStateError);
+    const answers = [first, { questionId: "2", selected: ["Neither"] }];
+    await session.send({ type: "answerQuestion", requestId: "ask-1", answers });
+
+    expect(environment.written).toEqual(["ask-1:Red+Blue,Neither"]);
+    expect(events.at(-1)).toMatchObject({
+      type: "question.resolved",
+      payload: { requestId: "ask-1", outcome: "answered", answers },
+    });
   });
 
   it("rejects commands the current state does not allow", async () => {

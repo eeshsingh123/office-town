@@ -83,6 +83,22 @@ export const permissionSuggestionSchema = z.looseObject({
 });
 export type PermissionSuggestion = z.infer<typeof permissionSuggestionSchema>;
 
+export const questionsInputSchema = z.looseObject({
+  questions: z
+    .array(
+      z.looseObject({
+        question: z.string(),
+        header: z.string().optional(),
+        options: z
+          .array(z.looseObject({ label: z.string(), description: z.string().optional() }))
+          .optional(),
+        multiSelect: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+});
+export type AskedQuestion = z.infer<typeof questionsInputSchema>["questions"][number];
+
 export const controlCancelSchema = z.looseObject({ request_id: z.string() });
 
 export const resultSchema = z.looseObject({

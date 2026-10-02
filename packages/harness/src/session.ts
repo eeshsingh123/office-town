@@ -4,6 +4,8 @@ import type {
   AdapterCapabilities,
   PermissionOption,
   PlanStep,
+  Question,
+  QuestionAnswer,
   SessionCommand,
   SessionEvent,
   SessionEventBody,
@@ -48,6 +50,7 @@ export class HarnessSession implements Session {
   readonly #translator: Translator;
   readonly #listeners = new Set<SessionListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
+  readonly #pendingQuestions = new Map<string, Question[]>();
   readonly #openActions = new Set<string>();
   readonly #launched = Promise.withResolvers<void>();
   readonly #ended = Promise.withResolvers<void>();
@@ -84,6 +87,10 @@ export class HarnessSession implements Session {
       case "answerPermission":
         this.#requireActive("answer a permission");
         this.#answerPermission(command.requestId, command.optionId);
+        return;
+      case "answerQuestion":
+        this.#requireActive("answer a question");
+        this.#answerQuestion(command.requestId, command.answers);
         return;
       case "interrupt":
         this.#requireActive("interrupt");
@@ -137,6 +144,30 @@ export class HarnessSession implements Session {
     this.#apply(this.#translator.answerPermission(requestId, option));
     const outcome = option.kind.startsWith("allow") ? "allowed" : "denied";
     this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
+  }
+
+  #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
+    const questions = this.#pendingQuestions.get(requestId);
+    if (questions === undefined) {
+      throw new SessionStateError(`No pending question "${requestId}".`);
+    }
+    const answered = questions.map((question) => {
+      const answer = answers.find((candidate) => candidate.questionId === question.questionId);
+      if (answer === undefined) {
+        throw new SessionStateError(`Question "${question.text}" was not answered.`);
+      }
+      return { question, selected: answer.selected };
+    });
+    this.#pendingQuestions.delete(requestId);
+    this.#apply(this.#translator.answerQuestion(requestId, answered));
+    const given = answered.map(({ question, selected }) => ({
+      questionId: question.questionId,
+      selected,
+    }));
+    this.#emit({
+      type: "question.resolved",
+      payload: { requestId, outcome: "answered", answers: given },
+    });
   }
 
   async #stop(): Promise<void> {
@@ -213,6 +244,14 @@ export class HarnessSession implements Session {
         this.#pendingPermissions.delete(event.payload.requestId);
         this.#emit(event);
         break;
+      case "question.requested":
+        this.#pendingQuestions.set(event.payload.requestId, event.payload.questions);
+        this.#emit(event);
+        break;
+      case "question.resolved":
+        this.#pendingQuestions.delete(event.payload.requestId);
+        this.#emit(event);
+        break;
       case "error":
         this.#emit(event);
         if (event.payload.fatal) this.#abandon();
@@ -257,6 +296,10 @@ export class HarnessSession implements Session {
       this.#emit({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#pendingPermissions.clear();
+    for (const requestId of this.#pendingQuestions.keys()) {
+      this.#emit({ type: "question.resolved", payload: { requestId, outcome: "cancelled" } });
+    }
+    this.#pendingQuestions.clear();
     for (const actionId of this.#openActions) {
       const result = "The harness stopped before this action finished.";
       this.#emit({ type: "action.ended", payload: { actionId, outcome: "failed", result } });

@@ -36,6 +36,22 @@ export const permissionOptionSchema = z.object({
 });
 export type PermissionOption = z.infer<typeof permissionOptionSchema>;
 
+export const questionSchema = z.object({
+  questionId: z.string().min(1),
+  text: z.string().min(1),
+  header: z.string().optional(),
+  options: z.array(z.object({ label: z.string().min(1), description: z.string().optional() })),
+  multiSelect: z.boolean(),
+});
+export type Question = z.infer<typeof questionSchema>;
+
+// Each selected value is an option's label, or the user's own words when no option fits.
+export const questionAnswerSchema = z.object({
+  questionId: z.string().min(1),
+  selected: z.array(z.string().min(1)).min(1),
+});
+export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -92,6 +108,16 @@ const payloadSchemas = {
     outcome: z.enum(["allowed", "denied", "cancelled"]),
     optionId: z.string().optional(),
   }),
+  "question.requested": z.object({
+    requestId: z.string().min(1),
+    actionId: z.string().optional(),
+    questions: z.array(questionSchema).min(1),
+  }),
+  "question.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["answered", "cancelled"]),
+    answers: z.array(questionAnswerSchema).optional(),
+  }),
   error: z.object({
     message: z.string(),
     detail: z.string().optional(),
@@ -123,6 +149,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("action.ended"),
   eventOf("permission.requested"),
   eventOf("permission.resolved"),
+  eventOf("question.requested"),
+  eventOf("question.resolved"),
   eventOf("error"),
 ]);
 export type SessionEvent = z.infer<typeof sessionEventSchema>;

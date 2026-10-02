@@ -59,6 +59,15 @@ export function formatEvent(event: SessionEvent): string {
       ].join("\n");
     case "permission.resolved":
       return `ASK      ${event.payload.outcome}`;
+    case "question.requested":
+      return event.payload.questions
+        .flatMap((question) => [
+          `QUESTION ${question.text}${question.multiSelect ? " (choose one or more)" : ""}`,
+          ...question.options.map((option, index) => `         ${index + 1}) ${option.label}`),
+        ])
+        .join("\n");
+    case "question.resolved":
+      return `QUESTION ${event.payload.outcome}`;
     case "error": {
       const detail = event.payload.detail ? `\n         ${preview(event.payload.detail)}` : "";
       return `ERROR    ${event.payload.message}${detail}`;

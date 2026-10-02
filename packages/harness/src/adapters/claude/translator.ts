@@ -1,6 +1,7 @@
-import type { ActionKind, PermissionOption, PlanStep } from "@office-town/contract";
-import type { AdapterEvent, Translation, Translator } from "../../adapter.ts";
+import type { ActionKind, PermissionOption, PlanStep, Question } from "@office-town/contract";
+import type { AdapterEvent, AnsweredQuestion, Translation, Translator } from "../../adapter.ts";
 import {
+  type AskedQuestion,
   assistantSchema,
   controlCancelSchema,
   controlRequestSchema,
@@ -9,6 +10,7 @@ import {
   type PermissionSuggestion,
   permissionRequestSchema,
   permissionSuggestionSchema,
+  questionsInputSchema,
   resultSchema,
   type TaskUpdateInput,
   type ToolResult,
@@ -28,6 +30,7 @@ import {
 interface PendingPermission {
   input: Record<string, unknown>;
   standingChanges: StandingChange[];
+  isQuestion: boolean;
 }
 
 // A change the CLI offers to make so that it stops asking, with what it means for the user.
@@ -53,6 +56,7 @@ const ACTION_KINDS: Record<string, ActionKind> = {
 };
 
 const PLAN_TOOLS = new Set(["TaskCreate", "TaskUpdate"]);
+const QUESTION_TOOL = "AskUserQuestion";
 const LOCATION_FIELDS = ["file_path", "notebook_path", "path"];
 const TITLE_FIELDS = ["description", "file_path", "pattern", "command", "url", "query"];
 const STEP_STATUSES = new Set<string>(["pending", "in_progress", "completed"]);
@@ -117,6 +121,19 @@ function textOf(content: ToolResultContent | undefined): string {
 
 function parentOf(parentToolUseId: string | null | undefined): { parentActionId?: string } {
   return typeof parentToolUseId === "string" ? { parentActionId: parentToolUseId } : {};
+}
+
+function questionOf(question: AskedQuestion, index: number): Question {
+  return {
+    questionId: String(index + 1),
+    text: question.question,
+    ...(question.header === undefined ? {} : { header: question.header }),
+    options: (question.options ?? []).map(({ label, description }) => ({
+      label,
+      ...(description === undefined ? {} : { description }),
+    })),
+    multiSelect: question.multiSelect ?? false,
+  };
 }
 
 function translated(events: AdapterEvent[], outgoing: string[] = []): Translation {
@@ -191,6 +208,27 @@ export class ClaudeTranslator implements Translator {
             request_id: requestId,
             response: decisions[option.kind],
           },
+        }),
+      ],
+    );
+  }
+
+  // The CLI asks a question as a tool it needs permission for, and takes the answers as part of
+  // the allowed input: question text to chosen labels.
+  answerQuestion(requestId: string, answered: AnsweredQuestion[]): Translation {
+    const pending = this.#pendingPermissions.get(requestId);
+    if (pending === undefined) throw new Error(`Unknown question "${requestId}".`);
+    this.#pendingPermissions.delete(requestId);
+    const answers = Object.fromEntries(
+      answered.map(({ question, selected }) => [question.text, selected.join(", ")]),
+    );
+    const response = { behavior: "allow", updatedInput: { ...pending.input, answers } };
+    return translated(
+      [],
+      [
+        JSON.stringify({
+          type: "control_response",
+          response: { subtype: "success", request_id: requestId, response },
         }),
       ],
     );
@@ -351,15 +389,30 @@ export class ClaudeTranslator implements Translator {
       return translated([], [JSON.stringify({ type: "control_response", response })]);
     }
     const permission = permissionRequestSchema.parse(request);
+    const action = permission.tool_use_id === undefined ? {} : { actionId: permission.tool_use_id };
+    if (permission.tool_name === QUESTION_TOOL) {
+      const { questions } = questionsInputSchema.parse(permission.input);
+      this.#pendingPermissions.set(request_id, {
+        input: permission.input,
+        standingChanges: [],
+        isQuestion: true,
+      });
+      const payload = { requestId: request_id, ...action, questions: questions.map(questionOf) };
+      return translated([{ type: "question.requested", payload }]);
+    }
     const standingChanges = standingChangesOf(permission.permission_suggestions ?? []);
-    this.#pendingPermissions.set(request_id, { input: permission.input, standingChanges });
+    this.#pendingPermissions.set(request_id, {
+      input: permission.input,
+      standingChanges,
+      isQuestion: false,
+    });
     const name = permission.display_name ?? permission.tool_name;
     return translated([
       {
         type: "permission.requested",
         payload: {
           requestId: request_id,
-          ...(permission.tool_use_id === undefined ? {} : { actionId: permission.tool_use_id }),
+          ...action,
           title: permission.description ? `${name}: ${permission.description}` : name,
           input: permission.input,
           options: [
@@ -374,10 +427,11 @@ export class ClaudeTranslator implements Translator {
 
   #controlCancel(message: unknown): Translation {
     const { request_id } = controlCancelSchema.parse(message);
-    if (!this.#pendingPermissions.delete(request_id)) return translated([]);
-    return translated([
-      { type: "permission.resolved", payload: { requestId: request_id, outcome: "cancelled" } },
-    ]);
+    const pending = this.#pendingPermissions.get(request_id);
+    if (pending === undefined) return translated([]);
+    this.#pendingPermissions.delete(request_id);
+    const type = pending.isQuestion ? "question.resolved" : "permission.resolved";
+    return translated([{ type, payload: { requestId: request_id, outcome: "cancelled" } }]);
   }
 
   #result(message: unknown): Translation {

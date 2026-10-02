@@ -45,6 +45,28 @@ const bodies: SessionEventBody[] = [
     },
   },
   { type: "permission.resolved", payload: { requestId: "request-1", outcome: "allowed" } },
+  {
+    type: "question.requested",
+    payload: {
+      requestId: "request-2",
+      questions: [
+        {
+          questionId: "1",
+          text: "Which colour?",
+          options: [{ label: "Red" }, { label: "Blue", description: "Calm" }],
+          multiSelect: false,
+        },
+      ],
+    },
+  },
+  {
+    type: "question.resolved",
+    payload: {
+      requestId: "request-2",
+      outcome: "answered",
+      answers: [{ questionId: "1", selected: ["Blue"] }],
+    },
+  },
   { type: "error", payload: { message: "boom", fatal: true } },
 ];
 
@@ -107,6 +129,17 @@ describe("session commands", () => {
   it("accepts a permission answer", () => {
     const command = { type: "answerPermission", requestId: "request-1", optionId: "allow" };
     expect(sessionCommandSchema.parse(command)).toEqual(command);
+  });
+
+  it("accepts an answer to a question and rejects one that selects nothing", () => {
+    const command = {
+      type: "answerQuestion",
+      requestId: "request-2",
+      answers: [{ questionId: "1", selected: ["Blue"] }],
+    };
+    expect(sessionCommandSchema.parse(command)).toEqual(command);
+    const empty = { ...command, answers: [{ questionId: "1", selected: [] }] };
+    expect(sessionCommandSchema.safeParse(empty).success).toBe(false);
   });
 
   it("rejects an empty prompt", () => {
