@@ -4,70 +4,59 @@ Last updated: 2026-10-03
 
 ## State
 
-- M1 (harness core) is merged to `main` (PRs #2 to #11) and verified end to end: Claude Code and OpenCode, each natively and inside WSL Ubuntu.
-- Next: the pre-M2 work below (the owner gave the go-ahead on 2026-10-03), then M2.1. Follow the build protocol in AGENTS.md.
-- D-1 to D-14 accepted. Proposed and awaiting the owner: D-15 (storage), D-16 (sandbox deferred), D-17 (HTTP plus SSE), D-19 (no build step; the owner left the choice to the agent, priority is performance), D-20 (replay-tested translators), D-21 (locations), D-22 (WSL kill by marker), D-24 (allow always is session-only), D-25 (agent questions). The owner asked what they are and was told on 2026-10-03; mark them accepted once the owner says so. D-9, D-11 and D-18 need their own design sessions.
+- M1 (harness core, M1.1 to M1.10) is built and run live on Claude Code and OpenCode, natively and in WSL Ubuntu. M1.1 to M1.7 are on `main`. PRs #13 to #17 are stacked and wait for the owner: docs, M1.8 catalog and effort, M1.9 usage limits, M1.10 resume and live text, test and docs trim. Merge in order.
+- Next: M2.1 (store), SQLite behind a store interface (D-15). Do not start until the owner says so; then present the approach first.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
-
-## Pre-M2 work
-
-- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, budget, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
-- Catalog query: each adapter reports its models and the effort values per model, so forms are built from data. The owner wants to talk this through before it is built.
-- Effort: show each harness's own values, with a popup explaining what each means. OpenCode calls it "variant" and our adapter does not send it yet; not confirmed live.
-- Budget: tokens and dollars, per agent and per department. Built once in the shared session layer. When it runs out: pause and ask (shows in the blocked queue).
-- Usage display: show the subscription's usage limit where the harness reports it (Claude Code sends `rate_limit_info` with the share of the 5-hour window used), otherwise tokens. OpenCode not checked.
-- Cost: adapters report the running total; the session derives per-turn cost.
-- Live text streaming: yes. Additive `message.delta` event; deltas are not stored.
-- Resume: a core feature. Agents must persist and resume their sessions and work. Add the option to the adapters, not only to M2.2.
-- All of the above join the shared conformance suite so every adapter must support them or declare that it cannot.
 
 ## How to run
 
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
-- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--permission-mode ask|acceptEdits|bypass]`: the M1 demo.
-- New recording for an adapter: capture the CLI's stdout lines and our commands into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": <native message>}` and `{"send": <command>}` per line), with machine paths replaced.
+- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume harness-session-id]`
+- `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
+- New recording: the CLI's stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}` per line). Remove machine paths, account details and the user's skill and command lists.
 
-## What M1 taught us about the harnesses
+## Owner requirements not yet built
 
-- Claude Code 2.1.287: permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty, so no reasoning events yet. `total_cost_usd` is cumulative, so no per-turn cost. A question to the user (`AskUserQuestion`) arrives as a permission request marked `requires_user_interaction`, and the answer goes back as `answers` (question text to chosen label) inside `updatedInput`.
-- OpenCode 1.18.34 over ACP: the todo list is a `todowrite` tool call, not a plan update. A sub-agent's inner steps are not forwarded; it appears as one `delegate` action. ACP has no way for the agent to ask the user a question, so OpenCode never emits question events. Model list and current model come back from `session/new`.
-
-## Owner requirements not yet placed in a decision
-
-- Trace: plan steps with nested sub-steps, everything auditable. Reasoning hidden by default, expandable.
-- Agents are customisable like a character creator: memory, role, purpose, effort, model and more, per agent, with the lead and the workers of one department set differently. How agent memory works is undesigned.
-- Human-in-the-loop UI starts simple but must extend without rewrites.
-- Workspace: a chosen folder or files, or none; with none, ask where results go and remember it. A workspace can be several folders. Reaching a folder outside it works like Claude Code: the agent asks first, or it has been given full autonomy. Either way the access must be safe and guarded; the guardrails are undesigned (M2.4, M4).
-- History is kept until the user deletes it, with a warning when the store grows large. The harness's raw native messages are stored too, for audit and re-translation.
+- Agent profile (M2 stores it, M3.3 and M4 edit it): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
+- Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Put the popular, Go-plan and free ones at the top and add a filter. Show each harness's own effort values.
+- Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
+- Resumability is a core feature: M2.2 must persist the harness session id and resume interrupted agents with it.
+- History is kept until the user deletes it, with a warning when the store grows large. The harness's raw native messages are stored too; the session does not expose them yet (M2.1).
+- Workspace: a chosen folder, several folders, or none; with none, ask where results go and remember it. A folder outside the workspace is reached by asking the user or under full autonomy, always behind guardrails. The guardrails are undesigned (M2.4, M4).
+- A department works in one existing folder the user points it at. Direction for M4: one git worktree and branch per agent. An SDLC flow with GitHub is optional, only for code work.
 - Departments are created automatically from the user's description.
-- A department works in one existing folder the user points it at, like opening Claude Code in a directory. Sharing the folder across the department's agents is expected. Agreed direction, to be designed at M4: one git worktree and branch per agent.
-- SDLC cycle with GitHub pull and push is optional: only for departments doing code work in a repo. Not tested through the app yet.
-- Agents must keep running with the window closed. How is undecided; discuss with the owner before building M3.1.
-- The owner delegates well-scoped stories to other agents (OpenCode); this agent writes the briefs and verifies the results on request.
+- Trace: plan steps with nested sub-steps, everything auditable. Reasoning hidden by default, expandable.
+- Human-in-the-loop UI starts simple but must extend without rewrites.
+- The owner hands well-scoped stories to other agents (OpenCode); this agent writes the briefs and verifies the results on request.
 
 ## Open questions for the owner
 
-- Permissions per agent: the owner wants an explicit way to set what an agent may do when it is created, designed with the UI (M3.3, M4). Until then "allow always" only makes session-long changes (D-24).
-- Background running: tray, detached core, or OS service (see MODULES.md, M2 open items).
-- macOS (D-23): parked tech debt, nothing verified on a Mac. Do not add Mac-specific code until it can be tested; the work list is in D-23.
+- Agents must keep running with the window closed: tray, detached core, or OS service. Discuss before M3.1.
+- Permissions per agent, set when the agent is created. Designed with the UI (M3.3, M4).
 - Interface design session (D-9), connector deep dive (D-11), final name.
+
+## What the harnesses do
+
+- Claude Code 2.1.287. Permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty. `AskUserQuestion` arrives as a permission request; the answer goes back as `answers` inside `updatedInput`. Its answer to an `initialize` control request lists models and effort levels, and it exits when stdin closes. `--include-partial-messages` adds `stream_event` lines with `text_delta`. `--resume <id>` keeps the same session id; an unknown id exits with code 1. `rate_limit_event` carries `unifiedWindows` (`five_hour`, `seven_day`) with `utilization` as a 0 to 1 share and `resetsAt` in epoch seconds.
+- OpenCode 1.18.34 over ACP. The todo list is a `todowrite` tool call. A sub-agent's inner steps are not forwarded. ACP has no way to ask the user a question. `session/new` returns the model list and an `effort` setting (category `thought_level`) for the current model only, changed with `session/set_config_option`. `opencode models --verbose` prints every model with its `variants`, which are its effort values. `session/resume` continues without replaying; `session/load` replays the whole history. It reports context size and a dollar figure, no plan limit.
 
 ## Environment (owner's machine, Windows 11)
 
-- Present: git 2.34, Node 24.16, pnpm 12.8 (installed through npm; the old 8.3 binary is kept as `%LOCALAPPDATA%\pnpm\pnpm-8.3.1.exe.bak`), Bun 1.3, Python 3.14, uv, Claude Code and OpenCode 1.18 installed and logged in by the owner, both natively (npm `.cmd` shims) and in WSL Ubuntu (OpenCode on a Go subscription).
-- `gh` is at `C:\Program Files\GitHub CLI\gh.exe`, not on the tool shell's PATH; call it by full path.
+- Present: git, Node 24.16, pnpm 12.8, Python 3.14, Claude Code and OpenCode 1.18 logged in natively and in WSL Ubuntu (OpenCode on a Go subscription).
+- `gh` is at `C:\Program Files\GitHub CLI\gh.exe`; call it by full path if it is not on PATH.
 - Missing: `codex`, `agy`.
 
-## Risks
+## Risks and known limits
 
-- The CLIs' wire formats are not versioned contracts. A CLI upgrade can break an adapter; the recordings are the safety net and must be re-recorded when it happens.
+- The CLIs' wire formats are not versioned. A CLI upgrade can break an adapter; re-record the fixtures when it happens.
 - WSL path mapping assumes the default `/mnt/<drive>` automount root.
-- Known limits, left as they are: on Windows, if the harness's main process has already exited, anything it left running is not killed (a real fix needs native code). Binary lookup may read a different `PATH` than the child gets when the environment has both `Path` and `PATH`; nothing overrides `PATH` today. `costUsd` and `action.updated.title` are in the contract but never filled. `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
-- Vendor billing and policy for third-party use of subscriptions is still changing (D-6).
+- On Windows, if the harness's main process has already exited, anything it left running is not killed.
+- `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
+- `costUsd` and `action.updated.title` are in the contract but never filled.
+- Vendor policy on third-party use of subscriptions is still changing (D-6).
 
 ## Reference notes
 
-- Closest prior art: Munder Difflin, Pixel Agents, Claude Office Visualizer. All single-harness visualizers; none orchestrates across harnesses. That gap is the product.
-- BridgeSpace (bridgemind.ai) is a PTY terminal grid. We render structured events, not terminals.
+- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) only visualises one harness. Orchestrating across harnesses is the product.
 - Interface references from the owner: gather.town, Age of Empires style command view.

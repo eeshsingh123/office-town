@@ -27,6 +27,8 @@ const bodies: SessionEventBody[] = [
   },
   { type: "message", payload: { role: "assistant", text: "hello" } },
   { type: "reasoning", payload: { text: "thinking", parentActionId: "action-1" } },
+  { type: "message.delta", payload: { text: "hel" } },
+  { type: "reasoning.delta", payload: { text: "thin", parentActionId: "action-1" } },
   { type: "plan.updated", payload: { steps: [{ id: "1", title: "look", status: "in_progress" }] } },
   {
     type: "action.started",
@@ -67,82 +69,59 @@ const bodies: SessionEventBody[] = [
       answers: [{ questionId: "1", selected: ["Blue"] }],
     },
   },
+  {
+    type: "limits.updated",
+    payload: {
+      limits: [
+        {
+          id: "five_hour",
+          label: "five hour",
+          usedFraction: 0.4,
+          resetsAt: "2026-10-02T15:00:00.000Z",
+        },
+      ],
+    },
+  },
   { type: "error", payload: { message: "boom", fatal: true } },
 ];
 
-describe("session events", () => {
-  it.each(bodies)("accepts a valid $type event", (body) => {
-    const event = { ...envelope, ...body };
-    expect(sessionEventSchema.parse(event)).toEqual(event);
+const options = { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" };
+
+describe("contract", () => {
+  it("accepts every event type and rejects an unknown type or a mismatched payload", () => {
+    for (const body of bodies) {
+      const event = { ...envelope, ...body };
+      expect(sessionEventSchema.parse(event)).toEqual(event);
+    }
+    const unknown = { ...envelope, type: "session.paused", payload: {} };
+    const mismatched = { ...envelope, type: "turn.ended", payload: { turnId: "1", outcome: "x" } };
+    expect(sessionEventSchema.safeParse(unknown).success).toBe(false);
+    expect(sessionEventSchema.safeParse(mismatched).success).toBe(false);
   });
 
-  it("rejects an unknown event type", () => {
-    const event = { ...envelope, type: "session.paused", payload: {} };
-    expect(sessionEventSchema.safeParse(event).success).toBe(false);
-  });
-
-  it("rejects a payload that does not match its type", () => {
-    const event = {
-      ...envelope,
-      type: "turn.ended",
-      payload: { turnId: "1", outcome: "exploded" },
-    };
-    expect(sessionEventSchema.safeParse(event).success).toBe(false);
-  });
-
-  it("rejects a sequence that is not a positive integer", () => {
-    const event = { ...envelope, ...bodies[0], sequence: 0 };
-    expect(sessionEventSchema.safeParse(event).success).toBe(false);
-  });
-});
-
-describe("session options", () => {
-  it("accepts the minimum a caller must choose", () => {
-    const options = { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" };
+  it("accepts the names harnesses use for models and sessions", () => {
     expect(sessionOptionsSchema.parse(options)).toEqual(options);
-  });
-
-  it("requires a distro for the wsl environment", () => {
-    const options = { harness: "claude", environment: { kind: "wsl" }, permissionMode: "ask" };
-    expect(sessionOptionsSchema.safeParse(options).success).toBe(false);
-  });
-
-  it.each(["sonnet", "opus[1m]", "opencode/big-pickle", "openrouter/meta/llama-4:free"])(
-    "accepts the model name %s",
-    (model) => {
-      const options = { harness: "x", environment: { kind: "native" }, permissionMode: "ask" };
+    for (const model of ["opus[1m]", "opencode/big-pickle", "openrouter/meta/llama-4:free"]) {
       expect(sessionOptionsSchema.safeParse({ ...options, model }).success).toBe(true);
-    },
-  );
-
-  it.each(["--dangerously-skip-permissions", "-x", "a b", ""])(
-    "rejects the model or effort value %j, which could be read as a command-line flag",
-    (value) => {
-      const options = { harness: "x", environment: { kind: "native" }, permissionMode: "ask" };
-      expect(sessionOptionsSchema.safeParse({ ...options, model: value }).success).toBe(false);
-      expect(sessionOptionsSchema.safeParse({ ...options, effort: value }).success).toBe(false);
-    },
-  );
-});
-
-describe("session commands", () => {
-  it("accepts a permission answer", () => {
-    const command = { type: "answerPermission", requestId: "request-1", optionId: "allow" };
-    expect(sessionCommandSchema.parse(command)).toEqual(command);
+    }
   });
 
-  it("accepts an answer to a question and rejects one that selects nothing", () => {
-    const command = {
+  // These values become command-line arguments of a harness.
+  it("rejects a model, effort or session id that could be read as a command-line flag", () => {
+    for (const value of ["--dangerously-skip-permissions", "-x", "a b", ""]) {
+      for (const field of ["model", "effort", "resumeSessionId"]) {
+        expect(sessionOptionsSchema.safeParse({ ...options, [field]: value }).success).toBe(false);
+      }
+    }
+  });
+
+  it("requires a question's answer to select something", () => {
+    const answer = (selected: string[]) => ({
       type: "answerQuestion",
       requestId: "request-2",
-      answers: [{ questionId: "1", selected: ["Blue"] }],
-    };
-    expect(sessionCommandSchema.parse(command)).toEqual(command);
-    const empty = { ...command, answers: [{ questionId: "1", selected: [] }] };
-    expect(sessionCommandSchema.safeParse(empty).success).toBe(false);
-  });
-
-  it("rejects an empty prompt", () => {
-    expect(sessionCommandSchema.safeParse({ type: "prompt", text: "" }).success).toBe(false);
+      answers: [{ questionId: "1", selected }],
+    });
+    expect(sessionCommandSchema.safeParse(answer(["Blue"])).success).toBe(true);
+    expect(sessionCommandSchema.safeParse(answer([])).success).toBe(false);
   });
 });

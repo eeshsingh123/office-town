@@ -11,7 +11,9 @@ import {
   permissionRequestSchema,
   permissionSuggestionSchema,
   questionsInputSchema,
+  rateLimitSchema,
   resultSchema,
+  streamEventSchema,
   type TaskUpdateInput,
   type ToolResult,
   type ToolResultContent,
@@ -152,10 +154,12 @@ export class ClaudeTranslator implements Translator {
     "system/init": (message) => this.#init(message),
     "system/task_started": (message) => this.#taskStarted(message),
     "system/task_notification": (message) => this.#taskNotification(message),
+    stream_event: (message) => this.#streamEvent(message),
     assistant: (message) => this.#assistant(message),
     user: (message) => this.#user(message),
     control_request: (message) => this.#controlRequest(message),
     control_cancel_request: (message) => this.#controlCancel(message),
+    rate_limit_event: (message) => this.#rateLimit(message),
     result: (message) => this.#result(message),
   };
 
@@ -264,6 +268,18 @@ export class ClaudeTranslator implements Translator {
     }
     events.push({ type: "turn.started" });
     return translated(events);
+  }
+
+  #streamEvent(message: unknown): Translation {
+    const { event, parent_tool_use_id } = streamEventSchema.parse(message);
+    if (event.type !== "content_block_delta") return translated([]);
+    const parent = parentOf(parent_tool_use_id);
+    const { text, thinking } = event.delta ?? {};
+    if (text) return translated([{ type: "message.delta", payload: { text, ...parent } }]);
+    if (thinking) {
+      return translated([{ type: "reasoning.delta", payload: { text: thinking, ...parent } }]);
+    }
+    return translated([]);
   }
 
   #assistant(message: unknown): Translation {
@@ -432,6 +448,18 @@ export class ClaudeTranslator implements Translator {
     this.#pendingPermissions.delete(request_id);
     const type = pending.isQuestion ? "question.resolved" : "permission.resolved";
     return translated([{ type, payload: { requestId: request_id, outcome: "cancelled" } }]);
+  }
+
+  // Reported for subscriptions only: the share of each usage window spent, and when it resets.
+  #rateLimit(message: unknown): Translation {
+    const windows = rateLimitSchema.parse(message).rate_limit_info.unifiedWindows ?? {};
+    const limits = Object.entries(windows).map(([id, { utilization, resetsAt }]) => ({
+      id,
+      label: id.replaceAll("_", " "),
+      usedFraction: utilization,
+      ...(resetsAt === undefined ? {} : { resetsAt: new Date(resetsAt * 1000).toISOString() }),
+    }));
+    return translated(limits.length === 0 ? [] : [{ type: "limits.updated", payload: { limits } }]);
   }
 
   #result(message: unknown): Translation {

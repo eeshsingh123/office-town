@@ -3,10 +3,16 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { claudeAdapter } from "../src/adapters/claude/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadRecording, type RecordingEntry, replay, replayOptions } from "./support/replay.ts";
+import {
+  loadLines,
+  loadRecording,
+  type RecordingEntry,
+  replay,
+  replayOptions,
+} from "./support/replay.ts";
 
-const recording = (name: string) =>
-  loadRecording(path.join(import.meta.dirname, "fixtures", "claude", `${name}.jsonl`));
+const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "claude", name);
+const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
 
 const recordings = {
   "write-allowed": recording("write-allowed"),
@@ -15,9 +21,12 @@ const recordings = {
   "interrupt-running": recording("interrupt-running"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "question-answered": recording("question-answered"),
+  "resumed-streamed": recording("resumed-streamed"),
 };
 
-describeAdapterConformance(claudeAdapter, recordings);
+const catalogOutput = loadLines(fixture("catalog.jsonl")).filter((line) => line !== "");
+
+describeAdapterConformance(claudeAdapter, recordings, catalogOutput);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -36,6 +45,47 @@ describe("claude adapter", () => {
     expect(tuned.args.join(" ")).toContain("--model sonnet --effort high");
   });
 
+  it("resumes an earlier session by its id, and reports the same id again", async () => {
+    const resumeSessionId = "0036e5e3-8459-41a1-96ac-19a516ceb281";
+    const command = claudeAdapter.buildCommand({ ...replayOptions, resumeSessionId });
+    const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
+
+    expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--resume");
+    expect(command.args.join(" ")).toContain(`--resume ${resumeSessionId}`);
+    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
+  });
+
+  it("reports a reply's text as it is produced, then the whole reply", async () => {
+    const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
+
+    const fragments = only(events, "message.delta").map((event) => event.payload.text);
+    const replies = only(events, "message").filter((e) => e.payload.role === "assistant");
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments.join("")).toBe("Mango.");
+    expect(replies.map((event) => event.payload.text)).toEqual(["Mango."]);
+    expect(events.findLastIndex((event) => event.type === "message.delta")).toBeLessThan(
+      events.findLastIndex((event) => event.type === "message"),
+    );
+  });
+
+  it("reads its models and their effort values from the CLI's description of itself", () => {
+    expect(claudeAdapter.catalog?.parse(catalogOutput).models).toEqual([
+      {
+        id: "default",
+        name: "Default (recommended)",
+        description: "Opus 5.5 · Best for everyday, complex tasks",
+        efforts: ["low", "medium", "high", "xhigh", "max"],
+      },
+      {
+        id: "sonnet",
+        name: "Sonnet 5.5",
+        description: "Efficient for routine tasks",
+        efforts: ["low", "medium", "high", "xhigh", "max"],
+      },
+      { id: "haiku", name: "Haiku 4.5", description: "Fastest for quick answers", efforts: [] },
+    ]);
+  });
+
   it("reports a write, asks permission for it and completes it once allowed", async () => {
     const { events, written } = await replay(claudeAdapter, recordings["write-allowed"]);
 
@@ -49,6 +99,7 @@ describe("claude adapter", () => {
       "permission.resolved",
       "action.ended",
       "action.started",
+      "limits.updated",
       "action.ended",
       "message",
       "turn.ended",
@@ -81,6 +132,25 @@ describe("claude adapter", () => {
       outcome: "completed",
       usage: { inputTokens: 72122, outputTokens: 453, cachedInputTokens: 34545 },
     });
+  });
+
+  it("reports how much of each subscription window is used and when it resets", async () => {
+    const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
+
+    expect(only(events, "limits.updated")[0]?.payload.limits).toEqual([
+      {
+        id: "five_hour",
+        label: "five hour",
+        usedFraction: 0.04,
+        resetsAt: "2026-10-02T16:40:00.000Z",
+      },
+      {
+        id: "seven_day",
+        label: "seven day",
+        usedFraction: 0.04,
+        resetsAt: "2026-10-06T13:00:00.000Z",
+      },
+    ]);
   });
 
   it("says what allowing always will change, and returns that change to the harness", async () => {

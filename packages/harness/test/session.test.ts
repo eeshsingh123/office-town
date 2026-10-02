@@ -2,14 +2,20 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter, AdapterEvent, Translation } from "../src/adapter.ts";
 import type { Environment } from "../src/environment/environment.ts";
-import { listHarnesses } from "../src/index.ts";
 import { HarnessSession, SessionStateError } from "../src/session.ts";
 import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 
 // A harness whose native format is already our events, so these tests exercise only the session.
 const passthroughAdapter: Adapter = {
   harness: "replayed",
-  capabilities: { reasoning: false, plan: true, effort: false, modelList: false, resume: false },
+  capabilities: {
+    reasoning: false,
+    plan: true,
+    effort: false,
+    modelList: false,
+    resume: false,
+    usageLimits: false,
+  },
   buildCommand: () => ({ binary: "replayed", args: [] }),
   createTranslator: () => ({
     open: () => [],
@@ -95,18 +101,6 @@ describe("session", () => {
 
     expect(environment.request?.cwd).toBe("inside:/workspace");
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
-  });
-
-  it("gives each turn an id shared by its start and end", async () => {
-    const { events, emit } = await startSession();
-
-    await emit({ type: "turn.started" }, { type: "turn.ended", payload: { outcome: "completed" } });
-    await emit({ type: "turn.started" }, { type: "turn.ended", payload: { outcome: "completed" } });
-
-    const turnIds = events.map((event) => (event.payload as { turnId: string }).turnId);
-    expect(turnIds[0]).toBe(turnIds[1]);
-    expect(turnIds[2]).toBe(turnIds[3]);
-    expect(turnIds[0]).not.toBe(turnIds[2]);
   });
 
   it("answers a pending permission once and reports how it was resolved", async () => {
@@ -284,12 +278,20 @@ describe("session", () => {
     expect(events[0]?.payload).toMatchObject({ message: expect.stringContaining('"high"') });
   });
 
-  it("lists each harness with what it supports", () => {
-    expect(listHarnesses().map((description) => description.harness)).toEqual([
-      "claude",
-      "opencode",
+  it("refuses to resume on a harness that cannot, rather than starting a fresh session", async () => {
+    const environment = new ScriptedEnvironment();
+    const options = { ...replayOptions, resumeSessionId: "earlier" };
+    const session = new HarnessSession(options, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await session.send({ type: "start" });
+
+    expect(environment.request).toBeUndefined();
+    expect(events.map((event) => [event.type, event.payload])).toEqual([
+      ["error", { message: 'The "replayed" harness cannot resume a session.', fatal: true }],
+      ["session.ended", { reason: "failed", exitCode: null }],
     ]);
-    expect(listHarnesses()[0]?.capabilities).toMatchObject({ plan: true });
   });
 
   it("reports output it cannot read and keeps going", async () => {

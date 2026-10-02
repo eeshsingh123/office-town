@@ -52,6 +52,22 @@ export const questionAnswerSchema = z.object({
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
+// A usage window of the user's subscription, as the harness reports it.
+export const usageLimitSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  usedFraction: z.number().nonnegative(),
+  resetsAt: z.iso.datetime().optional(),
+});
+export type UsageLimit = z.infer<typeof usageLimitSchema>;
+
+// A fragment of text as it is produced. The whole text always follows as a message or reasoning
+// event, so a consumer may ignore fragments entirely.
+const deltaSchema = z.object({
+  text: z.string().min(1),
+  parentActionId: z.string().optional(),
+});
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -76,6 +92,8 @@ const payloadSchemas = {
     text: z.string(),
     parentActionId: z.string().optional(),
   }),
+  "message.delta": deltaSchema,
+  "reasoning.delta": deltaSchema,
   "plan.updated": z.object({ steps: z.array(planStepSchema) }),
   "action.started": z.object({
     actionId: z.string().min(1),
@@ -118,6 +136,7 @@ const payloadSchemas = {
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
   }),
+  "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   error: z.object({
     message: z.string(),
     detail: z.string().optional(),
@@ -143,6 +162,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("turn.ended"),
   eventOf("message"),
   eventOf("reasoning"),
+  eventOf("message.delta"),
+  eventOf("reasoning.delta"),
   eventOf("plan.updated"),
   eventOf("action.started"),
   eventOf("action.updated"),
@@ -151,6 +172,7 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.resolved"),
   eventOf("question.requested"),
   eventOf("question.resolved"),
+  eventOf("limits.updated"),
   eventOf("error"),
 ]);
 export type SessionEvent = z.infer<typeof sessionEventSchema>;

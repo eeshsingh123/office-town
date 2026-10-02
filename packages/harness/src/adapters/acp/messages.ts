@@ -1,10 +1,17 @@
 import { z } from "zod";
 
-export const newSessionResultSchema = z.looseObject({
-  sessionId: z.string(),
-  configOptions: z
-    .array(z.looseObject({ id: z.string(), currentValue: z.unknown().optional() }))
-    .optional(),
+const configOptionSchema = z.looseObject({
+  id: z.string(),
+  category: z.string().optional(),
+  currentValue: z.unknown().optional(),
+  options: z.array(z.looseObject({ value: z.string().optional() })).optional(),
+});
+export type ConfigOption = z.infer<typeof configOptionSchema>;
+
+// A resumed session answers without its id: it is the one that was asked for.
+export const sessionResultSchema = z.looseObject({
+  sessionId: z.string().optional(),
+  configOptions: z.array(configOptionSchema).optional(),
 });
 
 export const promptResultSchema = z.looseObject({

@@ -1,12 +1,12 @@
 import type { Adapter } from "../../adapter.ts";
 import { AcpTranslator } from "./translator.ts";
 
-export type AcpHarness = Pick<Adapter, "harness" | "capabilities" | "buildCommand">;
+export type AcpHarness = Pick<Adapter, "harness" | "capabilities" | "catalog" | "buildCommand">;
 
 // Any harness whose own binary speaks the Agent Client Protocol only has to say how to launch it.
 export function createAcpAdapter(harness: AcpHarness): Adapter {
   return {
     ...harness,
-    createTranslator: (options) => new AcpTranslator(options.workspacePath),
+    createTranslator: (options) => new AcpTranslator(options),
   };
 }

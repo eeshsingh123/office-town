@@ -36,6 +36,31 @@ export const initSchema = z.looseObject({
   model: z.string().optional(),
 });
 
+export const initializeResponseSchema = z.looseObject({
+  response: z.looseObject({
+    response: z.looseObject({
+      models: z.array(
+        z.looseObject({
+          value: z.string(),
+          displayName: z.string(),
+          description: z.string().optional(),
+          supportedEffortLevels: z.array(z.string()).optional(),
+        }),
+      ),
+    }),
+  }),
+});
+
+export const streamEventSchema = z.looseObject({
+  event: z.looseObject({
+    type: z.string(),
+    delta: z
+      .looseObject({ text: z.string().optional(), thinking: z.string().optional() })
+      .optional(),
+  }),
+  parent_tool_use_id: z.string().nullish(),
+});
+
 export const assistantSchema = z.looseObject({
   message: z.looseObject({ content: z.array(blockSchema) }),
   parent_tool_use_id: z.string().nullish(),
@@ -114,6 +139,17 @@ export const resultSchema = z.looseObject({
       cache_read_input_tokens: z.number().optional(),
     })
     .optional(),
+});
+
+export const rateLimitSchema = z.looseObject({
+  rate_limit_info: z.looseObject({
+    unifiedWindows: z
+      .record(
+        z.string(),
+        z.looseObject({ utilization: z.number(), resetsAt: z.number().optional() }),
+      )
+      .optional(),
+  }),
 });
 
 export const taskCreateInputSchema = z.looseObject({ subject: z.string() });

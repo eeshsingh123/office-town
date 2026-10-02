@@ -24,5 +24,7 @@ export const sessionOptionsSchema = z.object({
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,
+  // The harness's own id of an earlier session to continue, as reported by `session.started`.
+  resumeSessionId: harnessSettingSchema.optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

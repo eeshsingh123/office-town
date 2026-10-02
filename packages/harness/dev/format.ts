@@ -18,7 +18,8 @@ function indent(parentActionId: string | undefined): string {
   return parentActionId === undefined ? "" : "    ";
 }
 
-export function formatEvent(event: SessionEvent): string {
+// Returns nothing for text fragments: the whole text is printed when it is complete.
+export function formatEvent(event: SessionEvent): string | undefined {
   switch (event.type) {
     case "session.started":
       return `session  started (${event.payload.model ?? "default model"}, id ${event.payload.harnessSessionId})`;
@@ -28,13 +29,19 @@ export function formatEvent(event: SessionEvent): string {
       return "turn     started";
     case "turn.ended": {
       const { usage, outcome } = event.payload;
-      const tokens = usage ? ` (${usage.inputTokens} in, ${usage.outputTokens} out)` : "";
+      const cached = usage?.cachedInputTokens ?? 0;
+      const tokens = usage
+        ? ` (${usage.inputTokens - cached} new in, ${cached} cached, ${usage.outputTokens} out)`
+        : "";
       return `turn     ${outcome}${tokens}`;
     }
     case "message":
       return `${indent(event.payload.parentActionId)}${event.payload.role === "user" ? "you     " : "agent   "} ${event.payload.text}`;
     case "reasoning":
       return `${indent(event.payload.parentActionId)}thinking ${preview(event.payload.text)}`;
+    case "message.delta":
+    case "reasoning.delta":
+      return undefined;
     case "plan.updated":
       return event.payload.steps
         .map((step) => `plan     ${STEP_MARKS[step.status]} ${step.title}`)
@@ -68,6 +75,10 @@ export function formatEvent(event: SessionEvent): string {
         .join("\n");
     case "question.resolved":
       return `QUESTION ${event.payload.outcome}`;
+    case "limits.updated":
+      return event.payload.limits
+        .map((limit) => `limit    ${limit.label}: ${Math.round(limit.usedFraction * 100)}% used`)
+        .join("\n");
     case "error": {
       const detail = event.payload.detail ? `\n         ${preview(event.payload.detail)}` : "";
       return `ERROR    ${event.payload.message}${detail}`;

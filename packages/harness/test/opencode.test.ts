@@ -3,10 +3,10 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { opencodeAdapter } from "../src/adapters/opencode/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadRecording, replay, replayOptions } from "./support/replay.ts";
+import { loadLines, loadRecording, replay, replayOptions } from "./support/replay.ts";
 
-const recording = (name: string) =>
-  loadRecording(path.join(import.meta.dirname, "fixtures", "opencode", `${name}.jsonl`));
+const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "opencode", name);
+const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
 
 const recordings = {
   "write-allowed": recording("write-allowed"),
@@ -15,8 +15,12 @@ const recordings = {
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
 };
+// Recorded with an effort chosen, so it only replays correctly with one.
+const effortRecording = recording("effort");
+const catalogOutput = loadLines(fixture("catalog.txt"));
+const withEffort = (effort: string) => ({ ...replayOptions, effort });
 
-describeAdapterConformance(opencodeAdapter, recordings);
+describeAdapterConformance(opencodeAdapter, recordings, catalogOutput);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -56,6 +60,46 @@ describe("opencode adapter", () => {
     });
   });
 
+  it("reads its models from the CLI's list, with a model's variants as its effort values", () => {
+    expect(opencodeAdapter.catalog?.parse(catalogOutput).models).toEqual([
+      { id: "opencode/big-pickle", name: "Big Pickle", efforts: [] },
+      {
+        id: "opencode/ling-3.1-flash-free",
+        name: "Ling 3.1 Flash Free",
+        efforts: ["low", "medium", "high"],
+      },
+    ]);
+  });
+
+  it("sets the chosen effort on the new session before the first prompt", async () => {
+    const { events, written } = await replay(opencodeAdapter, effortRecording, withEffort("high"));
+
+    const sent = written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/new",
+      "session/set_config_option",
+      "session/prompt",
+    ]);
+    expect(sent[2].params).toMatchObject({ configId: "effort", value: "high" });
+    expect(only(events, "error")).toEqual([]);
+    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
+  });
+
+  it("says which effort values the model offers when the chosen one is not among them", async () => {
+    const { events, written } = await replay(
+      opencodeAdapter,
+      effortRecording.slice(0, 2),
+      withEffort("extreme"),
+    );
+
+    expect(written.some((line) => line.includes("session/set_config_option"))).toBe(false);
+    expect(only(events, "error")[0]?.payload).toEqual({
+      message: `This model's effort can be low, medium, high, default, so "extreme" was ignored.`,
+      fatal: false,
+    });
+  });
+
   it("starts an action once its input is known and passes the harness's options through", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
@@ -91,6 +135,7 @@ describe("opencode adapter", () => {
       'Created hello.txt with "hi"\ndone',
     ]);
     expect(only(denied.events, "reasoning")).toHaveLength(1);
+    expect(only(denied.events, "reasoning.delta").length).toBeGreaterThan(1);
     expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
   });
 
@@ -102,6 +147,25 @@ describe("opencode adapter", () => {
       "Wrote file successfully.",
       "done\n",
     ]);
+  });
+
+  it("resumes an earlier session instead of creating one, and reports its id", async () => {
+    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
+    const { events, written } = await replay(opencodeAdapter, recording("resumed"), {
+      ...replayOptions,
+      resumeSessionId,
+    });
+
+    const sent = written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/resume",
+      "session/prompt",
+    ]);
+    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
+    expect(sent[2].params.sessionId).toBe(resumeSessionId);
+    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
+    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
   });
 
   it("fails the action when the user denies it", async () => {

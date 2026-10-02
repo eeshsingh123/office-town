@@ -1,6 +1,12 @@
 import type { PermissionMode } from "@office-town/contract";
-import type { HarnessCommand, LaunchOptions } from "../../adapter.ts";
+import { z } from "zod";
+import type { CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
+
+const modelSchema = z.looseObject({
+  name: z.string(),
+  variants: z.record(z.string(), z.unknown()).optional(),
+});
 
 type Rule = "ask" | "allow";
 
@@ -23,8 +29,41 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   };
 }
 
+// The CLI prints each model as a line with its id followed by an indented JSON description.
+// What OpenCode calls a model's variants are its effort values.
+const catalog: CatalogQuery = {
+  command: { binary: "opencode", args: ["models", "--verbose"] },
+  input: [],
+  parse(output) {
+    const models = [];
+    let id: string | undefined;
+    let description: string[] = [];
+    for (const line of output) {
+      if (id === undefined) {
+        if (line.trim() !== "") id = line.trim();
+        continue;
+      }
+      description.push(line);
+      if (line !== "}") continue;
+      const model = modelSchema.parse(JSON.parse(description.join("")));
+      models.push({ id, name: model.name, efforts: Object.keys(model.variants ?? {}) });
+      id = undefined;
+      description = [];
+    }
+    return { models };
+  },
+};
+
 export const opencodeAdapter = createAcpAdapter({
   harness: "opencode",
-  capabilities: { reasoning: true, plan: true, effort: false, modelList: false, resume: false },
+  capabilities: {
+    reasoning: true,
+    plan: true,
+    effort: true,
+    modelList: true,
+    resume: true,
+    usageLimits: false,
+  },
+  catalog,
   buildCommand,
 });
