@@ -7,7 +7,7 @@ The roadmap. Modules are built in order; each sub-module is one PR. Only the nex
 ```
 packages/contract   shared types and schemas: events, commands, API messages. No runtime dependencies except the schema library.
 packages/harness    M1. Runs one agent session on one harness and emits contract events.
-packages/service    M2. Long-running core: session registry, storage, WebSocket API.
+packages/service    M2. Long-running core: session registry, storage, HTTP and SSE API.
 apps/desktop        M3. Electron shell and React UI.
 ```
 
@@ -77,7 +77,7 @@ The long-running local process behind the app. It runs many sessions at once, st
 
 - **M2.1 Store.** SQLite file in the OS app-data folder. Append-only event log plus tables for sessions, tasks, workspaces and settings; versioned migrations. Streaming text deltas are not stored, only completed messages. Large action results go to files beside the database, referenced from the event, with a size cap.
 - **M2.2 Session registry.** Start, stop, list and look up sessions; every event is written to the store before it is published. After a core restart, an unfinished session is marked interrupted and can be resumed through the harness's own session id.
-- **M2.3 API.** WebSocket on localhost with a per-launch token. Request/response for commands and queries; event subscription that takes "from sequence N", so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
+- **M2.3 API.** HTTP on localhost with a per-launch token. Requests for commands and queries; one server-sent event stream that resumes from a sequence number, so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
 - **M2.4 Workspaces and pending approvals.** A session may have a workspace folder or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests across sessions: the data behind the blocked queue.
 
 Out of scope: UI, departments and delegation, connectors, cloud sync, any external queue or database server.
@@ -90,7 +90,7 @@ Out of scope: UI, departments and delegation, connectors, cloud sync, any extern
 
 - Retention: how long events and result files are kept, and whether the raw native messages are kept for audit.
 - Whether a workspace can be several folders or loose files, not one folder.
-- Whether closing the window keeps the core running in the system tray.
+- How agents keep running with the window closed (tray, detached core, or OS service). Required; the owner wants a discussion before M3.1 is built.
 
 ---
 
@@ -119,7 +119,7 @@ Out of scope: departments, multiple agents on one task, the 2D command center, c
 
 ## Later modules (outline only)
 
-- **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; incognito departments.
+- **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; outsourced agents (fresh, isolated, clean-slate reviewers).
 - **M5 Command center.** Departments, dependencies between them, chat, task and status panels. Needs the interface design session first.
 - **M6 Connectors.** MCP-based plugins injected per session; an agent can request a connector it lacks. Needs the connector deep dive first.
 - **Deferred.** Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.

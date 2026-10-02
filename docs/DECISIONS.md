@@ -58,7 +58,7 @@ Not coding only. Capabilities come from connectors, packaged as plugins; an agen
 
 ## D-12 Final stack, no Python in the product — accepted (2026-10-03)
 
-TypeScript on Node 24 everywhere. pnpm workspace. Core: Node process, Zod schemas, WebSocket API, SQLite. Shell: Electron. UI: React, Vite, Zustand; canvas engine chosen in the interface session. Tooling: Biome, Vitest, GitHub Actions. Connectors: MCP.
+TypeScript on Node 24 everywhere. pnpm workspace. Core: Node process, Zod schemas, local HTTP API with server-sent events, SQLite. Shell: Electron. UI: React, Vite, Zustand; canvas engine chosen in the interface session. Tooling: Biome, Vitest, GitHub Actions. Connectors: MCP.
 Python appears only as third-party connector servers the app may launch; none of our code is Python.
 
 ## D-13 Adapters are translators only — accepted (2026-10-03)
@@ -74,8 +74,18 @@ Why: Windows users often have the best CLI setup inside WSL. The same seam later
 ## D-15 Local SQLite event log, in-process background work — proposed (2026-10-03)
 
 Every event is appended to a local SQLite file; current state and replay are both read from it. The core process itself keeps sessions running; no queue, broker or database server.
-Why: single-user local app, replay and audit are requirements, and an append-only log gives both with one mechanism. Retention and size limits are open (see MODULES.md, M2).
+Why: single-user local app, replay and audit are requirements, and an append-only log gives both with one mechanism. Redis was considered and rejected: it would have to be installed and run on every user's machine (no official Windows build) to solve a multi-process, multi-machine problem this app does not have. The event bus and store stay behind interfaces in case a hosted version ever needs it. Retention and size limits are open (see MODULES.md, M2).
 
 ## D-16 Sandbox and computer use deferred — proposed (2026-10-03)
 
 Not built until the core product works. Each harness already enforces its own permissions, and a VM layer is a large, platform-specific piece of work. D-14 keeps the door open.
+
+## D-17 UI talks to the core over HTTP plus server-sent events — proposed (2026-10-03)
+
+Commands and queries are HTTP requests; events flow over one SSE stream that resumes from `Last-Event-ID`, which is the event sequence number.
+Why: the event stream is one-way and commands are request/response, so this fits better than a WebSocket: built-in reconnect and catch-up, testable with curl, and familiar to the owner. OpenCode's own server uses the same shape.
+
+## D-18 Outsourced agents — accepted in direction (2026-10-03)
+
+What was called "incognito": a fresh, isolated agent or department that receives only an explicit brief and the artifact to examine, with no department context or memory, to give a clean-slate review. Its run is still recorded like any other.
+Consequence for M4: isolation must also cover what the harness loads by itself (project instruction files, harness memory), not only what the app injects.
