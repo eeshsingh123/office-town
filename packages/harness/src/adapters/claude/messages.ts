@@ -1,0 +1,98 @@
+import { z } from "zod";
+
+const toolResultContentSchema = z.union([
+  z.string(),
+  z.array(z.looseObject({ type: z.string(), text: z.string().optional() })),
+]);
+export type ToolResultContent = z.infer<typeof toolResultContentSchema>;
+
+const blockSchema = z.looseObject({ type: z.string() });
+
+export const textBlockSchema = z.looseObject({ text: z.string() });
+
+export const thinkingBlockSchema = z.looseObject({ thinking: z.string() });
+
+export const toolUseSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  input: z.record(z.string(), z.unknown()),
+});
+export type ToolUse = z.infer<typeof toolUseSchema>;
+
+export const toolResultSchema = z.looseObject({
+  tool_use_id: z.string(),
+  content: toolResultContentSchema.optional(),
+  is_error: z.boolean().optional(),
+});
+export type ToolResult = z.infer<typeof toolResultSchema>;
+
+export const headerSchema = z.looseObject({
+  type: z.string(),
+  subtype: z.string().optional(),
+});
+
+export const initSchema = z.looseObject({
+  session_id: z.string(),
+  model: z.string().optional(),
+});
+
+export const assistantSchema = z.looseObject({
+  message: z.looseObject({ content: z.array(blockSchema) }),
+  parent_tool_use_id: z.string().nullish(),
+});
+
+export const userSchema = z.looseObject({
+  message: z.looseObject({ content: z.union([z.string(), z.array(blockSchema)]) }),
+  parent_tool_use_id: z.string().nullish(),
+});
+
+export const taskStartedSchema = z.looseObject({
+  tool_use_id: z.string().optional(),
+  is_backgrounded: z.boolean().optional(),
+});
+
+export const taskNotificationSchema = z.looseObject({
+  tool_use_id: z.string().optional(),
+  status: z.string(),
+  summary: z.string().optional(),
+});
+
+export const controlRequestSchema = z.looseObject({
+  request_id: z.string(),
+  request: z.looseObject({ subtype: z.string() }),
+});
+
+export const permissionRequestSchema = z.looseObject({
+  tool_name: z.string(),
+  display_name: z.string().optional(),
+  description: z.string().optional(),
+  input: z.record(z.string(), z.unknown()),
+  tool_use_id: z.string().optional(),
+  permission_suggestions: z.array(z.unknown()).optional(),
+});
+
+export const controlCancelSchema = z.looseObject({ request_id: z.string() });
+
+export const resultSchema = z.looseObject({
+  is_error: z.boolean(),
+  subtype: z.string(),
+  terminal_reason: z.string().optional(),
+  result: z.string().optional(),
+  usage: z
+    .looseObject({
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cache_creation_input_tokens: z.number().optional(),
+      cache_read_input_tokens: z.number().optional(),
+    })
+    .optional(),
+});
+
+export const taskCreateInputSchema = z.looseObject({ subject: z.string() });
+
+export const taskUpdateInputSchema = z.looseObject({
+  taskId: z.string(),
+  status: z.string().optional(),
+  subject: z.string().optional(),
+});
+export type TaskUpdateInput = z.infer<typeof taskUpdateInputSchema>;

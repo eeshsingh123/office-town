@@ -190,6 +190,9 @@ importers:
       cross-spawn:
         specifier: ^7.0.6
         version: 7.0.6
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@types/cross-spawn':
         specifier: ^6.0.6
