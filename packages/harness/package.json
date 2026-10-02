@@ -8,9 +8,11 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@office-town/contract": "workspace:*"
+    "@office-town/contract": "workspace:*",
+    "cross-spawn": "^7.0.6"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/node": "^24.19.0"
   }
 }
