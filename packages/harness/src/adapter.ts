@@ -5,16 +5,25 @@ import type {
   Question,
   SessionEventBody,
   SessionOptions,
+  TokenUsage,
 } from "@office-town/contract";
 
 type BodyOf<T extends SessionEventBody["type"]> = Extract<SessionEventBody, { type: T }>;
+
+// What a harness reports when a turn ends. Harnesses report cost as the session's running total,
+// so the session works out what the turn itself cost.
+export interface AdapterTurnEnd {
+  outcome: BodyOf<"turn.ended">["payload"]["outcome"];
+  usage?: Omit<TokenUsage, "costUsd">;
+  totalCostUsd?: number;
+}
 
 // Turn ids and session end belong to the session, so an adapter reports turns without ids
 // and never reports the session ending.
 export type AdapterEvent =
   | Exclude<SessionEventBody, { type: "session.ended" | "turn.started" | "turn.ended" }>
   | { type: "turn.started" }
-  | { type: "turn.ended"; payload: Omit<BodyOf<"turn.ended">["payload"], "turnId"> };
+  | { type: "turn.ended"; payload: AdapterTurnEnd };
 
 // What an adapter is given: the session options with the workspace already resolved to a path
 // inside the environment the harness runs in.

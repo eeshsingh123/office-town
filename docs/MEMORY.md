@@ -15,9 +15,8 @@ Last updated: 2026-10-03
 - Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, budget, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
 - Done in M1.8 (D-26): catalog query per adapter, and effort on OpenCode. Run live on both harnesses, natively and in WSL Ubuntu.
 - Effort: the UI shows each harness's own values, with a popup explaining what effort means (M3.3). Neither CLI describes its effort values, so the popup text is ours.
-- Budget: tokens and dollars, per agent and per department. Built once in the shared session layer. When it runs out: pause and ask (shows in the blocked queue).
-- Usage display: show the subscription's usage limit where the harness reports it (Claude Code sends `rate_limit_info` with the share of the 5-hour window used), otherwise tokens. OpenCode not checked.
-- Cost: adapters report the running total; the session derives per-turn cost.
+- Done in M1.9 (D-27): per-turn cost, subscription limits as `limits.updated`, and a per-agent budget that pauses and asks. Run live on both harnesses (native). The department budget is M4.
+- Usage display (M3): show the subscription's limit where the harness reports it, otherwise tokens. Only Claude Code reports one; OpenCode over ACP reports context size and cost, no plan limit.
 - Live text streaming: yes. Additive `message.delta` event; deltas are not stored.
 - Resume: a core feature. Agents must persist and resume their sessions and work. Add the option to the adapters, not only to M2.2.
 - All of the above join the shared conformance suite so every adapter must support them or declare that it cannot.
@@ -25,13 +24,13 @@ Last updated: 2026-10-03
 ## How to run
 
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
-- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass]`: the M1 demo.
+- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--max-tokens n] [--max-cost dollars]`: the M1 demo.
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: the models a harness offers and each model's effort values.
 - New recording for an adapter: capture the CLI's stdout lines and our commands into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": <native message>}` and `{"send": <command>}` per line), with machine paths replaced.
 
 ## What M1 taught us about the harnesses
 
-- Claude Code 2.1.287: permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty, so no reasoning events yet. `total_cost_usd` is cumulative, so no per-turn cost. A question to the user (`AskUserQuestion`) arrives as a permission request marked `requires_user_interaction`, and the answer goes back as `answers` (question text to chosen label) inside `updatedInput`. Its answer to an `initialize` control request lists the models and their effort levels, and it exits by itself when stdin closes.
+- Claude Code 2.1.287: permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty, so no reasoning events yet. `total_cost_usd` is cumulative. `rate_limit_event` carries `unifiedWindows` (`five_hour`, `seven_day`), each with `utilization` as a 0 to 1 share (checked against the app's usage card) and `resetsAt` in epoch seconds. The first turn of a session writes about 35k tokens to the cache, which count toward a token budget. A question to the user (`AskUserQuestion`) arrives as a permission request marked `requires_user_interaction`, and the answer goes back as `answers` (question text to chosen label) inside `updatedInput`. Its answer to an `initialize` control request lists the models and their effort levels, and it exits by itself when stdin closes.
 - OpenCode 1.18.34 over ACP: the todo list is a `todowrite` tool call, not a plan update. A sub-agent's inner steps are not forwarded; it appears as one `delegate` action. ACP has no way for the agent to ask the user a question, so OpenCode never emits question events. Model list and current model come back from `session/new`, together with an `effort` setting (category `thought_level`) that lists only the current model's values and is changed with `session/set_config_option`. `opencode models --verbose` prints every model with its `variants`, which are its effort values. The list includes every provider OpenCode knows, not only the ones the user is logged in to.
 
 ## Owner requirements not yet placed in a decision
@@ -64,7 +63,7 @@ Last updated: 2026-10-03
 
 - The CLIs' wire formats are not versioned contracts. A CLI upgrade can break an adapter; the recordings are the safety net and must be re-recorded when it happens.
 - WSL path mapping assumes the default `/mnt/<drive>` automount root.
-- Known limits, left as they are: on Windows, if the harness's main process has already exited, anything it left running is not killed (a real fix needs native code). Binary lookup may read a different `PATH` than the child gets when the environment has both `Path` and `PATH`; nothing overrides `PATH` today. `costUsd` and `action.updated.title` are in the contract but never filled. `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
+- Known limits, left as they are: on Windows, if the harness's main process has already exited, anything it left running is not killed (a real fix needs native code). Binary lookup may read a different `PATH` than the child gets when the environment has both `Path` and `PATH`; nothing overrides `PATH` today. `action.updated.title` is in the contract but never filled. Dollar cost on a subscription is the CLI's estimate at list prices, not money charged, and is $0 on OpenCode's free models. `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
 - Vendor billing and policy for third-party use of subscriptions is still changing (D-6).
 
 ## Reference notes
