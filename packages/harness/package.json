@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@office-town/contract": "workspace:*",
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
