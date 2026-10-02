@@ -12,10 +12,10 @@ Last updated: 2026-10-03
 
 ## Pre-M2 work
 
-- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, budget, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
+- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
 - Done in M1.8 (D-26): catalog query per adapter, and effort on OpenCode. Run live on both harnesses, natively and in WSL Ubuntu.
 - Effort: the UI shows each harness's own values, with a popup explaining what effort means (M3.3). Neither CLI describes its effort values, so the popup text is ours.
-- Done in M1.9 (D-27): per-turn cost, subscription limits as `limits.updated`, and a per-agent budget that pauses and asks. Run live on both harnesses (native). The department budget is M4.
+- Done in M1.9: subscription limits as `limits.updated`. The owner dropped per-agent budgets and dollar tracking on 2026-10-03: usage limits are the single source of truth. Money tracking is parked until API-key use is supported.
 - Usage display (M3): show the subscription's limit where the harness reports it, otherwise tokens. Only Claude Code reports one; OpenCode over ACP reports context size and cost, no plan limit.
 - Live text streaming: yes. Additive `message.delta` event; deltas are not stored.
 - Resume: a core feature. Agents must persist and resume their sessions and work. Add the option to the adapters, not only to M2.2.
@@ -24,7 +24,7 @@ Last updated: 2026-10-03
 ## How to run
 
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
-- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--max-tokens n] [--max-cost dollars]`: the M1 demo.
+- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass]`: the M1 demo.
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: the models a harness offers and each model's effort values.
 - New recording for an adapter: capture the CLI's stdout lines and our commands into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": <native message>}` and `{"send": <command>}` per line), with machine paths replaced.
 

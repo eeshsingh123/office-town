@@ -121,7 +121,6 @@ export const resultSchema = z.looseObject({
   subtype: z.string(),
   terminal_reason: z.string().optional(),
   result: z.string().optional(),
-  total_cost_usd: z.number().optional(),
   usage: z
     .looseObject({
       input_tokens: z.number(),
