@@ -30,7 +30,7 @@ A fresh, isolated agent or department that gets only a brief and the artifact to
 
 No Mac-specific code until someone can test on a Mac. Work when picked up: `macos-latest` in CI; find binaries through the login shell (apps launched from Finder do not inherit PATH); signing and notarisation; a manual run of both adapters.
 
-### D-28 Resume by the harness's session id; live text is extra, never the record — proposed (2026-10-03)
+### D-28 Resume by the harness's session id; live text is extra, never the record — accepted (2026-10-03)
 
 A session resumes an earlier one when given the id `session.started` reported. Our own session gets a new id; linking the two is the store's job (M2.2). A harness that cannot resume fails the start rather than silently beginning fresh. Text fragments (`message.delta`, `reasoning.delta`) take sequence numbers but are not stored, so a stored log has gaps in its sequence. A session resumes only in the environment and folder it was created in.
 
@@ -42,7 +42,7 @@ Open: only Claude Code reports a plan limit today. Where a harness reports none,
 
 ## Done
 
-Accepted and built unless marked proposed. Proposed ones are in the merged code and wait only for the owner's yes.
+All accepted and built.
 
 - D-1 Desktop app, not web: it drives CLIs installed on the user's machine.
 - D-2 The core is its own local process; the shell is a thin wrapper.
@@ -55,11 +55,11 @@ Accepted and built unless marked proposed. Proposed ones are in the merged code 
 - D-10 Human in the loop: per-team autonomy plus one blocked queue.
 - D-14 Where a harness runs (native, WSL) is an `Environment`, separate from which harness it is.
 - D-16 Sandbox and computer use are deferred; D-14 keeps the door open.
-- D-19 (proposed) No build step in development: Node runs the TypeScript sources directly.
-- D-20 (proposed) Translators do no I/O and are tested by replaying recordings of the real CLIs.
-- D-21 (proposed) Paths are reported as host paths in `locations`; the agent's own text is never rewritten.
-- D-22 (proposed) A WSL process tree is killed by a marker set at launch.
-- D-24 (proposed) "Allow always" only changes the current session.
-- D-25 (proposed) An agent's question to the user is its own event, not a permission.
-- D-26 (proposed) A harness lists its models and effort values through a catalog query on its adapter. Effort values are the harness's own words.
+- D-19 No build step in development: Node runs the TypeScript sources directly.
+- D-20 Translators do no I/O and are tested by replaying recordings of the real CLIs.
+- D-21 Paths are reported as host paths in `locations`; the agent's own text is never rewritten.
+- D-22 A WSL process tree is killed by a marker set at launch.
+- D-24 "Allow always" only changes the current session.
+- D-25 An agent's question to the user is its own event, not a permission.
+- D-26 A harness lists its models and effort values through a catalog query on its adapter. Effort values are the harness's own words.
 - D-27 Withdrawn: a per-agent budget inside the app. Replaced by D-29.

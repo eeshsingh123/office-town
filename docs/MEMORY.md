@@ -5,7 +5,7 @@ Last updated: 2026-10-03
 ## State
 
 - M1 (harness core, M1.1 to M1.10) is built and run live on Claude Code and OpenCode, natively and in WSL Ubuntu. M1.1 to M1.7 are on `main`. PRs #13 to #17 are stacked and wait for the owner: docs, M1.8 catalog and effort, M1.9 usage limits, M1.10 resume and live text, test and docs trim. Merge in order.
-- Next: M2.1 (store). Present the approach first and wait for the go-ahead (build protocol in AGENTS.md).
+- Next: M2.1 (store), SQLite behind a store interface (D-15). Do not start until the owner says so; then present the approach first.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -32,7 +32,6 @@ Last updated: 2026-10-03
 
 ## Open questions for the owner
 
-- The proposed decisions listed under Done in DECISIONS.md, and D-28.
 - Agents must keep running with the window closed: tray, detached core, or OS service. Discuss before M3.1.
 - Permissions per agent, set when the agent is created. Designed with the UI (M3.3, M4).
 - Interface design session (D-9), connector deep dive (D-11), final name.
