@@ -21,6 +21,9 @@
 ## Git
 
 - `main` is protected. Work happens on `feat/`, `fix/`, `chore/`, `docs/` branches.
+- Every branch is cut from an up-to-date `main` and every PR targets `main`. No stacked PRs, no PR into another branch.
+- One branch per module. A change that belongs to an open PR is committed onto that PR's branch, not a new one.
+- No force-push and no rebase on a pushed branch. To update a branch, merge `main` into it.
 - One logical change per PR, small enough to review in one sitting.
 - The owner reviews and merges every PR. The agent never merges.
 - Commit messages: imperative subject under 72 chars, body only when the why is not obvious.
