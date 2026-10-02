@@ -89,3 +89,9 @@ Why: the event stream is one-way and commands are request/response, so this fits
 
 What was called "incognito": a fresh, isolated agent or department that receives only an explicit brief and the artifact to examine, with no department context or memory, to give a clean-slate review. Its run is still recorded like any other.
 Consequence for M4: isolation must also cover what the harness loads by itself (project instruction files, harness memory), not only what the app injects.
+
+## D-19 Run TypeScript sources directly, no build step — proposed (2026-10-02)
+
+Packages export their `.ts` sources; Node 24 runs them natively by stripping types, and `tsc` only typechecks. No `dist`, no watch process, no build order between packages.
+Why: nothing consumes compiled output until the desktop app is packaged (M3), and a bundler will produce that. Until then a build step is only a way for stale output to cause confusing bugs.
+Cost: only erasable TypeScript syntax (no `enum`, no parameter properties), enforced by `erasableSyntaxOnly`; relative imports carry the `.ts` extension.
