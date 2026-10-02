@@ -48,7 +48,10 @@ export class HarnessSession implements Session {
   readonly #translator: Translator;
   readonly #listeners = new Set<SessionListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
+  readonly #openActions = new Set<string>();
+  readonly #launched = Promise.withResolvers<void>();
   readonly #ended = Promise.withResolvers<void>();
+  #reportingListenerFailure = false;
   #state: SessionState = "created";
   #sequence = 0;
   #process: RunningProcess | undefined;
@@ -96,6 +99,7 @@ export class HarnessSession implements Session {
       throw new SessionStateError(`Cannot start a session that is ${this.#state}.`);
     }
     this.#state = "starting";
+    this.#reportIgnoredEffort();
     const request = {
       ...this.#adapter.buildCommand(this.#options),
       cwd: this.#options.workspacePath,
@@ -109,9 +113,17 @@ export class HarnessSession implements Session {
       this.#emit({ type: "error", payload: { message: errorMessage(error), fatal: true } });
       this.#end("failed", null);
       return;
+    } finally {
+      this.#launched.resolve();
     }
     this.#state = "active";
     this.#apply({ events: [], outgoing: this.#translator.open() });
+  }
+
+  #reportIgnoredEffort(): void {
+    if (this.#options.effort === undefined || this.capabilities.effort) return;
+    const message = `The "${this.#adapter.harness}" harness has no effort setting, so "${this.#options.effort}" was ignored.`;
+    this.#emit({ type: "error", payload: { message, fatal: false } });
   }
 
   #answerPermission(requestId: string, optionId: string): void {
@@ -129,9 +141,8 @@ export class HarnessSession implements Session {
 
   async #stop(): Promise<void> {
     if (this.#state === "created") this.#end("stopped", null);
-    if (this.#state === "starting") {
-      throw new SessionStateError("Cannot stop a session that is still starting.");
-    }
+    // A launch cannot be abandoned halfway, so a stop during startup waits for it to settle.
+    if (this.#state === "starting") await this.#launched.promise;
     if (this.#state === "active" && this.#process !== undefined) {
       this.#state = "stopping";
       this.#process.closeInput();
@@ -187,7 +198,12 @@ export class HarnessSession implements Session {
         this.#emit(event);
         break;
       case "action.started":
+        this.#openActions.add(event.payload.actionId);
         this.#emit({ ...event, payload: this.#attributeToPlan(this.#onHost(event.payload)) });
+        break;
+      case "action.ended":
+        this.#openActions.delete(event.payload.actionId);
+        this.#emit(event);
         break;
       case "permission.requested":
         this.#pendingPermissions.set(event.payload.requestId, event.payload.options);
@@ -241,6 +257,11 @@ export class HarnessSession implements Session {
       this.#emit({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#pendingPermissions.clear();
+    for (const actionId of this.#openActions) {
+      const result = "The harness stopped before this action finished.";
+      this.#emit({ type: "action.ended", payload: { actionId, outcome: "failed", result } });
+    }
+    this.#openActions.clear();
     if (this.#turnId !== undefined) this.#endTurn({ outcome: stopping ? "interrupted" : "failed" });
     if (stopping || state === "failing" || exit.code === 0) {
       this.#end(stopping ? "stopped" : state === "failing" ? "failed" : "exited", exit.code);
@@ -272,6 +293,25 @@ export class HarnessSession implements Session {
       timestamp: new Date().toISOString(),
       ...body,
     };
-    for (const listener of this.#listeners) listener(event);
+    const failures: unknown[] = [];
+    for (const listener of this.#listeners) {
+      try {
+        listener(event);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    for (const failure of failures) this.#reportListenerFailure(failure);
+  }
+
+  // One failing subscriber must not stop the session or the other subscribers. A subscriber
+  // that also fails on the report is not reported again, or the two would loop forever. Nothing
+  // is reported once the session has ended, because its end is always the last event.
+  #reportListenerFailure(failure: unknown): void {
+    if (this.#reportingListenerFailure || this.#state === "ended") return;
+    this.#reportingListenerFailure = true;
+    const message = `A subscriber failed to handle an event: ${errorMessage(failure)}`;
+    this.#emit({ type: "error", payload: { message, fatal: false } });
+    this.#reportingListenerFailure = false;
   }
 }

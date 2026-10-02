@@ -11,7 +11,9 @@ import { formatEvent } from "./format.ts";
 
 const USAGE = `Usage: pnpm dev:run "<prompt>" [options]
 
-  --harness <name>            ${listHarnesses().join(" | ")} (default: claude)
+  --harness <name>            ${listHarnesses()
+    .map((description) => description.harness)
+    .join(" | ")} (default: claude)
   --model <name>              model for the session
   --effort <level>            effort level for the session
   --workspace <path>          folder the agent works in (default: current folder)

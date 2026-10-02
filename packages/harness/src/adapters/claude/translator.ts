@@ -6,7 +6,9 @@ import {
   controlRequestSchema,
   headerSchema,
   initSchema,
+  type PermissionSuggestion,
   permissionRequestSchema,
+  permissionSuggestionSchema,
   resultSchema,
   type TaskUpdateInput,
   type ToolResult,
@@ -25,7 +27,13 @@ import {
 
 interface PendingPermission {
   input: Record<string, unknown>;
-  suggestions: unknown[];
+  standingChanges: StandingChange[];
+}
+
+// A change the CLI offers to make so that it stops asking, with what it means for the user.
+interface StandingChange {
+  suggestion: unknown;
+  description: string;
 }
 
 const ACTION_KINDS: Record<string, ActionKind> = {
@@ -51,13 +59,43 @@ const STEP_STATUSES = new Set<string>(["pending", "in_progress", "completed"]);
 
 const PERMISSION_OPTIONS = {
   allow: { optionId: "allow", label: "Allow once", kind: "allow_once" },
-  allowAlways: {
-    optionId: "allow_always",
-    label: "Allow, and stop asking for similar actions",
-    kind: "allow_always",
-  },
   deny: { optionId: "deny", label: "Deny", kind: "reject_once" },
 } satisfies Record<string, PermissionOption>;
+
+function describeSuggestion(suggestion: PermissionSuggestion): string | undefined {
+  if (suggestion.type === "setMode" && suggestion.mode !== undefined) {
+    return suggestion.mode === "acceptEdits"
+      ? "allow all file edits"
+      : `switch to "${suggestion.mode}" mode`;
+  }
+  if (suggestion.type === "addRules" && suggestion.behavior === "allow" && suggestion.rules) {
+    const rules = suggestion.rules.map((rule) =>
+      rule.ruleContent === undefined ? rule.toolName : `${rule.toolName} (${rule.ruleContent})`,
+    );
+    return `always allow ${rules.join(", ")}`;
+  }
+  if (suggestion.type === "addDirectories" && suggestion.directories) {
+    return `allow access to ${suggestion.directories.join(", ")}`;
+  }
+  return undefined;
+}
+
+// Only changes that end with the session and that we can put into words are offered: a change
+// written to a settings file would outlive the session, and the user must know what they accept.
+function standingChangesOf(suggestions: unknown[]): StandingChange[] {
+  return suggestions.flatMap((suggestion) => {
+    const parsed = permissionSuggestionSchema.safeParse(suggestion);
+    if (!parsed.success || parsed.data.destination !== "session") return [];
+    const description = describeSuggestion(parsed.data);
+    return description === undefined ? [] : [{ suggestion, description }];
+  });
+}
+
+function allowAlwaysOption(changes: StandingChange[]): PermissionOption {
+  const descriptions = changes.map((change) => change.description).join(", and ");
+  const label = `${descriptions.charAt(0).toUpperCase()}${descriptions.slice(1)} for this session`;
+  return { optionId: "allow_always", label, kind: "allow_always" };
+}
 
 function titleOf(name: string, input: Record<string, unknown>): string {
   const detail = TITLE_FIELDS.map((field) => input[field]).find((v) => typeof v === "string");
@@ -136,7 +174,10 @@ export class ClaudeTranslator implements Translator {
     const allow = { behavior: "allow", updatedInput: pending.input };
     const decisions: Record<PermissionOption["kind"], object> = {
       allow_once: allow,
-      allow_always: { ...allow, updatedPermissions: pending.suggestions },
+      allow_always: {
+        ...allow,
+        updatedPermissions: pending.standingChanges.map((change) => change.suggestion),
+      },
       reject_once: { behavior: "deny", message: "The user denied this action." },
       reject_always: { behavior: "deny", message: "The user denied this action." },
     };
@@ -310,8 +351,8 @@ export class ClaudeTranslator implements Translator {
       return translated([], [JSON.stringify({ type: "control_response", response })]);
     }
     const permission = permissionRequestSchema.parse(request);
-    const suggestions = permission.permission_suggestions ?? [];
-    this.#pendingPermissions.set(request_id, { input: permission.input, suggestions });
+    const standingChanges = standingChangesOf(permission.permission_suggestions ?? []);
+    this.#pendingPermissions.set(request_id, { input: permission.input, standingChanges });
     const name = permission.display_name ?? permission.tool_name;
     return translated([
       {
@@ -323,7 +364,7 @@ export class ClaudeTranslator implements Translator {
           input: permission.input,
           options: [
             PERMISSION_OPTIONS.allow,
-            ...(suggestions.length > 0 ? [PERMISSION_OPTIONS.allowAlways] : []),
+            ...(standingChanges.length > 0 ? [allowAlwaysOption(standingChanges)] : []),
             PERMISSION_OPTIONS.deny,
           ],
         },

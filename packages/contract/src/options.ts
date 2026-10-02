@@ -9,12 +9,20 @@ export type EnvironmentSpec = z.infer<typeof environmentSpecSchema>;
 export const permissionModeSchema = z.enum(["ask", "acceptEdits", "bypass"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
+// These values become command-line arguments of a harness, so they may not look like a flag.
+const harnessSettingSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._/:@[\]-]*$/,
+    "Must start with a letter or digit and contain only letters, digits and . _ - / : @ [ ]",
+  );
+
 export const sessionOptionsSchema = z.object({
   harness: z.string().min(1),
   environment: environmentSpecSchema,
   workspacePath: z.string().min(1).optional(),
-  model: z.string().min(1).optional(),
-  effort: z.string().min(1).optional(),
+  model: harnessSettingSchema.optional(),
+  effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

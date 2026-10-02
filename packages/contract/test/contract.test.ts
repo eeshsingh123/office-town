@@ -84,6 +84,23 @@ describe("session options", () => {
     const options = { harness: "claude", environment: { kind: "wsl" }, permissionMode: "ask" };
     expect(sessionOptionsSchema.safeParse(options).success).toBe(false);
   });
+
+  it.each(["sonnet", "opus[1m]", "opencode/big-pickle", "openrouter/meta/llama-4:free"])(
+    "accepts the model name %s",
+    (model) => {
+      const options = { harness: "x", environment: { kind: "native" }, permissionMode: "ask" };
+      expect(sessionOptionsSchema.safeParse({ ...options, model }).success).toBe(true);
+    },
+  );
+
+  it.each(["--dangerously-skip-permissions", "-x", "a b", ""])(
+    "rejects the model or effort value %j, which could be read as a command-line flag",
+    (value) => {
+      const options = { harness: "x", environment: { kind: "native" }, permissionMode: "ask" };
+      expect(sessionOptionsSchema.safeParse({ ...options, model: value }).success).toBe(false);
+      expect(sessionOptionsSchema.safeParse({ ...options, effort: value }).success).toBe(false);
+    },
+  );
 });
 
 describe("session commands", () => {

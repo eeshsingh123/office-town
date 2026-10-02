@@ -84,6 +84,14 @@ describe("WslEnvironment", () => {
     await expect(launched.exited).resolves.toEqual({ code: null, signal: "SIGKILL" });
   });
 
+  it("follows a shell alias to the file it names", async () => {
+    const { environment, host } = fakeDistro({ claude: "alias claude='/home/dev/bin/claude'" });
+
+    await environment.launch({ binary: "claude", args: [] });
+
+    expect((host.request as LaunchRequest).args.at(-1)).toBe("/home/dev/bin/claude");
+  });
+
   it("says which distro lacks the binary", async () => {
     const { environment } = fakeDistro({});
 
@@ -140,5 +148,14 @@ describe.runIf(distro !== undefined)("WslEnvironment against an installed distro
     await running.killTree();
     await exited;
     expect(marked()).toBe(0);
+  }, 30_000);
+
+  it("names a distro that is not installed", async () => {
+    const launch = new WslEnvironment("no-such-distro-office-town").launch({
+      binary: "sh",
+      args: [],
+    });
+
+    await expect(launch).rejects.toThrow('"no-such-distro-office-town" is not installed');
   }, 30_000);
 });
