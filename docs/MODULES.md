@@ -119,7 +119,7 @@ Out of scope: departments, multiple agents on one task, the 2D command center, c
 
 ## Later modules (outline only)
 
-- **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; outsourced agents (fresh, isolated, clean-slate reviewers).
+- **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; outsourced agents (fresh, isolated, clean-slate reviewers). A department shares one workspace folder chosen by the user; direction to confirm at M4 design: one git worktree and branch per agent, integrated by the lead. An SDLC flow (branch, commit, pull, push, PR through the user's own `git` and `gh` logins) is optional and applies only when the department works on a code repository.
 - **M5 Command center.** Departments, dependencies between them, chat, task and status panels. Needs the interface design session first.
 - **M6 Connectors.** MCP-based plugins injected per session; an agent can request a connector it lacks. Needs the connector deep dive first.
-- **Deferred.** Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.
+- **Deferred.** macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.
