@@ -55,3 +55,27 @@ Consequence: permission requests and blocked states are part of the event contra
 ## D-11 Task agnostic, connectors as plugins — accepted in direction, design pending (2026-10-02)
 
 Not coding only. Capabilities come from connectors, packaged as plugins; an agent lacking a tool should be able to provision one. Needs its own deep dive before the connectors module.
+
+## D-12 Final stack, no Python in the product — accepted (2026-10-03)
+
+TypeScript on Node 24 everywhere. pnpm workspace. Core: Node process, Zod schemas, WebSocket API, SQLite. Shell: Electron. UI: React, Vite, Zustand; canvas engine chosen in the interface session. Tooling: Biome, Vitest, GitHub Actions. Connectors: MCP.
+Python appears only as third-party connector servers the app may launch; none of our code is Python.
+
+## D-13 Adapters are translators only — accepted (2026-10-03)
+
+Process handling, lifecycle, ids, sequencing and error handling live in shared layers. An adapter builds a command, translates native messages to events, and encodes outgoing messages. All adapters pass one shared conformance test suite.
+Why: five harnesses must not mean five copies of the same plumbing.
+
+## D-14 Execution environment is a seam — accepted (2026-10-03)
+
+Where a harness runs (native OS, WSL) is an `Environment`, separate from which harness it is. WSL ships in module 1.
+Why: Windows users often have the best CLI setup inside WSL. The same seam later takes a sandbox or VM without touching adapters.
+
+## D-15 Local SQLite event log, in-process background work — proposed (2026-10-03)
+
+Every event is appended to a local SQLite file; current state and replay are both read from it. The core process itself keeps sessions running; no queue, broker or database server.
+Why: single-user local app, replay and audit are requirements, and an append-only log gives both with one mechanism. Retention and size limits are open (see MODULES.md, M2).
+
+## D-16 Sandbox and computer use deferred — proposed (2026-10-03)
+
+Not built until the core product works. Each harness already enforces its own permissions, and a VM layer is a large, platform-specific piece of work. D-14 keeps the door open.
