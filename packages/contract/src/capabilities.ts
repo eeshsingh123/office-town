@@ -6,5 +6,6 @@ export const adapterCapabilitiesSchema = z.object({
   effort: z.boolean(),
   modelList: z.boolean(),
   resume: z.boolean(),
+  usageLimits: z.boolean(),
 });
 export type AdapterCapabilities = z.infer<typeof adapterCapabilitiesSchema>;

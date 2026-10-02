@@ -52,6 +52,15 @@ export const questionAnswerSchema = z.object({
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
+// A usage window of the user's subscription, as the harness reports it.
+export const usageLimitSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  usedFraction: z.number().nonnegative(),
+  resetsAt: z.iso.datetime().optional(),
+});
+export type UsageLimit = z.infer<typeof usageLimitSchema>;
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -118,6 +127,7 @@ const payloadSchemas = {
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
   }),
+  "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   error: z.object({
     message: z.string(),
     detail: z.string().optional(),
@@ -151,6 +161,7 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.resolved"),
   eventOf("question.requested"),
   eventOf("question.resolved"),
+  eventOf("limits.updated"),
   eventOf("error"),
 ]);
 export type SessionEvent = z.infer<typeof sessionEventSchema>;

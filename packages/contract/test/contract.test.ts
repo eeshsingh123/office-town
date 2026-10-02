@@ -67,6 +67,19 @@ const bodies: SessionEventBody[] = [
       answers: [{ questionId: "1", selected: ["Blue"] }],
     },
   },
+  {
+    type: "limits.updated",
+    payload: {
+      limits: [
+        {
+          id: "five_hour",
+          label: "five hour",
+          usedFraction: 0.4,
+          resetsAt: "2026-10-02T15:00:00.000Z",
+        },
+      ],
+    },
+  },
   { type: "error", payload: { message: "boom", fatal: true } },
 ];
 
@@ -100,6 +113,21 @@ describe("session options", () => {
   it("accepts the minimum a caller must choose", () => {
     const options = { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" };
     expect(sessionOptionsSchema.parse(options)).toEqual(options);
+  });
+
+  it("accepts a budget in tokens, dollars or both, and rejects one that is not positive", () => {
+    const withBudget = (budget: unknown) =>
+      sessionOptionsSchema.safeParse({
+        harness: "claude",
+        environment: { kind: "native" },
+        permissionMode: "ask",
+        budget,
+      }).success;
+
+    expect(withBudget({ maxTokens: 100_000 })).toBe(true);
+    expect(withBudget({ maxTokens: 100_000, maxCostUsd: 1.5 })).toBe(true);
+    expect(withBudget({ maxTokens: 0 })).toBe(false);
+    expect(withBudget({ maxCostUsd: -1 })).toBe(false);
   });
 
   it("requires a distro for the wsl environment", () => {

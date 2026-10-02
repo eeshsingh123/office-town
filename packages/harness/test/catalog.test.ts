@@ -37,7 +37,14 @@ function environmentPrinting(lines: string[], code: number, stderr = "") {
 
 const adapter: Adapter = {
   harness: "listed",
-  capabilities: { reasoning: false, plan: false, effort: true, modelList: true, resume: false },
+  capabilities: {
+    reasoning: false,
+    plan: false,
+    effort: true,
+    modelList: true,
+    resume: false,
+    usageLimits: false,
+  },
   catalog: {
     command: { binary: "listed", args: ["models"] },
     input: ["describe yourself"],

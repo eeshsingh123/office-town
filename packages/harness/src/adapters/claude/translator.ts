@@ -11,6 +11,7 @@ import {
   permissionRequestSchema,
   permissionSuggestionSchema,
   questionsInputSchema,
+  rateLimitSchema,
   resultSchema,
   type TaskUpdateInput,
   type ToolResult,
@@ -156,6 +157,7 @@ export class ClaudeTranslator implements Translator {
     user: (message) => this.#user(message),
     control_request: (message) => this.#controlRequest(message),
     control_cancel_request: (message) => this.#controlCancel(message),
+    rate_limit_event: (message) => this.#rateLimit(message),
     result: (message) => this.#result(message),
   };
 
@@ -434,6 +436,18 @@ export class ClaudeTranslator implements Translator {
     return translated([{ type, payload: { requestId: request_id, outcome: "cancelled" } }]);
   }
 
+  // Reported for subscriptions only: the share of each usage window spent, and when it resets.
+  #rateLimit(message: unknown): Translation {
+    const windows = rateLimitSchema.parse(message).rate_limit_info.unifiedWindows ?? {};
+    const limits = Object.entries(windows).map(([id, { utilization, resetsAt }]) => ({
+      id,
+      label: id.replaceAll("_", " "),
+      usedFraction: utilization,
+      ...(resetsAt === undefined ? {} : { resetsAt: new Date(resetsAt * 1000).toISOString() }),
+    }));
+    return translated(limits.length === 0 ? [] : [{ type: "limits.updated", payload: { limits } }]);
+  }
+
   #result(message: unknown): Translation {
     const result = resultSchema.parse(message);
     const interrupted = result.terminal_reason?.startsWith("aborted") ?? false;
@@ -443,7 +457,7 @@ export class ClaudeTranslator implements Translator {
       const text = result.result ?? `The turn ended with "${result.subtype}".`;
       events.push({ type: "error", payload: { message: text, fatal: false } });
     }
-    const { usage } = result;
+    const { usage, total_cost_usd } = result;
     const cached = usage?.cache_read_input_tokens ?? 0;
     events.push({
       type: "turn.ended",
@@ -458,6 +472,7 @@ export class ClaudeTranslator implements Translator {
                 cachedInputTokens: cached,
               },
             }),
+        ...(total_cost_usd === undefined ? {} : { totalCostUsd: total_cost_usd }),
       },
     });
     return translated(events);

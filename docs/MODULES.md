@@ -47,11 +47,11 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 
 - **M1.1 Tooling.** pnpm workspace, strict TypeScript, Biome (lint and format), Vitest, GitHub Actions running lint, typecheck and tests on every PR. Empty `contract` and `harness` packages that build.
 - **M1.2 Event contract.** In `packages/contract`: schemas and inferred types for
-  - session options: harness, environment, workspace path (optional), model, effort, permission mode;
+  - session options: harness, environment, workspace path (optional), model, effort, permission mode, budget;
   - commands: start, prompt, answer permission, answer question, interrupt, stop;
   - the event envelope: id, session id, sequence, timestamp, type, payload;
-  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, question requested / resolved, error;
-  - adapter capabilities: which of reasoning, plan, effort, model list, resume a harness supports.
+  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, question requested / resolved, limits updated, error;
+  - adapter capabilities: which of reasoning, plan, effort, model list, resume, usage limits a harness supports.
   Nesting rule: an action with a parent action id is a sub-step (this is how a harness's own sub-agents appear). An action with no parent is attributed to the plan step that was in progress when it started.
 - **M1.3 Process runner and native environment.** `Environment` interface with a native implementation; binary lookup on PATH; line-framed stdout; clean kill of the whole process tree on Windows; no console window flash.
 - **M1.4 Claude Code adapter.** Drives `claude` in stream-json mode. Starts with a short spike confirming the permission round trip over stdio; if it is not viable on the stock CLI, stop and raise it before continuing. Tests run against recorded output, so CI needs no subscription.
@@ -59,6 +59,7 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 - **M1.6 OpenCode adapter.** Shared JSON-RPC client plus an ACP adapter driving `opencode acp`. Any contract change this forces is made here, before anything is stored.
 - **M1.7 WSL environment.** Second `Environment`: launch through `wsl.exe` in a chosen distro, find the binary through the distro's login shell, translate paths both ways (command arguments and paths inside events), kill across the boundary.
 - **M1.8 Catalog and effort.** Each adapter says how to ask its CLI for the models it offers and the effort values each model accepts; one shared function runs that query in any environment. Effort is applied on ACP harnesses through the protocol's own session setting. `pnpm dev:catalog` prints the list.
+- **M1.9 Usage and budget.** Each turn reports what it cost. A harness that knows the user's subscription limits reports them as `limits.updated`. A session takes an optional budget in tokens, dollars or both; when a turn ends over it, the session asks whether to continue and takes no new prompt until answered.
 
 Out of scope: storage, more than one session, orchestration, any UI, Codex and Antigravity adapters, connectors.
 

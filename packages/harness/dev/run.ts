@@ -21,6 +21,8 @@ const USAGE = `Usage: pnpm dev:run "<prompt>" [options]
   --workspace <path>          folder the agent works in (default: current folder)
   --wsl <distro>              run the harness inside this WSL distro
   --permission-mode <mode>    ${permissionModeSchema.options.join(" | ")} (default: ask)
+  --max-tokens <count>        ask before continuing once this many tokens are used
+  --max-cost <dollars>        ask before continuing once this many dollars are spent
 
 While it runs: answer a permission request or a question with its number, type a follow-up
 prompt after a turn ends, or press Enter on an empty line to stop.`;
@@ -52,10 +54,18 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       workspace: { type: "string" },
       wsl: { type: "string" },
       "permission-mode": { type: "string", default: "ask" },
+      "max-tokens": { type: "string" },
+      "max-cost": { type: "string" },
     },
   });
   const prompt = positionals.join(" ").trim();
   if (prompt === "") return undefined;
+  const maxTokens = values["max-tokens"];
+  const maxCostUsd = values["max-cost"];
+  const budget = {
+    ...(maxTokens === undefined ? {} : { maxTokens: Number(maxTokens) }),
+    ...(maxCostUsd === undefined ? {} : { maxCostUsd: Number(maxCostUsd) }),
+  };
   return {
     prompt,
     options: {
@@ -66,6 +76,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       ...(values.model === undefined ? {} : { model: values.model }),
       ...(values.effort === undefined ? {} : { effort: values.effort }),
       ...(values.workspace === undefined ? {} : { workspacePath: values.workspace }),
+      ...(Object.keys(budget).length === 0 ? {} : { budget }),
     },
   };
 }

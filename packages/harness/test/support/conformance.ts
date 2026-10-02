@@ -95,6 +95,11 @@ export function describeAdapterConformance(
         expect(resolved.sort()).toEqual(requested.sort());
       });
 
+      it("reports subscription limits only when it says it can", () => {
+        if (adapter.capabilities.usageLimits) return;
+        expect(payloadsOf(events, "limits.updated")).toEqual([]);
+      });
+
       it("writes only single-line JSON to the harness", () => {
         for (const line of written) expect(() => JSON.parse(line)).not.toThrow();
       });

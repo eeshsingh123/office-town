@@ -121,6 +121,7 @@ export const resultSchema = z.looseObject({
   subtype: z.string(),
   terminal_reason: z.string().optional(),
   result: z.string().optional(),
+  total_cost_usd: z.number().optional(),
   usage: z
     .looseObject({
       input_tokens: z.number(),
@@ -129,6 +130,17 @@ export const resultSchema = z.looseObject({
       cache_read_input_tokens: z.number().optional(),
     })
     .optional(),
+});
+
+export const rateLimitSchema = z.looseObject({
+  rate_limit_info: z.looseObject({
+    unifiedWindows: z
+      .record(
+        z.string(),
+        z.looseObject({ utilization: z.number(), resetsAt: z.number().optional() }),
+      )
+      .optional(),
+  }),
 });
 
 export const taskCreateInputSchema = z.looseObject({ subject: z.string() });
