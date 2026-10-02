@@ -48,9 +48,9 @@ An adapter contains no process, lifecycle or bookkeeping code. Every adapter mus
 - **M1.1 Tooling.** pnpm workspace, strict TypeScript, Biome (lint and format), Vitest, GitHub Actions running lint, typecheck and tests on every PR. Empty `contract` and `harness` packages that build.
 - **M1.2 Event contract.** In `packages/contract`: schemas and inferred types for
   - session options: harness, environment, workspace path (optional), model, effort, permission mode;
-  - commands: start, prompt, answer permission, interrupt, stop;
+  - commands: start, prompt, answer permission, answer question, interrupt, stop;
   - the event envelope: id, session id, sequence, timestamp, type, payload;
-  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, error;
+  - event types: session started / ended, turn started / ended (with token usage when reported), message, reasoning, plan updated (ordered steps with status), action started / updated / ended (kind, title, input, result, parent action id), permission requested / resolved, question requested / resolved, error;
   - adapter capabilities: which of reasoning, plan, effort, model list, resume a harness supports.
   Nesting rule: an action with a parent action id is a sub-step (this is how a harness's own sub-agents appear). An action with no parent is attributed to the plan step that was in progress when it started.
 - **M1.3 Process runner and native environment.** `Environment` interface with a native implementation; binary lookup on PATH; line-framed stdout; clean kill of the whole process tree on Windows; no console window flash.

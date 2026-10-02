@@ -1,6 +1,7 @@
 import type {
   AdapterCapabilities,
   PermissionOption,
+  Question,
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
@@ -24,6 +25,11 @@ export interface HarnessCommand {
   env?: Record<string, string>;
 }
 
+export interface AnsweredQuestion {
+  question: Question;
+  selected: string[];
+}
+
 export interface Translation {
   events: AdapterEvent[];
   outgoing: string[];
@@ -34,6 +40,7 @@ export interface Translator {
   receive(line: string): Translation;
   prompt(text: string): Translation;
   answerPermission(requestId: string, option: PermissionOption): Translation;
+  answerQuestion(requestId: string, answers: AnsweredQuestion[]): Translation;
   interrupt(): Translation;
 }
 

@@ -109,6 +109,11 @@ export class AcpTranslator implements Translator {
     return { events: [], outgoing: [this.#peer.respond(id, { outcome })] };
   }
 
+  // The protocol has no way for an agent to ask a question, so there is never one to answer.
+  answerQuestion(requestId: string): Translation {
+    throw new Error(`Unknown question "${requestId}".`);
+  }
+
   interrupt(): Translation {
     if (!this.#turnActive) return NOTHING;
     const events: AdapterEvent[] = [];

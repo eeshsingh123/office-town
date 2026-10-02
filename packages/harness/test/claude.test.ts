@@ -14,6 +14,7 @@ const recordings = {
   "plan-and-subagent": recording("plan-and-subagent"),
   "interrupt-running": recording("interrupt-running"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
+  "question-answered": recording("question-answered"),
 };
 
 describeAdapterConformance(claudeAdapter, recordings);
@@ -133,6 +134,44 @@ describe("claude adapter", () => {
     expect(mixed?.payload.options[1]?.label).toBe("Always allow Bash (npm test) for this session");
     expect(JSON.parse(written[0] as string).response.response.updatedPermissions).toEqual([
       sessionRule,
+    ]);
+  });
+
+  it("reports a question as a question and hands the user's answer back", async () => {
+    const { events, written } = await replay(claudeAdapter, recordings["question-answered"]);
+
+    expect(only(events, "permission.requested")).toEqual([]);
+    const [asked] = only(events, "question.requested");
+    const [question] = asked?.payload.questions ?? [];
+    expect(question?.options.map((option) => option.label)).toEqual(["Red", "Blue"]);
+    expect(question?.multiSelect).toBe(false);
+    expect(asked?.payload.actionId).toBe(only(events, "action.started")[0]?.payload.actionId);
+
+    expect(JSON.parse(written[1] as string).response.response).toMatchObject({
+      behavior: "allow",
+      updatedInput: { answers: { [question?.text as string]: "Blue" } },
+    });
+    expect(only(events, "question.resolved")[0]?.payload).toEqual({
+      requestId: asked?.payload.requestId,
+      outcome: "answered",
+      answers: [{ questionId: "1", selected: ["Blue"] }],
+    });
+    expect(only(events, "action.ended")[0]?.payload.result).toContain("Blue");
+  });
+
+  it("cancels a pending question when the harness withdraws it", async () => {
+    const untilAsked = recordings["question-answered"].slice(0, 7);
+    const { events: asked } = await replay(claudeAdapter, untilAsked);
+    const requestId = only(asked, "question.requested")[0]?.payload.requestId;
+    expect(requestId).toBeDefined();
+
+    const { events } = await replay(claudeAdapter, [
+      ...untilAsked,
+      { receive: { type: "control_cancel_request", request_id: requestId } },
+    ]);
+
+    expect(only(events, "question.resolved").map((event) => event.payload)).toEqual([
+      { requestId, outcome: "cancelled" },
     ]);
   });
 

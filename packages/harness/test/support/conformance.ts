@@ -74,6 +74,12 @@ export function describeAdapterConformance(
         expect(resolved.sort()).toEqual(requested.sort());
       });
 
+      it("resolves every question it asks", () => {
+        const requested = payloadsOf(events, "question.requested").map((p) => p.requestId);
+        const resolved = payloadsOf(events, "question.resolved").map((p) => p.requestId);
+        expect(resolved.sort()).toEqual(requested.sort());
+      });
+
       it("writes only single-line JSON to the harness", () => {
         for (const line of written) expect(() => JSON.parse(line)).not.toThrow();
       });

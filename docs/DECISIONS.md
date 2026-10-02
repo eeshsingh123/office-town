@@ -121,3 +121,8 @@ Known work when it is picked up: add `macos-latest` to CI; resolve harness binar
 
 When a harness offers to stop asking, the adapter offers that choice only for changes that end with the session, and the option's label says exactly what will change. A change the harness would save to a settings file is not offered.
 Why: Claude Code's suggestion for one file write is "accept all edits", which is far wider than the question asked, and a saved rule would silently outlive the session. Lasting permissions per agent are a UI decision for later (M3.3, M4).
+
+## D-25 An agent's question to the user is its own event — proposed (2026-10-02)
+
+`question.requested` carries one or more questions with their options; the caller replies with the `answerQuestion` command (per question: the chosen labels, or the user's own words), and `question.resolved` records the answers or a cancellation. It is not a permission request.
+Why: a permission can only be allowed or denied, so a question sent through it would be "allowed" with no answer and the agent would carry on blind. Claude Code's `AskUserQuestion` works this way on the wire (confirmed on the live CLI). The blocked queue (D-10) needs to tell "approve this" apart from "answer this".
