@@ -134,7 +134,7 @@ describe("claude adapter", () => {
     });
   });
 
-  it("reports how much of each subscription window is used and what each turn cost", async () => {
+  it("reports how much of each subscription window is used and when it resets", async () => {
     const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
 
     expect(only(events, "limits.updated")[0]?.payload.limits).toEqual([
@@ -151,9 +151,6 @@ describe("claude adapter", () => {
         resetsAt: "2026-10-06T13:00:00.000Z",
       },
     ]);
-    const costs = only(events, "turn.ended").map((event) => event.payload.usage?.costUsd);
-    expect(costs[0]).toBeCloseTo(0.06619335);
-    expect(costs[1]).toBeCloseTo(0.0825922 - 0.06619335);
   });
 
   it("says what allowing always will change, and returns that change to the harness", async () => {

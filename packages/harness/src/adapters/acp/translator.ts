@@ -13,7 +13,6 @@ import {
   todoInputSchema,
   toolCallSchema,
   updateParamsSchema,
-  usageUpdateSchema,
 } from "./messages.ts";
 
 const PROTOCOL_VERSION = 1;
@@ -67,7 +66,6 @@ export class AcpTranslator implements Translator {
   #configuring = false;
   #turnActive = false;
   #stream: TextStream | undefined;
-  #totalCostUsd: number | undefined;
 
   constructor(options: Pick<LaunchOptions, "workspacePath" | "effort" | "resumeSessionId">) {
     this.#cwd = options.workspacePath;
@@ -241,7 +239,6 @@ export class AcpTranslator implements Translator {
                 cachedInputTokens: cached,
               },
             }),
-        ...(this.#totalCostUsd === undefined ? {} : { totalCostUsd: this.#totalCostUsd }),
       },
     });
     const next = this.#nextPrompt();
@@ -273,11 +270,6 @@ export class AcpTranslator implements Translator {
       case "plan": {
         const steps = stepsOf(planSchema.parse(update).entries);
         return [...this.#flush(), { type: "plan.updated", payload: { steps } }];
-      }
-      case "usage_update": {
-        const { cost } = usageUpdateSchema.parse(update);
-        if (cost?.currency === "USD") this.#totalCostUsd = cost.amount;
-        return [];
       }
       default:
         return [];

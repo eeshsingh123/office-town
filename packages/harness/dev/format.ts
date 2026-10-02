@@ -29,8 +29,10 @@ export function formatEvent(event: SessionEvent): string | undefined {
       return "turn     started";
     case "turn.ended": {
       const { usage, outcome } = event.payload;
-      const cost = usage?.costUsd === undefined ? "" : `, $${usage.costUsd.toFixed(4)}`;
-      const tokens = usage ? ` (${usage.inputTokens} in, ${usage.outputTokens} out${cost})` : "";
+      const cached = usage?.cachedInputTokens ?? 0;
+      const tokens = usage
+        ? ` (${usage.inputTokens - cached} new in, ${cached} cached, ${usage.outputTokens} out)`
+        : "";
       return `turn     ${outcome}${tokens}`;
     }
     case "message":

@@ -29,10 +29,6 @@ export const updateParamsSchema = z.looseObject({
   update: z.looseObject({ sessionUpdate: z.string() }),
 });
 
-export const usageUpdateSchema = z.looseObject({
-  cost: z.looseObject({ amount: z.number(), currency: z.string() }).optional(),
-});
-
 export const chunkSchema = z.looseObject({
   messageId: z.string().optional(),
   content: z.looseObject({ type: z.string(), text: z.string().optional() }),

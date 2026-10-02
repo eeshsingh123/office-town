@@ -471,7 +471,7 @@ export class ClaudeTranslator implements Translator {
       const text = result.result ?? `The turn ended with "${result.subtype}".`;
       events.push({ type: "error", payload: { message: text, fatal: false } });
     }
-    const { usage, total_cost_usd } = result;
+    const { usage } = result;
     const cached = usage?.cache_read_input_tokens ?? 0;
     events.push({
       type: "turn.ended",
@@ -486,7 +486,6 @@ export class ClaudeTranslator implements Translator {
                 cachedInputTokens: cached,
               },
             }),
-        ...(total_cost_usd === undefined ? {} : { totalCostUsd: total_cost_usd }),
       },
     });
     return translated(events);

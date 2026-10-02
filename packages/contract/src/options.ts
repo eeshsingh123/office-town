@@ -17,13 +17,6 @@ const harnessSettingSchema = z
     "Must start with a letter or digit and contain only letters, digits and . _ - / : @ [ ]",
   );
 
-// Tokens count what the model newly read and wrote; input served from the cache is left out.
-export const budgetSchema = z.object({
-  maxTokens: z.number().int().positive().optional(),
-  maxCostUsd: z.number().positive().optional(),
-});
-export type Budget = z.infer<typeof budgetSchema>;
-
 export const sessionOptionsSchema = z.object({
   harness: z.string().min(1),
   environment: environmentSpecSchema,
@@ -31,7 +24,6 @@ export const sessionOptionsSchema = z.object({
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,
-  budget: budgetSchema.optional(),
   // The harness's own id of an earlier session to continue, as reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
 });

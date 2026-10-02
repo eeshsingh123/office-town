@@ -12,10 +12,10 @@ Last updated: 2026-10-03
 
 ## Pre-M2 work
 
-- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, budget, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
+- Agent profile: one harness-neutral description of an agent (role, purpose, harness, model, effort, permissions, memory; the list will grow). Adapters translate it; no per-provider logic outside an adapter. Defaults flow department, then role, then agent, each overridable by the user.
 - Done in M1.8 (D-26): catalog query per adapter, and effort on OpenCode. Run live on both harnesses, natively and in WSL Ubuntu.
 - Effort: the UI shows each harness's own values, with a popup explaining what effort means (M3.3). Neither CLI describes its effort values, so the popup text is ours.
-- Done in M1.9 (D-27): per-turn cost, subscription limits as `limits.updated`, and a per-agent budget that pauses and asks. Run live on both harnesses (native). The department budget is M4.
+- Done in M1.9: subscription limits as `limits.updated`. The owner dropped per-agent budgets and dollar tracking on 2026-10-03: usage limits are the single source of truth. Money tracking is parked until API-key use is supported.
 - Usage display (M3): show the subscription's limit where the harness reports it, otherwise tokens. Only Claude Code reports one; OpenCode over ACP reports context size and cost, no plan limit.
 - Done in M1.10 (D-28): resume by the harness's session id, and live text fragments. Run live on both harnesses (native). Resumability is a core feature for the owner: M2.2 must persist the harness session id and resume interrupted agents with it.
 - All of the above join the shared conformance suite so every adapter must support them or declare that it cannot.

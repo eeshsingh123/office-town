@@ -1,6 +1,6 @@
 import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
-import type { Adapter, AdapterEvent, LaunchOptions, Translation } from "../src/adapter.ts";
+import type { Adapter, AdapterEvent, Translation } from "../src/adapter.ts";
 import type { Environment } from "../src/environment/environment.ts";
 import { listHarnesses } from "../src/index.ts";
 import { HarnessSession, SessionStateError } from "../src/session.ts";
@@ -35,11 +35,8 @@ const passthroughAdapter: Adapter = {
   }),
 };
 
-async function startSession(
-  environment: Environment = new ScriptedEnvironment(),
-  options: LaunchOptions = replayOptions,
-) {
-  const session = new HarnessSession(options, passthroughAdapter, environment);
+async function startSession(environment: Environment = new ScriptedEnvironment()) {
+  const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
   const events: SessionEvent[] = [];
   session.subscribe((event) => events.push(event));
   await session.send({ type: "start" });
@@ -58,25 +55,6 @@ const action = (actionId: string, parentActionId?: string): AdapterEvent => ({
     ...(parentActionId === undefined ? {} : { parentActionId }),
   },
 });
-
-const turn = (
-  inputTokens: number,
-  totalCostUsd?: number,
-  cachedInputTokens = 0,
-): AdapterEvent[] => [
-  { type: "turn.started" },
-  {
-    type: "turn.ended",
-    payload: {
-      outcome: "completed",
-      usage: { inputTokens, outputTokens: 0, cachedInputTokens },
-      ...(totalCostUsd === undefined ? {} : { totalCostUsd }),
-    },
-  },
-];
-
-const budgetRequest = (events: SessionEvent[]) =>
-  events.findLast((event) => event.type === "permission.requested")?.payload;
 
 const permission: AdapterEvent = {
   type: "permission.requested",
@@ -136,78 +114,6 @@ describe("session", () => {
     expect(turnIds[0]).toBe(turnIds[1]);
     expect(turnIds[2]).toBe(turnIds[3]);
     expect(turnIds[0]).not.toBe(turnIds[2]);
-  });
-
-  it("turns the harness's running cost into the cost of each turn", async () => {
-    const { events, emit } = await startSession();
-
-    await emit(...turn(10, 0.25), ...turn(10, 0.4), ...turn(10));
-
-    const usage = events
-      .filter((event) => event.type === "turn.ended")
-      .map((event) => event.payload.usage);
-    expect(usage[0]?.costUsd).toBeCloseTo(0.25);
-    expect(usage[1]?.costUsd).toBeCloseTo(0.15);
-    expect(usage[2]).toEqual({ inputTokens: 10, outputTokens: 0, cachedInputTokens: 0 });
-  });
-
-  it("asks before continuing once the token budget is used, leaving cached input out", async () => {
-    const options = { ...replayOptions, budget: { maxTokens: 100 } };
-    const { session, events, emit } = await startSession(new ScriptedEnvironment(), options);
-
-    await emit(...turn(1000, undefined, 940));
-    expect(budgetRequest(events)).toBeUndefined();
-
-    await emit(...turn(50));
-    expect(budgetRequest(events)).toEqual({
-      requestId: "budget-1",
-      title: "Budget reached: 110 of 100 tokens used. Continue?",
-      input: { spent: { tokens: 110, costUsd: 0 }, limit: { maxTokens: 100 } },
-      options: [
-        { optionId: "continue", label: "Continue with the same budget again", kind: "allow_once" },
-        { optionId: "stop", label: "Stop the agent", kind: "reject_once" },
-      ],
-    });
-    await expect(session.send({ type: "prompt", text: "more" })).rejects.toBeInstanceOf(
-      SessionStateError,
-    );
-  });
-
-  it("grants the same budget again when the user continues, without telling the harness", async () => {
-    const environment = new ScriptedEnvironment();
-    const options = { ...replayOptions, budget: { maxCostUsd: 1 } };
-    const { session, events, emit } = await startSession(environment, options);
-    await emit(...turn(10, 1.2));
-
-    await session.send({ type: "answerPermission", requestId: "budget-1", optionId: "continue" });
-    await session.send({ type: "prompt", text: "more" });
-    await emit(...turn(10, 2.1));
-    expect(budgetRequest(events)?.requestId).toBe("budget-1");
-
-    await emit(...turn(10, 2.2));
-    expect(environment.written).toEqual(["more"]);
-    expect(events.find((event) => event.type === "permission.resolved")?.payload).toEqual({
-      requestId: "budget-1",
-      outcome: "allowed",
-      optionId: "continue",
-    });
-    expect(budgetRequest(events)).toMatchObject({
-      requestId: "budget-2",
-      title: "Budget reached: $2.20 of $2.20 used. Continue?",
-    });
-  });
-
-  it("stops the session when the user declines to continue past the budget", async () => {
-    const options = { ...replayOptions, budget: { maxTokens: 100 } };
-    const { session, events, emit } = await startSession(new ScriptedEnvironment(), options);
-    await emit(...turn(200));
-
-    await session.send({ type: "answerPermission", requestId: "budget-1", optionId: "stop" });
-
-    expect(events.slice(-2).map((event) => [event.type, event.payload])).toEqual([
-      ["permission.resolved", { requestId: "budget-1", outcome: "denied", optionId: "stop" }],
-      ["session.ended", { reason: "stopped", exitCode: 0 }],
-    ]);
   });
 
   it("answers a pending permission once and reports how it was resolved", async () => {
@@ -388,7 +294,11 @@ describe("session", () => {
   it("refuses to resume on a harness that cannot, rather than starting a fresh session", async () => {
     const environment = new ScriptedEnvironment();
     const options = { ...replayOptions, resumeSessionId: "earlier" };
-    const { events } = await startSession(environment, options);
+    const session = new HarnessSession(options, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await session.send({ type: "start" });
 
     expect(environment.request).toBeUndefined();
     expect(events.map((event) => [event.type, event.payload])).toEqual([

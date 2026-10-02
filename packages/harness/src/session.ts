@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
   AdapterCapabilities,
-  Budget,
   PermissionOption,
   PlanStep,
   Question,
@@ -12,24 +11,12 @@ import type {
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
-import type {
-  Adapter,
-  AdapterEvent,
-  AdapterTurnEnd,
-  LaunchOptions,
-  Translation,
-  Translator,
-} from "./adapter.ts";
+import type { Adapter, AdapterEvent, LaunchOptions, Translation, Translator } from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
 const STOP_GRACE_MS = 3000;
 const UNREADABLE_LINE_CHARS = 500;
-
-const BUDGET_OPTIONS: PermissionOption[] = [
-  { optionId: "continue", label: "Continue with the same budget again", kind: "allow_once" },
-  { optionId: "stop", label: "Stop the agent", kind: "reject_once" },
-];
 
 type SessionState = "created" | "starting" | "active" | "stopping" | "failing" | "ended";
 
@@ -53,23 +40,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-interface Spending {
-  tokens: number;
-  costUsd: number;
-}
-
-function describeSpending(spent: Spending, limit: Budget): string {
-  const parts: string[] = [];
-  if (limit.maxTokens !== undefined) {
-    const used = spent.tokens.toLocaleString("en-US");
-    parts.push(`${used} of ${limit.maxTokens.toLocaleString("en-US")} tokens`);
-  }
-  if (limit.maxCostUsd !== undefined) {
-    parts.push(`$${spent.costUsd.toFixed(2)} of $${limit.maxCostUsd.toFixed(2)}`);
-  }
-  return parts.join(" and ");
-}
-
 export class HarnessSession implements Session {
   readonly id = randomUUID();
   readonly capabilities: AdapterCapabilities;
@@ -90,11 +60,6 @@ export class HarnessSession implements Session {
   #process: RunningProcess | undefined;
   #turnId: string | undefined;
   #plan: PlanStep[] = [];
-  #totalCostUsd = 0;
-  #spentTokens = 0;
-  #limit: Budget;
-  #budgetRequests = 0;
-  #budgetRequestId: string | undefined;
 
   constructor(options: SessionOptions, adapter: Adapter, environment: Environment) {
     const workspacePath = environment.toEnvironmentPath(options.workspacePath ?? process.cwd());
@@ -103,7 +68,6 @@ export class HarnessSession implements Session {
     this.#environment = environment;
     this.#translator = adapter.createTranslator(this.#options);
     this.capabilities = adapter.capabilities;
-    this.#limit = options.budget ?? {};
   }
 
   subscribe(listener: SessionListener): () => void {
@@ -117,15 +81,13 @@ export class HarnessSession implements Session {
         return this.#start();
       case "prompt":
         this.#requireActive("prompt");
-        if (this.#budgetRequestId !== undefined) {
-          throw new SessionStateError("Cannot prompt until the budget request is answered.");
-        }
         this.#emit({ type: "message", payload: { role: "user", text: command.text } });
         this.#apply(this.#translator.prompt(command.text));
         return;
       case "answerPermission":
         this.#requireActive("answer a permission");
-        return this.#answerPermission(command.requestId, command.optionId);
+        this.#answerPermission(command.requestId, command.optionId);
+        return;
       case "answerQuestion":
         this.#requireActive("answer a question");
         this.#answerQuestion(command.requestId, command.answers);
@@ -177,7 +139,7 @@ export class HarnessSession implements Session {
     this.#emit({ type: "error", payload: { message, fatal: false } });
   }
 
-  async #answerPermission(requestId: string, optionId: string): Promise<void> {
+  #answerPermission(requestId: string, optionId: string): void {
     const option = this.#pendingPermissions.get(requestId)?.find((o) => o.optionId === optionId);
     if (option === undefined) {
       throw new SessionStateError(
@@ -185,44 +147,9 @@ export class HarnessSession implements Session {
       );
     }
     this.#pendingPermissions.delete(requestId);
+    this.#apply(this.#translator.answerPermission(requestId, option));
     const outcome = option.kind.startsWith("allow") ? "allowed" : "denied";
-    if (requestId !== this.#budgetRequestId) {
-      this.#apply(this.#translator.answerPermission(requestId, option));
-      this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
-      return;
-    }
-    this.#budgetRequestId = undefined;
     this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
-    if (outcome === "denied") return this.#stop();
-    const { maxTokens, maxCostUsd } = this.#options.budget ?? {};
-    this.#limit = {
-      ...(maxTokens === undefined ? {} : { maxTokens: this.#spentTokens + maxTokens }),
-      ...(maxCostUsd === undefined ? {} : { maxCostUsd: this.#totalCostUsd + maxCostUsd }),
-    };
-  }
-
-  // A harness reports its usage when a turn ends, so that is when the budget is checked. The
-  // request is the session's own: the harness never sees it.
-  #checkBudget(): void {
-    const { maxTokens, maxCostUsd } = this.#limit;
-    const exceeded =
-      (maxTokens !== undefined && this.#spentTokens >= maxTokens) ||
-      (maxCostUsd !== undefined && this.#totalCostUsd >= maxCostUsd);
-    if (!exceeded || this.#budgetRequestId !== undefined) return;
-    this.#budgetRequests += 1;
-    const requestId = `budget-${this.#budgetRequests}`;
-    const spent = { tokens: this.#spentTokens, costUsd: this.#totalCostUsd };
-    this.#budgetRequestId = requestId;
-    this.#pendingPermissions.set(requestId, BUDGET_OPTIONS);
-    this.#emit({
-      type: "permission.requested",
-      payload: {
-        requestId,
-        title: `Budget reached: ${describeSpending(spent, this.#limit)} used. Continue?`,
-        input: { spent, limit: this.#limit },
-        options: BUDGET_OPTIONS,
-      },
-    });
   }
 
   #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
@@ -302,7 +229,6 @@ export class HarnessSession implements Session {
         break;
       case "turn.ended":
         this.#endTurn(event.payload);
-        this.#checkBudget();
         break;
       case "plan.updated":
         this.#plan = event.payload.steps;
@@ -354,19 +280,10 @@ export class HarnessSession implements Session {
     return stepInProgress === undefined ? payload : { ...payload, planStepId: stepInProgress.id };
   }
 
-  #endTurn({ outcome, usage, totalCostUsd }: AdapterTurnEnd): void {
+  #endTurn(payload: Extract<AdapterEvent, { type: "turn.ended" }>["payload"]): void {
     const turnId = this.#turnId ?? randomUUID();
     this.#turnId = undefined;
-    const costUsd =
-      totalCostUsd === undefined ? undefined : Math.max(0, totalCostUsd - this.#totalCostUsd);
-    this.#totalCostUsd = totalCostUsd ?? this.#totalCostUsd;
-    if (usage === undefined) {
-      this.#emit({ type: "turn.ended", payload: { turnId, outcome } });
-      return;
-    }
-    this.#spentTokens += usage.inputTokens - (usage.cachedInputTokens ?? 0) + usage.outputTokens;
-    const reported = costUsd === undefined ? usage : { ...usage, costUsd };
-    this.#emit({ type: "turn.ended", payload: { turnId, outcome, usage: reported } });
+    this.#emit({ type: "turn.ended", payload: { ...payload, turnId } });
   }
 
   // A harness that reported a fatal error cannot continue, so its process is not left running.
