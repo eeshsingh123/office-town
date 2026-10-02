@@ -107,18 +107,21 @@ export class ClaudeTranslator implements Translator {
     return handler === undefined ? translated([]) : handler(message);
   }
 
-  prompt(text: string): string[] {
-    return [
-      JSON.stringify({
-        type: "user",
-        message: { role: "user", content: text },
-        parent_tool_use_id: null,
-        session_id: "",
-      }),
-    ];
+  prompt(text: string): Translation {
+    return translated(
+      [],
+      [
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: text },
+          parent_tool_use_id: null,
+          session_id: "",
+        }),
+      ],
+    );
   }
 
-  answerPermission(requestId: string, option: PermissionOption): string[] {
+  answerPermission(requestId: string, option: PermissionOption): Translation {
     const pending = this.#pendingPermissions.get(requestId);
     if (pending === undefined) throw new Error(`Unknown permission request "${requestId}".`);
     this.#pendingPermissions.delete(requestId);
@@ -129,27 +132,33 @@ export class ClaudeTranslator implements Translator {
       reject_once: { behavior: "deny", message: "The user denied this action." },
       reject_always: { behavior: "deny", message: "The user denied this action." },
     };
-    return [
-      JSON.stringify({
-        type: "control_response",
-        response: {
-          subtype: "success",
-          request_id: requestId,
-          response: decisions[option.kind],
-        },
-      }),
-    ];
+    return translated(
+      [],
+      [
+        JSON.stringify({
+          type: "control_response",
+          response: {
+            subtype: "success",
+            request_id: requestId,
+            response: decisions[option.kind],
+          },
+        }),
+      ],
+    );
   }
 
-  interrupt(): string[] {
+  interrupt(): Translation {
     this.#interrupts += 1;
-    return [
-      JSON.stringify({
-        type: "control_request",
-        request_id: `interrupt-${this.#interrupts}`,
-        request: { subtype: "interrupt" },
-      }),
-    ];
+    return translated(
+      [],
+      [
+        JSON.stringify({
+          type: "control_request",
+          request_id: `interrupt-${this.#interrupts}`,
+          request: { subtype: "interrupt" },
+        }),
+      ],
+    );
   }
 
   // The CLI reports init at the start of every turn, not only the first.
