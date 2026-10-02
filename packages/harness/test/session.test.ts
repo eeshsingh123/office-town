@@ -14,9 +14,12 @@ const passthroughAdapter: Adapter = {
     open: () => [],
     receive: (line) =>
       ({ events: JSON.parse(line) as AdapterEvent[], outgoing: [] }) as Translation,
-    prompt: (text) => [text],
-    answerPermission: (requestId, option) => [`${requestId}:${option.optionId}`],
-    interrupt: () => ["interrupt"],
+    prompt: (text) => ({ events: [], outgoing: [text] }),
+    answerPermission: (requestId, option) => ({
+      events: [],
+      outgoing: [`${requestId}:${option.optionId}`],
+    }),
+    interrupt: () => ({ events: [], outgoing: ["interrupt"] }),
   }),
 };
 

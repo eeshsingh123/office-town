@@ -28,9 +28,9 @@ export interface Translation {
 export interface Translator {
   open(): string[];
   receive(line: string): Translation;
-  prompt(text: string): string[];
-  answerPermission(requestId: string, option: PermissionOption): string[];
-  interrupt(): string[];
+  prompt(text: string): Translation;
+  answerPermission(requestId: string, option: PermissionOption): Translation;
+  interrupt(): Translation;
 }
 
 export interface Adapter {

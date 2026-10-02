@@ -1,0 +1,182 @@
+import path from "node:path";
+import type { SessionEvent } from "@office-town/contract";
+import { describe, expect, it } from "vitest";
+import { opencodeAdapter } from "../src/adapters/opencode/adapter.ts";
+import { describeAdapterConformance } from "./support/conformance.ts";
+import { loadRecording, replay, replayOptions } from "./support/replay.ts";
+
+const recording = (name: string) =>
+  loadRecording(path.join(import.meta.dirname, "fixtures", "opencode", `${name}.jsonl`));
+
+const recordings = {
+  "write-allowed": recording("write-allowed"),
+  "write-denied": recording("write-denied"),
+  "plan-and-subagent": recording("plan-and-subagent"),
+  "two-turns": recording("two-turns"),
+  "interrupt-pending-permission": recording("interrupt-pending-permission"),
+};
+
+describeAdapterConformance(opencodeAdapter, recordings);
+
+function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
+  return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
+}
+
+function configOf(options: Parameters<typeof opencodeAdapter.buildCommand>[0]) {
+  const command = opencodeAdapter.buildCommand(options);
+  return JSON.parse(command.env?.OPENCODE_CONFIG_CONTENT ?? "{}");
+}
+
+describe("opencode adapter", () => {
+  it("passes permission mode and model as inline config, leaving the user's config alone", () => {
+    expect(opencodeAdapter.buildCommand(replayOptions)).toMatchObject({
+      binary: "opencode",
+      args: ["acp"],
+    });
+    expect(configOf(replayOptions)).toEqual({
+      permission: { edit: "ask", bash: "ask", webfetch: "ask" },
+    });
+    expect(configOf({ ...replayOptions, permissionMode: "acceptEdits", model: "a/b" })).toEqual({
+      permission: { edit: "allow", bash: "ask", webfetch: "ask" },
+      model: "a/b",
+    });
+  });
+
+  it("performs the handshake, then sends the prompt once the session exists", async () => {
+    const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
+
+    expect(written.slice(0, 3).map((line) => JSON.parse(line).method)).toEqual([
+      "initialize",
+      "session/new",
+      "session/prompt",
+    ]);
+    expect(only(events, "session.started")[0]?.payload).toEqual({
+      harnessSessionId: "ses_f02f3e6afffe7FEhhi26uQhMlv",
+      model: "opencode/big-pickle",
+    });
+  });
+
+  it("starts an action once its input is known and passes the harness's options through", async () => {
+    const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
+
+    const [write, shell] = only(events, "action.started");
+    expect(write?.payload).toMatchObject({
+      kind: "edit",
+      title: "write",
+      input: { content: "hi", filePath: "C:\\work\\hello.txt" },
+    });
+    expect(shell?.payload).toMatchObject({ kind: "execute", title: "echo done" });
+
+    const [request] = only(events, "permission.requested");
+    expect(request?.payload.actionId).toBe(write?.payload.actionId);
+    expect(request?.payload.options).toEqual([
+      { optionId: "once", label: "Allow once", kind: "allow_once" },
+      { optionId: "always", label: "Always allow", kind: "allow_always" },
+      { optionId: "reject", label: "Reject", kind: "reject_once" },
+    ]);
+    expect(written.map((line) => JSON.parse(line))).toContainEqual({
+      jsonrpc: "2.0",
+      id: 0,
+      result: { outcome: { outcome: "selected", optionId: "once" } },
+    });
+  });
+
+  it("joins streamed fragments into whole messages and reasoning", async () => {
+    const allowed = await replay(opencodeAdapter, recordings["write-allowed"]);
+    const denied = await replay(opencodeAdapter, recordings["write-denied"]);
+
+    const replies = only(allowed.events, "message").filter((e) => e.payload.role === "assistant");
+    expect(replies.map((event) => event.payload.text)).toEqual([
+      'Created hello.txt with "hi"\ndone',
+    ]);
+    expect(only(denied.events, "reasoning")).toHaveLength(1);
+    expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
+  });
+
+  it("reports streamed command output once, then the result", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
+
+    expect(only(events, "action.updated").map((event) => event.payload.output)).toEqual(["done\n"]);
+    expect(only(events, "action.ended").map((event) => event.payload.result)).toEqual([
+      "Wrote file successfully.",
+      "done\n",
+    ]);
+  });
+
+  it("fails the action when the user denies it", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
+
+    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
+    expect(only(events, "action.ended")[0]?.payload.outcome).toBe("failed");
+  });
+
+  it("reads the todo list as the plan and a sub-agent call as a delegation", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["plan-and-subagent"]);
+
+    expect(only(events, "plan.updated").map((event) => event.payload.steps)).toEqual([
+      [
+        { id: "1", title: "look at files", status: "in_progress" },
+        { id: "2", title: "report", status: "pending" },
+      ],
+      [
+        { id: "1", title: "look at files", status: "completed" },
+        { id: "2", title: "report", status: "completed" },
+      ],
+    ]);
+    expect(only(events, "action.started").map((event) => event.payload)).toEqual([
+      expect.objectContaining({ kind: "delegate", title: "Glob for txt files", planStepId: "1" }),
+    ]);
+  });
+
+  it("answers a pending permission as cancelled when interrupted, and stays usable", async () => {
+    const { events, written } = await replay(
+      opencodeAdapter,
+      recordings["interrupt-pending-permission"],
+    );
+
+    expect(written.map((line) => JSON.parse(line))).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ method: "session/cancel" }),
+        { jsonrpc: "2.0", id: 0, result: { outcome: { outcome: "cancelled" } } },
+      ]),
+    );
+    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("cancelled");
+    expect(only(events, "turn.ended").map((event) => event.payload.outcome)).toEqual([
+      "interrupted",
+      "completed",
+    ]);
+  });
+
+  it("holds a second prompt until the turn in progress ends", async () => {
+    const [initialized, created, firstPrompt, ...rest] = recordings["two-turns"];
+    const { written } = await replay(opencodeAdapter, [
+      initialized,
+      created,
+      firstPrompt,
+      { send: { type: "prompt", text: "queued" } },
+      ...rest.filter((entry) => "receive" in entry),
+    ] as typeof rest);
+
+    const prompts = written
+      .map((line) => JSON.parse(line))
+      .filter((message) => message.method === "session/prompt");
+    expect(prompts.map((message) => message.params.prompt[0].text)).toEqual([
+      "Run the shell command: sleep 20",
+      "queued",
+    ]);
+    expect(written.findIndex((line) => line.includes("queued"))).toBeGreaterThan(
+      written.findIndex((line) => line.includes('"optionId":"once"')),
+    );
+  });
+
+  it("ends the session as failed when the harness rejects the handshake", async () => {
+    const { events } = await replay(opencodeAdapter, [
+      { receive: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "Not logged in" } } },
+    ]);
+
+    expect(events.map((event) => [event.type, event.payload])).toEqual([
+      ["error", { message: 'The harness rejected "initialize": Not logged in', fatal: true }],
+      ["session.ended", { reason: "failed", exitCode: null }],
+    ]);
+  });
+});

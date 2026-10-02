@@ -9,14 +9,14 @@ import type {
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
-import type { Adapter, AdapterEvent, Translator } from "./adapter.ts";
+import type { Adapter, AdapterEvent, Translation, Translator } from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
 const STOP_GRACE_MS = 3000;
 const UNREADABLE_LINE_CHARS = 500;
 
-type SessionState = "created" | "starting" | "active" | "stopping" | "ended";
+type SessionState = "created" | "starting" | "active" | "stopping" | "failing" | "ended";
 
 export type SessionListener = (event: SessionEvent) => void;
 
@@ -73,11 +73,18 @@ export class HarnessSession implements Session {
       case "start":
         return this.#start();
       case "prompt":
-        return this.#prompt(command.text);
+        this.#requireActive("prompt");
+        this.#emit({ type: "message", payload: { role: "user", text: command.text } });
+        this.#apply(this.#translator.prompt(command.text));
+        return;
       case "answerPermission":
-        return this.#answerPermission(command.requestId, command.optionId);
+        this.#requireActive("answer a permission");
+        this.#answerPermission(command.requestId, command.optionId);
+        return;
       case "interrupt":
-        return this.#write(this.#translator.interrupt(), "interrupt");
+        this.#requireActive("interrupt");
+        this.#apply(this.#translator.interrupt());
+        return;
       case "stop":
         return this.#stop();
     }
@@ -104,12 +111,7 @@ export class HarnessSession implements Session {
       return;
     }
     this.#state = "active";
-    this.#write(this.#translator.open(), "start");
-  }
-
-  #prompt(text: string): void {
-    this.#write(this.#translator.prompt(text), "prompt");
-    this.#emit({ type: "message", payload: { role: "user", text } });
+    this.#apply({ events: [], outgoing: this.#translator.open() });
   }
 
   #answerPermission(requestId: string, optionId: string): void {
@@ -119,8 +121,8 @@ export class HarnessSession implements Session {
         `No pending permission "${requestId}" with option "${optionId}".`,
       );
     }
-    this.#write(this.#translator.answerPermission(requestId, option), "answer a permission");
     this.#pendingPermissions.delete(requestId);
+    this.#apply(this.#translator.answerPermission(requestId, option));
     const outcome = option.kind.startsWith("allow") ? "allowed" : "denied";
     this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
   }
@@ -142,15 +144,19 @@ export class HarnessSession implements Session {
     await this.#ended.promise;
   }
 
-  #write(lines: string[], action: string): void {
-    if (this.#state !== "active" || this.#process === undefined) {
+  #requireActive(action: string): void {
+    if (this.#state !== "active") {
       throw new SessionStateError(`Cannot ${action} while the session is ${this.#state}.`);
     }
-    for (const line of lines) this.#process.writeLine(line);
+  }
+
+  #apply(translation: Translation): void {
+    for (const event of translation.events) this.#publish(event);
+    for (const line of translation.outgoing) this.#process?.writeLine(line);
   }
 
   #receive(line: string): void {
-    let translation: ReturnType<Translator["receive"]>;
+    let translation: Translation;
     try {
       translation = this.#translator.receive(line);
     } catch (error) {
@@ -164,8 +170,7 @@ export class HarnessSession implements Session {
       });
       return;
     }
-    for (const event of translation.events) this.#publish(event);
-    for (const outgoing of translation.outgoing) this.#process?.writeLine(outgoing);
+    this.#apply(translation);
   }
 
   #publish(event: AdapterEvent): void {
@@ -192,6 +197,10 @@ export class HarnessSession implements Session {
         this.#pendingPermissions.delete(event.payload.requestId);
         this.#emit(event);
         break;
+      case "error":
+        this.#emit(event);
+        if (event.payload.fatal) this.#abandon();
+        break;
       default:
         this.#emit(event);
     }
@@ -209,15 +218,25 @@ export class HarnessSession implements Session {
     this.#emit({ type: "turn.ended", payload: { ...payload, turnId } });
   }
 
+  // A harness that reported a fatal error cannot continue, so its process is not left running.
+  #abandon(): void {
+    if (this.#state !== "active" || this.#process === undefined) return;
+    this.#state = "failing";
+    this.#process.killTree().catch((error: unknown) => {
+      this.#emit({ type: "error", payload: { message: errorMessage(error), fatal: true } });
+    });
+  }
+
   #handleExit(exit: ProcessExit, stderrTail: string): void {
-    const stopping = this.#state === "stopping";
+    const state = this.#state;
+    const stopping = state === "stopping";
     for (const requestId of this.#pendingPermissions.keys()) {
       this.#emit({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#pendingPermissions.clear();
     if (this.#turnId !== undefined) this.#endTurn({ outcome: stopping ? "interrupted" : "failed" });
-    if (stopping || exit.code === 0) {
-      this.#end(stopping ? "stopped" : "exited", exit.code);
+    if (stopping || state === "failing" || exit.code === 0) {
+      this.#end(stopping ? "stopped" : state === "failing" ? "failed" : "exited", exit.code);
       return;
     }
     this.#emit({
