@@ -1,6 +1,14 @@
-# Bullpen (working name)
+# Office Town (working name)
 
-Desktop app where a user describes a task and a team of AI agents plans, delegates and executes it inside a shared 2D virtual office. Agents run on the user's own CLI harness subscriptions (Claude Code, Codex, Antigravity, OpenCode); the app replaces the terminal with a visual, interactive layer.
+Open-source desktop app where a user describes a task and a team of AI agents plans, delegates and executes it, shown as a command center of departments and employees. Agents run on the user's own CLI harness subscriptions (Claude Code, Codex, Antigravity, OpenCode).
+
+## Product principles
+
+- No terminals in the app. We drive each vendor's unmodified CLI binary and render its structured output as a clean interface.
+- Traceability: for every agent (employee) it is always clear what it is working on, which step it is on, and what it is blocked on.
+- Cross-harness teams are the differentiator: a lead on one harness delegates to workers on another.
+- Human in the loop is essential, never an afterthought.
+- Reachable on free and low-cost models, not only premium subscriptions.
 
 ## Source of truth
 
