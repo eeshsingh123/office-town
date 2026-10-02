@@ -7,6 +7,6 @@ export type AcpHarness = Pick<Adapter, "harness" | "capabilities" | "buildComman
 export function createAcpAdapter(harness: AcpHarness): Adapter {
   return {
     ...harness,
-    createTranslator: (options) => new AcpTranslator(options.workspacePath ?? process.cwd()),
+    createTranslator: (options) => new AcpTranslator(options.workspacePath),
   };
 }

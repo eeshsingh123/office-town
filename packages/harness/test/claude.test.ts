@@ -54,7 +54,11 @@ describe("claude adapter", () => {
       "session.ended",
     ]);
     const [write, shell] = only(events, "action.started");
-    expect(write?.payload).toMatchObject({ kind: "edit", title: "Write: C:\\work\\hello.txt" });
+    expect(write?.payload).toMatchObject({
+      kind: "edit",
+      title: "Write: C:\\work\\hello.txt",
+      locations: ["C:\\work\\hello.txt"],
+    });
     expect(shell?.payload).toMatchObject({ kind: "execute", title: "Bash: Run echo done command" });
 
     const [request] = only(events, "permission.requested");

@@ -66,6 +66,7 @@ const payloadSchemas = {
     kind: actionKindSchema,
     title: z.string(),
     input: z.unknown(),
+    locations: z.array(z.string()).optional(),
     parentActionId: z.string().optional(),
     planStepId: z.string().optional(),
   }),

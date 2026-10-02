@@ -14,6 +14,10 @@ export type AdapterEvent =
   | { type: "turn.started" }
   | { type: "turn.ended"; payload: Omit<BodyOf<"turn.ended">["payload"], "turnId"> };
 
+// What an adapter is given: the session options with the workspace already resolved to a path
+// inside the environment the harness runs in.
+export type LaunchOptions = SessionOptions & { workspacePath: string };
+
 export interface HarnessCommand {
   binary: string;
   args: string[];
@@ -36,6 +40,6 @@ export interface Translator {
 export interface Adapter {
   readonly harness: string;
   readonly capabilities: AdapterCapabilities;
-  buildCommand(options: SessionOptions): HarnessCommand;
-  createTranslator(options: SessionOptions): Translator;
+  buildCommand(options: LaunchOptions): HarnessCommand;
+  createTranslator(options: LaunchOptions): Translator;
 }

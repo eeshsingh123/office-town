@@ -77,6 +77,21 @@ describe("session", () => {
     expect(started.map((event) => event.payload.planStepId)).toEqual([undefined, "2", undefined]);
   });
 
+  it("hands the adapter environment paths and reports locations as host paths", async () => {
+    const environment = new ScriptedEnvironment();
+    environment.toEnvironmentPath = (hostPath) => `inside:${hostPath}`;
+    environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
+    const { events, emit } = await startSession(environment);
+
+    await emit({
+      type: "action.started",
+      payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x/file"] },
+    });
+
+    expect(environment.request?.cwd).toBe("inside:/workspace");
+    expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
+  });
+
   it("gives each turn an id shared by its start and end", async () => {
     const { events, emit } = await startSession();
 
@@ -123,9 +138,8 @@ describe("session", () => {
   });
 
   it("reports a harness that cannot be launched and ends the session as failed", async () => {
-    const environment: Environment = {
-      launch: () => Promise.reject(new Error("not installed")),
-    };
+    const environment = new ScriptedEnvironment();
+    environment.launch = () => Promise.reject(new Error("not installed"));
     const { events } = await startSession(environment);
 
     expect(events.map((event) => [event.type, event.payload])).toEqual([

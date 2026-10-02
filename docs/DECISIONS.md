@@ -95,3 +95,18 @@ Consequence for M4: isolation must also cover what the harness loads by itself (
 Packages export their `.ts` sources; Node 24 runs them natively by stripping types, and `tsc` only typechecks. No `dist`, no watch process, no build order between packages.
 Why: nothing consumes compiled output until the desktop app is packaged (M3), and a bundler will produce that. Until then a build step is only a way for stale output to cause confusing bugs.
 Cost: only erasable TypeScript syntax (no `enum`, no parameter properties), enforced by `erasableSyntaxOnly`; relative imports carry the `.ts` extension.
+
+## D-20 Translators do no I/O and are tested by replaying real recordings — proposed (2026-10-02)
+
+A translator is a state machine: native lines in, events and lines out. The session owns the process. The JSON-RPC peer follows the same rule.
+Why: every adapter is tested by feeding it output recorded from the real CLI, with no subscription and no process, and all adapters run one conformance suite (D-13). Recordings live in `packages/harness/test/fixtures/<harness>`; a CLI upgrade that changes the format is caught by re-recording.
+
+## D-21 Paths are translated at the session, as explicit locations — proposed (2026-10-02)
+
+The session gives the adapter the workspace as the environment sees it, and reports the files an action touches in `action.started.locations` as the host sees them. The harness's raw `input` and text are never rewritten.
+Why: rewriting paths inside free text would also rewrite commands the agent really ran with Linux paths, which makes the trace lie. A separate field lets the UI open files while the record stays faithful.
+
+## D-22 A WSL process tree is killed by launch marker — proposed (2026-10-02)
+
+Each WSL launch carries a unique environment variable; stopping kills every process in the distro that has it, then the `wsl.exe` relay.
+Why: measured on the owner's machine, killing the relay alone leaves detached children (`setsid`, `nohup`) running. Children inherit the variable, so the marker reaches them without tracking pids across the boundary.

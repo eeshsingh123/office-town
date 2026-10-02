@@ -9,7 +9,7 @@ import type {
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
-import type { Adapter, AdapterEvent, Translation, Translator } from "./adapter.ts";
+import type { Adapter, AdapterEvent, LaunchOptions, Translation, Translator } from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
@@ -42,7 +42,7 @@ export class HarnessSession implements Session {
   readonly id = randomUUID();
   readonly capabilities: AdapterCapabilities;
 
-  readonly #options: SessionOptions;
+  readonly #options: LaunchOptions;
   readonly #adapter: Adapter;
   readonly #environment: Environment;
   readonly #translator: Translator;
@@ -56,10 +56,11 @@ export class HarnessSession implements Session {
   #plan: PlanStep[] = [];
 
   constructor(options: SessionOptions, adapter: Adapter, environment: Environment) {
-    this.#options = options;
+    const workspacePath = environment.toEnvironmentPath(options.workspacePath ?? process.cwd());
+    this.#options = { ...options, workspacePath };
     this.#adapter = adapter;
     this.#environment = environment;
-    this.#translator = adapter.createTranslator(options);
+    this.#translator = adapter.createTranslator(this.#options);
     this.capabilities = adapter.capabilities;
   }
 
@@ -95,10 +96,9 @@ export class HarnessSession implements Session {
       throw new SessionStateError(`Cannot start a session that is ${this.#state}.`);
     }
     this.#state = "starting";
-    const { workspacePath } = this.#options;
     const request = {
       ...this.#adapter.buildCommand(this.#options),
-      ...(workspacePath === undefined ? {} : { cwd: workspacePath }),
+      cwd: this.#options.workspacePath,
     };
     try {
       this.#process = await runProcess(this.#environment, request, {
@@ -187,7 +187,7 @@ export class HarnessSession implements Session {
         this.#emit(event);
         break;
       case "action.started":
-        this.#emit({ ...event, payload: this.#attributeToPlan(event.payload) });
+        this.#emit({ ...event, payload: this.#attributeToPlan(this.#onHost(event.payload)) });
         break;
       case "permission.requested":
         this.#pendingPermissions.set(event.payload.requestId, event.payload.options);
@@ -204,6 +204,13 @@ export class HarnessSession implements Session {
       default:
         this.#emit(event);
     }
+  }
+
+  // The harness reports paths as it sees them; the caller needs them as the host sees them.
+  #onHost<P extends { locations?: string[] | undefined }>(payload: P): P {
+    if (payload.locations === undefined) return payload;
+    const locations = payload.locations.map((path) => this.#environment.toHostPath(path));
+    return { ...payload, locations };
   }
 
   #attributeToPlan<P extends { parentActionId?: string | undefined }>(payload: P): P {

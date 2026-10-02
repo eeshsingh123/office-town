@@ -33,6 +33,7 @@ export const toolCallSchema = z.looseObject({
   kind: z.string().optional(),
   status: z.string().optional(),
   rawInput: z.unknown().optional(),
+  locations: z.array(z.looseObject({ path: z.string() })).nullish(),
   content: z
     .array(
       z.looseObject({

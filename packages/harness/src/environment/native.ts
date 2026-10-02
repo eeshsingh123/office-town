@@ -68,4 +68,12 @@ export class NativeEnvironment implements Environment {
     };
     return { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr, exited, killTree };
   }
+
+  toEnvironmentPath(hostPath: string): string {
+    return hostPath;
+  }
+
+  toHostPath(environmentPath: string): string {
+    return environmentPath;
+  }
 }

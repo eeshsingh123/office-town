@@ -64,6 +64,7 @@ describe("opencode adapter", () => {
       kind: "edit",
       title: "write",
       input: { content: "hi", filePath: "C:\\work\\hello.txt" },
+      locations: ["C:\\work\\hello.txt"],
     });
     expect(shell?.payload).toMatchObject({ kind: "execute", title: "echo done" });
 

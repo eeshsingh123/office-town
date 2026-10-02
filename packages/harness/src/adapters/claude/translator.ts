@@ -45,6 +45,7 @@ const ACTION_KINDS: Record<string, ActionKind> = {
 };
 
 const PLAN_TOOLS = new Set(["TaskCreate", "TaskUpdate"]);
+const LOCATION_FIELDS = ["file_path", "notebook_path", "path"];
 const TITLE_FIELDS = ["description", "file_path", "pattern", "command", "url", "query"];
 const STEP_STATUSES = new Set<string>(["pending", "in_progress", "completed"]);
 
@@ -61,6 +62,13 @@ const PERMISSION_OPTIONS = {
 function titleOf(name: string, input: Record<string, unknown>): string {
   const detail = TITLE_FIELDS.map((field) => input[field]).find((v) => typeof v === "string");
   return detail === undefined ? name : `${name}: ${detail}`;
+}
+
+function locationsOf(input: Record<string, unknown>): { locations?: string[] } {
+  const locations = LOCATION_FIELDS.map((field) => input[field]).filter(
+    (v) => typeof v === "string",
+  );
+  return locations.length > 0 ? { locations } : {};
 }
 
 function textOf(content: ToolResultContent | undefined): string {
@@ -211,6 +219,7 @@ export class ClaudeTranslator implements Translator {
           kind: ACTION_KINDS[block.name] ?? "other",
           title: titleOf(block.name, block.input),
           input: block.input,
+          ...locationsOf(block.input),
           ...parent,
         },
       },
