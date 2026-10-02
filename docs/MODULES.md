@@ -86,10 +86,14 @@ Out of scope: UI, departments and delegation, connectors, cloud sync, any extern
 
 `packages/service` consumes `packages/harness` and is the only thing the UI talks to. M3 starts it as a child process. M4 adds orchestration inside it, using the same store and API.
 
-### Open for discussion before M2 starts
+### Decided with the owner (2026-10-03), to be designed in the sub-module named
 
-- Retention: how long events and result files are kept, and whether the raw native messages are kept for audit.
-- Whether a workspace can be several folders or loose files, not one folder.
+- Retention (M2.1): nothing is deleted automatically. The user deletes; the app warns when the store grows large.
+- Audit copy (M2.1): the harness's raw native messages are stored as well as the events. The session does not expose them yet.
+- Workspaces (M2.4): a workspace can be several folders. A folder outside it is reached by asking the user or under full autonomy, always behind guardrails.
+
+### Open for discussion
+
 - How agents keep running with the window closed (tray, detached core, or OS service). Required; the owner wants a discussion before M3.1 is built.
 
 ---
