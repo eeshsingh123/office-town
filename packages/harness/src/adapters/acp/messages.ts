@@ -8,8 +8,9 @@ const configOptionSchema = z.looseObject({
 });
 export type ConfigOption = z.infer<typeof configOptionSchema>;
 
-export const newSessionResultSchema = z.looseObject({
-  sessionId: z.string(),
+// A resumed session answers without its id: it is the one that was asked for.
+export const sessionResultSchema = z.looseObject({
+  sessionId: z.string().optional(),
   configOptions: z.array(configOptionSchema).optional(),
 });
 

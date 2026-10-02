@@ -105,6 +105,12 @@ export class HarnessSession implements Session {
     if (this.#state !== "created") {
       throw new SessionStateError(`Cannot start a session that is ${this.#state}.`);
     }
+    if (this.#options.resumeSessionId !== undefined && !this.capabilities.resume) {
+      const message = `The "${this.#adapter.harness}" harness cannot resume a session.`;
+      this.#emit({ type: "error", payload: { message, fatal: true } });
+      this.#end("failed", null);
+      return;
+    }
     this.#state = "starting";
     this.#reportIgnoredEffort();
     const request = {

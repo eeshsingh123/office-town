@@ -61,6 +61,13 @@ export const usageLimitSchema = z.object({
 });
 export type UsageLimit = z.infer<typeof usageLimitSchema>;
 
+// A fragment of text as it is produced. The whole text always follows as a message or reasoning
+// event, so a consumer may ignore fragments entirely.
+const deltaSchema = z.object({
+  text: z.string().min(1),
+  parentActionId: z.string().optional(),
+});
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -85,6 +92,8 @@ const payloadSchemas = {
     text: z.string(),
     parentActionId: z.string().optional(),
   }),
+  "message.delta": deltaSchema,
+  "reasoning.delta": deltaSchema,
   "plan.updated": z.object({ steps: z.array(planStepSchema) }),
   "action.started": z.object({
     actionId: z.string().min(1),
@@ -153,6 +162,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("turn.ended"),
   eventOf("message"),
   eventOf("reasoning"),
+  eventOf("message.delta"),
+  eventOf("reasoning.delta"),
   eventOf("plan.updated"),
   eventOf("action.started"),
   eventOf("action.updated"),

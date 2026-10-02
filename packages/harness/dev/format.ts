@@ -18,7 +18,8 @@ function indent(parentActionId: string | undefined): string {
   return parentActionId === undefined ? "" : "    ";
 }
 
-export function formatEvent(event: SessionEvent): string {
+// Returns nothing for text fragments: the whole text is printed when it is complete.
+export function formatEvent(event: SessionEvent): string | undefined {
   switch (event.type) {
     case "session.started":
       return `session  started (${event.payload.model ?? "default model"}, id ${event.payload.harnessSessionId})`;
@@ -38,6 +39,9 @@ export function formatEvent(event: SessionEvent): string {
       return `${indent(event.payload.parentActionId)}${event.payload.role === "user" ? "you     " : "agent   "} ${event.payload.text}`;
     case "reasoning":
       return `${indent(event.payload.parentActionId)}thinking ${preview(event.payload.text)}`;
+    case "message.delta":
+    case "reasoning.delta":
+      return undefined;
     case "plan.updated":
       return event.payload.steps
         .map((step) => `plan     ${STEP_MARKS[step.status]} ${step.title}`)

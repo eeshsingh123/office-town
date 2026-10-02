@@ -27,6 +27,8 @@ const bodies: SessionEventBody[] = [
   },
   { type: "message", payload: { role: "assistant", text: "hello" } },
   { type: "reasoning", payload: { text: "thinking", parentActionId: "action-1" } },
+  { type: "message.delta", payload: { text: "hel" } },
+  { type: "reasoning.delta", payload: { text: "thin", parentActionId: "action-1" } },
   { type: "plan.updated", payload: { steps: [{ id: "1", title: "look", status: "in_progress" }] } },
   {
     type: "action.started",
@@ -113,6 +115,19 @@ describe("session options", () => {
   it("accepts the minimum a caller must choose", () => {
     const options = { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" };
     expect(sessionOptionsSchema.parse(options)).toEqual(options);
+  });
+
+  it("accepts the id of a session to resume, unless it could be read as a flag", () => {
+    const resuming = (resumeSessionId: string) =>
+      sessionOptionsSchema.safeParse({
+        harness: "claude",
+        environment: { kind: "native" },
+        permissionMode: "ask",
+        resumeSessionId,
+      }).success;
+
+    expect(resuming("0036e5e3-8459-41a1-96ac-19a516ceb281")).toBe(true);
+    expect(resuming("--dangerously-skip-permissions")).toBe(false);
   });
 
   it("requires a distro for the wsl environment", () => {

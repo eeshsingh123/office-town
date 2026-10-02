@@ -21,6 +21,7 @@ const recordings = {
   "interrupt-running": recording("interrupt-running"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "question-answered": recording("question-answered"),
+  "resumed-streamed": recording("resumed-streamed"),
 };
 
 const catalogOutput = loadLines(fixture("catalog.jsonl")).filter((line) => line !== "");
@@ -42,6 +43,29 @@ describe("claude adapter", () => {
     expect(plain.args).not.toContain("--model");
     expect(plain.args).not.toContain("--effort");
     expect(tuned.args.join(" ")).toContain("--model sonnet --effort high");
+  });
+
+  it("resumes an earlier session by its id, and reports the same id again", async () => {
+    const resumeSessionId = "0036e5e3-8459-41a1-96ac-19a516ceb281";
+    const command = claudeAdapter.buildCommand({ ...replayOptions, resumeSessionId });
+    const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
+
+    expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--resume");
+    expect(command.args.join(" ")).toContain(`--resume ${resumeSessionId}`);
+    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
+  });
+
+  it("reports a reply's text as it is produced, then the whole reply", async () => {
+    const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
+
+    const fragments = only(events, "message.delta").map((event) => event.payload.text);
+    const replies = only(events, "message").filter((e) => e.payload.role === "assistant");
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments.join("")).toBe("Mango.");
+    expect(replies.map((event) => event.payload.text)).toEqual(["Mango."]);
+    expect(events.findLastIndex((event) => event.type === "message.delta")).toBeLessThan(
+      events.findLastIndex((event) => event.type === "message"),
+    );
   });
 
   it("reads its models and their effort values from the CLI's description of itself", () => {

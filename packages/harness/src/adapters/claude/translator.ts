@@ -13,6 +13,7 @@ import {
   questionsInputSchema,
   rateLimitSchema,
   resultSchema,
+  streamEventSchema,
   type TaskUpdateInput,
   type ToolResult,
   type ToolResultContent,
@@ -153,6 +154,7 @@ export class ClaudeTranslator implements Translator {
     "system/init": (message) => this.#init(message),
     "system/task_started": (message) => this.#taskStarted(message),
     "system/task_notification": (message) => this.#taskNotification(message),
+    stream_event: (message) => this.#streamEvent(message),
     assistant: (message) => this.#assistant(message),
     user: (message) => this.#user(message),
     control_request: (message) => this.#controlRequest(message),
@@ -266,6 +268,18 @@ export class ClaudeTranslator implements Translator {
     }
     events.push({ type: "turn.started" });
     return translated(events);
+  }
+
+  #streamEvent(message: unknown): Translation {
+    const { event, parent_tool_use_id } = streamEventSchema.parse(message);
+    if (event.type !== "content_block_delta") return translated([]);
+    const parent = parentOf(parent_tool_use_id);
+    const { text, thinking } = event.delta ?? {};
+    if (text) return translated([{ type: "message.delta", payload: { text, ...parent } }]);
+    if (thinking) {
+      return translated([{ type: "reasoning.delta", payload: { text: thinking, ...parent } }]);
+    }
+    return translated([]);
   }
 
   #assistant(message: unknown): Translation {

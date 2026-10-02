@@ -291,6 +291,22 @@ describe("session", () => {
     expect(events[0]?.payload).toMatchObject({ message: expect.stringContaining('"high"') });
   });
 
+  it("refuses to resume on a harness that cannot, rather than starting a fresh session", async () => {
+    const environment = new ScriptedEnvironment();
+    const options = { ...replayOptions, resumeSessionId: "earlier" };
+    const session = new HarnessSession(options, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    await session.send({ type: "start" });
+
+    expect(environment.request).toBeUndefined();
+    expect(events.map((event) => [event.type, event.payload])).toEqual([
+      ["error", { message: 'The "replayed" harness cannot resume a session.', fatal: true }],
+      ["session.ended", { reason: "failed", exitCode: null }],
+    ]);
+  });
+
   it("lists each harness with what it supports", () => {
     expect(listHarnesses().map((description) => description.harness)).toEqual([
       "claude",

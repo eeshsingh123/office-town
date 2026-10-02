@@ -51,6 +51,16 @@ export const initializeResponseSchema = z.looseObject({
   }),
 });
 
+export const streamEventSchema = z.looseObject({
+  event: z.looseObject({
+    type: z.string(),
+    delta: z
+      .looseObject({ text: z.string().optional(), thinking: z.string().optional() })
+      .optional(),
+  }),
+  parent_tool_use_id: z.string().nullish(),
+});
+
 export const assistantSchema = z.looseObject({
   message: z.looseObject({ content: z.array(blockSchema) }),
   parent_tool_use_id: z.string().nullish(),

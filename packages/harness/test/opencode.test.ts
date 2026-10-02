@@ -177,6 +177,33 @@ describe("opencode adapter", () => {
     ]);
   });
 
+  it("resumes an earlier session instead of creating one, and reports its id", async () => {
+    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
+    const { events, written } = await replay(opencodeAdapter, recording("resumed"), {
+      ...replayOptions,
+      resumeSessionId,
+    });
+
+    const sent = written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/resume",
+      "session/prompt",
+    ]);
+    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
+    expect(sent[2].params.sessionId).toBe(resumeSessionId);
+    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
+    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
+  });
+
+  it("reports text as it is produced, then the whole text", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
+
+    const thoughts = only(events, "reasoning.delta").map((event) => event.payload.text);
+    expect(thoughts.length).toBeGreaterThan(1);
+    expect(thoughts.join("")).toBe(only(events, "reasoning")[0]?.payload.text);
+  });
+
   it("fails the action when the user denies it", async () => {
     const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
 

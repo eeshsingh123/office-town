@@ -21,6 +21,7 @@ const USAGE = `Usage: pnpm dev:run "<prompt>" [options]
   --workspace <path>          folder the agent works in (default: current folder)
   --wsl <distro>              run the harness inside this WSL distro
   --permission-mode <mode>    ${permissionModeSchema.options.join(" | ")} (default: ask)
+  --resume <session id>       continue an earlier session, by the id printed when it started
 
 While it runs: answer a permission request or a question with its number, type a follow-up
 prompt after a turn ends, or press Enter on an empty line to stop.`;
@@ -52,6 +53,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       workspace: { type: "string" },
       wsl: { type: "string" },
       "permission-mode": { type: "string", default: "ask" },
+      resume: { type: "string" },
     },
   });
   const prompt = positionals.join(" ").trim();
@@ -66,6 +68,7 @@ function readOptions(): { prompt: string; options: SessionOptions } | undefined 
       ...(values.model === undefined ? {} : { model: values.model }),
       ...(values.effort === undefined ? {} : { effort: values.effort }),
       ...(values.workspace === undefined ? {} : { workspacePath: values.workspace }),
+      ...(values.resume === undefined ? {} : { resumeSessionId: values.resume }),
     },
   };
 }
@@ -85,7 +88,8 @@ async function main(): Promise<void> {
   let ended = false;
 
   const onEvent = (event: SessionEvent): void => {
-    console.log(formatEvent(event));
+    const line = formatEvent(event);
+    if (line !== undefined) console.log(line);
     if (event.type === "permission.requested") pending.push(event.payload);
     if (event.type === "permission.resolved") {
       const index = pending.findIndex((p) => p.requestId === event.payload.requestId);
