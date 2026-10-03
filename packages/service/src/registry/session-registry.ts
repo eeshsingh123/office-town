@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { SessionCommand, SessionEvent, SessionOptions } from "@office-town/contract";
+import type {
+  AgentCommand,
+  SessionEvent,
+  SessionOptions,
+  SessionRecord,
+} from "@office-town/contract";
 import {
   createSession as createHarnessSession,
   type HarnessLine,
@@ -8,7 +13,6 @@ import {
 import {
   type NewSession,
   RecordNotFoundError,
-  type SessionRecord,
   type Store,
   type StoredEvent,
 } from "../store/store.ts";
@@ -22,9 +26,6 @@ export interface PublishedEvent {
 }
 
 export type RegistryListener = (published: PublishedEvent) => void;
-
-// Starting and stopping belong to the registry, so only these reach a running session.
-export type AgentCommand = Exclude<SessionCommand, { type: "start" | "stop" }>;
 
 export class SessionNotRunningError extends Error {
   constructor(id: string) {

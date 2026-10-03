@@ -1,29 +1,11 @@
-import type { SessionEvent, SessionOptions } from "@office-town/contract";
-
-export interface TaskRecord {
-  id: string;
-  prompt: string;
-  createdAt: string;
-}
-
-export type SessionStatus =
-  | "starting"
-  | "running"
-  | "stopped"
-  | "exited"
-  | "failed"
-  | "interrupted";
-
-export interface SessionRecord {
-  id: string;
-  taskId: string;
-  options: SessionOptions;
-  status: SessionStatus;
-  createdAt: string;
-  harnessSessionId?: string;
-  resumedFrom?: string;
-  endedAt?: string;
-}
+import type {
+  SessionEvent,
+  SessionOptions,
+  SessionRecord,
+  StoreSize,
+  TaskPage,
+  TaskRecord,
+} from "@office-town/contract";
 
 export interface NewSession {
   id: string;
@@ -47,17 +29,6 @@ export interface EventQuery {
 export interface TaskQuery {
   limit: number;
   cursor?: string;
-}
-
-// `next` is set while more tasks may follow; it is passed back as the cursor for the next page.
-export interface TaskPage {
-  tasks: TaskRecord[];
-  next?: string;
-}
-
-export interface StoreSize {
-  databaseBytes: number;
-  resultBytes: number;
 }
 
 export type LineDirection = "in" | "out";
