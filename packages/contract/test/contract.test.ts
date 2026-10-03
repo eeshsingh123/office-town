@@ -35,7 +35,15 @@ const bodies: SessionEventBody[] = [
     payload: { actionId: "action-1", kind: "execute", title: "ls", input: { command: "ls" } },
   },
   { type: "action.updated", payload: { actionId: "action-1", output: "partial" } },
-  { type: "action.ended", payload: { actionId: "action-1", outcome: "completed", result: "ok" } },
+  {
+    type: "action.ended",
+    payload: {
+      actionId: "action-1",
+      outcome: "completed",
+      result: "ok",
+      overflow: { bytes: 40000, truncated: false },
+    },
+  },
   {
     type: "permission.requested",
     payload: {

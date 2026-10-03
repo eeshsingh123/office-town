@@ -68,6 +68,14 @@ const deltaSchema = z.object({
   parentActionId: z.string().optional(),
 });
 
+// Set when the text beside it is only its start: the full text, `bytes` long in UTF-8, is stored
+// apart and read separately. `truncated` means even the stored copy was cut at the size cap.
+export const overflowSchema = z.object({
+  bytes: z.number().int().positive(),
+  truncated: z.boolean(),
+});
+export type Overflow = z.infer<typeof overflowSchema>;
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -108,11 +116,13 @@ const payloadSchemas = {
     actionId: z.string().min(1),
     title: z.string().optional(),
     output: z.string().optional(),
+    overflow: overflowSchema.optional(),
   }),
   "action.ended": z.object({
     actionId: z.string().min(1),
     outcome: z.enum(["completed", "failed"]),
     result: z.string(),
+    overflow: overflowSchema.optional(),
   }),
   "permission.requested": z.object({
     requestId: z.string().min(1),
