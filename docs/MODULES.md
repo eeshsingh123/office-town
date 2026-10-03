@@ -78,10 +78,10 @@ The long-running local process behind the app. It runs many sessions at once, st
 
 ### Scope
 
-- **M2.1 Store.** SQLite file in the OS app-data folder. Append-only event log plus tables for sessions, tasks, workspaces and settings; versioned migrations. Streaming text deltas are not stored, only completed messages. Large action results go to files beside the database, referenced from the event, with a size cap.
-- **M2.2 Session registry.** Start, stop, list and look up sessions; every event is written to the store before it is published. After a core restart, an unfinished session is marked interrupted and can be resumed through the harness's own session id (the `resumeSessionId` option from M1.10).
-- **M2.3 API.** HTTP on localhost with a per-launch token. Requests for commands and queries; one server-sent event stream that resumes from a sequence number, so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
-- **M2.4 Workspaces and pending approvals.** A session may have a workspace folder or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests across sessions: the data behind the blocked queue.
+- **M2.1 Store.** SQLite file in a data folder the caller passes in (D-30). Append-only event log plus tables for tasks, sessions and the raw harness lines; versioned migrations. Streaming text deltas are not stored, only completed messages. Large action results go to files beside the database, referenced from the event, with a size cap. Nothing is deleted automatically: the user deletes a task with everything in it, and the store reports its size so the app can warn when it grows large.
+- **M2.2 Session registry.** Start, stop, list and look up sessions; every event is written to the store before it is published. Every session belongs to a task; a resumed session joins the task of the one it continues. The harness session exposes its raw lines so they are stored as an audit copy, except lines that only carried a text fragment. After a core restart, an unfinished session is marked interrupted and can be resumed through the harness's own session id (the `resumeSessionId` option from M1.10).
+- **M2.3 API.** HTTP on localhost with a per-launch token. Requests for commands and queries; one server-sent event stream that resumes from the store's event position (D-17), so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
+- **M2.4 Workspaces and pending approvals.** A session may have a workspace folder or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests across sessions: the data behind the blocked queue, kept in its own small table rather than searched for in the event log. Adds the workspace and settings tables with its own migration.
 
 Out of scope: UI, departments and delegation, connectors, cloud sync, any external queue or database server.
 
@@ -91,8 +91,7 @@ Out of scope: UI, departments and delegation, connectors, cloud sync, any extern
 
 ### Decided with the owner (2026-10-03), to be designed in the sub-module named
 
-- Retention (M2.1): nothing is deleted automatically. The user deletes; the app warns when the store grows large.
-- Audit copy (M2.1): the harness's raw native messages are stored as well as the events. The session does not expose them yet.
+- Agent profile: stored once it is designed (M3.3 or M4), not in M2.
 - Workspaces (M2.4): a workspace can be several folders. A folder outside it is reached by asking the user or under full autonomy, always behind guardrails.
 
 ### Open for discussion
