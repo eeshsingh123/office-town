@@ -4,12 +4,9 @@ Last updated: 2026-10-03
 
 ## State
 
-- M1 (harness core) is on `main`, run live on Claude Code and OpenCode, natively and in WSL Ubuntu.
-- M2.1 (store, D-15 and D-30) is on `main`. `packages/service/src/store`: `openStore(folder)` returns the `Store` interface.
-- M2.2 (session registry, D-31) is on `main`. `packages/service/src/registry`: `new SessionRegistry(store)`. `defaultDataFolder()` gives `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- M2.3 (API, D-32) is on `main`. `packages/service/src/main.ts` is the core process; `src/api` holds the server, routes and event stream. API messages are in `packages/contract/src/api.ts`.
-- M2.4 (workspaces and the blocked queue, D-33) is built on `feat/m2.4-workspaces-approvals` and waits for the owner's merge. `src/task-folders.ts` picks the folder a task runs in. Run live on Claude (haiku) and OpenCode (free model, native and WSL): a two-folder workspace whose second folder is used without asking while a third folder asks; requests listed, answered, denied; core killed with a request waiting, then the queue is empty and the session interrupted; output-folder tasks get their own subfolders and the folder is remembered.
-- Next: the discussion on keeping agents running with the window closed, then M3.1. Present the approach first.
+- M1 (harness core) and M2 (core service) are done and on `main`. M2 was checked end to end on `main` through the API with Claude haiku: start refused without a folder, task in its own folder, permission listed in the blocked queue and answered, core killed mid-session then marked interrupted, replay after restart, resume joins the task, task deleted. M2.4 was also run on OpenCode, native and WSL.
+- Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`), `src/api` (server, routes, event stream), `src/task-folders.ts`. API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
+- Next: M3. First the discussion on keeping agents running with the window closed (open question below), then M3.1. Present the approach first.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -28,14 +25,11 @@ Last updated: 2026-10-03
 - Agent profile (stored once designed, M3.3 or M4; not in M2): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
 - Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Put the popular, Go-plan and free ones at the top and add a filter. Show each harness's own effort values.
 - Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
-- Resumability is a core feature (built in M2.2). For M3.4: an interrupted session's log ends with its open actions and turn unclosed; show them as interrupted.
-- The app warns when the store grows large (M3); the store reports its size.
+- M3.4: an interrupted session's log ends with its open actions and turn unclosed; show them as interrupted. A large result arrives as a preview plus `overflow`; the full text is at `/sessions/:id/results/:sequence`.
+- The app warns when the store grows large (M3); `GET /storage` reports its size.
 - Guardrails for folders outside a workspace are undesigned (M4). Until then only the harness's own permission request guards them, and `bypass` mode has none.
-- A department works in one existing folder the user points it at. Direction for M4: one git worktree and branch per agent. An SDLC flow with GitHub is optional, only for code work.
-- Departments are created automatically from the user's description.
-- Trace: plan steps with nested sub-steps, everything auditable. Reasoning hidden by default, expandable.
+- Departments are created automatically from the user's description (M4).
 - Human-in-the-loop UI starts simple but must extend without rewrites.
-- The owner hands well-scoped stories to other agents (OpenCode); this agent writes the briefs and verifies the results on request.
 
 ## Open questions for the owner
 
@@ -64,7 +58,7 @@ Last updated: 2026-10-03
 - `costUsd` and `action.updated.title` are in the contract but never filled.
 - OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
-- `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only. The Node that runs the core under Electron (M3.1) must include it.
+- `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
 
 ## Reference notes
 
