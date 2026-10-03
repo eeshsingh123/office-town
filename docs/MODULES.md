@@ -81,7 +81,7 @@ The long-running local process behind the app. It runs many sessions at once, st
 - **M2.1 Store.** SQLite file in a data folder the caller passes in (D-30). Append-only event log plus tables for tasks, sessions and the raw harness lines; versioned migrations. Streaming text deltas are not stored, only completed messages. Large action results go to files beside the database, referenced from the event, with a size cap. Nothing is deleted automatically: the user deletes a task with everything in it, and the store reports its size so the app can warn when it grows large.
 - **M2.2 Session registry.** Start, resume, command and stop sessions; lists and lookups read the store directly. Every event is written to the store before it is published. Every session belongs to a task; a resumed session joins the task of the one it continues. The harness session exposes its raw lines so they are stored as an audit copy, except partial lines (a text fragment that a later event reports whole). After a core restart or shutdown, an unfinished session is marked interrupted and can be resumed through the harness's own session id (the `resumeSessionId` option from M1.10).
 - **M2.3 API.** HTTP on localhost with a per-launch token. Requests for commands and queries; one server-sent event stream that resumes from the store's event position (D-17), so live updates, reconnect catch-up and replay are the same mechanism. API message schemas live in `packages/contract`.
-- **M2.4 Workspaces and pending approvals.** A session may have a workspace folder or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests across sessions: the data behind the blocked queue, kept in its own small table rather than searched for in the event log. Adds the workspace and settings tables with its own migration.
+- **M2.4 Workspaces and pending approvals.** A session may have a workspace (saved, one or more folders) or none. With none, the caller must supply an output folder; the last choice is remembered as the default. A query returns all unanswered permission requests and questions across sessions: the data behind the blocked queue, kept in its own small table rather than searched for in the event log. Adds the workspace and settings tables with its own migration (D-33).
 
 Out of scope: UI, departments and delegation, connectors, cloud sync, any external queue or database server.
 
@@ -92,7 +92,7 @@ Out of scope: UI, departments and delegation, connectors, cloud sync, any extern
 ### Decided with the owner (2026-10-03), to be designed in the sub-module named
 
 - Agent profile: stored once it is designed (M3.3 or M4), not in M2.
-- Workspaces (M2.4): a workspace can be several folders. A folder outside it is reached by asking the user or under full autonomy, always behind guardrails.
+- Guardrails for folders outside a workspace (M4): reached by asking the user or under full autonomy, always behind guardrails.
 
 ### Open for discussion
 

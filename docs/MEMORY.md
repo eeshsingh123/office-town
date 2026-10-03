@@ -7,8 +7,9 @@ Last updated: 2026-10-03
 - M1 (harness core) is on `main`, run live on Claude Code and OpenCode, natively and in WSL Ubuntu.
 - M2.1 (store, D-15 and D-30) is on `main`. `packages/service/src/store`: `openStore(folder)` returns the `Store` interface.
 - M2.2 (session registry, D-31) is on `main`. `packages/service/src/registry`: `new SessionRegistry(store)`. `defaultDataFolder()` gives `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- M2.3 (API, D-32) is built on `feat/m2.3-api` and waits for the owner's merge. `packages/service/src/main.ts` is the core process; `src/api` holds the server, routes and event stream. API messages are in `packages/contract/src/api.ts`. Run live with curl on Claude (haiku) and OpenCode (free model): task, permission answer, replay from `Last-Event-ID`, crash, interrupted, resume, large result, delete. Shutdown was run by calling the core's own SIGINT handler with an OpenCode agent running: exit 0 in 90 ms, session interrupted.
-- Next: M2.4 (workspaces and pending approvals), on a new branch once the M2.3 PR is merged. Present the approach first.
+- M2.3 (API, D-32) is on `main`. `packages/service/src/main.ts` is the core process; `src/api` holds the server, routes and event stream. API messages are in `packages/contract/src/api.ts`.
+- M2.4 (workspaces and the blocked queue, D-33) is built on `feat/m2.4-workspaces-approvals` and waits for the owner's merge. `src/task-folders.ts` picks the folder a task runs in. Run live on Claude (haiku) and OpenCode (free model, native and WSL): a two-folder workspace whose second folder is used without asking while a third folder asks; requests listed, answered, denied; core killed with a request waiting, then the queue is empty and the session interrupted; output-folder tasks get their own subfolders and the folder is remembered.
+- Next: the discussion on keeping agents running with the window closed, then M3.1. Present the approach first.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -17,7 +18,8 @@ Last updated: 2026-10-03
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
 - `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume harness-session-id]`
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
-- `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`.
+- `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId` (from `POST /workspaces`) or an `outputFolder` until one is remembered.
+- In Git Bash, set `MSYS_NO_PATHCONV=1` before calling the core, or it rewrites `/tasks` into a Windows path. Windows arguments also lose doubled backslashes, so build JSON with Windows paths inside Node, not in the shell.
 - Live checks use the cheapest models only (owner): `--model haiku` for Claude, `opencode-go/space-bunny-free` or `opencode-go/longcat-2.5-preview-free` for OpenCode.
 - New recording: the CLI's stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}` per line). Remove machine paths, account details and the user's skill and command lists.
 
@@ -28,7 +30,7 @@ Last updated: 2026-10-03
 - Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
 - Resumability is a core feature (built in M2.2). For M3.4: an interrupted session's log ends with its open actions and turn unclosed; show them as interrupted.
 - The app warns when the store grows large (M3); the store reports its size.
-- Workspace: a chosen folder, several folders, or none; with none, ask where results go and remember it. A folder outside the workspace is reached by asking the user or under full autonomy, always behind guardrails. The guardrails are undesigned (M2.4, M4).
+- Guardrails for folders outside a workspace are undesigned (M4). Until then only the harness's own permission request guards them, and `bypass` mode has none.
 - A department works in one existing folder the user points it at. Direction for M4: one git worktree and branch per agent. An SDLC flow with GitHub is optional, only for code work.
 - Departments are created automatically from the user's description.
 - Trace: plan steps with nested sub-steps, everything auditable. Reasoning hidden by default, expandable.
@@ -60,6 +62,7 @@ Last updated: 2026-10-03
 - On Windows, if the harness's main process has already exited, anything it left running is not killed.
 - `Session.send` and `SessionRegistry.send` trust their caller; the API validates first (`agentCommandSchema`).
 - `costUsd` and `action.updated.title` are in the contract but never filled.
+- OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
 - `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only. The Node that runs the core under Electron (M3.1) must include it.
 
