@@ -53,4 +53,29 @@ export const migrations: readonly string[] = [
 
   CREATE INDEX harness_lines_by_session ON harness_lines (session_ref);
   `,
+  `
+  CREATE TABLE workspaces (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    -- A JSON array; the first folder is where the agent works.
+    folders    TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    used_at    INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  ) STRICT, WITHOUT ROWID;
+
+  -- The requests still waiting for the user, each pointing at the event that asked.
+  CREATE TABLE pending_requests (
+    event_position INTEGER PRIMARY KEY REFERENCES events (position) ON DELETE CASCADE,
+    session_ref    INTEGER NOT NULL REFERENCES sessions (ref) ON DELETE CASCADE,
+    request_id     TEXT NOT NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX pending_requests_by_session ON pending_requests (session_ref, request_id);
+  `,
 ];

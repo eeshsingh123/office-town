@@ -17,10 +17,17 @@ const harnessSettingSchema = z
     "Must start with a letter or digit and contain only letters, digits and . _ - / : @ [ ]",
   );
 
+// A Windows drive or network path, or a POSIX one; never relative, which could read as a flag.
+export const absolutePathSchema = z
+  .string()
+  .regex(/^([A-Za-z]:[\\/]|\\\\|\/)/, "Must be an absolute path");
+
 export const sessionOptionsSchema = z.object({
   harness: z.string().min(1),
   environment: environmentSpecSchema,
   workspacePath: z.string().min(1).optional(),
+  // Further folders the agent may use as freely as its workspace.
+  additionalPaths: z.array(absolutePathSchema).optional(),
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,

@@ -191,3 +191,10 @@ export type SessionEvent = z.infer<typeof sessionEventSchema>;
 export type SessionEventBody = {
   [E in SessionEvent as E["type"]]: Pick<E, "type" | "payload">;
 }[SessionEvent["type"]];
+
+// What an agent waits on the user for: the events behind the blocked queue.
+export const userRequestEventSchema = z.discriminatedUnion("type", [
+  eventOf("permission.requested"),
+  eventOf("question.requested"),
+]);
+export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

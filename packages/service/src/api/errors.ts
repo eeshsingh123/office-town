@@ -8,6 +8,7 @@ import {
 import { ZodError, z } from "zod";
 import { SessionNotResumableError, SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
+import { FolderNotFoundError, OutputFolderMissingError } from "../task-folders.ts";
 
 type ErrorCode = ApiError["error"];
 
@@ -30,6 +31,8 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [SessionStateError, 409, "conflict"],
   [TaskActiveError, 409, "conflict"],
   [UnknownHarnessError, 400, "invalid_request"],
+  [FolderNotFoundError, 400, "invalid_request"],
+  [OutputFolderMissingError, 400, "invalid_request"],
   // A malformed percent-encoding in the path.
   [URIError, 400, "invalid_request"],
   [BinaryNotFoundError, 502, "harness_failed"],
