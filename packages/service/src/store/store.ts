@@ -44,9 +44,15 @@ export interface EventQuery {
   sessionId?: string;
 }
 
-export interface TaskPage {
+export interface TaskQuery {
   limit: number;
-  before?: string;
+  cursor?: string;
+}
+
+// `next` is set while more tasks may follow; it is passed back as the cursor for the next page.
+export interface TaskPage {
+  tasks: TaskRecord[];
+  next?: string;
 }
 
 export interface StoreSize {
@@ -63,7 +69,7 @@ export interface Store {
   createTask(prompt: string): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
-  listTasks(page: TaskPage): TaskRecord[];
+  listTasks(query: TaskQuery): TaskPage;
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
@@ -72,6 +78,7 @@ export interface Store {
   markInterrupted(): SessionRecord[];
   // Returns the event as stored, or nothing for a text fragment, which is never stored.
   append(event: SessionEvent): StoredEvent | undefined;
+  // A line over 64 KiB is cut: the events already hold the text, the audit copy needs its shape.
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
   readOverflow(sessionId: string, sequence: number): string;

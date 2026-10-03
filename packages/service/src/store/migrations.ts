@@ -46,6 +46,8 @@ export const migrations: readonly string[] = [
     session_ref INTEGER NOT NULL REFERENCES sessions (ref) ON DELETE CASCADE,
     direction   TEXT NOT NULL CHECK (direction IN ('in', 'out')),
     line        TEXT NOT NULL,
+    -- Set when the line was cut: its full size in bytes.
+    full_bytes  INTEGER,
     timestamp   INTEGER NOT NULL
   ) STRICT;
 

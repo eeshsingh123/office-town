@@ -68,8 +68,9 @@ const deltaSchema = z.object({
   parentActionId: z.string().optional(),
 });
 
-// Set when the text beside it is only its start: the full text, `bytes` long in UTF-8, is stored
-// apart and read separately. `truncated` means even the stored copy was cut at the size cap.
+// Set when the text beside it is only part of a text `bytes` long in UTF-8. `truncated` means the
+// whole text cannot be read back: on `action.ended` the copy stored apart was cut at the size cap;
+// on `action.updated` nothing is stored apart, as the whole output follows with `action.ended`.
 export const overflowSchema = z.object({
   bytes: z.number().int().positive(),
   truncated: z.boolean(),

@@ -4,9 +4,9 @@ import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import type { SessionEvent, SessionOptions } from "@office-town/contract";
-import { openDatabase, transaction } from "./database.ts";
+import { openDatabase, readNumber, transaction } from "./database.ts";
 import { queries } from "./queries.ts";
-import { fileSize, ResultFiles } from "./result-files.ts";
+import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type EventQuery,
   type LineDirection,
@@ -19,12 +19,16 @@ import {
   type StoreSize,
   TaskActiveError,
   type TaskPage,
+  type TaskQuery,
   type TaskRecord,
 } from "./store.ts";
 
 // Deleting a long session in one statement blocks the process for most of a second; in chunks,
-// live updates get through between them.
-const DELETE_CHUNK = 5000;
+// live updates get through between them. Freed pages go back to the disk in steps for the same
+// reason.
+const DELETE_CHUNK = 1000;
+const VACUUM_STEP_PAGES = 500;
+const LINE_CAP_BYTES = 64 * 1024;
 
 interface TaskRow {
   ref: number;
@@ -110,6 +114,8 @@ class SqliteStore implements Store {
   readonly #file: string;
   readonly #results: ResultFiles;
   readonly #statements: Statements;
+  // While a task's rows are deleted in chunks, no new session may join it.
+  readonly #deleting = new Set<string>();
 
   constructor(db: DatabaseSync, file: string, results: ResultFiles) {
     this.#db = db;
@@ -131,9 +137,15 @@ class SqliteStore implements Store {
     return row === undefined ? undefined : toTask(row);
   }
 
-  listTasks({ limit, before }: TaskPage): TaskRecord[] {
-    const beforeRef = before === undefined ? Number.MAX_SAFE_INTEGER : this.#taskRow(before).ref;
-    return all<TaskRow>(this.#statements.tasksBefore, beforeRef, limit).map(toTask);
+  listTasks({ limit, cursor }: TaskQuery): TaskPage {
+    // The cursor is the last task's key, so it stays valid after that task is deleted.
+    const before = cursor === undefined ? Number.MAX_SAFE_INTEGER : Number(cursor);
+    const rows = all<TaskRow>(this.#statements.tasksBefore, before, limit);
+    const last = rows.at(-1);
+    const tasks = rows.map(toTask);
+    return rows.length < limit || last === undefined
+      ? { tasks }
+      : { tasks, next: String(last.ref) };
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -141,18 +153,23 @@ class SqliteStore implements Store {
     if (one(this.#statements.unfinishedInTask, task.ref) !== undefined) {
       throw new TaskActiveError(id);
     }
-    const sessions = all<SessionRow>(this.#statements.sessionsOfTask, task.ref);
-    for (const session of sessions) {
-      await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
-      await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
+    this.#deleting.add(id);
+    try {
+      const sessions = all<SessionRow>(this.#statements.sessionsOfTask, task.ref);
+      for (const session of sessions) {
+        await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
+        await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
+      }
+      this.#statements.deleteTask.run(task.ref);
+      await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
+      await this.#returnFreeSpace();
+    } finally {
+      this.#deleting.delete(id);
     }
-    this.#statements.deleteTask.run(task.ref);
-    await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
-    // Hands the freed space back to the disk now, not when the app next closes.
-    this.#db.exec("PRAGMA incremental_vacuum; PRAGMA wal_checkpoint(TRUNCATE);");
   }
 
   createSession({ id, taskId, options, resumedFrom }: NewSession): SessionRecord {
+    if (this.#deleting.has(taskId)) throw new RecordNotFoundError("task", taskId);
     const taskRef = this.#taskRow(taskId).ref;
     const resumedFromRef = resumedFrom === undefined ? null : this.#sessionRef(resumedFrom);
     const createdAt = Date.now();
@@ -213,10 +230,13 @@ class SqliteStore implements Store {
   }
 
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void {
+    const bytes = Buffer.byteLength(line);
+    const cut = bytes > LINE_CAP_BYTES;
     this.#statements.insertHarnessLine.run(
       this.#sessionRef(sessionId),
       direction,
-      line,
+      cut ? utf8Prefix(Buffer.from(line), LINE_CAP_BYTES) : line,
+      cut ? bytes : null,
       Date.now(),
     );
   }
@@ -278,7 +298,7 @@ class SqliteStore implements Store {
       };
     }
     if (event.type === "action.updated" && event.payload.output !== undefined) {
-      const kept = this.#results.keepApart(event.sessionId, event.sequence, event.payload.output);
+      const kept = previewOutput(event.payload.output);
       if (kept === undefined) return event;
       return {
         ...event,
@@ -304,5 +324,15 @@ class SqliteStore implements Store {
 
   async #deleteInChunks(statement: StatementSync, sessionRef: number): Promise<void> {
     while (statement.run(sessionRef, DELETE_CHUNK).changes > 0) await yieldToEventLoop();
+  }
+
+  // Hands the freed space back to the disk now, not when the app next closes.
+  async #returnFreeSpace(): Promise<void> {
+    const pages = readNumber(this.#db, "PRAGMA freelist_count");
+    for (let freed = 0; freed < pages; freed += VACUUM_STEP_PAGES) {
+      this.#db.exec(`PRAGMA incremental_vacuum(${VACUUM_STEP_PAGES})`);
+      await yieldToEventLoop();
+    }
+    this.#db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
   }
 }

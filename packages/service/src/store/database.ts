@@ -34,12 +34,13 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
     db.exec("COMMIT");
     return result;
   } catch (error) {
-    db.exec("ROLLBACK");
+    // Some errors, such as a full disk, already rolled the transaction back.
+    if (db.isTransaction) db.exec("ROLLBACK");
     throw error;
   }
 }
 
-function readNumber(db: DatabaseSync, sql: string): number {
+export function readNumber(db: DatabaseSync, sql: string): number {
   return Number(Object.values(db.prepare(sql).get() ?? {})[0]);
 }
 

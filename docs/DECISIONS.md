@@ -21,7 +21,9 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - WAL, `synchronous=NORMAL`: an app crash loses nothing; a power cut can lose the last second of events (owner accepted).
 - Integer keys inside, UUIDs only at the edge: every event row and index entry carries its session as 1 to 3 bytes, not 36.
 - Every index serves a named query, and the store test fails if any query reads a whole table or loses the index it relies on. Pages are read by key (`WHERE position > ?`), never by `OFFSET`.
-- Text over 16 KiB in `action.ended.result` or `action.updated.output` goes to `results/<session>/<sequence>.txt`, capped at 16 MiB; the event keeps a 4 KiB preview and `overflow`.
+- Text over 16 KiB in `action.ended.result` goes to `results/<session>/<sequence>.txt`, capped at 16 MiB; the event keeps a 4 KiB preview and `overflow`. `action.updated.output` over 16 KiB keeps only its last 4 KiB: the harness resends the whole output with each update, so a file per update grew with the square of the output (a 2 MB log left 101 MB).
+- Raw harness lines are cut at 64 KiB, with the full size kept: the events already hold the text, the audit copy needs the line's shape.
+- Deleting a task removes rows in chunks of 1,000 and hands freed pages back in steps, so the process is never blocked for long (under 80 ms on a 100 MB task).
 - Migrations are never edited once merged; the file is copied before it is migrated, and a file from a newer app version is refused.
 - No speculative storage: each table is added by the sub-module that uses it, and raw harness lines that only carried a text fragment are not stored (owner: optimise for latency and size).
 

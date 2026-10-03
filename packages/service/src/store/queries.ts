@@ -44,7 +44,8 @@ export const queries = {
       (SELECT position FROM events WHERE session_ref = ? LIMIT ?)`,
 
   insertHarnessLine: `
-    INSERT INTO harness_lines (session_ref, direction, line, timestamp) VALUES (?, ?, ?, ?)`,
+    INSERT INTO harness_lines (session_ref, direction, line, full_bytes, timestamp)
+    VALUES (?, ?, ?, ?, ?)`,
   deleteSessionHarnessLines: `
     DELETE FROM harness_lines WHERE position IN
       (SELECT position FROM harness_lines WHERE session_ref = ? LIMIT ?)`,

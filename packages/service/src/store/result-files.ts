@@ -18,8 +18,27 @@ function isMissing(error: unknown): boolean {
 }
 
 // Streaming mode holds back a character cut in half instead of decoding it as garbage.
-function utf8Prefix(data: Buffer, bytes: number): string {
+export function utf8Prefix(data: Buffer, bytes: number): string {
   return new TextDecoder().decode(data.subarray(0, bytes), { stream: true });
+}
+
+function utf8Suffix(data: Buffer, bytes: number): string {
+  let start = Math.max(0, data.length - bytes);
+  // Skips the continuation bytes of a character cut in half.
+  while (start < data.length && (data.readUInt8(start) & 0xc0) === 0x80) start += 1;
+  return data.subarray(start).toString("utf8");
+}
+
+// The harness resends the whole output with every update, so a file per update would grow with
+// the square of the output. Only the end is kept: it is what changed, and the whole text follows
+// when the action ends.
+export function previewOutput(text: string): KeptApart | undefined {
+  const bytes = Buffer.byteLength(text);
+  if (bytes <= INLINE_BYTES) return undefined;
+  return {
+    preview: utf8Suffix(Buffer.from(text), PREVIEW_BYTES),
+    overflow: { bytes, truncated: true },
+  };
 }
 
 export async function fileSize(path: string): Promise<number> {
