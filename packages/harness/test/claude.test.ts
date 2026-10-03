@@ -35,14 +35,21 @@ function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
 const types = (events: SessionEvent[]) => events.map((event) => event.type);
 
 describe("claude adapter", () => {
-  it("passes model and effort to the CLI only when chosen", () => {
+  it("passes model, effort and additional folders to the CLI only when chosen", () => {
     const plain = claudeAdapter.buildCommand(replayOptions);
-    const tuned = claudeAdapter.buildCommand({ ...replayOptions, model: "sonnet", effort: "high" });
+    const tuned = claudeAdapter.buildCommand({
+      ...replayOptions,
+      model: "sonnet",
+      effort: "high",
+      additionalPaths: ["/notes", "/data"],
+    });
 
     expect(plain.binary).toBe("claude");
     expect(plain.args).not.toContain("--model");
     expect(plain.args).not.toContain("--effort");
+    expect(plain.args).not.toContain("--add-dir");
     expect(tuned.args.join(" ")).toContain("--model sonnet --effort high");
+    expect(tuned.args.join(" ")).toContain("--add-dir /notes --add-dir /data");
   });
 
   it("resumes an earlier session by its id, and reports the same id again", async () => {

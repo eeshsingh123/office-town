@@ -32,7 +32,7 @@ function configOf(options: Parameters<typeof opencodeAdapter.buildCommand>[0]) {
 }
 
 describe("opencode adapter", () => {
-  it("passes permission mode and model as inline config, leaving the user's config alone", () => {
+  it("passes permission mode, model and additional folders as inline config, leaving the user's config alone", () => {
     expect(opencodeAdapter.buildCommand(replayOptions)).toMatchObject({
       binary: "opencode",
       args: ["acp"],
@@ -40,8 +40,19 @@ describe("opencode adapter", () => {
     expect(configOf(replayOptions)).toEqual({
       permission: { edit: "ask", bash: "ask", webfetch: "ask" },
     });
-    expect(configOf({ ...replayOptions, permissionMode: "acceptEdits", model: "a/b" })).toEqual({
-      permission: { edit: "allow", bash: "ask", webfetch: "ask" },
+    const tuned = {
+      ...replayOptions,
+      permissionMode: "acceptEdits" as const,
+      model: "a/b",
+      additionalPaths: ["/notes/", "C:\\Data"],
+    };
+    expect(configOf(tuned)).toEqual({
+      permission: {
+        edit: "allow",
+        bash: "ask",
+        webfetch: "ask",
+        external_directory: { "/notes/*": "allow", "C:\\Data\\*": "allow" },
+      },
       model: "a/b",
     });
   });

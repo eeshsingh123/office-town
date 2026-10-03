@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   type SessionEvent,
   type SessionOptions,
   sessionRecordSchema,
   taskDetailSchema,
+  workspaceRecordSchema,
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
@@ -39,6 +40,10 @@ function call(method: string, path: string, body?: unknown, token = TOKEN): Prom
     headers: { authorization: `Bearer ${token}` },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+}
+
+function startTask(prompt: string): Promise<Response> {
+  return call("POST", "/tasks", { prompt, options, outputFolder: directory });
 }
 
 async function openStream(path: string, headers: Record<string, string> = {}) {
@@ -107,7 +112,7 @@ describe("api", () => {
   });
 
   it("runs a session through its commands and answers misuse with the matching status", async () => {
-    const started = await call("POST", "/tasks", { prompt: "Write a report", options });
+    const started = await startTask("Write a report");
     expect(started.status).toBe(201);
     const session = sessionRecordSchema.parse(await started.json());
     expect(session).toMatchObject({ status: "running" });
@@ -130,8 +135,40 @@ describe("api", () => {
     expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(204);
   });
 
+  it("starts a task in a saved workspace, or in a new folder inside the remembered output folder", async () => {
+    const start = (request: object) =>
+      call("POST", "/tasks", { prompt: "Write: a report?", options, ...request });
+    const workspaceOf = async (response: Response) =>
+      sessionRecordSchema.parse(await response.json()).options;
+    const project = join(directory, "project");
+    const notes = join(directory, "notes");
+    mkdirSync(project);
+    mkdirSync(notes);
+
+    expect((await start({})).status).toBe(400);
+    const missing = { name: "Gone", folders: [join(directory, "gone")] };
+    expect((await call("POST", "/workspaces", missing)).status).toBe(400);
+    const created = await call("POST", "/workspaces", {
+      name: "Report",
+      folders: [project, notes],
+    });
+    const workspace = workspaceRecordSchema.parse(await created.json());
+    expect(await workspaceOf(await start({ workspaceId: workspace.id }))).toMatchObject({
+      workspacePath: project,
+      additionalPaths: [notes],
+    });
+
+    const first = await workspaceOf(await start({ outputFolder: directory }));
+    const second = await workspaceOf(await start({}));
+    expect(dirname(first.workspacePath ?? "")).toBe(directory);
+    expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} Write a report$/);
+    expect(second.workspacePath).toBe(`${first.workspacePath} (2)`);
+    expect(existsSync(second.workspacePath ?? "")).toBe(true);
+    expect(await (await call("GET", "/settings")).json()).toEqual({ outputFolder: directory });
+  });
+
   it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {
-    const started = await call("POST", "/tasks", { prompt: "Write a report", options });
+    const started = await startTask("Write a report");
     const session = sessionRecordSchema.parse(await started.json());
     const agent = sessions[0];
     agent?.emit({ type: "message", payload: { role: "assistant", text: "First" } });

@@ -1,10 +1,14 @@
 import type {
+  PendingRequestList,
   SessionEvent,
   SessionOptions,
   SessionRecord,
+  Settings,
   StoreSize,
   TaskPage,
   TaskRecord,
+  WorkspaceRecord,
+  WorkspaceRequest,
 } from "@office-town/contract";
 
 export interface NewSession {
@@ -53,12 +57,24 @@ export interface Store {
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
   readOverflow(sessionId: string, sequence: number): string;
+  // Every permission request and question no one has answered yet, across all sessions.
+  listPendingRequests(): PendingRequestList;
+  createWorkspace(workspace: WorkspaceRequest): WorkspaceRecord;
+  // Most recently used first.
+  listWorkspaces(): WorkspaceRecord[];
+  updateWorkspace(id: string, workspace: WorkspaceRequest): WorkspaceRecord;
+  deleteWorkspace(id: string): void;
+  // Returns the workspace and moves it to the top of the list.
+  useWorkspace(id: string): WorkspaceRecord;
+  readSettings(): Settings;
+  // Only the settings given change.
+  saveSettings(settings: Settings): void;
   size(): Promise<StoreSize>;
   close(): void;
 }
 
 export class RecordNotFoundError extends Error {
-  constructor(kind: "task" | "session" | "result", id: string) {
+  constructor(kind: "task" | "session" | "result" | "workspace", id: string) {
     super(`No ${kind} "${id}".`);
     this.name = "RecordNotFoundError";
   }

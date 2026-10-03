@@ -3,14 +3,20 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
-import type {
-  SessionEvent,
-  SessionOptions,
-  SessionRecord,
-  SessionStatus,
-  StoreSize,
-  TaskPage,
-  TaskRecord,
+import {
+  type PendingRequestList,
+  type SessionEvent,
+  type SessionOptions,
+  type SessionRecord,
+  type SessionStatus,
+  type Settings,
+  type StoreSize,
+  settingsSchema,
+  type TaskPage,
+  type TaskRecord,
+  type UserRequestEvent,
+  type WorkspaceRecord,
+  type WorkspaceRequest,
 } from "@office-town/contract";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { queries } from "./queries.ts";
@@ -62,7 +68,18 @@ interface EventRow {
   payload: string;
 }
 
+interface WorkspaceRow {
+  ref: number;
+  id: string;
+  name: string;
+  folders: string;
+  createdAt: number;
+  usedAt: number;
+}
+
 type Statements = Record<keyof typeof queries, StatementSync>;
+
+const SETTING_KEYS = Object.keys(settingsSchema.shape) as (keyof Settings)[];
 
 // SQLite rows come back loosely typed; these name the shape the query selects.
 function one<T>(statement: StatementSync, ...params: SQLInputValue[]): T | undefined {
@@ -91,6 +108,16 @@ function toSession(row: SessionRow): SessionRecord {
     ...(row.harnessSessionId === null ? {} : { harnessSessionId: row.harnessSessionId }),
     ...(row.resumedFrom === null ? {} : { resumedFrom: row.resumedFrom }),
     ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
+  };
+}
+
+function toWorkspace(row: WorkspaceRow): WorkspaceRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    folders: JSON.parse(row.folders) as string[],
+    createdAt: iso(row.createdAt),
+    usedAt: iso(row.usedAt),
   };
 }
 
@@ -207,6 +234,7 @@ class SqliteStore implements Store {
   markInterrupted(): SessionRecord[] {
     return transaction(this.#db, () => {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+      this.#statements.deleteUnfinishedPendingRequests.run();
       this.#statements.interruptUnfinished.run();
       return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
     });
@@ -226,8 +254,10 @@ class SqliteStore implements Store {
         Date.parse(stored.timestamp),
         JSON.stringify(stored.payload),
       );
+      const position = Number(lastInsertRowid);
       this.#updateSession(sessionRef, stored);
-      return Number(lastInsertRowid);
+      this.#updatePendingRequests(sessionRef, position, stored);
+      return position;
     });
     return { position, event: stored };
   }
@@ -265,6 +295,64 @@ class SqliteStore implements Store {
     return text;
   }
 
+  listPendingRequests(): PendingRequestList {
+    const rows = all<EventRow & { taskId: string }>(this.#statements.pendingRequests);
+    const last = one<{ position: number | null }>(this.#statements.lastPosition);
+    return {
+      requests: rows.map((row) => ({
+        position: row.position,
+        taskId: row.taskId,
+        event: toStoredEvent(row).event as UserRequestEvent,
+      })),
+      position: last?.position ?? 0,
+    };
+  }
+
+  createWorkspace({ name, folders }: WorkspaceRequest): WorkspaceRecord {
+    const id = randomUUID();
+    const now = Date.now();
+    this.#statements.insertWorkspace.run(id, name, JSON.stringify(folders), now, now);
+    return { id, name, folders, createdAt: iso(now), usedAt: iso(now) };
+  }
+
+  listWorkspaces(): WorkspaceRecord[] {
+    return all<WorkspaceRow>(this.#statements.workspacesByUse).map(toWorkspace);
+  }
+
+  updateWorkspace(id: string, { name, folders }: WorkspaceRequest): WorkspaceRecord {
+    const row = this.#workspaceRow(id);
+    this.#statements.updateWorkspace.run(name, JSON.stringify(folders), row.ref);
+    return { ...toWorkspace(row), name, folders };
+  }
+
+  deleteWorkspace(id: string): void {
+    this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
+  }
+
+  useWorkspace(id: string): WorkspaceRecord {
+    const row = this.#workspaceRow(id);
+    const now = Date.now();
+    this.#statements.workspaceUsed.run(now, row.ref);
+    return toWorkspace({ ...row, usedAt: now });
+  }
+
+  readSettings(): Settings {
+    const settings: Record<string, unknown> = {};
+    for (const key of SETTING_KEYS) {
+      const row = one<{ value: string }>(this.#statements.settingByKey, key);
+      if (row !== undefined) settings[key] = JSON.parse(row.value);
+    }
+    return settings as Settings;
+  }
+
+  saveSettings(settings: Settings): void {
+    transaction(this.#db, () => {
+      for (const [key, value] of Object.entries(settings)) {
+        if (value !== undefined) this.#statements.saveSetting.run(key, JSON.stringify(value));
+      }
+    });
+  }
+
   async size(): Promise<StoreSize> {
     const [database, log, results] = await Promise.all([
       fileSize(this.#file),
@@ -282,6 +370,12 @@ class SqliteStore implements Store {
   #taskRow(id: string): TaskRow {
     const row = one<TaskRow>(this.#statements.taskById, id);
     if (row === undefined) throw new RecordNotFoundError("task", id);
+    return row;
+  }
+
+  #workspaceRow(id: string): WorkspaceRow {
+    const row = one<WorkspaceRow>(this.#statements.workspaceById, id);
+    if (row === undefined) throw new RecordNotFoundError("workspace", id);
     return row;
   }
 
@@ -322,6 +416,24 @@ class SqliteStore implements Store {
         Date.parse(event.timestamp),
         sessionRef,
       );
+    }
+  }
+
+  // The waiting requests change with the events that open and close them. A session that ended
+  // can answer nothing, whether or not the harness closed each request first.
+  #updatePendingRequests(sessionRef: number, position: number, event: SessionEvent): void {
+    switch (event.type) {
+      case "permission.requested":
+      case "question.requested":
+        this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
+        return;
+      case "permission.resolved":
+      case "question.resolved":
+        this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
+        return;
+      case "session.ended":
+        this.#statements.deleteSessionPendingRequests.run(sessionRef);
+        return;
     }
   }
 

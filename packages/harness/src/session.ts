@@ -75,7 +75,10 @@ export class HarnessSession implements Session {
 
   constructor(options: SessionOptions, adapter: Adapter, environment: Environment) {
     const workspacePath = environment.toEnvironmentPath(options.workspacePath ?? process.cwd());
-    this.#options = { ...options, workspacePath };
+    const additionalPaths = options.additionalPaths?.map((path) =>
+      environment.toEnvironmentPath(path),
+    );
+    this.#options = { ...options, workspacePath, ...(additionalPaths && { additionalPaths }) };
     this.#adapter = adapter;
     this.#environment = environment;
     this.#translator = adapter.createTranslator(this.#options);

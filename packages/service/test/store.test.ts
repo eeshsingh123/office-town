@@ -169,6 +169,52 @@ describe("store", () => {
     expect(after.databaseBytes).toBeLessThan(before.databaseBytes);
   });
 
+  it("keeps each request for the user waiting until it is answered or its session cannot answer", () => {
+    const firstTask = store.createTask("Edit the report");
+    const secondTask = store.createTask("Plan a trip");
+    const first = startSession(firstTask.id);
+    const second = startSession(secondTask.id);
+    const askPermission = (requestId: string) =>
+      first.emit({
+        type: "permission.requested",
+        payload: {
+          requestId,
+          title: "Edit report.md",
+          input: {},
+          options: [{ optionId: "allow", label: "Allow", kind: "allow_once" }],
+        },
+      });
+    const waiting = () =>
+      store
+        .listPendingRequests()
+        .requests.map(({ taskId, event }) => [taskId, event.payload.requestId]);
+
+    askPermission("p-1");
+    second.emit({
+      type: "question.requested",
+      payload: {
+        requestId: "q-1",
+        questions: [{ questionId: "where", text: "Where to?", options: [], multiSelect: false }],
+      },
+    });
+    askPermission("p-2");
+    first.emit({
+      type: "permission.resolved",
+      payload: { requestId: "p-1", outcome: "allowed", optionId: "allow" },
+    });
+
+    expect(waiting()).toEqual([
+      [secondTask.id, "q-1"],
+      [firstTask.id, "p-2"],
+    ]);
+    expect(store.listPendingRequests().position).toBe(4);
+    first.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+    expect(waiting()).toEqual([[secondTask.id, "q-1"]]);
+    // What an earlier core left waiting can no longer be answered.
+    store.markInterrupted();
+    expect(waiting()).toEqual([]);
+  });
+
   it("pages tasks newest first, even after the last task shown is deleted", async () => {
     const oldest = store.createTask("one");
     const middle = store.createTask("two");
@@ -190,8 +236,10 @@ describe("store", () => {
         .all()
         .map((row) => String(row.detail))
         .join("\n");
+    // These read a small table whole on purpose: what is waiting now, and the saved workspaces.
+    const wholeTableReads = new Set(["pendingRequests", "workspacesByUse"]);
     for (const [name, sql] of Object.entries(queries)) {
-      expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);
+      if (!wholeTableReads.has(name)) expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);
     }
     // A range over the primary key is still a search, so these must name the index they rely on.
     const required: [string, string][] = [
@@ -200,10 +248,13 @@ describe("store", () => {
       [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
       [queries.sessionsOfTask, "sessions_by_task"],
       [queries.unfinishedSessions, "sessions_unfinished"],
+      [queries.deleteSessionPendingRequests, "pending_requests_by_session"],
+      [queries.deleteUnfinishedPendingRequests, "sessions_unfinished"],
       // The foreign-key checks SQLite runs when a session row is deleted with its task.
       ["DELETE FROM sessions WHERE ref = ?", "events_by_session"],
       ["DELETE FROM sessions WHERE ref = ?", "harness_lines_by_session"],
       ["DELETE FROM sessions WHERE ref = ?", "sessions_by_resumed_from"],
+      ["DELETE FROM sessions WHERE ref = ?", "pending_requests_by_session"],
     ];
     for (const [sql, index] of required) expect(plan(sql)).toContain(index);
     db.close();

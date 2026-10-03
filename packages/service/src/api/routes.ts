@@ -4,11 +4,13 @@ import {
   resumeSessionRequestSchema,
   startTaskRequestSchema,
   taskListQuerySchema,
+  workspaceRequestSchema,
 } from "@office-town/contract";
 import { describeHarness, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 
 export interface RouteRequest {
   // A path parameter; the router only calls a route when all of them are present.
@@ -23,7 +25,7 @@ export type Reply =
   | { status: 204 };
 
 export interface Route {
-  method: "GET" | "POST" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "DELETE";
   // Segments starting with ":" are parameters.
   path: string;
   reply(request: RouteRequest): Reply | Promise<Reply>;
@@ -39,8 +41,9 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "POST",
       path: "/tasks",
       reply: async ({ body }) => {
-        const { prompt, options } = startTaskRequestSchema.parse(await body());
-        return { status: 201, json: await registry.start(prompt, options) };
+        const request = startTaskRequestSchema.parse(await body());
+        const options = { ...request.options, ...chooseTaskFolders(store, request) };
+        return { status: 201, json: await registry.start(request.prompt, options) };
       },
     },
     {
@@ -112,6 +115,47 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
         status: 200,
         text: store.readOverflow(param("id"), sequenceSchema.parse(param("sequence"))),
       }),
+    },
+    {
+      method: "GET",
+      path: "/pending-requests",
+      reply: () => ({ status: 200, json: store.listPendingRequests() }),
+    },
+    {
+      method: "POST",
+      path: "/workspaces",
+      reply: async ({ body }) => {
+        const workspace = workspaceRequestSchema.parse(await body());
+        requireFolders(workspace.folders);
+        return { status: 201, json: store.createWorkspace(workspace) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/workspaces",
+      reply: () => ({ status: 200, json: store.listWorkspaces() }),
+    },
+    {
+      method: "PUT",
+      path: "/workspaces/:id",
+      reply: async ({ param, body }) => {
+        const workspace = workspaceRequestSchema.parse(await body());
+        requireFolders(workspace.folders);
+        return { status: 200, json: store.updateWorkspace(param("id"), workspace) };
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/workspaces/:id",
+      reply: ({ param }) => {
+        store.deleteWorkspace(param("id"));
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "GET",
+      path: "/settings",
+      reply: () => ({ status: 200, json: store.readSettings() }),
     },
     {
       method: "GET",

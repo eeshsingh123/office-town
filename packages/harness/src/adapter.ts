@@ -16,8 +16,8 @@ export type AdapterEvent =
   | { type: "turn.started" }
   | { type: "turn.ended"; payload: Omit<BodyOf<"turn.ended">["payload"], "turnId"> };
 
-// What an adapter is given: the session options with the workspace already resolved to a path
-// inside the environment the harness runs in.
+// What an adapter is given: the session options with the workspace and additional folders already
+// resolved to paths inside the environment the harness runs in.
 export type LaunchOptions = SessionOptions & { workspacePath: string };
 
 export interface HarnessCommand {

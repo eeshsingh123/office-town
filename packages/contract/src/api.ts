@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
-import { sessionOptionsSchema } from "./options.ts";
+import { userRequestEventSchema } from "./events.ts";
+import { absolutePathSchema, sessionOptionsSchema } from "./options.ts";
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -56,10 +57,47 @@ export const harnessDescriptionSchema = z.object({
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
-export const startTaskRequestSchema = z.object({
-  prompt: z.string().min(1),
-  options: sessionOptionsSchema,
+// The first folder is where the agent works; it may use the others as freely.
+export const workspaceRequestSchema = z.object({
+  name: z.string().trim().min(1),
+  folders: z
+    .array(absolutePathSchema)
+    .min(1)
+    .refine((folders) => new Set(folders).size === folders.length, "Each folder may appear once"),
 });
+export type WorkspaceRequest = z.infer<typeof workspaceRequestSchema>;
+
+export const workspaceRecordSchema = workspaceRequestSchema.extend({
+  id: z.string().min(1),
+  createdAt: z.iso.datetime(),
+  usedAt: z.iso.datetime(),
+});
+export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
+
+export const settingsSchema = z.object({
+  // Where a task with no workspace gets a folder of its own; the last one chosen is kept.
+  outputFolder: absolutePathSchema.optional(),
+});
+export type Settings = z.infer<typeof settingsSchema>;
+
+// The agent works in a saved workspace, or else in a new folder for this task inside the output
+// folder: the one given, or the last one given. Folders are never passed directly, and a resume
+// goes through its own request, which checks the conversation is not already running.
+export const startTaskRequestSchema = z
+  .object({
+    prompt: z.string().min(1),
+    options: sessionOptionsSchema.omit({
+      workspacePath: true,
+      additionalPaths: true,
+      resumeSessionId: true,
+    }),
+    workspaceId: z.string().min(1).optional(),
+    outputFolder: absolutePathSchema.optional(),
+  })
+  .refine(
+    (request) => request.workspaceId === undefined || request.outputFolder === undefined,
+    "Give a workspace or an output folder, not both",
+  );
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({ prompt: z.string().min(1) });
@@ -80,6 +118,21 @@ export const eventStreamQuerySchema = z.object({
   follow: z.stringbool().default(true),
 });
 export type EventStreamQuery = z.input<typeof eventStreamQuerySchema>;
+
+export const pendingRequestSchema = z.object({
+  position: z.number().int().positive(),
+  taskId: z.string().min(1),
+  event: userRequestEventSchema,
+});
+export type PendingRequest = z.infer<typeof pendingRequestSchema>;
+
+// Oldest first. `position` is where the store stood when the list was read: a stream opened after
+// it carries every later request and answer, with nothing missed or repeated.
+export const pendingRequestListSchema = z.object({
+  requests: z.array(pendingRequestSchema),
+  position: z.number().int().nonnegative(),
+});
+export type PendingRequestList = z.infer<typeof pendingRequestListSchema>;
 
 export const apiErrorSchema = z.object({
   error: z.enum([

@@ -32,6 +32,7 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   if (options.model !== undefined) args.push("--model", options.model);
   if (options.effort !== undefined) args.push("--effort", options.effort);
   if (options.resumeSessionId !== undefined) args.push("--resume", options.resumeSessionId);
+  for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
   return { binary: "claude", args };
 }
 

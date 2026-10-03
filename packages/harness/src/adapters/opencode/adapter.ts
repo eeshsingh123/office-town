@@ -16,10 +16,24 @@ const PERMISSIONS: Record<PermissionMode, { edit: Rule; bash: Rule; webfetch: Ru
   bypass: { edit: "allow", bash: "allow", webfetch: "allow" },
 };
 
+// ACP's additionalDirectories is not offered by OpenCode 1.18, so additional folders are opened
+// through its own rule for folders outside the workspace.
+function externalFolders(paths: string[] | undefined) {
+  if (paths === undefined || paths.length === 0) return {};
+  const rules = paths.map((path) => {
+    const separator = path.includes("\\") ? "\\" : "/";
+    return [`${path.replace(/[\\/]+$/, "")}${separator}*`, "allow"];
+  });
+  return { external_directory: Object.fromEntries(rules) };
+}
+
 function buildCommand(options: LaunchOptions): HarnessCommand {
   // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
   const config = {
-    permission: PERMISSIONS[options.permissionMode],
+    permission: {
+      ...PERMISSIONS[options.permissionMode],
+      ...externalFolders(options.additionalPaths),
+    },
     ...(options.model === undefined ? {} : { model: options.model }),
   };
   return {
