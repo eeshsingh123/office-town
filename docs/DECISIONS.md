@@ -7,12 +7,25 @@ Only decisions that still guide upcoming work keep their why. Everything settled
 ### D-15 Local SQLite event log behind a store interface — accepted (2026-10-03)
 
 Every event is appended to one local SQLite file; current state and replay are both read from it. The core process keeps sessions running; no queue, broker or database server. The rest of the core reaches storage only through a small store interface.
-Why: the app is single-user and local, so the data lives on the user's own machine and "scale" means one person's history, which SQLite handles far past what this app will write. A server database would have to be installed and run on every user's machine. The interface is the extension point: a hosted or team version can add a Postgres store without touching the callers. It is not built until that version exists.
+Why: the app is single-user and local, so the data lives on the user's own machine and "scale" means one person's history, which SQLite handles far past what this app will write. A server database would have to be installed and run on every user's machine.
+The interface is synchronous (owner, 2026-10-03): SQLite runs in-process and a write takes about 80 µs, so async would only add a queue to keep "stored before published" in order. Deleting is the one long operation, so it alone is async and runs in chunks. A hosted Postgres store, if it ever comes, changes the interface inside `packages/service` only.
 
 ### D-17 UI talks to the core over HTTP plus server-sent events — accepted (2026-10-03)
 
-Commands and queries are HTTP requests; events flow over one SSE stream that resumes from `Last-Event-ID`, the event sequence number.
+Commands and queries are HTTP requests; events flow over one SSE stream that resumes from `Last-Event-ID`, the store's event `position`. The contract's `sequence` counts within one session, so it cannot be the cursor of a stream that covers all sessions.
 Why: the stream is one-way and commands are request/response; reconnect and catch-up are built in, and it is testable with curl.
+
+### D-30 Store layout and indexing — accepted (2026-10-03)
+
+- Node's built-in `node:sqlite`: no native module to rebuild for each Electron version. Its API is a release candidate; it is used in one file.
+- WAL, `synchronous=NORMAL`: an app crash loses nothing; a power cut can lose the last second of events (owner accepted).
+- Integer keys inside, UUIDs only at the edge: every event row and index entry carries its session as 1 to 3 bytes, not 36.
+- Every index serves a named query, and the store test fails if any query reads a whole table or loses the index it relies on. Pages are read by key (`WHERE position > ?`), never by `OFFSET`.
+- Text over 16 KiB in `action.ended.result` goes to `results/<session>/<sequence>.txt`, capped at 16 MiB; the event keeps a 4 KiB preview and `overflow`. `action.updated.output` over 16 KiB keeps only its last 4 KiB: the harness resends the whole output with each update, so a file per update grew with the square of the output (a 2 MB log left 101 MB).
+- Raw harness lines are cut at 64 KiB, with the full size kept: the events already hold the text, the audit copy needs the line's shape.
+- Deleting a task removes rows in chunks of 1,000 and hands freed pages back in steps, so the process is never blocked for long (under 80 ms on a 100 MB task).
+- Migrations are never edited once merged; the file is copied before it is migrated, and a file from a newer app version is refused.
+- No speculative storage: each table is added by the sub-module that uses it, and raw harness lines that only carried a text fragment are not stored (owner: optimise for latency and size).
 
 ### D-9 Command-center interface — direction accepted, design pending
 

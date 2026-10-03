@@ -201,6 +201,16 @@ importers:
         specifier: ^24.19.0
         version: 24.19.0
 
+  packages/service:
+    dependencies:
+      '@office-town/contract':
+        specifier: workspace:*
+        version: link:../contract
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.0
+        version: 24.19.0
+
 packages:
 
   '@biomejs/biome@2.5.15':

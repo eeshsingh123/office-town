@@ -4,8 +4,9 @@ Last updated: 2026-10-03
 
 ## State
 
-- M1 (harness core, M1.1 to M1.10) is built and run live on Claude Code and OpenCode, natively and in WSL Ubuntu. M1.1 to M1.7 are on `main`. PRs #13 to #17 are stacked and wait for the owner: docs, M1.8 catalog and effort, M1.9 usage limits, M1.10 resume and live text, test and docs trim. Merge in order.
-- Next: M2.1 (store), SQLite behind a store interface (D-15). Do not start until the owner says so; then present the approach first.
+- M1 (harness core) is on `main`, run live on Claude Code and OpenCode, natively and in WSL Ubuntu.
+- M2.1 (store, D-15 and D-30) is built on `feat/m2.1-store` and waits for the owner's merge. `packages/service/src/store`: `openStore(folder)` returns the `Store` interface. Run live with a real Claude session; nothing calls it in the product yet.
+- Next: M2.2 (session registry), on a new branch once the M2.1 PR is merged. Present the approach first. It must add a raw-line hook to the harness session (an addition, not a contract change), store the harness session id, call `markInterrupted()` at start, and choose the data folder (Windows: `%LOCALAPPDATA%\OfficeTown`, Local not Roaming).
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -18,11 +19,11 @@ Last updated: 2026-10-03
 
 ## Owner requirements not yet built
 
-- Agent profile (M2 stores it, M3.3 and M4 edit it): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
+- Agent profile (stored once designed, M3.3 or M4; not in M2): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
 - Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Put the popular, Go-plan and free ones at the top and add a filter. Show each harness's own effort values.
 - Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
-- Resumability is a core feature: M2.2 must persist the harness session id and resume interrupted agents with it.
-- History is kept until the user deletes it, with a warning when the store grows large. The harness's raw native messages are stored too; the session does not expose them yet (M2.1).
+- Resumability is a core feature: M2.2 resumes interrupted agents with the harness session id the store already keeps.
+- The app warns when the store grows large (M3); the store reports its size.
 - Workspace: a chosen folder, several folders, or none; with none, ask where results go and remember it. A folder outside the workspace is reached by asking the user or under full autonomy, always behind guardrails. The guardrails are undesigned (M2.4, M4).
 - A department works in one existing folder the user points it at. Direction for M4: one git worktree and branch per agent. An SDLC flow with GitHub is optional, only for code work.
 - Departments are created automatically from the user's description.
@@ -55,6 +56,7 @@ Last updated: 2026-10-03
 - `Session.send` trusts its caller; M2's API must validate commands with `sessionCommandSchema`.
 - `costUsd` and `action.updated.title` are in the contract but never filled.
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
+- `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only. The Node that runs the core under Electron (M3.1) must include it.
 
 ## Reference notes
 
