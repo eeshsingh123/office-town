@@ -107,10 +107,10 @@ describe("session registry", () => {
     expect(store.getSession(resumed.id)?.status).toBe("interrupted");
   });
 
-  it("stops an agent whose work can no longer be saved, and says why", async () => {
+  it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {
     const registry = openRegistry();
     const record = await registry.start("Write a report", options);
-    vi.spyOn(store, "append").mockImplementation(() => {
+    vi.spyOn(store, "append").mockImplementationOnce(() => {
       throw new Error("database or disk is full");
     });
 
@@ -132,5 +132,8 @@ describe("session registry", () => {
     await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
       SessionNotRunningError,
     );
+    expect(published[3]?.position).toBeDefined();
+    expect(store.getSession(record.id)?.status).toBe("failed");
+    await store.deleteTask(record.taskId);
   });
 });

@@ -33,7 +33,7 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - The registry changes sessions; reads (tasks, sessions, events) go straight to the store.
 - Resuming needs a prompt, because a resumed harness waits for one. Any ended session with a harness session id can be resumed; the new session joins its task.
 - A shutdown is recorded like a crash: running sessions are stopped and marked interrupted, so "stopped" always means the user stopped it.
-- If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced).
+- If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced). Its end is then saved once more, as `failed`, so a brief failure does not leave it "running" with stop and delete refused; if that fails too, the next start marks it interrupted.
 - Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message. ACP never sends a whole message, so for OpenCode the `message` event is the only full copy of its text.
 
 ### D-32 API rules — accepted (2026-10-03)
@@ -43,7 +43,6 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - The core prints one line on stdout, `{url, token}` (`coreReadySchema`); logs go to stderr.
 - `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB behind is cut off and catches up from the store.
 - Errors are `{error, message}` with a fixed code: 400 invalid, 401, 404, 409 for a session or task in the wrong state, 413 over 1 MiB, 502 when a harness cannot run.
-- Known gap (owner accepted): after a failed save the session stays "running" in the store, so stop and delete answer 409 until the core restarts.
 
 ### D-9 Command-center interface — direction accepted, design pending
 
