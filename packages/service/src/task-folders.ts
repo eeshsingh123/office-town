@@ -32,6 +32,16 @@ export function requireFolders(folders: string[]): void {
   }
 }
 
+// A resumed session runs where it started, so its folders must still be there.
+export function requireSessionFolders({
+  workspacePath,
+  additionalPaths = [],
+}: SessionOptions): void {
+  requireFolders(
+    workspacePath === undefined ? additionalPaths : [workspacePath, ...additionalPaths],
+  );
+}
+
 // A saved workspace is used as it is. Otherwise the task gets a new folder of its own inside the
 // output folder, so tasks never overwrite each other's files; an output folder given is kept as
 // the default for the next task.
@@ -59,11 +69,14 @@ function createTaskFolder(parent: string, prompt: string, now: Date): string {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, NAME_WORDS)
-    .join(" ")
+    .join(" ");
+  // Cut by character, not by UTF-16 unit, so an emoji is never split in half. Windows drops a
+  // trailing dot or space from a name.
+  const short = Array.from(words)
     .slice(0, NAME_LENGTH)
-    // Windows drops a trailing dot or space from a name.
+    .join("")
     .replace(/[. ]+$/, "");
-  const name = words === "" ? day : `${day} ${words}`;
+  const name = short === "" ? day : `${day} ${short}`;
   for (let copy = 1; ; copy += 1) {
     const folder = join(parent, copy === 1 ? name : `${name} (${copy})`);
     try {

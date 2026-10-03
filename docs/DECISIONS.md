@@ -50,7 +50,7 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 
 - A workspace is saved and named (owner): an ordered list of folders reused across tasks; M4 departments point at one. The first folder is where the agent works; it may use the others as freely: Claude through `--add-dir`, OpenCode through an `external_directory` allow rule in its inline config, because OpenCode 1.18 does not offer ACP's `additionalDirectories`.
 - With no workspace, each task gets a new folder named by the day and the prompt's first words inside the output folder, so tasks never overwrite each other (owner). An output folder given becomes the default; with none given and none kept, the start is refused so the UI asks. A session never runs in the core's own folder.
-- A session's options keep the folders it ran in, so a resume runs where it started even after its workspace changes (D-28).
+- A session's options keep the folders it ran in, so a resume runs where it started even after its workspace changes (D-28). A resume whose folder is gone is refused with the folder named, not left to fail inside the launch.
 - A folder outside the workspace is guarded only by the harness's own permission request in `ask` mode; `bypass` has no guard. Core-level guardrails come with per-team autonomy in M4 (owner).
 - The blocked queue holds permission requests and questions (owner). `pending_requests` points at the asking event; its row goes with the answer, the session's end, or the next start's interrupt. The list carries the store position it was read at, so the UI opens its stream from there.
 - `POST /tasks` takes no folders and no `resumeSessionId`: a resume goes through `/sessions/:id/resume`, which refuses a conversation that is already running.

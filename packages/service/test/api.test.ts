@@ -135,7 +135,7 @@ describe("api", () => {
     expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(204);
   });
 
-  it("starts a task in a saved workspace, or in a new folder inside the remembered output folder", async () => {
+  it("starts a task in a saved workspace or a new folder in the remembered output folder, and resumes only where it started", async () => {
     const start = (request: object) =>
       call("POST", "/tasks", { prompt: "Write: a report?", options, ...request });
     const workspaceOf = async (response: Response) =>
@@ -165,6 +165,16 @@ describe("api", () => {
     expect(second.workspacePath).toBe(`${first.workspacePath} (2)`);
     expect(existsSync(second.workspacePath ?? "")).toBe(true);
     expect(await (await call("GET", "/settings")).json()).toEqual({ outputFolder: directory });
+
+    // A resume runs where the session started, so a folder removed since is reported as such.
+    const ended = sessionRecordSchema.parse(await (await start({})).json());
+    await call("POST", `/sessions/${ended.id}/stop`);
+    rmSync(ended.options.workspacePath ?? "", { recursive: true });
+    const resumed = await call("POST", `/sessions/${ended.id}/resume`, { prompt: "Go on" });
+    expect(resumed.status).toBe(400);
+    expect(await resumed.json()).toMatchObject({
+      message: expect.stringContaining("does not exist"),
+    });
   });
 
   it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {

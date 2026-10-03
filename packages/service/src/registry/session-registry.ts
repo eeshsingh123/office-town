@@ -16,6 +16,7 @@ import {
   type Store,
   type StoredEvent,
 } from "../store/store.ts";
+import { requireSessionFolders } from "../task-folders.ts";
 
 export type HarnessSessionFactory = (options: SessionOptions) => Session;
 
@@ -96,6 +97,7 @@ export class SessionRegistry {
     if ([...this.#live.values()].some((live) => live.conversation === conversation)) {
       throw new SessionNotResumableError(sessionId, "its conversation is already running.");
     }
+    requireSessionFolders(earlier.options);
     const options = { ...earlier.options, resumeSessionId: conversation };
     const session = this.#createSession(options);
     const record = { id: session.id, taskId: earlier.taskId, options, resumedFrom: sessionId };
