@@ -1,15 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type {
-  SessionCommand,
-  SessionEvent,
-  SessionEventBody,
-  SessionOptions,
-} from "@office-town/contract";
-import type { LineListener, Session, SessionListener } from "@office-town/harness";
+import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type PublishedEvent,
@@ -19,60 +12,13 @@ import {
 } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
+import { FakeSession } from "./support/fake-session.ts";
 
 const options: SessionOptions = {
   harness: "claude",
   environment: { kind: "native" },
   permissionMode: "ask",
 };
-
-// Stands in for a harness session: the test plays the harness's part through `emit` and `line`.
-class FakeSession implements Session {
-  readonly id = randomUUID();
-  readonly capabilities = {
-    reasoning: false,
-    plan: false,
-    effort: false,
-    modelList: false,
-    resume: true,
-    usageLimits: false,
-  };
-  readonly sent: SessionCommand[] = [];
-  readonly #listeners = new Set<SessionListener>();
-  readonly #lineListeners = new Set<LineListener>();
-  #sequence = 0;
-
-  async send(command: SessionCommand): Promise<void> {
-    this.sent.push(command);
-    if (command.type === "start") {
-      this.emit({ type: "session.started", payload: { harnessSessionId: `harness-${this.id}` } });
-    }
-    if (command.type === "stop") {
-      this.emit({ type: "session.ended", payload: { reason: "stopped", exitCode: 0 } });
-    }
-  }
-
-  subscribe(listener: SessionListener): () => void {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
-  }
-
-  subscribeLines(listener: LineListener): () => void {
-    this.#lineListeners.add(listener);
-    return () => this.#lineListeners.delete(listener);
-  }
-
-  emit(body: SessionEventBody): void {
-    this.#sequence += 1;
-    const timestamp = new Date().toISOString();
-    const event = { id: randomUUID(), sessionId: this.id, sequence: this.#sequence, timestamp };
-    for (const listener of this.#listeners) listener({ ...event, ...body } as SessionEvent);
-  }
-
-  line(text: string, partial = false): void {
-    for (const listener of this.#lineListeners) listener({ direction: "in", text, partial });
-  }
-}
 
 let directory: string;
 let store: Store;
@@ -126,11 +72,15 @@ describe("session registry", () => {
       ["message", true],
     ]);
     expect(storedWhenPublished).toEqual([true, true]);
+    // The store holds its file alone, so the audit copy is read once it is closed.
+    await registry.close();
+    store.close();
     const audit = new DatabaseSync(join(directory, "store.db"), { readOnly: true });
     expect(audit.prepare("SELECT line FROM harness_lines").all()).toEqual([
       { line: '{"type":"assistant"}' },
     ]);
     audit.close();
+    store = openStore(directory);
   });
 
   it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {
@@ -161,10 +111,10 @@ describe("session registry", () => {
     expect(store.getSession(resumed.id)?.status).toBe("interrupted");
   });
 
-  it("stops an agent whose work can no longer be saved, and says why", async () => {
+  it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {
     const registry = openRegistry();
     const record = await registry.start("Write a report", options);
-    vi.spyOn(store, "append").mockImplementation(() => {
+    vi.spyOn(store, "append").mockImplementationOnce(() => {
       throw new Error("database or disk is full");
     });
 
@@ -186,5 +136,8 @@ describe("session registry", () => {
     await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
       SessionNotRunningError,
     );
+    expect(published[3]?.position).toBeDefined();
+    expect(store.getSession(record.id)?.status).toBe("failed");
+    await store.deleteTask(record.taskId);
   });
 });

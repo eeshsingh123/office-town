@@ -1,8 +1,8 @@
 import {
-  type AdapterCapabilities,
   type EnvironmentSpec,
   environmentSpecSchema,
   type HarnessCatalog,
+  type HarnessDescription,
   type SessionOptions,
   sessionOptionsSchema,
 } from "@office-town/contract";
@@ -40,11 +40,6 @@ export function createSession(input: SessionOptions): Session {
     findAdapter(options.harness),
     environmentFor(options.environment),
   );
-}
-
-export interface HarnessDescription {
-  harness: string;
-  capabilities: AdapterCapabilities;
 }
 
 export function listHarnesses(): HarnessDescription[] {

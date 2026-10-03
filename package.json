@@ -13,7 +13,8 @@
     "test": "vitest run",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "dev:run": "node packages/harness/dev/run.ts",
-    "dev:catalog": "node packages/harness/dev/catalog.ts"
+    "dev:catalog": "node packages/harness/dev/catalog.ts",
+    "dev:core": "node packages/service/src/main.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

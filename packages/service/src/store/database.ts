@@ -6,12 +6,19 @@ import { StoreFileError } from "./store.ts";
 // Written into the file's header, so a different SQLite file is never migrated by mistake.
 const APPLICATION_ID = 0x4f54_4f57;
 
+// SQLite's own code for a file another connection holds.
+const SQLITE_BUSY = 5;
+
 export function openDatabase(file: string): DatabaseSync {
-  const db = new DatabaseSync(file, { timeout: 5000 });
+  const db = new DatabaseSync(file);
   try {
-    // auto_vacuum only takes effect on a new file, before its first table is created. Without a
-    // size limit the WAL file stays as large as its biggest burst of writes until the app closes.
+    // One core per data folder: a second one would mark the first one's running agents
+    // interrupted. The lock is held until the connection closes, and the OS drops it if the
+    // process dies. auto_vacuum only takes effect on a new file, before its first table is
+    // created. Without a size limit the WAL file stays as large as its biggest burst of writes
+    // until the app closes.
     db.exec(`
+      PRAGMA locking_mode = EXCLUSIVE;
       PRAGMA auto_vacuum = INCREMENTAL;
       PRAGMA journal_mode = WAL;
       PRAGMA journal_size_limit = 8388608;
@@ -22,6 +29,9 @@ export function openDatabase(file: string): DatabaseSync {
     db.exec("PRAGMA optimize = 0x10002");
   } catch (error) {
     db.close();
+    if ((error as { errcode?: number }).errcode === SQLITE_BUSY) {
+      throw new StoreFileError(`Office Town is already running and using ${file}.`);
+    }
     throw error;
   }
   return db;

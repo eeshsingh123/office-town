@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { SessionCommand, SessionEvent, SessionOptions } from "@office-town/contract";
+import type {
+  AgentCommand,
+  SessionEvent,
+  SessionOptions,
+  SessionRecord,
+} from "@office-town/contract";
 import {
   createSession as createHarnessSession,
   type HarnessLine,
@@ -8,7 +13,6 @@ import {
 import {
   type NewSession,
   RecordNotFoundError,
-  type SessionRecord,
   type Store,
   type StoredEvent,
 } from "../store/store.ts";
@@ -23,8 +27,7 @@ export interface PublishedEvent {
 
 export type RegistryListener = (published: PublishedEvent) => void;
 
-// Starting and stopping belong to the registry, so only these reach a running session.
-export type AgentCommand = Exclude<SessionCommand, { type: "start" | "stop" }>;
+type SessionEndedEvent = Extract<SessionEvent, { type: "session.ended" }>;
 
 export class SessionNotRunningError extends Error {
   constructor(id: string) {
@@ -159,7 +162,7 @@ export class SessionRegistry {
     if (event.type === "session.started") live.conversation ??= event.payload.harnessSessionId;
     if (event.type === "session.ended") this.#live.delete(event.sessionId);
     if (!live.recorded) {
-      this.#publish({ event });
+      this.#publish(event.type === "session.ended" ? this.#recordFailedEnd(event) : { event });
       return;
     }
     let stored: StoredEvent | undefined;
@@ -171,6 +174,18 @@ export class SessionRegistry {
       return;
     }
     this.#publish(stored ?? { event });
+  }
+
+  // One more try once the agent has stopped, so a brief storage failure does not leave the session
+  // "running" with no way to stop it or delete its task. The fatal error already told the user
+  // that saving fails, so a second failure only leaves the session for the next start to interrupt.
+  #recordFailedEnd(event: SessionEndedEvent): PublishedEvent {
+    const failed = { ...event, payload: { ...event.payload, reason: "failed" as const } };
+    try {
+      return this.#store.append(failed) ?? { event: failed };
+    } catch {
+      return { event: failed };
+    }
   }
 
   #recordLine(live: LiveSession, line: HarnessLine): void {
