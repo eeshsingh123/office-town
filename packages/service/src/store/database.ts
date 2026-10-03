@@ -30,7 +30,7 @@ export function openDatabase(file: string): DatabaseSync {
   } catch (error) {
     db.close();
     if ((error as { errcode?: number }).errcode === SQLITE_BUSY) {
-      throw new StoreFileError(`${file} is already open in another Office Town core.`);
+      throw new StoreFileError(`Office Town is already running and using ${file}.`);
     }
     throw error;
   }
