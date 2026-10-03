@@ -13,6 +13,7 @@ import type { LineListener, Session, SessionListener } from "@office-town/harnes
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type PublishedEvent,
+  SessionNotResumableError,
   SessionNotRunningError,
   SessionRegistry,
 } from "../src/registry/session-registry.ts";
@@ -153,6 +154,7 @@ describe("session registry", () => {
       type: "prompt",
       text: "Continue where you left off",
     });
+    await expect(registry.resume(first.id, "Continue")).rejects.toThrow(SessionNotResumableError);
 
     await registry.close();
     expect(sessions[1]?.sent.at(-1)).toEqual({ type: "stop" });

@@ -34,7 +34,7 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - Resuming needs a prompt, because a resumed harness waits for one. Any ended session with a harness session id can be resumed; the new session joins its task.
 - A shutdown is recorded like a crash: running sessions are stopped and marked interrupted, so "stopped" always means the user stopped it.
 - If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced).
-- Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message.
+- Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message. ACP never sends a whole message, so for OpenCode the `message` event is the only full copy of its text.
 
 ### D-9 Command-center interface — direction accepted, design pending
 

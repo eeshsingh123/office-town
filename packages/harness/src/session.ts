@@ -26,7 +26,7 @@ export type SessionListener = (event: SessionEvent) => void;
 export interface HarnessLine {
   direction: "in" | "out";
   text: string;
-  // The line only carried a fragment that a later line repeats in full.
+  // The line only carried a fragment of text that a later event reports whole.
   partial: boolean;
 }
 

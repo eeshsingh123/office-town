@@ -45,6 +45,8 @@ interface LiveSession {
   stopListening: () => void;
   lastSequence: number;
   recorded: boolean;
+  // The harness's own session id: one conversation must never run in two sessions at once.
+  conversation: string | undefined;
 }
 
 const NOT_RECORDED =
@@ -84,13 +86,14 @@ export class SessionRegistry {
   async resume(sessionId: string, prompt: string): Promise<SessionRecord> {
     const earlier = this.#store.getSession(sessionId);
     if (earlier === undefined) throw new RecordNotFoundError("session", sessionId);
-    if (this.#live.has(sessionId)) {
-      throw new SessionNotResumableError(sessionId, "it is still running.");
-    }
     if (earlier.harnessSessionId === undefined) {
       throw new SessionNotResumableError(sessionId, "its harness never started a conversation.");
     }
-    const options = { ...earlier.options, resumeSessionId: earlier.harnessSessionId };
+    const conversation = earlier.harnessSessionId;
+    if ([...this.#live.values()].some((live) => live.conversation === conversation)) {
+      throw new SessionNotResumableError(sessionId, "its conversation is already running.");
+    }
+    const options = { ...earlier.options, resumeSessionId: conversation };
     const session = this.#createSession(options);
     const record = { id: session.id, taskId: earlier.taskId, options, resumedFrom: sessionId };
     return this.#run(session, record, prompt);
@@ -131,6 +134,7 @@ export class SessionRegistry {
       },
       lastSequence: 0,
       recorded: true,
+      conversation: record.options.resumeSessionId,
     };
     this.#live.set(session.id, live);
     await session.send({ type: "start" });
@@ -152,6 +156,7 @@ export class SessionRegistry {
 
   #record(live: LiveSession, event: SessionEvent): void {
     live.lastSequence = event.sequence;
+    if (event.type === "session.started") live.conversation ??= event.payload.harnessSessionId;
     if (event.type === "session.ended") this.#live.delete(event.sessionId);
     if (!live.recorded) {
       this.#publish({ event });

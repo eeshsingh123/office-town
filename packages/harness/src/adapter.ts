@@ -34,7 +34,7 @@ export interface AnsweredQuestion {
 export interface Translation {
   events: AdapterEvent[];
   outgoing: string[];
-  // The line only carried a fragment that a later line repeats in full.
+  // The line only carried a fragment of text that a later event reports whole.
   partial?: boolean;
 }
 
