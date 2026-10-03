@@ -17,16 +17,13 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 
 ### D-30 Store layout and indexing — accepted (2026-10-03)
 
-- Node's built-in `node:sqlite`: no native module to rebuild for each Electron version. Its API is a release candidate; it is used in one file.
+- Node's built-in `node:sqlite`: no native module to rebuild for each Electron version. The Node that runs the core under Electron must include it.
 - WAL, `synchronous=NORMAL`: an app crash loses nothing; a power cut can lose the last second of events (owner accepted).
-- One core per data folder: the store holds its file exclusively, so a second core is refused instead of marking the first one's running agents interrupted. The OS drops the lock when a process dies. Tools that read the file directly must wait until the store is closed.
-- Integer keys inside, UUIDs only at the edge: every event row and index entry carries its session as 1 to 3 bytes, not 36.
-- Every index serves a named query, and the store test fails if any query reads a whole table or loses the index it relies on. Pages are read by key (`WHERE position > ?`), never by `OFFSET`.
-- Text over 16 KiB in `action.ended.result` goes to `results/<session>/<sequence>.txt`, capped at 16 MiB; the event keeps a 4 KiB preview and `overflow`. `action.updated.output` over 16 KiB keeps only its last 4 KiB: the harness resends the whole output with each update, so a file per update grew with the square of the output (a 2 MB log left 101 MB).
-- Raw harness lines are cut at 64 KiB, with the full size kept: the events already hold the text, the audit copy needs the line's shape.
-- Deleting a task removes rows in chunks of 1,000 and hands freed pages back in steps, so the process is never blocked for long (under 80 ms on a 100 MB task).
+- One core per data folder: the store holds its file exclusively, so a second core is refused instead of marking the first one's running agents interrupted.
+- Every index serves a named query, and the store test fails if a query reads a whole table. Pages are read by key, never by `OFFSET`.
+- Large results go to files beside the database; the event keeps a 4 KiB preview and `overflow`. A growing action output keeps only its tail, because the harness resends the whole output with each update.
 - Migrations are never edited once merged; the file is copied before it is migrated, and a file from a newer app version is refused.
-- No speculative storage: each table is added by the sub-module that uses it, and raw harness lines that only carried a text fragment are not stored (owner: optimise for latency and size).
+- No speculative storage: each table is added by the sub-module that uses it, with its own migration (owner: optimise for latency and size).
 
 ### D-31 Session registry rules — accepted (2026-10-03)
 
@@ -35,11 +32,11 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - Resuming needs a prompt, because a resumed harness waits for one. Any ended session with a harness session id can be resumed; the new session joins its task.
 - A shutdown is recorded like a crash: running sessions are stopped and marked interrupted, so "stopped" always means the user stopped it.
 - If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced). Its end is then saved once more, as `failed`, so a brief failure does not leave it "running" with stop and delete refused; if that fails too, the next start marks it interrupted.
-- Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message. ACP never sends a whole message, so for OpenCode the `message` event is the only full copy of its text.
+- Partial raw lines are flagged by the adapter, which knows its wire format, and are not stored. For OpenCode the `message` event is the only full copy of its text.
 
 ### D-32 API rules — accepted (2026-10-03)
 
-- Node's own `node:http` with a route table in `packages/service/src/api`, no framework. Hono would add a router, middleware, a typed client and web-standard handlers; the contract already types the API, the core only runs on Node, and the table is short. Revisit if routes need shared middleware; only `src/api` would change.
+- Node's own `node:http` with a route table in `packages/service/src/api`, no framework: the contract already types the API and the table is short. Revisit if routes need shared middleware; only `src/api` would change.
 - `127.0.0.1` only, with a random token per launch, sent as `Authorization: Bearer` on every request, the stream included. The browser's `EventSource` cannot send headers, so the UI reads the stream with `fetch` (M3.2). CORS is decided in M3.2, once the UI's origin is known.
 - The core prints one line on stdout, `{url, token}` (`coreReadySchema`); logs go to stderr.
 - `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB or 10,000 held events behind is cut off and catches up from the store.
