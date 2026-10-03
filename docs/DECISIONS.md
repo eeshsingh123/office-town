@@ -19,6 +19,7 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 
 - Node's built-in `node:sqlite`: no native module to rebuild for each Electron version. Its API is a release candidate; it is used in one file.
 - WAL, `synchronous=NORMAL`: an app crash loses nothing; a power cut can lose the last second of events (owner accepted).
+- One core per data folder: the store holds its file exclusively, so a second core is refused instead of marking the first one's running agents interrupted. The OS drops the lock when a process dies. Tools that read the file directly must wait until the store is closed.
 - Integer keys inside, UUIDs only at the edge: every event row and index entry carries its session as 1 to 3 bytes, not 36.
 - Every index serves a named query, and the store test fails if any query reads a whole table or loses the index it relies on. Pages are read by key (`WHERE position > ?`), never by `OFFSET`.
 - Text over 16 KiB in `action.ended.result` goes to `results/<session>/<sequence>.txt`, capped at 16 MiB; the event keeps a 4 KiB preview and `overflow`. `action.updated.output` over 16 KiB keeps only its last 4 KiB: the harness resends the whole output with each update, so a file per update grew with the square of the output (a 2 MB log left 101 MB).
@@ -41,7 +42,8 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - Node's own `node:http` with a route table in `packages/service/src/api`, no framework. Hono would add a router, middleware, a typed client and web-standard handlers; the contract already types the API, the core only runs on Node, and the table is short. Revisit if routes need shared middleware; only `src/api` would change.
 - `127.0.0.1` only, with a random token per launch, sent as `Authorization: Bearer` on every request, the stream included. The browser's `EventSource` cannot send headers, so the UI reads the stream with `fetch` (M3.2). CORS is decided in M3.2, once the UI's origin is known.
 - The core prints one line on stdout, `{url, token}` (`coreReadySchema`); logs go to stderr.
-- `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB behind is cut off and catches up from the store.
+- `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB or 10,000 held events behind is cut off and catches up from the store.
+- `follow=false` makes a replay that ends once caught up. Chromium opens at most 6 connections to one host, so the UI keeps one live stream and replays sessions with `follow=false`; a stream per open view would block its own commands.
 - Errors are `{error, message}` with a fixed code: 400 invalid, 401, 404, 409 for a session or task in the wrong state, 413 over 1 MiB, 502 when a harness cannot run.
 
 ### D-9 Command-center interface — direction accepted, design pending

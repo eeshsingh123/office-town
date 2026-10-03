@@ -98,11 +98,14 @@ describe("store", () => {
     expect(store.readOverflow(first.id, ended.sequence)).toBe(longResult);
 
     store.appendHarnessLine(first.id, "in", "x".repeat(100_000));
+    // The store holds its file alone, so the raw line is read once it is closed.
+    store.close();
     const raw = new DatabaseSync(join(directory, "store.db"));
     expect(
       raw.prepare("SELECT length(line) AS kept, full_bytes AS full FROM harness_lines").get(),
     ).toEqual({ kept: 65_536, full: 100_000 });
     raw.close();
+    store = openStore(directory);
 
     expect(store.getSession(first.id)).toMatchObject({
       status: "exited",
@@ -116,11 +119,12 @@ describe("store", () => {
     ]);
   });
 
-  it("keeps its data across a reopen and refuses a file it cannot read", () => {
+  it("keeps its data across a reopen and refuses a file it cannot read or another core holds", () => {
     const task = store.createTask("Survive a restart");
     store.close();
     store = openStore(directory);
     expect(store.listTasks({ limit: 10 })).toEqual({ tasks: [task] });
+    expect(() => openStore(directory)).toThrow(StoreFileError);
     store.close();
 
     const file = join(directory, "store.db");
@@ -178,6 +182,7 @@ describe("store", () => {
 
   // A query that loses its index reads the whole table and slows down with every event stored.
   it("answers every query through an index", () => {
+    store.close();
     const db = openDatabase(join(directory, "store.db"));
     const plan = (sql: string) =>
       db
@@ -202,5 +207,6 @@ describe("store", () => {
     ];
     for (const [sql, index] of required) expect(plan(sql)).toContain(index);
     db.close();
+    store = openStore(directory);
   });
 });

@@ -4,8 +4,10 @@ import { RecordNotFoundError, type Store } from "../store/store.ts";
 
 const PAGE_SIZE = 500;
 // A client this far behind is dropped: it reconnects from its last id and catches up from the
-// store, so the core never holds an unbounded backlog for it.
+// store, so the core never holds an unbounded backlog for it. The second limit applies while a
+// replay waits for a client that has stopped reading.
 const MAX_BEHIND_BYTES = 4 * 1024 * 1024;
+const MAX_HELD_EVENTS = 10_000;
 
 export interface StreamSource {
   registry: SessionRegistry;
@@ -15,6 +17,7 @@ export interface StreamSource {
 export interface StreamQuery {
   after?: number | undefined;
   session?: string | undefined;
+  follow: boolean;
 }
 
 // A text fragment has no position, so it carries no id and a reconnecting client skips it.
@@ -40,13 +43,13 @@ function drainedOrClosed(response: ServerResponse): Promise<void> {
 export async function streamEvents(
   response: ServerResponse,
   { registry, store }: StreamSource,
-  { after, session }: StreamQuery,
+  { after, session, follow }: StreamQuery,
 ): Promise<void> {
   if (session !== undefined && store.getSession(session) === undefined) {
     throw new RecordNotFoundError("session", session);
   }
   let sent = after ?? 0;
-  let held: PublishedEvent[] | undefined = after === undefined ? undefined : [];
+  let held: PublishedEvent[] | undefined = after === undefined && follow ? undefined : [];
   const deliver = (published: PublishedEvent): boolean => {
     if (published.position !== undefined) {
       if (published.position <= sent) return true;
@@ -55,16 +58,17 @@ export async function streamEvents(
     return response.write(format(published));
   };
 
-  const stopListening = registry.subscribe((published) => {
+  const listen = (published: PublishedEvent): void => {
     if (response.destroyed) return;
     if (session !== undefined && published.event.sessionId !== session) return;
     if (held !== undefined) {
       held.push(published);
+      if (held.length > MAX_HELD_EVENTS) response.destroy();
       return;
     }
     if (!deliver(published) && response.writableLength > MAX_BEHIND_BYTES) response.destroy();
-  });
-  response.on("close", stopListening);
+  };
+  if (follow) response.on("close", registry.subscribe(listen));
   response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store" });
   response.flushHeaders();
   if (held === undefined) return;
@@ -76,6 +80,11 @@ export async function streamEvents(
     if (page.length < PAGE_SIZE) break;
     if (!flowing) await drainedOrClosed(response);
   }
+  if (!follow) {
+    response.end();
+    return;
+  }
+  if (response.destroyed) return;
   const caughtUp = held;
   held = undefined;
   for (const published of caughtUp) deliver(published);

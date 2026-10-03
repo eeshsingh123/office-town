@@ -130,7 +130,7 @@ describe("api", () => {
     expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(204);
   });
 
-  it("replays stored events by position and continues live, with no gap or repeat", async () => {
+  it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {
     const started = await call("POST", "/tasks", { prompt: "Write a report", options });
     const session = sessionRecordSchema.parse(await started.json());
     const agent = sessions[0];
@@ -169,5 +169,9 @@ describe("api", () => {
       { text: "Liv" },
       { text: "Live" },
     ]);
+
+    // A replay that does not follow ends once it has sent every stored event.
+    const replay = await (await call("GET", `/events?session=${session.id}&follow=false`)).text();
+    expect(replay.match(/^id: \d+$/gm)).toEqual(["id: 1", "id: 2", "id: 3", "id: 4", "id: 5"]);
   });
 });

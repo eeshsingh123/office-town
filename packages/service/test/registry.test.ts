@@ -72,11 +72,15 @@ describe("session registry", () => {
       ["message", true],
     ]);
     expect(storedWhenPublished).toEqual([true, true]);
+    // The store holds its file alone, so the audit copy is read once it is closed.
+    await registry.close();
+    store.close();
     const audit = new DatabaseSync(join(directory, "store.db"), { readOnly: true });
     expect(audit.prepare("SELECT line FROM harness_lines").all()).toEqual([
       { line: '{"type":"assistant"}' },
     ]);
     audit.close();
+    store = openStore(directory);
   });
 
   it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {

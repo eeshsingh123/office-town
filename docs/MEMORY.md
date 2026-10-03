@@ -7,7 +7,7 @@ Last updated: 2026-10-03
 - M1 (harness core) is on `main`, run live on Claude Code and OpenCode, natively and in WSL Ubuntu.
 - M2.1 (store, D-15 and D-30) is on `main`. `packages/service/src/store`: `openStore(folder)` returns the `Store` interface.
 - M2.2 (session registry, D-31) is on `main`. `packages/service/src/registry`: `new SessionRegistry(store)`. `defaultDataFolder()` gives `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- M2.3 (API, D-32) is built on `feat/m2.3-api` and waits for the owner's merge. `packages/service/src/main.ts` is the core process; `src/api` holds the server, routes and event stream. API messages are in `packages/contract/src/api.ts`. Run live with curl on Claude (haiku) and OpenCode (free model): task, permission answer, replay from `Last-Event-ID`, crash, interrupted, resume, large result, delete. Ctrl+C shutdown was not run live.
+- M2.3 (API, D-32) is built on `feat/m2.3-api` and waits for the owner's merge. `packages/service/src/main.ts` is the core process; `src/api` holds the server, routes and event stream. API messages are in `packages/contract/src/api.ts`. Run live with curl on Claude (haiku) and OpenCode (free model): task, permission answer, replay from `Last-Event-ID`, crash, interrupted, resume, large result, delete. Shutdown was run by calling the core's own SIGINT handler with an OpenCode agent running: exit 0 in 90 ms, session interrupted.
 - Next: M2.4 (workspaces and pending approvals), on a new branch once the M2.3 PR is merged. Present the approach first.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.

@@ -73,9 +73,11 @@ export type TaskListQuery = z.input<typeof taskListQuerySchema>;
 
 // The stream starts after `after`, an event position; with none, it carries new events only.
 // A reconnecting client sends its last position as the `Last-Event-ID` header instead.
+// `follow=false` makes it a replay that ends once it has caught up, starting from 0 by default.
 export const eventStreamQuerySchema = z.object({
   after: z.coerce.number().int().nonnegative().optional(),
   session: z.string().min(1).optional(),
+  follow: z.stringbool().default(true),
 });
 export type EventStreamQuery = z.input<typeof eventStreamQuerySchema>;
 
