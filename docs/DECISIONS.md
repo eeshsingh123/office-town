@@ -27,6 +27,15 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - Migrations are never edited once merged; the file is copied before it is migrated, and a file from a newer app version is refused.
 - No speculative storage: each table is added by the sub-module that uses it, and raw harness lines that only carried a text fragment are not stored (owner: optimise for latency and size).
 
+### D-31 Session registry rules — accepted (2026-10-03)
+
+- Store, then publish. Listeners get the stored event, so a large result arrives as preview plus `overflow` live and in replay alike. Text fragments are published without a `position` and never stored.
+- The registry changes sessions; reads (tasks, sessions, events) go straight to the store.
+- Resuming needs a prompt, because a resumed harness waits for one. Any ended session with a harness session id can be resumed; the new session joins its task.
+- A shutdown is recorded like a crash: running sessions are stopped and marked interrupted, so "stopped" always means the user stopped it.
+- If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced).
+- Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message.
+
 ### D-9 Command-center interface — direction accepted, design pending
 
 A top-down view of departments, their agents and dependencies, with chat, task and status panels. Not a walk-up-to-an-avatar world. Needs a design session before M5.
