@@ -36,6 +36,15 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - If the store fails, the agent is stopped and a fatal `error` (never stored) says its work could not be saved (owner: work that cannot be recorded cannot be traced).
 - Partial raw lines are flagged by the adapter, which knows its wire format: every Claude `stream_event` line (tool input fragments included), and ACP chunks that complete no message. ACP never sends a whole message, so for OpenCode the `message` event is the only full copy of its text.
 
+### D-32 API rules — accepted (2026-10-03)
+
+- Node's own `node:http` with a route table in `packages/service/src/api`, no framework. Hono would add a router, middleware, a typed client and web-standard handlers; the contract already types the API, the core only runs on Node, and the table is short. Revisit if routes need shared middleware; only `src/api` would change.
+- `127.0.0.1` only, with a random token per launch, sent as `Authorization: Bearer` on every request, the stream included. The browser's `EventSource` cannot send headers, so the UI reads the stream with `fetch` (M3.2). CORS is decided in M3.2, once the UI's origin is known.
+- The core prints one line on stdout, `{url, token}` (`coreReadySchema`); logs go to stderr.
+- `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB behind is cut off and catches up from the store.
+- Errors are `{error, message}` with a fixed code: 400 invalid, 401, 404, 409 for a session or task in the wrong state, 413 over 1 MiB, 502 when a harness cannot run.
+- Known gap (owner accepted): after a failed save the session stays "running" in the store, so stop and delete answer 409 until the core restarts.
+
 ### D-9 Command-center interface — direction accepted, design pending
 
 A top-down view of departments, their agents and dependencies, with chat, task and status panels. Not a walk-up-to-an-avatar world. Needs a design session before M5.
