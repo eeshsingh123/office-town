@@ -206,6 +206,9 @@ importers:
       '@office-town/contract':
         specifier: workspace:*
         version: link:../contract
+      '@office-town/harness':
+        specifier: workspace:*
+        version: link:../harness
     devDependencies:
       '@types/node':
         specifier: ^24.19.0

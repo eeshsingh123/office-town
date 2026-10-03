@@ -6,7 +6,7 @@ import {
 } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter } from "../../src/adapter.ts";
-import { type RecordingEntry, replay, replayOptions } from "./replay.ts";
+import { type ReceivedLine, type RecordingEntry, replay, replayOptions } from "./replay.ts";
 
 type PayloadOf<T extends SessionEvent["type"]> = Extract<SessionEvent, { type: T }>["payload"];
 
@@ -70,6 +70,17 @@ function expectFragmentsToAddUp(events: SessionEvent[]): void {
   }
 }
 
+const isFragment = (event: SessionEvent) =>
+  event.type === "message.delta" || event.type === "reasoning.delta";
+
+// The audit copy leaves partial lines out, so a line that reports anything whole is never partial.
+function expectFragmentLinesPartial(received: ReceivedLine[]): void {
+  for (const { partial, events } of received) {
+    if (events.some((event) => !isFragment(event))) expect(partial).toBe(false);
+    else if (events.length > 0) expect(partial).toBe(true);
+  }
+}
+
 // The rules every adapter must keep, checked against real recordings of its harness.
 export function describeAdapterConformance(
   adapter: Adapter,
@@ -90,7 +101,7 @@ export function describeAdapterConformance(
     });
 
     it.each(Object.entries(recordings))("keeps the event rules replaying %s", async (_, lines) => {
-      const { events, written } = await replay(adapter, lines);
+      const { events, written, lines: reported, received } = await replay(adapter, lines);
 
       expectValidEventsInSequence(events);
       expectOneSessionEndedLast(events);
@@ -98,6 +109,10 @@ export function describeAdapterConformance(
       expectActionsStartedBeforeUse(events);
       expectEveryRequestResolved(events);
       expectFragmentsToAddUp(events);
+      expectFragmentLinesPartial(received);
+      expect(reported.filter((line) => line.direction === "out").map((line) => line.text)).toEqual(
+        written,
+      );
       if (!adapter.capabilities.usageLimits) {
         expect(payloadsOf(events, "limits.updated")).toEqual([]);
       }

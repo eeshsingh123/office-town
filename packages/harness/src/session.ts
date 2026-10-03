@@ -22,11 +22,22 @@ type SessionState = "created" | "starting" | "active" | "stopping" | "failing" |
 
 export type SessionListener = (event: SessionEvent) => void;
 
+// A line exactly as it crossed the harness's stdio, for an audit copy.
+export interface HarnessLine {
+  direction: "in" | "out";
+  text: string;
+  // The line only carried a fragment that a later line repeats in full.
+  partial: boolean;
+}
+
+export type LineListener = (line: HarnessLine) => void;
+
 export interface Session {
   readonly id: string;
   readonly capabilities: AdapterCapabilities;
   send(command: SessionCommand): Promise<void>;
   subscribe(listener: SessionListener): () => void;
+  subscribeLines(listener: LineListener): () => void;
 }
 
 export class SessionStateError extends Error {
@@ -49,6 +60,7 @@ export class HarnessSession implements Session {
   readonly #environment: Environment;
   readonly #translator: Translator;
   readonly #listeners = new Set<SessionListener>();
+  readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
   readonly #pendingQuestions = new Map<string, Question[]>();
   readonly #openActions = new Set<string>();
@@ -73,6 +85,11 @@ export class HarnessSession implements Session {
   subscribe(listener: SessionListener): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  subscribeLines(listener: LineListener): () => void {
+    this.#lineListeners.add(listener);
+    return () => this.#lineListeners.delete(listener);
   }
 
   async send(command: SessionCommand): Promise<void> {
@@ -200,7 +217,11 @@ export class HarnessSession implements Session {
 
   #apply(translation: Translation): void {
     for (const event of translation.events) this.#publish(event);
-    for (const line of translation.outgoing) this.#process?.writeLine(line);
+    for (const line of translation.outgoing) {
+      if (this.#process === undefined) continue;
+      this.#notify(this.#lineListeners, { direction: "out", text: line, partial: false });
+      this.#process.writeLine(line);
+    }
   }
 
   #receive(line: string): void {
@@ -208,6 +229,7 @@ export class HarnessSession implements Session {
     try {
       translation = this.#translator.receive(line);
     } catch (error) {
+      this.#notify(this.#lineListeners, { direction: "in", text: line, partial: false });
       this.#emit({
         type: "error",
         payload: {
@@ -218,6 +240,8 @@ export class HarnessSession implements Session {
       });
       return;
     }
+    const partial = translation.partial ?? false;
+    this.#notify(this.#lineListeners, { direction: "in", text: line, partial });
     this.#apply(translation);
   }
 
@@ -342,10 +366,14 @@ export class HarnessSession implements Session {
       timestamp: new Date().toISOString(),
       ...body,
     };
+    this.#notify(this.#listeners, event);
+  }
+
+  #notify<T>(listeners: Set<(value: T) => void>, value: T): void {
     const failures: unknown[] = [];
-    for (const listener of this.#listeners) {
+    for (const listener of listeners) {
       try {
-        listener(event);
+        listener(value);
       } catch (error) {
         failures.push(error);
       }

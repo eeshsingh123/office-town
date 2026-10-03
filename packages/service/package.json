@@ -7,7 +7,8 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@office-town/contract": "workspace:*"
+    "@office-town/contract": "workspace:*",
+    "@office-town/harness": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.19.0"

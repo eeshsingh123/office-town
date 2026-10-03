@@ -9,7 +9,7 @@ import type {
   LaunchRequest,
   ProcessExit,
 } from "../../src/environment/environment.ts";
-import { HarnessSession } from "../../src/session.ts";
+import { type HarnessLine, HarnessSession } from "../../src/session.ts";
 
 type RecordedCommand =
   | { type: "prompt"; text: string }
@@ -113,9 +113,16 @@ function commandFor(recorded: RecordedCommand, events: SessionEvent[]): SessionC
   };
 }
 
+export interface ReceivedLine {
+  partial: boolean;
+  events: SessionEvent[];
+}
+
 export interface Replay {
   events: SessionEvent[];
   written: string[];
+  lines: HarnessLine[];
+  received: ReceivedLine[];
 }
 
 export async function replay(
@@ -126,13 +133,21 @@ export async function replay(
   const environment = new ScriptedEnvironment();
   const session = new HarnessSession(options, adapter, environment);
   const events: SessionEvent[] = [];
+  const lines: HarnessLine[] = [];
+  const received: ReceivedLine[] = [];
   session.subscribe((event) => events.push(event));
+  session.subscribeLines((line) => lines.push(line));
 
   await session.send({ type: "start" });
   for (const entry of recording) {
-    if ("receive" in entry) await environment.emitLine(JSON.stringify(entry.receive));
-    else await session.send(commandFor(entry.send, events));
+    if ("receive" in entry) {
+      const before = events.length;
+      await environment.emitLine(JSON.stringify(entry.receive));
+      received.push({ partial: lines.at(-1)?.partial ?? false, events: events.slice(before) });
+    } else {
+      await session.send(commandFor(entry.send, events));
+    }
   }
   await session.send({ type: "stop" });
-  return { events, written: environment.written };
+  return { events, written: environment.written, lines, received };
 }
