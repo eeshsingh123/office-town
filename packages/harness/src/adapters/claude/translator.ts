@@ -270,16 +270,19 @@ export class ClaudeTranslator implements Translator {
     return translated(events);
   }
 
+  // Every streamed line, tool input included, is repeated whole by the `assistant` line after it.
   #streamEvent(message: unknown): Translation {
+    return { events: this.#fragments(message), outgoing: [], partial: true };
+  }
+
+  #fragments(message: unknown): AdapterEvent[] {
     const { event, parent_tool_use_id } = streamEventSchema.parse(message);
-    if (event.type !== "content_block_delta") return translated([]);
+    if (event.type !== "content_block_delta") return [];
     const parent = parentOf(parent_tool_use_id);
     const { text, thinking } = event.delta ?? {};
-    if (text) return translated([{ type: "message.delta", payload: { text, ...parent } }]);
-    if (thinking) {
-      return translated([{ type: "reasoning.delta", payload: { text: thinking, ...parent } }]);
-    }
-    return translated([]);
+    if (text) return [{ type: "message.delta", payload: { text, ...parent } }];
+    if (thinking) return [{ type: "reasoning.delta", payload: { text: thinking, ...parent } }];
+    return [];
   }
 
   #assistant(message: unknown): Translation {

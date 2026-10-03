@@ -92,7 +92,7 @@ export class AcpTranslator implements Translator {
         return this.#failure(incoming.method, incoming.message);
       case "notification":
         if (incoming.method !== "session/update") return NOTHING;
-        return { events: this.#update(incoming.params), outgoing: [] };
+        return this.#updated(this.#update(incoming.params));
       case "request":
         if (incoming.method === "session/request_permission") {
           return { events: this.#permissionRequest(incoming.id, incoming.params), outgoing: [] };
@@ -102,6 +102,14 @@ export class AcpTranslator implements Translator {
           outgoing: [this.#peer.reject(incoming.id, METHOD_NOT_FOUND, "Method not found")],
         };
     }
+  }
+
+  // A text chunk that completes no earlier message is only a fragment of the message to come.
+  #updated(events: AdapterEvent[]): Translation {
+    const partial =
+      events.length > 0 &&
+      events.every((event) => event.type === "message.delta" || event.type === "reasoning.delta");
+    return { events, outgoing: [], partial };
   }
 
   // ACP allows one prompt at a time, so later prompts wait for the turn in progress to end.

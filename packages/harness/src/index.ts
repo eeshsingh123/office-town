@@ -16,7 +16,13 @@ import { HarnessSession, type Session } from "./session.ts";
 export { UnknownHarnessError } from "./adapters/registry.ts";
 export { CatalogError } from "./catalog.ts";
 export { BinaryNotFoundError } from "./environment/find-binary.ts";
-export { type Session, type SessionListener, SessionStateError } from "./session.ts";
+export {
+  type HarnessLine,
+  type LineListener,
+  type Session,
+  type SessionListener,
+  SessionStateError,
+} from "./session.ts";
 
 function environmentFor(environment: EnvironmentSpec): Environment {
   switch (environment.kind) {
