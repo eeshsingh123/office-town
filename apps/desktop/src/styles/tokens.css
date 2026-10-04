@@ -1,0 +1,77 @@
+/* Every colour, size and timing the app uses (D-37). Light and dark follow the system. */
+:root {
+  color-scheme: light dark;
+
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --side: #f1f1ee;
+  --hover: #e8e8e4;
+  --border: #e4e3df;
+  --border-strong: #d3d2cd;
+  --text: #1b1b19;
+  --text-2: #57564f;
+  --text-3: #6b6a64;
+  --accent: #3a5bd9;
+  --accent-soft: #ecf0fc;
+  --accent-text: #2f4bb8;
+  --on-accent: #ffffff;
+  --warn: #8f5400;
+  --warn-soft: #fdf4e3;
+  --warn-border: #eed7a8;
+  --ok: #2e7a4c;
+  --bad: #b93a2b;
+  --code: #f3f3f0;
+  --floor: #f1efea;
+  --desk: #e2ded5;
+  --desk-line: #cfcac0;
+  --shadow: 0 2px 8px rgb(0 0 0 / 6%);
+  --shadow-raised: 0 12px 32px rgb(0 0 0 / 14%);
+
+  --font-ui: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --size-ui: 13px;
+  --size-agent: 14px;
+  --size-meta: 12px;
+  --size-small: 11px;
+  --size-title: 15px;
+  --size-page: 22px;
+
+  --radius-control: 7px;
+  --radius-card: 12px;
+  --motion: 150ms ease-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121211;
+    --surface: #181817;
+    --side: #141413;
+    --hover: #232320;
+    --border: #282826;
+    --border-strong: #383835;
+    --text: #ecebe7;
+    --text-2: #aaa9a3;
+    --text-3: #908f89;
+    --accent: #7d98f2;
+    --accent-soft: #1d2440;
+    --accent-text: #afc0f8;
+    --on-accent: #0f1530;
+    --warn: #e9b866;
+    --warn-soft: #2a2214;
+    --warn-border: #4b3b1d;
+    --ok: #6cc08f;
+    --bad: #ee8576;
+    --code: #1e1e1c;
+    --floor: #1c1c1a;
+    --desk: #2a2926;
+    --desk-line: #3a3935;
+    --shadow: 0 2px 8px rgb(0 0 0 / 30%);
+    --shadow-raised: 0 12px 32px rgb(0 0 0 / 45%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+}

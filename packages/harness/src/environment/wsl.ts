@@ -47,6 +47,35 @@ async function runInDistro(distro: string, command: string[]): Promise<string> {
   }
 }
 
+// Docker Desktop's own distros run its engine; no one installs an agent's tools there.
+const DOCKER_DISTROS = new Set(["docker-desktop", "docker-desktop-data"]);
+
+// `wsl.exe` prints its list as UTF-16, one distro per line.
+export function parseDistroList(output: Buffer): string[] {
+  return output
+    .toString("utf16le")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\uFEFF/, "").trim())
+    .filter((line) => line !== "" && !DOCKER_DISTROS.has(line));
+}
+
+export async function listDistros(): Promise<string[]> {
+  if (process.platform !== "win32") return [];
+  try {
+    const { stdout } = await promisify(execFile)("wsl.exe", ["--list", "--quiet"], {
+      encoding: "buffer",
+      windowsHide: true,
+      timeout: DISTRO_TIMEOUT_MS,
+    });
+    return parseDistroList(stdout);
+  } catch (error) {
+    const { code, killed } = error as { code?: unknown; killed?: boolean };
+    // WSL is not installed, or has no distro: there is nowhere else to run.
+    if (!killed && (code === "ENOENT" || typeof code === "number")) return [];
+    throw error;
+  }
+}
+
 export class WslEnvironment implements Environment {
   readonly #distro: string;
   readonly #host: Environment;

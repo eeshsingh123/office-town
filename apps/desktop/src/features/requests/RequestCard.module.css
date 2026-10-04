@@ -1,0 +1,156 @@
+.card {
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  scroll-margin: 80px;
+}
+
+.question {
+  border-color: var(--border-strong);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-weight: 500;
+}
+
+.question .head {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.since {
+  margin-left: auto;
+  font-size: var(--size-meta);
+  font-weight: 400;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.taskLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.separator {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.6;
+}
+
+.code {
+  max-height: 200px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: var(--size-agent);
+  font-weight: 500;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.choice:hover {
+  background: var(--bg);
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice input[type="radio"],
+.choice input[type="checkbox"] {
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.choiceText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.choiceLabel {
+  font-weight: 500;
+}
+
+.choiceDescription {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.own {
+  width: 100%;
+  height: 30px;
+  margin-top: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.error {
+  margin: 0;
+  color: var(--bad);
+}

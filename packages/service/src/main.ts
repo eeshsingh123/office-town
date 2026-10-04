@@ -10,8 +10,13 @@ const { values } = parseArgs({
   options: {
     "data-folder": { type: "string" },
     port: { type: "string", default: "0" },
+    "stop-when-stdin-closes": { type: "boolean", default: false },
   },
 });
+
+// The desktop app runs the core on Electron's own Node. Agents must not inherit that, or an
+// Electron app they start would run as plain Node.
+delete process.env.ELECTRON_RUN_AS_NODE;
 
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
@@ -38,3 +43,9 @@ async function shutdown(): Promise<void> {
   }
 }
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, shutdown);
+// Windows cannot send a child SIGTERM, so the app stops the core by closing its stdin. A pipe also
+// closes when the app crashes, so no core is left running unseen.
+if (values["stop-when-stdin-closes"]) {
+  process.stdin.on("close", shutdown);
+  process.stdin.resume();
+}

@@ -64,6 +64,7 @@ const catalog: CatalogQuery = {
 
 export const claudeAdapter: Adapter = {
   harness: "claude",
+  name: "Claude Code",
   // The CLI sends thinking blocks with their text left empty, so there is no reasoning to report.
   capabilities: {
     reasoning: false,

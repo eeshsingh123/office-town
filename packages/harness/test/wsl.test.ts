@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { LaunchRequest } from "../src/environment/environment.ts";
 import { BinaryNotFoundError } from "../src/environment/find-binary.ts";
-import { WslEnvironment } from "../src/environment/wsl.ts";
+import { parseDistroList, WslEnvironment } from "../src/environment/wsl.ts";
 import { toWindowsPath, toWslPath } from "../src/environment/wsl-paths.ts";
 import { runProcess } from "../src/process-runner.ts";
 import { ScriptedEnvironment } from "./support/replay.ts";
@@ -23,6 +23,14 @@ describe("WSL path translation", () => {
     for (const [windowsPath, wslPath] of cases) {
       expect(toWslPath(windowsPath, "Ubuntu")).toBe(wslPath);
     }
+  });
+
+  it("reads the distro list that wsl.exe prints in UTF-16, without Docker's own distros", () => {
+    const printed = Buffer.from(
+      "\uFEFFUbuntu\r\ndocker-desktop\r\nDebian-12\r\ndocker-desktop-data\r\n\r\n",
+      "utf16le",
+    );
+    expect(parseDistroList(printed)).toEqual(["Ubuntu", "Debian-12"]);
   });
 
   it("maps distro paths back to Windows", () => {

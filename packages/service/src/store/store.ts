@@ -7,6 +7,7 @@ import type {
   StoreSize,
   TaskPage,
   TaskRecord,
+  TaskSummary,
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
@@ -43,8 +44,10 @@ export type LineDirection = "in" | "out";
 export interface Store {
   createTask(prompt: string): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
-  // Newest first.
+  // Newest first, each with its sessions.
   listTasks(query: TaskQuery): TaskPage;
+  // Every task with a session starting or running, newest first.
+  listActiveTasks(): TaskSummary[];
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;

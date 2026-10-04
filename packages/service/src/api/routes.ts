@@ -6,7 +6,7 @@ import {
   taskListQuerySchema,
   workspaceRequestSchema,
 } from "@office-town/contract";
-import { describeHarness, listHarnesses } from "@office-town/harness";
+import { describeHarness, listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
@@ -50,7 +50,8 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "GET",
       path: "/tasks",
       reply: ({ query }) => {
-        const { limit, cursor } = taskListQuerySchema.parse(Object.fromEntries(query));
+        const { limit, cursor, active } = taskListQuerySchema.parse(Object.fromEntries(query));
+        if (active) return { status: 200, json: { tasks: store.listActiveTasks() } };
         return {
           status: 200,
           json: store.listTasks(cursor === undefined ? { limit } : { limit, cursor }),
@@ -161,6 +162,11 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "GET",
       path: "/harnesses",
       reply: () => ({ status: 200, json: listHarnesses() }),
+    },
+    {
+      method: "GET",
+      path: "/environments",
+      reply: async () => ({ status: 200, json: await listEnvironments() }),
     },
     {
       method: "GET",

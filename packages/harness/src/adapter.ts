@@ -57,6 +57,8 @@ export interface CatalogQuery {
 
 export interface Adapter {
   readonly harness: string;
+  // The harness's name as people know it.
+  readonly name: string;
   readonly capabilities: AdapterCapabilities;
   readonly catalog?: CatalogQuery;
   buildCommand(options: LaunchOptions): HarnessCommand;

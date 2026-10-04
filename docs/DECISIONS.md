@@ -37,7 +37,7 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 ### D-32 API rules — accepted (2026-10-03)
 
 - Node's own `node:http` with a route table in `packages/service/src/api`, no framework: the contract already types the API and the table is short. Revisit if routes need shared middleware; only `src/api` would change.
-- `127.0.0.1` only, with a random token per launch, sent as `Authorization: Bearer` on every request, the stream included. The browser's `EventSource` cannot send headers, so the UI reads the stream with `fetch` (M3.2). CORS is decided in M3.2, once the UI's origin is known.
+- `127.0.0.1` only, with a random token per launch, sent as `Authorization: Bearer` on every request, the stream included. The browser's `EventSource` cannot send headers, so the UI reads the stream with `fetch` (M3.2). No CORS: the UI reaches the core through its own origin (D-36).
 - The core prints one line on stdout, `{url, token}` (`coreReadySchema`); logs go to stderr.
 - `GET /events`: `data` is the event, `id` its store position. Text fragments and unstored errors carry no id, so a reconnect skips them. It starts after `Last-Event-ID`, else `after`, else with new events only; `session=` limits it to one session. Live events are held while the store is read and repeats are dropped by position. A client more than 4 MiB or 10,000 held events behind is cut off and catches up from the store.
 - `follow=false` makes a replay that ends once caught up. Chromium opens at most 6 connections to one host, so the UI keeps one live stream and replays sessions with `follow=false`; a stream per open view would block its own commands.
@@ -52,13 +52,42 @@ Why: the stream is one-way and commands are request/response; reconnect and catc
 - The blocked queue holds permission requests and questions (owner). `pending_requests` points at the asking event; its row goes with the answer, the session's end, or the next start's interrupt. The list carries the store position it was read at, so the UI opens its stream from there.
 - `POST /tasks` takes no folders and no `resumeSessionId`: a resume goes through `/sessions/:id/resume`, which refuses a conversation that is already running.
 
-### D-9 Command-center interface — direction accepted, design pending
+### D-34 Agents keep running in the tray — accepted (2026-10-04)
 
-A top-down view of departments, their agents and dependencies, with chat, task and status panels. Not a walk-up-to-an-avatar world. Needs a design session before M5.
+Closing the window hides it; the app and the core keep running in the tray, whose menu has Open and Quit. Quitting while agents run asks first; those agents are recorded as interrupted and can be continued. The shell runs the core on Electron's own Node (`ELECTRON_RUN_AS_NODE`; Electron 44 ships Node 24.21 with `node:sqlite` and type stripping, checked), so users install no Node. It stops the core by closing the core's stdin (the core watches it only when started with `--stop-when-stdin-closes`, so a core run from a script with no stdin does not stop at once); the core then shuts down as it does on SIGTERM. Only if it does not exit in 15 seconds is its process tree killed. The quit prompt counts open agents with `GET /tasks?active=true`.
+Why the tray: the simplest way to keep agents running without the window. A detached core or an OS service adds a second lifecycle, and stays possible later because of D-2.
+Why stdin: Windows cannot send SIGTERM to a child process, and a process-tree kill does not reach WSL agents (D-22); only the core knows how to stop those. A closed pipe also stops the core if the shell crashes, so no core is left running unseen.
+
+### D-35 The office is the home screen — accepted (2026-10-04)
+
+A top-down 2D office in which agents are characters at desks. You walk your own character up to an agent with the keyboard, or click the agent; both open the same side panel: purpose, task, step, current action, and any request. Dragging a box selects several agents; the panel lists them grouped. Single-user: no space shared with other people. The first version is the M3 office (one open floor); M4 and M6 add departments as rooms on the same frame, so the layout is never rebuilt. The floor shows open and waiting agents and those finished today; older ones are under Tasks. Arrow keys or WASD walk, E talks to the agent beside you, and "Open full trace" switches to the task view with a way back. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
+Why now: the owner wants the office as the main screen; building M3's panels outside it would mean rebuilding the layout in M6. Replaces D-9's "not a walk-up world" (owner, 2026-10-04).
+
+### D-36 The UI reaches the core through its own origin — accepted (2026-10-04)
+
+The UI calls relative `/api/...` paths. In the app, the shell serves the UI on an `app://` scheme and forwards `/api` to the core, adding the token. In browser development, Vite's proxy does the same.
+Why: one code path in both places; the core needs no CORS (closes D-32's open point); the token never reaches the page, which shows text written by agents. Checked: an event stream passes through Electron's protocol handler without buffering. The main process is TypeScript run directly (D-19 holds). A preload, where needed, is a small plain-JS file, because sandboxed preloads do not strip types.
+
+### D-37 UI building blocks and look — accepted (2026-10-04)
+
+- React 19, Vite, Zustand. Radix primitives for menus, dialogs and tooltips, for correct keyboard and screen-reader behaviour; `cmdk` for the searchable model list; `react-markdown` for agent text, never raw HTML; lucide icons; Geist and Geist Mono shipped with the app, so it works offline.
+- Styling: CSS Modules plus one tokens file of CSS variables. No Tailwind: styles read as plain CSS and every colour lives in one place.
+- Look (owner accepted the mockups): warm greys; one blue accent for actions and running work; amber only for "needs you"; status as small icons and dots, never large fills; agent text 14 px, interface 13 px; light and dark follow the OS; reduced motion respected.
+- Stream events are applied in batches, once per animation frame, or after 100 ms when the window gets no frames (hidden, covered or in the tray). Every task keeps its records (task, sessions, status); a full trace is loaded for each open agent, since the office shows its step and current action, and for each session the user opens. Replays run one at a time.
+- An agent's name and colour come from its task's first session id, so a resumed agent keeps its name. A name is a handle like `@kai-0427`: one of 64 names and a four-digit number, so two agents rarely match; stored, unique names come with profiles in M4 (owner).
+
+### D-38 The model list is ordered by what a model costs the user — accepted (2026-10-04)
+
+A catalog model may carry `access`: `free`, `plan` (nothing beyond a subscription the user has) or `paid`. The adapter decides, since only it knows its harness's providers: OpenCode marks zero-cost models free and OpenCode Go models plan, and leaves out models that cannot call tools (image, video, speech), which no agent can use. The New task list shows Recent, Free, In your plan, then providers used before; other providers sit behind one row. OpenCode lists only the providers the user is connected to, so the app does not check logins; logging in from the app is deferred (owner).
+Why: a zero-cost flag alone put image and speech models first and hid the subscription models the user already pays for.
+
+### D-9 Command-center interface — direction accepted
+
+A top-down view of departments, their agents and dependencies, with chat, task and status panels. Its first version is the M3 office (D-35); M6 grows it.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M6.
+Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M7.
 
 ### D-18 Outsourced agents — direction accepted
 

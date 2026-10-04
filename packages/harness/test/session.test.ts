@@ -8,6 +8,7 @@ import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 // A harness whose native format is already our events, so these tests exercise only the session.
 const passthroughAdapter: Adapter = {
   harness: "replayed",
+  name: "Replayed",
   capabilities: {
     reasoning: false,
     plan: true,

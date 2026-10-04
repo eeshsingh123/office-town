@@ -14,7 +14,9 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "dev:run": "node packages/harness/dev/run.ts",
     "dev:catalog": "node packages/harness/dev/catalog.ts",
-    "dev:core": "node packages/service/src/main.ts"
+    "dev:core": "node packages/service/src/main.ts",
+    "dev:web": "node apps/desktop/dev/web.ts",
+    "dev:app": "pnpm --filter @office-town/desktop build && pnpm --filter @office-town/desktop start"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

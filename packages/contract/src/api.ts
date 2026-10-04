@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
-import { absolutePathSchema, sessionOptionsSchema } from "./options.ts";
+import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -32,9 +32,14 @@ export const sessionRecordSchema = z.object({
 });
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 
+export const taskSummarySchema = taskRecordSchema.extend({
+  sessions: z.array(sessionRecordSchema),
+});
+export type TaskSummary = z.infer<typeof taskSummarySchema>;
+
 // `next` is set while more tasks may follow; it is passed back as the cursor for the next page.
 export const taskPageSchema = z.object({
-  tasks: z.array(taskRecordSchema),
+  tasks: z.array(taskSummarySchema),
   next: z.string().min(1).optional(),
 });
 export type TaskPage = z.infer<typeof taskPageSchema>;
@@ -53,9 +58,15 @@ export type StoreSize = z.infer<typeof storeSizeSchema>;
 
 export const harnessDescriptionSchema = z.object({
   harness: z.string().min(1),
+  // The harness's name as people know it.
+  name: z.string().min(1),
   capabilities: adapterCapabilitiesSchema,
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
+
+// Where a harness can run on this machine: natively, and in each installed WSL distro.
+export const environmentListSchema = z.array(environmentSpecSchema);
+export type EnvironmentList = z.infer<typeof environmentListSchema>;
 
 // The first folder is where the agent works; it may use the others as freely.
 export const workspaceRequestSchema = z.object({
@@ -103,9 +114,12 @@ export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 export const resumeSessionRequestSchema = z.object({ prompt: z.string().min(1) });
 export type ResumeSessionRequest = z.infer<typeof resumeSessionRequestSchema>;
 
+// `active=true` lists every task with an agent starting or running instead, on one page: those
+// can be far down the list when an old task was resumed.
 export const taskListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().min(1).optional(),
+  active: z.stringbool().default(false),
 });
 export type TaskListQuery = z.input<typeof taskListQuerySchema>;
 

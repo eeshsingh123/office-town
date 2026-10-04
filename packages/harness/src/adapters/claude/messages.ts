@@ -69,6 +69,8 @@ export const assistantSchema = z.looseObject({
 export const userSchema = z.looseObject({
   message: z.looseObject({ content: z.union([z.string(), z.array(blockSchema)]) }),
   parent_tool_use_id: z.string().nullish(),
+  // The CLI's own record of the tool call the message answers.
+  tool_use_result: z.unknown().optional(),
 });
 
 export const taskStartedSchema = z.looseObject({
@@ -153,6 +155,20 @@ export const rateLimitSchema = z.looseObject({
 });
 
 export const taskCreateInputSchema = z.looseObject({ subject: z.string() });
+
+// What the CLI recorded for a task tool call. The model may name the input fields otherwise, such
+// as "title" or "task_id", and the CLI still accepts them, so its record is the one to read.
+export const taskCreatedSchema = z.looseObject({
+  task: z.looseObject({ id: z.string(), subject: z.string() }),
+});
+export const taskUpdatedSchema = z.looseObject({
+  taskId: z.string(),
+  statusChange: z.looseObject({ to: z.string() }).optional(),
+});
+export const taskUpdateFieldsSchema = z.looseObject({
+  status: z.string().optional(),
+  subject: z.string().optional(),
+});
 
 export const taskUpdateInputSchema = z.looseObject({
   taskId: z.string(),

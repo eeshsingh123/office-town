@@ -10,7 +10,7 @@ import { adapters, findAdapter } from "./adapters/registry.ts";
 import { readCatalog } from "./catalog.ts";
 import type { Environment } from "./environment/environment.ts";
 import { NativeEnvironment } from "./environment/native.ts";
-import { WslEnvironment } from "./environment/wsl.ts";
+import { listDistros, WslEnvironment } from "./environment/wsl.ts";
 import { HarnessSession, type Session } from "./session.ts";
 
 export { UnknownHarnessError } from "./adapters/registry.ts";
@@ -43,7 +43,12 @@ export function createSession(input: SessionOptions): Session {
 }
 
 export function listHarnesses(): HarnessDescription[] {
-  return adapters.map(({ harness, capabilities }) => ({ harness, capabilities }));
+  return adapters.map(({ harness, name, capabilities }) => ({ harness, name, capabilities }));
+}
+
+export async function listEnvironments(): Promise<EnvironmentSpec[]> {
+  const distros = await listDistros();
+  return [{ kind: "native" }, ...distros.map((distro) => ({ kind: "wsl" as const, distro }))];
 }
 
 // The models a harness offers in an environment, with the effort values each one accepts.

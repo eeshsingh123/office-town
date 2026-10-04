@@ -1,0 +1,55 @@
+.picker {
+  width: 360px;
+  max-width: 360px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.list {
+  max-height: 340px;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.list [cmdk-group-heading] {
+  margin: 8px 0 4px;
+  padding: 0 8px;
+  font-size: var(--size-small);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.empty {
+  padding: 12px 8px;
+  color: var(--text-3);
+}
+
+.free {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 500;
+}
+
+.more {
+  color: var(--text-2);
+}
