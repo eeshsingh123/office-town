@@ -47,13 +47,16 @@ async function runInDistro(distro: string, command: string[]): Promise<string> {
   }
 }
 
+// Docker Desktop's own distros run its engine; no one installs an agent's tools there.
+const DOCKER_DISTROS = new Set(["docker-desktop", "docker-desktop-data"]);
+
 // `wsl.exe` prints its list as UTF-16, one distro per line.
 export function parseDistroList(output: Buffer): string[] {
   return output
     .toString("utf16le")
     .split(/\r?\n/)
     .map((line) => line.replace(/^\uFEFF/, "").trim())
-    .filter((line) => line !== "");
+    .filter((line) => line !== "" && !DOCKER_DISTROS.has(line));
 }
 
 export async function listDistros(): Promise<string[]> {

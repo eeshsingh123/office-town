@@ -25,8 +25,11 @@ describe("WSL path translation", () => {
     }
   });
 
-  it("reads the distro list that wsl.exe prints in UTF-16", () => {
-    const printed = Buffer.from("\uFEFFUbuntu\r\nDebian-12\r\n\r\n", "utf16le");
+  it("reads the distro list that wsl.exe prints in UTF-16, without Docker's own distros", () => {
+    const printed = Buffer.from(
+      "\uFEFFUbuntu\r\ndocker-desktop\r\nDebian-12\r\ndocker-desktop-data\r\n\r\n",
+      "utf16le",
+    );
     expect(parseDistroList(printed)).toEqual(["Ubuntu", "Debian-12"]);
   });
 
