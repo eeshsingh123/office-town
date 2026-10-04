@@ -14,6 +14,10 @@ const { values } = parseArgs({
   },
 });
 
+// The desktop app runs the core on Electron's own Node. Agents must not inherit that, or an
+// Electron app they start would run as plain Node.
+delete process.env.ELECTRON_RUN_AS_NODE;
+
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
