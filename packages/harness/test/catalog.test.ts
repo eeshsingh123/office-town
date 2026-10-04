@@ -37,6 +37,7 @@ function environmentPrinting(lines: string[], code: number, stderr = "") {
 
 const adapter: Adapter = {
   harness: "listed",
+  name: "Listed",
   capabilities: {
     reasoning: false,
     plan: false,

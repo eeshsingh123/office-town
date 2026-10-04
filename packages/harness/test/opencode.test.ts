@@ -71,13 +71,28 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("reads its models from the CLI's list, with a model's variants as its effort values", () => {
+  it("reads its models from the CLI's list, with each model's provider, whether it is free, and its variants as its effort values", () => {
     expect(opencodeAdapter.catalog?.parse(catalogOutput).models).toEqual([
-      { id: "opencode/big-pickle", name: "Big Pickle", efforts: [] },
+      {
+        id: "opencode/big-pickle",
+        name: "Big Pickle",
+        provider: "opencode",
+        free: true,
+        efforts: [],
+      },
       {
         id: "opencode/ling-3.1-flash-free",
         name: "Ling 3.1 Flash Free",
+        provider: "opencode",
+        free: true,
         efforts: ["low", "medium", "high"],
+      },
+      {
+        id: "opencode-go/deepseek-v4-flash",
+        name: "DeepSeek V4 Flash",
+        provider: "opencode-go",
+        free: false,
+        efforts: ["low", "high", "max"],
       },
     ]);
   });

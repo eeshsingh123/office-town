@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
-import { absolutePathSchema, sessionOptionsSchema } from "./options.ts";
+import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -58,9 +58,15 @@ export type StoreSize = z.infer<typeof storeSizeSchema>;
 
 export const harnessDescriptionSchema = z.object({
   harness: z.string().min(1),
+  // The harness's name as people know it.
+  name: z.string().min(1),
   capabilities: adapterCapabilitiesSchema,
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
+
+// Where a harness can run on this machine: natively, and in each installed WSL distro.
+export const environmentListSchema = z.array(environmentSpecSchema);
+export type EnvironmentList = z.infer<typeof environmentListSchema>;
 
 // The first folder is where the agent works; it may use the others as freely.
 export const workspaceRequestSchema = z.object({

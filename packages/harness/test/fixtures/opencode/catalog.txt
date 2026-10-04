@@ -111,3 +111,65 @@ opencode/ling-3.1-flash-free
     }
   }
 }
+opencode-go/deepseek-v4-flash
+{
+  "id": "deepseek-v4-flash",
+  "api": {
+    "id": "deepseek-v4-flash",
+    "npm": "@ai-sdk/openai-compatible",
+    "url": "https://opencode.ai/inference/go/openai/v1"
+  },
+  "status": "active",
+  "name": "DeepSeek V4 Flash",
+  "providerID": "opencode-go",
+  "capabilities": {
+    "temperature": true,
+    "reasoning": true,
+    "attachment": false,
+    "toolcall": true,
+    "input": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": {
+      "field": "reasoning_content"
+    }
+  },
+  "cost": {
+    "input": 0.15,
+    "output": 0.6,
+    "cache": {
+      "read": 0.003,
+      "write": 0
+    }
+  },
+  "options": {},
+  "limit": {
+    "context": 1000000,
+    "output": 384000
+  },
+  "headers": {},
+  "family": "deepseek-flash",
+  "release_date": "2026-07-31",
+  "variants": {
+    "low": {
+      "reasoningEffort": "low"
+    },
+    "high": {
+      "reasoningEffort": "high"
+    },
+    "max": {
+      "reasoningEffort": "max"
+    }
+  }
+}

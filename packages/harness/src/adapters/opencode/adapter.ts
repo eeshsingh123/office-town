@@ -5,6 +5,8 @@ import { createAcpAdapter } from "../acp/adapter.ts";
 
 const modelSchema = z.looseObject({
   name: z.string(),
+  providerID: z.string().min(1).optional(),
+  cost: z.looseObject({ input: z.number(), output: z.number() }).optional(),
   variants: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -60,7 +62,15 @@ const catalog: CatalogQuery = {
       description.push(line);
       if (line !== "}") continue;
       const model = modelSchema.parse(JSON.parse(description.join("")));
-      models.push({ id, name: model.name, efforts: Object.keys(model.variants ?? {}) });
+      models.push({
+        id,
+        name: model.name,
+        ...(model.providerID === undefined ? {} : { provider: model.providerID }),
+        ...(model.cost === undefined
+          ? {}
+          : { free: model.cost.input === 0 && model.cost.output === 0 }),
+        efforts: Object.keys(model.variants ?? {}),
+      });
       id = undefined;
       description = [];
     }
@@ -70,6 +80,7 @@ const catalog: CatalogQuery = {
 
 export const opencodeAdapter = createAcpAdapter({
   harness: "opencode",
+  name: "OpenCode",
   capabilities: {
     reasoning: true,
     plan: true,
