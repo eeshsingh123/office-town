@@ -81,6 +81,24 @@ Why: one code path in both places; the core needs no CORS (closes D-32's open po
 A catalog model may carry `access`: `free`, `plan` (nothing beyond a subscription the user has) or `paid`. The adapter decides, since only it knows its harness's providers: OpenCode marks zero-cost models free and OpenCode Go models plan, and leaves out models that cannot call tools (image, video, speech), which no agent can use. The New task list shows Recent, Free, In your plan, then providers used before; other providers sit behind one row. OpenCode lists only the providers the user is connected to, so the app does not check logins; logging in from the app is deferred (owner).
 Why: a zero-cost flag alone put image and speech models first and hid the subscription models the user already pays for.
 
+### D-39 Team tools come from the core's own MCP server — proposed (2026-10-05), confirmed by the M4.1 spike
+
+The core serves MCP and attaches it to each team agent's session, with one token per session. Tools return at once; outcomes (a proposal answered, a worker finished) reach the agent later as a message from the core. The server is a small one of our own over HTTP, beside the API, like D-32, unless the spike shows the official SDK is needed.
+Why: Claude Code and OpenCode both call MCP tools, so delegation works the same on every harness, and M7 connectors attach through the same seam. Tools that wait on a person or another agent would run into harness tool timeouts and block parallel work.
+Open: how a WSL harness reaches the server, as WSL2 cannot reach Windows' `127.0.0.1` by default.
+
+### D-40 Departments, proposals and autonomy — accepted (2026-10-05)
+
+- Departments are saved and reused across goals, each a standing team with its own room (owner).
+- The lead proposes the team as its first step; the user edits and approves it, and can add, remove or change members at any time after (owner).
+- Autonomy has three levels: Supervised, Trusted, Full (MODULES.md M4.6). It replaces the permission mode for every agent, solo ones included. Bypass stays available with a clear warning, since it turns off every guard (owner).
+- Outward actions (push, opening a PR, publishing) are allowed under Full and asked under the other levels (owner).
+- In a git repository each worker gets its own worktree and branch, which the lead merges; otherwise the team shares the folder (owner).
+- Outsourced agents work on a copy, never the original (owner).
+- A WSL agent that cannot reach the tool server without the user changing WSL settings can be a worker but not a lead (owner).
+- Agent memory is out of M4 and gets its own module after a deep dive (owner).
+Why the lead proposes: it already has the goal and the workspace, and its reasoning stays in its own trace.
+
 ### D-9 Command-center interface — direction accepted
 
 A top-down view of departments, their agents and dependencies, with chat, task and status panels. Its first version is the M3 office (D-35); M6 grows it.
@@ -91,7 +109,7 @@ Capabilities come from MCP connectors packaged as plugins; an agent lacking a to
 
 ### D-18 Outsourced agents — direction accepted
 
-A fresh, isolated agent or department that gets only a brief and the artifact to examine, for a clean-slate review. Isolation must also cover what the harness loads by itself (project instruction files, harness memory). M4.
+A fresh, isolated agent or department that gets only a brief and a copy of the artifact to examine, for a clean-slate review. Isolation must also cover what the harness loads by itself (project instruction files, harness memory). M4.
 
 ### D-23 macOS is a target, parked — accepted
 
