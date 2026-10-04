@@ -18,9 +18,12 @@ import {
   type ToolResult,
   type ToolResultContent,
   type ToolUse,
+  taskCreatedSchema,
   taskCreateInputSchema,
   taskNotificationSchema,
   taskStartedSchema,
+  taskUpdatedSchema,
+  taskUpdateFieldsSchema,
   taskUpdateInputSchema,
   textBlockSchema,
   thinkingBlockSchema,
@@ -325,22 +328,22 @@ export class ClaudeTranslator implements Translator {
   }
 
   #user(message: unknown): Translation {
-    const { message: body } = userSchema.parse(message);
+    const { message: body, tool_use_result: recorded } = userSchema.parse(message);
     if (typeof body.content === "string") return translated([]);
     const events: AdapterEvent[] = [];
     for (const block of body.content) {
       if (block.type === "tool_result") {
-        events.push(...this.#toolResult(toolResultSchema.parse(block)));
+        events.push(...this.#toolResult(toolResultSchema.parse(block), recorded));
       }
     }
     return translated(events);
   }
 
-  #toolResult(block: ToolResult): AdapterEvent[] {
+  #toolResult(block: ToolResult, recorded: unknown): AdapterEvent[] {
     const planCall = this.#planCalls.get(block.tool_use_id);
     if (planCall !== undefined) {
       this.#planCalls.delete(block.tool_use_id);
-      return block.is_error ? [] : this.#applyPlanCall(planCall, textOf(block.content));
+      return block.is_error ? [] : this.#applyPlanCall(planCall, textOf(block.content), recorded);
     }
     // A background sub-agent's tool result only confirms the launch; it ends on its notification.
     if (this.#backgroundActions.has(block.tool_use_id)) return [];
@@ -356,18 +359,34 @@ export class ClaudeTranslator implements Translator {
     ];
   }
 
-  #applyPlanCall(call: ToolUse, result: string): AdapterEvent[] {
+  #applyPlanCall(call: ToolUse, result: string, recorded: unknown): AdapterEvent[] {
     if (call.name === "TaskCreate") {
-      const { subject } = taskCreateInputSchema.parse(call.input);
-      const id = /#(\d+)/.exec(result)?.[1] ?? String(this.#steps.length + 1);
+      const created = taskCreatedSchema.safeParse(recorded);
+      const { id, subject } = created.success
+        ? created.data.task
+        : {
+            id: /#(\d+)/.exec(result)?.[1] ?? String(this.#steps.length + 1),
+            subject: taskCreateInputSchema.parse(call.input).subject,
+          };
       this.#steps = [...this.#steps, { id, title: subject, status: "pending" }];
     } else {
-      const update = taskUpdateInputSchema.parse(call.input);
+      const update = this.#taskUpdate(call.input, recorded);
       this.#steps = this.#steps
         .filter((step) => !(step.id === update.taskId && update.status === "deleted"))
         .map((step) => (step.id === update.taskId ? this.#updatedStep(step, update) : step));
     }
     return [{ type: "plan.updated", payload: { steps: this.#steps } }];
+  }
+
+  #taskUpdate(input: unknown, recorded: unknown): TaskUpdateInput {
+    const updated = taskUpdatedSchema.safeParse(recorded);
+    if (!updated.success) return taskUpdateInputSchema.parse(input);
+    const { status, subject } = taskUpdateFieldsSchema.parse(input);
+    return {
+      taskId: updated.data.taskId,
+      status: updated.data.statusChange?.to ?? status,
+      subject,
+    };
   }
 
   #updatedStep(step: PlanStep, update: TaskUpdateInput): PlanStep {

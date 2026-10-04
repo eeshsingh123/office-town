@@ -18,6 +18,7 @@ const recordings = {
   "write-allowed": recording("write-allowed"),
   "write-denied": recording("write-denied"),
   "plan-and-subagent": recording("plan-and-subagent"),
+  "plan-other-names": recording("plan-other-names"),
   "interrupt-running": recording("interrupt-running"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "question-answered": recording("question-answered"),
@@ -269,6 +270,16 @@ describe("claude adapter", () => {
     ]);
     const titles = only(events, "action.started").map((event) => event.payload.title);
     expect(titles.some((title) => title.startsWith("Task"))).toBe(false);
+  });
+
+  it("reads the plan from what the CLI recorded, whatever the model named the fields", async () => {
+    const { events } = await replay(claudeAdapter, recordings["plan-other-names"]);
+
+    expect(only(events, "error")).toEqual([]);
+    expect(only(events, "plan.updated").at(-1)?.payload.steps).toEqual([
+      { id: "1", title: "List files", status: "completed" },
+      { id: "2", title: "Report", status: "completed" },
+    ]);
   });
 
   it("nests a sub-agent's work under its action and ends it when the sub-agent finishes", async () => {
