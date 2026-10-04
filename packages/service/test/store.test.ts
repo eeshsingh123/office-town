@@ -123,7 +123,7 @@ describe("store", () => {
     const task = store.createTask("Survive a restart");
     store.close();
     store = openStore(directory);
-    expect(store.listTasks({ limit: 10 })).toEqual({ tasks: [task] });
+    expect(store.listTasks({ limit: 10 })).toEqual({ tasks: [{ ...task, sessions: [] }] });
     expect(() => openStore(directory)).toThrow(StoreFileError);
     store.close();
 
@@ -215,15 +215,27 @@ describe("store", () => {
     expect(waiting()).toEqual([]);
   });
 
-  it("pages tasks newest first, even after the last task shown is deleted", async () => {
+  it("pages tasks newest first with their sessions, even after the last task shown is deleted, and lists the active ones apart", async () => {
     const oldest = store.createTask("one");
     const middle = store.createTask("two");
     const newest = store.createTask("three");
+    const running = startSession(oldest.id);
+    startSession(middle.id).emit({
+      type: "session.ended",
+      payload: { reason: "exited", exitCode: 0 },
+    });
+
     const first = store.listTasks({ limit: 1 });
-    expect(first.tasks).toEqual([newest]);
+    expect(first.tasks).toEqual([{ ...newest, sessions: [] }]);
     await store.deleteTask(newest.id);
     const rest = store.listTasks({ limit: 2, cursor: first.next ?? "" });
-    expect(rest.tasks).toEqual([middle, oldest]);
+    expect(rest.tasks.map(({ id, sessions }) => [id, sessions.length])).toEqual([
+      [middle.id, 1],
+      [oldest.id, 1],
+    ]);
+    expect(store.listActiveTasks()).toEqual([
+      { ...oldest, sessions: [store.getSession(running.id)] },
+    ]);
   });
 
   // A query that loses its index reads the whole table and slows down with every event stored.

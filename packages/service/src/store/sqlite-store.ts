@@ -14,6 +14,7 @@ import {
   settingsSchema,
   type TaskPage,
   type TaskRecord,
+  type TaskSummary,
   type UserRequestEvent,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -172,10 +173,18 @@ class SqliteStore implements Store {
     const before = cursor === undefined ? Number.MAX_SAFE_INTEGER : Number(cursor);
     const rows = all<TaskRow>(this.#statements.tasksBefore, before, limit);
     const last = rows.at(-1);
-    const tasks = rows.map(toTask);
+    const tasks = rows.map((row) => this.#summarize(row));
     return rows.length < limit || last === undefined
       ? { tasks }
       : { tasks, next: String(last.ref) };
+  }
+
+  listActiveTasks(): TaskSummary[] {
+    const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+    return [...new Set(sessions.map((session) => session.taskId))]
+      .map((id) => this.#taskRow(id))
+      .sort((a, b) => b.ref - a.ref)
+      .map((row) => this.#summarize(row));
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -365,6 +374,11 @@ class SqliteStore implements Store {
   close(): void {
     this.#db.exec("PRAGMA optimize");
     this.#db.close();
+  }
+
+  #summarize(row: TaskRow): TaskSummary {
+    const sessions = all<SessionRow>(this.#statements.sessionsOfTask, row.ref).map(toSession);
+    return { ...toTask(row), sessions };
   }
 
   #taskRow(id: string): TaskRow {
