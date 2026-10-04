@@ -28,7 +28,14 @@ Last updated: 2026-10-04
 
 - Agent profile (M4, owner 2026-10-04; M3 only remembers the last choices per harness): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
 - Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Recent, free and plan models at the top, with a filter; no hand-made "popular" list. `opencode models --verbose` gives `providerID` and `cost` (all zero means free). Show each harness's own effort values.
-- Office (M3.7, D-35): walk up with the keyboard and press a key, or click; drag-select shows the agents grouped. Later the office could be shared with other people; not planned.
+- Office (M3.7, D-35), settled with the owner on 2026-10-04:
+  - Characters are simple (coloured circle with initials), drawn by one component so pixel art and themes can come later as a skin.
+  - Each agent gets a friendly name picked from a fixed list by its session id (no storage); hovering shows its harness. Users rename agents with profiles in M4.
+  - The floor shows running and waiting agents and those finished today; older ones are under Tasks.
+  - "Open full trace" switches the main area to the task view, with "Back to office".
+  - Selection offers Stop all and Message all; no "Approve all" in M3 (revisit with autonomy in M4).
+  - Arrow keys or WASD walk, E talks to the agent you stand next to; clicking an agent opens it directly; no click-to-walk.
+  - Single-user; a shared office is not planned.
 - Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
 - M3.4: an interrupted session's log ends with its open actions and turn unclosed; show them as interrupted. A large result arrives as a preview plus `overflow`; the full text is at `/sessions/:id/results/:sequence`.
 - The app warns when the store grows large (M3); `GET /storage` reports its size.
@@ -38,7 +45,6 @@ Last updated: 2026-10-04
 
 ## Open questions for the owner
 
-- Office details for M3.7, asked on 2026-10-04: art style, agent names, which agents stay on the floor, what the side panel opens into, bulk actions. Record the answers here before M3.7.
 - Permissions per agent, set when the agent is created (M4, with profiles).
 - Connector deep dive (D-11), final name.
 
