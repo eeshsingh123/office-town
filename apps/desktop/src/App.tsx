@@ -1,3 +1,4 @@
+import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
@@ -36,11 +37,13 @@ export function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
   return (
-    <div className={styles.app}>
-      <Sidebar />
-      <main className={styles.main}>
-        <Main view={view} />
-      </main>
-    </div>
+    <Tooltip.Provider delayDuration={300}>
+      <div className={styles.app}>
+        <Sidebar />
+        <main className={styles.main}>
+          <Main view={view} />
+        </main>
+      </div>
+    </Tooltip.Provider>
   );
 }

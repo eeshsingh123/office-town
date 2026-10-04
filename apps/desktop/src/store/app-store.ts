@@ -20,6 +20,8 @@ export interface AppState extends Records {
   // The cursor of the next page of older tasks, while there is one.
   olderTasks: string | undefined;
   view: View;
+  // The office's selected agents, by task id; kept while the user looks at a trace.
+  selection: string[];
 }
 
 export const useApp = create<AppState>(() => ({
@@ -32,10 +34,15 @@ export const useApp = create<AppState>(() => ({
   traceErrors: {},
   olderTasks: undefined,
   view: { name: "office" },
+  selection: [],
 }));
 
 export function navigate(view: View): void {
   useApp.setState({ view });
+}
+
+export function select(selection: string[]): void {
+  useApp.setState({ selection });
 }
 
 // The name people know a harness by, such as "Claude Code".

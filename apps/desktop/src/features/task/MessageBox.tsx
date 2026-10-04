@@ -1,5 +1,5 @@
 import { ArrowUp } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, useState } from "react";
+import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -9,7 +9,8 @@ import { Button } from "../../ui/Button.tsx";
 import styles from "./TaskView.module.css";
 
 // A message goes to the running agent, or resumes an ended one in a new session of the task.
-export function MessageBox({ agent }: { agent: Agent }) {
+export function MessageBox({ agent, className }: { agent: Agent; className?: string | undefined }) {
+  const id = useId();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -51,18 +52,18 @@ export function MessageBox({ agent }: { agent: Agent }) {
       ? "Continue this task with a message"
       : "This agent cannot be continued";
   return (
-    <form className={styles.composer} onSubmit={send}>
+    <form className={className ?? styles.composer} onSubmit={send}>
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
           {error}
         </p>
       )}
       <div className={styles.messageBox}>
-        <label htmlFor="message" className="visually-hidden">
+        <label htmlFor={id} className="visually-hidden">
           {placeholder}
         </label>
         <textarea
-          id="message"
+          id={id}
           rows={1}
           value={text}
           placeholder={placeholder}
