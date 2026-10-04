@@ -52,17 +52,32 @@ async function refresh(first = false): Promise<number> {
     api.listActiveTasks(),
     api.listHarnesses(),
   ]);
+  // A task the app still holds as open, but that neither list has, may have been interrupted by a
+  // core restart; it is read again so it does not stay "running".
+  const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
+  const stale = new Set(
+    Object.values(useApp.getState().sessions)
+      .filter((session) => isOpen(session) && !listed.has(session.taskId))
+      .map((session) => session.taskId),
+  );
+  const reread = await Promise.all([...stale].map(readTask));
+  const tasks = [...page.tasks, ...active.tasks, ...reread];
   useApp.setState((state) => ({
     harnesses,
-    ...addTasks(state, [...page.tasks, ...active.tasks]),
+    ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),
   }));
   for (const { event } of waiting.requests) {
     if (useApp.getState().sessions[event.sessionId] === undefined) discover(event.sessionId);
   }
-  watchActive([...page.tasks, ...active.tasks]);
+  watchActive(tasks);
   return waiting.position;
+}
+
+async function readTask(taskId: string): Promise<TaskSummary> {
+  const { task, sessions } = await api.getTask(taskId);
+  return { ...task, sessions };
 }
 
 function watchActive(tasks: readonly TaskSummary[]): void {
@@ -73,8 +88,7 @@ function watchActive(tasks: readonly TaskSummary[]): void {
 
 // Adds a task the app has not listed yet, such as one it just started.
 export async function track(taskId: string): Promise<void> {
-  const { task, sessions } = await api.getTask(taskId);
-  const summary = { ...task, sessions };
+  const summary = await readTask(taskId);
   useApp.setState((state) => addTasks(state, [summary]));
   watchActive([summary]);
 }
