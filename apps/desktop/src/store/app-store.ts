@@ -1,3 +1,4 @@
+import type { HarnessDescription } from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
 import type { Trace } from "../trace/trace.ts";
@@ -12,6 +13,7 @@ export type View =
 
 export interface AppState extends Records {
   connection: StreamStatus;
+  harnesses: HarnessDescription[];
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
   traceErrors: Record<string, string>;
@@ -22,6 +24,7 @@ export interface AppState extends Records {
 
 export const useApp = create<AppState>(() => ({
   connection: "connecting",
+  harnesses: [],
   tasks: {},
   sessions: {},
   waiting: {},
@@ -33,4 +36,11 @@ export const useApp = create<AppState>(() => ({
 
 export function navigate(view: View): void {
   useApp.setState({ view });
+}
+
+// The name people know a harness by, such as "Claude Code".
+export function useHarnessName(harness: string): string {
+  return useApp(
+    (state) => state.harnesses.find((known) => known.harness === harness)?.name ?? harness,
+  );
 }

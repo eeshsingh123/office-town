@@ -1,12 +1,16 @@
+import { useEffect } from "react";
 import styles from "./App.module.css";
+import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
-import { useApp, type View } from "./store/app-store.ts";
+import { navigate, useApp, type View } from "./store/app-store.ts";
 
 function Main({ view }: { view: View }) {
   switch (view.name) {
     case "office":
       return <OfficeView />;
+    case "new-task":
+      return <NewTaskView />;
     default:
       return <OfficeView />;
   }
@@ -14,6 +18,16 @@ function Main({ view }: { view: View }) {
 
 export function App() {
   const view = useApp((state) => state.view);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
+        event.preventDefault();
+        navigate({ name: "new-task" });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   return (
     <div className={styles.app}>
       <Sidebar />

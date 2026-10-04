@@ -47,8 +47,13 @@ export function connect(): void {
 // anything that changes after it arrives as an event.
 async function refresh(first = false): Promise<number> {
   const waiting = await api.listPendingRequests();
-  const [page, active] = await Promise.all([api.listTasks(), api.listActiveTasks()]);
+  const [page, active, harnesses] = await Promise.all([
+    api.listTasks(),
+    api.listActiveTasks(),
+    api.listHarnesses(),
+  ]);
   useApp.setState((state) => ({
+    harnesses,
     ...addTasks(state, [...page.tasks, ...active.tasks]),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),

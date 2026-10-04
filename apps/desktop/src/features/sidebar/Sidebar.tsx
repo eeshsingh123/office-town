@@ -1,6 +1,8 @@
-import { LayoutPanelLeft, type LucideIcon } from "lucide-react";
+import { LayoutPanelLeft, type LucideIcon, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { Button } from "../../ui/Button.tsx";
+import { Kbd } from "../../ui/Kbd.tsx";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
@@ -37,6 +39,11 @@ export function Sidebar() {
         </span>
         Office Town
       </div>
+      <Button className={styles.newTask} onClick={() => navigate({ name: "new-task" })}>
+        <Plus size={16} aria-hidden />
+        New task
+        <Kbd>Ctrl N</Kbd>
+      </Button>
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
       <RunningAgents />
       <div className={styles.footer}>

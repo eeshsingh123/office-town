@@ -2,18 +2,41 @@ import {
   type AgentCommand,
   type ApiError,
   apiErrorSchema,
+  type EnvironmentList,
+  type EnvironmentSpec,
+  environmentListSchema,
+  type HarnessCatalog,
+  type HarnessDescription,
+  harnessCatalogSchema,
+  harnessDescriptionSchema,
   type PendingRequestList,
   pendingRequestListSchema,
   type SessionRecord,
+  type Settings,
+  type StartTaskRequest,
   sessionRecordSchema,
+  settingsSchema,
   type TaskDetail,
   type TaskPage,
   taskDetailSchema,
   taskPageSchema,
+  type WorkspaceRecord,
+  type WorkspaceRequest,
+  workspaceRecordSchema,
 } from "@office-town/contract";
 
 interface Schema<T> {
   parse(data: unknown): T;
+}
+
+function listOf<T>(schema: Schema<T>): Schema<T[]> {
+  return {
+    parse: (data) => {
+      if (!Array.isArray(data))
+        throw new Error("The core answered with something other than a list.");
+      return data.map((item) => schema.parse(item));
+    },
+  };
 }
 
 export class ApiRequestError extends Error {
@@ -58,6 +81,12 @@ async function send(method: string, path: string, body?: unknown): Promise<void>
 
 const id = encodeURIComponent;
 
+function environmentQuery(environment: EnvironmentSpec): string {
+  return environment.kind === "wsl"
+    ? `environment=wsl&distro=${id(environment.distro)}`
+    : "environment=native";
+}
+
 export const api = {
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
@@ -72,4 +101,19 @@ export const api = {
   stop: (sessionId: string): Promise<void> => send("POST", `/sessions/${id(sessionId)}/stop`),
   listPendingRequests: (): Promise<PendingRequestList> =>
     read("/pending-requests", pendingRequestListSchema),
+  startTask: (request: StartTaskRequest): Promise<SessionRecord> =>
+    write("POST", "/tasks", request, sessionRecordSchema),
+  listHarnesses: (): Promise<HarnessDescription[]> =>
+    read("/harnesses", listOf(harnessDescriptionSchema)),
+  readCatalog: (harness: string, environment: EnvironmentSpec): Promise<HarnessCatalog> =>
+    read(
+      `/harnesses/${id(harness)}/catalog?${environmentQuery(environment)}`,
+      harnessCatalogSchema,
+    ),
+  listEnvironments: (): Promise<EnvironmentList> => read("/environments", environmentListSchema),
+  listWorkspaces: (): Promise<WorkspaceRecord[]> =>
+    read("/workspaces", listOf(workspaceRecordSchema)),
+  createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
+    write("POST", "/workspaces", workspace, workspaceRecordSchema),
+  readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
 };

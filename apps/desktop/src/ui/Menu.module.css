@@ -1,0 +1,71 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.chip:hover,
+.chip[data-state="open"] {
+  border-color: var(--border);
+  background: var(--hover);
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chipLabel {
+  color: var(--text-3);
+}
+
+.surface {
+  z-index: 10;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-raised);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  font-size: 12.5px;
+  outline: none;
+  cursor: pointer;
+}
+
+.item[data-highlighted],
+.item[data-selected="true"] {
+  background: var(--hover);
+}
+
+.itemText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.itemDescription {
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+.check {
+  color: var(--accent);
+}
