@@ -1,12 +1,16 @@
 # Memory
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## State
 
 - M1 (harness core) and M2 (core service) are done and on `main`. M2 was checked end to end on `main` through the API with Claude haiku: start refused without a folder, task in its own folder, permission listed in the blocked queue and answered, core killed mid-session then marked interrupted, replay after restart, resume joins the task, task deleted. M2.4 was also run on OpenCode, native and WSL.
 - Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`), `src/api` (server, routes, event stream), `src/task-folders.ts`. API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- Next: M3. First the discussion on keeping agents running with the window closed (open question below), then M3.1. Present the approach first.
+- Next: build M3 on branch `feat/m3-desktop` (one PR, one commit series per sub-module, in order M3.1 to M3.7). The approach was agreed with the owner on 2026-10-04: D-34 to D-37, and the M3 scope in MODULES.md. Its first commit records these docs.
+- M3 design: mockups at https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp (private to the owner): task trace, new task with model list, Needs you, tokens, office in M3, office with departments later. The owner accepted the look; tokens and colours are in the Tokens board.
+- Checked before M3 (throwaway spike): Electron 44.5 has Node 24.21 and runs `packages/service/src/main.ts` unchanged with `ELECTRON_RUN_AS_NODE=1`; a `main.ts` Electron entry runs without a build; `protocol.handle` plus `net.fetch` streams SSE without buffering, with `privileges: { standard, secure, supportFetchAPI, stream }`.
+- Planned layout of `apps/desktop`: `electron/` (main, core process, app protocol, tray, preload.cjs for folder picker and open folder), `src/api` (client, event stream reader), `src/store` (Zustand: connection, task and session summaries, pending requests, traces loaded on demand), `src/trace` (pure event-to-trace functions, tested), `src/features/*`, `src/ui` (Radix-based parts), `src/styles/tokens.css`, `dev/` (browser mode: start a core and Vite with an `/api` proxy). Root vitest projects gain `apps/*`.
+- At the end of M3, give the owner a walkthrough: how to run the app and browser mode, and where to check each feature.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -22,8 +26,9 @@ Last updated: 2026-10-03
 
 ## Owner requirements not yet built
 
-- Agent profile (stored once designed, M3.3 or M4; not in M2): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
-- Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Put the popular, Go-plan and free ones at the top and add a filter. Show each harness's own effort values.
+- Agent profile (M4, owner 2026-10-04; M3 only remembers the last choices per harness): one harness-neutral description of an agent, like a character creator. Role, purpose, harness, model, effort, permissions, memory; the list will grow. The lead and the workers of a department are set differently. Defaults flow department, then role, then agent. No per-provider logic outside an adapter. How agent memory works is undesigned.
+- Model picker (M3.3): OpenCode lists 257 models, including providers the user is not logged in to. Recent, free and plan models at the top, with a filter; no hand-made "popular" list. `opencode models --verbose` gives `providerID` and `cost` (all zero means free). Show each harness's own effort values.
+- Office (M3.7, D-35): walk up with the keyboard and press a key, or click; drag-select shows the agents grouped. Later the office could be shared with other people; not planned.
 - Usage (D-29): show the provider's usage limit per agent and per department. Department view is M4.
 - M3.4: an interrupted session's log ends with its open actions and turn unclosed; show them as interrupted. A large result arrives as a preview plus `overflow`; the full text is at `/sessions/:id/results/:sequence`.
 - The app warns when the store grows large (M3); `GET /storage` reports its size.
@@ -33,9 +38,9 @@ Last updated: 2026-10-03
 
 ## Open questions for the owner
 
-- Agents must keep running with the window closed: tray, detached core, or OS service. Discuss before M3.1.
-- Permissions per agent, set when the agent is created. Designed with the UI (M3.3, M4).
-- Interface design session (D-9), connector deep dive (D-11), final name.
+- Office details for M3.7, asked on 2026-10-04: art style, agent names, which agents stay on the floor, what the side panel opens into, bulk actions. Record the answers here before M3.7.
+- Permissions per agent, set when the agent is created (M4, with profiles).
+- Connector deep dive (D-11), final name.
 
 ## What the harnesses do
 
