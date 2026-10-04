@@ -45,10 +45,7 @@ function useFollow(dependency: unknown) {
 export function TaskView({ taskId }: { taskId: string }) {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const agent = useMemo(
-    () => agentOf({ tasks, sessions, waiting: {} }, taskId),
-    [tasks, sessions, taskId],
-  );
+  const agent = useMemo(() => agentOf({ tasks, sessions }, taskId), [tasks, sessions, taskId]);
   const waitingSessions = useWaitingSessions();
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) =>

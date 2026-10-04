@@ -35,7 +35,10 @@ function hash(text: string): number {
   return value;
 }
 
-export function agentOf(records: Records, taskId: string): Agent | undefined {
+export function agentOf(
+  records: Pick<Records, "tasks" | "sessions">,
+  taskId: string,
+): Agent | undefined {
   const entry = records.tasks[taskId];
   const sessions = (entry?.sessionIds ?? []).flatMap((id) => records.sessions[id] ?? []);
   const first = sessions[0];
@@ -61,9 +64,8 @@ export function useAgents(): Agent[] {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
   return useMemo(() => {
-    const records = { tasks, sessions, waiting: {} };
     return Object.keys(tasks)
-      .flatMap((taskId) => agentOf(records, taskId) ?? [])
+      .flatMap((taskId) => agentOf({ tasks, sessions }, taskId) ?? [])
       .sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt));
   }, [tasks, sessions]);
 }

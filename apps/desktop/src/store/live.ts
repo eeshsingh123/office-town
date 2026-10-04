@@ -158,17 +158,23 @@ function flush(): void {
   const forTraces = new Map<string, StreamedEvent[]>();
   for (const streamed of events) {
     const sessionId = streamed.event.sessionId;
-    const buffer = loading.get(sessionId);
-    if (state.sessions[sessionId] === undefined) discover(sessionId, streamed);
-    // Text fragments are dropped while a replay loads: its stored text replaces them anyway.
-    else if (buffer !== undefined) {
-      if (streamed.position !== undefined) buffer.push(streamed);
-    } else if (state.traces[sessionId] === undefined) loadTrace(sessionId);
-    else {
-      const batch = forTraces.get(sessionId) ?? [];
-      batch.push(streamed);
-      forTraces.set(sessionId, batch);
+    if (state.sessions[sessionId] === undefined) {
+      discover(sessionId, streamed);
+      continue;
     }
+    const buffer = loading.get(sessionId);
+    if (buffer !== undefined) {
+      // Text fragments are dropped while a replay loads: its stored text replaces them anyway.
+      if (streamed.position !== undefined) buffer.push(streamed);
+      continue;
+    }
+    if (state.traces[sessionId] === undefined) {
+      loadTrace(sessionId);
+      continue;
+    }
+    const batch = forTraces.get(sessionId) ?? [];
+    batch.push(streamed);
+    forTraces.set(sessionId, batch);
   }
   const traces = { ...state.traces };
   for (const [sessionId, batch] of forTraces) {

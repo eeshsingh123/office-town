@@ -7,7 +7,7 @@ import type {
 } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
@@ -69,16 +69,18 @@ export function NewTaskView() {
     remembered.workspaceId === undefined ? "folder" : "workspace",
   );
   const [workspaceId, setWorkspaceId] = useState(remembered.workspaceId);
-  const [outputFolder, setOutputFolder] = useState<string>();
+  const [chosenFolder, setChosenFolder] = useState<string>();
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
 
   const description = harnesses.find((known) => known.harness === harness) ?? harnesses[0];
   const environments = useLoaded("environments", api.listEnvironments);
-  const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([]);
   const listed = useLoaded("workspaces", api.listWorkspaces);
+  const [created, setCreated] = useState<WorkspaceRecord[]>([]);
+  const workspaces = [...created, ...(listed.value ?? [])];
   const settings = useLoaded("settings", api.readSettings);
+  const outputFolder = chosenFolder ?? settings.value?.outputFolder;
   const catalogKey =
     description === undefined || !description.capabilities.modelList
       ? undefined
@@ -86,13 +88,6 @@ export function NewTaskView() {
   const catalog = useLoaded(catalogKey, () =>
     readCatalog(description?.harness ?? "", choices.environment),
   );
-
-  useEffect(() => {
-    if (listed.value !== undefined) setWorkspaces(listed.value);
-  }, [listed.value]);
-  useEffect(() => {
-    if (settings.value?.outputFolder !== undefined) setOutputFolder(settings.value.outputFolder);
-  }, [settings.value]);
 
   const chooseHarness = (next: string) => {
     setHarness(next);
@@ -272,7 +267,7 @@ export function NewTaskView() {
             <FolderField
               label="output folder"
               value={outputFolder}
-              onChange={setOutputFolder}
+              onChange={setChosenFolder}
               hint="The task gets its own folder inside, named by the date and your first words."
             />
           )}
@@ -296,9 +291,9 @@ export function NewTaskView() {
       <WorkspaceDialog
         open={creatingWorkspace}
         onOpenChange={setCreatingWorkspace}
-        onCreated={(created) => {
-          setWorkspaces([created, ...workspaces]);
-          setWorkspaceId(created.id);
+        onCreated={(added) => {
+          setCreated([added, ...created]);
+          setWorkspaceId(added.id);
         }}
       />
     </section>

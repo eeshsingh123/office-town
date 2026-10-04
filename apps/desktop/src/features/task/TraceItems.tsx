@@ -84,12 +84,30 @@ function preview(input: unknown): string | undefined {
   return text.length > INPUT_PREVIEW ? `${text.slice(0, INPUT_PREVIEW)}…` : text;
 }
 
+// A long output keeps only its end while it grows; a long result keeps a preview here, and the
+// rest is read from the core on request (D-30).
+function OverflowNote({ action, onReadFull }: { action: TraceAction; onReadFull: () => void }) {
+  const { overflow } = action;
+  if (overflow === undefined) return null;
+  const size = byteSize(overflow.bytes);
+  if (action.resultSequence === undefined) {
+    return <span className={styles.meta}>Showing the end of {size} of output.</span>;
+  }
+  return (
+    <button type="button" className={styles.link} onClick={onReadFull}>
+      {overflow.truncated
+        ? `Show the part of ${size} that was kept`
+        : `Show the full result (${size})`}
+    </button>
+  );
+}
+
 function ActionDetail({ action, sessionId }: { action: TraceAction; sessionId: string }) {
   const [full, setFull] = useState<string>();
   const [error, setError] = useState<string>();
   const input = preview(action.input);
   const shown = full ?? action.result ?? action.output;
-  const { overflow, resultSequence } = action;
+  const { resultSequence } = action;
   const readFull = async () => {
     if (resultSequence === undefined) return;
     try {
@@ -114,17 +132,7 @@ function ActionDetail({ action, sessionId }: { action: TraceAction; sessionId: s
           <pre className={styles.code}>{shown}</pre>
         </>
       )}
-      {overflow === undefined || full !== undefined ? null : action.status === "running" ? (
-        <span className={styles.meta}>
-          Showing the end of {byteSize(overflow.bytes)} of output.
-        </span>
-      ) : overflow.truncated || resultSequence === undefined ? (
-        <span className={styles.meta}>Only the start of {byteSize(overflow.bytes)} was kept.</span>
-      ) : (
-        <button type="button" className={styles.link} onClick={readFull}>
-          Show the full result ({byteSize(overflow.bytes)})
-        </button>
-      )}
+      {full === undefined ? <OverflowNote action={action} onReadFull={readFull} /> : null}
       {error === undefined ? null : <span className={styles.error}>{error}</span>}
     </div>
   );

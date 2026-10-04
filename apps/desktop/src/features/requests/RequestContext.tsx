@@ -13,7 +13,7 @@ export function RequestContext({ sessionId }: { sessionId: string }) {
   const trace = useApp((state) => state.traces[sessionId]);
   const taskId = sessions[sessionId]?.taskId;
   const agent = useMemo(
-    () => (taskId === undefined ? undefined : agentOf({ tasks, sessions, waiting: {} }, taskId)),
+    () => (taskId === undefined ? undefined : agentOf({ tasks, sessions }, taskId)),
     [tasks, sessions, taskId],
   );
   const harness = useHarnessName(agent?.latest.options.harness ?? "");
