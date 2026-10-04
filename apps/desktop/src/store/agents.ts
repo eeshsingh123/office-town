@@ -45,12 +45,16 @@ export function agentOf(
   const latest = sessions.at(-1);
   if (entry === undefined || first === undefined || latest === undefined) return undefined;
   const value = hash(first.id);
+  // A handle like "@kai-0427". Name, colour and number use separate bits of the hash, so two
+  // agents share a handle only about once in 640,000 pairs; stored, unique names come in M4.
+  const name = (NAMES[value % NAMES.length] ?? "agent").toLowerCase();
+  const number = String((value >>> 11) % 10_000).padStart(4, "0");
   return {
     taskId,
     task: entry.task,
     sessions,
     latest,
-    name: NAMES[value % NAMES.length] ?? "Agent",
+    name: `@${name}-${number}`,
     colour: COLOURS[(value >>> 8) % COLOURS.length] ?? "#4F5D75",
   };
 }
