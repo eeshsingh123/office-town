@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { createServer } from "vite";
+import { createServer, type Plugin } from "vite";
 import { startCore } from "../electron/core-process.ts";
 
 // Browser mode for development: a core, and the UI's dev server forwarding `/api` to it with the
@@ -19,8 +19,24 @@ const core = await startCore(
     },
   },
 );
+// The proxy adds the token, so only this page may use it: another site's page could otherwise send
+// the core a request, such as starting a task that runs commands. A typed address has no site.
+const ownPageOnly: Plugin = {
+  name: "own-page-only",
+  configureServer(server) {
+    server.middlewares.use("/api", (request, response, next) => {
+      const site = request.headers["sec-fetch-site"];
+      if (site === undefined || site === "same-origin" || site === "none") return next();
+      response.statusCode = 403;
+      response.end("Only the app's own page may call the core.");
+    });
+  },
+};
+
 const server = await createServer({
   configFile: fileURLToPath(new URL("../vite.config.ts", import.meta.url)),
+  // Runs before Vite's own proxy.
+  plugins: [ownPageOnly],
   server: {
     proxy: {
       "/api": {
