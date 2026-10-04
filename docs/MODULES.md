@@ -63,7 +63,7 @@ The first usable app. The home screen is the office (D-35): every running agent 
 - **M3.6 History.** List past tasks and replay one through the same trace view; delete a task; warn when the store grows large.
 - **M3.7 Office.** One open floor. Each running or recently finished agent is a character at a desk showing its status. Walk with the keyboard and press a key next to an agent, or click it: the side panel shows its task, step, current action and any request. Drag a box to select several: the panel lists them grouped (by status in M3, by department from M4), with stop and message for all. Drawn with DOM or SVG inside React, so selection, keyboard focus and screen readers work; a canvas engine only if it gets slow.
 
-Core additions M3 needs, all additive: the core stops cleanly when its stdin closes; `GET /environments`; `GET /tasks` includes each task's sessions; catalog models may carry `provider` and `free`.
+Core additions M3 needs, all additive: the core stops cleanly when its stdin closes (`--stop-when-stdin-closes`); `GET /environments`; `GET /tasks` includes each task's sessions, and `GET /tasks?active=true` lists every task with an open agent, which the office and the quit prompt need wherever that task sits in the list; harness descriptions carry a `name`; catalog models may carry `provider` and `free`.
 
 Out of scope: departments and rooms, several agents on one task, dependencies between departments, chat between agents, connectors, saved agent profiles, installer signing and auto-update.
 
