@@ -1,0 +1,18 @@
+{
+  "name": "@office-town/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.node.json",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@office-town/contract": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "electron": "^44.5.1"
+  }
+}
