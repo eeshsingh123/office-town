@@ -115,13 +115,15 @@ export function TaskView({ taskId }: { taskId: string }) {
         <div className={styles.status} role="status">
           <LoaderCircle size={14} className={`${styles.running} spin`} aria-hidden />
           {progress?.step === undefined ? (
-            <span>{progress?.current?.title ?? STATE_LABELS[state]}</span>
+            <span className={styles.statusText}>
+              {progress?.current?.title ?? STATE_LABELS[state]}
+            </span>
           ) : (
             <>
               <span className={styles.faint}>
                 Step {progress.step.number} of {progress.stepCount}
               </span>
-              <span className={styles.strong}>{progress.step.title}</span>
+              <span className={`${styles.strong} ${styles.statusText}`}>{progress.step.title}</span>
             </>
           )}
           {waiting === undefined ? null : (

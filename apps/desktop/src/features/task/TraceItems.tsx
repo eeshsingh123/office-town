@@ -26,6 +26,7 @@ import { describeActions } from "../../trace/blocks.ts";
 import type { TraceAction, TraceItem, TraceRequest } from "../../trace/trace.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { RequestCard } from "../requests/RequestCard.tsx";
 import styles from "./Trace.module.css";
 
 const KIND_ICONS: Record<TraceAction["actionKind"], LucideIcon> = {
@@ -189,18 +190,14 @@ export function requestTitle(request: TraceRequest): string {
     : (request.event.payload.questions[0]?.text ?? "A question");
 }
 
+// A request still waiting is the card to answer it; once answered it shrinks to one line.
 function RequestLine({ request, live }: { request: TraceRequest; live: boolean }) {
   const resolved = resolutionText(request);
+  if (resolved === undefined && live) return <RequestCard event={request.event} />;
   return (
     <div className={styles.request} id={request.id}>
       <span className={styles.rowTitle}>{requestTitle(request)}</span>
-      {resolved !== undefined ? (
-        <span>{resolved}</span>
-      ) : live ? (
-        <span className={styles.waiting}>Waiting for you</span>
-      ) : (
-        <span>Not answered</span>
-      )}
+      <span>{resolved ?? "Not answered"}</span>
     </div>
   );
 }

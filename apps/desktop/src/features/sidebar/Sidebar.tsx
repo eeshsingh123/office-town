@@ -1,4 +1,4 @@
-import { LayoutPanelLeft, type LucideIcon, Plus } from "lucide-react";
+import { Inbox, LayoutPanelLeft, type LucideIcon, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -30,6 +30,17 @@ export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
   );
 }
 
+function WaitingCount() {
+  const count = useApp((state) => Object.keys(state.waiting).length);
+  if (count === 0) return null;
+  return (
+    <span className={styles.count}>
+      {count}
+      <span className="visually-hidden"> waiting</span>
+    </span>
+  );
+}
+
 export function Sidebar() {
   return (
     <nav aria-label="Main" className={styles.sidebar}>
@@ -45,6 +56,7 @@ export function Sidebar() {
         <Kbd>Ctrl N</Kbd>
       </Button>
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
+      <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
       <RunningAgents />
       <div className={styles.footer}>
         <ConnectionStatus />

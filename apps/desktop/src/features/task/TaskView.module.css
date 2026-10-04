@@ -82,13 +82,24 @@
 
 .status {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 8px 28px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   font-size: 12.5px;
+}
+
+.status > * {
+  flex: none;
+}
+
+.status > .statusText {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .strong {
