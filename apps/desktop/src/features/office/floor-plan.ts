@@ -35,13 +35,13 @@ const COLUMNS = 3;
 const MIN_ROWS = 2;
 const PITCH = { x: 250, y: 240 };
 const ROOM = { x: 30, y: 50, width: 780 };
-const FIRST_DESK = { x: 130, y: 170 };
+const FIRST_DESK = { x: 130, y: 190 };
 const DOOR_WIDTH = 80;
 
 // One open floor (D-35). Departments become rooms on this same plan in M4 and M5.
 export function floorPlan(agents: number): FloorPlan {
   const rows = Math.max(MIN_ROWS, Math.ceil((agents + 1) / COLUMNS));
-  const room = { ...ROOM, height: 120 + rows * PITCH.y };
+  const room = { ...ROOM, height: 140 + rows * PITCH.y };
   const seats = Array.from({ length: rows * COLUMNS }, (_, index) => {
     const desk = {
       x: FIRST_DESK.x + (index % COLUMNS) * PITCH.x,

@@ -44,15 +44,16 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-attachment: local;
 }
 
 .floor {
   position: relative;
   flex: none;
   margin: 0 auto;
-  background-color: var(--bg);
-  background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
-  background-size: 20px 20px;
   outline: none;
   user-select: none;
   touch-action: none;
