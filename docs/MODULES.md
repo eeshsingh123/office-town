@@ -51,7 +51,7 @@ Every adapter passes the same conformance tests, run against recordings of the r
 
 ### What
 
-The first usable app. The home screen is the office (D-35): every running agent is a character at a desk. Walk up to one or click it to see what it is doing; drag across several to see them grouped. From an agent, open a clean trace of its work, approve or deny what it asks, and reopen past runs. One agent per task; departments as rooms come in M4 and M5. Mockups: see MEMORY.md.
+The first usable app. The home screen is the office (D-35): every running agent is a character at a desk. Walk up to one or click it to see what it is doing; drag across several to see them grouped. From an agent, open a clean trace of its work, approve or deny what it asks, and reopen past runs. One agent per task; departments as rooms come in M4 and M6. Mockups: see MEMORY.md.
 
 ### Scope
 
@@ -63,19 +63,20 @@ The first usable app. The home screen is the office (D-35): every running agent 
 - **M3.6 History.** List past tasks and replay one through the same trace view; delete a task; warn when the store grows large.
 - **M3.7 Office.** One open floor. Each running or recently finished agent is a character at a desk showing its status. Walk with the keyboard and press a key next to an agent, or click it: the side panel shows its task, step, current action and any request. Drag a box to select several: the panel lists them grouped (by status in M3, by department from M4), with stop and message for all. Drawn with DOM or SVG inside React, so selection, keyboard focus and screen readers work; a canvas engine only if it gets slow.
 
-Core additions M3 needs, all additive: the core stops cleanly when its stdin closes (`--stop-when-stdin-closes`); `GET /environments`; `GET /tasks` includes each task's sessions, and `GET /tasks?active=true` lists every task with an open agent, which the office and the quit prompt need wherever that task sits in the list; harness descriptions carry a `name`; catalog models may carry `provider` and `free`.
+Core additions M3 needs, all additive: the core stops cleanly when its stdin closes (`--stop-when-stdin-closes`); `GET /environments`; `GET /tasks` includes each task's sessions, and `GET /tasks?active=true` lists every task with an open agent, which the office and the quit prompt need wherever that task sits in the list; harness descriptions carry a `name`; catalog models may carry `provider` and `access` (free, plan or paid).
 
-Out of scope: departments and rooms, several agents on one task, dependencies between departments, chat between agents, connectors, saved agent profiles, installer signing and auto-update.
+Out of scope: departments and rooms, several agents on one task, dependencies between departments, chat between agents, connectors, saved agent profiles, installer, signing and auto-update (M5).
 
 ### Integration
 
-`apps/desktop` depends only on `packages/contract`; the shell starts the core as a separate process and never imports it. Every later UI module (M4 panels, M5 command center) reuses the M3.2 client, event store and frame, and grows the M3.7 office.
+`apps/desktop` depends only on `packages/contract`; the shell starts the core as a separate process and never imports it. Every later UI module (M4 panels, M6 command center) reuses the M3.2 client, event store and frame, and grows the M3.7 office.
 
 ---
 
 ## Later modules (outline only)
 
 - **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; outsourced agents (fresh, isolated, clean-slate reviewers). Guardrails for folders outside a workspace, reached by asking the user or under full autonomy. A department shares one workspace folder chosen by the user; direction to confirm at M4 design: one git worktree and branch per agent, integrated by the lead. An SDLC flow (branch, commit, pull, push, PR through the user's own `git` and `gh` logins) is optional and applies only when the department works on a code repository.
-- **M5 Command center.** The M3 office grows into departments as rooms, dependencies between them, chat, task and status panels.
-- **M6 Connectors.** MCP-based plugins injected per session; an agent can request a connector it lacks. Needs the connector deep dive first.
+- **M5 Packaging and release.** An installer people download and run, with no repository, Node or pnpm: Windows first, Linux packages next, macOS stays parked (D-23). The core and the built UI ship inside the app; the data folder does not move. Node will not strip TypeScript inside `node_modules`, so the core gets a build step for packaging only (D-19 still holds in development), and only `apps/desktop/electron/main.ts` changes where it finds the core and the UI. Code signing (unsigned installers get a SmartScreen warning; a certificate costs money, owner to decide), auto-update from GitHub Releases, and a release workflow in CI. After M4, so the first release has cross-harness teams, the product's differentiator.
+- **M6 Command center.** The M3 office grows into departments as rooms, dependencies between them, chat, task and status panels.
+- **M7 Connectors.** MCP-based plugins injected per session; an agent can request a connector it lacks. Needs the connector deep dive first.
 - **Deferred.** macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.

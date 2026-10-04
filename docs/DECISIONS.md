@@ -60,8 +60,8 @@ Why stdin: Windows cannot send SIGTERM to a child process, and a process-tree ki
 
 ### D-35 The office is the home screen — accepted (2026-10-04)
 
-A top-down 2D office in which agents are characters at desks. You walk your own character up to an agent with the keyboard, or click the agent; both open the same side panel: purpose, task, step, current action, and any request. Dragging a box selects several agents; the panel lists them grouped. Single-user: no space shared with other people. The first version is the M3 office (one open floor); M4 and M5 add departments as rooms on the same frame, so the layout is never rebuilt. The floor shows open and waiting agents and those finished today; older ones are under Tasks. Arrow keys or WASD walk, E talks to the agent beside you, and "Open full trace" switches to the task view with a way back. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
-Why now: the owner wants the office as the main screen; building M3's panels outside it would mean rebuilding the layout in M5. Replaces D-9's "not a walk-up world" (owner, 2026-10-04).
+A top-down 2D office in which agents are characters at desks. You walk your own character up to an agent with the keyboard, or click the agent; both open the same side panel: purpose, task, step, current action, and any request. Dragging a box selects several agents; the panel lists them grouped. Single-user: no space shared with other people. The first version is the M3 office (one open floor); M4 and M6 add departments as rooms on the same frame, so the layout is never rebuilt. The floor shows open and waiting agents and those finished today; older ones are under Tasks. Arrow keys or WASD walk, E talks to the agent beside you, and "Open full trace" switches to the task view with a way back. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
+Why now: the owner wants the office as the main screen; building M3's panels outside it would mean rebuilding the layout in M6. Replaces D-9's "not a walk-up world" (owner, 2026-10-04).
 
 ### D-36 The UI reaches the core through its own origin — accepted (2026-10-04)
 
@@ -74,15 +74,20 @@ Why: one code path in both places; the core needs no CORS (closes D-32's open po
 - Styling: CSS Modules plus one tokens file of CSS variables. No Tailwind: styles read as plain CSS and every colour lives in one place.
 - Look (owner accepted the mockups): warm greys; one blue accent for actions and running work; amber only for "needs you"; status as small icons and dots, never large fills; agent text 14 px, interface 13 px; light and dark follow the OS; reduced motion respected.
 - Stream events are applied in batches, once per animation frame, or after 100 ms when the window gets no frames (hidden, covered or in the tray). Every task keeps its records (task, sessions, status); a full trace is loaded for each open agent, since the office shows its step and current action, and for each session the user opens. Replays run one at a time.
-- An agent's name and colour come from its task's first session id, so a resumed agent keeps its name.
+- An agent's name and colour come from its task's first session id, so a resumed agent keeps its name. A name is a handle like `@kai-0427`: one of 64 names and a four-digit number, so two agents rarely match; stored, unique names come with profiles in M4 (owner).
+
+### D-38 The model list is ordered by what a model costs the user — accepted (2026-10-04)
+
+A catalog model may carry `access`: `free`, `plan` (nothing beyond a subscription the user has) or `paid`. The adapter decides, since only it knows its harness's providers: OpenCode marks zero-cost models free and OpenCode Go models plan, and leaves out models that cannot call tools (image, video, speech), which no agent can use. The New task list shows Recent, Free, In your plan, then providers used before; other providers sit behind one row. OpenCode lists only the providers the user is connected to, so the app does not check logins; logging in from the app is deferred (owner).
+Why: a zero-cost flag alone put image and speech models first and hid the subscription models the user already pays for.
 
 ### D-9 Command-center interface — direction accepted
 
-A top-down view of departments, their agents and dependencies, with chat, task and status panels. Its first version is the M3 office (D-35); M5 grows it.
+A top-down view of departments, their agents and dependencies, with chat, task and status panels. Its first version is the M3 office (D-35); M6 grows it.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M6.
+Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M7.
 
 ### D-18 Outsourced agents — direction accepted
 

@@ -38,7 +38,7 @@ const ROOM = { x: 30, y: 50, width: 780 };
 const FIRST_DESK = { x: 130, y: 190 };
 const DOOR_WIDTH = 80;
 
-// One open floor (D-35). Departments become rooms on this same plan in M4 and M5.
+// One open floor (D-35). Departments become rooms on this same plan in M4 and M6.
 export function floorPlan(agents: number): FloorPlan {
   const rows = Math.max(MIN_ROWS, Math.ceil((agents + 1) / COLUMNS));
   const room = { ...ROOM, height: 140 + rows * PITCH.y };
