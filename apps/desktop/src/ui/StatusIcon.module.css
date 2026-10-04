@@ -1,0 +1,29 @@
+.icon {
+  flex: none;
+}
+
+.working {
+  color: var(--accent);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.quiet {
+  color: var(--text-3);
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3.5px;
+  border-radius: 50%;
+  background: var(--warn);
+}
