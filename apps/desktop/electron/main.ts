@@ -21,6 +21,7 @@ const ICON = file("./icon.png");
 const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
 const CORE_ENTRY = file("../../../packages/service/src/main.ts");
+const QUIT_CHECK_TIMEOUT_MS = 3000;
 
 // The core runs on Electron's own Node, so users install no Node (D-34).
 const coreCommand: CoreCommand = {
@@ -89,11 +90,13 @@ async function onCrash(log: string): Promise<void> {
   });
 }
 
-async function runningAgents(): Promise<number> {
+// Open agents include those done with their turn and waiting for another message.
+async function openAgents(): Promise<number> {
   if (core === undefined) return 0;
   const { url, token } = core.ready;
   const response = await net.fetch(`${url}/tasks?active=true`, {
     headers: { authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(QUIT_CHECK_TIMEOUT_MS),
   });
   const { tasks } = taskPageSchema.parse(await response.json());
   return tasks
@@ -101,14 +104,22 @@ async function runningAgents(): Promise<number> {
     .filter((session) => session.status === "starting" || session.status === "running").length;
 }
 
+function quitQuestion(open: number | undefined): string {
+  if (open === undefined) return "The core is not answering, so open agents cannot be counted.";
+  return open === 1 ? "An agent is still open." : `${open} agents are still open.`;
+}
+
+// A core that does not answer must not stop the user from quitting: they are asked instead.
 async function confirmQuit(): Promise<void> {
-  const running = await runningAgents();
-  if (running > 0) {
+  const open = await openAgents().catch((error: unknown) => {
+    console.error("Could not count the open agents.", error);
+    return undefined;
+  });
+  if (open !== 0) {
     const { response } = await dialog.showMessageBox({
       type: "question",
-      message:
-        running === 1 ? "An agent is still working." : `${running} agents are still working.`,
-      detail: "Quitting stops them. They are marked interrupted and can be continued later.",
+      message: quitQuestion(open),
+      detail: "Quitting stops any open agent. It is marked interrupted and can be continued later.",
       buttons: ["Quit", "Cancel"],
       defaultId: 1,
       cancelId: 1,
