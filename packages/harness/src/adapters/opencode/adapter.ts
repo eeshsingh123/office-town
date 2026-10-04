@@ -1,4 +1,4 @@
-import type { PermissionMode } from "@office-town/contract";
+import type { HarnessModel, PermissionMode } from "@office-town/contract";
 import { z } from "zod";
 import type { CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
@@ -7,8 +7,19 @@ const modelSchema = z.looseObject({
   name: z.string(),
   providerID: z.string().min(1).optional(),
   cost: z.looseObject({ input: z.number(), output: z.number() }).optional(),
+  capabilities: z.looseObject({ toolcall: z.boolean() }).optional(),
   variants: z.record(z.string(), z.unknown()).optional(),
 });
+type Model = z.infer<typeof modelSchema>;
+
+// OpenCode Go is OpenCode's own subscription; its models list a price but cost nothing beyond it.
+const PLAN_PROVIDER = "opencode-go";
+
+function accessOf({ cost, providerID }: Model): HarnessModel["access"] {
+  if (cost === undefined) return undefined;
+  if (cost.input === 0 && cost.output === 0) return "free";
+  return providerID === PLAN_PROVIDER ? "plan" : "paid";
+}
 
 type Rule = "ask" | "allow";
 
@@ -62,15 +73,18 @@ const catalog: CatalogQuery = {
       description.push(line);
       if (line !== "}") continue;
       const model = modelSchema.parse(JSON.parse(description.join("")));
-      models.push({
-        id,
-        name: model.name,
-        ...(model.providerID === undefined ? {} : { provider: model.providerID }),
-        ...(model.cost === undefined
-          ? {}
-          : { free: model.cost.input === 0 && model.cost.output === 0 }),
-        efforts: Object.keys(model.variants ?? {}),
-      });
+      const access = accessOf(model);
+      // An agent works by calling tools, so a model that cannot, such as one for images or
+      // speech, is left out.
+      if (model.capabilities?.toolcall !== false) {
+        models.push({
+          id,
+          name: model.name,
+          ...(model.providerID === undefined ? {} : { provider: model.providerID }),
+          ...(access === undefined ? {} : { access }),
+          efforts: Object.keys(model.variants ?? {}),
+        });
+      }
       id = undefined;
       description = [];
     }

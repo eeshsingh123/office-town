@@ -280,7 +280,7 @@ export function NewTaskView() {
           <span className={styles.hint}>
             <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd>
           </span>
-          {model?.free === true ? <span className={styles.note}>Free model</span> : null}
+          {model?.access === "free" ? <span className={styles.note}>Free model</span> : null}
         </div>
         {error === undefined ? null : (
           <p className={styles.error} role="alert">

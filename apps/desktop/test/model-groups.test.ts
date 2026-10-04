@@ -2,12 +2,12 @@ import type { HarnessModel } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { groupModels } from "../src/features/new-task/model-groups.ts";
 
-const model = (id: string, provider?: string, free?: boolean): HarnessModel => ({
+const model = (id: string, provider?: string, access?: HarnessModel["access"]): HarnessModel => ({
   id,
   name: id,
   efforts: [],
   ...(provider === undefined ? {} : { provider }),
-  ...(free === undefined ? {} : { free }),
+  ...(access === undefined ? {} : { access }),
 });
 
 const headings = ({ first, more }: ReturnType<typeof groupModels>) => ({
@@ -16,22 +16,25 @@ const headings = ({ first, more }: ReturnType<typeof groupModels>) => ({
 });
 
 describe("model groups", () => {
-  it("puts recent, free and used providers first, lists each model once, and tucks the rest away", () => {
+  it("puts recent, free, plan and used providers first, lists each model once, and tucks the rest away", () => {
     const models = [
-      model("go/glm", "go"),
-      model("go/bunny-free", "go", true),
-      model("zen/pickle", "zen", true),
-      model("go/kimi", "go"),
-      model("openai/gpt", "openai"),
+      model("go/glm", "go", "plan"),
+      model("go/bunny-free", "go", "free"),
+      model("zen/pickle", "zen", "free"),
+      model("go/kimi", "go", "plan"),
+      model("openai/gpt", "openai", "paid"),
+      model("openai/mini", "openai", "paid"),
+      model("zen/opus", "zen", "paid"),
     ];
 
-    expect(headings(groupModels(models, ["go/kimi", "gone/model"]))).toEqual({
+    expect(headings(groupModels(models, ["openai/mini", "gone/model"]))).toEqual({
       first: [
-        ["Recent", ["go/kimi"]],
+        ["Recent", ["openai/mini"]],
         ["Free", ["go/bunny-free", "zen/pickle"]],
-        ["go", ["go/glm"]],
+        ["In your plan", ["go/glm", "go/kimi"]],
+        ["openai", ["openai/gpt"]],
       ],
-      more: [["openai", ["openai/gpt"]]],
+      more: [["zen", ["zen/opus"]]],
     });
   });
 

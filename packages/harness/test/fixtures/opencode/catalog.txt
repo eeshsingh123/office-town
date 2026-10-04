@@ -173,3 +173,53 @@ opencode-go/deepseek-v4-flash
     }
   }
 }
+groq/whisper-large-v3
+{
+  "id": "whisper-large-v3",
+  "providerID": "groq",
+  "name": "Whisper",
+  "family": "whisper",
+  "api": {
+    "id": "whisper-large-v3",
+    "url": "",
+    "npm": "@ai-sdk/groq"
+  },
+  "status": "active",
+  "headers": {},
+  "options": {},
+  "cost": {
+    "input": 0,
+    "output": 0,
+    "cache": {
+      "read": 0,
+      "write": 0
+    }
+  },
+  "limit": {
+    "context": 0,
+    "output": 0
+  },
+  "capabilities": {
+    "temperature": true,
+    "reasoning": false,
+    "attachment": false,
+    "toolcall": false,
+    "input": {
+      "text": false,
+      "audio": true,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "output": {
+      "text": true,
+      "audio": false,
+      "image": false,
+      "video": false,
+      "pdf": false
+    },
+    "interleaved": false
+  },
+  "release_date": "2023-09-01",
+  "variants": {}
+}

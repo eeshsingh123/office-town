@@ -94,7 +94,7 @@ export function ModelPicker({ models = [], error, value, recent, onChange }: Mod
                           <span className={menu.itemDescription}>{model.id}</span>
                         )}
                       </span>
-                      {model.free === true ? <span className={styles.free}>Free</span> : null}
+                      {model.access === "free" ? <span className={styles.free}>Free</span> : null}
                       {model.id === value ? <Check size={14} className={menu.check} /> : null}
                     </Command.Item>
                   ))}
