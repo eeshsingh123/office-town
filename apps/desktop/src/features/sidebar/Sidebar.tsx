@@ -1,4 +1,4 @@
-import { Inbox, LayoutPanelLeft, type LucideIcon, Plus } from "lucide-react";
+import { Inbox, LayoutPanelLeft, List, type LucideIcon, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -57,6 +57,7 @@ export function Sidebar() {
       </Button>
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
       <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
+      <NavItem view="tasks" icon={List} label="Tasks" />
       <RunningAgents />
       <div className={styles.footer}>
         <ConnectionStatus />

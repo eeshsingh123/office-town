@@ -3,7 +3,7 @@ import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
 import { applyEvents, emptyTrace } from "../trace/trace.ts";
 import { useApp } from "./app-store.ts";
-import { addTasks, applyToRecords, isOpen, waitingFrom } from "./records.ts";
+import { addTasks, applyToRecords, isOpen, removeTask, waitingFrom } from "./records.ts";
 
 const RETRY_MS = 2000;
 const FLUSH_FALLBACK_MS = 100;
@@ -77,6 +77,17 @@ export async function track(taskId: string): Promise<void> {
   const summary = { ...task, sessions };
   useApp.setState((state) => addTasks(state, [summary]));
   watchActive([summary]);
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  await api.deleteTask(taskId);
+  useApp.setState((state) => {
+    const sessionIds = new Set(state.tasks[taskId]?.sessionIds);
+    const traces = Object.fromEntries(
+      Object.entries(state.traces).filter(([sessionId]) => !sessionIds.has(sessionId)),
+    );
+    return { ...removeTask(state, taskId), traces };
+  });
 }
 
 export async function loadOlderTasks(): Promise<void> {

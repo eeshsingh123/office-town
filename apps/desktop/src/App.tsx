@@ -5,6 +5,7 @@ import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
+import { TasksView } from "./features/tasks/TasksView.tsx";
 import { navigate, useApp, type View } from "./store/app-store.ts";
 
 function Main({ view }: { view: View }) {
@@ -15,10 +16,10 @@ function Main({ view }: { view: View }) {
       return <NewTaskView />;
     case "needs-you":
       return <NeedsYouView />;
+    case "tasks":
+      return <TasksView />;
     case "task":
       return <TaskView key={view.taskId} taskId={view.taskId} />;
-    default:
-      return <OfficeView />;
   }
 }
 

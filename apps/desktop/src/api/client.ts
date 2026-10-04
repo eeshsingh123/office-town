@@ -14,8 +14,10 @@ import {
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
+  type StoreSize,
   sessionRecordSchema,
   settingsSchema,
+  storeSizeSchema,
   type TaskDetail,
   type TaskPage,
   taskDetailSchema,
@@ -92,6 +94,7 @@ export const api = {
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),
   getTask: (taskId: string): Promise<TaskDetail> => read(`/tasks/${id(taskId)}`, taskDetailSchema),
+  deleteTask: (taskId: string): Promise<void> => send("DELETE", `/tasks/${id(taskId)}`),
   getSession: (sessionId: string): Promise<SessionRecord> =>
     read(`/sessions/${id(sessionId)}`, sessionRecordSchema),
   resume: (sessionId: string, prompt: string): Promise<SessionRecord> =>
@@ -118,4 +121,5 @@ export const api = {
   createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
     write("POST", "/workspaces", workspace, workspaceRecordSchema),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
+  readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };
