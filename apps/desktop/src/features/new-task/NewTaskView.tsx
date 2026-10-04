@@ -14,6 +14,7 @@ import { track } from "../../store/live.ts";
 import { Button } from "../../ui/Button.tsx";
 import { type Choice, ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
+import { environmentName } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
@@ -55,16 +56,6 @@ function readCatalog(harness: string, environment: EnvironmentSpec): Promise<Har
 
 const environmentKey = (environment: EnvironmentSpec) =>
   environment.kind === "wsl" ? `wsl:${environment.distro}` : "native";
-
-const NATIVE_NAME = navigator.userAgent.includes("Windows")
-  ? "Windows"
-  : navigator.userAgent.includes("Mac")
-    ? "macOS"
-    : "Linux";
-
-export function environmentName(environment: EnvironmentSpec): string {
-  return environment.kind === "wsl" ? `WSL · ${environment.distro}` : NATIVE_NAME;
-}
 
 export function NewTaskView() {
   const harnesses = useApp((state) => state.harnesses);

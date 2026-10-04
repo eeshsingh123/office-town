@@ -99,6 +99,8 @@ export const api = {
   command: (sessionId: string, command: AgentCommand): Promise<void> =>
     send("POST", `/sessions/${id(sessionId)}/commands`, command),
   stop: (sessionId: string): Promise<void> => send("POST", `/sessions/${id(sessionId)}/stop`),
+  readResult: async (sessionId: string, sequence: number): Promise<string> =>
+    (await call("GET", `/sessions/${id(sessionId)}/results/${sequence}`)).text(),
   listPendingRequests: (): Promise<PendingRequestList> =>
     read("/pending-requests", pendingRequestListSchema),
   startTask: (request: StartTaskRequest): Promise<SessionRecord> =>
