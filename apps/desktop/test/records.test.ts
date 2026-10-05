@@ -6,6 +6,7 @@ import { applyToRecords, type Records, waitingKey } from "../src/store/records.t
 const session: SessionRecord = {
   id: "s1",
   taskId: "t1",
+  agentId: "a1",
   options: { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" },
   status: "starting",
   createdAt: "2026-10-04T12:00:00.000Z",

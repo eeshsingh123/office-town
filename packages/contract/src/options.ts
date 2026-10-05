@@ -10,7 +10,7 @@ export const permissionModeSchema = z.enum(["ask", "acceptEdits", "bypass"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
 // These values become command-line arguments of a harness, so they may not look like a flag.
-const harnessSettingSchema = z
+export const harnessSettingSchema = z
   .string()
   .regex(
     /^[A-Za-z0-9][A-Za-z0-9._/:@[\]-]*$/,

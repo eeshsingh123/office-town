@@ -2,7 +2,7 @@ import { ArrowLeft, ExternalLink, LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
-import { agentOf, stateOf, useWaitingSessions } from "../../store/agents.ts";
+import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
@@ -43,9 +43,13 @@ function useFollow(dependency: unknown) {
 }
 
 export function TaskView({ taskId }: { taskId: string }) {
+  const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const agent = useMemo(() => agentOf({ tasks, sessions }, taskId), [tasks, sessions, taskId]);
+  const agent = useMemo(
+    () => agentsInTask({ agents, tasks, sessions }, taskId)[0],
+    [agents, tasks, sessions, taskId],
+  );
   const waitingSessions = useWaitingSessions();
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) =>

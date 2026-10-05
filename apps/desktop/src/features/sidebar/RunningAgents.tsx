@@ -27,7 +27,7 @@ export function RunningAgents() {
         const current = view.name === "task" && view.taskId === agent.taskId;
         return (
           <button
-            key={agent.taskId}
+            key={agent.id}
             type="button"
             className={styles.task}
             aria-current={current ? "page" : undefined}

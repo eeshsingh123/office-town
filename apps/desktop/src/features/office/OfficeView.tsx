@@ -80,7 +80,7 @@ export function OfficeView() {
     return { plan, floorAgents };
   }, [agents, traces, waiting, harnesses]);
 
-  const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.taskId));
+  const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const asking = floorAgents.filter(({ state }) => state === "waiting").length;
 
   return (

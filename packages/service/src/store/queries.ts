@@ -1,10 +1,12 @@
 const TASK_COLUMNS = "ref, id, prompt, created_at AS createdAt";
 
 const SESSION_SELECT = `
-  SELECT s.ref, s.id, t.id AS taskId, s.options, s.status, s.created_at AS createdAt,
-         s.harness_session_id AS harnessSessionId, r.id AS resumedFrom, s.ended_at AS endedAt
+  SELECT s.ref, s.id, t.id AS taskId, a.id AS agentId, s.options, s.status,
+         s.created_at AS createdAt, s.harness_session_id AS harnessSessionId,
+         r.id AS resumedFrom, s.ended_at AS endedAt
   FROM sessions s
   JOIN tasks t ON t.ref = s.task_ref
+  JOIN agents a ON a.ref = s.agent_ref
   LEFT JOIN sessions r ON r.ref = s.resumed_from_ref`;
 
 const EVENT_SELECT = `
@@ -14,10 +16,18 @@ const EVENT_SELECT = `
 
 const UNFINISHED = "status IN ('starting', 'running')";
 
+const AGENT_SELECT = `
+  SELECT a.ref, a.id, a.name, a.colour, a.role, p.id AS profileId, a.settings,
+         a.created_at AS createdAt
+  FROM agents a
+  LEFT JOIN profiles p ON p.ref = a.profile_ref`;
+
+const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
+
 const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
 
 // Every statement the store runs. The store test checks that none of them reads a whole table,
-// except the two marked as reading a small table whole.
+// except those marked as reading a small table whole.
 export const queries = {
   insertTask: "INSERT INTO tasks (id, prompt, created_at) VALUES (?, ?, ?)",
   taskById: `SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ?`,
@@ -25,8 +35,8 @@ export const queries = {
   deleteTask: "DELETE FROM tasks WHERE ref = ?",
 
   insertSession: `
-    INSERT INTO sessions (id, task_ref, resumed_from_ref, options, status, created_at)
-    VALUES (?, ?, ?, ?, 'starting', ?)`,
+    INSERT INTO sessions (id, task_ref, agent_ref, resumed_from_ref, options, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 'starting', ?)`,
   sessionRef: "SELECT ref FROM sessions WHERE id = ?",
   sessionById: `${SESSION_SELECT} WHERE s.id = ?`,
   sessionsOfTask: `${SESSION_SELECT} WHERE s.task_ref = ? ORDER BY s.ref`,
@@ -35,6 +45,28 @@ export const queries = {
   interruptUnfinished: `UPDATE sessions SET status = 'interrupted' WHERE ${UNFINISHED}`,
   sessionStarted: "UPDATE sessions SET status = 'running', harness_session_id = ? WHERE ref = ?",
   sessionEnded: "UPDATE sessions SET status = ?, ended_at = ? WHERE ref = ?",
+
+  agentsOfTask: "SELECT agent_ref AS ref FROM sessions WHERE task_ref = ?",
+
+  insertAgent: `
+    INSERT INTO agents (id, name, colour, role, profile_ref, settings, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  agentById: `${AGENT_SELECT} WHERE a.id = ?`,
+  agentNamed: "SELECT 1 FROM agents WHERE name = ?",
+  // Reads the whole table on purpose: one row per agent, which the app shows together.
+  allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
+  renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
+  // An agent that worked on no other task goes with its last one.
+  deleteAgentIfUnused: `
+    DELETE FROM agents WHERE ref = ? AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?)`,
+
+  insertProfile: `
+    INSERT INTO profiles (id, name, role, colour, settings, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+  profileById: `SELECT ${PROFILE_COLUMNS} FROM profiles WHERE id = ?`,
+  // Reads the whole table on purpose: one row per profile the user saved.
+  allProfiles: `SELECT ${PROFILE_COLUMNS} FROM profiles ORDER BY name`,
+  updateProfile: "UPDATE profiles SET name = ?, role = ?, colour = ?, settings = ? WHERE ref = ?",
+  deleteProfile: "DELETE FROM profiles WHERE ref = ?",
 
   insertEvent: `
     INSERT INTO events (session_ref, sequence, id, type, timestamp, payload)

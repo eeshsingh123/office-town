@@ -1,7 +1,13 @@
 import { z } from "zod";
+import { newAgentSchema } from "./agents.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
-import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
+import {
+  absolutePathSchema,
+  environmentSpecSchema,
+  permissionModeSchema,
+  sessionOptionsSchema,
+} from "./options.ts";
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -23,6 +29,7 @@ export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export const sessionRecordSchema = z.object({
   id: z.string().min(1),
   taskId: z.string().min(1),
+  agentId: z.string().min(1),
   options: sessionOptionsSchema,
   status: sessionStatusSchema,
   createdAt: z.iso.datetime(),
@@ -91,17 +98,14 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-// The agent works in a saved workspace, or else in a new folder for this task inside the output
+// A new agent works in a saved workspace, or else in a new folder for this task inside the output
 // folder: the one given, or the last one given. Folders are never passed directly, and a resume
 // goes through its own request, which checks the conversation is not already running.
 export const startTaskRequestSchema = z
   .object({
     prompt: z.string().min(1),
-    options: sessionOptionsSchema.omit({
-      workspacePath: true,
-      additionalPaths: true,
-      resumeSessionId: true,
-    }),
+    agent: newAgentSchema,
+    permissionMode: permissionModeSchema,
     workspaceId: z.string().min(1).optional(),
     outputFolder: absolutePathSchema.optional(),
   })

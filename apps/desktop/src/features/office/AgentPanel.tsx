@@ -12,6 +12,7 @@ import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { MessageBox } from "../task/MessageBox.tsx";
+import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
 
@@ -52,7 +53,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
       <div className={styles.who}>
         <Avatar name={agent.name} colour={agent.colour} size={40} />
         <div className={styles.whoText}>
-          <strong>{agent.name}</strong>
+          <AgentName agentId={agent.id} name={agent.name} />
           <span>
             {harness}
             {latest.options.model === undefined ? "" : ` · ${latest.options.model}`}

@@ -37,7 +37,7 @@ interface FloorProps {
   plan: FloorPlan;
   agents: FloorAgent[];
   selection: string[];
-  onSelect: (taskIds: string[]) => void;
+  onSelect: (agentIds: string[]) => void;
 }
 
 const SPEED = 260;
@@ -131,7 +131,7 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
       event.preventDefault();
       press(key);
     } else if (key === "e" && near !== undefined) {
-      onSelect([near.agent.taskId]);
+      onSelect([near.agent.id]);
     } else if (key === "Escape") {
       onSelect([]);
     }
@@ -152,7 +152,7 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
     const box = rectFrom(drag.from, drag.to);
     setDrag(undefined);
     const dragged = box.width > DRAG_THRESHOLD || box.height > DRAG_THRESHOLD;
-    onSelect(dragged ? inRect(box, agents).map(({ agent }) => agent.taskId) : []);
+    onSelect(dragged ? inRect(box, agents).map(({ agent }) => agent.id) : []);
   };
 
   const box = drag === undefined ? undefined : rectFrom(drag.from, drag.to);
@@ -220,10 +220,10 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
         You
       </div>
       {agents.map(({ agent, state, position, harness, bubble }) => {
-        const selected = selection.includes(agent.taskId);
+        const selected = selection.includes(agent.id);
         const finished = FINISHED.includes(state);
         return (
-          <div key={agent.taskId}>
+          <div key={agent.id}>
             {bubble === undefined ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : ""}`}
@@ -242,9 +242,9 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
                   aria-label={`${agent.name}, ${harness}, ${STATE_LABELS[state].toLowerCase()}`}
                   onClick={(event) => {
                     const adding = event.shiftKey || event.ctrlKey || event.metaKey;
-                    if (!adding) onSelect([agent.taskId]);
-                    else if (selected) onSelect(selection.filter((id) => id !== agent.taskId));
-                    else onSelect([...selection, agent.taskId]);
+                    if (!adding) onSelect([agent.id]);
+                    else if (selected) onSelect(selection.filter((id) => id !== agent.id));
+                    else onSelect([...selection, agent.id]);
                   }}
                 >
                   <Character

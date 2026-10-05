@@ -1,4 +1,4 @@
-import type { HarnessDescription } from "@office-town/contract";
+import type { AgentRecord, HarnessDescription } from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
 import type { Trace } from "../trace/trace.ts";
@@ -9,24 +9,27 @@ export type View =
   | { name: "new-task" }
   | { name: "needs-you" }
   | { name: "tasks" }
+  | { name: "profiles" }
   | { name: "task"; taskId: string };
 
 export interface AppState extends Records {
   connection: StreamStatus;
   harnesses: HarnessDescription[];
+  agents: Record<string, AgentRecord>;
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
   traceErrors: Record<string, string>;
   // The cursor of the next page of older tasks, while there is one.
   olderTasks: string | undefined;
   view: View;
-  // The office's selected agents, by task id; kept while the user looks at a trace.
+  // The office's selected agents, by agent id; kept while the user looks at a trace.
   selection: string[];
 }
 
 export const useApp = create<AppState>(() => ({
   connection: "connecting",
   harnesses: [],
+  agents: {},
   tasks: {},
   sessions: {},
   waiting: {},

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   type SessionEvent,
@@ -11,6 +11,7 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/store/database.ts";
+import { migrations } from "../src/store/migrations.ts";
 import { queries } from "../src/store/queries.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import {
@@ -19,6 +20,7 @@ import {
   StoreFileError,
   TaskActiveError,
 } from "../src/store/store.ts";
+import { addAgent } from "./support/agents.ts";
 
 const options: SessionOptions = {
   harness: "claude",
@@ -31,7 +33,7 @@ let store: Store;
 
 function startSession(taskId: string): { id: string; emit: (body: SessionEventBody) => void } {
   const id = randomUUID();
-  store.createSession({ id, taskId, options });
+  store.createSession({ id, taskId, agentId: addAgent(store).id, options });
   let sequence = 0;
   const emit = (body: SessionEventBody) => {
     sequence += 1;
@@ -142,6 +144,38 @@ describe("store", () => {
     store = openStore(join(directory, "fresh"));
   });
 
+  it("gives each task of an earlier version its agent, with the name and colour M3 showed", () => {
+    store.close();
+    const file = join(directory, "m3", "store.db");
+    mkdirSync(dirname(file));
+    const m3 = new DatabaseSync(file);
+    for (const sql of migrations.slice(0, 2)) m3.exec(sql as string);
+    m3.exec(`
+      PRAGMA application_id = ${0x4f54_4f57};
+      PRAGMA user_version = 2;
+      INSERT INTO tasks (ref, id, prompt, created_at) VALUES (1, 'task-1', 'Write a report', 0);
+      INSERT INTO sessions (ref, id, task_ref, options, status, created_at) VALUES
+        (1, '5f0c3b7e-9a41-4d2e-8b6f-1c2d3e4f5a6b', 1,
+         '{"harness":"opencode","environment":{"kind":"native"},"model":"m","permissionMode":"ask"}',
+         'exited', 0),
+        (2, 'resumed', 1, '{"harness":"opencode","environment":{"kind":"native"},"permissionMode":"ask"}',
+         'exited', 0);
+    `);
+    m3.close();
+
+    store = openStore(dirname(file));
+    const [agent] = store.listAgents();
+    expect(agent).toMatchObject({
+      name: "@gil-4498",
+      colour: "#A2456E",
+      settings: { harness: "opencode", environment: { kind: "native" }, model: "m" },
+    });
+    expect(store.listSessions("task-1").map((session) => session.agentId)).toEqual([
+      agent?.id,
+      agent?.id,
+    ]);
+  });
+
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
     const task = store.createTask("Delete me");
     const session = startSession(task.id);
@@ -248,8 +282,14 @@ describe("store", () => {
         .all()
         .map((row) => String(row.detail))
         .join("\n");
-    // These read a small table whole on purpose: what is waiting now, and the saved workspaces.
-    const wholeTableReads = new Set(["pendingRequests", "workspacesByUse"]);
+    // These read a small table whole on purpose: what is waiting now, the saved workspaces, the
+    // agents and the profiles.
+    const wholeTableReads = new Set([
+      "pendingRequests",
+      "workspacesByUse",
+      "allAgents",
+      "allProfiles",
+    ]);
     for (const [name, sql] of Object.entries(queries)) {
       if (!wholeTableReads.has(name)) expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);
     }

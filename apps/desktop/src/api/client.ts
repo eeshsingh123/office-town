@@ -1,6 +1,8 @@
 import {
   type AgentCommand,
+  type AgentRecord,
   type ApiError,
+  agentRecordSchema,
   apiErrorSchema,
   type EnvironmentList,
   type EnvironmentSpec,
@@ -10,7 +12,10 @@ import {
   harnessCatalogSchema,
   harnessDescriptionSchema,
   type PendingRequestList,
+  type ProfileRecord,
+  type ProfileRequest,
   pendingRequestListSchema,
+  profileRecordSchema,
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
@@ -121,5 +126,16 @@ export const api = {
   createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
     write("POST", "/workspaces", workspace, workspaceRecordSchema),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
+  listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
+  getAgent: (agentId: string): Promise<AgentRecord> =>
+    read(`/agents/${id(agentId)}`, agentRecordSchema),
+  renameAgent: (agentId: string, name: string): Promise<AgentRecord> =>
+    write("PUT", `/agents/${id(agentId)}/name`, { name }, agentRecordSchema),
+  listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
+  createProfile: (profile: ProfileRequest): Promise<ProfileRecord> =>
+    write("POST", "/profiles", profile, profileRecordSchema),
+  updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>
+    write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
+  deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
   readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };

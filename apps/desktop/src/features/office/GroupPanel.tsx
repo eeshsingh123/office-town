@@ -64,10 +64,10 @@ export function GroupPanel({ members }: { members: FloorAgent[] }) {
           </h3>
           {group.map(({ agent }) => (
             <button
-              key={agent.taskId}
+              key={agent.id}
               type="button"
               className={styles.member}
-              onClick={() => select([agent.taskId])}
+              onClick={() => select([agent.id])}
             >
               <Avatar name={agent.name} colour={agent.colour} size={26} />
               <span className={styles.memberText}>

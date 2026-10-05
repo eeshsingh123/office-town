@@ -471,3 +471,51 @@
 .quiet {
   color: var(--text-3);
 }
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rename {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.rename:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.renameForm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.renameInput {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-weight: 500;
+}
+
+.renameError {
+  font-size: var(--size-meta);
+  color: var(--bad);
+}
+
+.whoText .name {
+  font-size: inherit;
+  color: var(--text);
+}

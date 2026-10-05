@@ -1,24 +1,19 @@
-import type {
-  EnvironmentSpec,
-  HarnessCatalog,
-  PermissionMode,
-  StartTaskRequest,
-  WorkspaceRecord,
-} from "@office-town/contract";
+import type { PermissionMode, StartTaskRequest, WorkspaceRecord } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { type KeyboardEvent, useState } from "react";
+import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { Button } from "../../ui/Button.tsx";
 import { type Choice, ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
-import { environmentName } from "../../ui/format.ts";
+import { profileSummary } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
-import { ModelPicker } from "./ModelPicker.tsx";
 import styles from "./NewTaskView.module.css";
 import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
 
@@ -39,28 +34,14 @@ const PERMISSIONS: Choice<PermissionMode>[] = [
     description: "Never asks, so use it only where nothing important can break",
   },
 ];
-// A value no effort can take, since the harness's own words start with a letter or digit.
-const DEFAULT_EFFORT = "~default";
-
-// Catalogs come from running the harness's CLI, which takes seconds, so each is read once.
-const catalogs = new Map<string, Promise<HarnessCatalog>>();
-function readCatalog(harness: string, environment: EnvironmentSpec): Promise<HarnessCatalog> {
-  const key = `${harness}|${environmentKey(environment)}`;
-  const cached = catalogs.get(key);
-  if (cached !== undefined) return cached;
-  const reading = api.readCatalog(harness, environment);
-  catalogs.set(key, reading);
-  reading.catch(() => catalogs.delete(key));
-  return reading;
-}
-
-const environmentKey = (environment: EnvironmentSpec) =>
-  environment.kind === "wsl" ? `wsl:${environment.distro}` : "native";
+// A value no profile id can take, since an id starts with a letter or digit.
+const LAST_CHOICES = "~last";
 
 export function NewTaskView() {
   const harnesses = useApp((state) => state.harnesses);
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
+  const [profileId, setProfileId] = useState(remembered.profileId);
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
@@ -75,53 +56,54 @@ export function NewTaskView() {
   const [error, setError] = useState<string>();
 
   const description = harnesses.find((known) => known.harness === harness) ?? harnesses[0];
-  const environments = useLoaded("environments", api.listEnvironments);
   const listed = useLoaded("workspaces", api.listWorkspaces);
   const [created, setCreated] = useState<WorkspaceRecord[]>([]);
   const workspaces = [...created, ...(listed.value ?? [])];
   const settings = useLoaded("settings", api.readSettings);
+  const profiles = useLoaded("profiles", api.listProfiles);
+  const profile = profiles.value?.find((known) => known.id === profileId);
   const outputFolder = chosenFolder ?? settings.value?.outputFolder;
-  const catalogKey =
-    description === undefined || !description.capabilities.modelList
-      ? undefined
-      : `${description.harness}|${environmentKey(choices.environment)}`;
-  const catalog = useLoaded(catalogKey, () =>
-    readCatalog(description?.harness ?? "", choices.environment),
+  // Read once and cached, so this shares the model list the chips load.
+  const catalog = useLoaded(
+    description?.capabilities.modelList
+      ? `${description.harness}|${environmentKey(choices.environment)}`
+      : undefined,
+    () => readCatalog(description?.harness ?? "", choices.environment),
   );
-
-  const chooseHarness = (next: string) => {
-    setHarness(next);
-    setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
-  };
-  const models = catalog.value?.models;
-  const model = models?.find((known) => known.id === choices.model);
-  const efforts = description?.capabilities.effort ? (model?.efforts ?? []) : [];
+  const model = catalog.value?.models.find((known) => known.id === choices.model);
   const workspace = workspaces.find((known) => known.id === workspaceId);
   const where =
     place === "workspace"
       ? workspace && { workspaceId: workspace.id }
       : outputFolder && { outputFolder };
-  const ready = description !== undefined && prompt.trim() !== "" && Boolean(where);
+  const fromProfile = profile !== undefined;
+  const ready =
+    (fromProfile || description !== undefined) && prompt.trim() !== "" && Boolean(where);
 
   const start = async () => {
-    if (description === undefined || prompt.trim() === "" || !where || starting) return;
+    if (!ready || !where || starting || description === undefined) return;
     setStarting(true);
     setError(undefined);
     const { environment, model: chosenModel, effort, permissionMode } = choices;
-    const request: StartTaskRequest = {
-      prompt: prompt.trim(),
-      options: {
-        harness: description.harness,
-        environment,
-        permissionMode,
-        ...(chosenModel === undefined ? {} : { model: chosenModel }),
-        ...(effort === undefined ? {} : { effort }),
-      },
-      ...where,
-    };
+    const agent: StartTaskRequest["agent"] = fromProfile
+      ? { profileId: profile.id }
+      : {
+          settings: {
+            harness: description.harness,
+            environment,
+            ...(chosenModel === undefined ? {} : { model: chosenModel }),
+            ...(effort === undefined ? {} : { effort }),
+          },
+        };
+    const request: StartTaskRequest = { prompt: prompt.trim(), agent, permissionMode, ...where };
     try {
       const session = await api.startTask(request);
-      remember(description.harness, choices, place === "workspace" ? workspace?.id : undefined);
+      remember(
+        description.harness,
+        choices,
+        place === "workspace" ? workspace?.id : undefined,
+        profile?.id,
+      );
       await track(session.taskId);
       navigate({ name: "task", taskId: session.taskId });
     } catch (failure) {
@@ -136,11 +118,6 @@ export function NewTaskView() {
       void start();
     }
   };
-
-  const environmentChoices = (environments.value ?? [choices.environment]).map((environment) => ({
-    value: environmentKey(environment),
-    label: environmentName(environment),
-  }));
 
   return (
     <section className={styles.page} aria-labelledby="new-task-title">
@@ -169,52 +146,47 @@ export function NewTaskView() {
             autoFocus
           />
           <div className={styles.options}>
-            <ChoiceMenu
-              label="Harness"
-              value={description?.harness ?? ""}
-              choices={harnesses.map((known) => ({ value: known.harness, label: known.name }))}
-              onChange={chooseHarness}
-            />
-            <ChoiceMenu
-              label="Runs on"
-              value={environmentKey(choices.environment)}
-              choices={environmentChoices}
-              onChange={(key) => {
-                const environment = environments.value?.find((env) => environmentKey(env) === key);
-                if (environment !== undefined) setChoices({ ...choices, environment });
-              }}
-            />
-            {description?.capabilities.modelList ? (
-              <ModelPicker
-                models={models}
-                error={catalog.error}
-                value={choices.model}
-                recent={choices.recentModels}
-                onChange={(next) => {
-                  const nextEfforts = models?.find((known) => known.id === next)?.efforts ?? [];
-                  const { model: _, effort, ...rest } = choices;
+            {(profiles.value ?? []).length === 0 ? null : (
+              <ChoiceMenu
+                label="Agent"
+                value={profile?.id ?? LAST_CHOICES}
+                choices={[
+                  { value: LAST_CHOICES, label: "Your last choices" },
+                  ...(profiles.value ?? []).map((known) => ({
+                    value: known.id,
+                    label: known.name,
+                    description: profileSummary(known, harnesses),
+                  })),
+                ]}
+                onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
+              />
+            )}
+            {fromProfile || description === undefined ? null : (
+              <SettingsChips
+                value={{
+                  harness: description.harness,
+                  environment: choices.environment,
+                  ...(choices.model === undefined ? {} : { model: choices.model }),
+                  ...(choices.effort === undefined ? {} : { effort: choices.effort }),
+                }}
+                recentModels={choices.recentModels}
+                onChange={({ harness: next, environment, model: nextModel, effort }) => {
+                  if (next !== description.harness) {
+                    setHarness(next);
+                    setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
+                    return;
+                  }
+                  const { permissionMode, recentModels } = choices;
                   setChoices({
-                    ...rest,
-                    ...(next === undefined ? {} : { model: next }),
-                    ...(effort !== undefined && nextEfforts.includes(effort) ? { effort } : {}),
+                    environment,
+                    permissionMode,
+                    recentModels,
+                    ...(nextModel === undefined ? {} : { model: nextModel }),
+                    ...(effort === undefined ? {} : { effort }),
                   });
                 }}
               />
-            ) : null}
-            {efforts.length > 0 ? (
-              <ChoiceMenu
-                label="Effort"
-                value={choices.effort ?? DEFAULT_EFFORT}
-                choices={[
-                  { value: DEFAULT_EFFORT, label: "Default" },
-                  ...efforts.map((effort) => ({ value: effort, label: effort })),
-                ]}
-                onChange={(next) => {
-                  const { effort: _, ...rest } = choices;
-                  setChoices(next === DEFAULT_EFFORT ? rest : { ...rest, effort: next });
-                }}
-              />
-            ) : null}
+            )}
             <ChoiceMenu
               label="Permissions"
               value={choices.permissionMode}
@@ -280,7 +252,9 @@ export function NewTaskView() {
           <span className={styles.hint}>
             <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd>
           </span>
-          {model?.access === "free" ? <span className={styles.note}>Free model</span> : null}
+          {!fromProfile && model?.access === "free" ? (
+            <span className={styles.note}>Free model</span>
+          ) : null}
         </div>
         {error === undefined ? null : (
           <p className={styles.error} role="alert">

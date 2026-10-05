@@ -1,5 +1,6 @@
 import type {
   ActionKind,
+  MessageOrigin,
   Overflow,
   PlanStep,
   SessionEvent,
@@ -35,6 +36,8 @@ export interface TraceMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  // Set when the core sent it in the user's place.
+  origin?: MessageOrigin;
 }
 
 export interface TraceReasoning {
@@ -171,10 +174,16 @@ function apply(trace: Trace, event: SessionEvent): void {
       return;
     }
     case "message": {
-      const { role, text, parentActionId } = event.payload;
+      const { role, text, parentActionId, origin } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
       if (text.trim() === "") return;
-      trace.items.set(event.id, { kind: "message", id: event.id, role, text });
+      trace.items.set(event.id, {
+        kind: "message",
+        id: event.id,
+        role,
+        text,
+        ...(origin === undefined ? {} : { origin }),
+      });
       place(trace, event.id, parentActionId);
       return;
     }

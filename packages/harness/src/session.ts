@@ -101,7 +101,14 @@ export class HarnessSession implements Session {
         return this.#start();
       case "prompt":
         this.#requireActive("prompt");
-        this.#emit({ type: "message", payload: { role: "user", text: command.text } });
+        this.#emit({
+          type: "message",
+          payload: {
+            role: "user",
+            text: command.text,
+            ...(command.origin === undefined ? {} : { origin: command.origin }),
+          },
+        });
         this.#apply(this.#translator.prompt(command.text));
         return;
       case "answerPermission":

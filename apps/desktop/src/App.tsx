@@ -4,6 +4,7 @@ import styles from "./App.module.css";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
+import { ProfilesView } from "./features/profiles/ProfilesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
@@ -19,6 +20,8 @@ function Main({ view }: { view: View }) {
       return <NeedsYouView />;
     case "tasks":
       return <TasksView />;
+    case "profiles":
+      return <ProfilesView />;
     case "task":
       return <TaskView key={view.taskId} taskId={view.taskId} />;
   }

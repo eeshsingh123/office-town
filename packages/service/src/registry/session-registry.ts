@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   AgentCommand,
+  MessageOrigin,
   SessionEvent,
   SessionOptions,
   SessionRecord,
@@ -27,6 +28,19 @@ export interface PublishedEvent {
 }
 
 export type RegistryListener = (published: PublishedEvent) => void;
+
+// A message the agent gets; one with an origin was sent by the core in the user's place.
+export interface Message {
+  text: string;
+  origin?: MessageOrigin;
+}
+
+export interface Launch {
+  taskId: string;
+  agentId: string;
+  options: SessionOptions;
+  message: Message;
+}
 
 type SessionEndedEvent = Extract<SessionEvent, { type: "session.ended" }>;
 
@@ -80,14 +94,14 @@ export class SessionRegistry {
     return () => this.#listeners.delete(listener);
   }
 
-  async start(prompt: string, options: SessionOptions): Promise<SessionRecord> {
+  // Starts an agent's new session in a task, with its first message.
+  async start({ taskId, agentId, options, message }: Launch): Promise<SessionRecord> {
     const session = this.#createSession(options);
-    const task = this.#store.createTask(prompt);
-    return this.#run(session, { id: session.id, taskId: task.id, options }, prompt);
+    return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
 
   // Continues an ended session's conversation in a new session of the same task.
-  async resume(sessionId: string, prompt: string): Promise<SessionRecord> {
+  async resume(sessionId: string, message: Message): Promise<SessionRecord> {
     const earlier = this.#store.getSession(sessionId);
     if (earlier === undefined) throw new RecordNotFoundError("session", sessionId);
     if (earlier.harnessSessionId === undefined) {
@@ -100,8 +114,14 @@ export class SessionRegistry {
     requireSessionFolders(earlier.options);
     const options = { ...earlier.options, resumeSessionId: conversation };
     const session = this.#createSession(options);
-    const record = { id: session.id, taskId: earlier.taskId, options, resumedFrom: sessionId };
-    return this.#run(session, record, prompt);
+    const record = {
+      id: session.id,
+      taskId: earlier.taskId,
+      agentId: earlier.agentId,
+      options,
+      resumedFrom: sessionId,
+    };
+    return this.#run(session, record, message);
   }
 
   async send(sessionId: string, command: AgentCommand): Promise<void> {
@@ -127,7 +147,7 @@ export class SessionRegistry {
     }
   }
 
-  async #run(session: Session, record: NewSession, prompt: string): Promise<SessionRecord> {
+  async #run(session: Session, record: NewSession, message: Message): Promise<SessionRecord> {
     this.#store.createSession(record);
     const stopEvents = session.subscribe((event) => this.#record(live, event));
     const stopLines = session.subscribeLines((line) => this.#recordLine(live, line));
@@ -144,7 +164,7 @@ export class SessionRegistry {
     this.#live.set(session.id, live);
     await session.send({ type: "start" });
     // A start that failed has already ended the session.
-    if (this.#live.has(session.id)) await session.send({ type: "prompt", text: prompt });
+    if (this.#live.has(session.id)) await session.send({ type: "prompt", ...message });
     const stored = this.#store.getSession(session.id);
     if (stored === undefined) throw new RecordNotFoundError("session", session.id);
     return stored;

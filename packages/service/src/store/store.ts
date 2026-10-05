@@ -1,5 +1,10 @@
 import type {
+  AgentColour,
+  AgentRecord,
+  AgentSettings,
   PendingRequestList,
+  ProfileRecord,
+  ProfileRequest,
   SessionEvent,
   SessionOptions,
   SessionRecord,
@@ -15,8 +20,17 @@ import type {
 export interface NewSession {
   id: string;
   taskId: string;
+  agentId: string;
   options: SessionOptions;
   resumedFrom?: string;
+}
+
+export interface NewAgentRecord {
+  name: string;
+  colour: AgentColour;
+  role?: string;
+  profileId?: string;
+  settings: AgentSettings;
 }
 
 // `position` orders events across all sessions and is the cursor every reader resumes from.
@@ -48,6 +62,7 @@ export interface Store {
   listTasks(query: TaskQuery): TaskPage;
   // Every task with a session starting or running, newest first.
   listActiveTasks(): TaskSummary[];
+  // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
@@ -62,6 +77,18 @@ export interface Store {
   readOverflow(sessionId: string, sequence: number): string;
   // Every permission request and question no one has answered yet, across all sessions.
   listPendingRequests(): PendingRequestList;
+  createAgent(agent: NewAgentRecord): AgentRecord;
+  getAgent(id: string): AgentRecord | undefined;
+  isNameTaken(name: string): boolean;
+  listAgents(): AgentRecord[];
+  renameAgent(id: string, name: string): AgentRecord;
+  createProfile(profile: ProfileRequest): ProfileRecord;
+  getProfile(id: string): ProfileRecord | undefined;
+  // By name.
+  listProfiles(): ProfileRecord[];
+  updateProfile(id: string, profile: ProfileRequest): ProfileRecord;
+  // Agents made from it keep working with the settings it had when they were made.
+  deleteProfile(id: string): void;
   createWorkspace(workspace: WorkspaceRequest): WorkspaceRecord;
   // Most recently used first.
   listWorkspaces(): WorkspaceRecord[];
@@ -77,7 +104,7 @@ export interface Store {
 }
 
 export class RecordNotFoundError extends Error {
-  constructor(kind: "task" | "session" | "result" | "workspace", id: string) {
+  constructor(kind: "task" | "session" | "result" | "workspace" | "agent" | "profile", id: string) {
     super(`No ${kind} "${id}".`);
     this.name = "RecordNotFoundError";
   }
@@ -87,6 +114,13 @@ export class TaskActiveError extends Error {
   constructor(id: string) {
     super(`Task "${id}" still has a running session. Stop it before deleting the task.`);
     this.name = "TaskActiveError";
+  }
+}
+
+export class NameTakenError extends Error {
+  constructor(name: string) {
+    super(`Another agent is already called ${name}.`);
+    this.name = "NameTakenError";
   }
 }
 

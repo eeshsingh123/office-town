@@ -4,7 +4,11 @@ import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
+  type AgentRecord,
+  type AgentSettings,
   type PendingRequestList,
+  type ProfileRecord,
+  type ProfileRequest,
   type SessionEvent,
   type SessionOptions,
   type SessionRecord,
@@ -25,6 +29,8 @@ import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files
 import {
   type EventQuery,
   type LineDirection,
+  NameTakenError,
+  type NewAgentRecord,
   type NewSession,
   RecordNotFoundError,
   type Store,
@@ -51,6 +57,7 @@ interface SessionRow {
   ref: number;
   id: string;
   taskId: string;
+  agentId: string;
   options: string;
   status: SessionStatus;
   createdAt: number;
@@ -67,6 +74,27 @@ interface EventRow {
   type: SessionEvent["type"];
   timestamp: number;
   payload: string;
+}
+
+interface AgentRow {
+  ref: number;
+  id: string;
+  name: string;
+  colour: AgentRecord["colour"];
+  role: string | null;
+  profileId: string | null;
+  settings: string;
+  createdAt: number;
+}
+
+interface ProfileRow {
+  ref: number;
+  id: string;
+  name: string;
+  role: string;
+  colour: ProfileRecord["colour"];
+  settings: string;
+  createdAt: number;
 }
 
 interface WorkspaceRow {
@@ -103,6 +131,7 @@ function toSession(row: SessionRow): SessionRecord {
   return {
     id: row.id,
     taskId: row.taskId,
+    agentId: row.agentId,
     options: JSON.parse(row.options) as SessionOptions,
     status: row.status,
     createdAt: iso(row.createdAt),
@@ -110,6 +139,36 @@ function toSession(row: SessionRow): SessionRecord {
     ...(row.resumedFrom === null ? {} : { resumedFrom: row.resumedFrom }),
     ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
   };
+}
+
+function toAgent(row: AgentRow): AgentRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    colour: row.colour,
+    ...(row.role === null ? {} : { role: row.role }),
+    ...(row.profileId === null ? {} : { profileId: row.profileId }),
+    settings: JSON.parse(row.settings) as AgentSettings,
+    createdAt: iso(row.createdAt),
+  };
+}
+
+function toProfile(row: ProfileRow): ProfileRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    colour: row.colour,
+    settings: JSON.parse(row.settings) as AgentSettings,
+    createdAt: iso(row.createdAt),
+  };
+}
+
+// SQLite's own code for a broken UNIQUE constraint.
+const SQLITE_CONSTRAINT_UNIQUE = 2067;
+
+function isUniqueViolation(error: unknown): boolean {
+  return (error as { errcode?: number }).errcode === SQLITE_CONSTRAINT_UNIQUE;
 }
 
 function toWorkspace(row: WorkspaceRow): WorkspaceRecord {
@@ -195,11 +254,17 @@ class SqliteStore implements Store {
     this.#deleting.add(id);
     try {
       const sessions = all<SessionRow>(this.#statements.sessionsOfTask, task.ref);
+      const agents = all<{ ref: number }>(this.#statements.agentsOfTask, task.ref);
       for (const session of sessions) {
         await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
         await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
       }
-      this.#statements.deleteTask.run(task.ref);
+      transaction(this.#db, () => {
+        this.#statements.deleteTask.run(task.ref);
+        for (const ref of new Set(agents.map((agent) => agent.ref))) {
+          this.#statements.deleteAgentIfUnused.run(ref, ref);
+        }
+      });
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#returnFreeSpace();
     } finally {
@@ -207,14 +272,16 @@ class SqliteStore implements Store {
     }
   }
 
-  createSession({ id, taskId, options, resumedFrom }: NewSession): SessionRecord {
+  createSession({ id, taskId, agentId, options, resumedFrom }: NewSession): SessionRecord {
     if (this.#deleting.has(taskId)) throw new RecordNotFoundError("task", taskId);
     const taskRef = this.#taskRow(taskId).ref;
+    const agentRef = this.#agentRow(agentId).ref;
     const resumedFromRef = resumedFrom === undefined ? null : this.#sessionRef(resumedFrom);
     const createdAt = Date.now();
     this.#statements.insertSession.run(
       id,
       taskRef,
+      agentRef,
       resumedFromRef,
       JSON.stringify(options),
       createdAt,
@@ -222,6 +289,7 @@ class SqliteStore implements Store {
     return {
       id,
       taskId,
+      agentId,
       options,
       status: "starting",
       createdAt: iso(createdAt),
@@ -317,6 +385,85 @@ class SqliteStore implements Store {
     };
   }
 
+  createAgent({ name, colour, role, profileId, settings }: NewAgentRecord): AgentRecord {
+    const id = randomUUID();
+    const profileRef = profileId === undefined ? null : this.#profileRow(profileId).ref;
+    const createdAt = Date.now();
+    try {
+      this.#statements.insertAgent.run(
+        id,
+        name,
+        colour,
+        role ?? null,
+        profileRef,
+        JSON.stringify(settings),
+        createdAt,
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new NameTakenError(name);
+      throw error;
+    }
+    return {
+      id,
+      name,
+      colour,
+      ...(role === undefined ? {} : { role }),
+      ...(profileId === undefined ? {} : { profileId }),
+      settings,
+      createdAt: iso(createdAt),
+    };
+  }
+
+  getAgent(id: string): AgentRecord | undefined {
+    const row = one<AgentRow>(this.#statements.agentById, id);
+    return row === undefined ? undefined : toAgent(row);
+  }
+
+  isNameTaken(name: string): boolean {
+    return one(this.#statements.agentNamed, name) !== undefined;
+  }
+
+  listAgents(): AgentRecord[] {
+    return all<AgentRow>(this.#statements.allAgents).map(toAgent);
+  }
+
+  renameAgent(id: string, name: string): AgentRecord {
+    const row = this.#agentRow(id);
+    try {
+      this.#statements.renameAgent.run(name, row.ref);
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new NameTakenError(name);
+      throw error;
+    }
+    return toAgent({ ...row, name });
+  }
+
+  createProfile({ name, role, colour, settings }: ProfileRequest): ProfileRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    this.#statements.insertProfile.run(id, name, role, colour, JSON.stringify(settings), createdAt);
+    return { id, name, role, colour, settings, createdAt: iso(createdAt) };
+  }
+
+  getProfile(id: string): ProfileRecord | undefined {
+    const row = one<ProfileRow>(this.#statements.profileById, id);
+    return row === undefined ? undefined : toProfile(row);
+  }
+
+  listProfiles(): ProfileRecord[] {
+    return all<ProfileRow>(this.#statements.allProfiles).map(toProfile);
+  }
+
+  updateProfile(id: string, { name, role, colour, settings }: ProfileRequest): ProfileRecord {
+    const row = this.#profileRow(id);
+    this.#statements.updateProfile.run(name, role, colour, JSON.stringify(settings), row.ref);
+    return { ...toProfile(row), name, role, colour, settings };
+  }
+
+  deleteProfile(id: string): void {
+    this.#statements.deleteProfile.run(this.#profileRow(id).ref);
+  }
+
   createWorkspace({ name, folders }: WorkspaceRequest): WorkspaceRecord {
     const id = randomUUID();
     const now = Date.now();
@@ -384,6 +531,18 @@ class SqliteStore implements Store {
   #taskRow(id: string): TaskRow {
     const row = one<TaskRow>(this.#statements.taskById, id);
     if (row === undefined) throw new RecordNotFoundError("task", id);
+    return row;
+  }
+
+  #agentRow(id: string): AgentRow {
+    const row = one<AgentRow>(this.#statements.agentById, id);
+    if (row === undefined) throw new RecordNotFoundError("agent", id);
+    return row;
+  }
+
+  #profileRow(id: string): ProfileRow {
+    const row = one<ProfileRow>(this.#statements.profileById, id);
+    if (row === undefined) throw new RecordNotFoundError("profile", id);
     return row;
   }
 

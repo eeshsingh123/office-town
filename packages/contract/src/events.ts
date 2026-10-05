@@ -52,6 +52,13 @@ export const questionAnswerSchema = z.object({
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
+// Why the core, not the user, sent an agent a message.
+export const messageOriginSchema = z.discriminatedUnion("kind", [
+  // The agent's instructions and its piece of work. `summary` is the one line shown for it.
+  z.object({ kind: z.literal("brief"), summary: z.string().min(1) }),
+]);
+export type MessageOrigin = z.infer<typeof messageOriginSchema>;
+
 // A usage window of the user's subscription, as the harness reports it.
 export const usageLimitSchema = z.object({
   id: z.string().min(1),
@@ -96,6 +103,8 @@ const payloadSchemas = {
     role: z.enum(["user", "assistant"]),
     text: z.string(),
     parentActionId: z.string().optional(),
+    // Set on a message the core sent in the user's place.
+    origin: messageOriginSchema.optional(),
   }),
   reasoning: z.object({
     text: z.string(),

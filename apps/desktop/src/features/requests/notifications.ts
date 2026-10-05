@@ -1,11 +1,12 @@
 import { shell } from "../../shell.ts";
-import { agentOf } from "../../store/agents.ts";
+import { workOf } from "../../store/agents.ts";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import type { WaitingRequest } from "../../store/records.ts";
 
 function show(state: AppState, { event }: WaitingRequest): void {
-  const taskId = state.sessions[event.sessionId]?.taskId;
-  const agent = taskId === undefined ? undefined : agentOf(state, taskId);
+  const session = state.sessions[event.sessionId];
+  const taskId = session?.taskId;
+  const agent = session === undefined ? undefined : workOf(state, session.agentId, session.taskId);
   const body =
     event.type === "permission.requested"
       ? event.payload.title

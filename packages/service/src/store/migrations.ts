@@ -1,6 +1,73 @@
-// Each entry moves the schema up one version. A merged entry is never edited; a change is a new one.
-// Every index here serves a named query; the store test checks that each of those queries uses it.
-export const migrations: readonly string[] = [
+import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
+import { identityOf } from "../agents/names.ts";
+
+// Each entry moves the schema up one version: SQL, or a step that also moves data. A merged entry
+// is never edited; a change is a new one. Every index here serves a named query; the store test
+// checks that each of those queries uses it.
+export type Migration = string | ((db: DatabaseSync) => void);
+
+// Every M3 task had one agent, named by its first session's id; it is stored with the same name,
+// and with its harness settings as its own.
+function giveEachTaskItsAgent(db: DatabaseSync): void {
+  db.exec(`
+  CREATE TABLE profiles (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    role       TEXT NOT NULL,
+    colour     TEXT NOT NULL,
+    settings   TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE agents (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL UNIQUE,
+    colour      TEXT NOT NULL,
+    role        TEXT,
+    profile_ref INTEGER REFERENCES profiles (ref) ON DELETE SET NULL,
+    settings    TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX agents_by_profile ON agents (profile_ref) WHERE profile_ref IS NOT NULL;
+
+  ALTER TABLE sessions ADD COLUMN agent_ref INTEGER REFERENCES agents (ref);
+  CREATE INDEX sessions_by_agent ON sessions (agent_ref);
+  `);
+  const firstSessions = db
+    .prepare(`
+      SELECT t.ref AS taskRef, s.id AS sessionId, s.options, s.created_at AS createdAt
+      FROM tasks t
+      JOIN sessions s ON s.ref = (SELECT min(ref) FROM sessions WHERE task_ref = t.ref)`)
+    .all() as { taskRef: number; sessionId: string; options: string; createdAt: number }[];
+  const insert = db.prepare(`
+    INSERT INTO agents (id, name, colour, settings, created_at) VALUES (?, ?, ?, ?, ?)`);
+  const assign = db.prepare("UPDATE sessions SET agent_ref = ? WHERE task_ref = ?");
+  const taken = new Set<string>();
+  for (const { taskRef, sessionId, options, createdAt } of firstSessions) {
+    const { harness, environment, model, effort } = JSON.parse(options);
+    // Two tasks could hash to the same handle; the later one is renamed rather than refused.
+    let identity = identityOf(sessionId);
+    for (let attempt = 1; taken.has(identity.name); attempt += 1) {
+      identity = identityOf(`${sessionId}/${attempt}`);
+    }
+    taken.add(identity.name);
+    const settings = JSON.stringify({ harness, environment, model, effort });
+    const { lastInsertRowid } = insert.run(
+      randomUUID(),
+      identity.name,
+      identity.colour,
+      settings,
+      createdAt,
+    );
+    assign.run(lastInsertRowid, taskRef);
+  }
+}
+
+export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
     ref        INTEGER PRIMARY KEY,
@@ -78,4 +145,5 @@ export const migrations: readonly string[] = [
 
   CREATE UNIQUE INDEX pending_requests_by_session ON pending_requests (session_ref, request_id);
   `,
+  giveEachTaskItsAgent,
 ];

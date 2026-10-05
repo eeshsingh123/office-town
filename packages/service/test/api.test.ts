@@ -2,8 +2,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  agentRecordSchema,
+  profileRecordSchema,
   type SessionEvent,
-  type SessionOptions,
   sessionRecordSchema,
   taskDetailSchema,
   workspaceRecordSchema,
@@ -16,11 +17,8 @@ import type { Store } from "../src/store/store.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
 const TOKEN = "test-token";
-const options: SessionOptions = {
-  harness: "claude",
-  environment: { kind: "native" },
-  permissionMode: "ask",
-};
+const settings = { harness: "claude", environment: { kind: "native" } };
+const newTask = { agent: { settings }, permissionMode: "ask" };
 
 interface Frame {
   id: string | undefined;
@@ -43,7 +41,7 @@ function call(method: string, path: string, body?: unknown, token = TOKEN): Prom
 }
 
 function startTask(prompt: string): Promise<Response> {
-  return call("POST", "/tasks", { prompt, options, outputFolder: directory });
+  return call("POST", "/tasks", { prompt, ...newTask, outputFolder: directory });
 }
 
 async function openStream(path: string, headers: Record<string, string> = {}) {
@@ -121,7 +119,7 @@ describe("api", () => {
     expect((await call("POST", commands, { type: "prompt", text: "More" })).status).toBe(204);
     expect(sessions[0]?.sent.at(-1)).toEqual({ type: "prompt", text: "More" });
     expect((await call("POST", commands, { type: "stop" })).status).toBe(400);
-    expect((await call("POST", "/tasks", { prompt: "", options })).status).toBe(400);
+    expect((await call("POST", "/tasks", { prompt: "", ...newTask })).status).toBe(400);
 
     const detail = taskDetailSchema.parse(
       await (await call("GET", `/tasks/${session.taskId}`)).json(),
@@ -137,7 +135,7 @@ describe("api", () => {
 
   it("starts a task in a saved workspace or a new folder in the remembered output folder, and resumes only where it started", async () => {
     const start = (request: object) =>
-      call("POST", "/tasks", { prompt: "Write: a report?", options, ...request });
+      call("POST", "/tasks", { prompt: "Write: a report?", ...newTask, ...request });
     const workspaceOf = async (response: Response) =>
       sessionRecordSchema.parse(await response.json()).options;
     const project = join(directory, "project");
@@ -175,6 +173,59 @@ describe("api", () => {
     expect(await resumed.json()).toMatchObject({
       message: expect.stringContaining("does not exist"),
     });
+  });
+
+  it("gives each task's agent a free name, follows its profile, and refuses a name in use", async () => {
+    const profile = profileRecordSchema.parse(
+      await (
+        await call("POST", "/profiles", {
+          name: "Copywriter",
+          role: "Writes the words",
+          colour: "#6553AE",
+          settings: { ...settings, model: "haiku", instructions: "Write plainly." },
+        })
+      ).json(),
+    );
+    const fromProfile = sessionRecordSchema.parse(
+      await (
+        await call("POST", "/tasks", {
+          prompt: "Write the menu",
+          agent: { profileId: profile.id },
+          permissionMode: "ask",
+          outputFolder: directory,
+        })
+      ).json(),
+    );
+    expect(fromProfile.options.model).toBe("haiku");
+    expect(sessions[0]?.sent[1]).toMatchObject({
+      text: "Write plainly.\n\nYour task:\nWrite the menu",
+      origin: { kind: "brief" },
+    });
+    const solo = sessionRecordSchema.parse(await (await startTask("Write a report")).json());
+    const agents = agentRecordSchema.array().parse(await (await call("GET", "/agents")).json());
+    expect(agents.map(({ id, role, colour }) => [id, role, colour])).toEqual([
+      [fromProfile.agentId, "Copywriter", "#6553AE"],
+      [solo.agentId, undefined, expect.any(String)],
+    ]);
+
+    const taken = agents[0]?.name;
+    const rename = (name: string | undefined) =>
+      call("PUT", `/agents/${solo.agentId}/name`, { name });
+    expect((await rename(taken)).status).toBe(409);
+    expect((await rename("Ben")).status).toBe(400);
+    expect(await (await rename("@ben")).json()).toMatchObject({ name: "@ben" });
+
+    // A deleted profile leaves its agents working with the settings they were made with.
+    expect((await call("DELETE", `/profiles/${profile.id}`)).status).toBe(204);
+    const kept = agentRecordSchema.parse(
+      await (await call("GET", `/agents/${fromProfile.agentId}`)).json(),
+    );
+    expect(kept.profileId).toBeUndefined();
+    expect(kept.settings.model).toBe("haiku");
+
+    await call("POST", `/sessions/${solo.id}/stop`);
+    expect((await call("DELETE", `/tasks/${solo.taskId}`)).status).toBe(204);
+    expect((await call("GET", `/agents/${solo.agentId}`)).status).toBe(404);
   });
 
   it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {

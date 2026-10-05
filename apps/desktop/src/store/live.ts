@@ -1,4 +1,4 @@
-import type { TaskSummary } from "@office-town/contract";
+import type { AgentRecord, TaskSummary } from "@office-town/contract";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
 import { applyEvents, emptyTrace } from "../trace/trace.ts";
@@ -47,10 +47,11 @@ export function connect(): void {
 // anything that changes after it arrives as an event.
 async function refresh(first = false): Promise<number> {
   const waiting = await api.listPendingRequests();
-  const [page, active, harnesses] = await Promise.all([
+  const [page, active, harnesses, agents] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
     api.listHarnesses(),
+    api.listAgents(),
   ]);
   // A task the app still holds as open, but that neither list has, may have been interrupted by a
   // core restart; it is read again so it does not stay "running".
@@ -64,6 +65,7 @@ async function refresh(first = false): Promise<number> {
   const tasks = [...page.tasks, ...active.tasks, ...reread];
   useApp.setState((state) => ({
     harnesses,
+    agents: Object.fromEntries(agents.map((agent) => [agent.id, agent])),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),
@@ -80,6 +82,17 @@ async function readTask(taskId: string): Promise<TaskSummary> {
   return { ...task, sessions };
 }
 
+// Reads the agents of these tasks that the app does not know yet, such as one just made.
+async function readAgents(tasks: readonly TaskSummary[]): Promise<AgentRecord[]> {
+  const known = useApp.getState().agents;
+  const missing = new Set(tasks.flatMap((task) => task.sessions.map((session) => session.agentId)));
+  return Promise.all([...missing].filter((id) => known[id] === undefined).map(api.getAgent));
+}
+
+export function keepAgent(agent: AgentRecord): void {
+  useApp.setState((state) => ({ agents: { ...state.agents, [agent.id]: agent } }));
+}
+
 function watchActive(tasks: readonly TaskSummary[]): void {
   for (const session of tasks.flatMap((task) => task.sessions)) {
     if (isOpen(session)) loadTrace(session.id);
@@ -89,7 +102,11 @@ function watchActive(tasks: readonly TaskSummary[]): void {
 // Adds a task the app has not listed yet, such as one it just started.
 export async function track(taskId: string): Promise<void> {
   const summary = await readTask(taskId);
-  useApp.setState((state) => addTasks(state, [summary]));
+  const agents = await readAgents([summary]);
+  useApp.setState((state) => ({
+    ...addTasks(state, [summary]),
+    agents: { ...state.agents, ...Object.fromEntries(agents.map((agent) => [agent.id, agent])) },
+  }));
   watchActive([summary]);
 }
 
@@ -108,7 +125,12 @@ export async function loadOlderTasks(): Promise<void> {
   const cursor = useApp.getState().olderTasks;
   if (cursor === undefined) return;
   const page = await api.listTasks(cursor);
-  useApp.setState((state) => ({ ...addTasks(state, page.tasks), olderTasks: page.next }));
+  const agents = await readAgents(page.tasks);
+  useApp.setState((state) => ({
+    ...addTasks(state, page.tasks),
+    agents: { ...state.agents, ...Object.fromEntries(agents.map((agent) => [agent.id, agent])) },
+    olderTasks: page.next,
+  }));
 }
 
 function discover(sessionId: string, streamed?: StreamedEvent): void {

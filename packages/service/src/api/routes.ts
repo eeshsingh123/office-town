@@ -1,6 +1,8 @@
 import {
   agentCommandSchema,
   environmentSpecSchema,
+  profileRequestSchema,
+  renameAgentRequestSchema,
   resumeSessionRequestSchema,
   startTaskRequestSchema,
   taskListQuerySchema,
@@ -8,6 +10,8 @@ import {
 } from "@office-town/contract";
 import { describeHarness, listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
+import { createAgent, settingsOf } from "../agents/agents.ts";
+import { soloMessage } from "../agents/briefs.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
@@ -42,8 +46,17 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       path: "/tasks",
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
-        const options = { ...request.options, ...chooseTaskFolders(store, request) };
-        return { status: 201, json: await registry.start(request.prompt, options) };
+        const folders = chooseTaskFolders(store, request);
+        const agent = createAgent(store, request.agent);
+        const { instructions: _, ...settings } = settingsOf(store, agent);
+        const task = store.createTask(request.prompt);
+        const session = await registry.start({
+          taskId: task.id,
+          agentId: agent.id,
+          options: { ...settings, permissionMode: request.permissionMode, ...folders },
+          message: soloMessage(request.prompt, settingsOf(store, agent)),
+        });
+        return { status: 201, json: session };
       },
     },
     {
@@ -90,7 +103,7 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       path: "/sessions/:id/resume",
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
-        return { status: 201, json: await registry.resume(param("id"), prompt) };
+        return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
       },
     },
     {
@@ -121,6 +134,57 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "GET",
       path: "/pending-requests",
       reply: () => ({ status: 200, json: store.listPendingRequests() }),
+    },
+    {
+      method: "GET",
+      path: "/agents",
+      reply: () => ({ status: 200, json: store.listAgents() }),
+    },
+    {
+      method: "GET",
+      path: "/agents/:id",
+      reply: ({ param }) => {
+        const agent = store.getAgent(param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
+        return { status: 200, json: agent };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/agents/:id/name",
+      reply: async ({ param, body }) => {
+        const { name } = renameAgentRequestSchema.parse(await body());
+        return { status: 200, json: store.renameAgent(param("id"), name) };
+      },
+    },
+    {
+      method: "POST",
+      path: "/profiles",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: store.createProfile(profileRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "GET",
+      path: "/profiles",
+      reply: () => ({ status: 200, json: store.listProfiles() }),
+    },
+    {
+      method: "PUT",
+      path: "/profiles/:id",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: store.updateProfile(param("id"), profileRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "DELETE",
+      path: "/profiles/:id",
+      reply: ({ param }) => {
+        store.deleteProfile(param("id"));
+        return NO_CONTENT;
+      },
     },
     {
       method: "POST",

@@ -7,7 +7,7 @@ import {
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
 import { SessionNotResumableError, SessionNotRunningError } from "../registry/session-registry.ts";
-import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
+import { NameTakenError, RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { FolderNotFoundError, OutputFolderMissingError } from "../task-folders.ts";
 
 type ErrorCode = ApiError["error"];
@@ -30,6 +30,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [SessionNotResumableError, 409, "conflict"],
   [SessionStateError, 409, "conflict"],
   [TaskActiveError, 409, "conflict"],
+  [NameTakenError, 409, "conflict"],
   [UnknownHarnessError, 400, "invalid_request"],
   [FolderNotFoundError, 400, "invalid_request"],
   [OutputFolderMissingError, 400, "invalid_request"],

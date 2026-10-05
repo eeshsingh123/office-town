@@ -210,6 +210,30 @@ function RequestLine({ request, live }: { request: TraceRequest; live: boolean }
   );
 }
 
+// What Office Town told the agent, such as its brief: one line, opened on request.
+function FromOffice({ summary, text }: { summary: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={styles.group}>
+      <button
+        type="button"
+        className={styles.row}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+        <span className={`${styles.rowTitle} ${styles.summary}`}>{summary}</span>
+        <span className={styles.meta}>from Office Town</span>
+      </button>
+      {open ? (
+        <div className={styles.text}>
+          <Markdown text={text} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Reasoning({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -255,6 +279,9 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         </div>
       );
     case "message":
+      if (item.origin?.kind === "brief") {
+        return <FromOffice summary={`Brief · ${item.origin.summary}`} text={item.text} />;
+      }
       if (item.role === "user") {
         return (
           <div className={styles.user}>
