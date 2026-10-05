@@ -95,6 +95,7 @@ export class HarnessSession implements Session {
   #plan: PlanStep[] = [];
   // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
   #idle = false;
+  readonly #tokens: string[];
 
   constructor(
     options: SessionOptions,
@@ -107,6 +108,7 @@ export class HarnessSession implements Session {
       environment.toEnvironmentPath(path),
     );
     const toolServers = (extras.toolServers ?? []).map((server) => environment.reach(server));
+    this.#tokens = toolServers.map((server) => server.token);
     this.#options = {
       ...options,
       workspacePath,
@@ -279,9 +281,18 @@ export class HarnessSession implements Session {
     for (const event of translation.events) this.#publish(event);
     for (const line of translation.outgoing) {
       if (this.#process === undefined) continue;
-      this.#notify(this.#lineListeners, { direction: "out", text: line, partial: false });
+      this.#notifyLine({ direction: "out", text: line, partial: false });
       this.#process.writeLine(line);
     }
+  }
+
+  // Tokens last one launch and are never stored (D-43), so lines are handed on without them.
+  #notifyLine(line: HarnessLine): void {
+    const text = this.#tokens.reduce(
+      (hidden, token) => hidden.replaceAll(token, "[token]"),
+      line.text,
+    );
+    this.#notify(this.#lineListeners, { ...line, text });
   }
 
   #receive(line: string): void {
@@ -289,7 +300,7 @@ export class HarnessSession implements Session {
     try {
       translation = this.#translator.receive(line);
     } catch (error) {
-      this.#notify(this.#lineListeners, { direction: "in", text: line, partial: false });
+      this.#notifyLine({ direction: "in", text: line, partial: false });
       this.#emit({
         type: "error",
         payload: {
@@ -301,7 +312,7 @@ export class HarnessSession implements Session {
       return;
     }
     const partial = translation.partial ?? false;
-    this.#notify(this.#lineListeners, { direction: "in", text: line, partial });
+    this.#notifyLine({ direction: "in", text: line, partial });
     this.#apply(translation);
   }
 

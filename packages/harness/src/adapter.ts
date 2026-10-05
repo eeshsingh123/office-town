@@ -24,15 +24,11 @@ export interface ToolServer {
 }
 
 // A tool server as the harness reaches it from where it runs: directly, or through a command.
-export type AttachedToolServer =
-  | { transport: "http"; name: string; url: string; headers: Record<string, string> }
-  | {
-      transport: "stdio";
-      name: string;
-      command: string;
-      args: string[];
-      env: Record<string, string>;
-    };
+// `token` is the one its headers or env carry, so an adapter can keep it off a command line.
+export type AttachedToolServer = { name: string; token: string } & (
+  | { transport: "http"; url: string; headers: Record<string, string> }
+  | { transport: "stdio"; command: string; args: string[]; env: Record<string, string> }
+);
 
 // What a session gets for one launch only and never stores: tokens last one launch.
 export interface LaunchExtras {

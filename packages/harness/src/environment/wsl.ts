@@ -135,6 +135,7 @@ export class WslEnvironment implements Environment {
     return {
       transport: "stdio",
       name,
+      token,
       command: toWslPath(process.execPath, this.#distro),
       args: [BRIDGE, url],
       env: { ...env, WSLENV: Object.keys(env).join(":") },

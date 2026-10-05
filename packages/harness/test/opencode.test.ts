@@ -58,11 +58,12 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("attaches the core's tool servers over ACP, allows their tools, and reports calls to them as theirs", async () => {
+  it("attaches the core's tool servers over ACP, keeps their tokens out of the reported lines, allows their tools, and reports calls to them as theirs", async () => {
     const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
     const attached = {
       transport: "http" as const,
       name: "office-town",
+      token: "secret",
       url: toolServer.url,
       headers: { Authorization: "Bearer secret" },
     };
@@ -70,7 +71,7 @@ describe("opencode adapter", () => {
       "office-town_*": "allow",
     });
 
-    const { events, written } = await replay(
+    const { events, written, lines } = await replay(
       opencodeAdapter,
       recordings["team-tool"],
       replayOptions,
@@ -86,6 +87,8 @@ describe("opencode adapter", () => {
         headers: [{ name: "Authorization", value: "Bearer secret" }],
       },
     ]);
+    // The token reaches the harness, never the lines the core stores.
+    expect(lines.map((line) => line.text).join("\n")).not.toContain("secret");
     expect(only(events, "action.started").map((event) => event.payload.tool)).toEqual([
       { server: "office-town", name: "ask_user" },
     ]);

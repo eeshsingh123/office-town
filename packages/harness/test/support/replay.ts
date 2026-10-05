@@ -69,7 +69,7 @@ export class ScriptedEnvironment implements Environment {
   }
 
   reach({ name, url, token }: ToolServer): AttachedToolServer {
-    return { transport: "http", name, url, headers: { Authorization: `Bearer ${token}` } };
+    return { transport: "http", name, token, url, headers: { Authorization: `Bearer ${token}` } };
   }
 
   async emitLine(line: string): Promise<void> {

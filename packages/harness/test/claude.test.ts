@@ -66,15 +66,26 @@ describe("claude adapter", () => {
     expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
   });
 
-  it("attaches the core's tool servers, allows their tools, and reports calls to them as theirs", async () => {
+  it("attaches the core's tool servers with their tokens off the command line, allows their tools, and reports calls to them as theirs", async () => {
     const headers = { Authorization: "Bearer secret" };
-    const args = claudeAdapter.buildCommand({
+    const { args, env } = claudeAdapter.buildCommand({
       ...replayOptions,
-      toolServers: [{ transport: "http", name: "office-town", url: toolServer.url, headers }],
-    }).args;
-    expect(JSON.parse(args[args.indexOf("--mcp-config") + 1] ?? "")).toEqual({
-      mcpServers: { "office-town": { type: "http", url: toolServer.url, headers } },
+      toolServers: [
+        { transport: "http", name: "office-town", token: "secret", url: toolServer.url, headers },
+      ],
     });
+    expect(args.join(" ")).not.toContain("secret");
+    expect(JSON.parse(args[args.indexOf("--mcp-config") + 1] ?? "")).toEqual({
+      mcpServers: {
+        "office-town": {
+          type: "http",
+          url: toolServer.url,
+          // biome-ignore lint/suspicious/noTemplateCurlyInString: a variable Claude fills in
+          headers: { Authorization: "Bearer ${OFFICE_TOWN_TOOL_TOKEN_0}" },
+        },
+      },
+    });
+    expect(env).toEqual({ OFFICE_TOWN_TOOL_TOKEN_0: "secret" });
     expect(args[args.indexOf("--allowedTools") + 1]).toBe("mcp__office-town");
     expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--mcp-config");
 

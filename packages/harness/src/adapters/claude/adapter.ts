@@ -23,10 +23,21 @@ const PERMISSION_MODES: Record<PermissionMode, string> = {
   bypass: "bypassPermissions",
 };
 
-function mcpConfigOf(server: AttachedToolServer) {
+// The config goes on the command line, which other processes can read, so it names the token by
+// a variable of Claude's own environment, which Claude fills in (D-41).
+const tokenVariable = (index: number) => `OFFICE_TOWN_TOOL_TOKEN_${index}`;
+
+function mcpConfigOf(server: AttachedToolServer, index: number) {
+  const hidden = (values: Record<string, string>) =>
+    Object.fromEntries(
+      Object.entries(values).map(([key, value]) => [
+        key,
+        value.replaceAll(server.token, `\${${tokenVariable(index)}}`),
+      ]),
+    );
   return server.transport === "http"
-    ? { type: "http", url: server.url, headers: server.headers }
-    : { type: "stdio", command: server.command, args: server.args, env: server.env };
+    ? { type: "http", url: server.url, headers: hidden(server.headers) }
+    : { type: "stdio", command: server.command, args: server.args, env: hidden(server.env) };
 }
 
 function buildCommand(options: LaunchOptions): HarnessCommand {
@@ -44,7 +55,10 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   if (options.effort !== undefined) args.push("--effort", options.effort);
   if (options.resumeSessionId !== undefined) args.push("--resume", options.resumeSessionId);
   if (options.toolServers.length > 0) {
-    const servers = options.toolServers.map((server) => [server.name, mcpConfigOf(server)]);
+    const servers = options.toolServers.map((server, index) => [
+      server.name,
+      mcpConfigOf(server, index),
+    ]);
     args.push("--mcp-config", JSON.stringify({ mcpServers: Object.fromEntries(servers) }));
     // The core's own tools never ask: what they lead to is guarded where it happens.
     args.push("--allowedTools", ...options.toolServers.map((server) => `mcp__${server.name}`));
@@ -54,7 +68,11 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     args.push("--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands");
   }
   for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
-  return { binary: "claude", args };
+  if (options.toolServers.length === 0) return { binary: "claude", args };
+  const env = Object.fromEntries(
+    options.toolServers.map((server, index) => [tokenVariable(index), server.token]),
+  );
+  return { binary: "claude", args, env };
 }
 
 // The CLI describes itself in its answer to an initialize request, without starting a turn.
