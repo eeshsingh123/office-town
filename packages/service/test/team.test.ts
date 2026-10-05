@@ -171,5 +171,16 @@ describe("teams", () => {
     expect(lead.sent.at(-1)).toMatchObject({
       origin: { kind: "notice", summary: expect.stringContaining("joined as Designer") },
     });
+
+    // Saving the team as it is keeps a member's own instructions and does not wake the lead.
+    const designer = core.store.listMembers(department.id).find((one) => one.role === "Designer");
+    if (designer === undefined) throw new Error("expected the designer");
+    const settings = { ...designer.settings, instructions: "Use the brand colours" };
+    core.store.updateAgent(designer.id, { ...designer, settings });
+    const told = lead.sent.length;
+    const same = { ...byHand, roles: [{ ...byHand.roles[0], agentId: designer.id }] };
+    expect((await call("PUT", `/departments/${department.id}/team`, same)).status).toBe(200);
+    expect(core.store.getAgent(designer.id)?.settings.instructions).toBe("Use the brand colours");
+    expect(lead.sent).toHaveLength(told);
   });
 });

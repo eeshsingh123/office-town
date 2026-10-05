@@ -49,6 +49,15 @@ const canonical = (value: unknown) =>
       : inner,
   );
 
+// A team's rows carry harness settings only, so a kept member keeps its own instructions and its
+// lowered level unless the row names them.
+function ownOf({ settings: { instructions, autonomy } }: AgentRecord) {
+  return {
+    ...(instructions === undefined ? {} : { instructions }),
+    ...(autonomy === undefined ? {} : { autonomy }),
+  };
+}
+
 function workersOf(store: Store, department: DepartmentRecord): AgentRecord[] {
   return store.listMembers(department.id).filter((member) => member.id !== department.leadAgentId);
 }
@@ -109,7 +118,8 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
       role: role.role,
       purpose: role.purpose,
       departmentId: department.id,
-      settings: role.settings === undefined ? member.settings : role.settings,
+      settings:
+        role.settings === undefined ? member.settings : { ...ownOf(member), ...role.settings },
       ...(linked === undefined ? {} : { profileId: linked }),
     });
     const same =
