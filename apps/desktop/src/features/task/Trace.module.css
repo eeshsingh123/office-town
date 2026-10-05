@@ -201,3 +201,33 @@
 .running {
   color: var(--accent);
 }
+
+.fromOffice {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.fromOfficeBody {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+}
+
+.fromOfficeHead {
+  margin-bottom: 4px;
+  font-size: var(--size-meta);
+  font-weight: 500;
+}
+
+.fromOfficeHead .link {
+  font-weight: 500;
+}
+
+.under {
+  padding: 0 8px 4px 32px;
+}

@@ -89,6 +89,8 @@ export class HarnessSession implements Session {
   #process: RunningProcess | undefined;
   #turnId: string | undefined;
   #plan: PlanStep[] = [];
+  // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
+  #idle = false;
 
   constructor(
     options: SessionOptions,
@@ -152,7 +154,7 @@ export class HarnessSession implements Session {
         this.#apply(this.#translator.interrupt());
         return;
       case "stop":
-        return this.#stop();
+        return this.#stop(command.idle === true);
     }
   }
 
@@ -238,7 +240,8 @@ export class HarnessSession implements Session {
     });
   }
 
-  async #stop(): Promise<void> {
+  async #stop(idle: boolean): Promise<void> {
+    this.#idle = idle;
     if (this.#state === "created") this.#end("stopped", null);
     // A launch cannot be abandoned halfway, so a stop during startup waits for it to settle.
     if (this.#state === "starting") await this.#launched.promise;
@@ -398,7 +401,11 @@ export class HarnessSession implements Session {
 
   #end(reason: "stopped" | "exited" | "failed", exitCode: number | null): void {
     this.#state = "ended";
-    this.#emit({ type: "session.ended", payload: { reason, exitCode } });
+    const idle = this.#idle && reason === "stopped";
+    this.#emit({
+      type: "session.ended",
+      payload: idle ? { reason: "exited", exitCode, idle } : { reason, exitCode },
+    });
     this.#ended.resolve();
   }
 

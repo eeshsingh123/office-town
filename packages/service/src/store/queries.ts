@@ -36,6 +36,13 @@ const DEPARTMENT_SELECT = `
   JOIN workspaces w ON w.ref = d.workspace_ref
   JOIN agents l ON l.ref = d.lead_ref`;
 
+const DELEGATION_SELECT = `
+  SELECT g.ref, g.id, t.id AS taskId, a.id AS workerAgentId, g.worker_session AS workerSessionId,
+         g.brief, g.status, g.result, g.created_at AS createdAt, g.ended_at AS endedAt
+  FROM delegations g
+  JOIN tasks t ON t.ref = g.task_ref
+  JOIN agents a ON a.ref = g.worker_ref`;
+
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
 const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
@@ -89,6 +96,16 @@ export const queries = {
     DELETE FROM agents
     WHERE ref = ? AND department_ref IS NULL
       AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?)`,
+
+  insertDelegation: `
+    INSERT INTO delegations
+      (id, task_ref, worker_ref, worker_session, brief, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 'working', ?)`,
+  delegationsOfTask: `${DELEGATION_SELECT} WHERE g.task_ref = ? ORDER BY g.ref`,
+  workingDelegationOf: `${DELEGATION_SELECT} WHERE g.worker_session = ? AND g.status = 'working'`,
+  delegationRef: "SELECT ref FROM delegations WHERE id = ?",
+  endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
+  interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
 
   insertDepartment: `
     INSERT INTO departments

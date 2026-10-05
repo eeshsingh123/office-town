@@ -119,6 +119,8 @@ export class SessionRegistry {
   readonly #listeners = new Set<RegistryListener>();
   // The core's own requests waiting for the user, by session and request id.
   readonly #asked = new Map<string, CoreRequestHandler>();
+  readonly #outbox: PublishedEvent[] = [];
+  #publishing = false;
 
   constructor(
     store: Store,
@@ -197,8 +199,13 @@ export class SessionRegistry {
     live.session.report(request);
   }
 
-  async stop(sessionId: string): Promise<void> {
-    await this.#running(sessionId).session.send({ type: "stop" });
+  // `idle` ends an agent left idle as finished, to be resumed when it is next needed.
+  async stop(sessionId: string, idle = false): Promise<void> {
+    await this.#running(sessionId).session.send({ type: "stop", ...(idle ? { idle } : {}) });
+  }
+
+  isRunning(sessionId: string): boolean {
+    return this.#live.has(sessionId);
   }
 
   // A shutdown is recorded like a crash: the sessions end interrupted and can be resumed later.
@@ -331,7 +338,19 @@ export class SessionRegistry {
     });
   }
 
+  // A listener that acts on an event, such as answering a request, makes new events while the
+  // first is still being handed out. Those wait their turn, so every listener sees the events in
+  // the order they were stored, and a stream never sends a later position before an earlier one.
   #publish(published: PublishedEvent): void {
-    for (const listener of this.#listeners) listener(published);
+    this.#outbox.push(published);
+    if (this.#publishing) return;
+    this.#publishing = true;
+    try {
+      for (let next = this.#outbox.shift(); next !== undefined; next = this.#outbox.shift()) {
+        for (const listener of this.#listeners) listener(next);
+      }
+    } finally {
+      this.#publishing = false;
+    }
   }
 }

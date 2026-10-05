@@ -120,6 +120,9 @@ export const api = {
     write("POST", "/tasks", request, sessionRecordSchema),
   startTeamTask: (request: StartTeamTaskRequest): Promise<SessionRecord> =>
     write("POST", "/tasks/team", request, sessionRecordSchema),
+  stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
+  continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
+    write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
   listDepartments: (): Promise<DepartmentRecord[]> =>
     read("/departments", listOf(departmentRecordSchema)),
   updateDepartment: (departmentId: string, settings: DepartmentSettings) =>

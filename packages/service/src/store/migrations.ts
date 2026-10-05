@@ -174,4 +174,25 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX tasks_by_lead ON tasks (lead_ref) WHERE lead_ref IS NOT NULL;
   CREATE INDEX tasks_by_department ON tasks (department_ref) WHERE department_ref IS NOT NULL;
   `,
+  `
+  -- The worker's session is named by id, not referenced: the delegation outlives a session that is
+  -- resumed, and goes with its task.
+  CREATE TABLE delegations (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    worker_ref     INTEGER NOT NULL REFERENCES agents (ref),
+    worker_session TEXT NOT NULL,
+    brief          TEXT NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN
+                     ('working', 'done', 'failed', 'stopped', 'interrupted')),
+    result         TEXT,
+    created_at     INTEGER NOT NULL,
+    ended_at       INTEGER
+  ) STRICT;
+
+  CREATE INDEX delegations_by_task ON delegations (task_ref);
+  CREATE INDEX delegations_by_worker ON delegations (worker_ref);
+  CREATE INDEX delegations_working ON delegations (status, worker_session) WHERE status = 'working';
+  `,
 ];

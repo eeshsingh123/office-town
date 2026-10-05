@@ -4,73 +4,29 @@ import { join } from "node:path";
 import {
   type AgentRecord,
   type DepartmentRecord,
-  type HarnessCatalog,
   type Team,
   userRequestEventSchema,
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ApiServer, startApiServer } from "../src/api/server.ts";
-import { SessionRegistry } from "../src/registry/session-registry.ts";
-import { openStore } from "../src/store/sqlite-store.ts";
-import type { Store } from "../src/store/store.ts";
-import { cachedCatalogs } from "../src/team/catalogs.ts";
-import { proposeTeam } from "../src/team/propose-team.ts";
-import { askUser } from "../src/tools/ask-user.ts";
-import { type RunningToolServer, startToolServer } from "../src/tools/tool-server.ts";
-import { FakeSession } from "./support/fake-session.ts";
+import type { FakeSession } from "./support/fake-session.ts";
+import { type Core, startCore } from "./support/team-core.ts";
 
-const TOKEN = "test-token";
 const native = { kind: "native" } as const;
-const catalogs: Record<string, HarnessCatalog> = {
-  claude: { models: [{ id: "haiku", name: "Haiku", efforts: [] }] },
-  opencode: {
-    models: [{ id: "opencode-go/free-model", name: "Free", access: "free", efforts: ["low"] }],
-  },
-};
 
 let directory: string;
-let store: Store;
-let tools: RunningToolServer;
-let registry: SessionRegistry;
-let server: ApiServer;
-let sessions: FakeSession[];
+let core: Core;
 
-async function call(method: string, path: string, body?: unknown) {
-  const response = await fetch(`${server.url}${path}`, {
-    method,
-    headers: { authorization: `Bearer ${TOKEN}` },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  // The test reads the few fields it checks; the schemas are proven elsewhere.
-  // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
-  const json: any = response.status === 204 ? {} : await response.json();
-  return { status: response.status, json };
-}
-
-async function propose(session: FakeSession, input: object) {
-  const response = await fetch(tools.url, {
-    method: "POST",
-    headers: { authorization: `Bearer ${session.extras.toolServers?.[0]?.token}` },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "propose_team", arguments: input },
-    }),
-  });
-  const { result } = (await response.json()) as {
-    result: { content: { text: string }[]; isError?: boolean };
-  };
-  return { text: result.content[0]?.text ?? "", isError: result.isError === true };
-}
+const call = (method: string, path: string, body?: unknown) => core.call(method, path, body);
+const propose = (session: FakeSession, input: object) =>
+  core.callTool(session, "propose_team", input);
 
 function waitingProposal() {
-  const event = userRequestEventSchema.parse(store.listPendingRequests().requests[0]?.event);
+  const event = userRequestEventSchema.parse(core.store.listPendingRequests().requests[0]?.event);
   if (event.type !== "proposal.requested") throw new Error("expected a proposal");
   return event;
 }
 
-async function answer(sessionId: string, requestId: string, decision: object) {
+function answer(sessionId: string, requestId: string, decision: object) {
   return call("POST", `/sessions/${sessionId}/commands`, {
     type: "answerProposal",
     requestId,
@@ -85,32 +41,11 @@ const workersOf = async (department: DepartmentRecord) =>
 
 beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "office-town-team-"));
-  store = openStore(join(directory, "data"));
-  tools = await startToolServer(store);
-  sessions = [];
-  registry = new SessionRegistry(
-    store,
-    (_options, extras) => {
-      const session = new FakeSession(extras);
-      sessions.push(session);
-      return session;
-    },
-    tools,
-  );
-  const readCatalog = cachedCatalogs(async (harness) => {
-    const catalog = catalogs[harness];
-    if (catalog === undefined) throw new Error("not installed");
-    return catalog;
-  });
-  tools.offer([askUser(registry), proposeTeam({ store, registry, readCatalog })]);
-  server = await startApiServer({ registry, store, readCatalog, token: TOKEN, port: 0 });
+  core = await startCore(join(directory, "data"));
 });
 
 afterEach(async () => {
-  await server.close();
-  await registry.close();
-  await tools.close();
-  store.close();
+  await core.close();
   rmSync(directory, { recursive: true, force: true });
 });
 
@@ -129,10 +64,16 @@ describe("teams", () => {
       },
     });
     expect(started.status).toBe(201);
-    const [lead] = sessions;
+    const [lead] = core.sessions;
     if (lead === undefined) throw new Error("expected the lead to start");
     expect(lead.sent[1]).toMatchObject({ origin: { kind: "brief" } });
     expect(JSON.stringify(lead.sent[1])).toContain("opencode-go/free-model (free)");
+    // A harness reads its tools once, so the lead has delegate from the start; it waits for approval.
+    const early = await core.callTool(lead, "delegate", { agent: "@anyone", brief: "Go" });
+    expect(early).toMatchObject({
+      isError: true,
+      text: expect.stringContaining("not approved yet"),
+    });
 
     const wrong = await propose(lead, {
       name: "Web team",

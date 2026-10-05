@@ -3,10 +3,14 @@ import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
 import { startApiServer } from "./api/server.ts";
 import { defaultDataFolder } from "./data-folder.ts";
+import { SessionActivity } from "./registry/activity.ts";
+import { stopIdleAgents } from "./registry/idle-stop.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
+import { delegate, teamStatus } from "./team/delegate.ts";
 import { proposeTeam } from "./team/propose-team.ts";
+import { reportResults } from "./team/results.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
 
@@ -31,7 +35,16 @@ const store = openStore(values["data-folder"] ?? defaultDataFolder());
 const toolServer = await startToolServer(store);
 const registry = new SessionRegistry(store, undefined, toolServer);
 const readCatalog = cachedCatalogs();
-toolServer.offer([askUser(registry), proposeTeam({ store, registry, readCatalog })]);
+const team = { store, registry, readCatalog };
+const activity = new SessionActivity(registry);
+const stopIdle = stopIdleAgents(registry, store, activity);
+reportResults(team, activity);
+toolServer.offer([
+  askUser(registry),
+  proposeTeam(team),
+  delegate(team),
+  teamStatus(team, activity),
+]);
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ registry, store, readCatalog, token, port });
 const ready: CoreReady = { url: server.url, token };
@@ -42,6 +55,7 @@ let closing = false;
 async function shutdown(): Promise<void> {
   if (closing) return;
   closing = true;
+  stopIdle();
   await server.close();
   try {
     await registry.close();

@@ -6,6 +6,7 @@ import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type AgentRecord,
   type AgentSettings,
+  type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
   type PendingRequestList,
@@ -30,11 +31,13 @@ import { queries } from "./queries.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type AgentChange,
+  type DelegationEnd,
   type EventQuery,
   InUseError,
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
+  type NewDelegation,
   type NewDepartment,
   type NewSession,
   RecordNotFoundError,
@@ -109,6 +112,19 @@ interface DepartmentRow {
   branchPerWorker: number;
   codeFlow: number;
   createdAt: number;
+}
+
+interface DelegationRow {
+  ref: number;
+  id: string;
+  taskId: string;
+  workerAgentId: string;
+  workerSessionId: string;
+  brief: string;
+  status: DelegationRecord["status"];
+  result: string | null;
+  createdAt: number;
+  endedAt: number | null;
 }
 
 interface ProfileRow {
@@ -195,6 +211,20 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     branchPerWorker: row.branchPerWorker === 1,
     codeFlow: row.codeFlow === 1,
     createdAt: iso(row.createdAt),
+  };
+}
+
+function toDelegation(row: DelegationRow): DelegationRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    workerAgentId: row.workerAgentId,
+    workerSessionId: row.workerSessionId,
+    brief: row.brief,
+    status: row.status,
+    ...(row.result === null ? {} : { result: row.result }),
+    createdAt: iso(row.createdAt),
+    ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
   };
 }
 
@@ -395,8 +425,38 @@ class SqliteStore implements Store {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
       this.#statements.deleteUnfinishedPendingRequests.run();
       this.#statements.interruptUnfinished.run();
+      this.#statements.interruptDelegations.run();
       return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
     });
+  }
+
+  createDelegation(delegation: NewDelegation): DelegationRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    this.#statements.insertDelegation.run(
+      id,
+      this.#taskRow(delegation.taskId).ref,
+      this.#agentRow(delegation.workerAgentId).ref,
+      delegation.workerSessionId,
+      delegation.brief,
+      createdAt,
+    );
+    return { ...delegation, id, status: "working", createdAt: iso(createdAt) };
+  }
+
+  listDelegations(taskId: string): DelegationRecord[] {
+    const ref = this.#taskRow(taskId).ref;
+    return all<DelegationRow>(this.#statements.delegationsOfTask, ref).map(toDelegation);
+  }
+
+  workingDelegation(workerSessionId: string): DelegationRecord | undefined {
+    const row = one<DelegationRow>(this.#statements.workingDelegationOf, workerSessionId);
+    return row === undefined ? undefined : toDelegation(row);
+  }
+
+  endDelegation(id: string, status: DelegationEnd, result?: string): void {
+    const row = this.#delegationRow(id);
+    this.#statements.endDelegation.run(status, result ?? null, Date.now(), row.ref);
   }
 
   append(event: SessionEvent): StoredEvent | undefined {
@@ -692,6 +752,12 @@ class SqliteStore implements Store {
   #taskRow(id: string): TaskRow {
     const row = one<TaskRow>(this.#statements.taskById, id);
     if (row === undefined) throw new RecordNotFoundError("task", id);
+    return row;
+  }
+
+  #delegationRow(id: string): { ref: number } {
+    const row = one<{ ref: number }>(this.#statements.delegationRef, id);
+    if (row === undefined) throw new RecordNotFoundError("delegation", id);
     return row;
   }
 

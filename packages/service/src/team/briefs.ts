@@ -64,6 +64,43 @@ If you cannot go on without the user's decision, ask with the ask_user tool.`;
   };
 }
 
+export function workerBrief(input: {
+  goal: string;
+  teamName: string;
+  role: string;
+  lead: { id: string; name: string };
+  folders: string[];
+  instructions: string | undefined;
+  work: string;
+}): Message {
+  const text = `You are the ${input.role} in ${input.teamName}, a team of AI agents in Office Town. Your lead, ${input.lead.name}, hands you a piece of work. When you finish, your last message goes to the lead as your result, so end with a short account of what you did and where it is.
+
+${instructionsOf(input.instructions)}The team's goal:
+${input.goal}
+
+${where(input.folders)}
+
+Your piece of work, from ${input.lead.name}:
+${input.work}
+
+If you cannot go on without the user's decision, ask with the ask_user tool.`;
+  return {
+    text,
+    origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
+  };
+}
+
+// A worker that already has the team's brief gets only the new piece.
+export function nextWork(lead: { id: string; name: string }, work: string): Message {
+  return {
+    text: `A new piece of work from ${lead.name}:
+${work}
+
+End with a short account of what you did and where it is.`,
+    origin: { kind: "brief", summary: `New work from ${lead.name}`, from: lead.id },
+  };
+}
+
 export function leadBrief(input: {
   goal: string;
   teamName: string;

@@ -1,15 +1,20 @@
 import type { EnvironmentSpec, SessionRecord, StartTeamTaskRequest } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
 import { createAgent, settingsOf } from "../agents/agents.ts";
+import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
+import { isOpen, latestSession } from "./lead.ts";
 import {
   DepartmentBusyError,
   memberOptions,
   rosterOf,
   type TeamContext,
+  TeamError,
   workspaceFolders,
 } from "./members.ts";
+
+const SHOWN_BRIEF = 120;
 
 // What a lead may choose from: each harness that can list its models where the lead runs.
 export async function harnessChoices(
@@ -73,5 +78,60 @@ export async function startTeamTask(
       instructions: settingsOf(store, lead).instructions,
       choices: await harnessChoices(context, options.environment),
     }),
+  });
+}
+
+// Stops every member at work on the task. Their delegations are closed first, so no "stopped"
+// result wakes the lead the user is stopping too.
+export async function stopTeam({ store, registry }: TeamContext, taskId: string): Promise<void> {
+  for (const delegation of store.listDelegations(taskId)) {
+    if (delegation.status === "working") store.endDelegation(delegation.id, "stopped");
+  }
+  const stops = await Promise.allSettled(
+    store
+      .listSessions(taskId)
+      .filter(isOpen)
+      .map((session) => registry.stop(session.id)),
+  );
+  // A member that ended on its own in the meantime has nothing left to stop.
+  const failures = stops.flatMap((stop) =>
+    stop.status === "rejected" && !(stop.reason instanceof SessionNotRunningError)
+      ? [stop.reason]
+      : [],
+  );
+  if (failures.length > 0) throw new AggregateError(failures, "Some members could not be stopped.");
+}
+
+// After a restart a team's task is interrupted. Continuing resumes its lead, told which pieces of
+// work were cut off, so it can hand them out again (MODULES M4.5).
+export async function continueTeam(
+  context: TeamContext,
+  taskId: string,
+  prompt: string | undefined,
+): Promise<SessionRecord> {
+  const { store, registry } = context;
+  const task = store.getTask(taskId);
+  if (task === undefined) throw new RecordNotFoundError("task", taskId);
+  if (task.leadAgentId === undefined) throw new TeamError("This task has no team to continue.");
+  const lead = latestSession(context, taskId, task.leadAgentId);
+  if (lead === undefined) throw new TeamError("This task's lead never started.");
+  if (isOpen(lead)) throw new TeamError("The lead is already at work.");
+  const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
+  for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
+  const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;
+  if (cut.length === 0) {
+    return registry.resume(lead.id, { text: prompt || "Continue where you left off." });
+  }
+  const lines = cut.map((delegation) => {
+    const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
+    const brief =
+      delegation.brief.length > SHOWN_BRIEF
+        ? `${delegation.brief.slice(0, SHOWN_BRIEF)}…`
+        : delegation.brief;
+    return `- ${name}: ${brief}`;
+  });
+  return registry.resume(lead.id, {
+    text: `Office Town was closed while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.${added}`,
+    origin: { kind: "notice", summary: `Work cut off by a restart: ${cut.length}` },
   });
 }

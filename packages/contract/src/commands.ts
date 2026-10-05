@@ -48,6 +48,7 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
   answerPermissionSchema,
   answerQuestionSchema,
   interruptSchema,
-  z.object({ type: z.literal("stop") }),
+  // `idle` ends the session as finished rather than stopped by the user.
+  z.object({ type: z.literal("stop"), idle: z.literal(true).optional() }),
 ]);
 export type SessionCommand = z.infer<typeof sessionCommandSchema>;

@@ -58,8 +58,20 @@ export const teamToolServer = "office-town";
 
 // Why the core, not the user, sent an agent a message.
 export const messageOriginSchema = z.discriminatedUnion("kind", [
-  // The agent's instructions and its piece of work. `summary` is the one line shown for it.
-  z.object({ kind: z.literal("brief"), summary: z.string().min(1) }),
+  // The agent's instructions and its piece of work. `summary` is the one line shown for it;
+  // `from` is the lead that handed the work over.
+  z.object({
+    kind: z.literal("brief"),
+    summary: z.string().min(1),
+    from: z.string().min(1).optional(),
+  }),
+  // A worker's result, which the core hands its lead.
+  z.object({
+    kind: z.literal("result"),
+    delegationId: z.string().min(1),
+    agentId: z.string().min(1),
+    outcome: z.enum(["done", "failed", "stopped"]),
+  }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
   // News for the agent, such as a change to its team. `summary` is the one line shown for it.
@@ -100,6 +112,8 @@ const payloadSchemas = {
   "session.ended": z.object({
     reason: z.enum(["stopped", "exited", "failed"]),
     exitCode: z.number().int().nullable(),
+    // The core stopped an agent left idle; it resumes when it is next needed.
+    idle: z.literal(true).optional(),
   }),
   "turn.started": z.object({ turnId: z.string().min(1) }),
   "turn.ended": z.object({

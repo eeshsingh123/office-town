@@ -1,0 +1,87 @@
+.members {
+  display: flex;
+  flex: 0 0 280px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 10px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.label {
+  padding: 0 8px 6px;
+  font-size: var(--size-small);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.member {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.member:hover {
+  background: var(--hover);
+}
+
+.member[aria-current="true"] {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.memberText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.memberText strong {
+  font-weight: 500;
+}
+
+.doing {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+  overflow: hidden;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.waiting {
+  color: var(--warn);
+}
+
+.faint {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.nest {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 20px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}

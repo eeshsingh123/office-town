@@ -1,5 +1,5 @@
 import { ArrowLeft, ExternalLink, LoaderCircle, Square } from "lucide-react";
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
@@ -13,36 +13,23 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, environmentName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AgentAside } from "./AgentAside.tsx";
+import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import styles from "./TaskView.module.css";
+import { TeamTaskView } from "./TeamTaskView.tsx";
 
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
   return state === "working" || state === "starting" ? styles.pillWorking : undefined;
 }
-// How close to the end, in pixels, still counts as reading the latest.
-const FOLLOW_SLACK = 80;
-
-// Keeps the latest work in view while the reader is at the end, and stays put once they scroll up.
-function useFollow(dependency: unknown) {
-  const ref = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runs again whenever the content grows
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (element !== null && following.current) element.scrollTop = element.scrollHeight;
-  }, [dependency]);
-  const onScroll = () => {
-    const element = ref.current;
-    if (element === null) return;
-    following.current =
-      element.scrollHeight - element.scrollTop - element.clientHeight < FOLLOW_SLACK;
-  };
-  return { ref, onScroll };
+// A team's task shows its members; a solo agent's, the agent alone.
+export function TaskView({ taskId }: { taskId: string }) {
+  const team = useApp((state) => state.tasks[taskId]?.task.leadAgentId !== undefined);
+  return team ? <TeamTaskView taskId={taskId} /> : <SoloTaskView taskId={taskId} />;
 }
 
-export function TaskView({ taskId }: { taskId: string }) {
+function SoloTaskView({ taskId }: { taskId: string }) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);

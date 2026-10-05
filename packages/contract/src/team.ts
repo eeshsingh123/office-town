@@ -75,6 +75,23 @@ export const startTeamTaskRequestSchema = z.object({
 });
 export type StartTeamTaskRequest = z.infer<typeof startTeamTaskRequestSchema>;
 
+// A piece of work the lead handed a worker, and what came of it.
+export const delegationRecordSchema = z.object({
+  id: z.string().min(1),
+  taskId: z.string().min(1),
+  workerAgentId: z.string().min(1),
+  workerSessionId: z.string().min(1),
+  brief: z.string(),
+  status: z.enum(["working", "done", "failed", "stopped", "interrupted"]),
+  result: z.string().optional(),
+  createdAt: z.iso.datetime(),
+  endedAt: z.iso.datetime().optional(),
+});
+export type DelegationRecord = z.infer<typeof delegationRecordSchema>;
+
+export const continueTaskRequestSchema = z.object({ prompt: z.string().trim().optional() });
+export type ContinueTaskRequest = z.infer<typeof continueTaskRequestSchema>;
+
 // Where a proposed team would work, shown on the proposal.
 export const proposalPlaceSchema = z.object({
   workspaceName: z.string().min(1),

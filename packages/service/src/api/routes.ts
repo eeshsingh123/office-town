@@ -1,5 +1,6 @@
 import {
   agentCommandSchema,
+  continueTaskRequestSchema,
   departmentSettingsSchema,
   environmentSpecSchema,
   newDepartmentRequestSchema,
@@ -20,7 +21,7 @@ import { RecordNotFoundError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
-import { startTeamTask } from "../team/team-tasks.ts";
+import { continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 
 export interface RouteRequest {
   // A path parameter; the router only calls a route when all of them are present.
@@ -102,6 +103,22 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ param }) => {
         await store.deleteTask(param("id"));
         return NO_CONTENT;
+      },
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/stop",
+      reply: async ({ param }) => {
+        await stopTeam(team, param("id"));
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/continue",
+      reply: async ({ param, body }) => {
+        const { prompt } = continueTaskRequestSchema.parse(await body());
+        return { status: 201, json: await continueTeam(team, param("id"), prompt) };
       },
     },
     {

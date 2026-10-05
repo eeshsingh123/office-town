@@ -3,6 +3,7 @@ import type {
   AgentRecord,
   AgentSettings,
   Autonomy,
+  DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
   PendingRequestList,
@@ -60,6 +61,13 @@ export type TaskTeam =
 
 export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt">;
 
+export type NewDelegation = Pick<
+  DelegationRecord,
+  "taskId" | "workerAgentId" | "workerSessionId" | "brief"
+>;
+
+export type DelegationEnd = Exclude<DelegationRecord["status"], "working">;
+
 // `position` orders events across all sessions and is the cursor every reader resumes from.
 export interface StoredEvent {
   position: number;
@@ -100,8 +108,15 @@ export interface Store {
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];
-  // Marks every session left starting or running by an earlier core as interrupted.
+  // Marks every session left starting or running by an earlier core as interrupted, with the
+  // delegations they were working on.
   markInterrupted(): SessionRecord[];
+  createDelegation(delegation: NewDelegation): DelegationRecord;
+  // Oldest first.
+  listDelegations(taskId: string): DelegationRecord[];
+  // The delegation a worker's session is working on, if any.
+  workingDelegation(workerSessionId: string): DelegationRecord | undefined;
+  endDelegation(id: string, status: DelegationEnd, result?: string): void;
   // Returns the event as stored, or nothing for a text fragment, which is never stored.
   append(event: SessionEvent): StoredEvent | undefined;
   // A line over 64 KiB is cut: the events already hold the text, the audit copy needs its shape.
@@ -146,7 +161,15 @@ export interface Store {
 
 export class RecordNotFoundError extends Error {
   constructor(
-    kind: "task" | "session" | "result" | "workspace" | "agent" | "profile" | "department",
+    kind:
+      | "task"
+      | "session"
+      | "result"
+      | "workspace"
+      | "agent"
+      | "profile"
+      | "department"
+      | "delegation",
     id: string,
   ) {
     super(`No ${kind} "${id}".`);
