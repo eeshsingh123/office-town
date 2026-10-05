@@ -1,5 +1,11 @@
 import type { PermissionMode } from "@office-town/contract";
-import type { Adapter, CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
+import type {
+  Adapter,
+  AttachedToolServer,
+  CatalogQuery,
+  HarnessCommand,
+  LaunchOptions,
+} from "../../adapter.ts";
 import { headerSchema, initializeResponseSchema } from "./messages.ts";
 import { ClaudeTranslator } from "./translator.ts";
 
@@ -18,6 +24,12 @@ const PERMISSION_MODES: Record<PermissionMode, string> = {
   bypass: "bypassPermissions",
 };
 
+function mcpConfigOf(server: AttachedToolServer) {
+  return server.transport === "http"
+    ? { type: "http", url: server.url, headers: server.headers }
+    : { type: "stdio", command: server.command, args: server.args, env: server.env };
+}
+
 function buildCommand(options: LaunchOptions): HarnessCommand {
   const args = [
     ...STREAM_ARGS,
@@ -32,6 +44,12 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   if (options.model !== undefined) args.push("--model", options.model);
   if (options.effort !== undefined) args.push("--effort", options.effort);
   if (options.resumeSessionId !== undefined) args.push("--resume", options.resumeSessionId);
+  if (options.toolServers.length > 0) {
+    const servers = options.toolServers.map((server) => [server.name, mcpConfigOf(server)]);
+    args.push("--mcp-config", JSON.stringify({ mcpServers: Object.fromEntries(servers) }));
+    // The core's own tools never ask: what they lead to is guarded where it happens.
+    args.push("--allowedTools", ...options.toolServers.map((server) => `mcp__${server.name}`));
+  }
   for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
   return { binary: "claude", args };
 }
@@ -76,5 +94,5 @@ export const claudeAdapter: Adapter = {
   },
   catalog,
   buildCommand,
-  createTranslator: () => new ClaudeTranslator(),
+  createTranslator: (options) => new ClaudeTranslator(options.toolServers),
 };

@@ -14,6 +14,7 @@ const recordings = {
   "plan-and-subagent": recording("plan-and-subagent"),
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
+  "team-tool": recording("team-tool"),
 };
 // Recorded with an effort chosen, so it only replays correctly with one.
 const effortRecording = recording("effort");
@@ -55,6 +56,39 @@ describe("opencode adapter", () => {
       },
       model: "a/b",
     });
+  });
+
+  it("attaches the core's tool servers over ACP, allows their tools, and reports calls to them as theirs", async () => {
+    const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
+    const attached = {
+      transport: "http" as const,
+      name: "office-town",
+      url: toolServer.url,
+      headers: { Authorization: "Bearer secret" },
+    };
+    expect(configOf({ ...replayOptions, toolServers: [attached] }).permission).toMatchObject({
+      "office-town_*": "allow",
+    });
+
+    const { events, written } = await replay(
+      opencodeAdapter,
+      recordings["team-tool"],
+      replayOptions,
+      { toolServers: [toolServer] },
+    );
+    const opened = JSON.parse(written[1] ?? "");
+    expect(opened.method).toBe("session/new");
+    expect(opened.params.mcpServers).toEqual([
+      {
+        type: "http",
+        name: "office-town",
+        url: toolServer.url,
+        headers: [{ name: "Authorization", value: "Bearer secret" }],
+      },
+    ]);
+    expect(only(events, "action.started").map((event) => event.payload.tool)).toEqual([
+      { server: "office-town", name: "ask_user" },
+    ]);
   });
 
   it("performs the handshake, then sends the prompt once the session exists", async () => {

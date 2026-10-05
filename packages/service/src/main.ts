@@ -5,6 +5,8 @@ import { startApiServer } from "./api/server.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
+import { askUser } from "./tools/ask-user.ts";
+import { startToolServer } from "./tools/tool-server.ts";
 
 const { values } = parseArgs({
   options: {
@@ -24,7 +26,9 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 }
 
 const store = openStore(values["data-folder"] ?? defaultDataFolder());
-const registry = new SessionRegistry(store);
+const toolServer = await startToolServer(store);
+const registry = new SessionRegistry(store, undefined, toolServer);
+toolServer.offer([askUser(registry)]);
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ registry, store, token, port });
 const ready: CoreReady = { url: server.url, token };
@@ -39,6 +43,7 @@ async function shutdown(): Promise<void> {
   try {
     await registry.close();
   } finally {
+    await toolServer.close();
     store.close();
   }
 }

@@ -282,6 +282,9 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       if (item.origin?.kind === "brief") {
         return <FromOffice summary={`Brief · ${item.origin.summary}`} text={item.text} />;
       }
+      if (item.origin?.kind === "answer") {
+        return <FromOffice summary="Your answer, passed on to the agent" text={item.text} />;
+      }
       if (item.role === "user") {
         return (
           <div className={styles.user}>

@@ -41,11 +41,15 @@ function externalFolders(paths: string[] | undefined) {
 }
 
 function buildCommand(options: LaunchOptions): HarnessCommand {
+  // The core's own tools never ask, even under a user's stricter rules: what they lead to is
+  // guarded where it happens.
+  const toolRules = options.toolServers.map((server) => [`${server.name}_*`, "allow"]);
   // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
   const config = {
     permission: {
       ...PERMISSIONS[options.permissionMode],
       ...externalFolders(options.additionalPaths),
+      ...Object.fromEntries(toolRules),
     },
     ...(options.model === undefined ? {} : { model: options.model }),
   };

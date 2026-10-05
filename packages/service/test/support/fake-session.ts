@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { SessionCommand, SessionEvent, SessionEventBody } from "@office-town/contract";
-import type { LineListener, Session, SessionListener } from "@office-town/harness";
+import type {
+  CoreReport,
+  LaunchExtras,
+  LineListener,
+  Session,
+  SessionListener,
+} from "@office-town/harness";
 
 // Stands in for a harness session: the test plays the harness's part through `emit` and `line`.
 export class FakeSession implements Session {
@@ -14,9 +20,14 @@ export class FakeSession implements Session {
     usageLimits: false,
   };
   readonly sent: SessionCommand[] = [];
+  readonly extras: LaunchExtras;
   readonly #listeners = new Set<SessionListener>();
   readonly #lineListeners = new Set<LineListener>();
   #sequence = 0;
+
+  constructor(extras: LaunchExtras = {}) {
+    this.extras = extras;
+  }
 
   async send(command: SessionCommand): Promise<void> {
     this.sent.push(command);
@@ -26,6 +37,10 @@ export class FakeSession implements Session {
     if (command.type === "stop") {
       this.emit({ type: "session.ended", payload: { reason: "stopped", exitCode: 0 } });
     }
+  }
+
+  report(body: CoreReport): void {
+    this.emit(body);
   }
 
   subscribe(listener: SessionListener): () => void {

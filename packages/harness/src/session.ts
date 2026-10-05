@@ -11,7 +11,14 @@ import type {
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
-import type { Adapter, AdapterEvent, LaunchOptions, Translation, Translator } from "./adapter.ts";
+import type {
+  Adapter,
+  AdapterEvent,
+  LaunchExtras,
+  LaunchOptions,
+  Translation,
+  Translator,
+} from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
@@ -32,10 +39,18 @@ export interface HarnessLine {
 
 export type LineListener = (line: HarnessLine) => void;
 
+// What the core itself adds to a session's stream: requests its tools make, and their answers.
+export type CoreReport = Extract<
+  SessionEventBody,
+  { type: "question.requested" | "question.resolved" }
+>;
+
 export interface Session {
   readonly id: string;
   readonly capabilities: AdapterCapabilities;
   send(command: SessionCommand): Promise<void>;
+  // Numbered like the harness's own events, so the stream stays in one order.
+  report(body: CoreReport): void;
   subscribe(listener: SessionListener): () => void;
   subscribeLines(listener: LineListener): () => void;
 }
@@ -73,12 +88,23 @@ export class HarnessSession implements Session {
   #turnId: string | undefined;
   #plan: PlanStep[] = [];
 
-  constructor(options: SessionOptions, adapter: Adapter, environment: Environment) {
+  constructor(
+    options: SessionOptions,
+    adapter: Adapter,
+    environment: Environment,
+    extras: LaunchExtras = {},
+  ) {
     const workspacePath = environment.toEnvironmentPath(options.workspacePath ?? process.cwd());
     const additionalPaths = options.additionalPaths?.map((path) =>
       environment.toEnvironmentPath(path),
     );
-    this.#options = { ...options, workspacePath, ...(additionalPaths && { additionalPaths }) };
+    const toolServers = (extras.toolServers ?? []).map((server) => environment.reach(server));
+    this.#options = {
+      ...options,
+      workspacePath,
+      toolServers,
+      ...(additionalPaths && { additionalPaths }),
+    };
     this.#adapter = adapter;
     this.#environment = environment;
     this.#translator = adapter.createTranslator(this.#options);
@@ -126,6 +152,13 @@ export class HarnessSession implements Session {
       case "stop":
         return this.#stop();
     }
+  }
+
+  report(body: CoreReport): void {
+    if (this.#state === "ended") {
+      throw new SessionStateError("Cannot add to a session that has ended.");
+    }
+    this.#emit(body);
   }
 
   async #start(): Promise<void> {

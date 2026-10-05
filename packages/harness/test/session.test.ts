@@ -149,6 +149,30 @@ describe("session", () => {
     });
   });
 
+  it("numbers what the core reports in line with the harness's own events, until the session ends", async () => {
+    const { session, events, emit } = await startSession();
+    await emit({ type: "turn.started" });
+    const question = {
+      type: "question.requested" as const,
+      payload: {
+        requestId: "ask-1",
+        questions: [{ questionId: "1", text: "Red or blue?", options: [], multiSelect: false }],
+      },
+    };
+
+    session.report(question);
+    await emit({ type: "turn.ended", payload: { outcome: "completed" } });
+    await session.send({ type: "stop" });
+
+    expect(events.map((event) => [event.type, event.sequence])).toEqual([
+      ["turn.started", 1],
+      ["question.requested", 2],
+      ["turn.ended", 3],
+      ["session.ended", 4],
+    ]);
+    expect(() => session.report(question)).toThrow(SessionStateError);
+  });
+
   it("rejects commands the current state does not allow", async () => {
     const session = new HarnessSession(
       replayOptions,

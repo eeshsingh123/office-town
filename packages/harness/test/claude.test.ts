@@ -23,7 +23,10 @@ const recordings = {
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "question-answered": recording("question-answered"),
   "resumed-streamed": recording("resumed-streamed"),
+  "team-tool": recording("team-tool"),
 };
+
+const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
 
 const catalogOutput = loadLines(fixture("catalog.jsonl")).filter((line) => line !== "");
 
@@ -61,6 +64,28 @@ describe("claude adapter", () => {
     expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--resume");
     expect(command.args.join(" ")).toContain(`--resume ${resumeSessionId}`);
     expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
+  });
+
+  it("attaches the core's tool servers, allows their tools, and reports calls to them as theirs", async () => {
+    const headers = { Authorization: "Bearer secret" };
+    const args = claudeAdapter.buildCommand({
+      ...replayOptions,
+      toolServers: [{ transport: "http", name: "office-town", url: toolServer.url, headers }],
+    }).args;
+    expect(JSON.parse(args[args.indexOf("--mcp-config") + 1] ?? "")).toEqual({
+      mcpServers: { "office-town": { type: "http", url: toolServer.url, headers } },
+    });
+    expect(args[args.indexOf("--allowedTools") + 1]).toBe("mcp__office-town");
+    expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--mcp-config");
+
+    const { events } = await replay(claudeAdapter, recordings["team-tool"], replayOptions, {
+      toolServers: [toolServer],
+    });
+    expect(only(events, "action.started").map((event) => event.payload.tool)).toEqual([
+      undefined,
+      { server: "office-town", name: "ask_user" },
+    ]);
+    expect(only(events, "permission.requested")).toEqual([]);
   });
 
   it("reports a reply's text as it is produced, then the whole reply", async () => {

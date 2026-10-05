@@ -52,10 +52,15 @@ export const questionAnswerSchema = z.object({
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
+// The name of the core's own MCP server, which gives agents their team tools.
+export const teamToolServer = "office-town";
+
 // Why the core, not the user, sent an agent a message.
 export const messageOriginSchema = z.discriminatedUnion("kind", [
   // The agent's instructions and its piece of work. `summary` is the one line shown for it.
   z.object({ kind: z.literal("brief"), summary: z.string().min(1) }),
+  // The user's answer to a request a tool put in Needs you.
+  z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
 ]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;
 
@@ -118,6 +123,8 @@ const payloadSchemas = {
     kind: actionKindSchema,
     title: z.string(),
     input: z.unknown(),
+    // Set when the action calls a tool on an MCP server the core attached to the session.
+    tool: z.object({ server: z.string().min(1), name: z.string().min(1) }).optional(),
     locations: z.array(z.string()).optional(),
     parentActionId: z.string().optional(),
     planStepId: z.string().optional(),

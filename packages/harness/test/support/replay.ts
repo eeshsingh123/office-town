@@ -2,7 +2,13 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { PassThrough, Writable } from "node:stream";
 import type { PermissionOption, SessionCommand, SessionEvent } from "@office-town/contract";
-import type { Adapter, LaunchOptions } from "../../src/adapter.ts";
+import type {
+  Adapter,
+  AttachedToolServer,
+  LaunchExtras,
+  LaunchOptions,
+  ToolServer,
+} from "../../src/adapter.ts";
 import type {
   Environment,
   LaunchedProcess,
@@ -62,6 +68,10 @@ export class ScriptedEnvironment implements Environment {
     return environmentPath;
   }
 
+  reach({ name, url, token }: ToolServer): AttachedToolServer {
+    return { transport: "http", name, url, headers: { Authorization: `Bearer ${token}` } };
+  }
+
   async emitLine(line: string): Promise<void> {
     // Listeners run in order, so the session has handled the line once this one fires.
     const delivered = once(this.#stdout, "data");
@@ -81,6 +91,7 @@ export const replayOptions: LaunchOptions = {
   environment: { kind: "native" },
   permissionMode: "ask",
   workspacePath: "/workspace",
+  toolServers: [],
 };
 
 function answerFor(choose: string, events: SessionEvent[]): SessionCommand {
@@ -129,9 +140,10 @@ export async function replay(
   adapter: Adapter,
   recording: RecordingEntry[],
   options: LaunchOptions = replayOptions,
+  extras: LaunchExtras = {},
 ): Promise<Replay> {
   const environment = new ScriptedEnvironment();
-  const session = new HarnessSession(options, adapter, environment);
+  const session = new HarnessSession(options, adapter, environment, extras);
   const events: SessionEvent[] = [];
   const lines: HarnessLine[] = [];
   const received: ReceivedLine[] = [];

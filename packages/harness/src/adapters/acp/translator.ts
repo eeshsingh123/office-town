@@ -1,5 +1,12 @@
 import { type ActionKind, actionKindSchema, type PermissionOption } from "@office-town/contract";
-import type { AdapterEvent, LaunchOptions, Translation, Translator } from "../../adapter.ts";
+import {
+  type AdapterEvent,
+  type AttachedToolServer,
+  attachedTool,
+  type LaunchOptions,
+  type Translation,
+  type Translator,
+} from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
 import {
   type ConfigOption,
@@ -43,6 +50,15 @@ function outputOf(call: ToolCall): string {
   return (call.content ?? []).map((part) => part.content?.text ?? "").join("");
 }
 
+// ACP names an HTTP server's headers and a command's variables as name and value pairs.
+function mcpServerOf(server: AttachedToolServer) {
+  const pairs = (record: Record<string, string>) =>
+    Object.entries(record).map(([name, value]) => ({ name, value }));
+  return server.transport === "http"
+    ? { type: "http", name: server.name, url: server.url, headers: pairs(server.headers) }
+    : { name: server.name, command: server.command, args: server.args, env: pairs(server.env) };
+}
+
 function stepsOf(
   entries: Array<{ content: string; status: "pending" | "in_progress" | "completed" }>,
 ) {
@@ -62,15 +78,19 @@ export class AcpTranslator implements Translator {
   readonly #permissions = new Map<string, JsonRpcId>();
   readonly #effort: string | undefined;
   readonly #resumeSessionId: string | undefined;
+  readonly #toolServers: AttachedToolServer[];
   #sessionId: string | undefined;
   #configuring = false;
   #turnActive = false;
   #stream: TextStream | undefined;
 
-  constructor(options: Pick<LaunchOptions, "workspacePath" | "effort" | "resumeSessionId">) {
+  constructor(
+    options: Pick<LaunchOptions, "workspacePath" | "effort" | "resumeSessionId" | "toolServers">,
+  ) {
     this.#cwd = options.workspacePath;
     this.#effort = options.effort;
     this.#resumeSessionId = options.resumeSessionId;
+    this.#toolServers = options.toolServers;
   }
 
   open(): string[] {
@@ -146,7 +166,7 @@ export class AcpTranslator implements Translator {
 
   #result(method: string, result: unknown): Translation {
     if (method === "initialize") {
-      const location = { cwd: this.#cwd, mcpServers: [] };
+      const location = { cwd: this.#cwd, mcpServers: this.#toolServers.map(mcpServerOf) };
       const request =
         this.#resumeSessionId === undefined
           ? this.#peer.request("session/new", location)
@@ -346,15 +366,18 @@ export class AcpTranslator implements Translator {
   #started(call: ToolCall, state: ActionState): AdapterEvent[] {
     if (state.started) return [];
     state.started = true;
+    const title = call.title ?? "Tool call";
+    const tool = attachedTool(title, this.#toolServers, (server) => `${server}_`);
     return [
       {
         type: "action.started",
         payload: {
           actionId: call.toolCallId,
           kind: kindOf(call),
-          title: call.title ?? "Tool call",
+          title,
           input: call.rawInput ?? {},
           ...(call.locations?.length ? { locations: call.locations.map((l) => l.path) } : {}),
+          ...(tool === undefined ? {} : { tool }),
         },
       },
     ];

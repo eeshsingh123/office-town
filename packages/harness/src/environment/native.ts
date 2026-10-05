@@ -7,6 +7,7 @@ import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import spawn from "cross-spawn";
+import type { AttachedToolServer, ToolServer } from "../adapter.ts";
 import type { Environment, LaunchedProcess, LaunchRequest, ProcessExit } from "./environment.ts";
 import { findBinary } from "./find-binary.ts";
 
@@ -75,5 +76,9 @@ export class NativeEnvironment implements Environment {
 
   toHostPath(environmentPath: string): string {
     return environmentPath;
+  }
+
+  reach({ name, url, token }: ToolServer): AttachedToolServer {
+    return { transport: "http", name, url, headers: { Authorization: `Bearer ${token}` } };
   }
 }

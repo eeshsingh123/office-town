@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   AgentCommand,
   MessageOrigin,
+  QuestionAnswer,
   SessionEvent,
   SessionOptions,
   SessionRecord,
@@ -9,7 +10,9 @@ import type {
 import {
   createSession as createHarnessSession,
   type HarnessLine,
+  type LaunchExtras,
   type Session,
+  type ToolServer,
 } from "@office-town/harness";
 import {
   type NewSession,
@@ -19,7 +22,16 @@ import {
 } from "../store/store.ts";
 import { requireSessionFolders } from "../task-folders.ts";
 
-export type HarnessSessionFactory = (options: SessionOptions) => Session;
+export type HarnessSessionFactory = (options: SessionOptions, extras: LaunchExtras) => Session;
+
+// Gives each session the core's tool servers, with a token that names that session alone.
+export interface ToolAccess {
+  // `bind` names the session once it exists, before it starts.
+  grant(): { servers: ToolServer[]; bind(sessionId: string): void };
+  revoke(sessionId: string): void;
+}
+
+type QuestionPayload = Extract<SessionEvent, { type: "question.requested" }>["payload"];
 
 // Text fragments are published live but never stored, so they carry no position.
 export interface PublishedEvent {
@@ -72,6 +84,8 @@ const NOT_RECORDED =
   "Nothing it does from here on is in its history.";
 const NOT_STOPPED = "The agent could not be stopped either, so it may still be running.";
 
+const askedKey = (sessionId: string, requestId: string) => `${sessionId}/${requestId}`;
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -79,12 +93,20 @@ function errorMessage(error: unknown): string {
 export class SessionRegistry {
   readonly #store: Store;
   readonly #createSession: HarnessSessionFactory;
+  readonly #tools: ToolAccess | undefined;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
+  // The core's own requests waiting for the user, by session and request id.
+  readonly #asked = new Map<string, (answers: QuestionAnswer[]) => void>();
 
-  constructor(store: Store, createSession: HarnessSessionFactory = createHarnessSession) {
+  constructor(
+    store: Store,
+    createSession: HarnessSessionFactory = createHarnessSession,
+    tools?: ToolAccess,
+  ) {
     this.#store = store;
     this.#createSession = createSession;
+    this.#tools = tools;
     // Whatever an earlier core left running is not running now.
     store.markInterrupted();
   }
@@ -96,7 +118,7 @@ export class SessionRegistry {
 
   // Starts an agent's new session in a task, with its first message.
   async start({ taskId, agentId, options, message }: Launch): Promise<SessionRecord> {
-    const session = this.#createSession(options);
+    const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
 
@@ -113,7 +135,7 @@ export class SessionRegistry {
     }
     requireSessionFolders(earlier.options);
     const options = { ...earlier.options, resumeSessionId: conversation };
-    const session = this.#createSession(options);
+    const session = this.#launch(options);
     const record = {
       id: session.id,
       taskId: earlier.taskId,
@@ -125,7 +147,35 @@ export class SessionRegistry {
   }
 
   async send(sessionId: string, command: AgentCommand): Promise<void> {
-    await this.#running(sessionId).session.send(command);
+    const live = this.#running(sessionId);
+    const asked =
+      command.type === "answerQuestion"
+        ? this.#asked.get(askedKey(sessionId, command.requestId))
+        : undefined;
+    if (command.type !== "answerQuestion" || asked === undefined) {
+      await live.session.send(command);
+      return;
+    }
+    this.#asked.delete(askedKey(sessionId, command.requestId));
+    const { requestId, answers } = command;
+    live.session.report({
+      type: "question.resolved",
+      payload: { requestId, outcome: "answered", answers },
+    });
+    asked(answers);
+  }
+
+  // A message from the core to a running agent, such as the answer to its question.
+  async tell(sessionId: string, message: Message): Promise<void> {
+    await this.#running(sessionId).session.send({ type: "prompt", ...message });
+  }
+
+  // Puts a question of the core's own in Needs you, stored and shown like a harness's; the answer
+  // goes to `onAnswer` instead of the harness. It lasts as long as the session.
+  ask(sessionId: string, question: QuestionPayload, onAnswer: (answers: QuestionAnswer[]) => void) {
+    const live = this.#running(sessionId);
+    this.#asked.set(askedKey(sessionId, question.requestId), onAnswer);
+    live.session.report({ type: "question.requested", payload: question });
   }
 
   async stop(sessionId: string): Promise<void> {
@@ -170,6 +220,16 @@ export class SessionRegistry {
     return stored;
   }
 
+  #launch(options: SessionOptions): Session {
+    const grant = this.#tools?.grant();
+    const session = this.#createSession(
+      options,
+      grant === undefined ? {} : { toolServers: grant.servers },
+    );
+    grant?.bind(session.id);
+    return session;
+  }
+
   #running(sessionId: string): LiveSession {
     const live = this.#live.get(sessionId);
     if (live !== undefined) return live;
@@ -182,7 +242,7 @@ export class SessionRegistry {
   #record(live: LiveSession, event: SessionEvent): void {
     live.lastSequence = event.sequence;
     if (event.type === "session.started") live.conversation ??= event.payload.harnessSessionId;
-    if (event.type === "session.ended") this.#live.delete(event.sessionId);
+    if (event.type === "session.ended") this.#forget(event.sessionId);
     if (!live.recorded) {
       this.#publish(event.type === "session.ended" ? this.#recordFailedEnd(event) : { event });
       return;
@@ -219,10 +279,18 @@ export class SessionRegistry {
     }
   }
 
+  #forget(sessionId: string): void {
+    this.#live.delete(sessionId);
+    this.#tools?.revoke(sessionId);
+    for (const key of this.#asked.keys()) {
+      if (key.startsWith(askedKey(sessionId, ""))) this.#asked.delete(key);
+    }
+  }
+
   // Work that cannot be recorded cannot be traced, so the agent is stopped, not left unseen.
   #stopUnrecorded(live: LiveSession, error: unknown): void {
     live.recorded = false;
-    this.#live.delete(live.session.id);
+    this.#forget(live.session.id);
     this.#publishError(live, NOT_RECORDED, errorMessage(error));
     live.session.send({ type: "stop" }).catch((stopError: unknown) => {
       this.#publishError(live, NOT_STOPPED, errorMessage(stopError));

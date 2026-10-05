@@ -7,7 +7,9 @@ import type {
   UsageLimit,
   UserRequestEvent,
 } from "@office-town/contract";
+import { teamToolServer } from "@office-town/contract";
 import type { StreamedEvent } from "../api/event-stream.ts";
+import { teamToolAction } from "./team-tools.ts";
 
 export interface TraceAction {
   kind: "action";
@@ -205,12 +207,14 @@ function apply(trace: Trace, event: SessionEvent): void {
       trace.plan = event.payload.steps;
       return;
     case "action.started": {
-      const { actionId, kind, title, input, locations, parentActionId, planStepId } = event.payload;
+      const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
+        event.payload;
+      const team = tool?.server === teamToolServer ? teamToolAction(tool.name, input) : undefined;
       trace.items.set(actionId, {
         kind: "action",
         id: actionId,
-        actionKind: kind,
-        title,
+        actionKind: team?.kind ?? kind,
+        title: team?.title ?? title,
         input,
         status: "running",
         startedAt: event.timestamp,
