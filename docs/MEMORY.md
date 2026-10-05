@@ -5,13 +5,13 @@ Last updated: 2026-10-05
 ## State
 
 - M1 (harness core), M2 (core service) and M3 (desktop app) are done and merged to `main` (M3 is PR #27).
-- Active: M4 Orchestration on `feat/m4-orchestration` (not pushed). Owner accepted the mockups 2026-10-05. Committed: M4.1 spike (D-41), M4.2 agents and profiles, M4.3 tool server, M4.4 departments and proposals, M4.5 delegation, M4.6 autonomy, M4.7 worktrees, and M4.8's core (isolated adapters, `outsource` tool, `/tasks/:id/second-opinion`, `/tasks/:id/files`, guests leave when done). Live run 2026-10-05 (Claude haiku lead, OpenCode free and Claude haiku workers): proposal, approval and parallel delegation worked end to end.
-- Left for M4: M4.8 UI (the "Get a second opinion" dialog, "Visiting" in the team view, guest's end line reading "Finished" not "stopped when idle"); M4.9 rooms in the office, the department panel and usage; the office bubble for a proposal says "Has a question" (should be "Proposes a team"); service test for outsourcing (copy leaves out instruction files, result reaches the lead, guest leaves); docs (MODULES M4 shrink, DECISIONS for M4.2 to M4.8); PR.
+- M4 Orchestration is built on `feat/m4-orchestration`, PR open, waiting for the owner's review. Live runs 2026-10-05 (Claude haiku lead, OpenCode free and Claude haiku workers): proposal, approval and parallel delegation end to end; a second opinion from the task view (haiku guest on a copy of one file) answered, left, and showed under Visiting and at the guest desk.
+- Next: after the merge, plan the next module with the owner. Candidates: M5 Packaging (MODULES.md), or the agent memory deep dive first (see below).
 - Local only: `.claude/launch.json` (browser preview on a scratch data folder) is kept out of git through `.git/info/exclude`.
-- Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`), `src/api` (server, routes, event stream), `src/task-folders.ts`. API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- Desktop: `apps/desktop/electron` (main, core process, app protocol, window, tray, preload.cjs), `src/api` (client, event stream), `src/store` (Zustand app store, records, live stream batching, agents), `src/trace` (pure event-to-trace functions), `src/features` (office, task, new-task, needs-you, requests, tasks, sidebar), `src/ui` (shared parts), `src/styles/tokens.css`, `dev/web.ts` (browser mode).
-- Never checked by an agent, worth a click when touched: the tray menu's Quit and its prompt, how the Windows notification looks, the store size warning (above 1 GiB), "Show older tasks" (over 50 tasks), a WSL run from the New task form.
-- M3 mockups: https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp (private to the owner). M4 mockups: https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B (private to the owner), made 2026-10-05, waiting for the owner's review.
+- Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`, idle stop), `src/api` (server, routes, event stream), `src/task-folders.ts`, `src/team` (departments, proposals, delegation, results, worktrees, outsource), `src/tools` (tool server, `ask_user`), `src/autonomy` (policy). API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
+- Desktop: `apps/desktop/electron` (main, core process, app protocol, window, tray, preload.cjs), `src/api` (client, event stream), `src/store` (Zustand app store, records, live stream batching, agents), `src/trace` (pure event-to-trace functions), `src/features` (office, departments, profiles, task, new-task, needs-you, requests, tasks, sidebar), `src/ui` (shared parts), `src/styles/tokens.css`, `dev/web.ts` (browser mode).
+- Never checked by an agent, worth a click when touched: the tray menu's Quit and its prompt, how the Windows notification looks, the store size warning (above 1 GiB), "Show older tasks" (over 50 tasks), a WSL run from the New task form, a drag selection grouped by room, Message lead and Stop team from the department panel, a room with a waiting request.
+- M3 mockups: https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp (private to the owner). M4 mockups: https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B (private to the owner), accepted 2026-10-05.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -29,14 +29,13 @@ Last updated: 2026-10-05
 
 ## Owner requirements not yet built
 
-Most are now M4 scope (profiles, stored names, departments, autonomy, usage per department). Still unplaced:
+Still unplaced:
 - Agent memory: out of M4, but the owner wants it as its own module after a detailed discussion of storage, recency and how relevant an old memory still is. Raise it when planning after M4.
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
 
 ## Open questions for the owner
 
-- The M4 open questions were answered on 2026-10-05 (D-40).
 - Where agent memory sits in the order; connector deep dive (D-11); final name.
 
 ## What the harnesses do
@@ -63,8 +62,9 @@ Most are now M4 scope (profiles, stored names, departments, autonomy, usage per 
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
 - `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
 - The app runs from the repository: the shell starts the core from `packages/service/src/main.ts` and serves `apps/desktop/dist`. The installer is M5, Packaging and release (owner, 2026-10-04).
-- Agent handles come from a hash of the first session id, so two can still match, about once in 640,000 pairs, until M4.2 stores names.
-- A Claude session stays open after its turn ends ("Done" in the UI) until stopped, and a task with an open session cannot be deleted. M4.5 stops agents left idle.
+- A second opinion asked by the user copies from the lead's (or solo agent's) main folder, so a worker's unmerged worktree is not offered (D-47).
+- A room's and the department panel's usage cover the department's latest goal only, from the traces loaded for it (D-48).
+- OpenCode isolates only in part: its global config and instructions still load (D-41); the dialog says so.
 - Logging in to a harness or provider from the app is deferred (owner, 2026-10-04): the user logs in with the CLI. Claude Code reports no model `access` yet (D-38).
 
 ## Reference notes
