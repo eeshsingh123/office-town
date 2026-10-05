@@ -5,8 +5,9 @@ import type {
   Team,
 } from "@office-town/contract";
 import { createAgent } from "../agents/agents.ts";
+import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
-import { applyTeam, rosterOf, type TeamContext, workspaceFolders } from "./members.ts";
+import { applyTeam, checkTeam, rosterOf, type TeamContext, workspaceFolders } from "./members.ts";
 
 function departmentOf({ store }: TeamContext, id: string): DepartmentRecord {
   const department = store.getDepartment(id);
@@ -32,7 +33,12 @@ async function tellLead(
         (candidate.status === "starting" || candidate.status === "running"),
     );
   if (session === undefined) return;
-  await registry.tell(session.id, { text, origin: { kind: "notice", summary } });
+  try {
+    await registry.tell(session.id, { text, origin: { kind: "notice", summary } });
+  } catch (error) {
+    // A lead stopped meanwhile can still read its team with team_status.
+    if (!(error instanceof SessionNotRunningError)) throw error;
+  }
 }
 
 // A department the user makes without a lead's proposal.
@@ -42,6 +48,7 @@ export function createDepartment(
 ): DepartmentRecord {
   const { store } = context;
   workspaceFolders(store, workspaceId);
+  checkTeam(store, undefined, team);
   const lead = createAgent(store, newLead, { role: "Lead", autonomy });
   const department = store.createDepartment({
     name: team.name,
@@ -63,18 +70,21 @@ export async function changeTeam(
 ): Promise<DepartmentRecord> {
   const { store } = context;
   const current = departmentOf(context, departmentId);
+  checkTeam(store, current, team);
   const department = store.updateDepartment(departmentId, { ...current, name: team.name });
-  const { added, removed } = applyTeam(store, department, team);
+  const { added, removed, updated } = applyTeam(store, department, team);
   const changes = [
     ...added.map((agent) => `${agent.name} joined as ${agent.role}`),
     ...removed.map((agent) => `${agent.name} left`),
+    ...updated.map((agent) => `${agent.name} is now ${agent.role}`),
   ];
-  const changed = changes.length === 0 ? "" : ` ${changes.join("; ")}.`;
+  // A save that left the team as it was does not cost the lead a turn.
+  if (changes.length === 0) return department;
   await tellLead(
     context,
     department,
-    `The user changed your team.${changed} Your workers now:\n${rosterOf(store, department)}`,
-    changes.length === 0 ? "You changed the team" : `You changed the team: ${changes.join("; ")}`,
+    `The user changed your team: ${changes.join("; ")}. Your workers now:\n${rosterOf(store, department)}`,
+    `You changed the team: ${changes.join("; ")}`,
   );
   return department;
 }

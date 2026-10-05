@@ -23,8 +23,13 @@ import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
-import { secondOpinion, workspaceEntries } from "../team/outsource.ts";
-import { continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
+import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
+import {
+  continueTeam,
+  requireDepartmentFree,
+  startTeamTask,
+  stopTeam,
+} from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
 
 const isRunning = (session: { status: string }) =>
@@ -111,6 +116,7 @@ export function apiRoutes(team: TeamContext): Route[] {
           throw new TaskActiveError(param("id"));
         }
         await removeWorktrees(team, param("id"));
+        removeCopies(team, param("id"));
         await store.deleteTask(param("id"));
         return NO_CONTENT;
       },
@@ -143,7 +149,10 @@ export function apiRoutes(team: TeamContext): Route[] {
     {
       method: "GET",
       path: "/tasks/:id/files",
-      reply: ({ param }) => ({ status: 200, json: workspaceEntries(team, param("id")) }),
+      reply: ({ param, query }) => ({
+        status: 200,
+        json: workspaceEntries(team, param("id"), query.get("agent") ?? undefined),
+      }),
     },
     {
       method: "POST",
@@ -167,6 +176,8 @@ export function apiRoutes(team: TeamContext): Route[] {
       path: "/sessions/:id/resume",
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
+        const taskId = store.getSession(param("id"))?.taskId;
+        if (taskId !== undefined) requireDepartmentFree(team, taskId);
         return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
       },
     },

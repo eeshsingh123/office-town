@@ -93,9 +93,12 @@ export type ContinueTaskRequest = z.infer<typeof continueTaskRequestSchema>;
 // A fresh, isolated agent that examines a copy of some of the task's files (D-18).
 export const secondOpinionRequestSchema = z.object({
   brief: z.string().trim().min(1),
-  // Relative to the task's workspace, which they must stay inside.
+  // Relative to the examined agent's folder, which they must stay inside.
   paths: z.array(z.string().min(1)).min(1),
   reviewer: newAgentSchema,
+  // Whose work to examine, such as a worker in its own worktree; the task's lead, or its solo
+  // agent, if left out.
+  agentId: z.string().min(1).optional(),
 });
 export type SecondOpinionRequest = z.infer<typeof secondOpinionRequestSchema>;
 

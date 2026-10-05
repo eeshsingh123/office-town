@@ -26,7 +26,7 @@ afterEach(async () => {
 });
 
 describe("worktrees", () => {
-  it("gives each worker in a git workspace its own worktree and branch, and removes them once merged or with the task", async () => {
+  it("gives each worker in a git workspace its own worktree and branch, open to a second opinion before a merge, and removes them once merged or with the task", async () => {
     const project = join(directory, "project");
     mkdirSync(project);
     git(project, "init", "-q", "-b", "main");
@@ -64,6 +64,19 @@ describe("worktrees", () => {
     expect(git(project, "branch", "--list").split("\n")).toHaveLength(3);
     expect(readdirSync(project)).toEqual([".git", "README.md"]);
 
+    // A second opinion on the tester's work gets its worktree, before the lead merges anything.
+    writeFileSync(join(tester?.path ?? "", "tests.md"), "all pass\n");
+    const testerAgentId = core.store.getSession(tester?.id ?? "")?.agentId ?? "";
+    const files = await core.call("GET", `/tasks/${task.taskId}/files?agent=${testerAgentId}`);
+    expect(files.json).toContainEqual({ name: "tests.md", folder: false });
+    const review = await core.call("POST", `/tasks/${task.taskId}/second-opinion`, {
+      brief: "Check the tests",
+      paths: ["tests.md"],
+      reviewer: { settings: claude },
+      agentId: testerAgentId,
+    });
+    expect(existsSync(join(review.json.options.workspacePath, "tests.md"))).toBe(true);
+
     // The writer commits on its branch, the lead merges it, and the writer is done.
     writeFileSync(join(writer?.path ?? "", "menu.md"), "bread\n");
     git(writer?.path ?? "", "add", ".");
@@ -74,9 +87,16 @@ describe("worktrees", () => {
     expect(existsSync(writer?.path ?? "")).toBe(false);
     expect(existsSync(tester?.path ?? "")).toBe(true);
 
+    // Its merged branch stays, so work handed out again starts on a branch of its own.
+    const again = await core.callTool(core.sessions[0], "delegate", {
+      agent: named("Writer"),
+      brief: "Add prices",
+    });
+    expect(again.isError).toBe(false);
+
     await core.call("POST", `/tasks/${task.taskId}/stop`);
     expect((await core.call("DELETE", `/tasks/${task.taskId}`)).status).toBe(204);
     expect(existsSync(join(directory, "data", "worktrees", task.taskId))).toBe(false);
-    expect(git(project, "branch", "--list").split("\n")).toHaveLength(3);
+    expect(git(project, "branch", "--list").split("\n")).toHaveLength(4);
   });
 });

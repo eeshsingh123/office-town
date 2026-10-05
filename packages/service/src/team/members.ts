@@ -37,13 +37,44 @@ export function workspaceFolders(store: Store, workspaceId: string): string[] {
 export interface TeamChange {
   added: AgentRecord[];
   removed: AgentRecord[];
+  // Kept members whose role, purpose or settings changed.
+  updated: AgentRecord[];
+}
+
+// The same settings in any key order give the same text.
+const canonical = (value: unknown) =>
+  JSON.stringify(value, (_, inner: unknown) =>
+    inner !== null && typeof inner === "object" && !Array.isArray(inner)
+      ? Object.fromEntries(Object.entries(inner).sort(([a], [b]) => a.localeCompare(b)))
+      : inner,
+  );
+
+function workersOf(store: Store, department: DepartmentRecord): AgentRecord[] {
+  return store.listMembers(department.id).filter((member) => member.id !== department.leadAgentId);
+}
+
+// Checked before anything is written, so a team that cannot be applied changes nothing.
+export function checkTeam(
+  store: Store,
+  department: DepartmentRecord | undefined,
+  team: Team,
+): void {
+  const workers = department === undefined ? [] : workersOf(store, department);
+  for (const role of team.roles) {
+    if (role.profileId !== undefined && store.getProfile(role.profileId) === undefined) {
+      throw new RecordNotFoundError("profile", role.profileId);
+    }
+    if (role.agentId !== undefined && !workers.some((worker) => worker.id === role.agentId)) {
+      throw new TeamError("A kept role names an agent that is not in this department.");
+    }
+    if (role.agentId === undefined && role.settings === undefined && role.profileId === undefined) {
+      throw new TeamError(`The role "${role.role}" has no settings.`);
+    }
+  }
 }
 
 function addMember(store: Store, departmentId: string, role: TeamRole): AgentRecord {
   const profile = role.profileId === undefined ? undefined : store.getProfile(role.profileId);
-  if (role.profileId !== undefined && profile === undefined) {
-    throw new RecordNotFoundError("profile", role.profileId);
-  }
   const identity = freeIdentity(store);
   const settings = role.settings ?? profile?.settings;
   if (settings === undefined) throw new TeamError(`The role "${role.role}" has no settings.`);
@@ -59,18 +90,13 @@ function addMember(store: Store, departmentId: string, role: TeamRole): AgentRec
 }
 
 // Makes the department's workers match the team: kept members take their new role and settings,
-// new roles become new agents, and members left out leave the department.
+// new roles become new agents, and members left out leave the department. The team is checked
+// first (checkTeam).
 export function applyTeam(store: Store, department: DepartmentRecord, team: Team): TeamChange {
-  const members = store
-    .listMembers(department.id)
-    .filter((member) => member.id !== department.leadAgentId);
+  const members = workersOf(store, department);
   const kept = new Set(team.roles.flatMap((role) => role.agentId ?? []));
-  for (const id of kept) {
-    if (!members.some((member) => member.id === id)) {
-      throw new TeamError("A kept role names an agent that is not in this department.");
-    }
-  }
   const added: AgentRecord[] = [];
+  const updated: AgentRecord[] = [];
   for (const role of team.roles) {
     if (role.agentId === undefined) {
       added.push(addMember(store, department.id, role));
@@ -79,27 +105,31 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
     const member = members.find((known) => known.id === role.agentId);
     if (member === undefined) continue;
     const linked = role.settings === undefined ? (role.profileId ?? member.profileId) : undefined;
-    store.updateAgent(member.id, {
+    const after = store.updateAgent(member.id, {
       role: role.role,
       purpose: role.purpose,
       departmentId: department.id,
       settings: role.settings === undefined ? member.settings : role.settings,
       ...(linked === undefined ? {} : { profileId: linked }),
     });
+    const same =
+      after.role === member.role &&
+      after.purpose === member.purpose &&
+      after.profileId === member.profileId &&
+      canonical(after.settings) === canonical(member.settings);
+    if (!same) updated.push(after);
   }
   const removed = members.filter((member) => !kept.has(member.id));
   for (const member of removed) {
     const { departmentId: _, ...rest } = member;
     store.updateAgent(member.id, rest);
   }
-  return { added, removed };
+  return { added, removed, updated };
 }
 
 // One line per worker, as the lead reads its team.
 export function rosterOf(store: Store, department: DepartmentRecord): string {
-  const workers = store
-    .listMembers(department.id)
-    .filter((member) => member.id !== department.leadAgentId);
+  const workers = workersOf(store, department);
   if (workers.length === 0) return "You have no workers yet.";
   return workers
     .map((member) => {

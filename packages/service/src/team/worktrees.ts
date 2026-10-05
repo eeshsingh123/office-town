@@ -28,6 +28,15 @@ async function git(environment: EnvironmentSpec, args: string[], what: string): 
   return result.stdout.trim();
 }
 
+async function branchExists(
+  environment: EnvironmentSpec,
+  repository: string,
+  branch: string,
+): Promise<boolean> {
+  const args = ["-C", repository, "rev-parse", "--verify", "--quiet", `refs/heads/${branch}`];
+  return (await runCommand(environment, { binary: "git", args })).code === 0;
+}
+
 const slug = (text: string, length: number) =>
   text
     .toLowerCase()
@@ -70,7 +79,12 @@ export async function workerFolders(
   return inTurn(main, async () => {
     let path = join(context.dataFolder, WORKTREES, taskId, name);
     let branch = base;
-    for (let copy = 2; existsSync(path); copy += 1) {
+    // A worktree removed once merged leaves its branch behind, so both names must be free.
+    for (
+      let copy = 2;
+      existsSync(path) || (await branchExists(environment, inside(main), branch));
+      copy += 1
+    ) {
       path = join(context.dataFolder, WORKTREES, taskId, `${name}-${copy}`);
       branch = `${base}-${copy}`;
     }

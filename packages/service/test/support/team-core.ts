@@ -50,8 +50,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
   const registry = new SessionRegistry(store, {
-    createSession: (_options, extras) => {
-      const session = new FakeSession(extras);
+    // A model named "broken" fails to start, as a harness missing from its environment would.
+    createSession: (options, extras) => {
+      const session = new FakeSession(extras, options.model === "broken");
       sessions.push(session);
       return session;
     },

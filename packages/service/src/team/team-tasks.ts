@@ -32,6 +32,15 @@ export async function harnessChoices(
   });
 }
 
+// A department works on one goal at a time, so a goal's agents wait while another goal runs.
+export function requireDepartmentFree({ store }: TeamContext, taskId: string): void {
+  const departmentId = store.getTask(taskId)?.departmentId;
+  if (departmentId === undefined) return;
+  const active = store.activeTaskOf(departmentId);
+  if (active === undefined || active === taskId) return;
+  throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
+}
+
 // A goal for a saved department starts its lead with the team it has; a new lead first proposes
 // one. Only the lead starts: it hands out the work.
 export async function startTeamTask(
@@ -119,6 +128,7 @@ export async function continueTeam(
   const lead = latestSession(context, taskId, task.leadAgentId);
   if (lead === undefined) throw new TeamError("This task's lead never started.");
   if (isOpen(lead)) throw new TeamError("The lead is already at work.");
+  requireDepartmentFree(context, taskId);
   const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
   for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
   const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;

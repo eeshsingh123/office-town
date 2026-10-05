@@ -3,6 +3,7 @@ import { z } from "zod";
 import { settingsOf } from "../agents/agents.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import type { SessionActivity } from "../registry/activity.ts";
+import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
@@ -51,8 +52,13 @@ async function startWork(
   const lead = { id: team.lead.id, name: team.lead.name };
   const earlier = latestSession(context, caller.taskId, worker.id);
   if (earlier !== undefined && isOpen(earlier)) {
-    await registry.tell(earlier.id, nextWork(lead, work));
-    return earlier;
+    try {
+      await registry.tell(earlier.id, nextWork(lead, work));
+      return earlier;
+    } catch (error) {
+      // It was being stopped for being idle: it is resumed instead.
+      if (!(error instanceof SessionNotRunningError)) throw error;
+    }
   }
   if (earlier?.harnessSessionId !== undefined) {
     try {
@@ -114,6 +120,9 @@ export function delegate(context: TeamContext) {
         );
       }
       const session = await startWork(context, team, caller, worker, brief);
+      if (!isOpen(session)) {
+        throw new ToolError(`${worker.name} could not start. Its trace says why.`);
+      }
       store.createDelegation({
         taskId: caller.taskId,
         workerAgentId: worker.id,

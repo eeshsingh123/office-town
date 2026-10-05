@@ -10,7 +10,7 @@ import { z } from "zod";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { applyTeam, rosterOf, type TeamContext, TeamError } from "./members.ts";
+import { applyTeam, checkTeam, rosterOf, type TeamContext, TeamError } from "./members.ts";
 
 const MODELS_NAMED = 20;
 
@@ -100,6 +100,7 @@ function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRe
   if (task.departmentId !== undefined) {
     const department = store.getDepartment(task.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", task.departmentId);
+    checkTeam(store, department, team);
     const named = store.updateDepartment(department.id, { ...department, name: team.name });
     applyTeam(store, named, team);
     return named;
@@ -107,6 +108,7 @@ function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRe
   const setup = store.taskSetup(caller.taskId);
   const lead = store.getAgent(caller.agentId);
   if (setup === undefined || lead === undefined) throw new TeamError("This task has no team.");
+  checkTeam(store, undefined, team);
   const department = store.createDepartment({
     name: team.name,
     workspaceId: setup.workspaceId,

@@ -26,13 +26,18 @@ export class FakeSession implements Session {
   readonly #lineListeners = new Set<LineListener>();
   #sequence = 0;
 
-  constructor(extras: LaunchExtras = {}) {
+  readonly #failsToStart: boolean;
+
+  constructor(extras: LaunchExtras = {}, failsToStart = false) {
     this.extras = extras;
+    this.#failsToStart = failsToStart;
   }
 
   async send(command: SessionCommand): Promise<void> {
     this.sent.push(command);
-    if (command.type === "start") {
+    if (command.type === "start" && this.#failsToStart) {
+      this.emit({ type: "session.ended", payload: { reason: "failed", exitCode: null } });
+    } else if (command.type === "start") {
       this.emit({ type: "session.started", payload: { harnessSessionId: `harness-${this.id}` } });
     }
     if (command.type === "answerPermission") {

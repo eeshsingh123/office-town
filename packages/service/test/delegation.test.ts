@@ -107,6 +107,56 @@ describe("delegation", () => {
     });
   });
 
+  it("hands an idle lead every result that comes at once, in order", async () => {
+    const { writer, tester } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    await core.callTool(lead, "delegate", { agent: tester, brief: "Test the page" });
+    await core.registry.stop(lead?.id ?? "", true);
+
+    // The second result comes while the lead resumed for the first is still starting.
+    playTurn(core.sessions[1], "Menu done.");
+    playTurn(core.sessions[2], "Tests pass.");
+    await settle();
+
+    const prompts = core.sessions.at(-1)?.sent.filter((command) => command.type === "prompt");
+    expect(prompts?.map((prompt) => prompt.text)).toEqual([
+      `${writer} finished:
+Menu done.`,
+      `${tester} finished:
+Tests pass.`,
+    ]);
+  });
+
+  it("tells the lead at once when a worker cannot start, and keeps no work out with it", async () => {
+    const { department, task, writer } = await teamAtWork();
+    const [member] = (await core.call("GET", "/agents")).json.filter(
+      (agent: AgentRecord) => agent.name === writer,
+    );
+    await core.call("PUT", `/departments/${department.id}/team`, {
+      name: "Web team",
+      roles: [
+        {
+          role: "Writer",
+          purpose: "Writes",
+          agentId: member.id,
+          settings: { ...claude, model: "broken" },
+        },
+      ],
+    });
+
+    const reply = await core.callTool(core.sessions[0], "delegate", {
+      agent: writer,
+      brief: "Write",
+    });
+
+    expect(reply).toMatchObject({
+      isError: true,
+      text: expect.stringContaining("could not start"),
+    });
+    expect(core.store.listDelegations(task.taskId)).toEqual([]);
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });
@@ -127,6 +177,10 @@ describe("delegation", () => {
       agent: first.writer,
       brief: "Write the second menu",
     });
+    // The department works on one goal at a time, so the first goal's lead waits.
+    const firstLead = core.store.listSessions(first.task.taskId)[0];
+    const resumed = await core.call("POST", `/sessions/${firstLead?.id}/resume`, { prompt: "Go" });
+    expect(resumed.status).toBe(409);
     // A restart: the core stops, and a new one opens the same data folder.
     await core.close();
     core = await startCore(join(directory, "data"));
@@ -143,8 +197,8 @@ describe("delegation", () => {
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
   });
 
-  it("calls in a guest on a copy without instruction files, hands its answer to the lead, and lets it leave", async () => {
-    await teamAtWork();
+  it("calls in a guest on a copy without instruction files, hands its answer to the lead, lets it leave, and removes the copy with the task", async () => {
+    const { task } = await teamAtWork();
     const lead = core.sessions[0];
     const project = join(directory, "bakery");
     writeFileSync(join(project, "menu.md"), "Bread");
@@ -153,6 +207,8 @@ describe("delegation", () => {
 
     const outside = await core.callTool(lead, "outsource", { brief: "Check", paths: [".."] });
     expect(outside).toMatchObject({ isError: true, text: expect.stringContaining("workspace") });
+    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
+    expect(agents.some((agent) => agent.guest)).toBe(false);
     await core.callTool(lead, "outsource", { brief: "Check the menu", paths: ["."] });
     const guest = core.store.getSession(core.sessions[1]?.id ?? "");
     const copy = guest?.options.workspacePath ?? "";
@@ -169,6 +225,11 @@ describe("delegation", () => {
       origin: { kind: "result" },
     });
     expect(core.store.getSession(guest?.id ?? "")?.status).toBe("exited");
+
+    // A deleted task takes the copy with it.
+    await core.call("POST", `/tasks/${task.taskId}/stop`);
+    expect((await core.call("DELETE", `/tasks/${task.taskId}`)).status).toBe(204);
+    expect(existsSync(copy)).toBe(false);
   });
 
   it("stops an agent left idle, but not one waiting for the user", async () => {

@@ -1,6 +1,8 @@
-import { cpSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import {
+  type AgentRecord,
   lowerAutonomy,
   type NewAgent,
   type SecondOpinionRequest,
@@ -14,7 +16,7 @@ import { levelOf } from "../autonomy/policy.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { latestSession } from "./lead.ts";
+import { isOpen, latestSession } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 
 // What a fresh look must not inherit: instruction files and harness settings, history and the
@@ -81,8 +83,8 @@ Your last message is your answer, so end with your findings, the most serious fi
 
 interface Asked {
   taskId: string;
-  // The agent whose work is examined, and whose workspace the files come from.
-  askerAgentId: string;
+  // The agent whose work is examined, and whose folders the files come from.
+  ownerAgentId: string;
   brief: string;
   paths: string[];
   reviewer: NewAgent;
@@ -92,26 +94,39 @@ interface Asked {
 // works in the same task, so it shows beside the team, and is no member of it (D-18).
 async function startReview(context: TeamContext, asked: Asked): Promise<SessionRecord> {
   const { store, registry } = context;
-  const session = latestSession(context, asked.taskId, asked.askerAgentId);
-  const asker = store.getAgent(asked.askerAgentId);
-  if (session === undefined || asker === undefined) {
-    throw new RecordNotFoundError("agent", asked.askerAgentId);
+  const session = latestSession(context, asked.taskId, asked.ownerAgentId);
+  const owner = store.getAgent(asked.ownerAgentId);
+  if (session === undefined || owner === undefined) {
+    throw new RecordNotFoundError("agent", asked.ownerAgentId);
   }
   // A reviewer reads and writes only its copy, so Trusted is all it ever needs.
-  const autonomy = lowerAutonomy(levelOf(store, asker.id), "trusted");
-  const guest = createAgent(store, asked.reviewer, {
-    role: "Second opinion",
-    autonomy,
-    guest: true,
-  });
-  const folder = join(context.dataFolder, OUTSOURCED, guest.id);
-  const copied = copyWork(foldersOf(session), asked.paths, folder);
+  const autonomy = lowerAutonomy(levelOf(store, owner.id), "trusted");
+  // The copy comes first, so a path that cannot be copied leaves no guest behind.
+  const folder = join(context.dataFolder, OUTSOURCED, randomUUID());
+  let copied: string[];
+  let guest: AgentRecord;
+  try {
+    copied = copyWork(foldersOf(session), asked.paths, folder);
+    guest = createAgent(store, asked.reviewer, { role: "Second opinion", autonomy, guest: true });
+  } catch (error) {
+    rmSync(folder, { recursive: true, force: true });
+    throw error;
+  }
   return registry.start({
     taskId: asked.taskId,
     agentId: guest.id,
     options: { ...sessionOptionsFor(store, guest, { workspacePath: folder }), isolated: true },
-    message: reviewBrief({ askedBy: asker.name, brief: asked.brief, folder, paths: copied }),
+    message: reviewBrief({ askedBy: owner.name, brief: asked.brief, folder, paths: copied }),
   });
+}
+
+// Whose work a second opinion examines: the agent named, such as a worker in its own worktree, or
+// else the task's lead or solo agent.
+function ownerOf({ store }: TeamContext, taskId: string, agentId: string | undefined): string {
+  const owner =
+    agentId ?? store.getTask(taskId)?.leadAgentId ?? store.listSessions(taskId)[0]?.agentId;
+  if (owner === undefined) throw new RecordNotFoundError("task", taskId);
+  return owner;
 }
 
 // The user asks for a second opinion on an agent's work, from its panel. The answer is the
@@ -119,20 +134,20 @@ async function startReview(context: TeamContext, asked: Asked): Promise<SessionR
 export function secondOpinion(
   context: TeamContext,
   taskId: string,
-  { brief, paths, reviewer }: SecondOpinionRequest,
+  { brief, paths, reviewer, agentId }: SecondOpinionRequest,
 ): Promise<SessionRecord> {
-  const task = context.store.getTask(taskId);
-  const askerAgentId = task?.leadAgentId ?? context.store.listSessions(taskId)[0]?.agentId;
-  if (askerAgentId === undefined) throw new RecordNotFoundError("task", taskId);
-  return startReview(context, { taskId, askerAgentId, brief, paths, reviewer });
+  const ownerAgentId = ownerOf(context, taskId, agentId);
+  return startReview(context, { taskId, ownerAgentId, brief, paths, reviewer });
 }
 
-// The top of the task's workspace, to choose what a second opinion gets.
-export function workspaceEntries(context: TeamContext, taskId: string): WorkspaceEntry[] {
-  const task = context.store.getTask(taskId);
-  const sessions = context.store.listSessions(taskId);
-  const owner = task?.leadAgentId ?? sessions[0]?.agentId;
-  const main = sessions.find((one) => one.agentId === owner)?.options.workspacePath;
+// The top of the agent's own folder, to choose what a second opinion gets.
+export function workspaceEntries(
+  context: TeamContext,
+  taskId: string,
+  agentId: string | undefined,
+): WorkspaceEntry[] {
+  const owner = ownerOf(context, taskId, agentId);
+  const main = latestSession(context, taskId, owner)?.options.workspacePath;
   if (main === undefined || !existsSync(main)) return [];
   return readdirSync(main, { withFileTypes: true })
     .filter((entry) => !LEFT_OUT.has(entry.name))
@@ -178,11 +193,13 @@ export function outsource(context: TeamContext) {
       const reviewer: NewAgent = saved === undefined ? { settings } : { profileId: saved.id };
       const session = await startReview(context, {
         taskId: caller.taskId,
-        askerAgentId: caller.agentId,
+        ownerAgentId: caller.agentId,
         brief,
         paths,
         reviewer,
       });
+      if (!isOpen(session))
+        throw new ToolError("The reviewer could not start. Its trace says why.");
       store.createDelegation({
         taskId: caller.taskId,
         workerAgentId: session.agentId,
@@ -192,6 +209,17 @@ export function outsource(context: TeamContext) {
       return "A reviewer is on it. Its answer will reach you as a message.";
     },
   });
+}
+
+// A deleted task takes its reviewers' copies with it.
+export function removeCopies({ store, dataFolder }: TeamContext, taskId: string): void {
+  const copies = join(dataFolder, OUTSOURCED);
+  for (const session of store.listSessions(taskId)) {
+    const folder = session.options.workspacePath;
+    if (store.getAgent(session.agentId)?.guest !== true || folder === undefined) continue;
+    if (inside(copies, folder) && folder !== copies)
+      rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 // A reviewer leaves once it has answered: its first turn that ends with nothing waiting on the

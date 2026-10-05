@@ -100,6 +100,10 @@ interface LiveSession {
   recorded: boolean;
   // The harness's own session id: one conversation must never run in two sessions at once.
   conversation: string | undefined;
+  // Settles once the agent has its first message, so a later one never arrives before it.
+  ready: Promise<void>;
+  stopping: boolean;
+  ended: PromiseWithResolvers<void>;
 }
 
 const NOT_RECORDED =
@@ -213,8 +217,15 @@ export class SessionRegistry {
     await live.session.send(command);
   }
 
-  // A message from the core to a running agent, such as the answer to its question.
+  // A message from the core to a running agent, such as the answer to its question. An agent
+  // being stopped cannot take it: once it has ended this says so, and the caller may resume it.
   async tell(sessionId: string, message: Message): Promise<void> {
+    const live = this.#running(sessionId);
+    await live.ready;
+    if (live.stopping) {
+      await live.ended.promise;
+      throw new SessionNotRunningError(sessionId);
+    }
     await this.#running(sessionId).session.send({ type: "prompt", ...message });
   }
 
@@ -228,7 +239,9 @@ export class SessionRegistry {
 
   // `idle` ends an agent left idle as finished, to be resumed when it is next needed.
   async stop(sessionId: string, idle = false): Promise<void> {
-    await this.#running(sessionId).session.send({ type: "stop", ...(idle ? { idle } : {}) });
+    const live = this.#running(sessionId);
+    live.stopping = true;
+    await live.session.send({ type: "stop", ...(idle ? { idle } : {}) });
   }
 
   isRunning(sessionId: string): boolean {
@@ -252,6 +265,7 @@ export class SessionRegistry {
 
   async #run(session: Session, record: NewSession, message: Message): Promise<SessionRecord> {
     this.#store.createSession(record);
+    const ready = Promise.withResolvers<void>();
     const stopEvents = session.subscribe((event) => this.#record(live, event));
     const stopLines = session.subscribeLines((line) => this.#recordLine(live, line));
     const live: LiveSession = {
@@ -263,11 +277,18 @@ export class SessionRegistry {
       lastSequence: 0,
       recorded: true,
       conversation: record.options.resumeSessionId,
+      ready: ready.promise,
+      stopping: false,
+      ended: Promise.withResolvers<void>(),
     };
     this.#live.set(session.id, live);
-    await session.send({ type: "start" });
-    // A start that failed has already ended the session.
-    if (this.#live.has(session.id)) await session.send({ type: "prompt", ...message });
+    try {
+      await session.send({ type: "start" });
+      // A start that failed has already ended the session.
+      if (this.#live.has(session.id)) await session.send({ type: "prompt", ...message });
+    } finally {
+      ready.resolve();
+    }
     const stored = this.#store.getSession(session.id);
     if (stored === undefined) throw new RecordNotFoundError("session", session.id);
     return stored;
@@ -352,6 +373,7 @@ export class SessionRegistry {
   }
 
   #forget(sessionId: string): void {
+    this.#live.get(sessionId)?.ended.resolve();
     this.#live.delete(sessionId);
     this.#tools?.revoke(sessionId);
     for (const key of this.#asked.keys()) {

@@ -1,5 +1,5 @@
 import type { SessionRecord } from "@office-town/contract";
-import type { Message } from "../registry/session-registry.ts";
+import { type Message, SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import type { TeamContext } from "./members.ts";
 
@@ -25,11 +25,19 @@ export async function tellLead(
 ): Promise<void> {
   const task = context.store.getTask(taskId);
   if (task?.leadAgentId === undefined) throw new RecordNotFoundError("task", taskId);
-  const session = latestSession(context, taskId, task.leadAgentId);
-  if (session === undefined) return;
-  if (isOpen(session)) {
-    await context.registry.tell(session.id, message);
-    return;
+  // A second look, for a lead that was being stopped for being idle when the message came.
+  for (let look = 0; look < 2; look += 1) {
+    const session = latestSession(context, taskId, task.leadAgentId);
+    if (session === undefined) return;
+    if (!isOpen(session)) {
+      if (session.status === "exited") await context.registry.resume(session.id, message);
+      return;
+    }
+    try {
+      await context.registry.tell(session.id, message);
+      return;
+    } catch (error) {
+      if (!(error instanceof SessionNotRunningError)) throw error;
+    }
   }
-  if (session.status === "exited") await context.registry.resume(session.id, message);
 }
