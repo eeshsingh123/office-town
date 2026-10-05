@@ -1,4 +1,4 @@
-import type { EnvironmentSpec } from "@office-town/contract";
+import type { EnvironmentSpec, HarnessDescription, ProfileRecord } from "@office-town/contract";
 
 const TITLE_LENGTH = 90;
 // The UI always runs on the same machine as the core, so its own system is the native one.
@@ -10,6 +10,17 @@ const NATIVE_NAME = navigator.userAgent.includes("Windows")
 
 export function environmentName(environment: EnvironmentSpec): string {
   return environment.kind === "wsl" ? `WSL · ${environment.distro}` : NATIVE_NAME;
+}
+
+// How a profile's agents work, such as "Claude Code · haiku · low".
+export function profileSummary(
+  { settings }: Pick<ProfileRecord, "settings">,
+  harnesses: readonly HarnessDescription[],
+): string {
+  const harness = harnesses.find((known) => known.harness === settings.harness)?.name;
+  return [harness ?? settings.harness, settings.model, settings.effort]
+    .filter((part) => part !== undefined)
+    .join(" · ");
 }
 
 // A task's title is the first line of its prompt.

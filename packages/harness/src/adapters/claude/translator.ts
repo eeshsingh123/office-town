@@ -1,5 +1,11 @@
 import type { ActionKind, PermissionOption, PlanStep, Question } from "@office-town/contract";
-import type { AdapterEvent, AnsweredQuestion, Translation, Translator } from "../../adapter.ts";
+import {
+  type AdapterEvent,
+  type AnsweredQuestion,
+  attachedTool,
+  type Translation,
+  type Translator,
+} from "../../adapter.ts";
 import {
   type AskedQuestion,
   assistantSchema,
@@ -146,6 +152,7 @@ function translated(events: AdapterEvent[], outgoing: string[] = []): Translatio
 }
 
 export class ClaudeTranslator implements Translator {
+  readonly #toolServers: readonly { name: string }[];
   #sessionStarted = false;
   #interrupts = 0;
   #steps: PlanStep[] = [];
@@ -165,6 +172,10 @@ export class ClaudeTranslator implements Translator {
     rate_limit_event: (message) => this.#rateLimit(message),
     result: (message) => this.#result(message),
   };
+
+  constructor(toolServers: readonly { name: string }[] = []) {
+    this.#toolServers = toolServers;
+  }
 
   open(): string[] {
     return [];
@@ -312,6 +323,7 @@ export class ClaudeTranslator implements Translator {
       this.#planCalls.set(block.id, block);
       return [];
     }
+    const tool = attachedTool(block.name, this.#toolServers, (server) => `mcp__${server}__`);
     return [
       {
         type: "action.started",
@@ -322,6 +334,7 @@ export class ClaudeTranslator implements Translator {
           input: block.input,
           ...locationsOf(block.input),
           ...parent,
+          ...(tool === undefined ? {} : { tool }),
         },
       },
     ];

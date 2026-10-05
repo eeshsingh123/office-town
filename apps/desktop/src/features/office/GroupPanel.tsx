@@ -7,11 +7,11 @@ import type { AgentState } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
 
-// Grouped by status in M3; M4 groups by department instead.
+// Within a group, those that need the user come first.
 const ORDER: AgentState[] = [
   "waiting",
   "working",
@@ -23,15 +23,16 @@ const ORDER: AgentState[] = [
   "stopped",
 ];
 
-// Several agents at once: who they are, grouped, and what can be done to all of them. There is
-// no "approve all": each request is read before it is answered.
+// Several agents at once: who they are, grouped by department, and what can be done to all of
+// them. There is no "approve all": each request is read before it is answered.
 export function GroupPanel({ members }: { members: FloorAgent[] }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
   const open = members.filter((member) => isOpen(member.agent.latest));
-  const groups = Map.groupBy(members, (member) => STATE_LABELS[member.state]);
-  const ordered = [...groups].sort(
-    ([, a], [, b]) => ORDER.indexOf(a[0]?.state ?? "done") - ORDER.indexOf(b[0]?.state ?? "done"),
+  // A group that needs the user comes first, since its first member does.
+  const groups = Map.groupBy(
+    members.toSorted((a, b) => ORDER.indexOf(a.state) - ORDER.indexOf(b.state)),
+    (member) => member.group,
   );
 
   const toAll = async (send: (sessionId: string) => Promise<void>) => {
@@ -56,24 +57,24 @@ export function GroupPanel({ members }: { members: FloorAgent[] }) {
           Clear
         </Button>
       </div>
-      {ordered.map(([label, group]) => (
+      {[...groups].map(([label, group]) => (
         <section key={label} className={styles.group} aria-label={label}>
           <h3 className={styles.groupHead}>
-            {group[0] === undefined ? null : <StatusIcon state={group[0].state} />}
             {label} · {group.length}
           </h3>
-          {group.map(({ agent }) => (
+          {group.map(({ agent, state }) => (
             <button
-              key={agent.taskId}
+              key={agent.id}
               type="button"
               className={styles.member}
-              onClick={() => select([agent.taskId])}
+              onClick={() => select([agent.id])}
             >
               <Avatar name={agent.name} colour={agent.colour} size={26} />
               <span className={styles.memberText}>
                 <strong>{agent.name}</strong>
                 <span>{taskTitle(agent.task.prompt)}</span>
               </span>
+              <StatusIcon state={state} />
             </button>
           ))}
         </section>

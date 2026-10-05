@@ -1,13 +1,13 @@
 # Modules
 
-The roadmap. Modules are built in order; each module is one branch and one PR, with one commit series per sub-module so it can be reviewed commit by commit. Only the next three modules are detailed; finished ones shrink to what later work builds on. A sub-module handed to another agent gets its own self-contained story brief (see AGENTS.md), written when it is assigned.
+The roadmap. Modules are built in order; each module is one branch and one PR, with one commit series per sub-module so it can be reviewed commit by commit. The next module is detailed; later ones stay an outline until their design session, and finished ones shrink to what later work builds on. A sub-module handed to another agent gets its own self-contained story brief (see AGENTS.md), written when it is assigned.
 
 ## Package layout
 
 ```
 packages/contract   shared types and schemas: events, commands, API messages. No runtime dependencies except the schema library.
 packages/harness    M1. Runs one agent session on one harness and emits contract events.
-packages/service    M2. Long-running core: session registry, storage, HTTP and SSE API.
+packages/service    M2. Long-running core: session registry, storage, HTTP and SSE API. M4 added teams, the tool server and autonomy.
 apps/desktop        M3. Electron shell and React UI.
 ```
 
@@ -16,10 +16,17 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 ## Vocabulary
 
 - Harness: a vendor CLI (Claude Code, OpenCode, Codex, Antigravity).
-- Session: one running conversation between the app and one harness process. One employee has one session.
+- Session: one running conversation between the app and one harness process. Resuming starts a new session of the same agent.
 - Event: one normalized fact a session reports. The UI, storage and orchestration consume only events.
 - Environment: where a harness process is launched (native OS, WSL, later a sandbox).
 - Adapter: the per-harness translator between the harness's own wire format and events.
+- Agent (employee): a stored worker with a name, a role and settings. It works through sessions.
+- Profile: a saved, harness-neutral description of an agent: role, instructions, harness, model, effort, autonomy.
+- Department: a team with one lead and its workers, one workspace and one autonomy level.
+- Delegation: a piece of work the lead hands a worker, and the result that comes back.
+- Autonomy: how much a department's agents may do without asking the user.
+- Tool server: the core's own MCP server that gives agents team tools, such as delegating or asking the user.
+- Outsourced agent: a fresh agent outside the team that gets only a brief and the work to examine, for a clean-slate review (D-47).
 
 ---
 
@@ -43,40 +50,22 @@ Every adapter passes the same conformance tests, run against recordings of the r
 
 ### M2 Core service (done)
 
-`packages/service` is the long-running core. It runs many sessions at once, stores every event in SQLite before publishing it (D-15, D-30, D-31), and serves one localhost API with a per-launch token (D-17, D-32): tasks, sessions, commands, resume, results, workspaces, settings, harness catalog, store size, the blocked queue, and one event stream that does live updates, catch-up and replay alike. A session runs in a saved workspace or in its own folder inside an output folder (D-33). After a crash or restart, unfinished sessions are marked interrupted and can be resumed. M3 starts it as a child process; M4 adds orchestration inside it, using the same store and API.
+`packages/service` is the long-running core. It runs many sessions at once, stores every event in SQLite before publishing it (D-15, D-30, D-31), and serves one localhost API with a per-launch token (D-17, D-32): tasks, sessions, commands, resume, results, workspaces, settings, harness catalog, store size, the blocked queue, and one event stream that does live updates, catch-up and replay alike. A session runs in a saved workspace or in its own folder inside an output folder (D-33). After a crash or restart, unfinished sessions are marked interrupted and can be resumed. `SessionRegistry` is the only thing that starts sessions; M4's team code drives it rather than starting harnesses itself.
 
----
+### M3 Desktop shell, office and agent panels (done)
 
-## M3 Desktop shell, office and agent panels
+`apps/desktop` is the app. The Electron shell starts the core, keeps agents running in the tray (D-34) and forwards `/api` with the token (D-36). The UI has one API client, one Zustand store fed by a single live stream, and pure functions that turn events into a trace (D-37). The office is the home screen (D-35): one open floor, an agent per task, walk-up, click and drag-select, and a side panel. Around it: New task, the trace view, the request card used in the trace and in Needs you, Tasks (history, replay, delete), light and dark themes. M4 builds on all of it: agent identity in `src/store/agents.ts`, the floor plan in `features/office/floor-plan.ts`, the request card in `features/requests`.
 
-### What
+### M4 Orchestration (done)
 
-The first usable app. The home screen is the office (D-35): every running agent is a character at a desk. Walk up to one or click it to see what it is doing; drag across several to see them grouped. From an agent, open a clean trace of its work, approve or deny what it asks, and reopen past runs. One agent per task; departments as rooms come in M4 and M6. Mockups: see MEMORY.md.
-
-### Scope
-
-- **M3.1 Shell.** Electron main process only: single instance; start the core and stop it cleanly on quit (D-34); closing the window keeps everything running in the tray; serve the UI and forward `/api` to the core with the token (D-36). No business logic.
-- **M3.2 UI foundation.** React and Vite. One API client and one event store (Zustand) fed by the single live stream; the trace is built by pure, tested functions. The app frame: sidebar, office as home, side panel for agents, light and dark themes, the design tokens (D-37). Runs in a normal browser against a running core for development.
-- **M3.3 New task.** Prompt, harness, environment (native or a WSL distro from `GET /environments`), model, effort, permission mode, workspace or output folder. Options come from adapter capabilities and the catalog, not hardcoded per harness. The model list shows recent, free and plan models first, with a filter. Last choices are remembered per harness; saved agent profiles are M4.
-- **M3.4 Trace view.** Plan steps with their actions nested beneath, sub-agent actions nested again; status per step; results inline; reasoning collapsed by default and expandable. An interrupted session shows its open actions as interrupted. A message box sends a follow-up prompt, or resumes an ended session.
-- **M3.5 Approvals.** A request shows in the trace where it happened and in the "Needs you" queue, as the same card: agent, task, what is asked, and the options the harness offers. Its own component, so M4 adds department and autonomy without rewriting it. A system notification when the window is not focused.
-- **M3.6 History.** List past tasks and replay one through the same trace view; delete a task; warn when the store grows large.
-- **M3.7 Office.** One open floor. Each running or recently finished agent is a character at a desk showing its status. Walk with the keyboard and press a key next to an agent, or click it: the side panel shows its task, step, current action and any request. Drag a box to select several: the panel lists them grouped (by status in M3, by department from M4), with stop and message for all. Drawn with DOM or SVG inside React, so selection, keyboard focus and screen readers work; a canvas engine only if it gets slow.
-
-Core additions M3 needs, all additive: the core stops cleanly when its stdin closes (`--stop-when-stdin-closes`); `GET /environments`; `GET /tasks` includes each task's sessions, and `GET /tasks?active=true` lists every task with an open agent, which the office and the quit prompt need wherever that task sits in the list; harness descriptions carry a `name`; catalog models may carry `provider` and `access` (free, plan or paid).
-
-Out of scope: departments and rooms, several agents on one task, dependencies between departments, chat between agents, connectors, saved agent profiles, installer, signing and auto-update (M5).
-
-### Integration
-
-`apps/desktop` depends only on `packages/contract`; the shell starts the core as a separate process and never imports it. Every later UI module (M4 panels, M6 command center) reuses the M3.2 client, event store and frame, and grows the M3.7 office.
+Describe a goal and a team does it. A lead agent proposes a department (roles, and a harness, model and effort for each); the user edits and approves it in Needs you, and can change the team at any time from the department's settings. The lead hands work to workers on any harness through the core's own MCP tool server (D-39, D-43) and gets their results back as messages (D-44). Agents and profiles are stored records (D-42). One autonomy policy in the core guards every agent (D-45). In a git workspace each worker gets its own worktree and branch, which the lead merges (D-46). A guest agent can be called in, by the lead or the user, for a second opinion on a copy of the work, isolated as far as its harness allows (D-47). In the office each department is a room with its own panel (D-48). Team code lives in `packages/service/src/team`, `src/tools` and `src/autonomy` and starts agents only through `SessionRegistry`; the UI adds `features/departments`, `features/profiles` and the team task view. M6 grows the rooms into the command center; M7 attaches connectors through the tool server.
 
 ---
 
 ## Later modules (outline only)
 
-- **M4 Orchestration.** Describe a goal, get a proposed department (roles, harness and model per role) to approve; the app spawns the team; a lead delegates to workers on other harnesses; per-team autonomy; outsourced agents (fresh, isolated, clean-slate reviewers). Guardrails for folders outside a workspace, reached by asking the user or under full autonomy. A department shares one workspace folder chosen by the user; direction to confirm at M4 design: one git worktree and branch per agent, integrated by the lead. An SDLC flow (branch, commit, pull, push, PR through the user's own `git` and `gh` logins) is optional and applies only when the department works on a code repository.
-- **M5 Packaging and release.** An installer people download and run, with no repository, Node or pnpm: Windows first, Linux packages next, macOS stays parked (D-23). The core and the built UI ship inside the app; the data folder does not move. Node will not strip TypeScript inside `node_modules`, so the core gets a build step for packaging only (D-19 still holds in development), and only `apps/desktop/electron/main.ts` changes where it finds the core and the UI. Code signing (unsigned installers get a SmartScreen warning; a certificate costs money, owner to decide), auto-update from GitHub Releases, and a release workflow in CI. After M4, so the first release has cross-harness teams, the product's differentiator.
-- **M6 Command center.** The M3 office grows into departments as rooms, dependencies between them, chat, task and status panels.
-- **M7 Connectors.** MCP-based plugins injected per session; an agent can request a connector it lacks. Needs the connector deep dive first.
+- **M5 Packaging and release.** An installer people download and run, with no repository, Node or pnpm: Windows first, Linux packages next, macOS stays parked (D-23). The core and the built UI ship inside the app; the data folder does not move. Node will not strip TypeScript inside `node_modules`, so the core gets a build step for packaging only (D-19 still holds in development), and only `apps/desktop/electron/main.ts` changes where it finds the core and the UI. The WSL tool bridge (`packages/harness/src/environment/tool-bridge.ts`, run by the core's own Node through WSL interop) ships the same way. Code signing (unsigned installers get a SmartScreen warning; a certificate costs money, owner to decide), auto-update from GitHub Releases, and a release workflow in CI. After M4, so the first release has cross-harness teams, the product's differentiator.
+- **M6 Command center.** The M4 rooms grow into the command center: dependencies between departments, chat, task and status panels.
+- **Agent memory.** What an agent remembers across tasks. Its own module, after a deep dive with the owner on storage, recency and how relevant an old memory still is; its place in the order is set then. M4 profiles leave room for it.
+- **M7 Connectors.** MCP-based plugins injected per session through the tool server seam (D-43); an agent can request a connector it lacks. Needs the connector deep dive first.
 - **Deferred.** macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.

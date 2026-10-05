@@ -12,6 +12,7 @@ import {
 } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
+import { addAgent } from "./support/agents.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
 const options: SessionOptions = {
@@ -26,13 +27,21 @@ let sessions: FakeSession[];
 let published: PublishedEvent[];
 
 function openRegistry(): SessionRegistry {
-  const registry = new SessionRegistry(store, () => {
-    const session = new FakeSession();
-    sessions.push(session);
-    return session;
+  const registry = new SessionRegistry(store, {
+    createSession: () => {
+      const session = new FakeSession();
+      sessions.push(session);
+      return session;
+    },
   });
   registry.subscribe((event) => published.push(event));
   return registry;
+}
+
+function start(registry: SessionRegistry, prompt: string) {
+  const task = store.createTask(prompt);
+  const agent = addAgent(store);
+  return registry.start({ taskId: task.id, agentId: agent.id, options, message: { text: prompt } });
 }
 
 beforeEach(() => {
@@ -57,7 +66,7 @@ describe("session registry", () => {
       storedWhenPublished.push(stored?.event.id === event.id);
     });
 
-    const record = await registry.start("Write a report", options);
+    const record = await start(registry, "Write a report");
     const [session] = sessions;
     session?.line('{"type":"stream_event"}', true);
     session?.line('{"type":"assistant"}');
@@ -84,7 +93,7 @@ describe("session registry", () => {
   });
 
   it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {
-    const first = await openRegistry().start("Write a report", options);
+    const first = await start(openRegistry(), "Write a report");
 
     // A new registry over the same store is what a core restarted after a crash sees.
     const registry = openRegistry();
@@ -93,7 +102,7 @@ describe("session registry", () => {
       SessionNotRunningError,
     );
 
-    const resumed = await registry.resume(first.id, "Continue where you left off");
+    const resumed = await registry.resume(first.id, { text: "Continue where you left off" });
     expect(resumed).toMatchObject({
       taskId: first.taskId,
       resumedFrom: first.id,
@@ -104,7 +113,9 @@ describe("session registry", () => {
       type: "prompt",
       text: "Continue where you left off",
     });
-    await expect(registry.resume(first.id, "Continue")).rejects.toThrow(SessionNotResumableError);
+    await expect(registry.resume(first.id, { text: "Continue" })).rejects.toThrow(
+      SessionNotResumableError,
+    );
 
     await registry.close();
     expect(sessions[1]?.sent.at(-1)).toEqual({ type: "stop" });
@@ -113,7 +124,7 @@ describe("session registry", () => {
 
   it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {
     const registry = openRegistry();
-    const record = await registry.start("Write a report", options);
+    const record = await start(registry, "Write a report");
     vi.spyOn(store, "append").mockImplementationOnce(() => {
       throw new Error("database or disk is full");
     });

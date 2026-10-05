@@ -1,15 +1,12 @@
-import type { PlanStep, SessionRecord, UsageLimit } from "@office-town/contract";
+import type { AgentRecord, PlanStep, SessionRecord, UsageLimit } from "@office-town/contract";
 import { Check, CircleDashed, LoaderCircle } from "lucide-react";
+import { useLevel } from "../../store/agents.ts";
 import { useHarnessName } from "../../store/app-store.ts";
-import type { TokenTotals, Trace } from "../../trace/trace.ts";
+import type { Trace } from "../../trace/trace.ts";
+import { AUTONOMY } from "../../ui/autonomy.ts";
 import { clockTime, compactCount, elapsed, environmentName, whenNext } from "../../ui/format.ts";
+import { sumUsage } from "../departments/usage.ts";
 import styles from "./TaskView.module.css";
-
-const PERMISSION_NAMES = {
-  ask: "Ask before changes",
-  acceptEdits: "Allow edits",
-  bypass: "Allow everything",
-} as const;
 
 function StepIcon({ step }: { step: PlanStep }) {
   if (step.status === "completed")
@@ -71,26 +68,17 @@ function Limits({ limits, harness }: { limits: UsageLimit[]; harness: string }) 
 }
 
 interface AgentAsideProps {
+  agent: AgentRecord;
   first: SessionRecord;
   latest: SessionRecord;
   // The task's loaded traces, oldest first.
   traces: Trace[];
 }
 
-function sumUsage(traces: Trace[]): TokenTotals {
-  return traces.reduce(
-    (total, { usage }) => ({
-      inputTokens: total.inputTokens + usage.inputTokens,
-      outputTokens: total.outputTokens + usage.outputTokens,
-      cachedInputTokens: total.cachedInputTokens + usage.cachedInputTokens,
-    }),
-    { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
-  );
-}
-
 // A resumed session reports no plan or limits until they change, so the latest known ones show.
-export function AgentAside({ first, latest, traces }: AgentAsideProps) {
+export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
   const harness = useHarnessName(latest.options.harness);
+  const level = useLevel(agent);
   const { options } = latest;
   const ended = latest.endedAt ?? new Date().toISOString();
   const plan = traces.findLast((trace) => trace.plan.length > 0)?.plan;
@@ -112,8 +100,8 @@ export function AgentAside({ first, latest, traces }: AgentAsideProps) {
           <dd>{model ?? options.model ?? "Default"}</dd>
           <dt>Effort</dt>
           <dd>{options.effort ?? "Default"}</dd>
-          <dt>Permissions</dt>
-          <dd>{PERMISSION_NAMES[options.permissionMode]}</dd>
+          <dt>Autonomy</dt>
+          <dd title={AUTONOMY[level].description}>{AUTONOMY[level].label}</dd>
           <dt>Runs on</dt>
           <dd>{environmentName(options.environment)}</dd>
           <dt>Folder</dt>

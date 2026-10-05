@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { promisify } from "node:util";
+import type { AttachedToolServer, ToolServer } from "../adapter.ts";
 import type { Environment, LaunchedProcess, LaunchRequest } from "./environment.ts";
 import { BinaryNotFoundError } from "./find-binary.ts";
 import { NativeEnvironment } from "./native.ts";
+import { BRIDGE_TOKEN } from "./tool-bridge.ts";
 import { toWindowsPath, toWslPath } from "./wsl-paths.ts";
 
 const MARKER = "OFFICE_TOWN_LAUNCH";
@@ -18,6 +21,7 @@ const DISTRO_TIMEOUT_MS = 15_000;
 // themselves, so matching on it reaches processes a signal to the relay would miss.
 const KILL_SCRIPT = `for p in /proc/[0-9]*; do if grep -qz "^${MARKER}=$0$" "$p/environ" 2>/dev/null; then kill -9 "\${p#/proc/}"; fi; done`;
 const NOT_FOUND_EXIT_CODE = 1;
+const BRIDGE = join(import.meta.dirname, "tool-bridge.ts");
 
 export type DistroCommand = (distro: string, command: string[]) => Promise<string>;
 
@@ -119,6 +123,23 @@ export class WslEnvironment implements Environment {
 
   toHostPath(environmentPath: string): string {
     return toWindowsPath(environmentPath, this.#distro);
+  }
+
+  // WSL2 cannot reach Windows' 127.0.0.1 by default, so the harness runs a stdio bridge that is a
+  // Windows process: the core's own Node, through WSL interop. The token travels in a variable
+  // WSLENV hands over, never on a command line.
+  reach({ name, url, token }: ToolServer): AttachedToolServer {
+    const env: Record<string, string> = { [BRIDGE_TOKEN]: token };
+    // The desktop app runs the core on Electron, which acts as Node only when told so.
+    if (process.versions.electron !== undefined) env.ELECTRON_RUN_AS_NODE = "1";
+    return {
+      transport: "stdio",
+      name,
+      token,
+      command: toWslPath(process.execPath, this.#distro),
+      args: [BRIDGE, url],
+      env: { ...env, WSLENV: Object.keys(env).join(":") },
+    };
   }
 
   async #findBinary(binary: string): Promise<string> {

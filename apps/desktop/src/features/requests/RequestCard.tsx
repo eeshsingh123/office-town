@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ProposalCard } from "./ProposalCard.tsx";
 import styles from "./RequestCard.module.css";
 
 const DETAIL_LIMIT = 2000;
@@ -15,7 +16,7 @@ interface RequestCardProps {
   context?: ReactNode;
 }
 
-function useMinutesSince(timestamp: string): number {
+export function useMinutesSince(timestamp: string): number {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -217,6 +218,17 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
 
 // One card for a waiting request, wherever it shows: in its trace and in the Needs you queue.
 export function RequestCard({ event, context }: RequestCardProps) {
+  if (event.type === "proposal.requested") return <ProposalCard event={event} context={context} />;
+  return <AskCard event={event} context={context} />;
+}
+
+function AskCard({
+  event,
+  context,
+}: {
+  event: PermissionEvent | QuestionEvent;
+  context?: ReactNode;
+}) {
   const minutes = useMinutesSince(event.timestamp);
   const permission = event.type === "permission.requested";
   return (

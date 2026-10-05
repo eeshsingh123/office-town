@@ -3,8 +3,7 @@ import { once } from "node:events";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
-import type { SessionRegistry } from "../registry/session-registry.ts";
-import type { Store } from "../store/store.ts";
+import type { TeamContext } from "../team/members.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
@@ -12,8 +11,8 @@ import { apiRoutes, type Reply, type Route } from "./routes.ts";
 const BODY_LIMIT_BYTES = 1024 * 1024;
 
 export interface ApiOptions {
-  registry: SessionRegistry;
-  store: Store;
+  // The registry, the store, and what the team routes share with the team tools.
+  team: TeamContext;
   // Generated per launch: anything else on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -78,13 +77,9 @@ function send(response: ServerResponse, reply: Reply): void {
     .end(JSON.stringify(reply.json));
 }
 
-export async function startApiServer({
-  registry,
-  store,
-  token,
-  port,
-}: ApiOptions): Promise<ApiServer> {
-  const routes = apiRoutes(registry, store);
+export async function startApiServer({ team, token, port }: ApiOptions): Promise<ApiServer> {
+  const { registry, store } = team;
+  const routes = apiRoutes(team);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");

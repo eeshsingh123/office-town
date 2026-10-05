@@ -1,5 +1,14 @@
 import type {
+  AgentColour,
+  AgentRecord,
+  AgentSettings,
+  Autonomy,
+  DelegationRecord,
+  DepartmentRecord,
+  DepartmentSettings,
   PendingRequestList,
+  ProfileRecord,
+  ProfileRequest,
   SessionEvent,
   SessionOptions,
   SessionRecord,
@@ -15,9 +24,52 @@ import type {
 export interface NewSession {
   id: string;
   taskId: string;
+  agentId: string;
   options: SessionOptions;
   resumedFrom?: string;
 }
+
+export interface NewAgentRecord {
+  name: string;
+  colour: AgentColour;
+  role?: string;
+  purpose?: string;
+  departmentId?: string;
+  autonomy?: Autonomy;
+  guest?: true;
+  profileId?: string;
+  settings: AgentSettings;
+}
+
+// An agent's fields that can change; one left out is cleared.
+export interface AgentChange {
+  role?: string | undefined;
+  purpose?: string | undefined;
+  departmentId?: string | undefined;
+  autonomy?: Autonomy | undefined;
+  profileId?: string | undefined;
+  settings: AgentSettings;
+}
+
+// Where a team the lead has yet to propose would work.
+export interface TeamSetup {
+  workspaceId: string;
+  autonomy: Autonomy;
+}
+
+// A team's task: its lead, and its department or else the setup of the team to be proposed.
+export type TaskTeam =
+  | { leadAgentId: string; departmentId: string }
+  | { leadAgentId: string; setup: TeamSetup };
+
+export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt">;
+
+export type NewDelegation = Pick<
+  DelegationRecord,
+  "taskId" | "workerAgentId" | "workerSessionId" | "brief"
+>;
+
+export type DelegationEnd = Exclude<DelegationRecord["status"], "working">;
 
 // `position` orders events across all sessions and is the cursor every reader resumes from.
 export interface StoredEvent {
@@ -42,18 +94,32 @@ export type LineDirection = "in" | "out";
 // interface would only add a queue to keep "stored before published" in order. Deleting is the
 // one long operation, so it alone is async.
 export interface Store {
-  createTask(prompt: string): TaskRecord;
+  createTask(prompt: string, team?: TaskTeam): TaskRecord;
+  // Set until the task's team is approved.
+  taskSetup(taskId: string): TeamSetup | undefined;
+  // The task's proposed team was approved as this department.
+  joinDepartment(taskId: string, departmentId: string): TaskRecord;
+  // The department's task with an agent at work, if any.
+  activeTaskOf(departmentId: string): string | undefined;
   getTask(id: string): TaskRecord | undefined;
   // Newest first, each with its sessions.
   listTasks(query: TaskQuery): TaskPage;
   // Every task with a session starting or running, newest first.
   listActiveTasks(): TaskSummary[];
+  // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];
-  // Marks every session left starting or running by an earlier core as interrupted.
+  // Marks every session left starting or running by an earlier core as interrupted, with the
+  // delegations they were working on.
   markInterrupted(): SessionRecord[];
+  createDelegation(delegation: NewDelegation): DelegationRecord;
+  // Oldest first.
+  listDelegations(taskId: string): DelegationRecord[];
+  // The delegation a worker's session is working on, if any.
+  workingDelegation(workerSessionId: string): DelegationRecord | undefined;
+  endDelegation(id: string, status: DelegationEnd, result?: string): void;
   // Returns the event as stored, or nothing for a text fragment, which is never stored.
   append(event: SessionEvent): StoredEvent | undefined;
   // A line over 64 KiB is cut: the events already hold the text, the audit copy needs its shape.
@@ -62,6 +128,26 @@ export interface Store {
   readOverflow(sessionId: string, sequence: number): string;
   // Every permission request and question no one has answered yet, across all sessions.
   listPendingRequests(): PendingRequestList;
+  createAgent(agent: NewAgentRecord): AgentRecord;
+  getAgent(id: string): AgentRecord | undefined;
+  isNameTaken(name: string): boolean;
+  listAgents(): AgentRecord[];
+  renameAgent(id: string, name: string): AgentRecord;
+  updateAgent(id: string, change: AgentChange): AgentRecord;
+  createDepartment(department: NewDepartment): DepartmentRecord;
+  getDepartment(id: string): DepartmentRecord | undefined;
+  // By name.
+  listDepartments(): DepartmentRecord[];
+  updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord;
+  // Its lead and its workers, in the order they joined.
+  listMembers(departmentId: string): AgentRecord[];
+  createProfile(profile: ProfileRequest): ProfileRecord;
+  getProfile(id: string): ProfileRecord | undefined;
+  // By name.
+  listProfiles(): ProfileRecord[];
+  updateProfile(id: string, profile: ProfileRequest): ProfileRecord;
+  // Agents made from it keep working with the settings it had when they were made.
+  deleteProfile(id: string): void;
   createWorkspace(workspace: WorkspaceRequest): WorkspaceRecord;
   // Most recently used first.
   listWorkspaces(): WorkspaceRecord[];
@@ -77,7 +163,18 @@ export interface Store {
 }
 
 export class RecordNotFoundError extends Error {
-  constructor(kind: "task" | "session" | "result" | "workspace", id: string) {
+  constructor(
+    kind:
+      | "task"
+      | "session"
+      | "result"
+      | "workspace"
+      | "agent"
+      | "profile"
+      | "department"
+      | "delegation",
+    id: string,
+  ) {
     super(`No ${kind} "${id}".`);
     this.name = "RecordNotFoundError";
   }
@@ -87,6 +184,20 @@ export class TaskActiveError extends Error {
   constructor(id: string) {
     super(`Task "${id}" still has a running session. Stop it before deleting the task.`);
     this.name = "TaskActiveError";
+  }
+}
+
+export class InUseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InUseError";
+  }
+}
+
+export class NameTakenError extends Error {
+  constructor(name: string) {
+    super(`Another agent is already called ${name}.`);
+    this.name = "NameTakenError";
   }
 }
 

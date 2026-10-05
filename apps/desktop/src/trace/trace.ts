@@ -1,12 +1,15 @@
 import type {
   ActionKind,
+  MessageOrigin,
   Overflow,
   PlanStep,
   SessionEvent,
   UsageLimit,
   UserRequestEvent,
 } from "@office-town/contract";
+import { teamToolServer } from "@office-town/contract";
 import type { StreamedEvent } from "../api/event-stream.ts";
+import { teamToolAction } from "./team-tools.ts";
 
 export interface TraceAction {
   kind: "action";
@@ -35,6 +38,8 @@ export interface TraceMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  // Set when the core sent it in the user's place.
+  origin?: MessageOrigin;
 }
 
 export interface TraceReasoning {
@@ -86,6 +91,8 @@ export interface Trace {
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
   limits: UsageLimit[];
+  // When the limits were reported, to tell the newest apart across sessions.
+  limitsAt?: string;
   model?: string;
   ended?: Extract<SessionEvent, { type: "session.ended" }>["payload"];
 }
@@ -171,10 +178,16 @@ function apply(trace: Trace, event: SessionEvent): void {
       return;
     }
     case "message": {
-      const { role, text, parentActionId } = event.payload;
+      const { role, text, parentActionId, origin } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
       if (text.trim() === "") return;
-      trace.items.set(event.id, { kind: "message", id: event.id, role, text });
+      trace.items.set(event.id, {
+        kind: "message",
+        id: event.id,
+        role,
+        text,
+        ...(origin === undefined ? {} : { origin }),
+      });
       place(trace, event.id, parentActionId);
       return;
     }
@@ -196,12 +209,14 @@ function apply(trace: Trace, event: SessionEvent): void {
       trace.plan = event.payload.steps;
       return;
     case "action.started": {
-      const { actionId, kind, title, input, locations, parentActionId, planStepId } = event.payload;
+      const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
+        event.payload;
+      const team = tool?.server === teamToolServer ? teamToolAction(tool.name, input) : undefined;
       trace.items.set(actionId, {
         kind: "action",
         id: actionId,
-        actionKind: kind,
-        title,
+        actionKind: team?.kind ?? kind,
+        title: team?.title ?? title,
         input,
         status: "running",
         startedAt: event.timestamp,
@@ -257,6 +272,7 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "limits.updated":
       trace.limits = event.payload.limits;
+      trace.limitsAt = event.timestamp;
       return;
     case "error": {
       const { message, detail, fatal } = event.payload;

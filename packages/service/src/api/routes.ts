@@ -1,16 +1,39 @@
 import {
   agentCommandSchema,
+  continueTaskRequestSchema,
+  departmentSettingsSchema,
   environmentSpecSchema,
+  newDepartmentRequestSchema,
+  profileRequestSchema,
+  renameAgentRequestSchema,
   resumeSessionRequestSchema,
+  secondOpinionRequestSchema,
   startTaskRequestSchema,
+  startTeamTaskRequestSchema,
   taskListQuerySchema,
+  teamSchema,
   workspaceRequestSchema,
 } from "@office-town/contract";
-import { describeHarness, listEnvironments, listHarnesses } from "@office-town/harness";
+import { listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
-import type { SessionRegistry } from "../registry/session-registry.ts";
-import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { createAgent, settingsOf } from "../agents/agents.ts";
+import { soloMessage } from "../agents/briefs.ts";
+import { sessionOptionsFor } from "../agents/options.ts";
+import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
+import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
+import type { TeamContext } from "../team/members.ts";
+import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
+import {
+  continueTeam,
+  requireDepartmentFree,
+  startTeamTask,
+  stopTeam,
+} from "../team/team-tasks.ts";
+import { removeWorktrees } from "../team/worktrees.ts";
+
+const isRunning = (session: { status: string }) =>
+  session.status === "starting" || session.status === "running";
 
 export interface RouteRequest {
   // A path parameter; the router only calls a route when all of them are present.
@@ -35,16 +58,33 @@ const NO_CONTENT = { status: 204 } as const;
 
 const sequenceSchema = z.coerce.number().int().positive();
 
-export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
+export function apiRoutes(team: TeamContext): Route[] {
+  const { registry, store, readCatalog } = team;
   return [
     {
       method: "POST",
       path: "/tasks",
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
-        const options = { ...request.options, ...chooseTaskFolders(store, request) };
-        return { status: 201, json: await registry.start(request.prompt, options) };
+        const folders = chooseTaskFolders(store, request);
+        const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
+        const task = store.createTask(request.prompt);
+        const session = await registry.start({
+          taskId: task.id,
+          agentId: agent.id,
+          options: sessionOptionsFor(store, agent, folders),
+          message: soloMessage(request.prompt, settingsOf(store, agent)),
+        });
+        return { status: 201, json: session };
       },
+    },
+    {
+      method: "POST",
+      path: "/tasks/team",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: await startTeamTask(team, startTeamTaskRequestSchema.parse(await body())),
+      }),
     },
     {
       method: "GET",
@@ -72,8 +112,54 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "DELETE",
       path: "/tasks/:id",
       reply: async ({ param }) => {
+        if (store.listSessions(param("id")).some(isRunning)) {
+          throw new TaskActiveError(param("id"));
+        }
+        await removeWorktrees(team, param("id"));
+        removeCopies(team, param("id"));
         await store.deleteTask(param("id"));
         return NO_CONTENT;
+      },
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/stop",
+      reply: async ({ param }) => {
+        await stopTeam(team, param("id"));
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/second-opinion",
+      reply: async ({ param, body }) => ({
+        status: 201,
+        json: await secondOpinion(
+          team,
+          param("id"),
+          secondOpinionRequestSchema.parse(await body()),
+        ),
+      }),
+    },
+    {
+      method: "GET",
+      path: "/tasks/:id/delegations",
+      reply: ({ param }) => ({ status: 200, json: store.listDelegations(param("id")) }),
+    },
+    {
+      method: "GET",
+      path: "/tasks/:id/files",
+      reply: ({ param, query }) => ({
+        status: 200,
+        json: workspaceEntries(team, param("id"), query.get("agent") ?? undefined),
+      }),
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/continue",
+      reply: async ({ param, body }) => {
+        const { prompt } = continueTaskRequestSchema.parse(await body());
+        return { status: 201, json: await continueTeam(team, param("id"), prompt) };
       },
     },
     {
@@ -90,7 +176,9 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       path: "/sessions/:id/resume",
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
-        return { status: 201, json: await registry.resume(param("id"), prompt) };
+        const taskId = store.getSession(param("id"))?.taskId;
+        if (taskId !== undefined) requireDepartmentFree(team, taskId);
+        return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
       },
     },
     {
@@ -121,6 +209,86 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       method: "GET",
       path: "/pending-requests",
       reply: () => ({ status: 200, json: store.listPendingRequests() }),
+    },
+    {
+      method: "GET",
+      path: "/agents",
+      reply: () => ({ status: 200, json: store.listAgents() }),
+    },
+    {
+      method: "GET",
+      path: "/agents/:id",
+      reply: ({ param }) => {
+        const agent = store.getAgent(param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
+        return { status: 200, json: agent };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/agents/:id/name",
+      reply: async ({ param, body }) => {
+        const { name } = renameAgentRequestSchema.parse(await body());
+        return { status: 200, json: store.renameAgent(param("id"), name) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/departments",
+      reply: () => ({ status: 200, json: store.listDepartments() }),
+    },
+    {
+      method: "POST",
+      path: "/departments",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: createDepartment(team, newDepartmentRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: updateDepartment(team, param("id"), departmentSettingsSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id/team",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: await changeTeam(team, param("id"), teamSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "POST",
+      path: "/profiles",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: store.createProfile(profileRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "GET",
+      path: "/profiles",
+      reply: () => ({ status: 200, json: store.listProfiles() }),
+    },
+    {
+      method: "PUT",
+      path: "/profiles/:id",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: store.updateProfile(param("id"), profileRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "DELETE",
+      path: "/profiles/:id",
+      reply: ({ param }) => {
+        store.deleteProfile(param("id"));
+        return NO_CONTENT;
+      },
     },
     {
       method: "POST",
@@ -176,7 +344,7 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
           kind: query.get("environment") ?? "native",
           distro: query.get("distro") ?? undefined,
         });
-        return { status: 200, json: await describeHarness(param("harness"), environment) };
+        return { status: 200, json: await readCatalog(param("harness"), environment) };
       },
     },
     {

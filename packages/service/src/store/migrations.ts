@@ -1,6 +1,73 @@
-// Each entry moves the schema up one version. A merged entry is never edited; a change is a new one.
-// Every index here serves a named query; the store test checks that each of those queries uses it.
-export const migrations: readonly string[] = [
+import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
+import { identityOf } from "../agents/names.ts";
+
+// Each entry moves the schema up one version: SQL, or a step that also moves data. A merged entry
+// is never edited; a change is a new one. Every index here serves a named query; the store test
+// checks that each of those queries uses it.
+export type Migration = string | ((db: DatabaseSync) => void);
+
+// Every M3 task had one agent, named by its first session's id; it is stored with the same name,
+// and with its harness settings as its own.
+function giveEachTaskItsAgent(db: DatabaseSync): void {
+  db.exec(`
+  CREATE TABLE profiles (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    name       TEXT NOT NULL,
+    role       TEXT NOT NULL,
+    colour     TEXT NOT NULL,
+    settings   TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE agents (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL UNIQUE,
+    colour      TEXT NOT NULL,
+    role        TEXT,
+    profile_ref INTEGER REFERENCES profiles (ref) ON DELETE SET NULL,
+    settings    TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX agents_by_profile ON agents (profile_ref) WHERE profile_ref IS NOT NULL;
+
+  ALTER TABLE sessions ADD COLUMN agent_ref INTEGER REFERENCES agents (ref);
+  CREATE INDEX sessions_by_agent ON sessions (agent_ref);
+  `);
+  const firstSessions = db
+    .prepare(`
+      SELECT t.ref AS taskRef, s.id AS sessionId, s.options, s.created_at AS createdAt
+      FROM tasks t
+      JOIN sessions s ON s.ref = (SELECT min(ref) FROM sessions WHERE task_ref = t.ref)`)
+    .all() as { taskRef: number; sessionId: string; options: string; createdAt: number }[];
+  const insert = db.prepare(`
+    INSERT INTO agents (id, name, colour, settings, created_at) VALUES (?, ?, ?, ?, ?)`);
+  const assign = db.prepare("UPDATE sessions SET agent_ref = ? WHERE task_ref = ?");
+  const taken = new Set<string>();
+  for (const { taskRef, sessionId, options, createdAt } of firstSessions) {
+    const { harness, environment, model, effort } = JSON.parse(options);
+    // Two tasks could hash to the same handle; the later one is renamed rather than refused.
+    let identity = identityOf(sessionId);
+    for (let attempt = 1; taken.has(identity.name); attempt += 1) {
+      identity = identityOf(`${sessionId}/${attempt}`);
+    }
+    taken.add(identity.name);
+    const settings = JSON.stringify({ harness, environment, model, effort });
+    const { lastInsertRowid } = insert.run(
+      randomUUID(),
+      identity.name,
+      identity.colour,
+      settings,
+      createdAt,
+    );
+    assign.run(lastInsertRowid, taskRef);
+  }
+}
+
+export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
     ref        INTEGER PRIMARY KEY,
@@ -78,4 +145,71 @@ export const migrations: readonly string[] = [
 
   CREATE UNIQUE INDEX pending_requests_by_session ON pending_requests (session_ref, request_id);
   `,
+  giveEachTaskItsAgent,
+  `
+  CREATE TABLE departments (
+    ref               INTEGER PRIMARY KEY,
+    id                TEXT NOT NULL UNIQUE,
+    name              TEXT NOT NULL,
+    workspace_ref     INTEGER NOT NULL REFERENCES workspaces (ref),
+    autonomy          TEXT NOT NULL,
+    lead_ref          INTEGER NOT NULL REFERENCES agents (ref),
+    branch_per_worker INTEGER NOT NULL,
+    code_flow         INTEGER NOT NULL,
+    created_at        INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX departments_by_workspace ON departments (workspace_ref);
+  CREATE INDEX departments_by_lead ON departments (lead_ref);
+
+  ALTER TABLE agents ADD COLUMN purpose TEXT;
+  ALTER TABLE agents ADD COLUMN department_ref INTEGER REFERENCES departments (ref);
+  CREATE INDEX agents_by_department ON agents (department_ref) WHERE department_ref IS NOT NULL;
+
+  -- A team's task: its lead, its department once approved, and until then where the proposed
+  -- team would work (a JSON object with the workspace and the autonomy level).
+  ALTER TABLE tasks ADD COLUMN lead_ref INTEGER REFERENCES agents (ref);
+  ALTER TABLE tasks ADD COLUMN department_ref INTEGER REFERENCES departments (ref);
+  ALTER TABLE tasks ADD COLUMN setup TEXT;
+  CREATE INDEX tasks_by_lead ON tasks (lead_ref) WHERE lead_ref IS NOT NULL;
+  CREATE INDEX tasks_by_department ON tasks (department_ref) WHERE department_ref IS NOT NULL;
+  `,
+  `
+  -- The worker's session is named by id, not referenced: the delegation outlives a session that is
+  -- resumed, and goes with its task.
+  CREATE TABLE delegations (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    worker_ref     INTEGER NOT NULL REFERENCES agents (ref),
+    worker_session TEXT NOT NULL,
+    brief          TEXT NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN
+                     ('working', 'done', 'failed', 'stopped', 'interrupted')),
+    result         TEXT,
+    created_at     INTEGER NOT NULL,
+    ended_at       INTEGER
+  ) STRICT;
+
+  CREATE INDEX delegations_by_task ON delegations (task_ref);
+  CREATE INDEX delegations_by_worker ON delegations (worker_ref);
+  CREATE INDEX delegations_working ON delegations (status, worker_session) WHERE status = 'working';
+  `,
+  `
+  -- Autonomy replaces the permission mode (MODULES M4.6). An agent with no department works at the
+  -- level its latest session's mode meant: ask is Supervised, acceptEdits Trusted, bypass Bypass.
+  -- The harness itself now only asks, or bypasses.
+  ALTER TABLE agents ADD COLUMN autonomy TEXT;
+  UPDATE agents SET autonomy = (
+    SELECT CASE json_extract(s.options, '$.permissionMode')
+             WHEN 'acceptEdits' THEN 'trusted'
+             WHEN 'bypass' THEN 'bypass'
+             ELSE 'supervised'
+           END
+    FROM sessions s WHERE s.agent_ref = agents.ref ORDER BY s.ref DESC LIMIT 1)
+  WHERE department_ref IS NULL;
+  UPDATE sessions SET options = json_set(options, '$.permissionMode', 'ask')
+  WHERE json_extract(options, '$.permissionMode') = 'acceptEdits';
+  `,
+  "ALTER TABLE agents ADD COLUMN guest INTEGER NOT NULL DEFAULT 0;",
 ];

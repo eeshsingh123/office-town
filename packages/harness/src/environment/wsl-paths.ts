@@ -1,3 +1,5 @@
+import { posix } from "node:path";
+
 const DRIVE_PATH = /^([A-Za-z]):[\\/]*(.*)$/;
 const DISTRO_SHARE = /^\\\\wsl(?:\.localhost|\$)\\([^\\]+)(.*)$/i;
 const MOUNTED_DRIVE = /^\/mnt\/([a-z])(\/.*)?$/;
@@ -19,7 +21,9 @@ export function toWslPath(windowsPath: string, distro: string): string {
   return windowsPath;
 }
 
-export function toWindowsPath(wslPath: string, distro: string): string {
+export function toWindowsPath(given: string, distro: string): string {
+  // ".." is resolved the way Linux would, before the path leaves the distro.
+  const wslPath = given.startsWith("/") ? posix.normalize(given) : given;
   const mounted = MOUNTED_DRIVE.exec(wslPath);
   if (mounted !== null) {
     return `${mounted[1]?.toUpperCase()}:${(mounted[2] ?? "/").replaceAll("/", "\\")}`;

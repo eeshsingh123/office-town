@@ -3,7 +3,7 @@ import { AcpTranslator } from "./translator.ts";
 
 export type AcpHarness = Pick<
   Adapter,
-  "harness" | "name" | "capabilities" | "catalog" | "buildCommand"
+  "harness" | "name" | "capabilities" | "isolationNote" | "catalog" | "buildCommand"
 >;
 
 // Any harness whose own binary speaks the Agent Client Protocol only has to say how to launch it.

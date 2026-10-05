@@ -16,6 +16,7 @@ const passthroughAdapter: Adapter = {
     modelList: false,
     resume: false,
     usageLimits: false,
+    isolation: "none",
   },
   buildCommand: () => ({ binary: "replayed", args: [] }),
   createTranslator: () => ({
@@ -104,6 +105,22 @@ describe("session", () => {
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
   });
 
+  it("gives a permission request the kind and host paths of the action it asks for", async () => {
+    const environment = new ScriptedEnvironment();
+    environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
+    const { events, emit } = await startSession(environment);
+
+    await emit(
+      {
+        type: "action.started",
+        payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x"] },
+      },
+      { ...permission, payload: { ...permission.payload, actionId: "a" } },
+    );
+
+    expect(events[1]?.payload).toMatchObject({ kind: "edit", locations: ["host:/x"] });
+  });
+
   it("answers a pending permission once and reports how it was resolved", async () => {
     const environment = new ScriptedEnvironment();
     const { session, events, emit } = await startSession(environment);
@@ -147,6 +164,30 @@ describe("session", () => {
       type: "question.resolved",
       payload: { requestId: "ask-1", outcome: "answered", answers },
     });
+  });
+
+  it("numbers what the core reports in line with the harness's own events, until the session ends", async () => {
+    const { session, events, emit } = await startSession();
+    await emit({ type: "turn.started" });
+    const question = {
+      type: "question.requested" as const,
+      payload: {
+        requestId: "ask-1",
+        questions: [{ questionId: "1", text: "Red or blue?", options: [], multiSelect: false }],
+      },
+    };
+
+    session.report(question);
+    await emit({ type: "turn.ended", payload: { outcome: "completed" } });
+    await session.send({ type: "stop" });
+
+    expect(events.map((event) => [event.type, event.sequence])).toEqual([
+      ["turn.started", 1],
+      ["question.requested", 2],
+      ["turn.ended", 3],
+      ["session.ended", 4],
+    ]);
+    expect(() => session.report(question)).toThrow(SessionStateError);
   });
 
   it("rejects commands the current state does not allow", async () => {

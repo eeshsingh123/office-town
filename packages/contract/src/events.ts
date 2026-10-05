@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { answeredBySchema } from "./autonomy.ts";
+import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
 export const tokenUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative(),
@@ -52,6 +54,32 @@ export const questionAnswerSchema = z.object({
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
+// The name of the core's own MCP server, which gives agents their team tools.
+export const teamToolServer = "office-town";
+
+// Why the core, not the user, sent an agent a message.
+export const messageOriginSchema = z.discriminatedUnion("kind", [
+  // The agent's instructions and its piece of work. `summary` is the one line shown for it;
+  // `from` is the lead that handed the work over.
+  z.object({
+    kind: z.literal("brief"),
+    summary: z.string().min(1),
+    from: z.string().min(1).optional(),
+  }),
+  // A worker's result, which the core hands its lead.
+  z.object({
+    kind: z.literal("result"),
+    delegationId: z.string().min(1),
+    agentId: z.string().min(1),
+    outcome: z.enum(["done", "failed", "stopped"]),
+  }),
+  // The user's answer to a request a tool put in Needs you.
+  z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
+  // News for the agent, such as a change to its team. `summary` is the one line shown for it.
+  z.object({ kind: z.literal("notice"), summary: z.string().min(1) }),
+]);
+export type MessageOrigin = z.infer<typeof messageOriginSchema>;
+
 // A usage window of the user's subscription, as the harness reports it.
 export const usageLimitSchema = z.object({
   id: z.string().min(1),
@@ -85,6 +113,8 @@ const payloadSchemas = {
   "session.ended": z.object({
     reason: z.enum(["stopped", "exited", "failed"]),
     exitCode: z.number().int().nullable(),
+    // The core stopped an agent left idle; it resumes when it is next needed.
+    idle: z.literal(true).optional(),
   }),
   "turn.started": z.object({ turnId: z.string().min(1) }),
   "turn.ended": z.object({
@@ -96,6 +126,8 @@ const payloadSchemas = {
     role: z.enum(["user", "assistant"]),
     text: z.string(),
     parentActionId: z.string().optional(),
+    // Set on a message the core sent in the user's place.
+    origin: messageOriginSchema.optional(),
   }),
   reasoning: z.object({
     text: z.string(),
@@ -109,6 +141,8 @@ const payloadSchemas = {
     kind: actionKindSchema,
     title: z.string(),
     input: z.unknown(),
+    // Set when the action calls a tool on an MCP server the core attached to the session.
+    tool: z.object({ server: z.string().min(1), name: z.string().min(1) }).optional(),
     locations: z.array(z.string()).optional(),
     parentActionId: z.string().optional(),
     planStepId: z.string().optional(),
@@ -125,17 +159,22 @@ const payloadSchemas = {
     result: z.string(),
     overflow: overflowSchema.optional(),
   }),
+  // `kind` and `locations` are the action's it asks for, when the harness started one first:
+  // what the autonomy level reads to decide.
   "permission.requested": z.object({
     requestId: z.string().min(1),
     actionId: z.string().optional(),
     title: z.string(),
     input: z.unknown(),
     options: z.array(permissionOptionSchema).min(1),
+    kind: actionKindSchema.optional(),
+    locations: z.array(z.string()).optional(),
   }),
   "permission.resolved": z.object({
     requestId: z.string().min(1),
     outcome: z.enum(["allowed", "denied", "cancelled"]),
     optionId: z.string().optional(),
+    answeredBy: answeredBySchema.optional(),
   }),
   "question.requested": z.object({
     requestId: z.string().min(1),
@@ -146,6 +185,22 @@ const payloadSchemas = {
     requestId: z.string().min(1),
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
+  }),
+  // A lead's team, for the user to edit and approve. `departmentId` is set when it changes a
+  // department that exists.
+  "proposal.requested": z.object({
+    requestId: z.string().min(1),
+    team: teamSchema,
+    reason: z.string().optional(),
+    place: proposalPlaceSchema,
+    departmentId: z.string().min(1).optional(),
+  }),
+  "proposal.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["approved", "revised", "declined", "cancelled"]),
+    // The team as approved, after the user's changes.
+    team: teamSchema.optional(),
+    note: z.string().optional(),
   }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   error: z.object({
@@ -183,6 +238,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.resolved"),
   eventOf("question.requested"),
   eventOf("question.resolved"),
+  eventOf("proposal.requested"),
+  eventOf("proposal.resolved"),
   eventOf("limits.updated"),
   eventOf("error"),
 ]);
@@ -196,5 +253,6 @@ export type SessionEventBody = {
 export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.requested"),
   eventOf("question.requested"),
+  eventOf("proposal.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

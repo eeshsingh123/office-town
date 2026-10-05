@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { newAgentSchema } from "./agents.ts";
+import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
@@ -7,6 +9,9 @@ export const taskRecordSchema = z.object({
   id: z.string().min(1),
   prompt: z.string(),
   createdAt: z.iso.datetime(),
+  // Set on a team's task: who leads it, and its department once the team is approved.
+  leadAgentId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
 });
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
@@ -23,6 +28,7 @@ export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export const sessionRecordSchema = z.object({
   id: z.string().min(1),
   taskId: z.string().min(1),
+  agentId: z.string().min(1),
   options: sessionOptionsSchema,
   status: sessionStatusSchema,
   createdAt: z.iso.datetime(),
@@ -61,6 +67,8 @@ export const harnessDescriptionSchema = z.object({
   // The harness's name as people know it.
   name: z.string().min(1),
   capabilities: adapterCapabilitiesSchema,
+  // What still loads in an isolated session, when isolation is partial.
+  isolationNote: z.string().optional(),
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
@@ -91,17 +99,14 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-// The agent works in a saved workspace, or else in a new folder for this task inside the output
+// A new agent works in a saved workspace, or else in a new folder for this task inside the output
 // folder: the one given, or the last one given. Folders are never passed directly, and a resume
 // goes through its own request, which checks the conversation is not already running.
 export const startTaskRequestSchema = z
   .object({
     prompt: z.string().min(1),
-    options: sessionOptionsSchema.omit({
-      workspacePath: true,
-      additionalPaths: true,
-      resumeSessionId: true,
-    }),
+    agent: newAgentSchema,
+    autonomy: autonomySchema,
     workspaceId: z.string().min(1).optional(),
     outputFolder: absolutePathSchema.optional(),
   })

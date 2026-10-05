@@ -1,0 +1,47 @@
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--size-small);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.limit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--size-meta);
+}
+
+.name {
+  color: var(--text-2);
+}
+
+.faint {
+  color: var(--text-3);
+}
+
+.bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--hover);
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}

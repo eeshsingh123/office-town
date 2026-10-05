@@ -8,8 +8,14 @@ import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
 import styles from "./TaskView.module.css";
 
-// A message goes to the running agent, or resumes an ended one in a new session of the task.
-export function MessageBox({ agent, className }: { agent: Agent; className?: string | undefined }) {
+interface MessageBoxProps {
+  agent: Agent;
+  className?: string | undefined;
+}
+
+// A message goes to the running agent, or resumes an ended one in a new session of the task. A
+// team's lead cut off by a restart continues the team, so it hears which work was cut off.
+export function MessageBox({ agent, className }: MessageBoxProps) {
   const id = useId();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -31,6 +37,9 @@ export function MessageBox({ agent, className }: { agent: Agent; className?: str
     try {
       if (live) {
         await api.command(agent.latest.id, { type: "prompt", text: prompt });
+      } else if (agent.task.leadAgentId === agent.id && agent.latest.status === "interrupted") {
+        await api.continueTask(agent.taskId, prompt);
+        await track(agent.taskId);
       } else {
         await api.resume(agent.latest.id, prompt);
         await track(agent.taskId);

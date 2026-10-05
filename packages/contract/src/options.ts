@@ -6,11 +6,13 @@ export const environmentSpecSchema = z.discriminatedUnion("kind", [
 ]);
 export type EnvironmentSpec = z.infer<typeof environmentSpecSchema>;
 
-export const permissionModeSchema = z.enum(["ask", "acceptEdits", "bypass"]);
+// The harness's own mode: it asks about everything, and the core's autonomy level answers what it
+// allows (MODULES M4.6); or, under Bypass, it asks nothing.
+export const permissionModeSchema = z.enum(["ask", "bypass"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
 // These values become command-line arguments of a harness, so they may not look like a flag.
-const harnessSettingSchema = z
+export const harnessSettingSchema = z
   .string()
   .regex(
     /^[A-Za-z0-9][A-Za-z0-9._/:@[\]-]*$/,
@@ -33,5 +35,8 @@ export const sessionOptionsSchema = z.object({
   permissionMode: permissionModeSchema,
   // The harness's own id of an earlier session to continue, as reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
+  // Keeps out the user's and the project's instruction files, memory, MCP servers and plugins,
+  // as far as the harness allows: for a clean-slate second opinion.
+  isolated: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

@@ -1,0 +1,76 @@
+.content {
+  width: min(600px, calc(100vw - 32px));
+}
+
+.brief {
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: var(--size-agent);
+  font-weight: 400;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.files {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.legend {
+  float: left;
+  width: 100%;
+  padding: 8px 10px 4px;
+  font-weight: 500;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+}
+
+.file input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.reviewer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.ok {
+  flex: none;
+  color: var(--ok);
+}
+
+.files .note {
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}

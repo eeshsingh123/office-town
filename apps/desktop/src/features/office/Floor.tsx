@@ -13,13 +13,14 @@ import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { Character } from "./Character.tsx";
 import {
-  clampToRoom,
+  clampToFloor,
   DESK,
   type FloorPlan,
   inRect,
   type Point,
   REACH,
   rectFrom,
+  roomAt,
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
@@ -31,13 +32,28 @@ export interface FloorAgent {
   harness: string;
   // What the agent is doing, shown above its head while it works or waits.
   bubble?: string;
+  // The room it sits in, by name, to group a selection.
+  group: string;
+}
+
+// What a room's sign and wall say.
+export interface RoomSign {
+  title: string;
+  note: string;
+  waiting: number;
+  lines: string[];
 }
 
 interface FloorProps {
   plan: FloorPlan;
   agents: FloorAgent[];
+  // By room id.
+  signs: Record<string, RoomSign>;
   selection: string[];
-  onSelect: (taskIds: string[]) => void;
+  // The department whose panel is open.
+  room: string | undefined;
+  onSelect: (agentIds: string[]) => void;
+  onOpenRoom: (departmentId: string) => void;
 }
 
 const SPEED = 260;
@@ -57,7 +73,10 @@ const FINISHED: AgentState[] = ["idle", "done", "failed", "stopped", "interrupte
 
 // Holding a direction key walks the player once per frame until every key is released.
 function useWalking(plan: FloorPlan) {
-  const [player, setPlayer] = useState(plan.start);
+  // Until the user walks, the player stands at the start of the plan as it is now: rooms appear
+  // once the departments load, and the start moves clear of them.
+  const [walked, setWalked] = useState<Point>();
+  const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
   const frame = useRef<number | undefined>(undefined);
   const last = useRef(0);
@@ -77,8 +96,8 @@ function useWalking(plan: FloorPlan) {
         frame.current = undefined;
         return;
       }
-      setPlayer((at) =>
-        clampToRoom(
+      setWalked((at = plan.start) =>
+        clampToFloor(
           { x: at.x + (x / length) * SPEED * seconds, y: at.y + (y / length) * SPEED * seconds },
           plan,
         ),
@@ -107,18 +126,31 @@ function useWalking(plan: FloorPlan) {
   return { player, press, release };
 }
 
-export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
+export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRoom }: FloorProps) {
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
   const near = withinReach(player, agents);
+  // The department room the player stands in: walking into one opens its panel.
+  const inside = useRef<string | undefined>(undefined);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: follows the player as it walks
   useEffect(() => {
     if (player === plan.start) return;
     you.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const standingIn = roomAt(player, plan);
+    const entered = standingIn?.kind === "department" ? standingIn.id : undefined;
+    if (entered !== undefined && entered !== inside.current) onOpenRoom(entered);
+    inside.current = entered;
   }, [player]);
+
+  useEffect(() => {
+    if (room === undefined) return;
+    document
+      .getElementById(`room-${room}`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [room]);
 
   const pointOf = (event: PointerEvent): Point => {
     const bounds = floor.current?.getBoundingClientRect();
@@ -131,7 +163,7 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
       event.preventDefault();
       press(key);
     } else if (key === "e" && near !== undefined) {
-      onSelect([near.agent.taskId]);
+      onSelect([near.agent.id]);
     } else if (key === "Escape") {
       onSelect([]);
     }
@@ -152,7 +184,7 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
     const box = rectFrom(drag.from, drag.to);
     setDrag(undefined);
     const dragged = box.width > DRAG_THRESHOLD || box.height > DRAG_THRESHOLD;
-    onSelect(dragged ? inRect(box, agents).map(({ agent }) => agent.taskId) : []);
+    onSelect(dragged ? inRect(box, agents).map(({ agent }) => agent.id) : []);
   };
 
   const box = drag === undefined ? undefined : rectFrom(drag.from, drag.to);
@@ -173,30 +205,56 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <div
-        className={styles.room}
-        style={{
-          left: plan.room.x,
-          top: plan.room.y,
-          width: plan.room.width,
-          height: plan.room.height,
-        }}
-      >
-        <span className={styles.roomLabel}>
-          Open floor<span>every agent at work gets a desk</span>
-        </span>
-      </div>
-      <div
-        className={styles.door}
-        style={{ left: plan.door.x, top: plan.door.y, width: plan.door.width }}
-      />
-      {plan.seats.map(({ desk }) => (
-        <div
-          key={`${desk.x},${desk.y}`}
-          className={styles.desk}
-          style={{ left: desk.x, top: desk.y, width: DESK.width, height: DESK.height }}
-        />
-      ))}
+      {plan.rooms.map(({ id, kind, rect }) => {
+        const sign = signs[id];
+        const label =
+          sign === undefined ? null : (
+            <>
+              {sign.title}
+              <span>{sign.note}</span>
+              {sign.waiting === 0 ? null : (
+                <span className={styles.signWaiting}>{sign.waiting} waiting</span>
+              )}
+            </>
+          );
+        return (
+          <div
+            key={id}
+            id={`room-${id}`}
+            className={`${styles.room} ${kind === "guest" ? styles.guestRoom : ""} ${room === id ? styles.roomOpen : ""}`}
+            style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+          >
+            {kind === "department" ? (
+              <button
+                type="button"
+                className={`${styles.sign} ${styles.signButton}`}
+                aria-pressed={room === id}
+                onClick={() => onOpenRoom(id)}
+              >
+                {label}
+              </button>
+            ) : (
+              <span className={styles.sign}>{label}</span>
+            )}
+            {sign === undefined || sign.lines.length === 0 ? null : (
+              <div className={styles.roomLines}>
+                {sign.lines.map((line) => (
+                  <span key={line}>{line}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {plan.rooms
+        .flatMap((one) => one.seats)
+        .map(({ desk }) => (
+          <div
+            key={`${desk.x},${desk.y}`}
+            className={styles.desk}
+            style={{ left: desk.x, top: desk.y, width: DESK.width, height: DESK.height }}
+          />
+        ))}
 
       {near === undefined ? null : (
         <div
@@ -220,10 +278,10 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
         You
       </div>
       {agents.map(({ agent, state, position, harness, bubble }) => {
-        const selected = selection.includes(agent.taskId);
+        const selected = selection.includes(agent.id);
         const finished = FINISHED.includes(state);
         return (
-          <div key={agent.taskId}>
+          <div key={agent.id}>
             {bubble === undefined ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : ""}`}
@@ -242,9 +300,9 @@ export function Floor({ plan, agents, selection, onSelect }: FloorProps) {
                   aria-label={`${agent.name}, ${harness}, ${STATE_LABELS[state].toLowerCase()}`}
                   onClick={(event) => {
                     const adding = event.shiftKey || event.ctrlKey || event.metaKey;
-                    if (!adding) onSelect([agent.taskId]);
-                    else if (selected) onSelect(selection.filter((id) => id !== agent.taskId));
-                    else onSelect([...selection, agent.taskId]);
+                    if (!adding) onSelect([agent.id]);
+                    else if (selected) onSelect(selection.filter((id) => id !== agent.id));
+                    else onSelect([...selection, agent.id]);
                   }}
                 >
                   <Character

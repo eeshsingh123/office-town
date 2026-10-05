@@ -1,9 +1,11 @@
 import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
+import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
+import { ProfilesView } from "./features/profiles/ProfilesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
@@ -19,6 +21,10 @@ function Main({ view }: { view: View }) {
       return <NeedsYouView />;
     case "tasks":
       return <TasksView />;
+    case "profiles":
+      return <ProfilesView />;
+    case "department":
+      return <DepartmentSettings key={view.departmentId} departmentId={view.departmentId} />;
     case "task":
       return <TaskView key={view.taskId} taskId={view.taskId} />;
   }

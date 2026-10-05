@@ -2,7 +2,12 @@ import { Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
+import {
+  type TaskWithAgents,
+  taskStateOf,
+  useTasksWithAgents,
+  useWaitingSessions,
+} from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { deleteTask, loadOlderTasks } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
@@ -25,13 +30,13 @@ function dayOf(iso: string): string {
   return day.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
 }
 
-function DeleteTask({ agent }: { agent: Agent }) {
+function DeleteTask({ entry }: { entry: TaskWithAgents }) {
   const [error, setError] = useState<string>();
   const [open, setOpen] = useState(false);
-  const running = isOpen(agent.latest);
+  const running = entry.agents.some((agent) => isOpen(agent.latest));
   const confirm = async () => {
     try {
-      await deleteTask(agent.taskId);
+      await deleteTask(entry.task.id);
       setOpen(false);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -50,8 +55,8 @@ function DeleteTask({ agent }: { agent: Agent }) {
           variant="ghost"
           icon
           disabled={running}
-          title={running ? "Stop the agent before deleting its task" : undefined}
-          aria-label={`Delete ${taskTitle(agent.task.prompt)}`}
+          title={running ? "Stop the agents before deleting the task" : undefined}
+          aria-label={`Delete ${taskTitle(entry.task.prompt)}`}
         >
           <Trash2 size={14} aria-hidden />
         </Button>
@@ -83,30 +88,33 @@ function DeleteTask({ agent }: { agent: Agent }) {
   );
 }
 
-function TaskRow({ agent, waiting }: { agent: Agent; waiting: boolean }) {
+function TaskRow({ entry, waiting }: { entry: TaskWithAgents; waiting: Set<string> }) {
   const traces = useApp((state) => state.traces);
-  const harness = useHarnessName(agent.latest.options.harness);
-  const state = stateOf(agent, traces, waiting);
-  const continued = agent.sessions.length - 1;
+  const [first] = entry.agents;
+  const harness = useHarnessName(first?.latest.options.harness ?? "");
+  const state = taskStateOf(entry.agents, traces, waiting);
+  if (first === undefined || state === undefined) return null;
+  const continued = first.sessions.length - 1;
   return (
     <li className={styles.row}>
       <button
         type="button"
         className={styles.open}
-        onClick={() => navigate({ name: "task", taskId: agent.taskId })}
+        onClick={() => navigate({ name: "task", taskId: entry.task.id })}
       >
         <StatusIcon state={state} />
         <span className={styles.text}>
-          <span className={styles.title}>{taskTitle(agent.task.prompt)}</span>
+          <span className={styles.title}>{taskTitle(entry.task.prompt)}</span>
           <span className={styles.meta}>
-            {agent.name} · {harness} · {clockTime(agent.task.createdAt)} · {STATE_LABELS[state]}
+            {entry.agents.map((agent) => agent.name).join(", ")} · {harness} ·{" "}
+            {clockTime(entry.task.createdAt)} · {STATE_LABELS[state]}
             {continued === 0
               ? ""
               : ` · continued ${continued === 1 ? "once" : `${continued} times`}`}
           </span>
         </span>
       </button>
-      <DeleteTask agent={agent} />
+      <DeleteTask entry={entry} />
     </li>
   );
 }
@@ -127,11 +135,11 @@ function StoreSize() {
 
 // Every past task, newest first; opening one replays it through the same trace view.
 export function TasksView() {
-  const agents = useAgents();
+  const tasks = useTasksWithAgents();
   const waiting = useWaitingSessions();
   const older = useApp((state) => state.olderTasks);
   const [loading, setLoading] = useState(false);
-  const days = Map.groupBy(agents, (agent) => dayOf(agent.task.createdAt));
+  const days = Map.groupBy(tasks, (entry) => dayOf(entry.task.createdAt));
 
   const loadMore = async () => {
     setLoading(true);
@@ -149,13 +157,13 @@ export function TasksView() {
           Tasks
         </h1>
         <StoreSize />
-        {agents.length === 0 ? <p className={styles.size}>No tasks yet.</p> : null}
-        {[...days].map(([day, dayAgents]) => (
+        {tasks.length === 0 ? <p className={styles.size}>No tasks yet.</p> : null}
+        {[...days].map(([day, dayTasks]) => (
           <section key={day} aria-label={day}>
             <h2 className={styles.day}>{day}</h2>
             <ul className={styles.list}>
-              {dayAgents.map((agent) => (
-                <TaskRow key={agent.taskId} agent={agent} waiting={waiting.has(agent.latest.id)} />
+              {dayTasks.map((entry) => (
+                <TaskRow key={entry.task.id} entry={entry} waiting={waiting} />
               ))}
             </ul>
           </section>

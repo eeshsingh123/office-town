@@ -31,6 +31,9 @@ function environmentPrinting(lines: string[], code: number, stderr = "") {
     },
     toEnvironmentPath: (path) => path,
     toHostPath: (path) => path,
+    reach: () => {
+      throw new Error("A catalog query attaches no tool server.");
+    },
   };
   return { environment, launches, written };
 }
@@ -45,6 +48,7 @@ const adapter: Adapter = {
     modelList: true,
     resume: false,
     usageLimits: false,
+    isolation: "none",
   },
   catalog: {
     command: { binary: "listed", args: ["models"] },

@@ -14,6 +14,7 @@ const recordings = {
   "plan-and-subagent": recording("plan-and-subagent"),
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
+  "team-tool": recording("team-tool"),
 };
 // Recorded with an effort chosen, so it only replays correctly with one.
 const effortRecording = recording("effort");
@@ -32,7 +33,7 @@ function configOf(options: Parameters<typeof opencodeAdapter.buildCommand>[0]) {
 }
 
 describe("opencode adapter", () => {
-  it("passes permission mode, model and additional folders as inline config, leaving the user's config alone", () => {
+  it("passes the permission mode, model and additional folders as inline config, leaving the user's config alone", () => {
     expect(opencodeAdapter.buildCommand(replayOptions)).toMatchObject({
       binary: "opencode",
       args: ["acp"],
@@ -42,19 +43,68 @@ describe("opencode adapter", () => {
     });
     const tuned = {
       ...replayOptions,
-      permissionMode: "acceptEdits" as const,
+      permissionMode: "bypass" as const,
       model: "a/b",
       additionalPaths: ["/notes/", "C:\\Data"],
     };
     expect(configOf(tuned)).toEqual({
       permission: {
         edit: "allow",
-        bash: "ask",
-        webfetch: "ask",
+        bash: "allow",
+        webfetch: "allow",
         external_directory: { "/notes/*": "allow", "C:\\Data\\*": "allow" },
       },
       model: "a/b",
     });
+  });
+
+  it("attaches the core's tool servers over ACP, keeps their tokens out of the reported lines, allows their tools, and reports calls to them as theirs", async () => {
+    const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
+    const attached = {
+      transport: "http" as const,
+      name: "office-town",
+      token: "secret",
+      url: toolServer.url,
+      headers: { Authorization: "Bearer secret" },
+    };
+    expect(configOf({ ...replayOptions, toolServers: [attached] }).permission).toMatchObject({
+      "office-town_*": "allow",
+    });
+
+    const { events, written, lines } = await replay(
+      opencodeAdapter,
+      recordings["team-tool"],
+      replayOptions,
+      { toolServers: [toolServer] },
+    );
+    const opened = JSON.parse(written[1] ?? "");
+    expect(opened.method).toBe("session/new");
+    expect(opened.params.mcpServers).toEqual([
+      {
+        type: "http",
+        name: "office-town",
+        url: toolServer.url,
+        headers: [{ name: "Authorization", value: "Bearer secret" }],
+      },
+    ]);
+    // The token reaches the harness, never the lines the core stores.
+    expect(lines.map((line) => line.text).join("\n")).not.toContain("secret");
+    expect(only(events, "action.started").map((event) => event.payload.tool)).toEqual([
+      { server: "office-town", name: "ask_user" },
+    ]);
+  });
+
+  it("turns off what it can when isolated, and says what still loads", () => {
+    const env = opencodeAdapter.buildCommand({ ...replayOptions, isolated: true }).env ?? {};
+    expect(env).toMatchObject({
+      OPENCODE_PURE: "1",
+      OPENCODE_DISABLE_PROJECT_CONFIG: "1",
+      OPENCODE_DISABLE_CLAUDE_CODE: "1",
+      OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
+    });
+    expect(opencodeAdapter.buildCommand(replayOptions).env?.OPENCODE_PURE).toBeUndefined();
+    expect(opencodeAdapter.capabilities.isolation).toBe("partial");
+    expect(opencodeAdapter.isolationNote).toContain("global");
   });
 
   it("performs the handshake, then sends the prompt once the session exists", async () => {

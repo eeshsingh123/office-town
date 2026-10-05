@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { SessionCommand, SessionEvent, SessionEventBody } from "@office-town/contract";
-import type { LineListener, Session, SessionListener } from "@office-town/harness";
+import type {
+  CoreReport,
+  LaunchExtras,
+  LineListener,
+  Session,
+  SessionListener,
+} from "@office-town/harness";
 
 // Stands in for a harness session: the test plays the harness's part through `emit` and `line`.
 export class FakeSession implements Session {
@@ -12,20 +18,47 @@ export class FakeSession implements Session {
     modelList: false,
     resume: true,
     usageLimits: false,
+    isolation: "none" as const,
   };
   readonly sent: SessionCommand[] = [];
+  readonly extras: LaunchExtras;
   readonly #listeners = new Set<SessionListener>();
   readonly #lineListeners = new Set<LineListener>();
   #sequence = 0;
 
+  readonly #failsToStart: boolean;
+
+  constructor(extras: LaunchExtras = {}, failsToStart = false) {
+    this.extras = extras;
+    this.#failsToStart = failsToStart;
+  }
+
   async send(command: SessionCommand): Promise<void> {
     this.sent.push(command);
-    if (command.type === "start") {
+    if (command.type === "start" && this.#failsToStart) {
+      this.emit({ type: "session.ended", payload: { reason: "failed", exitCode: null } });
+    } else if (command.type === "start") {
       this.emit({ type: "session.started", payload: { harnessSessionId: `harness-${this.id}` } });
     }
-    if (command.type === "stop") {
-      this.emit({ type: "session.ended", payload: { reason: "stopped", exitCode: 0 } });
+    if (command.type === "answerPermission") {
+      const { requestId, optionId, answeredBy } = command;
+      this.emit({
+        type: "permission.resolved",
+        payload: { requestId, outcome: "allowed", optionId, ...(answeredBy ? { answeredBy } : {}) },
+      });
     }
+    if (command.type === "stop") {
+      this.emit({
+        type: "session.ended",
+        payload: command.idle
+          ? { reason: "exited", exitCode: 0, idle: true }
+          : { reason: "stopped", exitCode: 0 },
+      });
+    }
+  }
+
+  report(body: CoreReport): void {
+    this.emit(body);
   }
 
   subscribe(listener: SessionListener): () => void {

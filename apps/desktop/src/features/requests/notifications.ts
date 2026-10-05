@@ -1,15 +1,14 @@
 import { shell } from "../../shell.ts";
-import { agentOf } from "../../store/agents.ts";
+import { workOf } from "../../store/agents.ts";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import type { WaitingRequest } from "../../store/records.ts";
+import { requestSummary } from "./summary.ts";
 
 function show(state: AppState, { event }: WaitingRequest): void {
-  const taskId = state.sessions[event.sessionId]?.taskId;
-  const agent = taskId === undefined ? undefined : agentOf(state, taskId);
-  const body =
-    event.type === "permission.requested"
-      ? event.payload.title
-      : (event.payload.questions[0]?.text ?? "It has a question");
+  const session = state.sessions[event.sessionId];
+  const taskId = session?.taskId;
+  const agent = session === undefined ? undefined : workOf(state, session.agentId, session.taskId);
+  const body = requestSummary(event);
   const notification = new Notification(`${agent?.name ?? "An agent"} needs you`, {
     body,
     tag: event.id,

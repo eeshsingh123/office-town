@@ -69,9 +69,10 @@ function migrate(db: DatabaseSync, file: string): void {
   // The user's history cannot be recreated, so a copy is kept before its schema changes.
   const backup = `${file}.bak-v${version}`;
   if (!fresh && !existsSync(backup)) db.prepare("VACUUM INTO ?").run(backup);
-  for (const [offset, sql] of migrations.slice(version).entries()) {
+  for (const [offset, migration] of migrations.slice(version).entries()) {
     transaction(db, () => {
-      db.exec(sql);
+      if (typeof migration === "string") db.exec(migration);
+      else migration(db);
       if (fresh) db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
       db.exec(`PRAGMA user_version = ${version + offset + 1}`);
     });

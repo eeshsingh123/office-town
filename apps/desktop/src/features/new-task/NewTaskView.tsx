@@ -1,66 +1,45 @@
-import type {
-  EnvironmentSpec,
-  HarnessCatalog,
-  PermissionMode,
-  StartTaskRequest,
-  WorkspaceRecord,
+import {
+  type Autonomy,
+  autonomySchema,
+  type StartTaskRequest,
+  type WorkspaceRecord,
 } from "@office-town/contract";
-import { Plus } from "lucide-react";
+import { Plus, User, Users } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { type KeyboardEvent, useState } from "react";
+import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { type Choice, ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
-import { environmentName } from "../../ui/format.ts";
+import { profileSummary } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
-import { ModelPicker } from "./ModelPicker.tsx";
 import styles from "./NewTaskView.module.css";
+import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
 import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
 
-const PERMISSIONS: Choice<PermissionMode>[] = [
-  {
-    value: "ask",
-    label: "Ask before changes",
-    description: "Asks you before it edits files or runs commands",
-  },
-  {
-    value: "acceptEdits",
-    label: "Allow edits",
-    description: "Edits files freely, asks before it runs commands",
-  },
-  {
-    value: "bypass",
-    label: "Allow everything",
-    description: "Never asks, so use it only where nothing important can break",
-  },
-];
-// A value no effort can take, since the harness's own words start with a letter or digit.
-const DEFAULT_EFFORT = "~default";
-
-// Catalogs come from running the harness's CLI, which takes seconds, so each is read once.
-const catalogs = new Map<string, Promise<HarnessCatalog>>();
-function readCatalog(harness: string, environment: EnvironmentSpec): Promise<HarnessCatalog> {
-  const key = `${harness}|${environmentKey(environment)}`;
-  const cached = catalogs.get(key);
-  if (cached !== undefined) return cached;
-  const reading = api.readCatalog(harness, environment);
-  catalogs.set(key, reading);
-  reading.catch(() => catalogs.delete(key));
-  return reading;
-}
-
-const environmentKey = (environment: EnvironmentSpec) =>
-  environment.kind === "wsl" ? `wsl:${environment.distro}` : "native";
+const LEVELS: Choice<Autonomy>[] = autonomySchema.options.map((level) => ({
+  value: level,
+  ...AUTONOMY[level],
+}));
+// A value no profile id can take, since an id starts with a letter or digit.
+const LAST_CHOICES = "~last";
 
 export function NewTaskView() {
   const harnesses = useApp((state) => state.harnesses);
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
+  const [profileId, setProfileId] = useState(remembered.profileId);
+  const [who, setWho] = useState<"one" | "team">(remembered.team ? "team" : "one");
+  const [departmentId, setDepartmentId] = useState(PROPOSE);
+  const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
@@ -75,53 +54,77 @@ export function NewTaskView() {
   const [error, setError] = useState<string>();
 
   const description = harnesses.find((known) => known.harness === harness) ?? harnesses[0];
-  const environments = useLoaded("environments", api.listEnvironments);
   const listed = useLoaded("workspaces", api.listWorkspaces);
   const [created, setCreated] = useState<WorkspaceRecord[]>([]);
   const workspaces = [...created, ...(listed.value ?? [])];
   const settings = useLoaded("settings", api.readSettings);
+  const profiles = useLoaded("profiles", api.listProfiles);
+  const profile = profiles.value?.find((known) => known.id === profileId);
   const outputFolder = chosenFolder ?? settings.value?.outputFolder;
-  const catalogKey =
-    description === undefined || !description.capabilities.modelList
-      ? undefined
-      : `${description.harness}|${environmentKey(choices.environment)}`;
-  const catalog = useLoaded(catalogKey, () =>
-    readCatalog(description?.harness ?? "", choices.environment),
+  // Read once and cached, so this shares the model list the chips load.
+  const catalog = useLoaded(
+    description?.capabilities.modelList
+      ? `${description.harness}|${environmentKey(choices.environment)}`
+      : undefined,
+    () => readCatalog(description?.harness ?? "", choices.environment),
   );
-
-  const chooseHarness = (next: string) => {
-    setHarness(next);
-    setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
-  };
-  const models = catalog.value?.models;
-  const model = models?.find((known) => known.id === choices.model);
-  const efforts = description?.capabilities.effort ? (model?.efforts ?? []) : [];
+  const model = catalog.value?.models.find((known) => known.id === choices.model);
   const workspace = workspaces.find((known) => known.id === workspaceId);
   const where =
     place === "workspace"
       ? workspace && { workspaceId: workspace.id }
       : outputFolder && { outputFolder };
-  const ready = description !== undefined && prompt.trim() !== "" && Boolean(where);
+  const fromProfile = profile !== undefined;
+  const soloAutonomy = choices.autonomy ?? "supervised";
+  const soloGate = useBypassGate(
+    soloAutonomy,
+    (autonomy) => setChoices({ ...choices, autonomy }),
+    "this agent",
+  );
+  const teamGate = useBypassGate(teamAutonomy, setTeamAutonomy, "the team");
+  const team = who === "team";
+  const proposing = team && departmentId === PROPOSE;
+  const placed = team ? !proposing || workspace !== undefined : Boolean(where);
+  const ready = (fromProfile || description !== undefined) && prompt.trim() !== "" && placed;
 
   const start = async () => {
-    if (description === undefined || prompt.trim() === "" || !where || starting) return;
+    if (!ready || starting || description === undefined) return;
     setStarting(true);
     setError(undefined);
-    const { environment, model: chosenModel, effort, permissionMode } = choices;
-    const request: StartTaskRequest = {
-      prompt: prompt.trim(),
-      options: {
-        harness: description.harness,
-        environment,
-        permissionMode,
-        ...(chosenModel === undefined ? {} : { model: chosenModel }),
-        ...(effort === undefined ? {} : { effort }),
-      },
-      ...where,
-    };
+    const { environment, model: chosenModel, effort } = choices;
+    const agent: StartTaskRequest["agent"] = fromProfile
+      ? { profileId: profile.id }
+      : {
+          settings: {
+            harness: description.harness,
+            environment,
+            ...(chosenModel === undefined ? {} : { model: chosenModel }),
+            ...(effort === undefined ? {} : { effort }),
+          },
+        };
+    const goal = prompt.trim();
     try {
-      const session = await api.startTask(request);
-      remember(description.harness, choices, place === "workspace" ? workspace?.id : undefined);
+      const session = team
+        ? await api.startTeamTask({
+            goal,
+            team:
+              proposing && workspace !== undefined
+                ? { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy }
+                : { departmentId },
+          })
+        : await api.startTask({
+            prompt: goal,
+            agent,
+            autonomy: soloAutonomy,
+            ...(where || {}),
+          });
+      remember(
+        description.harness,
+        choices,
+        place === "workspace" || team ? workspace?.id : undefined,
+        profile?.id,
+        team,
+      );
       await track(session.taskId);
       navigate({ name: "task", taskId: session.taskId });
     } catch (failure) {
@@ -137,20 +140,35 @@ export function NewTaskView() {
     }
   };
 
-  const environmentChoices = (environments.value ?? [choices.environment]).map((environment) => ({
-    value: environmentKey(environment),
-    label: environmentName(environment),
-  }));
-
   return (
     <section className={styles.page} aria-labelledby="new-task-title">
       <div className={styles.column}>
-        <h1 id="new-task-title" className={styles.title}>
-          What should the agent do?
-        </h1>
+        <div className={styles.titleRow}>
+          <h1 id="new-task-title" className={styles.title}>
+            {team ? "What should the team do?" : "What should the agent do?"}
+          </h1>
+          <ToggleGroup.Root
+            type="single"
+            className={styles.segments}
+            value={who}
+            onValueChange={(next) => {
+              if (next === "one" || next === "team") setWho(next);
+            }}
+            aria-label="Who works on it"
+          >
+            <ToggleGroup.Item value="one" className={styles.segment}>
+              <User size={14} aria-hidden />
+              One agent
+            </ToggleGroup.Item>
+            <ToggleGroup.Item value="team" className={styles.segment}>
+              <Users size={14} aria-hidden />A team
+            </ToggleGroup.Item>
+          </ToggleGroup.Root>
+        </div>
         <p className={styles.lead}>
-          Describe the task in your own words. You can answer its questions and approve its actions
-          as it works.
+          {team
+            ? "Describe the goal. A lead hands the work to its team and puts it together; the lead's first step is a team proposal you approve."
+            : "Describe the task in your own words. You can answer its questions and approve its actions as it works."}
         </p>
 
         <div className={styles.composer}>
@@ -169,118 +187,138 @@ export function NewTaskView() {
             autoFocus
           />
           <div className={styles.options}>
-            <ChoiceMenu
-              label="Harness"
-              value={description?.harness ?? ""}
-              choices={harnesses.map((known) => ({ value: known.harness, label: known.name }))}
-              onChange={chooseHarness}
-            />
-            <ChoiceMenu
-              label="Runs on"
-              value={environmentKey(choices.environment)}
-              choices={environmentChoices}
-              onChange={(key) => {
-                const environment = environments.value?.find((env) => environmentKey(env) === key);
-                if (environment !== undefined) setChoices({ ...choices, environment });
-              }}
-            />
-            {description?.capabilities.modelList ? (
-              <ModelPicker
-                models={models}
-                error={catalog.error}
-                value={choices.model}
-                recent={choices.recentModels}
-                onChange={(next) => {
-                  const nextEfforts = models?.find((known) => known.id === next)?.efforts ?? [];
-                  const { model: _, effort, ...rest } = choices;
+            {(profiles.value ?? []).length === 0 || (team && !proposing) ? null : (
+              <ChoiceMenu
+                label={team ? "Lead" : "Agent"}
+                value={profile?.id ?? LAST_CHOICES}
+                choices={[
+                  { value: LAST_CHOICES, label: "Your last choices" },
+                  ...(profiles.value ?? []).map((known) => ({
+                    value: known.id,
+                    label: known.name,
+                    description: profileSummary(known, harnesses),
+                  })),
+                ]}
+                onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
+              />
+            )}
+            {fromProfile || description === undefined || (team && !proposing) ? null : (
+              <SettingsChips
+                value={{
+                  harness: description.harness,
+                  environment: choices.environment,
+                  ...(choices.model === undefined ? {} : { model: choices.model }),
+                  ...(choices.effort === undefined ? {} : { effort: choices.effort }),
+                }}
+                recentModels={choices.recentModels}
+                onChange={({ harness: next, environment, model: nextModel, effort }) => {
+                  if (next !== description.harness) {
+                    setHarness(next);
+                    setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
+                    return;
+                  }
+                  const { autonomy, recentModels } = choices;
                   setChoices({
-                    ...rest,
-                    ...(next === undefined ? {} : { model: next }),
-                    ...(effort !== undefined && nextEfforts.includes(effort) ? { effort } : {}),
+                    environment,
+                    recentModels,
+                    ...(autonomy === undefined ? {} : { autonomy }),
+                    ...(nextModel === undefined ? {} : { model: nextModel }),
+                    ...(effort === undefined ? {} : { effort }),
                   });
                 }}
               />
-            ) : null}
-            {efforts.length > 0 ? (
+            )}
+            {team ? null : (
               <ChoiceMenu
-                label="Effort"
-                value={choices.effort ?? DEFAULT_EFFORT}
-                choices={[
-                  { value: DEFAULT_EFFORT, label: "Default" },
-                  ...efforts.map((effort) => ({ value: effort, label: effort })),
-                ]}
-                onChange={(next) => {
-                  const { effort: _, ...rest } = choices;
-                  setChoices(next === DEFAULT_EFFORT ? rest : { ...rest, effort: next });
-                }}
+                label="Autonomy"
+                value={soloAutonomy}
+                choices={LEVELS}
+                onChange={soloGate.choose}
               />
+            )}
+            {team && !proposing ? (
+              <span className={styles.hint}>The department's own lead takes the goal.</span>
             ) : null}
-            <ChoiceMenu
-              label="Permissions"
-              value={choices.permissionMode}
-              choices={PERMISSIONS}
-              onChange={(permissionMode) => setChoices({ ...choices, permissionMode })}
-            />
           </div>
         </div>
 
-        <div className={styles.where}>
-          <h2 className={styles.heading}>Where it works</h2>
-          <ToggleGroup.Root
-            type="single"
-            className={styles.segments}
-            value={place}
-            onValueChange={(next) => {
-              if (next === "workspace" || next === "folder") setPlace(next);
-            }}
-            aria-label="Where it works"
-          >
-            <ToggleGroup.Item value="workspace" className={styles.segment}>
-              A workspace
-            </ToggleGroup.Item>
-            <ToggleGroup.Item value="folder" className={styles.segment}>
-              A new folder
-            </ToggleGroup.Item>
-          </ToggleGroup.Root>
-          {place === "workspace" ? (
-            <div className={styles.workspace}>
-              {workspaces.length > 0 ? (
-                <ChoiceMenu
-                  label="Workspace"
-                  value={workspace?.id ?? ""}
-                  choices={workspaces.map((known) => ({
-                    value: known.id,
-                    label: known.name,
-                    description: known.folders.join(" · "),
-                  }))}
-                  onChange={setWorkspaceId}
-                />
-              ) : (
-                <span className={styles.hint}>No saved workspace yet.</span>
-              )}
-              <Button variant="ghost" onClick={() => setCreatingWorkspace(true)}>
-                <Plus size={14} aria-hidden />
-                New workspace
-              </Button>
-            </div>
-          ) : (
-            <FolderField
-              label="output folder"
-              value={outputFolder}
-              onChange={setChosenFolder}
-              hint="The task gets its own folder inside, named by the date and your first words."
-            />
-          )}
-        </div>
+        {team ? (
+          <TeamChoice
+            departmentId={departmentId}
+            onDepartment={setDepartmentId}
+            workspaces={workspaces}
+            workspaceId={workspace?.id}
+            onWorkspace={setWorkspaceId}
+            onNewWorkspace={() => setCreatingWorkspace(true)}
+            autonomy={teamAutonomy}
+            onAutonomy={teamGate.choose}
+          />
+        ) : (
+          <div className={styles.where}>
+            <h2 className={styles.heading}>Where it works</h2>
+            <ToggleGroup.Root
+              type="single"
+              className={styles.segments}
+              value={place}
+              onValueChange={(next) => {
+                if (next === "workspace" || next === "folder") setPlace(next);
+              }}
+              aria-label="Where it works"
+            >
+              <ToggleGroup.Item value="workspace" className={styles.segment}>
+                A workspace
+              </ToggleGroup.Item>
+              <ToggleGroup.Item value="folder" className={styles.segment}>
+                A new folder
+              </ToggleGroup.Item>
+            </ToggleGroup.Root>
+            {place === "workspace" ? (
+              <div className={styles.workspace}>
+                {workspaces.length > 0 ? (
+                  <ChoiceMenu
+                    label="Workspace"
+                    value={workspace?.id ?? ""}
+                    choices={workspaces.map((known) => ({
+                      value: known.id,
+                      label: known.name,
+                      description: known.folders.join(" · "),
+                    }))}
+                    onChange={setWorkspaceId}
+                  />
+                ) : (
+                  <span className={styles.hint}>No saved workspace yet.</span>
+                )}
+                <Button variant="ghost" onClick={() => setCreatingWorkspace(true)}>
+                  <Plus size={14} aria-hidden />
+                  New workspace
+                </Button>
+              </div>
+            ) : (
+              <FolderField
+                label="output folder"
+                value={outputFolder}
+                onChange={setChosenFolder}
+                hint="The task gets its own folder inside, named by the date and your first words."
+              />
+            )}
+          </div>
+        )}
 
         <div className={styles.actions}>
           <Button variant="primary" onClick={start} disabled={!ready || starting}>
-            {starting ? "Starting…" : "Start task"}
+            {starting ? "Starting…" : team ? "Start" : "Start task"}
           </Button>
           <span className={styles.hint}>
             <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd>
           </span>
-          {model?.access === "free" ? <span className={styles.note}>Free model</span> : null}
+          {!fromProfile && model?.access === "free" && !(team && !proposing) ? (
+            <span className={styles.note}>Free model</span>
+          ) : null}
+          {proposing ? (
+            <span className={styles.hint}>
+              The lead's first step is the team proposal. It waits for you in Needs you.
+            </span>
+          ) : null}
         </div>
         {error === undefined ? null : (
           <p className={styles.error} role="alert">
@@ -288,6 +326,8 @@ export function NewTaskView() {
           </p>
         )}
       </div>
+      {soloGate.confirm}
+      {teamGate.confirm}
       <WorkspaceDialog
         open={creatingWorkspace}
         onOpenChange={setCreatingWorkspace}

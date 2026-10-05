@@ -32,6 +32,8 @@ function StepHeading({ trace, stepId }: { trace: Trace; stepId: string }) {
 }
 
 function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }) {
+  // A guest leaves once it has answered; nothing but the user brings it back.
+  const guest = useApp((state) => state.agents[session.agentId]?.guest === true);
   switch (session.status) {
     case "starting":
     case "running":
@@ -40,7 +42,9 @@ function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }
       return (
         <p className={styles.ended}>
           <Check size={14} className={styles.ok} aria-hidden />
-          Finished
+          {trace.ended?.idle && !guest
+            ? "Finished · stopped when idle, continues when needed"
+            : "Finished"}
         </p>
       );
     case "stopped":

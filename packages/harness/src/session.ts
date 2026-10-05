@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
+  ActionKind,
   AdapterCapabilities,
+  AnsweredBy,
   PermissionOption,
   PlanStep,
   Question,
@@ -11,7 +13,14 @@ import type {
   SessionEventBody,
   SessionOptions,
 } from "@office-town/contract";
-import type { Adapter, AdapterEvent, LaunchOptions, Translation, Translator } from "./adapter.ts";
+import type {
+  Adapter,
+  AdapterEvent,
+  LaunchExtras,
+  LaunchOptions,
+  Translation,
+  Translator,
+} from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
@@ -32,10 +41,20 @@ export interface HarnessLine {
 
 export type LineListener = (line: HarnessLine) => void;
 
+// What the core itself adds to a session's stream: requests its tools make, and their answers.
+export type CoreReport = Extract<
+  SessionEventBody,
+  {
+    type: "question.requested" | "question.resolved" | "proposal.requested" | "proposal.resolved";
+  }
+>;
+
 export interface Session {
   readonly id: string;
   readonly capabilities: AdapterCapabilities;
   send(command: SessionCommand): Promise<void>;
+  // Numbered like the harness's own events, so the stream stays in one order.
+  report(body: CoreReport): void;
   subscribe(listener: SessionListener): () => void;
   subscribeLines(listener: LineListener): () => void;
 }
@@ -63,7 +82,9 @@ export class HarnessSession implements Session {
   readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
   readonly #pendingQuestions = new Map<string, Question[]>();
-  readonly #openActions = new Set<string>();
+  // What each running action is and touches, as host paths: a permission request for it carries
+  // them, so a guardrail can tell what it asks for whichever harness asked.
+  readonly #openActions = new Map<string, { kind: ActionKind; locations?: string[] }>();
   readonly #launched = Promise.withResolvers<void>();
   readonly #ended = Promise.withResolvers<void>();
   #reportingListenerFailure = false;
@@ -72,13 +93,28 @@ export class HarnessSession implements Session {
   #process: RunningProcess | undefined;
   #turnId: string | undefined;
   #plan: PlanStep[] = [];
+  // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
+  #idle = false;
+  readonly #tokens: string[];
 
-  constructor(options: SessionOptions, adapter: Adapter, environment: Environment) {
+  constructor(
+    options: SessionOptions,
+    adapter: Adapter,
+    environment: Environment,
+    extras: LaunchExtras = {},
+  ) {
     const workspacePath = environment.toEnvironmentPath(options.workspacePath ?? process.cwd());
     const additionalPaths = options.additionalPaths?.map((path) =>
       environment.toEnvironmentPath(path),
     );
-    this.#options = { ...options, workspacePath, ...(additionalPaths && { additionalPaths }) };
+    const toolServers = (extras.toolServers ?? []).map((server) => environment.reach(server));
+    this.#tokens = toolServers.map((server) => server.token);
+    this.#options = {
+      ...options,
+      workspacePath,
+      toolServers,
+      ...(additionalPaths && { additionalPaths }),
+    };
     this.#adapter = adapter;
     this.#environment = environment;
     this.#translator = adapter.createTranslator(this.#options);
@@ -101,12 +137,19 @@ export class HarnessSession implements Session {
         return this.#start();
       case "prompt":
         this.#requireActive("prompt");
-        this.#emit({ type: "message", payload: { role: "user", text: command.text } });
+        this.#emit({
+          type: "message",
+          payload: {
+            role: "user",
+            text: command.text,
+            ...(command.origin === undefined ? {} : { origin: command.origin }),
+          },
+        });
         this.#apply(this.#translator.prompt(command.text));
         return;
       case "answerPermission":
         this.#requireActive("answer a permission");
-        this.#answerPermission(command.requestId, command.optionId);
+        this.#answerPermission(command.requestId, command.optionId, command.answeredBy);
         return;
       case "answerQuestion":
         this.#requireActive("answer a question");
@@ -117,8 +160,15 @@ export class HarnessSession implements Session {
         this.#apply(this.#translator.interrupt());
         return;
       case "stop":
-        return this.#stop();
+        return this.#stop(command.idle === true);
     }
+  }
+
+  report(body: CoreReport): void {
+    if (this.#state === "ended") {
+      throw new SessionStateError("Cannot add to a session that has ended.");
+    }
+    this.#emit(body);
   }
 
   async #start(): Promise<void> {
@@ -159,7 +209,7 @@ export class HarnessSession implements Session {
     this.#emit({ type: "error", payload: { message, fatal: false } });
   }
 
-  #answerPermission(requestId: string, optionId: string): void {
+  #answerPermission(requestId: string, optionId: string, answeredBy?: AnsweredBy): void {
     const option = this.#pendingPermissions.get(requestId)?.find((o) => o.optionId === optionId);
     if (option === undefined) {
       throw new SessionStateError(
@@ -169,7 +219,15 @@ export class HarnessSession implements Session {
     this.#pendingPermissions.delete(requestId);
     this.#apply(this.#translator.answerPermission(requestId, option));
     const outcome = option.kind.startsWith("allow") ? "allowed" : "denied";
-    this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
+    this.#emit({
+      type: "permission.resolved",
+      payload: {
+        requestId,
+        outcome,
+        optionId,
+        ...(answeredBy === undefined ? {} : { answeredBy }),
+      },
+    });
   }
 
   #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
@@ -196,7 +254,8 @@ export class HarnessSession implements Session {
     });
   }
 
-  async #stop(): Promise<void> {
+  async #stop(idle: boolean): Promise<void> {
+    this.#idle = idle;
     if (this.#state === "created") this.#end("stopped", null);
     // A launch cannot be abandoned halfway, so a stop during startup waits for it to settle.
     if (this.#state === "starting") await this.#launched.promise;
@@ -222,9 +281,18 @@ export class HarnessSession implements Session {
     for (const event of translation.events) this.#publish(event);
     for (const line of translation.outgoing) {
       if (this.#process === undefined) continue;
-      this.#notify(this.#lineListeners, { direction: "out", text: line, partial: false });
+      this.#notifyLine({ direction: "out", text: line, partial: false });
       this.#process.writeLine(line);
     }
+  }
+
+  // Tokens last one launch and are never stored (D-43), so lines are handed on without them.
+  #notifyLine(line: HarnessLine): void {
+    const text = this.#tokens.reduce(
+      (hidden, token) => hidden.replaceAll(token, "[token]"),
+      line.text,
+    );
+    this.#notify(this.#lineListeners, { ...line, text });
   }
 
   #receive(line: string): void {
@@ -232,7 +300,7 @@ export class HarnessSession implements Session {
     try {
       translation = this.#translator.receive(line);
     } catch (error) {
-      this.#notify(this.#lineListeners, { direction: "in", text: line, partial: false });
+      this.#notifyLine({ direction: "in", text: line, partial: false });
       this.#emit({
         type: "error",
         payload: {
@@ -244,7 +312,7 @@ export class HarnessSession implements Session {
       return;
     }
     const partial = translation.partial ?? false;
-    this.#notify(this.#lineListeners, { direction: "in", text: line, partial });
+    this.#notifyLine({ direction: "in", text: line, partial });
     this.#apply(translation);
   }
 
@@ -261,18 +329,26 @@ export class HarnessSession implements Session {
         this.#plan = event.payload.steps;
         this.#emit(event);
         break;
-      case "action.started":
-        this.#openActions.add(event.payload.actionId);
-        this.#emit({ ...event, payload: this.#attributeToPlan(this.#onHost(event.payload)) });
+      case "action.started": {
+        const payload = this.#attributeToPlan(this.#onHost(event.payload));
+        this.#openActions.set(payload.actionId, {
+          kind: payload.kind,
+          ...(payload.locations === undefined ? {} : { locations: payload.locations }),
+        });
+        this.#emit({ ...event, payload });
         break;
+      }
       case "action.ended":
         this.#openActions.delete(event.payload.actionId);
         this.#emit(event);
         break;
-      case "permission.requested":
+      case "permission.requested": {
         this.#pendingPermissions.set(event.payload.requestId, event.payload.options);
-        this.#emit(event);
+        const { actionId } = event.payload;
+        const action = actionId === undefined ? undefined : this.#openActions.get(actionId);
+        this.#emit({ ...event, payload: { ...event.payload, ...action } });
         break;
+      }
       case "permission.resolved":
         this.#pendingPermissions.delete(event.payload.requestId);
         this.#emit(event);
@@ -333,7 +409,7 @@ export class HarnessSession implements Session {
       this.#emit({ type: "question.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#pendingQuestions.clear();
-    for (const actionId of this.#openActions) {
+    for (const actionId of this.#openActions.keys()) {
       const result = "The harness stopped before this action finished.";
       this.#emit({ type: "action.ended", payload: { actionId, outcome: "failed", result } });
     }
@@ -356,7 +432,11 @@ export class HarnessSession implements Session {
 
   #end(reason: "stopped" | "exited" | "failed", exitCode: number | null): void {
     this.#state = "ended";
-    this.#emit({ type: "session.ended", payload: { reason, exitCode } });
+    const idle = this.#idle && reason === "stopped";
+    this.#emit({
+      type: "session.ended",
+      payload: idle ? { reason: "exited", exitCode, idle } : { reason, exitCode },
+    });
     this.#ended.resolve();
   }
 

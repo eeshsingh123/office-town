@@ -38,6 +38,7 @@ describe("WSL path translation", () => {
       ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
       ["/mnt/c", "C:\\"],
       ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
+      ["/mnt/c/../../work/x", "\\\\wsl.localhost\\Ubuntu\\work\\x"],
       ["relative/file.txt", "relative/file.txt"],
     ];
     for (const [wslPath, windowsPath] of cases) {
@@ -101,6 +102,19 @@ describe("WslEnvironment", () => {
     await environment.launch({ binary: "claude", args: [] });
 
     expect((host.request as LaunchRequest).args.at(-1)).toBe("/home/dev/bin/claude");
+  });
+
+  it("reaches the core's tool server through a bridge run on Windows, keeping the token off the command line", () => {
+    const { environment } = fakeDistro({});
+    const url = "http://127.0.0.1:5000/mcp";
+
+    const attached = environment.reach({ name: "office-town", url, token: "secret" });
+
+    if (attached.transport !== "stdio") throw new Error("expected a stdio bridge");
+    expect(attached.command).toBe(toWslPath(process.execPath, "Ubuntu"));
+    expect(attached.args).toEqual([expect.stringMatching(/tool-bridge.ts$/), url]);
+    expect(attached.env.OFFICE_TOWN_TOOL_TOKEN).toBe("secret");
+    expect(attached.env.WSLENV?.split(":")).toContain("OFFICE_TOWN_TOOL_TOKEN");
   });
 
   it("says which distro lacks the binary", async () => {

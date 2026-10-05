@@ -113,6 +113,34 @@ describe("trace", () => {
     expect(describeActions(actions)).toBe("Read 2 files, ran 1 command");
   });
 
+  it("names calls to the core's own tools plainly, whichever harness made them", () => {
+    const trace = applyEvents(
+      emptyTrace(SESSION),
+      stream(
+        started("ask", {
+          kind: "other",
+          title: "mcp__office-town__ask_user",
+          input: { question: "Red or blue?" },
+          tool: { server: "office-town", name: "ask_user" },
+        }),
+        started("hand", {
+          kind: "other",
+          title: "office-town_delegate",
+          input: { agent: "@ben-1042", brief: "Build the page" },
+          tool: { server: "office-town", name: "delegate" },
+        }),
+        started("other", { tool: { server: "github", name: "delegate" } }),
+      ),
+    );
+
+    const actions = ["ask", "hand", "other"].map((id) => trace.items.get(id) as TraceAction);
+    expect(actions.map((action) => [action.actionKind, action.title])).toEqual([
+      ["other", "Asked you: Red or blue?"],
+      ["delegate", "Delegated to @ben-1042"],
+      ["read", "Read other"],
+    ]);
+  });
+
   it("tells working from waiting from done for now, and shows the step and current action", () => {
     const session = { status: "running" } as SessionRecord;
     const working = applyEvents(emptyTrace(SESSION), work);
