@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
 export const tokenUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative(),
@@ -61,6 +62,8 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("brief"), summary: z.string().min(1) }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
+  // News for the agent, such as a change to its team. `summary` is the one line shown for it.
+  z.object({ kind: z.literal("notice"), summary: z.string().min(1) }),
 ]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;
 
@@ -163,6 +166,22 @@ const payloadSchemas = {
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
   }),
+  // A lead's team, for the user to edit and approve. `departmentId` is set when it changes a
+  // department that exists.
+  "proposal.requested": z.object({
+    requestId: z.string().min(1),
+    team: teamSchema,
+    reason: z.string().optional(),
+    place: proposalPlaceSchema,
+    departmentId: z.string().min(1).optional(),
+  }),
+  "proposal.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["approved", "revised", "declined", "cancelled"]),
+    // The team as approved, after the user's changes.
+    team: teamSchema.optional(),
+    note: z.string().optional(),
+  }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   error: z.object({
     message: z.string(),
@@ -199,6 +218,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.resolved"),
   eventOf("question.requested"),
   eventOf("question.resolved"),
+  eventOf("proposal.requested"),
+  eventOf("proposal.resolved"),
   eventOf("limits.updated"),
   eventOf("error"),
 ]);
@@ -212,5 +233,6 @@ export type SessionEventBody = {
 export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.requested"),
   eventOf("question.requested"),
+  eventOf("proposal.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

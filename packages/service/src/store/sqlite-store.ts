@@ -6,6 +6,8 @@ import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type AgentRecord,
   type AgentSettings,
+  type DepartmentRecord,
+  type DepartmentSettings,
   type PendingRequestList,
   type ProfileRecord,
   type ProfileRequest,
@@ -27,16 +29,21 @@ import { openDatabase, readNumber, transaction } from "./database.ts";
 import { queries } from "./queries.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
+  type AgentChange,
   type EventQuery,
+  InUseError,
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
+  type NewDepartment,
   type NewSession,
   RecordNotFoundError,
   type Store,
   type StoredEvent,
   TaskActiveError,
   type TaskQuery,
+  type TaskTeam,
+  type TeamSetup,
 } from "./store.ts";
 
 // Deleting a long session in one statement blocks the process for most of a second; in chunks,
@@ -51,6 +58,9 @@ interface TaskRow {
   id: string;
   prompt: string;
   createdAt: number;
+  leadAgentId: string | null;
+  departmentId: string | null;
+  setup: string | null;
 }
 
 interface SessionRow {
@@ -82,8 +92,22 @@ interface AgentRow {
   name: string;
   colour: AgentRecord["colour"];
   role: string | null;
+  purpose: string | null;
+  departmentId: string | null;
   profileId: string | null;
   settings: string;
+  createdAt: number;
+}
+
+interface DepartmentRow {
+  ref: number;
+  id: string;
+  name: string;
+  workspaceId: string;
+  autonomy: DepartmentRecord["autonomy"];
+  leadAgentId: string;
+  branchPerWorker: number;
+  codeFlow: number;
   createdAt: number;
 }
 
@@ -124,7 +148,13 @@ function iso(milliseconds: number): string {
 }
 
 function toTask(row: TaskRow): TaskRecord {
-  return { id: row.id, prompt: row.prompt, createdAt: iso(row.createdAt) };
+  return {
+    id: row.id,
+    prompt: row.prompt,
+    createdAt: iso(row.createdAt),
+    ...(row.leadAgentId === null ? {} : { leadAgentId: row.leadAgentId }),
+    ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+  };
 }
 
 function toSession(row: SessionRow): SessionRecord {
@@ -147,8 +177,23 @@ function toAgent(row: AgentRow): AgentRecord {
     name: row.name,
     colour: row.colour,
     ...(row.role === null ? {} : { role: row.role }),
+    ...(row.purpose === null ? {} : { purpose: row.purpose }),
+    ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
     ...(row.profileId === null ? {} : { profileId: row.profileId }),
     settings: JSON.parse(row.settings) as AgentSettings,
+    createdAt: iso(row.createdAt),
+  };
+}
+
+function toDepartment(row: DepartmentRow): DepartmentRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    workspaceId: row.workspaceId,
+    autonomy: row.autonomy,
+    leadAgentId: row.leadAgentId,
+    branchPerWorker: row.branchPerWorker === 1,
+    codeFlow: row.codeFlow === 1,
     createdAt: iso(row.createdAt),
   };
 }
@@ -164,8 +209,9 @@ function toProfile(row: ProfileRow): ProfileRecord {
   };
 }
 
-// SQLite's own code for a broken UNIQUE constraint.
+// SQLite's own codes for a broken UNIQUE constraint, and for a row others still point at.
 const SQLITE_CONSTRAINT_UNIQUE = 2067;
+const SQLITE_CONSTRAINT_FOREIGNKEY = 787;
 
 function isUniqueViolation(error: unknown): boolean {
   return (error as { errcode?: number }).errcode === SQLITE_CONSTRAINT_UNIQUE;
@@ -216,10 +262,46 @@ class SqliteStore implements Store {
     ) as Statements;
   }
 
-  createTask(prompt: string): TaskRecord {
-    const task = { id: randomUUID(), prompt, createdAt: Date.now() };
-    this.#statements.insertTask.run(task.id, task.prompt, task.createdAt);
-    return { ...task, createdAt: iso(task.createdAt) };
+  createTask(prompt: string, team?: TaskTeam): TaskRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    const lead = team === undefined ? undefined : this.#agentRow(team.leadAgentId);
+    const department =
+      team !== undefined && "departmentId" in team
+        ? this.#departmentRow(team.departmentId)
+        : undefined;
+    const setup = team !== undefined && "setup" in team ? JSON.stringify(team.setup) : null;
+    this.#statements.insertTask.run(
+      id,
+      prompt,
+      createdAt,
+      lead?.ref ?? null,
+      department?.ref ?? null,
+      setup,
+    );
+    return {
+      id,
+      prompt,
+      createdAt: iso(createdAt),
+      ...(lead === undefined ? {} : { leadAgentId: lead.id }),
+      ...(department === undefined ? {} : { departmentId: department.id }),
+    };
+  }
+
+  taskSetup(taskId: string): TeamSetup | undefined {
+    const { setup } = this.#taskRow(taskId);
+    return setup === null ? undefined : (JSON.parse(setup) as TeamSetup);
+  }
+
+  joinDepartment(taskId: string, departmentId: string): TaskRecord {
+    const task = this.#taskRow(taskId);
+    this.#statements.taskJoinsDepartment.run(this.#departmentRow(departmentId).ref, task.ref);
+    return toTask({ ...task, departmentId, setup: null });
+  }
+
+  activeTaskOf(departmentId: string): string | undefined {
+    const ref = this.#departmentRow(departmentId).ref;
+    return one<{ id: string }>(this.#statements.activeTaskOfDepartment, ref)?.id;
   }
 
   getTask(id: string): TaskRecord | undefined {
@@ -385,9 +467,11 @@ class SqliteStore implements Store {
     };
   }
 
-  createAgent({ name, colour, role, profileId, settings }: NewAgentRecord): AgentRecord {
+  createAgent(agent: NewAgentRecord): AgentRecord {
+    const { name, colour, role, purpose, departmentId, profileId, settings } = agent;
     const id = randomUUID();
     const profileRef = profileId === undefined ? null : this.#profileRow(profileId).ref;
+    const departmentRef = departmentId === undefined ? null : this.#departmentRow(departmentId).ref;
     const createdAt = Date.now();
     try {
       this.#statements.insertAgent.run(
@@ -395,6 +479,8 @@ class SqliteStore implements Store {
         name,
         colour,
         role ?? null,
+        purpose ?? null,
+        departmentRef,
         profileRef,
         JSON.stringify(settings),
         createdAt,
@@ -408,6 +494,8 @@ class SqliteStore implements Store {
       name,
       colour,
       ...(role === undefined ? {} : { role }),
+      ...(purpose === undefined ? {} : { purpose }),
+      ...(departmentId === undefined ? {} : { departmentId }),
       ...(profileId === undefined ? {} : { profileId }),
       settings,
       createdAt: iso(createdAt),
@@ -436,6 +524,74 @@ class SqliteStore implements Store {
       throw error;
     }
     return toAgent({ ...row, name });
+  }
+
+  updateAgent(id: string, change: AgentChange): AgentRecord {
+    const row = this.#agentRow(id);
+    const { role, purpose, departmentId, profileId, settings } = change;
+    this.#statements.updateAgent.run(
+      role ?? null,
+      purpose ?? null,
+      departmentId === undefined ? null : this.#departmentRow(departmentId).ref,
+      profileId === undefined ? null : this.#profileRow(profileId).ref,
+      JSON.stringify(settings),
+      row.ref,
+    );
+    const { name, colour, createdAt } = toAgent(row);
+    return {
+      id,
+      name,
+      colour,
+      ...(role === undefined ? {} : { role }),
+      ...(purpose === undefined ? {} : { purpose }),
+      ...(departmentId === undefined ? {} : { departmentId }),
+      ...(profileId === undefined ? {} : { profileId }),
+      settings,
+      createdAt,
+    };
+  }
+
+  createDepartment(department: NewDepartment): DepartmentRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    this.#statements.insertDepartment.run(
+      id,
+      department.name,
+      this.#workspaceRow(department.workspaceId).ref,
+      department.autonomy,
+      this.#agentRow(department.leadAgentId).ref,
+      department.branchPerWorker ? 1 : 0,
+      department.codeFlow ? 1 : 0,
+      createdAt,
+    );
+    return { ...department, id, createdAt: iso(createdAt) };
+  }
+
+  getDepartment(id: string): DepartmentRecord | undefined {
+    const row = one<DepartmentRow>(this.#statements.departmentById, id);
+    return row === undefined ? undefined : toDepartment(row);
+  }
+
+  listDepartments(): DepartmentRecord[] {
+    return all<DepartmentRow>(this.#statements.allDepartments).map(toDepartment);
+  }
+
+  updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord {
+    const row = this.#departmentRow(id);
+    const { name, autonomy, branchPerWorker, codeFlow } = settings;
+    this.#statements.updateDepartment.run(
+      name,
+      autonomy,
+      branchPerWorker ? 1 : 0,
+      codeFlow ? 1 : 0,
+      row.ref,
+    );
+    return { ...toDepartment(row), ...settings };
+  }
+
+  listMembers(departmentId: string): AgentRecord[] {
+    const ref = this.#departmentRow(departmentId).ref;
+    return all<AgentRow>(this.#statements.membersOf, ref).map(toAgent);
   }
 
   createProfile({ name, role, colour, settings }: ProfileRequest): ProfileRecord {
@@ -482,7 +638,12 @@ class SqliteStore implements Store {
   }
 
   deleteWorkspace(id: string): void {
-    this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
+    try {
+      this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
+    } catch (error) {
+      if ((error as { errcode?: number }).errcode !== SQLITE_CONSTRAINT_FOREIGNKEY) throw error;
+      throw new InUseError("A department works in this workspace, so it cannot be deleted.");
+    }
   }
 
   useWorkspace(id: string): WorkspaceRecord {
@@ -531,6 +692,12 @@ class SqliteStore implements Store {
   #taskRow(id: string): TaskRow {
     const row = one<TaskRow>(this.#statements.taskById, id);
     if (row === undefined) throw new RecordNotFoundError("task", id);
+    return row;
+  }
+
+  #departmentRow(id: string): DepartmentRow {
+    const row = one<DepartmentRow>(this.#statements.departmentById, id);
+    if (row === undefined) throw new RecordNotFoundError("department", id);
     return row;
   }
 
@@ -598,10 +765,12 @@ class SqliteStore implements Store {
     switch (event.type) {
       case "permission.requested":
       case "question.requested":
+      case "proposal.requested":
         this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
         return;
       case "permission.resolved":
       case "question.resolved":
+      case "proposal.resolved":
         this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
         return;
       case "session.ended":

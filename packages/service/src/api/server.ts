@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
+import { cachedCatalogs, type ReadCatalog } from "../team/catalogs.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
@@ -14,6 +15,8 @@ const BODY_LIMIT_BYTES = 1024 * 1024;
 export interface ApiOptions {
   registry: SessionRegistry;
   store: Store;
+  // Shared with the team tools, so each catalog is read once.
+  readCatalog?: ReadCatalog;
   // Generated per launch: anything else on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -81,10 +84,11 @@ function send(response: ServerResponse, reply: Reply): void {
 export async function startApiServer({
   registry,
   store,
+  readCatalog = cachedCatalogs(),
   token,
   port,
 }: ApiOptions): Promise<ApiServer> {
-  const routes = apiRoutes(registry, store);
+  const routes = apiRoutes({ registry, store, readCatalog });
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");

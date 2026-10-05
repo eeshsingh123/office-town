@@ -1,5 +1,10 @@
-import type { PermissionMode, StartTaskRequest, WorkspaceRecord } from "@office-town/contract";
-import { Plus } from "lucide-react";
+import type {
+  Autonomy,
+  PermissionMode,
+  StartTaskRequest,
+  WorkspaceRecord,
+} from "@office-town/contract";
+import { Plus, User, Users } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { type KeyboardEvent, useState } from "react";
 import { environmentKey, readCatalog } from "../../api/catalogs.ts";
@@ -15,6 +20,7 @@ import { useLoaded } from "../../ui/use-loaded.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
 import styles from "./NewTaskView.module.css";
+import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
 import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
 
 const PERMISSIONS: Choice<PermissionMode>[] = [
@@ -42,6 +48,9 @@ export function NewTaskView() {
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
   const [profileId, setProfileId] = useState(remembered.profileId);
+  const [who, setWho] = useState<"one" | "team">(remembered.team ? "team" : "one");
+  const [departmentId, setDepartmentId] = useState(PROPOSE);
+  const [autonomy, setAutonomy] = useState<Autonomy>("trusted");
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
@@ -77,11 +86,13 @@ export function NewTaskView() {
       ? workspace && { workspaceId: workspace.id }
       : outputFolder && { outputFolder };
   const fromProfile = profile !== undefined;
-  const ready =
-    (fromProfile || description !== undefined) && prompt.trim() !== "" && Boolean(where);
+  const team = who === "team";
+  const proposing = team && departmentId === PROPOSE;
+  const placed = team ? !proposing || workspace !== undefined : Boolean(where);
+  const ready = (fromProfile || description !== undefined) && prompt.trim() !== "" && placed;
 
   const start = async () => {
-    if (!ready || !where || starting || description === undefined) return;
+    if (!ready || starting || description === undefined) return;
     setStarting(true);
     setError(undefined);
     const { environment, model: chosenModel, effort, permissionMode } = choices;
@@ -95,14 +106,23 @@ export function NewTaskView() {
             ...(effort === undefined ? {} : { effort }),
           },
         };
-    const request: StartTaskRequest = { prompt: prompt.trim(), agent, permissionMode, ...where };
+    const goal = prompt.trim();
     try {
-      const session = await api.startTask(request);
+      const session = team
+        ? await api.startTeamTask({
+            goal,
+            team:
+              proposing && workspace !== undefined
+                ? { lead: agent, workspaceId: workspace.id, autonomy }
+                : { departmentId },
+          })
+        : await api.startTask({ prompt: goal, agent, permissionMode, ...(where || {}) });
       remember(
         description.harness,
         choices,
-        place === "workspace" ? workspace?.id : undefined,
+        place === "workspace" || team ? workspace?.id : undefined,
         profile?.id,
+        team,
       );
       await track(session.taskId);
       navigate({ name: "task", taskId: session.taskId });
@@ -122,12 +142,32 @@ export function NewTaskView() {
   return (
     <section className={styles.page} aria-labelledby="new-task-title">
       <div className={styles.column}>
-        <h1 id="new-task-title" className={styles.title}>
-          What should the agent do?
-        </h1>
+        <div className={styles.titleRow}>
+          <h1 id="new-task-title" className={styles.title}>
+            {team ? "What should the team do?" : "What should the agent do?"}
+          </h1>
+          <ToggleGroup.Root
+            type="single"
+            className={styles.segments}
+            value={who}
+            onValueChange={(next) => {
+              if (next === "one" || next === "team") setWho(next);
+            }}
+            aria-label="Who works on it"
+          >
+            <ToggleGroup.Item value="one" className={styles.segment}>
+              <User size={14} aria-hidden />
+              One agent
+            </ToggleGroup.Item>
+            <ToggleGroup.Item value="team" className={styles.segment}>
+              <Users size={14} aria-hidden />A team
+            </ToggleGroup.Item>
+          </ToggleGroup.Root>
+        </div>
         <p className={styles.lead}>
-          Describe the task in your own words. You can answer its questions and approve its actions
-          as it works.
+          {team
+            ? "Describe the goal. A lead hands the work to its team and puts it together; the lead's first step is a team proposal you approve."
+            : "Describe the task in your own words. You can answer its questions and approve its actions as it works."}
         </p>
 
         <div className={styles.composer}>
@@ -146,9 +186,9 @@ export function NewTaskView() {
             autoFocus
           />
           <div className={styles.options}>
-            {(profiles.value ?? []).length === 0 ? null : (
+            {(profiles.value ?? []).length === 0 || (team && !proposing) ? null : (
               <ChoiceMenu
-                label="Agent"
+                label={team ? "Lead" : "Agent"}
                 value={profile?.id ?? LAST_CHOICES}
                 choices={[
                   { value: LAST_CHOICES, label: "Your last choices" },
@@ -161,7 +201,7 @@ export function NewTaskView() {
                 onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
               />
             )}
-            {fromProfile || description === undefined ? null : (
+            {fromProfile || description === undefined || (team && !proposing) ? null : (
               <SettingsChips
                 value={{
                   harness: description.harness,
@@ -187,73 +227,96 @@ export function NewTaskView() {
                 }}
               />
             )}
-            <ChoiceMenu
-              label="Permissions"
-              value={choices.permissionMode}
-              choices={PERMISSIONS}
-              onChange={(permissionMode) => setChoices({ ...choices, permissionMode })}
-            />
+            {team ? null : (
+              <ChoiceMenu
+                label="Permissions"
+                value={choices.permissionMode}
+                choices={PERMISSIONS}
+                onChange={(permissionMode) => setChoices({ ...choices, permissionMode })}
+              />
+            )}
+            {team && !proposing ? (
+              <span className={styles.hint}>The department's own lead takes the goal.</span>
+            ) : null}
           </div>
         </div>
 
-        <div className={styles.where}>
-          <h2 className={styles.heading}>Where it works</h2>
-          <ToggleGroup.Root
-            type="single"
-            className={styles.segments}
-            value={place}
-            onValueChange={(next) => {
-              if (next === "workspace" || next === "folder") setPlace(next);
-            }}
-            aria-label="Where it works"
-          >
-            <ToggleGroup.Item value="workspace" className={styles.segment}>
-              A workspace
-            </ToggleGroup.Item>
-            <ToggleGroup.Item value="folder" className={styles.segment}>
-              A new folder
-            </ToggleGroup.Item>
-          </ToggleGroup.Root>
-          {place === "workspace" ? (
-            <div className={styles.workspace}>
-              {workspaces.length > 0 ? (
-                <ChoiceMenu
-                  label="Workspace"
-                  value={workspace?.id ?? ""}
-                  choices={workspaces.map((known) => ({
-                    value: known.id,
-                    label: known.name,
-                    description: known.folders.join(" · "),
-                  }))}
-                  onChange={setWorkspaceId}
-                />
-              ) : (
-                <span className={styles.hint}>No saved workspace yet.</span>
-              )}
-              <Button variant="ghost" onClick={() => setCreatingWorkspace(true)}>
-                <Plus size={14} aria-hidden />
-                New workspace
-              </Button>
-            </div>
-          ) : (
-            <FolderField
-              label="output folder"
-              value={outputFolder}
-              onChange={setChosenFolder}
-              hint="The task gets its own folder inside, named by the date and your first words."
-            />
-          )}
-        </div>
+        {team ? (
+          <TeamChoice
+            departmentId={departmentId}
+            onDepartment={setDepartmentId}
+            workspaces={workspaces}
+            workspaceId={workspace?.id}
+            onWorkspace={setWorkspaceId}
+            onNewWorkspace={() => setCreatingWorkspace(true)}
+            autonomy={autonomy}
+            onAutonomy={setAutonomy}
+          />
+        ) : (
+          <div className={styles.where}>
+            <h2 className={styles.heading}>Where it works</h2>
+            <ToggleGroup.Root
+              type="single"
+              className={styles.segments}
+              value={place}
+              onValueChange={(next) => {
+                if (next === "workspace" || next === "folder") setPlace(next);
+              }}
+              aria-label="Where it works"
+            >
+              <ToggleGroup.Item value="workspace" className={styles.segment}>
+                A workspace
+              </ToggleGroup.Item>
+              <ToggleGroup.Item value="folder" className={styles.segment}>
+                A new folder
+              </ToggleGroup.Item>
+            </ToggleGroup.Root>
+            {place === "workspace" ? (
+              <div className={styles.workspace}>
+                {workspaces.length > 0 ? (
+                  <ChoiceMenu
+                    label="Workspace"
+                    value={workspace?.id ?? ""}
+                    choices={workspaces.map((known) => ({
+                      value: known.id,
+                      label: known.name,
+                      description: known.folders.join(" · "),
+                    }))}
+                    onChange={setWorkspaceId}
+                  />
+                ) : (
+                  <span className={styles.hint}>No saved workspace yet.</span>
+                )}
+                <Button variant="ghost" onClick={() => setCreatingWorkspace(true)}>
+                  <Plus size={14} aria-hidden />
+                  New workspace
+                </Button>
+              </div>
+            ) : (
+              <FolderField
+                label="output folder"
+                value={outputFolder}
+                onChange={setChosenFolder}
+                hint="The task gets its own folder inside, named by the date and your first words."
+              />
+            )}
+          </div>
+        )}
 
         <div className={styles.actions}>
           <Button variant="primary" onClick={start} disabled={!ready || starting}>
-            {starting ? "Starting…" : "Start task"}
+            {starting ? "Starting…" : team ? "Start" : "Start task"}
           </Button>
           <span className={styles.hint}>
             <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd>
           </span>
-          {!fromProfile && model?.access === "free" ? (
+          {!fromProfile && model?.access === "free" && !(team && !proposing) ? (
             <span className={styles.note}>Free model</span>
+          ) : null}
+          {proposing ? (
+            <span className={styles.hint}>
+              The lead's first step is the team proposal. It waits for you in Needs you.
+            </span>
           ) : null}
         </div>
         {error === undefined ? null : (

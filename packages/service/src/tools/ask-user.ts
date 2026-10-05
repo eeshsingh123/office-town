@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { QuestionAnswer } from "@office-town/contract";
 import { z } from "zod";
-import type { SessionRegistry } from "../registry/session-registry.ts";
+import { AnswerError, type SessionRegistry } from "../registry/session-registry.ts";
 import { defineTool } from "./tools.ts";
 
 const inputSchema = z.object({
@@ -30,27 +30,29 @@ export function askUser(registry: SessionRegistry) {
     offeredTo: () => true,
     call({ question, options = [], multiSelect = false }, caller) {
       const requestId = `ask-${randomUUID()}`;
+      const asked = {
+        questionId: "1",
+        text: question,
+        options: options.map((label) => ({ label })),
+        multiSelect,
+      };
       registry.ask(
         caller.sessionId,
-        {
-          requestId,
-          questions: [
-            {
-              questionId: "1",
-              text: question,
-              options: options.map((label) => ({ label })),
-              multiSelect,
+        { type: "question.requested", payload: { requestId, questions: [asked] } },
+        (command) => {
+          if (command.type !== "answerQuestion") throw new AnswerError("This is a question.");
+          const { answers } = command;
+          return {
+            resolution: {
+              type: "question.resolved",
+              payload: { requestId, outcome: "answered", answers },
             },
-          ],
-        },
-        (answers) => {
-          const message = {
-            text: answerText(question, answers),
-            origin: { kind: "answer", requestId },
-          } as const;
-          registry.tell(caller.sessionId, message).catch((error: unknown) => {
-            console.error("Could not give an agent the user's answer.", error);
-          });
+            afterwards: () =>
+              registry.tell(caller.sessionId, {
+                text: answerText(question, answers),
+                origin: { kind: "answer", requestId },
+              }),
+          };
         },
       );
       return "Your question is with the user. Their answer will reach you as a message.";

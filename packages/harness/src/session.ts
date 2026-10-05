@@ -42,7 +42,9 @@ export type LineListener = (line: HarnessLine) => void;
 // What the core itself adds to a session's stream: requests its tools make, and their answers.
 export type CoreReport = Extract<
   SessionEventBody,
-  { type: "question.requested" | "question.resolved" }
+  {
+    type: "question.requested" | "question.resolved" | "proposal.requested" | "proposal.resolved";
+  }
 >;
 
 export interface Session {

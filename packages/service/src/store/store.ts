@@ -2,6 +2,9 @@ import type {
   AgentColour,
   AgentRecord,
   AgentSettings,
+  Autonomy,
+  DepartmentRecord,
+  DepartmentSettings,
   PendingRequestList,
   ProfileRecord,
   ProfileRequest,
@@ -29,9 +32,33 @@ export interface NewAgentRecord {
   name: string;
   colour: AgentColour;
   role?: string;
+  purpose?: string;
+  departmentId?: string;
   profileId?: string;
   settings: AgentSettings;
 }
+
+// An agent's fields that can change; one left out is cleared.
+export interface AgentChange {
+  role?: string | undefined;
+  purpose?: string | undefined;
+  departmentId?: string | undefined;
+  profileId?: string | undefined;
+  settings: AgentSettings;
+}
+
+// Where a team the lead has yet to propose would work.
+export interface TeamSetup {
+  workspaceId: string;
+  autonomy: Autonomy;
+}
+
+// A team's task: its lead, and its department or else the setup of the team to be proposed.
+export type TaskTeam =
+  | { leadAgentId: string; departmentId: string }
+  | { leadAgentId: string; setup: TeamSetup };
+
+export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt">;
 
 // `position` orders events across all sessions and is the cursor every reader resumes from.
 export interface StoredEvent {
@@ -56,7 +83,13 @@ export type LineDirection = "in" | "out";
 // interface would only add a queue to keep "stored before published" in order. Deleting is the
 // one long operation, so it alone is async.
 export interface Store {
-  createTask(prompt: string): TaskRecord;
+  createTask(prompt: string, team?: TaskTeam): TaskRecord;
+  // Set until the task's team is approved.
+  taskSetup(taskId: string): TeamSetup | undefined;
+  // The task's proposed team was approved as this department.
+  joinDepartment(taskId: string, departmentId: string): TaskRecord;
+  // The department's task with an agent at work, if any.
+  activeTaskOf(departmentId: string): string | undefined;
   getTask(id: string): TaskRecord | undefined;
   // Newest first, each with its sessions.
   listTasks(query: TaskQuery): TaskPage;
@@ -82,6 +115,14 @@ export interface Store {
   isNameTaken(name: string): boolean;
   listAgents(): AgentRecord[];
   renameAgent(id: string, name: string): AgentRecord;
+  updateAgent(id: string, change: AgentChange): AgentRecord;
+  createDepartment(department: NewDepartment): DepartmentRecord;
+  getDepartment(id: string): DepartmentRecord | undefined;
+  // By name.
+  listDepartments(): DepartmentRecord[];
+  updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord;
+  // Its lead and its workers, in the order they joined.
+  listMembers(departmentId: string): AgentRecord[];
   createProfile(profile: ProfileRequest): ProfileRecord;
   getProfile(id: string): ProfileRecord | undefined;
   // By name.
@@ -104,7 +145,10 @@ export interface Store {
 }
 
 export class RecordNotFoundError extends Error {
-  constructor(kind: "task" | "session" | "result" | "workspace" | "agent" | "profile", id: string) {
+  constructor(
+    kind: "task" | "session" | "result" | "workspace" | "agent" | "profile" | "department",
+    id: string,
+  ) {
     super(`No ${kind} "${id}".`);
     this.name = "RecordNotFoundError";
   }
@@ -114,6 +158,13 @@ export class TaskActiveError extends Error {
   constructor(id: string) {
     super(`Task "${id}" still has a running session. Stop it before deleting the task.`);
     this.name = "TaskActiveError";
+  }
+}
+
+export class InUseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InUseError";
   }
 }
 

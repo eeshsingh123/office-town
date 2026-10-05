@@ -13,6 +13,9 @@ export const taskRecordSchema = z.object({
   id: z.string().min(1),
   prompt: z.string(),
   createdAt: z.iso.datetime(),
+  // Set on a team's task: who leads it, and its department once the team is approved.
+  leadAgentId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
 });
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 

@@ -76,6 +76,9 @@
 }
 
 .segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: 28px;
   padding: 0 12px;
   border: 0;
@@ -120,4 +123,64 @@
 .error {
   margin: 12px 0 0;
   color: var(--bad);
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.titleRow .title,
+.titleRow .segments {
+  margin: 0;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.choice:first-child {
+  grid-column: 1 / -1;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice:has(input:disabled) {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.choice input {
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.choiceName {
+  font-weight: 500;
+}
+
+fieldset.where {
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
 }

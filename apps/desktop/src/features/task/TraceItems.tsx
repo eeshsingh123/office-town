@@ -27,6 +27,7 @@ import type { TraceAction, TraceItem, TraceRequest } from "../../trace/trace.ts"
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
+import { requestSummary } from "../requests/summary.ts";
 import styles from "./Trace.module.css";
 
 const KIND_ICONS: Record<TraceAction["actionKind"], LucideIcon> = {
@@ -181,6 +182,10 @@ const ActionRow = memo(function ActionRow({
 function resolutionText(request: TraceRequest): string | undefined {
   const { resolution, event } = request;
   if (resolution === undefined) return undefined;
+  if (event.type === "proposal.requested") {
+    if (!("outcome" in resolution)) return undefined;
+    return PROPOSAL_OUTCOMES[resolution.outcome as keyof typeof PROPOSAL_OUTCOMES] ?? "Answered";
+  }
   if (event.type === "permission.requested") {
     const option = event.payload.options.find(
       (candidate) => "optionId" in resolution && candidate.optionId === resolution.optionId,
@@ -192,11 +197,12 @@ function resolutionText(request: TraceRequest): string | undefined {
   return `Answered: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;
 }
 
-export function requestTitle(request: TraceRequest): string {
-  return request.event.type === "permission.requested"
-    ? request.event.payload.title
-    : (request.event.payload.questions[0]?.text ?? "A question");
-}
+const PROPOSAL_OUTCOMES = {
+  approved: "Approved",
+  revised: "Sent back with a note",
+  declined: "Declined",
+  cancelled: "Not answered",
+};
 
 // A request still waiting is the card to answer it; once answered it shrinks to one line.
 function RequestLine({ request, live }: { request: TraceRequest; live: boolean }) {
@@ -204,7 +210,7 @@ function RequestLine({ request, live }: { request: TraceRequest; live: boolean }
   if (resolved === undefined && live) return <RequestCard event={request.event} />;
   return (
     <div className={styles.request} id={request.id}>
-      <span className={styles.rowTitle}>{requestTitle(request)}</span>
+      <span className={styles.rowTitle}>{requestSummary(request.event)}</span>
       <span>{resolved ?? "Not answered"}</span>
     </div>
   );

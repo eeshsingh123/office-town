@@ -146,4 +146,32 @@ export const migrations: readonly Migration[] = [
   CREATE UNIQUE INDEX pending_requests_by_session ON pending_requests (session_ref, request_id);
   `,
   giveEachTaskItsAgent,
+  `
+  CREATE TABLE departments (
+    ref               INTEGER PRIMARY KEY,
+    id                TEXT NOT NULL UNIQUE,
+    name              TEXT NOT NULL,
+    workspace_ref     INTEGER NOT NULL REFERENCES workspaces (ref),
+    autonomy          TEXT NOT NULL,
+    lead_ref          INTEGER NOT NULL REFERENCES agents (ref),
+    branch_per_worker INTEGER NOT NULL,
+    code_flow         INTEGER NOT NULL,
+    created_at        INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX departments_by_workspace ON departments (workspace_ref);
+  CREATE INDEX departments_by_lead ON departments (lead_ref);
+
+  ALTER TABLE agents ADD COLUMN purpose TEXT;
+  ALTER TABLE agents ADD COLUMN department_ref INTEGER REFERENCES departments (ref);
+  CREATE INDEX agents_by_department ON agents (department_ref) WHERE department_ref IS NOT NULL;
+
+  -- A team's task: its lead, its department once approved, and until then where the proposed
+  -- team would work (a JSON object with the workspace and the autonomy level).
+  ALTER TABLE tasks ADD COLUMN lead_ref INTEGER REFERENCES agents (ref);
+  ALTER TABLE tasks ADD COLUMN department_ref INTEGER REFERENCES departments (ref);
+  ALTER TABLE tasks ADD COLUMN setup TEXT;
+  CREATE INDEX tasks_by_lead ON tasks (lead_ref) WHERE lead_ref IS NOT NULL;
+  CREATE INDEX tasks_by_department ON tasks (department_ref) WHERE department_ref IS NOT NULL;
+  `,
 ];

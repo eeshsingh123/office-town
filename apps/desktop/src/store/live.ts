@@ -47,11 +47,12 @@ export function connect(): void {
 // anything that changes after it arrives as an event.
 async function refresh(first = false): Promise<number> {
   const waiting = await api.listPendingRequests();
-  const [page, active, harnesses, agents] = await Promise.all([
+  const [page, active, harnesses, agents, departments] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
     api.listHarnesses(),
     api.listAgents(),
+    api.listDepartments(),
   ]);
   // A task the app still holds as open, but that neither list has, may have been interrupted by a
   // core restart; it is read again so it does not stay "running".
@@ -65,7 +66,8 @@ async function refresh(first = false): Promise<number> {
   const tasks = [...page.tasks, ...active.tasks, ...reread];
   useApp.setState((state) => ({
     harnesses,
-    agents: Object.fromEntries(agents.map((agent) => [agent.id, agent])),
+    agents: byId(agents),
+    departments: byId(departments),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),
@@ -93,6 +95,16 @@ export function keepAgent(agent: AgentRecord): void {
   useApp.setState((state) => ({ agents: { ...state.agents, [agent.id]: agent } }));
 }
 
+const byId = <T extends { id: string }>(records: readonly T[]): Record<string, T> =>
+  Object.fromEntries(records.map((record) => [record.id, record]));
+
+// Reads the departments and agents again, after a change the core made for the user, such as an
+// approved team.
+export async function refreshTeams(): Promise<void> {
+  const [agents, departments] = await Promise.all([api.listAgents(), api.listDepartments()]);
+  useApp.setState({ agents: byId(agents), departments: byId(departments) });
+}
+
 function watchActive(tasks: readonly TaskSummary[]): void {
   for (const session of tasks.flatMap((task) => task.sessions)) {
     if (isOpen(session)) loadTrace(session.id);
@@ -105,7 +117,7 @@ export async function track(taskId: string): Promise<void> {
   const agents = await readAgents([summary]);
   useApp.setState((state) => ({
     ...addTasks(state, [summary]),
-    agents: { ...state.agents, ...Object.fromEntries(agents.map((agent) => [agent.id, agent])) },
+    agents: { ...state.agents, ...byId(agents) },
   }));
   watchActive([summary]);
 }
@@ -128,7 +140,7 @@ export async function loadOlderTasks(): Promise<void> {
   const agents = await readAgents(page.tasks);
   useApp.setState((state) => ({
     ...addTasks(state, page.tasks),
-    agents: { ...state.agents, ...Object.fromEntries(agents.map((agent) => [agent.id, agent])) },
+    agents: { ...state.agents, ...byId(agents) },
     olderTasks: page.next,
   }));
 }

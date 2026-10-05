@@ -137,3 +137,22 @@
   font-size: var(--size-small);
   font-weight: 600;
 }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  margin: 0 4px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.dotWorking {
+  background: var(--accent);
+}
+
+.members {
+  margin-left: auto;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}

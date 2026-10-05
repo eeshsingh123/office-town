@@ -4,6 +4,9 @@ import {
   type ApiError,
   agentRecordSchema,
   apiErrorSchema,
+  type DepartmentRecord,
+  type DepartmentSettings,
+  departmentRecordSchema,
   type EnvironmentList,
   type EnvironmentSpec,
   environmentListSchema,
@@ -19,12 +22,14 @@ import {
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
+  type StartTeamTaskRequest,
   type StoreSize,
   sessionRecordSchema,
   settingsSchema,
   storeSizeSchema,
   type TaskDetail,
   type TaskPage,
+  type Team,
   taskDetailSchema,
   taskPageSchema,
   type WorkspaceRecord,
@@ -113,6 +118,14 @@ export const api = {
     read("/pending-requests", pendingRequestListSchema),
   startTask: (request: StartTaskRequest): Promise<SessionRecord> =>
     write("POST", "/tasks", request, sessionRecordSchema),
+  startTeamTask: (request: StartTeamTaskRequest): Promise<SessionRecord> =>
+    write("POST", "/tasks/team", request, sessionRecordSchema),
+  listDepartments: (): Promise<DepartmentRecord[]> =>
+    read("/departments", listOf(departmentRecordSchema)),
+  updateDepartment: (departmentId: string, settings: DepartmentSettings) =>
+    write("PUT", `/departments/${id(departmentId)}`, settings, departmentRecordSchema),
+  changeTeam: (departmentId: string, team: Team) =>
+    write("PUT", `/departments/${id(departmentId)}/team`, team, departmentRecordSchema),
   listHarnesses: (): Promise<HarnessDescription[]> =>
     read("/harnesses", listOf(harnessDescriptionSchema)),
   readCatalog: (harness: string, environment: EnvironmentSpec): Promise<HarnessCatalog> =>

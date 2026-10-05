@@ -13,6 +13,8 @@ export interface HarnessChoices {
 export interface Remembered {
   harness?: string;
   profileId?: string;
+  // Whether the last goal went to a team rather than one agent.
+  team?: boolean;
   workspaceId?: string;
   byHarness: Record<string, HarnessChoices>;
 }
@@ -42,6 +44,7 @@ export function remember(
   choices: HarnessChoices,
   workspaceId?: string,
   profileId?: string,
+  team = false,
 ): void {
   const remembered = loadRemembered();
   const recentModels =
@@ -60,6 +63,7 @@ export function remember(
   else next.workspaceId = workspaceId;
   if (profileId === undefined) delete next.profileId;
   else next.profileId = profileId;
+  next.team = team;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch (error) {

@@ -1,0 +1,84 @@
+import { z } from "zod";
+import { agentSettingsSchema, newAgentSchema } from "./agents.ts";
+import { absolutePathSchema } from "./options.ts";
+
+// How much a department's agents may do without asking the user (D-40).
+export const autonomySchema = z.enum(["supervised", "trusted", "full", "bypass"]);
+export type Autonomy = z.infer<typeof autonomySchema>;
+
+export const roleSettingsSchema = agentSettingsSchema.omit({ instructions: true });
+export type RoleSettings = z.infer<typeof roleSettingsSchema>;
+
+// One worker of a team. A member kept from the team as it is names its agent, and may still get
+// new settings; a new one starts from a profile or from settings of its own.
+export const teamRoleSchema = z
+  .object({
+    role: z.string().trim().min(1),
+    // What it does, in a few words.
+    purpose: z.string().trim(),
+    agentId: z.string().min(1).optional(),
+    profileId: z.string().min(1).optional(),
+    settings: roleSettingsSchema.optional(),
+  })
+  .refine(
+    (role) =>
+      role.agentId !== undefined || role.profileId !== undefined || role.settings !== undefined,
+    "A role needs a profile or settings of its own",
+  );
+export type TeamRole = z.infer<typeof teamRoleSchema>;
+
+// A team's name and its workers; the lead is fixed and never one of the roles.
+export const teamSchema = z.object({
+  name: z.string().trim().min(1),
+  roles: z.array(teamRoleSchema),
+});
+export type Team = z.infer<typeof teamSchema>;
+
+export const departmentRecordSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  workspaceId: z.string().min(1),
+  autonomy: autonomySchema,
+  leadAgentId: z.string().min(1),
+  // In a git workspace, each worker gets its own worktree and branch, which the lead merges.
+  branchPerWorker: z.boolean(),
+  // The lead commits, pushes and opens pull requests through the user's own git and gh logins.
+  codeFlow: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+export type DepartmentRecord = z.infer<typeof departmentRecordSchema>;
+
+export const departmentSettingsSchema = departmentRecordSchema.pick({
+  name: true,
+  autonomy: true,
+  branchPerWorker: true,
+  codeFlow: true,
+});
+export type DepartmentSettings = z.infer<typeof departmentSettingsSchema>;
+
+// A department made by hand, without a lead's proposal.
+export const newDepartmentRequestSchema = z.object({
+  team: teamSchema,
+  workspaceId: z.string().min(1),
+  autonomy: autonomySchema,
+  lead: newAgentSchema,
+});
+export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
+
+// A goal for a team: a saved department, or a new lead who first proposes its team.
+export const startTeamTaskRequestSchema = z.object({
+  goal: z.string().min(1),
+  team: z.union([
+    z.object({ departmentId: z.string().min(1) }),
+    z.object({ lead: newAgentSchema, workspaceId: z.string().min(1), autonomy: autonomySchema }),
+  ]),
+});
+export type StartTeamTaskRequest = z.infer<typeof startTeamTaskRequestSchema>;
+
+// Where a proposed team would work, shown on the proposal.
+export const proposalPlaceSchema = z.object({
+  workspaceName: z.string().min(1),
+  folders: z.array(absolutePathSchema).min(1),
+  autonomy: autonomySchema,
+});
+export type ProposalPlace = z.infer<typeof proposalPlaceSchema>;

@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import type {
   AgentCommand,
   MessageOrigin,
-  QuestionAnswer,
   SessionEvent,
   SessionOptions,
   SessionRecord,
 } from "@office-town/contract";
 import {
+  type CoreReport,
   createSession as createHarnessSession,
   type HarnessLine,
   type LaunchExtras,
@@ -31,7 +31,28 @@ export interface ToolAccess {
   revoke(sessionId: string): void;
 }
 
-type QuestionPayload = Extract<SessionEvent, { type: "question.requested" }>["payload"];
+export type CoreRequest = Extract<
+  CoreReport,
+  { type: "question.requested" | "proposal.requested" }
+>;
+export type AnswerCommand = Extract<AgentCommand, { requestId: string }>;
+
+// What a request of the core's own comes to once answered.
+export interface CoreAnswer {
+  resolution: Extract<CoreReport, { type: "question.resolved" | "proposal.resolved" }>;
+  // Runs once the resolution is recorded, such as telling the agent.
+  afterwards?: () => Promise<void>;
+}
+
+// Reads the user's answer; throws an AnswerError if it does not fit the request.
+export type CoreRequestHandler = (command: AnswerCommand) => CoreAnswer;
+
+export class AnswerError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AnswerError";
+  }
+}
 
 // Text fragments are published live but never stored, so they carry no position.
 export interface PublishedEvent {
@@ -97,7 +118,7 @@ export class SessionRegistry {
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // The core's own requests waiting for the user, by session and request id.
-  readonly #asked = new Map<string, (answers: QuestionAnswer[]) => void>();
+  readonly #asked = new Map<string, CoreRequestHandler>();
 
   constructor(
     store: Store,
@@ -148,21 +169,19 @@ export class SessionRegistry {
 
   async send(sessionId: string, command: AgentCommand): Promise<void> {
     const live = this.#running(sessionId);
-    const asked =
-      command.type === "answerQuestion"
-        ? this.#asked.get(askedKey(sessionId, command.requestId))
-        : undefined;
-    if (command.type !== "answerQuestion" || asked === undefined) {
-      await live.session.send(command);
+    const key = "requestId" in command ? askedKey(sessionId, command.requestId) : undefined;
+    const handler = key === undefined ? undefined : this.#asked.get(key);
+    if (handler !== undefined && key !== undefined && "requestId" in command) {
+      const answer = handler(command);
+      this.#asked.delete(key);
+      live.session.report(answer.resolution);
+      await answer.afterwards?.();
       return;
     }
-    this.#asked.delete(askedKey(sessionId, command.requestId));
-    const { requestId, answers } = command;
-    live.session.report({
-      type: "question.resolved",
-      payload: { requestId, outcome: "answered", answers },
-    });
-    asked(answers);
+    if (command.type === "answerProposal") {
+      throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
+    }
+    await live.session.send(command);
   }
 
   // A message from the core to a running agent, such as the answer to its question.
@@ -170,12 +189,12 @@ export class SessionRegistry {
     await this.#running(sessionId).session.send({ type: "prompt", ...message });
   }
 
-  // Puts a question of the core's own in Needs you, stored and shown like a harness's; the answer
+  // Puts a request of the core's own in Needs you, stored and shown like a harness's; the answer
   // goes to `onAnswer` instead of the harness. It lasts as long as the session.
-  ask(sessionId: string, question: QuestionPayload, onAnswer: (answers: QuestionAnswer[]) => void) {
+  ask(sessionId: string, request: CoreRequest, onAnswer: CoreRequestHandler): void {
     const live = this.#running(sessionId);
-    this.#asked.set(askedKey(sessionId, question.requestId), onAnswer);
-    live.session.report({ type: "question.requested", payload: question });
+    this.#asked.set(askedKey(sessionId, request.payload.requestId), onAnswer);
+    live.session.report(request);
   }
 
   async stop(sessionId: string): Promise<void> {

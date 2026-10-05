@@ -282,13 +282,14 @@ describe("store", () => {
         .all()
         .map((row) => String(row.detail))
         .join("\n");
-    // These read a small table whole on purpose: what is waiting now, the saved workspaces, the
-    // agents and the profiles.
+    // These read a small table whole on purpose: what is waiting now, and the saved workspaces,
+    // agents, profiles and departments.
     const wholeTableReads = new Set([
       "pendingRequests",
       "workspacesByUse",
       "allAgents",
       "allProfiles",
+      "allDepartments",
     ]);
     for (const [name, sql] of Object.entries(queries)) {
       if (!wholeTableReads.has(name)) expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);

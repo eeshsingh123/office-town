@@ -1,0 +1,119 @@
+.reason {
+  margin: 0;
+  color: var(--text-2);
+  font-style: italic;
+}
+
+.place {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: var(--size-meta);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.input {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  resize: vertical;
+}
+
+.path {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.roles {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.role {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.who > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.texts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  color: var(--text-2);
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.add > span:last-child {
+  margin-left: auto;
+}
+
+.hint {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+@media (max-width: 720px) {
+  .role {
+    grid-template-columns: 1fr auto;
+  }
+
+  .chips {
+    grid-column: 1 / -1;
+  }
+}

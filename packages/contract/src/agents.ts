@@ -42,6 +42,9 @@ export const agentRecordSchema = z.object({
   name: agentNameSchema,
   colour: agentColourSchema,
   role: z.string().optional(),
+  // What it does in its department, in a few words.
+  purpose: z.string().optional(),
+  departmentId: z.string().min(1).optional(),
   profileId: z.string().min(1).optional(),
   settings: agentSettingsSchema,
   createdAt: z.iso.datetime(),

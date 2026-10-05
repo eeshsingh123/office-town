@@ -14,15 +14,20 @@ export function freeIdentity(store: Store): Identity {
   throw new Error("Could not find a free name for a new agent.");
 }
 
-export function createAgent(store: Store, agent: NewAgent): AgentRecord {
+// A new agent's role is its profile's name, unless it is given one, such as a team's lead.
+export function createAgent(store: Store, agent: NewAgent, role?: string): AgentRecord {
   const { name, colour } = freeIdentity(store);
-  if ("settings" in agent) return store.createAgent({ name, colour, settings: agent.settings });
+  const named = role === undefined ? {} : { role };
+  if ("settings" in agent) {
+    return store.createAgent({ name, colour, ...named, settings: agent.settings });
+  }
   const profile = store.getProfile(agent.profileId);
   if (profile === undefined) throw new RecordNotFoundError("profile", agent.profileId);
   return store.createAgent({
     name,
     colour: profile.colour,
     role: profile.name,
+    ...named,
     profileId: profile.id,
     settings: profile.settings,
   });

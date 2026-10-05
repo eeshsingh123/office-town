@@ -5,6 +5,8 @@ import { startApiServer } from "./api/server.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
+import { cachedCatalogs } from "./team/catalogs.ts";
+import { proposeTeam } from "./team/propose-team.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
 
@@ -28,9 +30,10 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 const store = openStore(values["data-folder"] ?? defaultDataFolder());
 const toolServer = await startToolServer(store);
 const registry = new SessionRegistry(store, undefined, toolServer);
-toolServer.offer([askUser(registry)]);
+const readCatalog = cachedCatalogs();
+toolServer.offer([askUser(registry), proposeTeam({ store, registry, readCatalog })]);
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ registry, store, token, port });
+const server = await startApiServer({ registry, store, readCatalog, token, port });
 const ready: CoreReady = { url: server.url, token };
 // Stdout carries only this line, for whoever started the core; logs go to stderr.
 process.stdout.write(`${JSON.stringify(ready)}\n`);

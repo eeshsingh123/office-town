@@ -1,20 +1,26 @@
 import {
   agentCommandSchema,
+  departmentSettingsSchema,
   environmentSpecSchema,
+  newDepartmentRequestSchema,
   profileRequestSchema,
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
   startTaskRequestSchema,
+  startTeamTaskRequestSchema,
   taskListQuerySchema,
+  teamSchema,
   workspaceRequestSchema,
 } from "@office-town/contract";
-import { describeHarness, listEnvironments, listHarnesses } from "@office-town/harness";
+import { listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { soloMessage } from "../agents/briefs.ts";
-import type { SessionRegistry } from "../registry/session-registry.ts";
-import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { RecordNotFoundError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
+import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
+import type { TeamContext } from "../team/members.ts";
+import { startTeamTask } from "../team/team-tasks.ts";
 
 export interface RouteRequest {
   // A path parameter; the router only calls a route when all of them are present.
@@ -39,7 +45,8 @@ const NO_CONTENT = { status: 204 } as const;
 
 const sequenceSchema = z.coerce.number().int().positive();
 
-export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
+export function apiRoutes(team: TeamContext): Route[] {
+  const { registry, store, readCatalog } = team;
   return [
     {
       method: "POST",
@@ -58,6 +65,14 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
         });
         return { status: 201, json: session };
       },
+    },
+    {
+      method: "POST",
+      path: "/tasks/team",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: await startTeamTask(team, startTeamTaskRequestSchema.parse(await body())),
+      }),
     },
     {
       method: "GET",
@@ -158,6 +173,35 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
       },
     },
     {
+      method: "GET",
+      path: "/departments",
+      reply: () => ({ status: 200, json: store.listDepartments() }),
+    },
+    {
+      method: "POST",
+      path: "/departments",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: createDepartment(team, newDepartmentRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: updateDepartment(team, param("id"), departmentSettingsSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id/team",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: await changeTeam(team, param("id"), teamSchema.parse(await body())),
+      }),
+    },
+    {
       method: "POST",
       path: "/profiles",
       reply: async ({ body }) => ({
@@ -240,7 +284,7 @@ export function apiRoutes(registry: SessionRegistry, store: Store): Route[] {
           kind: query.get("environment") ?? "native",
           distro: query.get("distro") ?? undefined,
         });
-        return { status: 200, json: await describeHarness(param("harness"), environment) };
+        return { status: 200, json: await readCatalog(param("harness"), environment) };
       },
     },
     {
