@@ -70,15 +70,21 @@ export function workerBrief(input: {
   role: string;
   lead: { id: string; name: string };
   folders: string[];
+  // Set when the worker has a worktree of its own.
+  branch: string | undefined;
   instructions: string | undefined;
   work: string;
 }): Message {
+  const where_ =
+    input.branch === undefined
+      ? where(input.folders)
+      : `${where(input.folders)} It is your own git worktree, on the branch ${input.branch}. Commit your work there before you finish; your lead merges it. Do not merge or push.`;
   const text = `You are the ${input.role} in ${input.teamName}, a team of AI agents in Office Town. Your lead, ${input.lead.name}, hands you a piece of work. When you finish, your last message goes to the lead as your result, so end with a short account of what you did and where it is.
 
 ${instructionsOf(input.instructions)}The team's goal:
 ${input.goal}
 
-${where(input.folders)}
+${where_}
 
 Your piece of work, from ${input.lead.name}:
 ${input.work}
@@ -96,7 +102,7 @@ export function nextWork(lead: { id: string; name: string }, work: string): Mess
     text: `A new piece of work from ${lead.name}:
 ${work}
 
-End with a short account of what you did and where it is.`,
+If you work on a branch of your own, commit your work there. End with a short account of what you did and where it is.`,
     origin: { kind: "brief", summary: `New work from ${lead.name}`, from: lead.id },
   };
 }
@@ -107,7 +113,17 @@ export function leadBrief(input: {
   folders: string[];
   instructions: string | undefined;
   roster: string;
+  // A git workspace where each worker has a branch of its own, and whether the lead also
+  // commits, pushes and opens a pull request.
+  branches: boolean;
+  codeFlow: boolean;
 }): Message {
+  const branches = input.branches
+    ? "\n\nThis workspace is a git repository, and each worker works on a branch of its own, made from your branch's last commit: commit what a worker needs before you hand out its piece. When a worker's result says its work is committed, merge its branch into yours."
+    : "";
+  const codeFlow = input.codeFlow
+    ? "\n\nWhen the goal is done, commit your work, push your branch and open a pull request with the gh command; they use the user's own git and GitHub logins."
+    : "";
   const text = `You lead ${input.teamName} in Office Town, an app where a team of AI agents works on a goal for the user. Each worker runs in its own harness and session; you hand them work and put their results together.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -118,7 +134,7 @@ ${where(input.folders)}
 Your team:
 ${input.roster}
 
-Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Do the rest yourself, then put the results together.
+Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Do the rest yourself, then put the results together.${branches}${codeFlow}
 
 If the team needs to change, propose the whole new team with propose_team. If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return { text, origin: { kind: "brief", summary: "The goal and your team" } };

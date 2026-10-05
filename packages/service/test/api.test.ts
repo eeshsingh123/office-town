@@ -14,6 +14,7 @@ import { type ApiServer, startApiServer } from "../src/api/server.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
+import { cachedCatalogs } from "../src/team/catalogs.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
 const TOKEN = "test-token";
@@ -87,7 +88,9 @@ beforeEach(async () => {
       return session;
     },
   });
-  server = await startApiServer({ registry, store, token: TOKEN, port: 0 });
+  const readCatalog = cachedCatalogs(async () => ({ models: [] }));
+  const team = { registry, store, readCatalog, dataFolder: directory };
+  server = await startApiServer({ team, token: TOKEN, port: 0 });
 });
 
 afterEach(async () => {

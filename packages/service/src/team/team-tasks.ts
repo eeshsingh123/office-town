@@ -13,6 +13,7 @@ import {
   TeamError,
   workspaceFolders,
 } from "./members.ts";
+import { isRepository } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
 
@@ -58,6 +59,8 @@ export async function startTeamTask(
         folders,
         instructions: settingsOf(store, lead).instructions,
         roster: rosterOf(store, department),
+        branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
+        codeFlow: department.codeFlow,
       }),
     });
   }

@@ -1,13 +1,14 @@
 import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/contract";
 import { z } from "zod";
 import { settingsOf } from "../agents/agents.ts";
-import { inFolders, sessionOptionsFor } from "../agents/options.ts";
+import { sessionOptionsFor } from "../agents/options.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
 import { isOpen, latestSession } from "./lead.ts";
-import { type TeamContext, workspaceFolders } from "./members.ts";
+import type { TeamContext } from "./members.ts";
+import { workerFolders } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 80;
 
@@ -61,17 +62,23 @@ async function startWork(
       if (!(error instanceof FolderNotFoundError)) throw error;
     }
   }
-  const folders = workspaceFolders(store, team.department.workspaceId);
+  const { branch, ...folders } = await workerFolders(
+    context,
+    team.department,
+    worker,
+    caller.taskId,
+  );
   return registry.start({
     taskId: caller.taskId,
     agentId: worker.id,
-    options: sessionOptionsFor(store, worker, inFolders(folders)),
+    options: sessionOptionsFor(store, worker, folders),
     message: workerBrief({
       goal: team.goal,
       teamName: team.department.name,
       role: worker.role ?? "worker",
       lead,
-      folders,
+      folders: [folders.workspacePath ?? "", ...folders.additionalPaths],
+      branch,
       instructions: settingsOf(store, worker).instructions,
       work,
     }),

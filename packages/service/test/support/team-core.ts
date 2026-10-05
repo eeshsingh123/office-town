@@ -10,6 +10,7 @@ import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
+import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
 import { type RunningToolServer, startToolServer } from "../../src/tools/tool-server.ts";
 import { FakeSession } from "./fake-session.ts";
@@ -60,17 +61,12 @@ export async function startCore(dataFolder: string): Promise<Core> {
     if (catalog === undefined) throw new Error("not installed");
     return catalog;
   });
-  const team = { store, registry, readCatalog };
+  const team = { store, registry, readCatalog, dataFolder };
   const activity = new SessionActivity(registry);
   reportResults(team, activity);
+  cleanUpWorktrees(team);
   tools.offer([askUser(registry), proposeTeam(team), delegate(team), teamStatus(team, activity)]);
-  const server: ApiServer = await startApiServer({
-    registry,
-    store,
-    readCatalog,
-    token: TOKEN,
-    port: 0,
-  });
+  const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 
   return {
     store,
@@ -128,3 +124,8 @@ export function playTurn(
 
 // The core's reactions to an event are promises; this lets them settle.
 export const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+// Waits for something the core does in the background, such as running git, for up to 10 seconds.
+export async function eventually(check: () => boolean): Promise<void> {
+  for (let tries = 0; tries < 200 && !check(); tries += 1) await settle();
+}

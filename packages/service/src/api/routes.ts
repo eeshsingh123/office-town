@@ -18,11 +18,15 @@ import { z } from "zod";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
 import { continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
+import { removeWorktrees } from "../team/worktrees.ts";
+
+const isRunning = (session: { status: string }) =>
+  session.status === "starting" || session.status === "running";
 
 export interface RouteRequest {
   // A path parameter; the router only calls a route when all of them are present.
@@ -101,6 +105,10 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "DELETE",
       path: "/tasks/:id",
       reply: async ({ param }) => {
+        if (store.listSessions(param("id")).some(isRunning)) {
+          throw new TaskActiveError(param("id"));
+        }
+        await removeWorktrees(team, param("id"));
         await store.deleteTask(param("id"));
         return NO_CONTENT;
       },

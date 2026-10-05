@@ -12,6 +12,7 @@ import { cachedCatalogs } from "./team/catalogs.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
+import { cleanUpWorktrees } from "./team/worktrees.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
 
@@ -32,14 +33,16 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
 }
 
-const store = openStore(values["data-folder"] ?? defaultDataFolder());
+const dataFolder = values["data-folder"] ?? defaultDataFolder();
+const store = openStore(dataFolder);
 const toolServer = await startToolServer(store);
 const registry = new SessionRegistry(store, { tools: toolServer, guard: autonomyGuard(store) });
 const readCatalog = cachedCatalogs();
-const team = { store, registry, readCatalog };
+const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
+cleanUpWorktrees(team);
 toolServer.offer([
   askUser(registry),
   proposeTeam(team),
@@ -47,7 +50,7 @@ toolServer.offer([
   teamStatus(team, activity),
 ]);
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ registry, store, readCatalog, token, port });
+const server = await startApiServer({ team, token, port });
 const ready: CoreReady = { url: server.url, token };
 // Stdout carries only this line, for whoever started the core; logs go to stderr.
 process.stdout.write(`${JSON.stringify(ready)}\n`);

@@ -15,6 +15,8 @@ export interface TeamContext {
   store: Store;
   registry: SessionRegistry;
   readCatalog: ReadCatalog;
+  // Where workers' worktrees live, apart from the user's folders.
+  dataFolder: string;
 }
 
 export class DepartmentBusyError extends Error {
