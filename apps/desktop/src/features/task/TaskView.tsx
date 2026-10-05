@@ -1,5 +1,5 @@
-import { ArrowLeft, ExternalLink, LoaderCircle, Square } from "lucide-react";
-import { Fragment, useEffect, useMemo } from "react";
+import { ArrowLeft, ExternalLink, Eye, LoaderCircle, Square } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
@@ -15,6 +15,7 @@ import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AgentAside } from "./AgentAside.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
+import { SecondOpinionDialog } from "./SecondOpinionDialog.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
@@ -23,10 +24,16 @@ function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
   return state === "working" || state === "starting" ? styles.pillWorking : undefined;
 }
-// A team's task shows its members; a solo agent's, the agent alone.
+// A team's task shows its members, as does a solo agent's once a guest joins it; otherwise the
+// agent shows alone.
 export function TaskView({ taskId }: { taskId: string }) {
-  const team = useApp((state) => state.tasks[taskId]?.task.leadAgentId !== undefined);
-  return team ? <TeamTaskView taskId={taskId} /> : <SoloTaskView taskId={taskId} />;
+  const several = useApp((state) => {
+    const entry = state.tasks[taskId];
+    if (entry?.task.leadAgentId !== undefined) return true;
+    const agentIds = new Set(entry?.sessionIds.map((id) => state.sessions[id]?.agentId));
+    return agentIds.size > 1;
+  });
+  return several ? <TeamTaskView taskId={taskId} /> : <SoloTaskView taskId={taskId} />;
 }
 
 function SoloTaskView({ taskId }: { taskId: string }) {
@@ -45,6 +52,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const harness = useHarnessName(agent?.latest.options.harness ?? "");
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
   const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
     if (agent === undefined) void track(taskId);
@@ -91,6 +99,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             Open folder
           </Button>
         ) : null}
+        <Button variant="ghost" onClick={() => setAsking(true)}>
+          <Eye size={14} aria-hidden />
+          Second opinion
+        </Button>
         {live ? (
           <Button onClick={() => void api.stop(latest.id)}>
             <Square size={12} aria-hidden />
@@ -164,6 +176,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
           traces={agent.sessions.flatMap((session) => traces[session.id] ?? [])}
         />
       </div>
+      <SecondOpinionDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Square } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, Square } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
@@ -15,6 +15,7 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
+import { SecondOpinionDialog } from "./SecondOpinionDialog.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
@@ -23,11 +24,13 @@ function MemberRow({
   agent,
   chosen,
   waiting,
+  visiting = false,
   onChoose,
 }: {
   agent: Agent;
   chosen: boolean;
   waiting: boolean;
+  visiting?: boolean;
   onChoose: () => void;
 }) {
   const traces = useApp((state) => state.traces);
@@ -44,7 +47,7 @@ function MemberRow({
   return (
     <button
       type="button"
-      className={team.member}
+      className={`${team.member} ${visiting ? team.visitor : ""}`}
       aria-current={chosen ? "true" : undefined}
       onClick={onChoose}
     >
@@ -69,8 +72,8 @@ function MemberRow({
   );
 }
 
-// A team's task: its agents as a tree by delegation, the lead at the top, each opening its own
-// trace (MODULES M4.5).
+// A task with more than one agent: the team as a tree by delegation, the lead at the top, and any
+// guests called in for a second opinion apart, each opening its own trace (MODULES M4.5, M4.8).
 export function TeamTaskView({ taskId }: { taskId: string }) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
@@ -85,6 +88,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   );
   const lead = members.find((member) => member.id === task?.leadAgentId) ?? members[0];
   const [chosenId, setChosenId] = useState<string>();
+  const [asking, setAsking] = useState(false);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
   const follow = useFollow(`${shown?.id}:${trace?.position}:${trace?.streaming[""]?.length}`);
@@ -93,16 +97,17 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   }
 
   const department = task.departmentId === undefined ? undefined : departments[task.departmentId];
-  const workers = members.filter((member) => member.id !== lead.id);
+  const workers = members.filter((member) => member.id !== lead.id && !member.record.guest);
+  const visitors = members.filter((member) => member.record.guest === true);
   const states = members.map((member) =>
     stateOf(member, traces, waitingSessions.has(member.latest.id)),
   );
   const working = states.filter((state) => state === "working" || state === "starting").length;
-  const asking = states.filter((state) => state === "waiting").length;
+  const waitingCount = states.filter((state) => state === "waiting").length;
   const open = members.some((member) => isOpen(member.latest));
   const folder = lead.latest.options.workspacePath;
   const continueLead =
-    shown.id === lead.id && shown.latest.status === "interrupted"
+    task.leadAgentId === lead.id && shown.id === lead.id && shown.latest.status === "interrupted"
       ? async (prompt: string) => {
           await api.continueTask(taskId, prompt);
           await track(taskId);
@@ -121,15 +126,17 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             <h1 id="task-title">{taskTitle(task.prompt)}</h1>
           </div>
           <div className={styles.chips}>
-            <span className={styles.chip}>
-              <span className={team.dot} aria-hidden />
-              {department?.name ?? "Proposing a team"}
-            </span>
+            {task.leadAgentId === undefined ? null : (
+              <span className={styles.chip}>
+                <span className={team.dot} aria-hidden />
+                {department?.name ?? "Proposing a team"}
+              </span>
+            )}
             {department === undefined ? null : (
               <span className={styles.chip}>{AUTONOMY[department.autonomy].label}</span>
             )}
             <span className={styles.chip}>
-              {working} working{asking === 0 ? "" : ` · ${asking} waiting for you`}
+              {working} working{waitingCount === 0 ? "" : ` · ${waitingCount} waiting for you`}
             </span>
             <span className={styles.chip}>Started {clockTime(task.createdAt)}</span>
           </div>
@@ -140,10 +147,14 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             Open folder
           </Button>
         ) : null}
+        <Button variant="ghost" onClick={() => setAsking(true)}>
+          <Eye size={14} aria-hidden />
+          Second opinion
+        </Button>
         {open ? (
           <Button onClick={() => void api.stopTeam(taskId)}>
             <Square size={12} aria-hidden />
-            Stop team
+            {task.leadAgentId === undefined ? "Stop all" : "Stop team"}
           </Button>
         ) : null}
       </header>
@@ -169,6 +180,21 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               ))}
             </div>
           )}
+          {visitors.length === 0 ? null : (
+            <>
+              <span className={`${team.label} ${team.visiting}`}>Visiting</span>
+              {visitors.map((visitor) => (
+                <MemberRow
+                  key={visitor.id}
+                  agent={visitor}
+                  chosen={shown.id === visitor.id}
+                  waiting={waitingSessions.has(visitor.latest.id)}
+                  visiting
+                  onChoose={() => setChosenId(visitor.id)}
+                />
+              ))}
+            </>
+          )}
         </nav>
         <MemberLinks.Provider value={setChosenId}>
           <div className={styles.column}>
@@ -192,6 +218,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           </div>
         </MemberLinks.Provider>
       </div>
+      <SecondOpinionDialog agent={lead} open={asking} onOpenChange={setAsking} />
     </section>
   );
 }

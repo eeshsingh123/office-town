@@ -19,6 +19,7 @@ import {
   type ProfileRequest,
   pendingRequestListSchema,
   profileRecordSchema,
+  type SecondOpinionRequest,
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
@@ -32,8 +33,10 @@ import {
   type Team,
   taskDetailSchema,
   taskPageSchema,
+  type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
+  workspaceEntrySchema,
   workspaceRecordSchema,
 } from "@office-town/contract";
 
@@ -123,6 +126,10 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
+  listTaskFiles: (taskId: string): Promise<WorkspaceEntry[]> =>
+    read(`/tasks/${id(taskId)}/files`, listOf(workspaceEntrySchema)),
+  secondOpinion: (taskId: string, request: SecondOpinionRequest): Promise<SessionRecord> =>
+    write("POST", `/tasks/${id(taskId)}/second-opinion`, request, sessionRecordSchema),
   listDepartments: (): Promise<DepartmentRecord[]> =>
     read("/departments", listOf(departmentRecordSchema)),
   updateDepartment: (departmentId: string, settings: DepartmentSettings) =>

@@ -1,10 +1,4 @@
-import type {
-  AgentRecord,
-  DepartmentRecord,
-  SessionOptions,
-  Team,
-  TeamRole,
-} from "@office-town/contract";
+import type { AgentRecord, DepartmentRecord, Team, TeamRole } from "@office-town/contract";
 import { freeIdentity, settingsOf } from "../agents/agents.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";

@@ -1,5 +1,5 @@
 import { Check, CircleMinus, LoaderCircle, X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
@@ -12,6 +12,7 @@ import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { MessageBox } from "../task/MessageBox.tsx";
+import { SecondOpinionDialog } from "../task/SecondOpinionDialog.tsx";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
@@ -43,6 +44,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
   const waiting = useApp((app) =>
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
+  const [asking, setAsking] = useState(false);
   useEffect(() => loadTrace(latest.id), [latest.id]);
   const progress = trace === undefined ? undefined : progressOf(trace);
   const live = isOpen(latest);
@@ -99,6 +101,11 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
         <Button variant="primary" onClick={open}>
           Open full trace
         </Button>
+        {agent.record.guest ? null : (
+          <Button variant="ghost" onClick={() => setAsking(true)}>
+            Get a second opinion
+          </Button>
+        )}
         {live ? (
           <Button variant="ghost" onClick={() => void api.stop(latest.id)}>
             Stop
@@ -106,6 +113,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
         ) : null}
       </div>
       <MessageBox agent={agent} className={styles.message} />
+      <SecondOpinionDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </aside>
   );
 }

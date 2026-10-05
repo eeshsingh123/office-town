@@ -85,3 +85,11 @@
   border-radius: 50%;
   background: var(--accent);
 }
+
+.visiting {
+  padding-top: 14px;
+}
+
+.visitor {
+  border: 1px dashed var(--border-strong);
+}

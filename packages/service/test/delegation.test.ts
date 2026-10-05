@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentRecord } from "@office-town/contract";
@@ -141,6 +141,34 @@ describe("delegation", () => {
       origin: { kind: "notice" },
     });
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
+  });
+
+  it("calls in a guest on a copy without instruction files, hands its answer to the lead, and lets it leave", async () => {
+    await teamAtWork();
+    const lead = core.sessions[0];
+    const project = join(directory, "bakery");
+    writeFileSync(join(project, "menu.md"), "Bread");
+    writeFileSync(join(project, "CLAUDE.md"), "Be brief");
+    mkdirSync(join(project, ".claude"));
+
+    const outside = await core.callTool(lead, "outsource", { brief: "Check", paths: [".."] });
+    expect(outside).toMatchObject({ isError: true, text: expect.stringContaining("workspace") });
+    await core.callTool(lead, "outsource", { brief: "Check the menu", paths: ["."] });
+    const guest = core.store.getSession(core.sessions[1]?.id ?? "");
+    const copy = guest?.options.workspacePath ?? "";
+    expect(guest?.options.isolated).toBe(true);
+    expect(core.store.getAgent(guest?.agentId ?? "")).toMatchObject({ guest: true });
+    expect(core.store.getAgent(guest?.agentId ?? "")?.departmentId).toBeUndefined();
+    expect(existsSync(join(copy, "menu.md"))).toBe(true);
+    expect(existsSync(join(copy, "CLAUDE.md")) || existsSync(join(copy, ".claude"))).toBe(false);
+
+    playTurn(core.sessions[1], "The menu has no prices.");
+    await settle();
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining("The menu has no prices."),
+      origin: { kind: "result" },
+    });
+    expect(core.store.getSession(guest?.id ?? "")?.status).toBe("exited");
   });
 
   it("stops an agent left idle, but not one waiting for the user", async () => {
