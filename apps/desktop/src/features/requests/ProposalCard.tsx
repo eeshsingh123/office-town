@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useSessionAgent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
-import { refreshTeams } from "../../store/live.ts";
+import { refreshTeams, track } from "../../store/live.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -12,13 +12,9 @@ import { profileSummary } from "../../ui/format.ts";
 import { type TeamRow, TeamRows, toRoles, toRows } from "../departments/TeamRows.tsx";
 import styles from "./ProposalCard.module.css";
 import card from "./RequestCard.module.css";
+import { useMinutesSince } from "./RequestCard.tsx";
 
 type ProposalEvent = Extract<UserRequestEvent, { type: "proposal.requested" }>;
-
-function useMinutesSince(timestamp: string): number {
-  const [now] = useState(Date.now);
-  return Math.max(0, Math.floor((now - Date.parse(timestamp)) / 60_000));
-}
 
 // The lead's team for the user to edit: a row per worker, each with a harness, a model and an
 // effort; a worker the team already has keeps its name. The lead's own row cannot change.
@@ -34,17 +30,21 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
   const [error, setError] = useState<string>();
   const changing = departmentId !== undefined;
 
-  const answer = async (decision: Parameters<typeof api.command>[1]) => {
+  // Approving makes the task the department's, so the task is read again with the teams.
+  const run = async (action: () => Promise<void>) => {
     setSending(true);
     setError(undefined);
     try {
-      await api.command(event.sessionId, decision);
+      await action();
       await refreshTeams();
+      if (lead !== undefined) await track(lead.taskId);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
       setSending(false);
     }
   };
+  const answer = (decision: Parameters<typeof api.command>[1]) =>
+    run(() => api.command(event.sessionId, decision));
   const approved: Team = { name: name.trim(), roles: toRoles(rows) };
   const complete = approved.name !== "" && rows.every((row) => row.role.trim() !== "");
 
@@ -154,7 +154,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
             <Button
               variant="ghost"
               disabled={sending}
-              onClick={() => void api.stop(event.sessionId)}
+              onClick={() => void run(() => api.stop(event.sessionId))}
             >
               Stop the task
             </Button>

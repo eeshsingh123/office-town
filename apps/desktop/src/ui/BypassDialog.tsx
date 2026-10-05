@@ -27,12 +27,16 @@ export function BypassDialog({
   onKeep,
 }: BypassDialogProps) {
   const [understood, setUnderstood] = useState(false);
+  // Every way out clears the box, so the next warning is read afresh.
+  const settle = (then: () => void) => () => {
+    setUnderstood(false);
+    then();
+  };
   return (
     <AlertDialog.Root
       open={open}
       onOpenChange={(next) => {
-        if (!next) onKeep();
-        setUnderstood(false);
+        if (!next) settle(onKeep)();
       }}
     >
       <AlertDialog.Portal>
@@ -68,11 +72,11 @@ export function BypassDialog({
             I understand that nothing will be guarded or asked
           </label>
           <div className={dialog.actions}>
-            <Button onClick={onFull}>Use Full instead</Button>
+            <Button onClick={settle(onFull)}>Use Full instead</Button>
             <AlertDialog.Cancel asChild>
               <Button variant="ghost">Keep {keepLabel}</Button>
             </AlertDialog.Cancel>
-            <Button variant="primary" disabled={!understood} onClick={onBypass}>
+            <Button variant="primary" disabled={!understood} onClick={settle(onBypass)}>
               Turn on Bypass
             </Button>
           </div>

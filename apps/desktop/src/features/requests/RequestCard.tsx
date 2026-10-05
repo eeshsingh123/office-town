@@ -16,7 +16,7 @@ interface RequestCardProps {
   context?: ReactNode;
 }
 
-function useMinutesSince(timestamp: string): number {
+export function useMinutesSince(timestamp: string): number {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30_000);

@@ -28,18 +28,19 @@ function isolationLine(harness: HarnessDescription | undefined): string {
 }
 
 interface SecondOpinionDialogProps {
-  // The agent whose task is examined; the reviewer starts with its harness, model and effort.
+  // The agent whose work is examined, in its own folder, such as a worker's worktree; the
+  // reviewer starts with its harness, model and effort.
   agent: Agent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// A fresh agent outside the team examines a copy of the task's files (D-18). Its answer is its own
+// A fresh agent outside the team examines a copy of the agent's files (D-18). Its answer is its own
 // trace, beside the task's agents.
 export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinionDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
-  const files = useLoaded(open ? `files:${agent.taskId}` : undefined, () =>
-    api.listTaskFiles(agent.taskId),
+  const files = useLoaded(open ? `files:${agent.taskId}:${agent.id}` : undefined, () =>
+    api.listTaskFiles(agent.taskId, agent.id),
   );
   const profiles = useLoaded(open ? "profiles" : undefined, api.listProfiles);
   const [brief, setBrief] = useState("");
@@ -81,7 +82,12 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
     setError(undefined);
     try {
       const chosen: NewAgent = profile === undefined ? { settings } : { profileId: profile.id };
-      await api.secondOpinion(agent.taskId, { brief: brief.trim(), paths, reviewer: chosen });
+      await api.secondOpinion(agent.taskId, {
+        brief: brief.trim(),
+        paths,
+        reviewer: chosen,
+        agentId: agent.id,
+      });
       await track(agent.taskId);
       onOpenChange(false);
       setBrief("");
@@ -100,8 +106,8 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
         <Dialog.Content className={`${dialog.content} ${styles.content}`}>
           <Dialog.Title className={dialog.title}>Get a second opinion</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            A fresh agent that has never seen this work reviews a copy of it. It cannot change the
-            original, and it does not join the team.
+            A fresh agent that has never seen this work reviews a copy of {agent.name}'s files. It
+            cannot change the original, and it does not join the team.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             <label className={dialog.label}>

@@ -29,11 +29,22 @@ export const DEFAULT_CHOICES: HarnessChoices = {
   recentModels: [],
 };
 
+// Bypass turns every guard off, so it is never brought back without its warning.
+function withoutBypass(remembered: Remembered): Remembered {
+  const byHarness = Object.fromEntries(
+    Object.entries(remembered.byHarness).map(([harness, choices]) => [
+      harness,
+      choices.autonomy === "bypass" ? { ...choices, autonomy: "supervised" as const } : choices,
+    ]),
+  );
+  return { ...remembered, byHarness };
+}
+
 // Storage can be cleared or blocked; the form then starts from the defaults.
 export function loadRemembered(): Remembered {
   try {
     const saved = localStorage.getItem(KEY);
-    return saved === null ? { byHarness: {} } : (JSON.parse(saved) as Remembered);
+    return saved === null ? { byHarness: {} } : withoutBypass(JSON.parse(saved) as Remembered);
   } catch (error) {
     console.warn("Could not read the last choices.", error);
     return { byHarness: {} };

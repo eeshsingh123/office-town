@@ -1,10 +1,10 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
-import { Settings, Square } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
-import { loadTrace, track } from "../../store/live.ts";
+import { loadTrace } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -15,6 +15,7 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import office from "../office/Office.module.css";
 import { MessageBox } from "../task/MessageBox.tsx";
+import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
 import { Usage } from "./Usage.tsx";
 
@@ -191,26 +192,10 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
           </Button>
         ) : null}
         {working && task !== undefined ? (
-          <Button onClick={() => void api.stopTeam(task.id)}>
-            <Square size={12} aria-hidden />
-            Stop team
-          </Button>
+          <StopTeamButton taskId={task.id} label="Stop team" />
         ) : null}
       </div>
-      {lead === undefined ? null : (
-        <MessageBox
-          agent={lead}
-          className={office.message}
-          onResume={
-            lead.latest.status === "interrupted"
-              ? async (prompt) => {
-                  await api.continueTask(lead.taskId, prompt);
-                  await track(lead.taskId);
-                }
-              : undefined
-          }
-        />
-      )}
+      {lead === undefined ? null : <MessageBox agent={lead} className={office.message} />}
     </aside>
   );
 }

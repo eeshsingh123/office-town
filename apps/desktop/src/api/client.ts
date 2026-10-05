@@ -130,8 +130,8 @@ export const api = {
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
-  listTaskFiles: (taskId: string): Promise<WorkspaceEntry[]> =>
-    read(`/tasks/${id(taskId)}/files`, listOf(workspaceEntrySchema)),
+  listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>
+    read(`/tasks/${id(taskId)}/files?agent=${id(agentId)}`, listOf(workspaceEntrySchema)),
   secondOpinion: (taskId: string, request: SecondOpinionRequest): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/second-opinion`, request, sessionRecordSchema),
   listDepartments: (): Promise<DepartmentRecord[]> =>

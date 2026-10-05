@@ -1,10 +1,8 @@
-import { ArrowLeft, ExternalLink, Eye, Square } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
-import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
-import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -17,6 +15,7 @@ import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { SecondOpinionDialog } from "./SecondOpinionDialog.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
+import { StopTeamButton } from "./StopTeamButton.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
 
@@ -106,14 +105,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const waitingCount = states.filter((state) => state === "waiting").length;
   const open = members.some((member) => isOpen(member.latest));
   const folder = lead.latest.options.workspacePath;
-  const continueLead =
-    task.leadAgentId === lead.id && shown.id === lead.id && shown.latest.status === "interrupted"
-      ? async (prompt: string) => {
-          await api.continueTask(taskId, prompt);
-          await track(taskId);
-        }
-      : undefined;
-
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
@@ -152,10 +143,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           Second opinion
         </Button>
         {open ? (
-          <Button onClick={() => void api.stopTeam(taskId)}>
-            <Square size={12} aria-hidden />
-            {task.leadAgentId === undefined ? "Stop all" : "Stop team"}
-          </Button>
+          <StopTeamButton
+            taskId={taskId}
+            label={task.leadAgentId === undefined ? "Stop all" : "Stop team"}
+          />
         ) : null}
       </header>
       <div className={styles.body}>
@@ -213,12 +204,12 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </div>
             </div>
             <div className={styles.traceWidth}>
-              <MessageBox agent={shown} onResume={continueLead} />
+              <MessageBox agent={shown} />
             </div>
           </div>
         </MemberLinks.Provider>
       </div>
-      <SecondOpinionDialog agent={lead} open={asking} onOpenChange={setAsking} />
+      <SecondOpinionDialog agent={shown} open={asking} onOpenChange={setAsking} />
     </section>
   );
 }
