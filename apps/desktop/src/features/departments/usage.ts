@@ -20,20 +20,35 @@ export function sumUsage(traces: readonly Trace[]): TokenTotals {
   );
 }
 
-// Usage of these sessions by harness, from the traces loaded for them.
+// A plan limit belongs to the account, not to one goal, so it is the newest that any loaded
+// session of the harness reported.
+function latestLimits(
+  harness: string,
+  everySession: readonly SessionRecord[],
+  traces: Record<string, Trace>,
+): UsageLimit[] {
+  let latest: Trace | undefined;
+  for (const session of everySession) {
+    const trace = traces[session.id];
+    if (session.options.harness !== harness || trace?.limitsAt === undefined) continue;
+    if (latest?.limitsAt === undefined || trace.limitsAt > latest.limitsAt) latest = trace;
+  }
+  return latest?.limits ?? [];
+}
+
+// Tokens of these sessions by harness, from the traces loaded for them, with each harness's limit.
 export function usageByHarness(
   sessions: readonly SessionRecord[],
   traces: Record<string, Trace>,
+  everySession: readonly SessionRecord[],
 ): HarnessUsage[] {
   const byHarness = Map.groupBy(sessions, (session) => session.options.harness);
   return [...byHarness]
-    .map(([harness, group]) => {
-      const loaded = group
-        .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
-        .flatMap((session) => traces[session.id] ?? []);
-      const limits = loaded.findLast((trace) => trace.limits.length > 0)?.limits ?? [];
-      return { harness, limits, tokens: sumUsage(loaded) };
-    })
+    .map(([harness, group]) => ({
+      harness,
+      limits: latestLimits(harness, everySession, traces),
+      tokens: sumUsage(group.flatMap((session) => traces[session.id] ?? [])),
+    }))
     .sort((a, b) => a.harness.localeCompare(b.harness));
 }
 

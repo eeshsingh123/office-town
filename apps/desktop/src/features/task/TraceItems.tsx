@@ -243,6 +243,18 @@ function WorkerLink({ input }: { input: unknown }) {
   );
 }
 
+// A worker's brief opens its lead's trace, in a team's view.
+function LeadLink({ agentId }: { agentId: string }) {
+  const show = useMemberLinks();
+  const lead = useApp((state) => state.agents[agentId]);
+  if (show === undefined || lead === undefined) return null;
+  return (
+    <button type="button" className={styles.link} onClick={() => show(lead.id)}>
+      Open {lead.name}'s trace
+    </button>
+  );
+}
+
 // A worker's result, as the lead got it from Office Town.
 function Result({ item }: { item: TraceMessage }) {
   const show = useMemberLinks();
@@ -349,7 +361,13 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       );
     case "message":
       if (item.origin?.kind === "brief") {
-        return <FromOffice summary={`Brief · ${item.origin.summary}`} text={item.text} />;
+        const { from, summary } = item.origin;
+        return (
+          <>
+            <FromOffice summary={`Brief · ${summary}`} text={item.text} />
+            {from === undefined ? null : <LeadLink agentId={from} />}
+          </>
+        );
       }
       if (item.origin?.kind === "result") return <Result item={item} />;
       if (item.origin?.kind === "notice") {

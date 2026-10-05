@@ -91,6 +91,8 @@ export interface Trace {
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
   limits: UsageLimit[];
+  // When the limits were reported, to tell the newest apart across sessions.
+  limitsAt?: string;
   model?: string;
   ended?: Extract<SessionEvent, { type: "session.ended" }>["payload"];
 }
@@ -270,6 +272,7 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "limits.updated":
       trace.limits = event.payload.limits;
+      trace.limitsAt = event.timestamp;
       return;
     case "error": {
       const { message, detail, fatal } = event.payload;

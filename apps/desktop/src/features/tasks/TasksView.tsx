@@ -3,8 +3,8 @@ import { AlertDialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import {
-  stateOf,
   type TaskWithAgents,
+  taskStateOf,
   useTasksWithAgents,
   useWaitingSessions,
 } from "../../store/agents.ts";
@@ -90,10 +90,10 @@ function DeleteTask({ entry }: { entry: TaskWithAgents }) {
 
 function TaskRow({ entry, waiting }: { entry: TaskWithAgents; waiting: Set<string> }) {
   const traces = useApp((state) => state.traces);
-  const [first, ...others] = entry.agents;
+  const [first] = entry.agents;
   const harness = useHarnessName(first?.latest.options.harness ?? "");
-  if (first === undefined) return null;
-  const state = stateOf(first, traces, waiting.has(first.latest.id));
+  const state = taskStateOf(entry.agents, traces, waiting);
+  if (first === undefined || state === undefined) return null;
   const continued = first.sessions.length - 1;
   return (
     <li className={styles.row}>
@@ -106,8 +106,7 @@ function TaskRow({ entry, waiting }: { entry: TaskWithAgents; waiting: Set<strin
         <span className={styles.text}>
           <span className={styles.title}>{taskTitle(entry.task.prompt)}</span>
           <span className={styles.meta}>
-            {first.name}
-            {others.length === 0 ? "" : ` and ${others.length} more`} · {harness} ·{" "}
+            {entry.agents.map((agent) => agent.name).join(", ")} · {harness} ·{" "}
             {clockTime(entry.task.createdAt)} · {STATE_LABELS[state]}
             {continued === 0
               ? ""

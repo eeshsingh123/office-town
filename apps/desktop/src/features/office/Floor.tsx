@@ -73,7 +73,10 @@ const FINISHED: AgentState[] = ["idle", "done", "failed", "stopped", "interrupte
 
 // Holding a direction key walks the player once per frame until every key is released.
 function useWalking(plan: FloorPlan) {
-  const [player, setPlayer] = useState(plan.start);
+  // Until the user walks, the player stands at the start of the plan as it is now: rooms appear
+  // once the departments load, and the start moves clear of them.
+  const [walked, setWalked] = useState<Point>();
+  const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
   const frame = useRef<number | undefined>(undefined);
   const last = useRef(0);
@@ -93,7 +96,7 @@ function useWalking(plan: FloorPlan) {
         frame.current = undefined;
         return;
       }
-      setPlayer((at) =>
+      setWalked((at = plan.start) =>
         clampToFloor(
           { x: at.x + (x / length) * SPEED * seconds, y: at.y + (y / length) * SPEED * seconds },
           plan,

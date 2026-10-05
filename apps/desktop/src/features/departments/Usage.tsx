@@ -7,17 +7,26 @@ import { usageByHarness } from "./usage.ts";
 
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+interface UsageProps {
+  sessions: readonly SessionRecord[];
+  title?: string;
+}
+
 // Each harness's own limit, or its tokens where it reports none (D-29).
-export function Usage({ sessions }: { sessions: readonly SessionRecord[] }) {
+export function Usage({ sessions, title = "Usage" }: UsageProps) {
   const traces = useApp((state) => state.traces);
   const harnesses = useApp((state) => state.harnesses);
-  const usage = useMemo(() => usageByHarness(sessions, traces), [sessions, traces]);
+  const everySession = useApp((state) => state.sessions);
+  const usage = useMemo(
+    () => usageByHarness(sessions, traces, Object.values(everySession)),
+    [sessions, traces, everySession],
+  );
   if (usage.length === 0) return null;
   const nameOf = (harness: string) =>
     harnesses.find((known) => known.harness === harness)?.name ?? harness;
   return (
     <section className={styles.usage} aria-label="Usage">
-      <h3 className={styles.title}>Usage</h3>
+      <h3 className={styles.title}>{title}</h3>
       {usage.map(({ harness, limits, tokens }) =>
         limits.length === 0 ? (
           <div key={harness} className={styles.line}>

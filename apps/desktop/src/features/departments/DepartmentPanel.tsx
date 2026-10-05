@@ -116,9 +116,10 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         const work = task === undefined ? undefined : workOf(known, record.id, task.id);
         return work === undefined ? { record } : { record, work };
       });
-    const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? [])).flatMap(
-      (id) => sessions[id] ?? [],
-    );
+    // The team's own work: a guest called in for a second opinion is no member.
+    const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
+      .flatMap((id) => sessions[id] ?? [])
+      .filter((session) => agents[session.agentId]?.guest !== true);
     return { task, members, goalSessions };
   }, [agents, tasks, sessions, department]);
 
@@ -183,7 +184,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
       </section>
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
-      <Usage sessions={goalSessions} />
+      <Usage sessions={goalSessions} title={working ? "This goal's usage" : "Last goal's usage"} />
 
       <div className={office.panelActions}>
         {task === undefined ? (

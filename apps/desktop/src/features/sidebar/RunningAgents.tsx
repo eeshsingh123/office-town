@@ -1,4 +1,4 @@
-import { stateOf, useTasksWithAgents, useWaitingSessions } from "../../store/agents.ts";
+import { taskStateOf, useTasksWithAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
@@ -21,9 +21,8 @@ export function RunningAgents() {
       <div className={styles.label}>Active</div>
       {tasks.map(({ task, agents }) => {
         const [first, ...others] = agents;
-        if (first === undefined) return null;
-        const asking = agents.find((agent) => waiting.has(agent.latest.id));
-        const state = stateOf(asking ?? first, traces, asking !== undefined);
+        const state = taskStateOf(agents, traces, waiting);
+        if (first === undefined || state === undefined) return null;
         const trace = traces[first.latest.id];
         const step = trace === undefined ? undefined : progressOf(trace).step;
         const detail =

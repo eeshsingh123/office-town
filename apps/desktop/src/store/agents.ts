@@ -62,6 +62,18 @@ export function stateOf(agent: Agent, traces: Record<string, Trace>, waiting: bo
   return agentState(agent.latest, traces[agent.latest.id], waiting);
 }
 
+// A task's state with all its agents: one asking makes it wait for the user, and one at work keeps
+// it at work, such as workers busy while their lead was stopped for being idle.
+export function taskStateOf(
+  agents: readonly Agent[],
+  traces: Record<string, Trace>,
+  waiting: Set<string>,
+): AgentState | undefined {
+  const states = agents.map((agent) => stateOf(agent, traces, waiting.has(agent.latest.id)));
+  if (states.includes("waiting")) return "waiting";
+  return states.find((state) => state === "working" || state === "starting") ?? states[0];
+}
+
 // Every agent with work, by its latest task, newest first.
 export function useAgents(): Agent[] {
   const agents = useApp((state) => state.agents);

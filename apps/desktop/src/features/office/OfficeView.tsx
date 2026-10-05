@@ -57,12 +57,16 @@ function membersOf(department: DepartmentRecord, agents: Record<string, AgentRec
     );
 }
 
-// The department's latest goal, and its sessions.
-function goalOf(department: DepartmentRecord, state: Pick<AppState, "tasks" | "sessions">) {
+type Known = Pick<AppState, "agents" | "tasks" | "sessions">;
+
+// The department's latest goal, and its members' sessions in it; a guest is no member.
+function goalOf(department: DepartmentRecord, state: Known) {
   const entry = Object.values(state.tasks)
     .filter(({ task }) => task.departmentId === department.id)
     .sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt))[0];
-  const sessions = (entry?.sessionIds ?? []).flatMap((id) => state.sessions[id] ?? []);
+  const sessions = (entry?.sessionIds ?? [])
+    .flatMap((id) => state.sessions[id] ?? [])
+    .filter((session) => state.agents[session.agentId]?.guest !== true);
   return { task: entry?.task, sessions };
 }
 
@@ -99,13 +103,12 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
-  records: Record<string, AgentRecord>;
-  state: Pick<AppState, "tasks" | "sessions">;
+  state: Known;
 }
 
 // Every agent at work, or done today, at a desk: in its department's room, on the open floor if
 // it works alone, or at the guest desk if it came for a second opinion (MODULES M4.9).
-function layOut({ agents, traces, waiting, harnessName, departments, records, state }: Layout) {
+function layOut({ agents, traces, waiting, harnessName, departments, state }: Layout) {
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
@@ -115,7 +118,7 @@ function layOut({ agents, traces, waiting, harnessName, departments, records, st
     .filter((agent) => onTheFloor(agent.latest, asking.has(agent.latest.id)))
     .reverse();
   const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId));
-  const members = new Map(departments.map((one) => [one.id, membersOf(one, records)]));
+  const members = new Map(departments.map((one) => [one.id, membersOf(one, state.agents)]));
   const solo = inRoom.get(OPEN) ?? [];
   const guests = inRoom.get(GUESTS) ?? [];
   const specs: RoomSpec[] = [
@@ -158,21 +161,25 @@ function layOut({ agents, traces, waiting, harnessName, departments, records, st
     [OPEN]: { title: "Open floor", note: "agents working alone", waiting: 0, lines: [] },
     [GUESTS]: { title: "Guest desk", note: "second opinions", waiting: 0, lines: [] },
   };
+  const everySession = Object.values(state.sessions);
+  const requests = Object.values(waiting);
   for (const department of departments) {
     const goal = goalOf(department, state);
-    const usage = usageByHarness(goal.sessions, traces).map((one) =>
-      usageSummary(one, harnessName(one.harness)),
-    );
+    const usage = usageByHarness(goal.sessions, traces, everySession)
+      .map((one) => usageSummary(one, harnessName(one.harness)))
+      .join(" · ");
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
+    const inRoom = (sessionId: string) => {
+      const agentId = state.sessions[sessionId]?.agentId;
+      return agentId !== undefined && state.agents[agentId]?.departmentId === department.id;
+    };
     signs[department.id] = {
       title: department.name,
       note: AUTONOMY[department.autonomy].label,
-      waiting: floorAgents.filter(
-        (one) => one.state === "waiting" && one.agent.record.departmentId === department.id,
-      ).length,
+      waiting: requests.filter((request) => inRoom(request.event.sessionId)).length,
       lines: [
         working && goal.task !== undefined ? taskTitle(goal.task.prompt) : "No goal in progress",
-        ...(usage.length === 0 ? [] : [usage.join(" · ")]),
+        ...(usage === "" ? [] : [`${working ? "This goal" : "Last goal"} · ${usage}`]),
       ],
     };
   }
@@ -193,8 +200,10 @@ export function OfficeView() {
   const view = useApp((state) => state.view);
   const room = view.name === "office" ? view.room : undefined;
 
+  // Oldest first, so a new or renamed department never moves the rooms already there.
   const departments = useMemo(
-    () => Object.values(departmentRecords).toSorted((a, b) => a.name.localeCompare(b.name)),
+    () =>
+      Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
   const { plan, floorAgents, signs } = useMemo(() => {
@@ -206,17 +215,18 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
-      records,
-      state: { tasks, sessions },
+      state: { agents: records, tasks, sessions },
     });
   }, [agents, traces, waiting, harnesses, departments, records, tasks, sessions]);
 
   // A room's usage counts every session of its goal, finished ones included.
   useEffect(() => {
     for (const department of departments) {
-      for (const session of goalOf(department, { tasks, sessions }).sessions) loadTrace(session.id);
+      for (const session of goalOf(department, { agents: records, tasks, sessions }).sessions) {
+        loadTrace(session.id);
+      }
     }
-  }, [departments, tasks, sessions]);
+  }, [departments, records, tasks, sessions]);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const asking = floorAgents.filter(({ state }) => state === "waiting").length;
