@@ -81,11 +81,19 @@ Why: one code path in both places; the core needs no CORS (closes D-32's open po
 A catalog model may carry `access`: `free`, `plan` (nothing beyond a subscription the user has) or `paid`. The adapter decides, since only it knows its harness's providers: OpenCode marks zero-cost models free and OpenCode Go models plan, and leaves out models that cannot call tools (image, video, speech), which no agent can use. The New task list shows Recent, Free, In your plan, then providers used before; other providers sit behind one row. OpenCode lists only the providers the user is connected to, so the app does not check logins; logging in from the app is deferred (owner).
 Why: a zero-cost flag alone put image and speech models first and hid the subscription models the user already pays for.
 
-### D-39 Team tools come from the core's own MCP server — proposed (2026-10-05), confirmed by the M4.1 spike
+### D-39 Team tools come from the core's own MCP server — accepted (2026-10-05), confirmed by the M4.1 spike
 
-The core serves MCP and attaches it to each team agent's session, with one token per session. Tools return at once; outcomes (a proposal answered, a worker finished) reach the agent later as a message from the core. The server is a small one of our own over HTTP, beside the API, like D-32, unless the spike shows the official SDK is needed.
+The core serves MCP and attaches it to each agent's session, with one token per session. Tools return at once; outcomes (a proposal answered, a worker finished) reach the agent later as a message from the core. The server is a small one of our own over HTTP on its own port: POST carries one JSON-RPC message and is answered with JSON, a notification gets 202, and GET gets 405 since the server never pushes. Both CLIs accept that; the official SDK is not needed.
 Why: Claude Code and OpenCode both call MCP tools, so delegation works the same on every harness, and M7 connectors attach through the same seam. Tools that wait on a person or another agent would run into harness tool timeouts and block parallel work.
-Open: how a WSL harness reaches the server, as WSL2 cannot reach Windows' `127.0.0.1` by default.
+
+### D-41 What the M4.1 spike settled — accepted (2026-10-05)
+
+Checked live with Claude Code 2.1.287 (haiku) and OpenCode 1.18.34 (a free model), natively and in WSL Ubuntu.
+- Attaching: Claude takes `--mcp-config <json>` plus `--allowedTools mcp__office-town`, and asks nothing for those tools; it first loads them through its own ToolSearch step. OpenCode takes ACP's `mcpServers` (HTTP, headers as name/value pairs) in `session/new` and `session/resume`, and asks nothing for MCP tools; an allow rule for `office-town_*` keeps it so under a user's stricter config.
+- WSL: WSL2 is in NAT mode on the owner's machine and cannot reach Windows' `127.0.0.1`. A WSL harness instead runs a stdio MCP server that is a Windows process (the core's own Node, through WSL interop) forwarding each line to the HTTP server. The token travels as an environment variable named in `WSLENV`, never on a command line. No WSL setting changes, so WSL agents can be leads (replaces D-40's fallback). Needs WSL interop, which is on by default.
+- Isolation for outsourced agents: Claude's `--bare` accepts only an API key, never the subscription login, so it is out; `CLAUDE_CODE_SIMPLE` breaks the login the same way. `--setting-sources "" --strict-mcp-config --disable-slash-commands` keeps out the project's and the user's instruction files and settings, the user's MCP servers and skills; auto-memory is per folder, so a fresh copy has none: full isolation. OpenCode: `OPENCODE_PURE`, `OPENCODE_DISABLE_PROJECT_CONFIG`, `OPENCODE_DISABLE_CLAUDE_CODE` and `OPENCODE_DISABLE_EXTERNAL_SKILLS` leave its global config and global instructions loading: partial. For every harness, the copy itself leaves out instruction files (`AGENTS.md`, `CLAUDE.md`, `.claude`, `.opencode`).
+- Worktrees: Windows git 2.34 writes an absolute `C:/` path into a worktree's `.git`, which WSL git cannot read. Relative worktree paths need git 2.48 on both sides and set a repository extension older git refuses. So a worktree is made and removed by the git of the environment its worker runs in; branches are shared, so the lead merges with its own git. Windows git lists a worktree made in WSL as "prunable"; it still works.
+- Owner (2026-10-05): a department works on one goal at a time; a new goal starts each agent in a fresh conversation; "one branch per worker" is a department switch, on by default.
 
 ### D-40 Departments, proposals and autonomy — accepted (2026-10-05)
 
@@ -95,7 +103,6 @@ Open: how a WSL harness reaches the server, as WSL2 cannot reach Windows' `127.0
 - Outward actions (push, opening a PR, publishing) are allowed under Full and asked under the other levels (owner).
 - In a git repository each worker gets its own worktree and branch, which the lead merges; otherwise the team shares the folder (owner).
 - Outsourced agents work on a copy, never the original (owner).
-- A WSL agent that cannot reach the tool server without the user changing WSL settings can be a worker but not a lead (owner).
 - Agent memory is out of M4 and gets its own module after a deep dive (owner).
 Why the lead proposes: it already has the goal and the workspace, and its reasoning stays in its own trace.
 
