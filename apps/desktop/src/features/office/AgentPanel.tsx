@@ -10,6 +10,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { Usage } from "../departments/Usage.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { MessageBox } from "../task/MessageBox.tsx";
 import { SecondOpinionDialog } from "../task/SecondOpinionDialog.tsx";
@@ -45,7 +46,10 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
   const [asking, setAsking] = useState(false);
-  useEffect(() => loadTrace(latest.id), [latest.id]);
+  // Every session of its task, for its usage; the latest also for its step and actions.
+  useEffect(() => {
+    for (const session of agent.sessions) loadTrace(session.id);
+  }, [agent.sessions]);
   const progress = trace === undefined ? undefined : progressOf(trace);
   const live = isOpen(latest);
   const open = () => navigate({ name: "task", taskId: agent.taskId });
@@ -96,6 +100,8 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
           </ul>
         </div>
       )}
+
+      <Usage sessions={agent.sessions} />
 
       <div className={styles.panelActions}>
         <Button variant="primary" onClick={open}>

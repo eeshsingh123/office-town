@@ -1,12 +1,13 @@
 import type { SessionRecord } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import {
-  clampToRoom,
+  clampToFloor,
   floorPlan,
   inRect,
   onTheFloor,
   REACH,
   rectFrom,
+  roomAt,
   withinReach,
 } from "../src/features/office/floor-plan.ts";
 
@@ -17,14 +18,30 @@ const agents = [
 ];
 
 describe("floor plan", () => {
-  it("keeps a spare desk for the next agent and keeps the player inside the room", () => {
-    const plan = floorPlan(6);
-    expect(plan.seats.length).toBeGreaterThan(6);
-    expect(floorPlan(0).seats.length).toBe(floorPlan(5).seats.length);
-    const { room } = plan;
-    const outside = clampToRoom({ x: -50, y: room.y + room.height + 50 }, plan);
-    expect(outside.x).toBeGreaterThan(room.x);
-    expect(outside.y).toBeLessThan(room.y + room.height);
+  it("gives each room its desks without overlap, and keeps the player on the floor", () => {
+    const plan = floorPlan([
+      { id: "web", kind: "department", desks: 4 },
+      { id: "research", kind: "department", desks: 1 },
+      { id: "open", kind: "open", desks: 3 },
+      { id: "guest", kind: "guest", desks: 2 },
+    ]);
+    expect(plan.rooms.map((room) => room.seats.length)).toEqual([4, 1, 3, 2]);
+    for (const [index, room] of plan.rooms.entries()) {
+      expect(room.rect.x + room.rect.width).toBeLessThanOrEqual(plan.width);
+      for (const seat of room.seats) expect(roomAt(seat.agent, plan)?.id).toBe(room.id);
+      for (const other of plan.rooms.slice(index + 1)) {
+        const apart =
+          room.rect.x + room.rect.width <= other.rect.x ||
+          other.rect.x + other.rect.width <= room.rect.x ||
+          room.rect.y + room.rect.height <= other.rect.y ||
+          other.rect.y + other.rect.height <= room.rect.y;
+        expect(apart).toBe(true);
+      }
+    }
+    expect(roomAt(plan.start, plan)).toBeUndefined();
+    const outside = clampToFloor({ x: -50, y: plan.height + 50 }, plan);
+    expect(outside.x).toBeGreaterThan(0);
+    expect(outside.y).toBeLessThan(plan.height);
   });
 
   it("finds the nearest agent within reach, and the agents inside a dragged box", () => {

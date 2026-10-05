@@ -2,9 +2,10 @@ import type { AgentRecord, PlanStep, SessionRecord, UsageLimit } from "@office-t
 import { Check, CircleDashed, LoaderCircle } from "lucide-react";
 import { useLevel } from "../../store/agents.ts";
 import { useHarnessName } from "../../store/app-store.ts";
-import type { TokenTotals, Trace } from "../../trace/trace.ts";
+import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { clockTime, compactCount, elapsed, environmentName, whenNext } from "../../ui/format.ts";
+import { sumUsage } from "../departments/usage.ts";
 import styles from "./TaskView.module.css";
 
 function StepIcon({ step }: { step: PlanStep }) {
@@ -72,17 +73,6 @@ interface AgentAsideProps {
   latest: SessionRecord;
   // The task's loaded traces, oldest first.
   traces: Trace[];
-}
-
-function sumUsage(traces: Trace[]): TokenTotals {
-  return traces.reduce(
-    (total, { usage }) => ({
-      inputTokens: total.inputTokens + usage.inputTokens,
-      outputTokens: total.outputTokens + usage.outputTokens,
-      cachedInputTokens: total.cachedInputTokens + usage.cachedInputTokens,
-    }),
-    { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
-  );
 }
 
 // A resumed session reports no plan or limits until they change, so the latest known ones show.

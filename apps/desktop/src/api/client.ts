@@ -4,8 +4,10 @@ import {
   type ApiError,
   agentRecordSchema,
   apiErrorSchema,
+  type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
+  delegationRecordSchema,
   departmentRecordSchema,
   type EnvironmentList,
   type EnvironmentSpec,
@@ -126,6 +128,8 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
+  listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
+    read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string): Promise<WorkspaceEntry[]> =>
     read(`/tasks/${id(taskId)}/files`, listOf(workspaceEntrySchema)),
   secondOpinion: (taskId: string, request: SecondOpinionRequest): Promise<SessionRecord> =>

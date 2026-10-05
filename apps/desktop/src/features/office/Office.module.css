@@ -70,27 +70,65 @@
   border-color: var(--accent);
 }
 
-.roomLabel {
-  position: absolute;
-  top: 10px;
-  left: 14px;
-  display: flex;
-  gap: 8px;
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-2);
+.roomOpen {
+  border-color: var(--accent);
 }
 
-.roomLabel span {
+.guestRoom {
+  border-style: dashed;
+}
+
+.sign {
+  position: absolute;
+  top: -14px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.sign span {
   font-weight: 400;
   color: var(--text-3);
 }
 
-.door {
+.sign .signWaiting {
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.signButton {
+  cursor: pointer;
+}
+
+.signButton:hover {
+  background: var(--hover);
+}
+
+.roomOpen .sign {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.roomLines {
   position: absolute;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--bg);
+  top: 18px;
+  right: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: var(--text-2);
 }
 
 .desk {
@@ -518,4 +556,14 @@
 .whoText .name {
   font-size: inherit;
   color: var(--text);
+}
+
+.roomLines span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.roomLines span + span {
+  color: var(--text-3);
 }

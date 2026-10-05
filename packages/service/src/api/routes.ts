@@ -137,6 +137,11 @@ export function apiRoutes(team: TeamContext): Route[] {
     },
     {
       method: "GET",
+      path: "/tasks/:id/delegations",
+      reply: ({ param }) => ({ status: 200, json: store.listDelegations(param("id")) }),
+    },
+    {
+      method: "GET",
       path: "/tasks/:id/files",
       reply: ({ param }) => ({ status: 200, json: workspaceEntries(team, param("id")) }),
     },
