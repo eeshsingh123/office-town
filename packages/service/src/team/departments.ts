@@ -42,7 +42,7 @@ export function createDepartment(
 ): DepartmentRecord {
   const { store } = context;
   workspaceFolders(store, workspaceId);
-  const lead = createAgent(store, newLead, "Lead");
+  const lead = createAgent(store, newLead, { role: "Lead", autonomy });
   const department = store.createDepartment({
     name: team.name,
     workspaceId,

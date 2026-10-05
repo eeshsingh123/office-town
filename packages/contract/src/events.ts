@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { answeredBySchema } from "./autonomy.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
 export const tokenUsageSchema = z.object({
@@ -158,17 +159,22 @@ const payloadSchemas = {
     result: z.string(),
     overflow: overflowSchema.optional(),
   }),
+  // `kind` and `locations` are the action's it asks for, when the harness started one first:
+  // what the autonomy level reads to decide.
   "permission.requested": z.object({
     requestId: z.string().min(1),
     actionId: z.string().optional(),
     title: z.string(),
     input: z.unknown(),
     options: z.array(permissionOptionSchema).min(1),
+    kind: actionKindSchema.optional(),
+    locations: z.array(z.string()).optional(),
   }),
   "permission.resolved": z.object({
     requestId: z.string().min(1),
     outcome: z.enum(["allowed", "denied", "cancelled"]),
     optionId: z.string().optional(),
+    answeredBy: answeredBySchema.optional(),
   }),
   "question.requested": z.object({
     requestId: z.string().min(1),

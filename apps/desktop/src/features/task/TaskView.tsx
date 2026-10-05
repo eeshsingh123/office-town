@@ -158,6 +158,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
           </div>
         </div>
         <AgentAside
+          agent={agent.record}
           first={agent.sessions[0] ?? latest}
           latest={latest}
           traces={agent.sessions.flatMap((session) => traces[session.id] ?? [])}

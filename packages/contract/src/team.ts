@@ -1,12 +1,10 @@
 import { z } from "zod";
 import { agentSettingsSchema, newAgentSchema } from "./agents.ts";
+import { autonomySchema } from "./autonomy.ts";
 import { absolutePathSchema } from "./options.ts";
 
-// How much a department's agents may do without asking the user (D-40).
-export const autonomySchema = z.enum(["supervised", "trusted", "full", "bypass"]);
-export type Autonomy = z.infer<typeof autonomySchema>;
-
-export const roleSettingsSchema = agentSettingsSchema.omit({ instructions: true });
+// A role's harness, model and effort; its level is its department's.
+export const roleSettingsSchema = agentSettingsSchema.omit({ instructions: true, autonomy: true });
 export type RoleSettings = z.infer<typeof roleSettingsSchema>;
 
 // One worker of a team. A member kept from the team as it is names its agent, and may still get

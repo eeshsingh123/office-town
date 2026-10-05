@@ -1,6 +1,5 @@
 import type {
   AgentRecord,
-  Autonomy,
   DepartmentRecord,
   SessionOptions,
   Team,
@@ -37,24 +36,6 @@ export function workspaceFolders(store: Store, workspaceId: string): string[] {
   const { folders } = store.useWorkspace(workspaceId);
   requireFolders(folders);
   return folders;
-}
-
-// A team's agents all work in its workspace, guarded by its autonomy level. The harness runs in
-// its ask mode, so every request reaches the core's guardrail, unless the level is Bypass.
-export function memberOptions(
-  store: Store,
-  agent: AgentRecord,
-  folders: string[],
-  autonomy: Autonomy,
-): SessionOptions {
-  const [workspacePath, ...additionalPaths] = folders;
-  const { instructions: _, ...settings } = settingsOf(store, agent);
-  return {
-    ...settings,
-    permissionMode: autonomy === "bypass" ? "bypass" : "ask",
-    ...(workspacePath === undefined ? {} : { workspacePath }),
-    ...(additionalPaths.length === 0 ? {} : { additionalPaths }),
-  };
 }
 
 export interface TeamChange {

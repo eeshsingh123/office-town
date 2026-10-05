@@ -22,7 +22,7 @@ const EVENT_SELECT = `
 const UNFINISHED = "status IN ('starting', 'running')";
 
 const AGENT_SELECT = `
-  SELECT a.ref, a.id, a.name, a.colour, a.role, a.purpose, d.id AS departmentId,
+  SELECT a.ref, a.id, a.name, a.colour, a.role, a.purpose, d.id AS departmentId, a.autonomy,
          p.id AS profileId, a.settings, a.created_at AS createdAt
   FROM agents a
   LEFT JOIN profiles p ON p.ref = a.profile_ref
@@ -80,10 +80,12 @@ export const queries = {
 
   insertAgent: `
     INSERT INTO agents
-      (id, name, colour, role, purpose, department_ref, profile_ref, settings, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, name, colour, role, purpose, department_ref, autonomy, profile_ref, settings,
+       created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   updateAgent: `
-    UPDATE agents SET role = ?, purpose = ?, department_ref = ?, profile_ref = ?, settings = ?
+    UPDATE agents
+    SET role = ?, purpose = ?, department_ref = ?, autonomy = ?, profile_ref = ?, settings = ?
     WHERE ref = ?`,
   membersOf: `${AGENT_SELECT} WHERE a.department_ref = ? ORDER BY a.ref`,
   agentById: `${AGENT_SELECT} WHERE a.id = ?`,

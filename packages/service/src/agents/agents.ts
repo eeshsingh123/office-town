@@ -1,4 +1,4 @@
-import type { AgentRecord, AgentSettings, NewAgent } from "@office-town/contract";
+import type { AgentRecord, AgentSettings, Autonomy, NewAgent } from "@office-town/contract";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { type Identity, randomIdentity } from "./names.ts";
 
@@ -14,10 +14,19 @@ export function freeIdentity(store: Store): Identity {
   throw new Error("Could not find a free name for a new agent.");
 }
 
-// A new agent's role is its profile's name, unless it is given one, such as a team's lead.
-export function createAgent(store: Store, agent: NewAgent, role?: string): AgentRecord {
+export interface AgentPlace {
+  // Given instead of the profile's name, such as a team's lead.
+  role?: string;
+  // The level it works at while it has no department.
+  autonomy: Autonomy;
+}
+
+export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): AgentRecord {
   const { name, colour } = freeIdentity(store);
-  const named = role === undefined ? {} : { role };
+  const named = {
+    autonomy: place.autonomy,
+    ...(place.role === undefined ? {} : { role: place.role }),
+  };
   if ("settings" in agent) {
     return store.createAgent({ name, colour, ...named, settings: agent.settings });
   }

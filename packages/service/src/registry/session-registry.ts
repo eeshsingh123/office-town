@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   AgentCommand,
+  Autonomy,
   MessageOrigin,
   SessionEvent,
   SessionOptions,
@@ -111,10 +112,25 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>;
+
+// Says which autonomy level lets a request through without the user, if any.
+export type Guard = (
+  session: SessionRecord,
+  request: PermissionRequest["payload"],
+) => Autonomy | undefined;
+
+export interface RegistryOptions {
+  createSession?: HarnessSessionFactory;
+  tools?: ToolAccess;
+  guard?: Guard;
+}
+
 export class SessionRegistry {
   readonly #store: Store;
   readonly #createSession: HarnessSessionFactory;
   readonly #tools: ToolAccess | undefined;
+  readonly #guard: Guard | undefined;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // The core's own requests waiting for the user, by session and request id.
@@ -124,12 +140,12 @@ export class SessionRegistry {
 
   constructor(
     store: Store,
-    createSession: HarnessSessionFactory = createHarnessSession,
-    tools?: ToolAccess,
+    { createSession = createHarnessSession, tools, guard }: RegistryOptions = {},
   ) {
     this.#store = store;
     this.#createSession = createSession;
     this.#tools = tools;
+    this.#guard = guard;
     // Whatever an earlier core left running is not running now.
     store.markInterrupted();
   }
@@ -182,6 +198,10 @@ export class SessionRegistry {
     }
     if (command.type === "answerProposal") {
       throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
+    }
+    if (command.type === "answerPermission") {
+      await live.session.send({ ...command, answeredBy: "user" });
+      return;
     }
     await live.session.send(command);
   }
@@ -282,6 +302,25 @@ export class SessionRegistry {
       return;
     }
     this.#publish(stored ?? { event });
+    if (event.type === "permission.requested") this.#letThrough(live, event);
+  }
+
+  // The request stays in the trace, answered by the level that allowed it.
+  #letThrough(live: LiveSession, request: PermissionRequest): void {
+    const session = this.#store.getSession(request.sessionId);
+    const level = session === undefined ? undefined : this.#guard?.(session, request.payload);
+    const allow = request.payload.options.find((option) => option.kind === "allow_once");
+    if (level === undefined || allow === undefined) return;
+    live.session
+      .send({
+        type: "answerPermission",
+        requestId: request.payload.requestId,
+        optionId: allow.optionId,
+        answeredBy: { autonomy: level },
+      })
+      .catch((error: unknown) => {
+        this.#publishError(live, "Autonomy could not answer a request.", errorMessage(error));
+      });
   }
 
   // One more try once the agent has stopped, so a brief storage failure does not leave the session

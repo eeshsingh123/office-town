@@ -1,13 +1,13 @@
 import type { EnvironmentSpec, SessionRecord, StartTeamTaskRequest } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
 import { createAgent, settingsOf } from "../agents/agents.ts";
+import { inFolders, sessionOptionsFor } from "../agents/options.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
 import { isOpen, latestSession } from "./lead.ts";
 import {
   DepartmentBusyError,
-  memberOptions,
   rosterOf,
   type TeamContext,
   TeamError,
@@ -51,7 +51,7 @@ export async function startTeamTask(
     return registry.start({
       taskId: task.id,
       agentId: lead.id,
-      options: memberOptions(store, lead, folders, department.autonomy),
+      options: sessionOptionsFor(store, lead, inFolders(folders)),
       message: leadBrief({
         goal,
         teamName: department.name,
@@ -62,8 +62,8 @@ export async function startTeamTask(
     });
   }
   const folders = workspaceFolders(store, team.workspaceId);
-  const lead = createAgent(store, team.lead, "Lead");
-  const options = memberOptions(store, lead, folders, team.autonomy);
+  const lead = createAgent(store, team.lead, { role: "Lead", autonomy: team.autonomy });
+  const options = sessionOptionsFor(store, lead, inFolders(folders));
   const task = store.createTask(goal, {
     leadAgentId: lead.id,
     setup: { workspaceId: team.workspaceId, autonomy: team.autonomy },

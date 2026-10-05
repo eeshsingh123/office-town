@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
+  ActionKind,
   AdapterCapabilities,
+  AnsweredBy,
   PermissionOption,
   PlanStep,
   Question,
@@ -80,7 +82,9 @@ export class HarnessSession implements Session {
   readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
   readonly #pendingQuestions = new Map<string, Question[]>();
-  readonly #openActions = new Set<string>();
+  // What each running action is and touches, as host paths: a permission request for it carries
+  // them, so a guardrail can tell what it asks for whichever harness asked.
+  readonly #openActions = new Map<string, { kind: ActionKind; locations?: string[] }>();
   readonly #launched = Promise.withResolvers<void>();
   readonly #ended = Promise.withResolvers<void>();
   #reportingListenerFailure = false;
@@ -143,7 +147,7 @@ export class HarnessSession implements Session {
         return;
       case "answerPermission":
         this.#requireActive("answer a permission");
-        this.#answerPermission(command.requestId, command.optionId);
+        this.#answerPermission(command.requestId, command.optionId, command.answeredBy);
         return;
       case "answerQuestion":
         this.#requireActive("answer a question");
@@ -203,7 +207,7 @@ export class HarnessSession implements Session {
     this.#emit({ type: "error", payload: { message, fatal: false } });
   }
 
-  #answerPermission(requestId: string, optionId: string): void {
+  #answerPermission(requestId: string, optionId: string, answeredBy?: AnsweredBy): void {
     const option = this.#pendingPermissions.get(requestId)?.find((o) => o.optionId === optionId);
     if (option === undefined) {
       throw new SessionStateError(
@@ -213,7 +217,15 @@ export class HarnessSession implements Session {
     this.#pendingPermissions.delete(requestId);
     this.#apply(this.#translator.answerPermission(requestId, option));
     const outcome = option.kind.startsWith("allow") ? "allowed" : "denied";
-    this.#emit({ type: "permission.resolved", payload: { requestId, outcome, optionId } });
+    this.#emit({
+      type: "permission.resolved",
+      payload: {
+        requestId,
+        outcome,
+        optionId,
+        ...(answeredBy === undefined ? {} : { answeredBy }),
+      },
+    });
   }
 
   #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
@@ -306,18 +318,26 @@ export class HarnessSession implements Session {
         this.#plan = event.payload.steps;
         this.#emit(event);
         break;
-      case "action.started":
-        this.#openActions.add(event.payload.actionId);
-        this.#emit({ ...event, payload: this.#attributeToPlan(this.#onHost(event.payload)) });
+      case "action.started": {
+        const payload = this.#attributeToPlan(this.#onHost(event.payload));
+        this.#openActions.set(payload.actionId, {
+          kind: payload.kind,
+          ...(payload.locations === undefined ? {} : { locations: payload.locations }),
+        });
+        this.#emit({ ...event, payload });
         break;
+      }
       case "action.ended":
         this.#openActions.delete(event.payload.actionId);
         this.#emit(event);
         break;
-      case "permission.requested":
+      case "permission.requested": {
         this.#pendingPermissions.set(event.payload.requestId, event.payload.options);
-        this.#emit(event);
+        const { actionId } = event.payload;
+        const action = actionId === undefined ? undefined : this.#openActions.get(actionId);
+        this.#emit({ ...event, payload: { ...event.payload, ...action } });
         break;
+      }
       case "permission.resolved":
         this.#pendingPermissions.delete(event.payload.requestId);
         this.#emit(event);
@@ -378,7 +398,7 @@ export class HarnessSession implements Session {
       this.#emit({ type: "question.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#pendingQuestions.clear();
-    for (const actionId of this.#openActions) {
+    for (const actionId of this.#openActions.keys()) {
       const result = "The harness stopped before this action finished.";
       this.#emit({ type: "action.ended", payload: { actionId, outcome: "failed", result } });
     }

@@ -1,4 +1,10 @@
-import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
+import {
+  type AgentRecord,
+  type Autonomy,
+  lowerAutonomy,
+  type SessionRecord,
+  type TaskRecord,
+} from "@office-town/contract";
 import { useMemo } from "react";
 import { type AgentState, agentState } from "../trace/progress.ts";
 import type { Trace } from "../trace/trace.ts";
@@ -97,6 +103,15 @@ export function useSessionAgent(sessionId: string): Agent | undefined {
     if (session === undefined) return undefined;
     return workOf({ agents, tasks, sessions }, session.agentId, session.taskId);
   }, [agents, tasks, sessions, sessionId]);
+}
+
+// The level an agent works at: its department's, or its own, lowered by its settings.
+export function useLevel(agent: AgentRecord | undefined): Autonomy {
+  const department = useApp((state) =>
+    agent?.departmentId === undefined ? undefined : state.departments[agent.departmentId],
+  );
+  const level = department?.autonomy ?? agent?.autonomy ?? "supervised";
+  return lowerAutonomy(level, agent?.settings.autonomy);
 }
 
 // The sessions with a request waiting, so each agent's state can be read in one lookup.

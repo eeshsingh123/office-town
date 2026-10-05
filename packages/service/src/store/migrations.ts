@@ -195,4 +195,20 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX delegations_by_worker ON delegations (worker_ref);
   CREATE INDEX delegations_working ON delegations (status, worker_session) WHERE status = 'working';
   `,
+  `
+  -- Autonomy replaces the permission mode (MODULES M4.6). An agent with no department works at the
+  -- level its latest session's mode meant: ask is Supervised, acceptEdits Trusted, bypass Bypass.
+  -- The harness itself now only asks, or bypasses.
+  ALTER TABLE agents ADD COLUMN autonomy TEXT;
+  UPDATE agents SET autonomy = (
+    SELECT CASE json_extract(s.options, '$.permissionMode')
+             WHEN 'acceptEdits' THEN 'trusted'
+             WHEN 'bypass' THEN 'bypass'
+             ELSE 'supervised'
+           END
+    FROM sessions s WHERE s.agent_ref = agents.ref ORDER BY s.ref DESC LIMIT 1)
+  WHERE department_ref IS NULL;
+  UPDATE sessions SET options = json_set(options, '$.permissionMode', 'ask')
+  WHERE json_extract(options, '$.permissionMode') = 'acceptEdits';
+  `,
 ];

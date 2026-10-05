@@ -1,5 +1,6 @@
 import type { HarnessCatalog } from "@office-town/contract";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
+import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import { SessionRegistry } from "../../src/registry/session-registry.ts";
 import { openStore } from "../../src/store/sqlite-store.ts";
@@ -45,15 +46,15 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const store = openStore(dataFolder);
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
-  const registry = new SessionRegistry(
-    store,
-    (_options, extras) => {
+  const registry = new SessionRegistry(store, {
+    createSession: (_options, extras) => {
       const session = new FakeSession(extras);
       sessions.push(session);
       return session;
     },
     tools,
-  );
+    guard: autonomyGuard(store),
+  });
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];
     if (catalog === undefined) throw new Error("not installed");

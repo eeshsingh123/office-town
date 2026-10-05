@@ -1,12 +1,13 @@
 import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/contract";
 import { z } from "zod";
 import { settingsOf } from "../agents/agents.ts";
+import { inFolders, sessionOptionsFor } from "../agents/options.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
 import { isOpen, latestSession } from "./lead.ts";
-import { memberOptions, type TeamContext, workspaceFolders } from "./members.ts";
+import { type TeamContext, workspaceFolders } from "./members.ts";
 
 const SHOWN_BRIEF = 80;
 
@@ -64,7 +65,7 @@ async function startWork(
   return registry.start({
     taskId: caller.taskId,
     agentId: worker.id,
-    options: memberOptions(store, worker, folders, team.department.autonomy),
+    options: sessionOptionsFor(store, worker, inFolders(folders)),
     message: workerBrief({
       goal: team.goal,
       teamName: team.department.name,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { answeredBySchema } from "./autonomy.ts";
 import { messageOriginSchema, questionAnswerSchema } from "./events.ts";
 import { teamSchema } from "./team.ts";
 
@@ -45,7 +46,7 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
     text: z.string().min(1),
     origin: messageOriginSchema.optional(),
   }),
-  answerPermissionSchema,
+  answerPermissionSchema.extend({ answeredBy: answeredBySchema.optional() }),
   answerQuestionSchema,
   interruptSchema,
   // `idle` ends the session as finished rather than stopped by the user.

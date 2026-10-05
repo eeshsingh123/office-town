@@ -97,6 +97,7 @@ interface AgentRow {
   role: string | null;
   purpose: string | null;
   departmentId: string | null;
+  autonomy: AgentRecord["autonomy"] | null;
   profileId: string | null;
   settings: string;
   createdAt: number;
@@ -195,6 +196,7 @@ function toAgent(row: AgentRow): AgentRecord {
     ...(row.role === null ? {} : { role: row.role }),
     ...(row.purpose === null ? {} : { purpose: row.purpose }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    ...(row.autonomy === null ? {} : { autonomy: row.autonomy }),
     ...(row.profileId === null ? {} : { profileId: row.profileId }),
     settings: JSON.parse(row.settings) as AgentSettings,
     createdAt: iso(row.createdAt),
@@ -528,7 +530,7 @@ class SqliteStore implements Store {
   }
 
   createAgent(agent: NewAgentRecord): AgentRecord {
-    const { name, colour, role, purpose, departmentId, profileId, settings } = agent;
+    const { name, colour, role, purpose, departmentId, autonomy, profileId, settings } = agent;
     const id = randomUUID();
     const profileRef = profileId === undefined ? null : this.#profileRow(profileId).ref;
     const departmentRef = departmentId === undefined ? null : this.#departmentRow(departmentId).ref;
@@ -541,6 +543,7 @@ class SqliteStore implements Store {
         role ?? null,
         purpose ?? null,
         departmentRef,
+        autonomy ?? null,
         profileRef,
         JSON.stringify(settings),
         createdAt,
@@ -556,6 +559,7 @@ class SqliteStore implements Store {
       ...(role === undefined ? {} : { role }),
       ...(purpose === undefined ? {} : { purpose }),
       ...(departmentId === undefined ? {} : { departmentId }),
+      ...(autonomy === undefined ? {} : { autonomy }),
       ...(profileId === undefined ? {} : { profileId }),
       settings,
       createdAt: iso(createdAt),
@@ -588,11 +592,12 @@ class SqliteStore implements Store {
 
   updateAgent(id: string, change: AgentChange): AgentRecord {
     const row = this.#agentRow(id);
-    const { role, purpose, departmentId, profileId, settings } = change;
+    const { role, purpose, departmentId, autonomy, profileId, settings } = change;
     this.#statements.updateAgent.run(
       role ?? null,
       purpose ?? null,
       departmentId === undefined ? null : this.#departmentRow(departmentId).ref,
+      autonomy ?? null,
       profileId === undefined ? null : this.#profileRow(profileId).ref,
       JSON.stringify(settings),
       row.ref,
@@ -605,6 +610,7 @@ class SqliteStore implements Store {
       ...(role === undefined ? {} : { role }),
       ...(purpose === undefined ? {} : { purpose }),
       ...(departmentId === undefined ? {} : { departmentId }),
+      ...(autonomy === undefined ? {} : { autonomy }),
       ...(profileId === undefined ? {} : { profileId }),
       settings,
       createdAt,

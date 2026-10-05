@@ -104,6 +104,22 @@ describe("session", () => {
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
   });
 
+  it("gives a permission request the kind and host paths of the action it asks for", async () => {
+    const environment = new ScriptedEnvironment();
+    environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
+    const { events, emit } = await startSession(environment);
+
+    await emit(
+      {
+        type: "action.started",
+        payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x"] },
+      },
+      { ...permission, payload: { ...permission.payload, actionId: "a" } },
+    );
+
+    expect(events[1]?.payload).toMatchObject({ kind: "edit", locations: ["host:/x"] });
+  });
+
   it("answers a pending permission once and reports how it was resolved", async () => {
     const environment = new ScriptedEnvironment();
     const { session, events, emit } = await startSession(environment);

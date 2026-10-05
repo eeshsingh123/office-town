@@ -144,7 +144,7 @@ describe("store", () => {
     store = openStore(join(directory, "fresh"));
   });
 
-  it("gives each task of an earlier version its agent, with the name and colour M3 showed", () => {
+  it("gives each task of an earlier version its agent, with the name and colour M3 showed and the level its permissions meant", () => {
     store.close();
     const file = join(directory, "m3", "store.db");
     mkdirSync(dirname(file));
@@ -158,7 +158,7 @@ describe("store", () => {
         (1, '5f0c3b7e-9a41-4d2e-8b6f-1c2d3e4f5a6b', 1,
          '{"harness":"opencode","environment":{"kind":"native"},"model":"m","permissionMode":"ask"}',
          'exited', 0),
-        (2, 'resumed', 1, '{"harness":"opencode","environment":{"kind":"native"},"permissionMode":"ask"}',
+        (2, 'resumed', 1, '{"harness":"opencode","environment":{"kind":"native"},"permissionMode":"acceptEdits"}',
          'exited', 0);
     `);
     m3.close();
@@ -168,12 +168,15 @@ describe("store", () => {
     expect(agent).toMatchObject({
       name: "@gil-4498",
       colour: "#A2456E",
+      autonomy: "trusted",
       settings: { harness: "opencode", environment: { kind: "native" }, model: "m" },
     });
     expect(store.listSessions("task-1").map((session) => session.agentId)).toEqual([
       agent?.id,
       agent?.id,
     ]);
+    // The harness itself now only asks; the level answers what it allows.
+    expect(store.getSession("resumed")?.options.permissionMode).toBe("ask");
   });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {

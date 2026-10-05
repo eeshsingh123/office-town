@@ -27,10 +27,12 @@ let sessions: FakeSession[];
 let published: PublishedEvent[];
 
 function openRegistry(): SessionRegistry {
-  const registry = new SessionRegistry(store, () => {
-    const session = new FakeSession();
-    sessions.push(session);
-    return session;
+  const registry = new SessionRegistry(store, {
+    createSession: () => {
+      const session = new FakeSession();
+      sessions.push(session);
+      return session;
+    },
   });
   registry.subscribe((event) => published.push(event));
   return registry;

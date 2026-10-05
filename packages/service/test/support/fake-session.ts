@@ -34,6 +34,13 @@ export class FakeSession implements Session {
     if (command.type === "start") {
       this.emit({ type: "session.started", payload: { harnessSessionId: `harness-${this.id}` } });
     }
+    if (command.type === "answerPermission") {
+      const { requestId, optionId, answeredBy } = command;
+      this.emit({
+        type: "permission.resolved",
+        payload: { requestId, outcome: "allowed", optionId, ...(answeredBy ? { answeredBy } : {}) },
+      });
+    }
     if (command.type === "stop") {
       this.emit({
         type: "session.ended",

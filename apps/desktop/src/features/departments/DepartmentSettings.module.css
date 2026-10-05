@@ -1,0 +1,111 @@
+.page {
+  height: 100%;
+  padding: 28px 28px 40px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.column {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.title {
+  margin: 12px 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: var(--size-meta);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.input {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.path {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice input {
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.choice strong {
+  font-weight: 500;
+}
+
+.hint {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.error {
+  margin: 0;
+  color: var(--bad);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}

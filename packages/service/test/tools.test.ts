@@ -43,15 +43,14 @@ beforeEach(async () => {
   store = openStore(directory);
   tools = await startToolServer(store);
   sessions = [];
-  registry = new SessionRegistry(
-    store,
-    (_options, extras) => {
+  registry = new SessionRegistry(store, {
+    createSession: (_options, extras) => {
       const session = new FakeSession(extras);
       sessions.push(session);
       return session;
     },
     tools,
-  );
+  });
   tools.offer([askUser(registry)]);
 });
 

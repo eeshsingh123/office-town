@@ -1,8 +1,8 @@
-import type {
-  Autonomy,
-  PermissionMode,
-  StartTaskRequest,
-  WorkspaceRecord,
+import {
+  type Autonomy,
+  autonomySchema,
+  type StartTaskRequest,
+  type WorkspaceRecord,
 } from "@office-town/contract";
 import { Plus, User, Users } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
@@ -11,7 +11,9 @@ import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { type Choice, ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
 import { profileSummary } from "../../ui/format.ts";
@@ -23,23 +25,10 @@ import styles from "./NewTaskView.module.css";
 import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
 import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
 
-const PERMISSIONS: Choice<PermissionMode>[] = [
-  {
-    value: "ask",
-    label: "Ask before changes",
-    description: "Asks you before it edits files or runs commands",
-  },
-  {
-    value: "acceptEdits",
-    label: "Allow edits",
-    description: "Edits files freely, asks before it runs commands",
-  },
-  {
-    value: "bypass",
-    label: "Allow everything",
-    description: "Never asks, so use it only where nothing important can break",
-  },
-];
+const LEVELS: Choice<Autonomy>[] = autonomySchema.options.map((level) => ({
+  value: level,
+  ...AUTONOMY[level],
+}));
 // A value no profile id can take, since an id starts with a letter or digit.
 const LAST_CHOICES = "~last";
 
@@ -50,7 +39,7 @@ export function NewTaskView() {
   const [profileId, setProfileId] = useState(remembered.profileId);
   const [who, setWho] = useState<"one" | "team">(remembered.team ? "team" : "one");
   const [departmentId, setDepartmentId] = useState(PROPOSE);
-  const [autonomy, setAutonomy] = useState<Autonomy>("trusted");
+  const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
@@ -86,6 +75,13 @@ export function NewTaskView() {
       ? workspace && { workspaceId: workspace.id }
       : outputFolder && { outputFolder };
   const fromProfile = profile !== undefined;
+  const soloAutonomy = choices.autonomy ?? "supervised";
+  const soloGate = useBypassGate(
+    soloAutonomy,
+    (autonomy) => setChoices({ ...choices, autonomy }),
+    "this agent",
+  );
+  const teamGate = useBypassGate(teamAutonomy, setTeamAutonomy, "the team");
   const team = who === "team";
   const proposing = team && departmentId === PROPOSE;
   const placed = team ? !proposing || workspace !== undefined : Boolean(where);
@@ -95,7 +91,7 @@ export function NewTaskView() {
     if (!ready || starting || description === undefined) return;
     setStarting(true);
     setError(undefined);
-    const { environment, model: chosenModel, effort, permissionMode } = choices;
+    const { environment, model: chosenModel, effort } = choices;
     const agent: StartTaskRequest["agent"] = fromProfile
       ? { profileId: profile.id }
       : {
@@ -113,10 +109,15 @@ export function NewTaskView() {
             goal,
             team:
               proposing && workspace !== undefined
-                ? { lead: agent, workspaceId: workspace.id, autonomy }
+                ? { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy }
                 : { departmentId },
           })
-        : await api.startTask({ prompt: goal, agent, permissionMode, ...(where || {}) });
+        : await api.startTask({
+            prompt: goal,
+            agent,
+            autonomy: soloAutonomy,
+            ...(where || {}),
+          });
       remember(
         description.harness,
         choices,
@@ -216,11 +217,11 @@ export function NewTaskView() {
                     setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
                     return;
                   }
-                  const { permissionMode, recentModels } = choices;
+                  const { autonomy, recentModels } = choices;
                   setChoices({
                     environment,
-                    permissionMode,
                     recentModels,
+                    ...(autonomy === undefined ? {} : { autonomy }),
                     ...(nextModel === undefined ? {} : { model: nextModel }),
                     ...(effort === undefined ? {} : { effort }),
                   });
@@ -229,10 +230,10 @@ export function NewTaskView() {
             )}
             {team ? null : (
               <ChoiceMenu
-                label="Permissions"
-                value={choices.permissionMode}
-                choices={PERMISSIONS}
-                onChange={(permissionMode) => setChoices({ ...choices, permissionMode })}
+                label="Autonomy"
+                value={soloAutonomy}
+                choices={LEVELS}
+                onChange={soloGate.choose}
               />
             )}
             {team && !proposing ? (
@@ -249,8 +250,8 @@ export function NewTaskView() {
             workspaceId={workspace?.id}
             onWorkspace={setWorkspaceId}
             onNewWorkspace={() => setCreatingWorkspace(true)}
-            autonomy={autonomy}
-            onAutonomy={setAutonomy}
+            autonomy={teamAutonomy}
+            onAutonomy={teamGate.choose}
           />
         ) : (
           <div className={styles.where}>
@@ -325,6 +326,8 @@ export function NewTaskView() {
           </p>
         )}
       </div>
+      {soloGate.confirm}
+      {teamGate.confirm}
       <WorkspaceDialog
         open={creatingWorkspace}
         onOpenChange={setCreatingWorkspace}

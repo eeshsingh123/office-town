@@ -1,4 +1,4 @@
-import type { AgentSettings } from "@office-town/contract";
+import type { RoleSettings } from "@office-town/contract";
 import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -7,7 +7,7 @@ import { environmentName } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { ModelPicker } from "../new-task/ModelPicker.tsx";
 
-export type ChipSettings = Omit<AgentSettings, "instructions">;
+export type ChipSettings = RoleSettings;
 
 interface SettingsChipsProps {
   value: ChipSettings;

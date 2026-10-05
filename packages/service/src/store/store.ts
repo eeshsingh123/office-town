@@ -35,6 +35,7 @@ export interface NewAgentRecord {
   role?: string;
   purpose?: string;
   departmentId?: string;
+  autonomy?: Autonomy;
   profileId?: string;
   settings: AgentSettings;
 }
@@ -44,6 +45,7 @@ export interface AgentChange {
   role?: string | undefined;
   purpose?: string | undefined;
   departmentId?: string | undefined;
+  autonomy?: Autonomy | undefined;
   profileId?: string | undefined;
   settings: AgentSettings;
 }

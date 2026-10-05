@@ -18,7 +18,7 @@ import { FakeSession } from "./support/fake-session.ts";
 
 const TOKEN = "test-token";
 const settings = { harness: "claude", environment: { kind: "native" } };
-const newTask = { agent: { settings }, permissionMode: "ask" };
+const newTask = { agent: { settings }, autonomy: "supervised" };
 
 interface Frame {
   id: string | undefined;
@@ -80,10 +80,12 @@ beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "office-town-api-"));
   store = openStore(directory);
   sessions = [];
-  registry = new SessionRegistry(store, () => {
-    const session = new FakeSession();
-    sessions.push(session);
-    return session;
+  registry = new SessionRegistry(store, {
+    createSession: () => {
+      const session = new FakeSession();
+      sessions.push(session);
+      return session;
+    },
   });
   server = await startApiServer({ registry, store, token: TOKEN, port: 0 });
 });
@@ -191,7 +193,7 @@ describe("api", () => {
         await call("POST", "/tasks", {
           prompt: "Write the menu",
           agent: { profileId: profile.id },
-          permissionMode: "ask",
+          autonomy: "supervised",
           outputFolder: directory,
         })
       ).json(),

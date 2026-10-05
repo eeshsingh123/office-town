@@ -11,6 +11,7 @@ export type View =
   | { name: "needs-you" }
   | { name: "tasks" }
   | { name: "profiles" }
+  | { name: "department"; departmentId: string }
   | { name: "task"; taskId: string };
 
 export interface AppState extends Records {

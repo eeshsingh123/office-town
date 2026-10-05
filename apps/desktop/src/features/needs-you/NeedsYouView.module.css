@@ -26,3 +26,44 @@
   font-size: var(--size-meta);
   color: var(--text-3);
 }
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 22px 0 4px;
+  font-size: var(--size-ui);
+  font-weight: 600;
+}
+
+.groupDetail {
+  font-size: var(--size-meta);
+  font-weight: 400;
+  color: var(--text-3);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.floor {
+  background: var(--text-3);
+}
+
+.levelNote {
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: inherit;
+  cursor: pointer;
+}

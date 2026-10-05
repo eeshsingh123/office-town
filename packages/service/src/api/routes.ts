@@ -17,6 +17,7 @@ import { listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { soloMessage } from "../agents/briefs.ts";
+import { sessionOptionsFor } from "../agents/options.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
@@ -55,13 +56,12 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
         const folders = chooseTaskFolders(store, request);
-        const agent = createAgent(store, request.agent);
-        const { instructions: _, ...settings } = settingsOf(store, agent);
+        const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt);
         const session = await registry.start({
           taskId: task.id,
           agentId: agent.id,
-          options: { ...settings, permissionMode: request.permissionMode, ...folders },
+          options: sessionOptionsFor(store, agent, folders),
           message: soloMessage(request.prompt, settingsOf(store, agent)),
         });
         return { status: 201, json: session };

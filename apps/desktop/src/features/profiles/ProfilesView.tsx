@@ -1,5 +1,6 @@
 import {
   type AgentColour,
+  type Autonomy,
   agentColours,
   type ProfileRecord,
   type ProfileRequest,
@@ -9,7 +10,9 @@ import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { type Choice, ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { profileSummary } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import styles from "./ProfilesView.module.css";
@@ -20,8 +23,20 @@ interface Draft {
   role: string;
   colour: AgentColour;
   instructions: string;
+  // Lowers the department's level; none keeps it.
+  autonomy: Autonomy | undefined;
   settings: ChipSettings;
 }
+
+// A value no level can take.
+const SAME = "~same";
+const CAPS: Choice<Autonomy | typeof SAME>[] = [
+  { value: SAME, label: "Same as the department" },
+  ...(["supervised", "trusted", "full"] as const).map((level) => ({
+    value: level,
+    ...AUTONOMY[level],
+  })),
+];
 
 function draftOf(profile: ProfileRecord | undefined, harness: string): Draft {
   if (profile === undefined) {
@@ -30,11 +45,13 @@ function draftOf(profile: ProfileRecord | undefined, harness: string): Draft {
       role: "",
       colour: agentColours[0].value,
       instructions: "",
+      autonomy: undefined,
       settings: { harness, environment: { kind: "native" } },
     };
   }
-  const { instructions = "", ...settings } = profile.settings;
-  return { name: profile.name, role: profile.role, colour: profile.colour, instructions, settings };
+  const { instructions = "", autonomy, ...settings } = profile.settings;
+  const { name, role, colour } = profile;
+  return { name, role, colour, instructions, autonomy, settings };
 }
 
 function requestOf(draft: Draft): ProfileRequest {
@@ -43,7 +60,11 @@ function requestOf(draft: Draft): ProfileRequest {
     name: draft.name,
     role: draft.role,
     colour: draft.colour,
-    settings: { ...draft.settings, ...(instructions === "" ? {} : { instructions }) },
+    settings: {
+      ...draft.settings,
+      ...(instructions === "" ? {} : { instructions }),
+      ...(draft.autonomy === undefined ? {} : { autonomy: draft.autonomy }),
+    },
   };
 }
 
@@ -166,6 +187,20 @@ function ProfileForm({
             onChange={(settings) => setDraft({ ...draft, settings })}
           />
         </div>
+      </div>
+      <div className={styles.field}>
+        <span className={styles.label}>Autonomy</span>
+        <div>
+          <ChoiceMenu
+            label="Autonomy"
+            value={draft.autonomy ?? SAME}
+            choices={CAPS}
+            onChange={(next) => setDraft({ ...draft, autonomy: next === SAME ? undefined : next })}
+          />
+        </div>
+        <span className={styles.hint}>
+          A profile can lower its department's level, never raise it.
+        </span>
       </div>
       {error === undefined ? null : (
         <p className={styles.error} role="alert">

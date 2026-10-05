@@ -1,11 +1,12 @@
-import type { EnvironmentSpec, PermissionMode } from "@office-town/contract";
+import type { Autonomy, EnvironmentSpec } from "@office-town/contract";
 
 // What the user picked last for a harness, when the agent is not made from a profile.
 export interface HarnessChoices {
   environment: EnvironmentSpec;
   model?: string;
   effort?: string;
-  permissionMode: PermissionMode;
+  // Choices saved before levels replaced permission modes have none.
+  autonomy?: Autonomy;
   // Newest first.
   recentModels: string[];
 }
@@ -24,7 +25,7 @@ const RECENT_LIMIT = 5;
 
 export const DEFAULT_CHOICES: HarnessChoices = {
   environment: { kind: "native" },
-  permissionMode: "ask",
+  autonomy: "supervised",
   recentModels: [],
 };
 

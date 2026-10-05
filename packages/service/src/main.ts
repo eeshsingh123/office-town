@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
 import { startApiServer } from "./api/server.ts";
+import { autonomyGuard } from "./autonomy/policy.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
@@ -33,7 +34,7 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 
 const store = openStore(values["data-folder"] ?? defaultDataFolder());
 const toolServer = await startToolServer(store);
-const registry = new SessionRegistry(store, undefined, toolServer);
+const registry = new SessionRegistry(store, { tools: toolServer, guard: autonomyGuard(store) });
 const readCatalog = cachedCatalogs();
 const team = { store, registry, readCatalog };
 const activity = new SessionActivity(registry);

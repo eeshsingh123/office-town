@@ -25,6 +25,7 @@ import { useApp } from "../../store/app-store.ts";
 import { describeActions } from "../../trace/blocks.ts";
 import type { TraceAction, TraceItem, TraceMessage, TraceRequest } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { AUTONOMY } from "../../ui/autonomy.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
@@ -197,7 +198,11 @@ function resolutionText(request: TraceRequest): string | undefined {
     const option = event.payload.options.find(
       (candidate) => "optionId" in resolution && candidate.optionId === resolution.optionId,
     );
-    if (resolution.outcome === "allowed") return `Allowed${option ? ` · ${option.label}` : ""}`;
+    if (resolution.outcome === "allowed") {
+      const by = "answeredBy" in resolution ? resolution.answeredBy : undefined;
+      if (typeof by === "object") return `Allowed by autonomy · ${AUTONOMY[by.autonomy].label}`;
+      return `Allowed by you${option ? ` · ${option.label}` : ""}`;
+    }
     return resolution.outcome === "denied" ? "Denied" : "Cancelled";
   }
   if (resolution.outcome !== "answered" || !("answers" in resolution)) return "Not answered";

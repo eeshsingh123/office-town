@@ -6,7 +6,9 @@ export const environmentSpecSchema = z.discriminatedUnion("kind", [
 ]);
 export type EnvironmentSpec = z.infer<typeof environmentSpecSchema>;
 
-export const permissionModeSchema = z.enum(["ask", "acceptEdits", "bypass"]);
+// The harness's own mode: it asks about everything, and the core's autonomy level answers what it
+// allows (MODULES M4.6); or, under Bypass, it asks nothing.
+export const permissionModeSchema = z.enum(["ask", "bypass"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
 // These values become command-line arguments of a harness, so they may not look like a flag.

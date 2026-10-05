@@ -20,7 +20,6 @@ const STREAM_ARGS = [
 
 const PERMISSION_MODES: Record<PermissionMode, string> = {
   ask: "default",
-  acceptEdits: "acceptEdits",
   bypass: "bypassPermissions",
 };
 

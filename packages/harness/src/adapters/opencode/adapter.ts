@@ -25,7 +25,6 @@ type Rule = "ask" | "allow";
 
 const PERMISSIONS: Record<PermissionMode, { edit: Rule; bash: Rule; webfetch: Rule }> = {
   ask: { edit: "ask", bash: "ask", webfetch: "ask" },
-  acceptEdits: { edit: "allow", bash: "ask", webfetch: "ask" },
   bypass: { edit: "allow", bash: "allow", webfetch: "allow" },
 };
 

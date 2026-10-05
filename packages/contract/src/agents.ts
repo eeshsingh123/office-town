@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { autonomySchema } from "./autonomy.ts";
 import { environmentSpecSchema, harnessSettingSchema } from "./options.ts";
 
 // Each keeps white text readable on top of it, in both themes.
@@ -32,6 +33,8 @@ export const agentSettingsSchema = z.object({
   effort: harnessSettingSchema.optional(),
   // Given to the agent with every brief.
   instructions: z.string().optional(),
+  // Lowers the level the agent works at, never raises it.
+  autonomy: autonomySchema.optional(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
@@ -45,6 +48,8 @@ export const agentRecordSchema = z.object({
   // What it does in its department, in a few words.
   purpose: z.string().optional(),
   departmentId: z.string().min(1).optional(),
+  // The level it works at when it has no department, such as a solo agent's.
+  autonomy: autonomySchema.optional(),
   profileId: z.string().min(1).optional(),
   settings: agentSettingsSchema,
   createdAt: z.iso.datetime(),

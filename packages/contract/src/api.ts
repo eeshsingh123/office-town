@@ -1,13 +1,9 @@
 import { z } from "zod";
 import { newAgentSchema } from "./agents.ts";
+import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
-import {
-  absolutePathSchema,
-  environmentSpecSchema,
-  permissionModeSchema,
-  sessionOptionsSchema,
-} from "./options.ts";
+import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -108,7 +104,7 @@ export const startTaskRequestSchema = z
   .object({
     prompt: z.string().min(1),
     agent: newAgentSchema,
-    permissionMode: permissionModeSchema,
+    autonomy: autonomySchema,
     workspaceId: z.string().min(1).optional(),
     outputFolder: absolutePathSchema.optional(),
   })
