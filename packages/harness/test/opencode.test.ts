@@ -91,6 +91,19 @@ describe("opencode adapter", () => {
     ]);
   });
 
+  it("turns off what it can when isolated, and says what still loads", () => {
+    const env = opencodeAdapter.buildCommand({ ...replayOptions, isolated: true }).env ?? {};
+    expect(env).toMatchObject({
+      OPENCODE_PURE: "1",
+      OPENCODE_DISABLE_PROJECT_CONFIG: "1",
+      OPENCODE_DISABLE_CLAUDE_CODE: "1",
+      OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
+    });
+    expect(opencodeAdapter.buildCommand(replayOptions).env?.OPENCODE_PURE).toBeUndefined();
+    expect(opencodeAdapter.capabilities.isolation).toBe("partial");
+    expect(opencodeAdapter.isolationNote).toContain("global");
+  });
+
   it("performs the handshake, then sends the prompt once the session exists", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 

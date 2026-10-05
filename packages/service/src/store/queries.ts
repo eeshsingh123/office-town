@@ -23,7 +23,7 @@ const UNFINISHED = "status IN ('starting', 'running')";
 
 const AGENT_SELECT = `
   SELECT a.ref, a.id, a.name, a.colour, a.role, a.purpose, d.id AS departmentId, a.autonomy,
-         p.id AS profileId, a.settings, a.created_at AS createdAt
+         a.guest, p.id AS profileId, a.settings, a.created_at AS createdAt
   FROM agents a
   LEFT JOIN profiles p ON p.ref = a.profile_ref
   LEFT JOIN departments d ON d.ref = a.department_ref`;
@@ -80,9 +80,9 @@ export const queries = {
 
   insertAgent: `
     INSERT INTO agents
-      (id, name, colour, role, purpose, department_ref, autonomy, profile_ref, settings,
+      (id, name, colour, role, purpose, department_ref, autonomy, guest, profile_ref, settings,
        created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   updateAgent: `
     UPDATE agents
     SET role = ?, purpose = ?, department_ref = ?, autonomy = ?, profile_ref = ?, settings = ?

@@ -211,4 +211,5 @@ export const migrations: readonly Migration[] = [
   UPDATE sessions SET options = json_set(options, '$.permissionMode', 'ask')
   WHERE json_extract(options, '$.permissionMode') = 'acceptEdits';
   `,
+  "ALTER TABLE agents ADD COLUMN guest INTEGER NOT NULL DEFAULT 0;",
 ];

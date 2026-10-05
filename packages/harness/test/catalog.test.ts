@@ -48,6 +48,7 @@ const adapter: Adapter = {
     modelList: true,
     resume: false,
     usageLimits: false,
+    isolation: "none",
   },
   catalog: {
     command: { binary: "listed", args: ["models"] },

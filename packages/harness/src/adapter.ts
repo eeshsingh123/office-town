@@ -102,6 +102,8 @@ export interface Adapter {
   // The harness's name as people know it.
   readonly name: string;
   readonly capabilities: AdapterCapabilities;
+  // What still loads in an isolated session, when isolation is partial.
+  readonly isolationNote?: string;
   readonly catalog?: CatalogQuery;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;

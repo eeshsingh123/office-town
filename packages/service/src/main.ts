@@ -10,6 +10,7 @@ import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
+import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
@@ -43,11 +44,13 @@ const activity = new SessionActivity(registry);
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
 cleanUpWorktrees(team);
+guestsLeave(team);
 toolServer.offer([
   askUser(registry),
   proposeTeam(team),
   delegate(team),
   teamStatus(team, activity),
+  outsource(team),
 ]);
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ team, token, port });

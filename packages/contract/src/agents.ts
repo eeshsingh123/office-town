@@ -50,6 +50,8 @@ export const agentRecordSchema = z.object({
   departmentId: z.string().min(1).optional(),
   // The level it works at when it has no department, such as a solo agent's.
   autonomy: autonomySchema.optional(),
+  // Called in for a second opinion: not a member of any team, and gone once it answers.
+  guest: z.literal(true).optional(),
   profileId: z.string().min(1).optional(),
   settings: agentSettingsSchema,
   createdAt: z.iso.datetime(),

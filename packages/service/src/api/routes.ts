@@ -7,6 +7,7 @@ import {
   profileRequestSchema,
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
+  secondOpinionRequestSchema,
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
@@ -22,6 +23,7 @@ import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
+import { secondOpinion, workspaceEntries } from "../team/outsource.ts";
 import { continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
 
@@ -120,6 +122,23 @@ export function apiRoutes(team: TeamContext): Route[] {
         await stopTeam(team, param("id"));
         return NO_CONTENT;
       },
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/second-opinion",
+      reply: async ({ param, body }) => ({
+        status: 201,
+        json: await secondOpinion(
+          team,
+          param("id"),
+          secondOpinionRequestSchema.parse(await body()),
+        ),
+      }),
+    },
+    {
+      method: "GET",
+      path: "/tasks/:id/files",
+      reply: ({ param }) => ({ status: 200, json: workspaceEntries(team, param("id")) }),
     },
     {
       method: "POST",

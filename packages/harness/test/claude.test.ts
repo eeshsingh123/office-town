@@ -88,6 +88,13 @@ describe("claude adapter", () => {
     expect(only(events, "permission.requested")).toEqual([]);
   });
 
+  it("keeps out the user's and the project's own files, settings, MCP servers and skills when isolated", () => {
+    const args = claudeAdapter.buildCommand({ ...replayOptions, isolated: true }).args.join(" ");
+    expect(args).toContain("--setting-sources  --strict-mcp-config --disable-slash-commands");
+    expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--strict-mcp-config");
+    expect(claudeAdapter.capabilities.isolation).toBe("full");
+  });
+
   it("reports a reply's text as it is produced, then the whole reply", async () => {
     const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
 

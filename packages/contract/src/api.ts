@@ -67,6 +67,8 @@ export const harnessDescriptionSchema = z.object({
   // The harness's name as people know it.
   name: z.string().min(1),
   capabilities: adapterCapabilitiesSchema,
+  // What still loads in an isolated session, when isolation is partial.
+  isolationNote: z.string().optional(),
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 

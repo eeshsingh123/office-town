@@ -49,7 +49,12 @@ export function createSession(input: SessionOptions, extras: LaunchExtras = {}):
 }
 
 export function listHarnesses(): HarnessDescription[] {
-  return adapters.map(({ harness, name, capabilities }) => ({ harness, name, capabilities }));
+  return adapters.map(({ harness, name, capabilities, isolationNote }) => ({
+    harness,
+    name,
+    capabilities,
+    ...(isolationNote === undefined ? {} : { isolationNote }),
+  }));
 }
 
 export async function listEnvironments(): Promise<EnvironmentSpec[]> {

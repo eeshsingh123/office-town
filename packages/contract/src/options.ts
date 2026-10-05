@@ -35,5 +35,8 @@ export const sessionOptionsSchema = z.object({
   permissionMode: permissionModeSchema,
   // The harness's own id of an earlier session to continue, as reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
+  // Keeps out the user's and the project's instruction files, memory, MCP servers and plugins,
+  // as far as the harness allows: for a clean-slate second opinion.
+  isolated: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

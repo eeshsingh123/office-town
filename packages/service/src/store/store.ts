@@ -36,6 +36,7 @@ export interface NewAgentRecord {
   purpose?: string;
   departmentId?: string;
   autonomy?: Autonomy;
+  guest?: true;
   profileId?: string;
   settings: AgentSettings;
 }

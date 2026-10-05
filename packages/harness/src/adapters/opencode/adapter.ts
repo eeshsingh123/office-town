@@ -55,9 +55,21 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   return {
     binary: "opencode",
     args: ["acp"],
-    env: { OPENCODE_CONFIG_CONTENT: JSON.stringify(config) },
+    env: {
+      OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+      ...(options.isolated ? ISOLATED : {}),
+    },
   };
 }
+
+// OpenCode's switches for project config, plugins, Claude Code's files and outside skills. Its
+// global config and global instructions still load (D-41).
+const ISOLATED = {
+  OPENCODE_PURE: "1",
+  OPENCODE_DISABLE_PROJECT_CONFIG: "1",
+  OPENCODE_DISABLE_CLAUDE_CODE: "1",
+  OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
+};
 
 // The CLI prints each model as a line with its id followed by an indented JSON description.
 // What OpenCode calls a model's variants are its effort values.
@@ -105,7 +117,9 @@ export const opencodeAdapter = createAcpAdapter({
     modelList: true,
     resume: true,
     usageLimits: false,
+    isolation: "partial",
   },
+  isolationNote: "OpenCode's global settings and instructions still load.",
   catalog,
   buildCommand,
 });

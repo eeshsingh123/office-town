@@ -8,6 +8,7 @@ import type { Store } from "../../src/store/store.ts";
 import { cachedCatalogs } from "../../src/team/catalogs.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import type { TeamContext } from "../../src/team/members.ts";
+import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
@@ -65,7 +66,14 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const activity = new SessionActivity(registry);
   reportResults(team, activity);
   cleanUpWorktrees(team);
-  tools.offer([askUser(registry), proposeTeam(team), delegate(team), teamStatus(team, activity)]);
+  guestsLeave(team);
+  tools.offer([
+    askUser(registry),
+    proposeTeam(team),
+    delegate(team),
+    teamStatus(team, activity),
+    outsource(team),
+  ]);
   const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 
   return {

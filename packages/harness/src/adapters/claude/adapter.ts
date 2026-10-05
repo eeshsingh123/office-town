@@ -49,6 +49,10 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     // The core's own tools never ask: what they lead to is guarded where it happens.
     args.push("--allowedTools", ...options.toolServers.map((server) => `mcp__${server.name}`));
   }
+  // --bare would isolate more, but takes only an API key, never the subscription login (D-41).
+  if (options.isolated) {
+    args.push("--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands");
+  }
   for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
   return { binary: "claude", args };
 }
@@ -90,6 +94,7 @@ export const claudeAdapter: Adapter = {
     modelList: true,
     resume: true,
     usageLimits: true,
+    isolation: "full",
   },
   catalog,
   buildCommand,

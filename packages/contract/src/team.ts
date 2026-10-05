@@ -90,6 +90,19 @@ export type DelegationRecord = z.infer<typeof delegationRecordSchema>;
 export const continueTaskRequestSchema = z.object({ prompt: z.string().trim().optional() });
 export type ContinueTaskRequest = z.infer<typeof continueTaskRequestSchema>;
 
+// A fresh, isolated agent that examines a copy of some of the task's files (D-18).
+export const secondOpinionRequestSchema = z.object({
+  brief: z.string().trim().min(1),
+  // Relative to the task's workspace, which they must stay inside.
+  paths: z.array(z.string().min(1)).min(1),
+  reviewer: newAgentSchema,
+});
+export type SecondOpinionRequest = z.infer<typeof secondOpinionRequestSchema>;
+
+// A file or folder at the top of a task's workspace, to choose what a second opinion gets.
+export const workspaceEntrySchema = z.object({ name: z.string().min(1), folder: z.boolean() });
+export type WorkspaceEntry = z.infer<typeof workspaceEntrySchema>;
+
 // Where a proposed team would work, shown on the proposal.
 export const proposalPlaceSchema = z.object({
   workspaceName: z.string().min(1),

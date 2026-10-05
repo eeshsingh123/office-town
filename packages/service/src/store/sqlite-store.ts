@@ -98,6 +98,7 @@ interface AgentRow {
   purpose: string | null;
   departmentId: string | null;
   autonomy: AgentRecord["autonomy"] | null;
+  guest: number;
   profileId: string | null;
   settings: string;
   createdAt: number;
@@ -197,6 +198,7 @@ function toAgent(row: AgentRow): AgentRecord {
     ...(row.purpose === null ? {} : { purpose: row.purpose }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
     ...(row.autonomy === null ? {} : { autonomy: row.autonomy }),
+    ...(row.guest === 1 ? { guest: true as const } : {}),
     ...(row.profileId === null ? {} : { profileId: row.profileId }),
     settings: JSON.parse(row.settings) as AgentSettings,
     createdAt: iso(row.createdAt),
@@ -530,7 +532,8 @@ class SqliteStore implements Store {
   }
 
   createAgent(agent: NewAgentRecord): AgentRecord {
-    const { name, colour, role, purpose, departmentId, autonomy, profileId, settings } = agent;
+    const { name, colour, role, purpose, departmentId, autonomy, guest, profileId, settings } =
+      agent;
     const id = randomUUID();
     const profileRef = profileId === undefined ? null : this.#profileRow(profileId).ref;
     const departmentRef = departmentId === undefined ? null : this.#departmentRow(departmentId).ref;
@@ -544,6 +547,7 @@ class SqliteStore implements Store {
         purpose ?? null,
         departmentRef,
         autonomy ?? null,
+        guest ? 1 : 0,
         profileRef,
         JSON.stringify(settings),
         createdAt,
@@ -560,6 +564,7 @@ class SqliteStore implements Store {
       ...(purpose === undefined ? {} : { purpose }),
       ...(departmentId === undefined ? {} : { departmentId }),
       ...(autonomy === undefined ? {} : { autonomy }),
+      ...(guest ? { guest } : {}),
       ...(profileId === undefined ? {} : { profileId }),
       settings,
       createdAt: iso(createdAt),

@@ -19,6 +19,8 @@ export interface AgentPlace {
   role?: string;
   // The level it works at while it has no department.
   autonomy: Autonomy;
+  // Called in for a second opinion.
+  guest?: true;
 }
 
 export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): AgentRecord {
@@ -26,6 +28,7 @@ export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): A
   const named = {
     autonomy: place.autonomy,
     ...(place.role === undefined ? {} : { role: place.role }),
+    ...(place.guest ? { guest: place.guest } : {}),
   };
   if ("settings" in agent) {
     return store.createAgent({ name, colour, ...named, settings: agent.settings });

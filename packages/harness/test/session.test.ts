@@ -16,6 +16,7 @@ const passthroughAdapter: Adapter = {
     modelList: false,
     resume: false,
     usageLimits: false,
+    isolation: "none",
   },
   buildCommand: () => ({ binary: "replayed", args: [] }),
   createTranslator: () => ({
