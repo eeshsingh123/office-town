@@ -38,6 +38,7 @@ describe("WSL path translation", () => {
       ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
       ["/mnt/c", "C:\\"],
       ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
+      ["/mnt/c/../../work/x", "\\\\wsl.localhost\\Ubuntu\\work\\x"],
       ["relative/file.txt", "relative/file.txt"],
     ];
     for (const [wslPath, windowsPath] of cases) {

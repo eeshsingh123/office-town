@@ -3,6 +3,7 @@ import type {
   AgentCommand,
   Autonomy,
   MessageOrigin,
+  PermissionMode,
   SessionEvent,
   SessionOptions,
   SessionRecord,
@@ -124,6 +125,8 @@ export interface RegistryOptions {
   createSession?: HarnessSessionFactory;
   tools?: ToolAccess;
   guard?: Guard;
+  // The mode an agent's harness runs in now, so a resume follows a level changed since.
+  permissionModeOf?: (agentId: string) => PermissionMode;
 }
 
 export class SessionRegistry {
@@ -131,6 +134,7 @@ export class SessionRegistry {
   readonly #createSession: HarnessSessionFactory;
   readonly #tools: ToolAccess | undefined;
   readonly #guard: Guard | undefined;
+  readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // The core's own requests waiting for the user, by session and request id.
@@ -140,12 +144,13 @@ export class SessionRegistry {
 
   constructor(
     store: Store,
-    { createSession = createHarnessSession, tools, guard }: RegistryOptions = {},
+    { createSession = createHarnessSession, tools, guard, permissionModeOf }: RegistryOptions = {},
   ) {
     this.#store = store;
     this.#createSession = createSession;
     this.#tools = tools;
     this.#guard = guard;
+    this.#permissionModeOf = permissionModeOf;
     // Whatever an earlier core left running is not running now.
     store.markInterrupted();
   }
@@ -173,7 +178,9 @@ export class SessionRegistry {
       throw new SessionNotResumableError(sessionId, "its conversation is already running.");
     }
     requireSessionFolders(earlier.options);
-    const options = { ...earlier.options, resumeSessionId: conversation };
+    const permissionMode =
+      this.#permissionModeOf?.(earlier.agentId) ?? earlier.options.permissionMode;
+    const options = { ...earlier.options, permissionMode, resumeSessionId: conversation };
     const session = this.#launch(options);
     const record = {
       id: session.id,

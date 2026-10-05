@@ -1,11 +1,16 @@
-import type { AgentRecord, SessionOptions } from "@office-town/contract";
+import type { AgentRecord, PermissionMode, SessionOptions } from "@office-town/contract";
 import { levelOf } from "../autonomy/policy.ts";
 import type { Store } from "../store/store.ts";
 import { settingsOf } from "./agents.ts";
 
+// The harness runs in its ask mode, so every request reaches the core's guardrail, unless the
+// agent's level is Bypass now.
+export function permissionModeOf(store: Store, agentId: string): PermissionMode {
+  return levelOf(store, agentId) === "bypass" ? "bypass" : "ask";
+}
+
 // How an agent's session runs: its harness settings in the given folders, the first being where
-// it works. The harness runs in its ask mode, so every request reaches the core's guardrail,
-// unless the agent's level is Bypass.
+// it works.
 export function sessionOptionsFor(
   store: Store,
   agent: AgentRecord,
@@ -15,7 +20,7 @@ export function sessionOptionsFor(
   const { workspacePath, additionalPaths = [] } = folders;
   return {
     ...settings,
-    permissionMode: levelOf(store, agent.id) === "bypass" ? "bypass" : "ask",
+    permissionMode: permissionModeOf(store, agent.id),
     ...(workspacePath === undefined ? {} : { workspacePath }),
     ...(additionalPaths.length === 0 ? {} : { additionalPaths }),
   };

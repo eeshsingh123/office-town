@@ -12,6 +12,17 @@ type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>
 
 // Reading and changing files, which Trusted lets through inside the workspace.
 const FILE_WORK = new Set(["read", "search", "edit", "delete", "move", "think"]);
+const CHANGES = new Set(["edit", "delete", "move"]);
+// Git's and the harnesses' own settings, hooks and MCP servers: changing them can make a command
+// run later without asking, so Trusted asks for it.
+const RUNS_COMMANDS = new Set([
+  ".git",
+  ".claude",
+  ".opencode",
+  "opencode.json",
+  "opencode.jsonc",
+  ".mcp.json",
+]);
 
 function inside(folder: string, path: string): boolean {
   const way = relative(folder, path);
@@ -20,7 +31,8 @@ function inside(folder: string, path: string): boolean {
 
 // Whether the level lets a request through without the user. Trusted allows reading and editing
 // inside the workspace's folders and asks for everything else: commands, web access, anything
-// outside, and anything whose action it cannot read. Full and Bypass allow all; Supervised none.
+// outside, changes to what runs commands, and anything whose action it cannot read. Full and
+// Bypass allow all; Supervised none.
 export function allows(level: Autonomy, request: PermissionRequest, folders: string[]): boolean {
   if (level === "full" || level === "bypass") return true;
   if (level === "supervised") return false;
@@ -28,9 +40,13 @@ export function allows(level: Autonomy, request: PermissionRequest, folders: str
   if (kind === undefined || !FILE_WORK.has(kind) || locations.length === 0) return false;
   const [workspace] = folders;
   if (workspace === undefined) return false;
-  return locations.every((location) =>
-    folders.some((folder) => inside(folder, resolve(workspace, location))),
-  );
+  return locations.every((location) => {
+    const path = resolve(workspace, location);
+    const folder = folders.find((candidate) => inside(candidate, path));
+    if (folder === undefined) return false;
+    const parts = relative(folder, path).toLowerCase().split(/[\\/]/);
+    return !CHANGES.has(kind) || !parts.some((part) => RUNS_COMMANDS.has(part));
+  });
 }
 
 // The level an agent works at now: its department's, or its own without one, lowered by its

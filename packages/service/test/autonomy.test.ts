@@ -32,6 +32,14 @@ describe("autonomy policy", () => {
     expect(verdicts("trusted")).toEqual([true, true, false, false, false]);
     expect(verdicts("full")).toEqual([true, true, true, true, true]);
     expect(allows("trusted", request("edit", ["index.html"]), folders)).toBe(true);
+    // Changing what makes git or a harness run commands asks; reading it does not.
+    const settings = [join(".git", "config"), join(".Claude", "settings.json"), ".mcp.json"];
+    expect(settings.map((path) => allows("trusted", request("edit", [path]), folders))).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(allows("trusted", request("read", [join(".git", "config")]), folders)).toBe(true);
   });
 
   it("lets a profile or an agent lower its level, never raise it", () => {
@@ -91,5 +99,24 @@ describe("the guardrail", () => {
       optionId: "allow",
     });
     expect(agent?.sent.at(-1)).toMatchObject({ requestId: "command", answeredBy: "user" });
+  });
+
+  it("resumes an agent in the mode its level has now, not the one it started in", async () => {
+    const started = await core.call("POST", "/tasks", {
+      prompt: "Tidy up",
+      agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+      autonomy: "bypass",
+      outputFolder: directory,
+    });
+    expect(started.json.options.permissionMode).toBe("bypass");
+    await core.call("POST", `/sessions/${started.json.id}/stop`);
+    const agent = core.store.getAgent(started.json.agentId);
+    if (agent !== undefined) core.store.updateAgent(agent.id, { ...agent, autonomy: "supervised" });
+
+    const resumed = await core.call("POST", `/sessions/${started.json.id}/resume`, {
+      prompt: "Go on",
+    });
+
+    expect(resumed.json.options.permissionMode).toBe("ask");
   });
 });

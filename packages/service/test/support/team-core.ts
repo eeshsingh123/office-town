@@ -1,4 +1,5 @@
 import type { HarnessCatalog } from "@office-town/contract";
+import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
@@ -56,6 +57,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     },
     tools,
     guard: autonomyGuard(store),
+    permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   });
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
+import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
 import { defaultDataFolder } from "./data-folder.ts";
@@ -37,7 +38,11 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 const dataFolder = values["data-folder"] ?? defaultDataFolder();
 const store = openStore(dataFolder);
 const toolServer = await startToolServer(store);
-const registry = new SessionRegistry(store, { tools: toolServer, guard: autonomyGuard(store) });
+const registry = new SessionRegistry(store, {
+  tools: toolServer,
+  guard: autonomyGuard(store),
+  permissionModeOf: (agentId) => permissionModeOf(store, agentId),
+});
 const readCatalog = cachedCatalogs();
 const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);
