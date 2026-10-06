@@ -47,6 +47,12 @@ The owner hands well-scoped stories to other agents. A brief must stand alone, w
 
 A story must not require changing an existing contract. If it would, the architect changes the contract first.
 
-## Sub-agent models
+## Delegation and sub-agents
 
-Exploration: Sonnet 5.5. Well-scoped implementation: Opus 5.5 (medium effort). Orchestration: Opus 5.5.
+Goal: spend session limits well without lowering quality.
+
+- The main session (Opus 5.5, high effort) understands the task, plans and orchestrates. Before starting, it plans which parts can go to sub-agents and delegates them, rather than doing everything in the main context.
+- Sub-agents: `opus-medium` by default, `sonnet-xhigh` for well-specified work, unless the owner names a model. Definitions live in `.claude/agents/`.
+- Every brief stands alone: goal, context, numbered steps, to-do list, constraints and out-of-scope, files and contracts, acceptance checks, expected report. A `sonnet-xhigh` brief spells out every step; no gaps left for the agent to fill.
+- Independent pieces run in parallel. The main session checks each result before relying on it.
+- Code review: the main session orchestrates. It splits the diff into independent slices (by area or concern), reviews them with parallel sub-agents under the same brief rules, then verifies and merges the findings itself.
