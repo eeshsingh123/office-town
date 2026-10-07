@@ -1,5 +1,5 @@
 import { Check, CircleMinus, LoaderCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
@@ -11,6 +11,7 @@ import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { Usage } from "../departments/Usage.tsx";
+import { tracedUsage } from "../departments/usage.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { MessageBox } from "../task/MessageBox.tsx";
 import { SecondOpinionDialog } from "../task/SecondOpinionDialog.tsx";
@@ -41,15 +42,18 @@ function ActionLine({ action, live }: { action: TraceAction; live: boolean }) {
 export function AgentPanel({ member }: { member: FloorAgent }) {
   const { agent, state, harness } = member;
   const { latest } = agent;
-  const trace = useApp((app) => app.traces[latest.id]);
+  const traces = useApp((app) => app.traces);
+  const trace = traces[latest.id];
   const waiting = useApp((app) =>
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
   const [asking, setAsking] = useState(false);
-  // Every session of its task, for its usage; the latest also for its step and actions.
+  // Every session of its task, for its own usage, which the core does not sum per agent; the
+  // latest also for its step and actions.
   useEffect(() => {
     for (const session of agent.sessions) loadTrace(session.id);
   }, [agent.sessions]);
+  const usage = useMemo(() => tracedUsage(agent.sessions, traces), [agent.sessions, traces]);
   const progress = trace === undefined ? undefined : progressOf(trace);
   const live = isOpen(latest);
   const open = () => navigate({ name: "task", taskId: agent.taskId });
@@ -101,7 +105,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
         </div>
       )}
 
-      <Usage sessions={agent.sessions} />
+      <Usage sessions={agent.sessions} usage={usage} />
 
       <div className={styles.panelActions}>
         <Button variant="primary" onClick={open}>

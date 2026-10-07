@@ -1,4 +1,4 @@
-import type { SessionRecord } from "@office-town/contract";
+import type { SessionRecord, TaskUsage } from "@office-town/contract";
 import { useMemo } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { compactCount, whenNext } from "../../ui/format.ts";
@@ -9,18 +9,16 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 interface UsageProps {
   sessions: readonly SessionRecord[];
+  // The sessions' tokens by harness.
+  usage: readonly TaskUsage[];
   title?: string;
 }
 
 // Each harness's own limit, or its tokens where it reports none (D-29).
-export function Usage({ sessions, title = "Usage" }: UsageProps) {
-  const traces = useApp((state) => state.traces);
+export function Usage({ sessions, usage: tokens, title = "Usage" }: UsageProps) {
   const harnesses = useApp((state) => state.harnesses);
-  const everySession = useApp((state) => state.sessions);
-  const usage = useMemo(
-    () => usageByHarness(sessions, traces, Object.values(everySession)),
-    [sessions, traces, everySession],
-  );
+  const limits = useApp((state) => state.limits);
+  const usage = useMemo(() => usageByHarness(sessions, tokens, limits), [sessions, tokens, limits]);
   if (usage.length === 0) return null;
   const nameOf = (harness: string) =>
     harnesses.find((known) => known.harness === harness)?.name ?? harness;

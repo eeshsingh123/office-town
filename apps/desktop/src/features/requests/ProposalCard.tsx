@@ -4,7 +4,6 @@ import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useSessionAgent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
-import { refreshTeams, track } from "../../store/live.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -30,14 +29,12 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
   const [error, setError] = useState<string>();
   const changing = departmentId !== undefined;
 
-  // Approving makes the task the department's, so the task is read again with the teams.
+  // The approved department, its members and the task joining it arrive as changes.
   const run = async (action: () => Promise<void>) => {
     setSending(true);
     setError(undefined);
     try {
       await action();
-      await refreshTeams();
-      if (lead !== undefined) await track(lead.taskId);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
       setSending(false);

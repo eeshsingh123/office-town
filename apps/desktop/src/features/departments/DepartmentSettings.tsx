@@ -9,7 +9,6 @@ import { ArrowLeft } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { refreshTeams } from "../../store/live.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
@@ -67,7 +66,6 @@ function Settings({ department }: { department: DepartmentRecord }) {
       const settings = { name: name.trim(), autonomy, branchPerWorker, codeFlow };
       await api.updateDepartment(department.id, settings);
       await api.changeTeam(department.id, { name: settings.name, roles: toRoles(rows) });
-      await refreshTeams();
       setMessage({
         error: false,
         text: "Saved. A level changed while agents work applies to their next request.",

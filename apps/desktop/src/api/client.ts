@@ -14,27 +14,33 @@ import {
   environmentListSchema,
   type HarnessCatalog,
   type HarnessDescription,
+  type HarnessLimits,
   harnessCatalogSchema,
   harnessDescriptionSchema,
+  harnessLimitsSchema,
   type PendingRequestList,
   type ProfileRecord,
   type ProfileRequest,
   pendingRequestListSchema,
   profileRecordSchema,
   type SecondOpinionRequest,
+  type SessionPage,
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
   type StartTeamTaskRequest,
   type StoreSize,
+  sessionPageSchema,
   sessionRecordSchema,
   settingsSchema,
   storeSizeSchema,
   type TaskDetail,
   type TaskPage,
+  type TaskRecord,
   type Team,
   taskDetailSchema,
   taskPageSchema,
+  taskRecordSchema,
   type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -128,6 +134,8 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
+  markReviewed: (taskId: string): Promise<TaskRecord> =>
+    write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>
@@ -156,6 +164,11 @@ export const api = {
   listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
   getAgent: (agentId: string): Promise<AgentRecord> =>
     read(`/agents/${id(agentId)}`, agentRecordSchema),
+  listAgentSessions: (agentId: string, before?: string): Promise<SessionPage> =>
+    read(
+      `/agents/${id(agentId)}/sessions${before === undefined ? "" : `?before=${id(before)}`}`,
+      sessionPageSchema,
+    ),
   renameAgent: (agentId: string, name: string): Promise<AgentRecord> =>
     write("PUT", `/agents/${id(agentId)}/name`, { name }, agentRecordSchema),
   listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
@@ -164,5 +177,6 @@ export const api = {
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>
     write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
   deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
+  listLimits: (): Promise<HarnessLimits[]> => read("/limits", listOf(harnessLimitsSchema)),
   readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };

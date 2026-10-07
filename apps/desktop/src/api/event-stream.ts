@@ -1,4 +1,9 @@
-import { type SessionEvent, sessionEventSchema } from "@office-town/contract";
+import {
+  type Change,
+  changeSchema,
+  type SessionEvent,
+  sessionEventSchema,
+} from "@office-town/contract";
 
 // A text fragment is never stored, so it has no position.
 export interface StreamedEvent {
@@ -6,35 +11,48 @@ export interface StreamedEvent {
   event: SessionEvent;
 }
 
+// A change to a record, sent live only on the stream of every session.
+export interface StreamedChange {
+  change: Change;
+}
+
+export type StreamFrame = StreamedEvent | StreamedChange;
+
 export type StreamStatus = "connecting" | "live" | "offline";
 
 const RETRY_MS = [500, 1000, 2000, 5000];
 
-// One event this app cannot read must not stall the whole stream behind it.
-function readEvent(data: string): SessionEvent | undefined {
+// One frame this app cannot read must not stall the whole stream behind it.
+function readFrame(name: string | undefined, data: string): StreamFrame | undefined {
   try {
-    return sessionEventSchema.parse(JSON.parse(data));
+    const json = JSON.parse(data);
+    return name === "change"
+      ? { change: changeSchema.parse(json) }
+      : { event: sessionEventSchema.parse(json) };
   } catch (error) {
-    console.error("Skipped an event the app cannot read.", error);
+    console.error("Skipped a frame the app cannot read.", error);
     return undefined;
   }
 }
 
 // Splits server-sent event text into frames. What follows the last complete frame is returned as
-// `rest`, to be read again with the next chunk.
-export function parseFrames(text: string): { frames: StreamedEvent[]; rest: string } {
+// `rest`, to be read again with the next chunk. Frames named "change" carry changes; the others
+// carry events.
+export function parseFrames(text: string): { frames: StreamFrame[]; rest: string } {
   const blocks = text.split("\n\n");
   const rest = blocks.pop() ?? "";
-  const frames = blocks.flatMap((block): StreamedEvent[] => {
+  const frames = blocks.flatMap((block): StreamFrame[] => {
     let position: number | undefined;
+    let name: string | undefined;
     const data: string[] = [];
     for (const line of block.split("\n")) {
       if (line.startsWith("id: ")) position = Number(line.slice(4));
+      else if (line.startsWith("event: ")) name = line.slice(7);
       else if (line.startsWith("data: ")) data.push(line.slice(6));
     }
-    const event = data.length === 0 ? undefined : readEvent(data.join("\n"));
-    if (event === undefined) return [];
-    return [position === undefined ? { event } : { position, event }];
+    const frame = data.length === 0 ? undefined : readFrame(name, data.join("\n"));
+    if (frame === undefined) return [];
+    return [position === undefined || "change" in frame ? frame : { ...frame, position }];
   });
   return { frames, rest };
 }
@@ -46,7 +64,7 @@ interface ReadOptions {
 
 async function readStream(
   path: string,
-  onEvent: (streamed: StreamedEvent) => void,
+  onFrame: (frame: StreamFrame) => void,
   { signal, onOpen }: ReadOptions = {},
 ): Promise<void> {
   const response = await fetch(`/api${path}`, signal === undefined ? {} : { signal });
@@ -58,34 +76,40 @@ async function readStream(
   for await (const chunk of response.body.pipeThrough(new TextDecoderStream())) {
     const { frames, rest } = parseFrames(buffer + chunk);
     buffer = rest;
-    for (const frame of frames) onEvent(frame);
+    for (const frame of frames) onFrame(frame);
   }
 }
 
 // Every stored event of one session so far; the stream ends once it has caught up.
 export async function replaySession(sessionId: string): Promise<StreamedEvent[]> {
   const events: StreamedEvent[] = [];
-  await readStream(`/events?session=${encodeURIComponent(sessionId)}&follow=false`, (event) =>
-    events.push(event),
-  );
+  await readStream(`/events?session=${encodeURIComponent(sessionId)}&follow=false`, (frame) => {
+    if ("event" in frame) events.push(frame);
+  });
   return events;
 }
 
 export interface FollowOptions {
   after: number;
   onEvent: (streamed: StreamedEvent) => void;
+  onChange: (change: Change) => void;
   onStatus: (status: StreamStatus) => void;
 }
 
 // The one live stream of the app (D-32). After a drop it reconnects from the last stored position
-// it saw, so nothing is missed or repeated. Returns a function that closes it.
-export function followEvents({ after, onEvent, onStatus }: FollowOptions): () => void {
+// it saw, so no event is missed or repeated; changes made meanwhile are read again by the caller.
+// Returns a function that closes it.
+export function followEvents({ after, onEvent, onChange, onStatus }: FollowOptions): () => void {
   const controller = new AbortController();
   const { signal } = controller;
   let position = after;
-  const receive = (streamed: StreamedEvent) => {
-    if (streamed.position !== undefined) position = streamed.position;
-    onEvent(streamed);
+  const receive = (frame: StreamFrame) => {
+    if ("change" in frame) {
+      onChange(frame.change);
+      return;
+    }
+    if (frame.position !== undefined) position = frame.position;
+    onEvent(frame);
   };
 
   const connect = async (): Promise<void> => {

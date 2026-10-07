@@ -1,4 +1,10 @@
-import type { AgentRecord, DepartmentRecord, HarnessDescription } from "@office-town/contract";
+import type {
+  AgentRecord,
+  DelegationRecord,
+  DepartmentRecord,
+  HarnessDescription,
+  HarnessLimits,
+} from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
 import type { Trace } from "../trace/trace.ts";
@@ -19,6 +25,10 @@ export interface AppState extends Records {
   harnesses: HarnessDescription[];
   agents: Record<string, AgentRecord>;
   departments: Record<string, DepartmentRecord>;
+  // Of every team task that has not ended, and each one made since.
+  delegations: Record<string, DelegationRecord>;
+  // Each harness's latest plan limits, by harness.
+  limits: Record<string, HarnessLimits>;
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
   traceErrors: Record<string, string>;
@@ -34,6 +44,8 @@ export const useApp = create<AppState>(() => ({
   harnesses: [],
   agents: {},
   departments: {},
+  delegations: {},
+  limits: {},
   tasks: {},
   sessions: {},
   waiting: {},

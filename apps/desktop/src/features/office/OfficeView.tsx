@@ -1,8 +1,7 @@
-import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { useEffect, useMemo } from "react";
+import type { AgentRecord, DepartmentRecord, HarnessLimits } from "@office-town/contract";
+import { useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
@@ -103,12 +102,13 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
+  limits: Record<string, HarnessLimits>;
   state: Known;
 }
 
 // Every agent at work, or done today, at a desk: in its department's room, on the open floor if
 // it works alone, or at the guest desk if it came for a second opinion (MODULES M4.9).
-function layOut({ agents, traces, waiting, harnessName, departments, state }: Layout) {
+function layOut({ agents, traces, waiting, harnessName, departments, limits, state }: Layout) {
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
@@ -161,11 +161,10 @@ function layOut({ agents, traces, waiting, harnessName, departments, state }: La
     [OPEN]: { title: "Open floor", note: "agents working alone", waiting: 0, lines: [] },
     [GUESTS]: { title: "Guest desk", note: "second opinions", waiting: 0, lines: [] },
   };
-  const everySession = Object.values(state.sessions);
   const requests = Object.values(waiting);
   for (const department of departments) {
     const goal = goalOf(department, state);
-    const usage = usageByHarness(goal.sessions, traces, everySession)
+    const usage = usageByHarness(goal.sessions, goal.task?.usage ?? [], limits)
       .map((one) => usageSummary(one, harnessName(one.harness)))
       .join(" · ");
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
@@ -196,6 +195,7 @@ export function OfficeView() {
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) => state.waiting);
   const harnesses = useApp((state) => state.harnesses);
+  const limits = useApp((state) => state.limits);
   const selection = useApp((state) => state.selection);
   const view = useApp((state) => state.view);
   const room = view.name === "office" ? view.room : undefined;
@@ -215,18 +215,10 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
+      limits,
       state: { agents: records, tasks, sessions },
     });
-  }, [agents, traces, waiting, harnesses, departments, records, tasks, sessions]);
-
-  // A room's usage counts every session of its goal, finished ones included.
-  useEffect(() => {
-    for (const department of departments) {
-      for (const session of goalOf(department, { agents: records, tasks, sessions }).sessions) {
-        loadTrace(session.id);
-      }
-    }
-  }, [departments, records, tasks, sessions]);
+  }, [agents, traces, waiting, harnesses, departments, limits, records, tasks, sessions]);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const asking = floorAgents.filter(({ state }) => state === "waiting").length;
