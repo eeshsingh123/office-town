@@ -2,8 +2,22 @@ import { z } from "zod";
 import { newAgentSchema } from "./agents.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
-import { userRequestEventSchema } from "./events.ts";
+import { usageLimitSchema, userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
+
+// waiting: an agent asks the user something. working: an agent is at work. ended: the goal is
+// finished. idle: none of these, such as a team cut off by a restart.
+export const taskStateSchema = z.enum(["working", "waiting", "idle", "ended"]);
+export type TaskState = z.infer<typeof taskStateSchema>;
+
+// The tokens a task's sessions on one harness used, summed over their turns.
+export const taskUsageSchema = z.object({
+  harness: z.string().min(1),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
+});
+export type TaskUsage = z.infer<typeof taskUsageSchema>;
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
@@ -12,6 +26,11 @@ export const taskRecordSchema = z.object({
   // Set on a team's task: who leads it, and its department once the team is approved.
   leadAgentId: z.string().min(1).optional(),
   departmentId: z.string().min(1).optional(),
+  state: taskStateSchema,
+  // When the user marked the finished goal reviewed; cleared when the goal is taken up again.
+  reviewedAt: z.iso.datetime().optional(),
+  // By harness.
+  usage: z.array(taskUsageSchema),
 });
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
@@ -37,6 +56,28 @@ export const sessionRecordSchema = z.object({
   endedAt: z.iso.datetime().optional(),
 });
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
+
+// An agent's sessions across all its tasks, newest first. `next` is set while more may follow;
+// it is passed back as `before` for the next page.
+export const sessionPageSchema = z.object({
+  sessions: z.array(sessionRecordSchema),
+  next: z.string().min(1).optional(),
+});
+export type SessionPage = z.infer<typeof sessionPageSchema>;
+
+export const sessionPageQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  before: z.string().min(1).optional(),
+});
+export type SessionPageQuery = z.input<typeof sessionPageQuerySchema>;
+
+// A harness's plan limits as its sessions last reported them; a limit belongs to the account.
+export const harnessLimitsSchema = z.object({
+  harness: z.string().min(1),
+  limits: z.array(usageLimitSchema),
+  reportedAt: z.iso.datetime(),
+});
+export type HarnessLimits = z.infer<typeof harnessLimitsSchema>;
 
 export const taskSummarySchema = taskRecordSchema.extend({
   sessions: z.array(sessionRecordSchema),
