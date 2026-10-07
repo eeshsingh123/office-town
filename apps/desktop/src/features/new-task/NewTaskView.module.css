@@ -184,3 +184,37 @@ fieldset.where {
   padding: 0;
   border: 0;
 }
+
+.chief {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  background: var(--accent-soft);
+}
+
+.chief > span:first-child {
+  flex: 1;
+}
+
+.chiefText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.queueNote {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.queueNote svg {
+  flex: none;
+  margin-top: 1px;
+}

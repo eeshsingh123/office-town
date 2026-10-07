@@ -4,7 +4,7 @@ import {
   type StartTaskRequest,
   type WorkspaceRecord,
 } from "@office-town/contract";
-import { Plus, User, Users } from "lucide-react";
+import { Network, Plus, User, Users } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { type KeyboardEvent, useState } from "react";
 import { environmentKey, readCatalog } from "../../api/catalogs.ts";
@@ -19,7 +19,9 @@ import { FolderField } from "../../ui/FolderField.tsx";
 import { profileSummary } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { selectAgent } from "../office/office-state.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
+import { ChiefChoice } from "./ChiefChoice.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
 import styles from "./NewTaskView.module.css";
 import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
@@ -37,7 +39,7 @@ export function NewTaskView() {
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
   const [profileId, setProfileId] = useState(remembered.profileId);
-  const [who, setWho] = useState<"one" | "team">(remembered.team ? "team" : "one");
+  const [who, setWho] = useState<"one" | "team" | "chief">(remembered.team ? "team" : "one");
   const [departmentId, setDepartmentId] = useState(PROPOSE);
   const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
   const [choices, setChoices] = useState<HarnessChoices>(
@@ -83,12 +85,35 @@ export function NewTaskView() {
   );
   const teamGate = useBypassGate(teamAutonomy, setTeamAutonomy, "the team");
   const team = who === "team";
+  const chief = who === "chief";
+  const chiefId = useApp((state) => state.chiefId);
   const proposing = team && departmentId === PROPOSE;
   const placed = team ? !proposing || workspace !== undefined : Boolean(where);
-  const ready = (fromProfile || description !== undefined) && prompt.trim() !== "" && placed;
+  const ready = chief
+    ? chiefId !== undefined && prompt.trim() !== ""
+    : (fromProfile || description !== undefined) && prompt.trim() !== "" && placed;
+
+  const giveToChief = async () => {
+    if (chiefId === undefined) return;
+    setStarting(true);
+    setError(undefined);
+    try {
+      const { task } = await api.startChiefTask(prompt.trim());
+      await track(task.id);
+      selectAgent(chiefId);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      setStarting(false);
+    }
+  };
 
   const start = async () => {
-    if (!ready || starting || description === undefined) return;
+    if (!ready || starting) return;
+    if (chief) {
+      await giveToChief();
+      return;
+    }
+    if (description === undefined) return;
     setStarting(true);
     setError(undefined);
     const { environment, model: chosenModel, effort } = choices;
@@ -145,30 +170,41 @@ export function NewTaskView() {
       <div className={styles.column}>
         <div className={styles.titleRow}>
           <h1 id="new-task-title" className={styles.title}>
-            {team ? "What should the team do?" : "What should the agent do?"}
+            {chief
+              ? "What should the chief do?"
+              : team
+                ? "What should the team do?"
+                : "What should the agent do?"}
           </h1>
           <ToggleGroup.Root
             type="single"
             className={styles.segments}
             value={who}
             onValueChange={(next) => {
-              if (next === "one" || next === "team") setWho(next);
+              if (next === "one" || next === "team" || next === "chief") setWho(next);
             }}
             aria-label="Who works on it"
           >
             <ToggleGroup.Item value="one" className={styles.segment}>
               <User size={14} aria-hidden />
-              One agent
+              Solo agent
             </ToggleGroup.Item>
             <ToggleGroup.Item value="team" className={styles.segment}>
-              <Users size={14} aria-hidden />A team
+              <Users size={14} aria-hidden />
+              Department
+            </ToggleGroup.Item>
+            <ToggleGroup.Item value="chief" className={styles.segment}>
+              <Network size={14} aria-hidden />
+              Chief
             </ToggleGroup.Item>
           </ToggleGroup.Root>
         </div>
         <p className={styles.lead}>
-          {team
-            ? "Describe the goal. A lead hands the work to its team and puts it together; the lead's first step is a team proposal you approve."
-            : "Describe the task in your own words. You can answer its questions and approve its actions as it works."}
+          {chief
+            ? "Describe the big goal. The chief splits it across departments and sets their order; its plan waits for you in Needs you."
+            : team
+              ? "Describe the goal. A lead hands the work to its team and puts it together; the lead's first step is a team proposal you approve."
+              : "Describe the task in your own words. You can answer its questions and approve its actions as it works."}
         </p>
 
         <div className={styles.composer}>
@@ -186,63 +222,67 @@ export function NewTaskView() {
             // biome-ignore lint/a11y/noAutofocus: the view exists to take this text
             autoFocus
           />
-          <div className={styles.options}>
-            {(profiles.value ?? []).length === 0 || (team && !proposing) ? null : (
-              <ChoiceMenu
-                label={team ? "Lead" : "Agent"}
-                value={profile?.id ?? LAST_CHOICES}
-                choices={[
-                  { value: LAST_CHOICES, label: "Your last choices" },
-                  ...(profiles.value ?? []).map((known) => ({
-                    value: known.id,
-                    label: known.name,
-                    description: profileSummary(known, harnesses),
-                  })),
-                ]}
-                onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
-              />
-            )}
-            {fromProfile || description === undefined || (team && !proposing) ? null : (
-              <SettingsChips
-                value={{
-                  harness: description.harness,
-                  environment: choices.environment,
-                  ...(choices.model === undefined ? {} : { model: choices.model }),
-                  ...(choices.effort === undefined ? {} : { effort: choices.effort }),
-                }}
-                recentModels={choices.recentModels}
-                onChange={({ harness: next, environment, model: nextModel, effort }) => {
-                  if (next !== description.harness) {
-                    setHarness(next);
-                    setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
-                    return;
-                  }
-                  const { autonomy, recentModels } = choices;
-                  setChoices({
-                    environment,
-                    recentModels,
-                    ...(autonomy === undefined ? {} : { autonomy }),
-                    ...(nextModel === undefined ? {} : { model: nextModel }),
-                    ...(effort === undefined ? {} : { effort }),
-                  });
-                }}
-              />
-            )}
-            {team ? null : (
-              <ChoiceMenu
-                label="Autonomy"
-                value={soloAutonomy}
-                choices={LEVELS}
-                onChange={soloGate.choose}
-              />
-            )}
-            {team && !proposing ? (
-              <span className={styles.hint}>The department's own lead takes the goal.</span>
-            ) : null}
-          </div>
+          {chief ? null : (
+            <div className={styles.options}>
+              {(profiles.value ?? []).length === 0 || (team && !proposing) ? null : (
+                <ChoiceMenu
+                  label={team ? "Lead" : "Agent"}
+                  value={profile?.id ?? LAST_CHOICES}
+                  choices={[
+                    { value: LAST_CHOICES, label: "Your last choices" },
+                    ...(profiles.value ?? []).map((known) => ({
+                      value: known.id,
+                      label: known.name,
+                      description: profileSummary(known, harnesses),
+                    })),
+                  ]}
+                  onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
+                />
+              )}
+              {fromProfile || description === undefined || (team && !proposing) ? null : (
+                <SettingsChips
+                  value={{
+                    harness: description.harness,
+                    environment: choices.environment,
+                    ...(choices.model === undefined ? {} : { model: choices.model }),
+                    ...(choices.effort === undefined ? {} : { effort: choices.effort }),
+                  }}
+                  recentModels={choices.recentModels}
+                  onChange={({ harness: next, environment, model: nextModel, effort }) => {
+                    if (next !== description.harness) {
+                      setHarness(next);
+                      setChoices(loadRemembered().byHarness[next] ?? DEFAULT_CHOICES);
+                      return;
+                    }
+                    const { autonomy, recentModels } = choices;
+                    setChoices({
+                      environment,
+                      recentModels,
+                      ...(autonomy === undefined ? {} : { autonomy }),
+                      ...(nextModel === undefined ? {} : { model: nextModel }),
+                      ...(effort === undefined ? {} : { effort }),
+                    });
+                  }}
+                />
+              )}
+              {team ? null : (
+                <ChoiceMenu
+                  label="Autonomy"
+                  value={soloAutonomy}
+                  choices={LEVELS}
+                  onChange={soloGate.choose}
+                />
+              )}
+              {team && !proposing ? (
+                <span className={styles.hint}>The department's own lead takes the goal.</span>
+              ) : null}
+            </div>
+          )}
         </div>
 
-        {team ? (
+        {chief ? (
+          <ChiefChoice />
+        ) : team ? (
           <TeamChoice
             departmentId={departmentId}
             onDepartment={setDepartmentId}
@@ -306,13 +346,18 @@ export function NewTaskView() {
 
         <div className={styles.actions}>
           <Button variant="primary" onClick={start} disabled={!ready || starting}>
-            {starting ? "Starting…" : team ? "Start" : "Start task"}
+            {starting ? "Starting…" : chief ? "Give to the chief" : team ? "Start" : "Start task"}
           </Button>
           <span className={styles.hint}>
             <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd>
           </span>
-          {!fromProfile && model?.access === "free" && !(team && !proposing) ? (
+          {!chief && !fromProfile && model?.access === "free" && !(team && !proposing) ? (
             <span className={styles.note}>Free model</span>
+          ) : null}
+          {chief ? (
+            <span className={styles.hint}>
+              The chief proposes a plan in Needs you before anything runs.
+            </span>
           ) : null}
           {proposing ? (
             <span className={styles.hint}>
