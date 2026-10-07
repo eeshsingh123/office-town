@@ -1,5 +1,5 @@
 import type { PermissionOption, Question, UserRequestEvent } from "@office-town/contract";
-import { CircleHelp, ShieldCheck } from "lucide-react";
+import { CircleHelp, Network, ShieldCheck } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { requestKey } from "../../trace/trace.ts";
@@ -61,6 +61,7 @@ function useAnswer() {
 
 type PermissionEvent = Extract<UserRequestEvent, { type: "permission.requested" }>;
 type QuestionEvent = Extract<UserRequestEvent, { type: "question.requested" }>;
+type PlanEvent = Extract<UserRequestEvent, { type: "plan.requested" }>;
 
 function PermissionBody({ event, context }: { event: PermissionEvent; context: ReactNode }) {
   const { sending, error, run } = useAnswer();
@@ -219,7 +220,20 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
 // One card for a waiting request, wherever it shows: in its trace and in the Needs you queue.
 export function RequestCard({ event, context }: RequestCardProps) {
   if (event.type === "proposal.requested") return <ProposalCard event={event} context={context} />;
+  if (event.type === "plan.requested") return <PlanNotice event={event} />;
   return <AskCard event={event} context={context} />;
+}
+
+// The plan card comes with the command panels (M5.3); until then a plan only shows it waits.
+function PlanNotice({ event }: { event: PlanEvent }) {
+  return (
+    <article id={requestKey(event.payload.requestId)} className={styles.card} aria-label="Plan">
+      <div className={styles.head}>
+        <Network size={16} aria-hidden />
+        The chief proposes a plan (opens in the next update)
+      </div>
+    </article>
+  );
 }
 
 function AskCard({

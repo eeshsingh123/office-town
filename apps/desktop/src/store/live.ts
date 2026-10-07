@@ -1,4 +1,10 @@
-import type { AgentRecord, Change, DelegationRecord, TaskSummary } from "@office-town/contract";
+import type {
+  AgentRecord,
+  Change,
+  DelegationRecord,
+  PlanPiece,
+  TaskSummary,
+} from "@office-town/contract";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
 import { applyEvents, emptyTrace } from "../trace/trace.ts";
@@ -49,13 +55,14 @@ export function connect(): void {
 // anything that changes after it arrives as an event or a change.
 async function refresh(first = false): Promise<number> {
   const waiting = await api.listPendingRequests();
-  const [page, active, harnesses, agents, departments, limits] = await Promise.all([
+  const [page, active, harnesses, agents, departments, limits, settings] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
     api.listHarnesses(),
     api.listAgents(),
     api.listDepartments(),
     api.listLimits(),
+    api.readSettings(),
   ]);
   // A task the app still holds as open, but that neither list has, may have been interrupted by a
   // core restart; it is read again so it does not stay "running".
@@ -67,12 +74,16 @@ async function refresh(first = false): Promise<number> {
   );
   const reread = await Promise.all([...stale].map(readTask));
   const tasks = [...page.tasks, ...active.tasks, ...reread];
-  const delegations = await readDelegations(tasks);
+  const [delegations, pieces] = await Promise.all([
+    readDelegations(tasks),
+    readPlans(tasks, settings.chiefAgentId),
+  ]);
   useApp.setState((state) => ({
     harnesses,
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),
+    pieces: byId(pieces),
     limits: Object.fromEntries(limits.map((harness) => [harness.harness, harness])),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
@@ -90,6 +101,17 @@ async function readDelegations(tasks: readonly TaskSummary[]): Promise<Delegatio
   const teams = tasks.filter((task) => task.leadAgentId !== undefined && task.state !== "ended");
   const ids = [...new Set(teams.map((task) => task.id))];
   return (await Promise.all(ids.map(api.listDelegations))).flat();
+}
+
+// The plans of every chief goal that has not ended; an ended one has no piece left to run.
+async function readPlans(
+  tasks: readonly TaskSummary[],
+  chiefAgentId: string | undefined,
+): Promise<PlanPiece[]> {
+  if (chiefAgentId === undefined) return [];
+  const goals = tasks.filter((task) => task.leadAgentId === chiefAgentId && task.state !== "ended");
+  const ids = [...new Set(goals.map((task) => task.id))];
+  return (await Promise.all(ids.map(api.getPlan))).flat();
 }
 
 async function readTask(taskId: string): Promise<TaskSummary> {

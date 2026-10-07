@@ -1,6 +1,7 @@
 import {
   type AgentCommand,
   type AgentRecord,
+  type AgentSettings,
   type ApiError,
   agentRecordSchema,
   apiErrorSchema,
@@ -19,9 +20,11 @@ import {
   harnessDescriptionSchema,
   harnessLimitsSchema,
   type PendingRequestList,
+  type PlanPiece,
   type ProfileRecord,
   type ProfileRequest,
   pendingRequestListSchema,
+  planPieceSchema,
   profileRecordSchema,
   type SecondOpinionRequest,
   type SessionPage,
@@ -136,6 +139,15 @@ export const api = {
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
   markReviewed: (taskId: string): Promise<TaskRecord> =>
     write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
+  startChiefTask: (goal: string): Promise<TaskDetail> =>
+    write("POST", "/tasks/chief", { goal }, taskDetailSchema),
+  getPlan: (taskId: string): Promise<PlanPiece[]> =>
+    read(`/tasks/${id(taskId)}/plan`, listOf(planPieceSchema)),
+  getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),
+  saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
+    write("PUT", "/chief", { settings }, agentRecordSchema),
+  messageAgent: (agentId: string, text: string): Promise<void> =>
+    send("POST", `/agents/${id(agentId)}/messages`, { text }),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>

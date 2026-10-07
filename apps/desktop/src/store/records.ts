@@ -91,6 +91,7 @@ export function applyToRecords(records: Records, events: readonly StreamedEvent[
       case "permission.requested":
       case "question.requested":
       case "proposal.requested":
+      case "plan.requested":
         if (position !== undefined) {
           waiting[waitingKey(session.id, event.payload.requestId)] = { position, event };
         }
@@ -98,6 +99,7 @@ export function applyToRecords(records: Records, events: readonly StreamedEvent[
       case "permission.resolved":
       case "question.resolved":
       case "proposal.resolved":
+      case "plan.resolved":
         delete waiting[waitingKey(session.id, event.payload.requestId)];
         break;
     }

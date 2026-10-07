@@ -28,6 +28,8 @@ function requestBubble(request: WaitingRequest): string {
       return "Has a question";
     case "proposal.requested":
       return "Proposes a team";
+    case "plan.requested":
+      return "Proposes a plan";
   }
 }
 

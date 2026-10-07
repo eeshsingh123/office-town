@@ -11,7 +11,10 @@ export function withoutTask(state: AppState, taskId: string): AppState {
   const delegations = Object.fromEntries(
     Object.entries(state.delegations).filter(([, delegation]) => delegation.taskId !== taskId),
   );
-  return { ...state, ...removeTask(state, taskId), traces, delegations };
+  const pieces = Object.fromEntries(
+    Object.entries(state.pieces).filter(([, piece]) => piece.taskId !== taskId),
+  );
+  return { ...state, ...removeTask(state, taskId), traces, delegations, pieces };
 }
 
 // Each change carries the whole record, so it replaces the app's copy. A task the app does not
@@ -40,6 +43,8 @@ function applyChange(state: AppState, change: Change): AppState {
     }
     case "limits":
       return { ...state, limits: { ...state.limits, [change.limits.harness]: change.limits } };
+    case "piece":
+      return { ...state, pieces: { ...state.pieces, [change.piece.id]: change.piece } };
   }
 }
 
