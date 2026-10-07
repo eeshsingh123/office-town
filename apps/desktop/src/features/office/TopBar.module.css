@@ -1,0 +1,140 @@
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.segments {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 4px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--hover);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--size-meta);
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.segment[data-state="on"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.dotWorking {
+  background: var(--accent);
+}
+
+.needYou {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--warn-border);
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.needYou:hover {
+  filter: brightness(0.98);
+}
+
+.waitDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  cursor: pointer;
+}
+
+.link:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.unread {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.windows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.window {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.meter {
+  display: inline-block;
+  width: 44px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--hover);
+}
+
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--text-3);
+}

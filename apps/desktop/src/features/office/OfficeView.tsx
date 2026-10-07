@@ -15,6 +15,7 @@ import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type RoomSpec } from "./floor-plan.ts";
 import { GroupPanel } from "./GroupPanel.tsx";
 import styles from "./Office.module.css";
+import { TopBar } from "./TopBar.tsx";
 
 const BUBBLE_LENGTH = 42;
 const OPEN = "open";
@@ -223,7 +224,6 @@ export function OfficeView() {
   }, [agents, traces, waiting, harnesses, departments, limits, records, tasks, sessions]);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
-  const asking = floorAgents.filter(({ state }) => state === "waiting").length;
   const openRoom = room === undefined ? undefined : departmentRecords[room];
   const onSelect = (agentIds: string[]) => {
     select(agentIds);
@@ -235,21 +235,8 @@ export function OfficeView() {
   };
 
   return (
-    <section aria-labelledby="office-title" className={styles.office}>
-      <header className={styles.header}>
-        <h1 id="office-title">Office</h1>
-        <span>
-          {floorAgents.length === 1 ? "1 agent" : `${floorAgents.length} agents`}
-          {departments.length === 0
-            ? ""
-            : ` · ${departments.length === 1 ? "1 department" : `${departments.length} departments`}`}
-        </span>
-        {asking === 0 ? null : <span className={styles.asking}>{asking} need you</span>}
-        <span className={styles.keys}>
-          Walk with WASD or the arrow keys · click an agent or a room's sign · drag to select
-          several
-        </span>
-      </header>
+    <section aria-label="Office" className={styles.office}>
+      <TopBar />
       <div className={styles.body}>
         <div className={styles.scroll}>
           <Floor

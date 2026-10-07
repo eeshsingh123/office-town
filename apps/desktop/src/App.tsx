@@ -5,6 +5,7 @@ import { DepartmentSettings } from "./features/departments/DepartmentSettings.ts
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
+import { useWaitingKeys } from "./features/office/waiting-keys.ts";
 import { ProfilesView } from "./features/profiles/ProfilesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
@@ -32,6 +33,7 @@ function Main({ view }: { view: View }) {
 
 export function App() {
   const view = useApp((state) => state.view);
+  useWaitingKeys();
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
