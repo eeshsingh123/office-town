@@ -423,6 +423,8 @@ describe("store", () => {
       [queries.agentSessionsBefore, "sessions_by_agent"],
       [queries.activeTaskOfDepartment, "tasks_open_by_department"],
       [queries.latestTurnOfSession, "events_turns"],
+      [queries.promptAfterTurn, "events_turns"],
+      [queries.promptAfterTurn, "events_by_session"],
       [queries.unfinishedSessions, "sessions_unfinished"],
       [queries.deleteSessionPendingRequests, "pending_requests_by_session"],
       [queries.deleteUnfinishedPendingRequests, "sessions_unfinished"],

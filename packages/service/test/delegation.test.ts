@@ -157,7 +157,7 @@ Tests pass.`,
     expect(core.store.listDelegations(task.taskId)).toEqual([]);
   });
 
-  it("keeps a goal's state: working, waiting on the user, idle while a result is out, ended once the lead finished, and idle when cut off", async () => {
+  it("keeps a goal's state: working, waiting on the user, working while its lead owes a turn for a result, ended once the lead finished, and idle when cut off", async () => {
     const first = await teamAtWork("First goal");
     const state = (taskId: string) => core.store.getTask(taskId)?.state;
     const [lead] = core.sessions;
@@ -176,11 +176,11 @@ Tests pass.`,
       requestId: question?.event.payload.requestId,
       answers: [{ questionId: "1", selected: ["Lunch"] }],
     });
-    // The writer's result reaches the lead after the lead's turn ended, so it is still to act on.
+    // The writer's result reaches the lead after the lead's turn ended: its next turn is due.
     await settle();
     playTurn(writer, "The menu is in menu.md.");
     await settle();
-    expect(state(first.task.taskId)).toBe("idle");
+    expect(state(first.task.taskId)).toBe("working");
     playTurn(lead, "The site is done.");
     expect(state(first.task.taskId)).toBe("ended");
 
@@ -199,6 +199,47 @@ Tests pass.`,
     await core.close();
     core = await startCore(join(directory, "data"));
     expect(state(second.taskId)).toBe("idle");
+  });
+
+  it("ends a goal only once its lead acted on every answer and result, and ends a stopped one whose lead was idle", async () => {
+    const { task, writer } = await teamAtWork();
+    const [lead] = core.sessions;
+    const states: string[] = [];
+    core.store.subscribe((change) => {
+      if (change.type === "task" && change.task.id === task.taskId) states.push(change.task.state);
+    });
+    const state = () => core.store.getTask(task.taskId)?.state;
+
+    // An answer is stored before the lead is told it: the goal goes from waiting to working.
+    lead?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    await core.callTool(lead, "ask_user", { question: "Which menu?" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    const [question] = core.store.listPendingRequests().requests;
+    await core.call("POST", `/sessions/${lead?.id}/commands`, {
+      type: "answerQuestion",
+      requestId: question?.event.payload.requestId,
+      answers: [{ questionId: "1", selected: ["Lunch"] }],
+    });
+    expect(states.slice(-2)).toEqual(["waiting", "working"]);
+
+    // A result told mid-turn is still owed a turn once that turn ends.
+    lead?.emit({ type: "turn.started", payload: { turnId: "2" } });
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write" });
+    playTurn(core.sessions[1], "The menu is in menu.md.");
+    await settle();
+    lead?.emit({ type: "turn.ended", payload: { turnId: "2", outcome: "completed" } });
+    expect(state()).toBe("working");
+    playTurn(lead, "The menu is done.");
+    expect(state()).toBe("ended");
+
+    // Stopping a goal whose lead was stopped as idle ends it, with the worker's work undelivered.
+    lead?.emit({ type: "turn.started", payload: { turnId: "3" } });
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write again" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "3", outcome: "completed" } });
+    await core.registry.stop(lead?.id ?? "", true);
+    expect(state()).toBe("idle");
+    expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
+    expect(state()).toBe("ended");
   });
 
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {

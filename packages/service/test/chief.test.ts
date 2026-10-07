@@ -195,7 +195,7 @@ describe("the chief", () => {
       origin: { kind: "piece", outcome: "failed" },
     });
     expect(piece("review")?.status).toBe("waiting");
-    expect(core.store.getTask(goal.task.id)?.state).toBe("idle");
+    expect(core.store.getTask(goal.task.id)?.state).toBe("working");
 
     // The chief retries the docs; the review that waited on them is planned again.
     await plan([{ ...docsPiece, brief: "Write shorter docs" }, review]);
@@ -211,8 +211,24 @@ describe("the chief", () => {
       ["review", "waiting"],
     ]);
 
+    // A new department's piece is done only once its team was approved.
+    const docsLead = leadOf(piece("docs")?.pieceTaskId);
+    await core.callTool(docsLead, "propose_team", {
+      name: "Docs team",
+      roles: [{ role: "Writer", purpose: "Writes", harness: "claude", model: "haiku" }],
+    });
+    const proposal = core.store
+      .listPendingRequests()
+      .requests.find(({ event }) => event.type === "proposal.requested")?.event;
+    const team = userRequestEventSchema.parse(proposal);
+    if (team.type !== "proposal.requested") throw new Error("expected a proposal");
+    await core.call("POST", `/sessions/${docsLead?.id}/commands`, {
+      type: "answerProposal",
+      requestId: team.payload.requestId,
+      answer: { outcome: "approved", team: team.payload.team },
+    });
     playTurn(leadOf(webTask), "The site is up.");
-    playTurn(leadOf(piece("docs")?.pieceTaskId), "The docs are in docs/.");
+    playTurn(docsLead, "The docs are in docs/.");
     await settle();
     playTurn(leadOf(piece("review")?.pieceTaskId), "The docs read well.");
     await settle();

@@ -534,6 +534,10 @@ class SqliteStore implements Store {
     return row.outcome === null ? turn : { ...turn, outcome: row.outcome };
   }
 
+  owesTurn(sessionId: string): boolean {
+    return one(this.#statements.promptAfterTurn, this.#sessionRef(sessionId)) !== undefined;
+  }
+
   lastMessage(sessionId: string): string | undefined {
     const ref = this.#sessionRef(sessionId);
     return one<{ text: string }>(this.#statements.lastAgentMessage, ref)?.text;

@@ -77,10 +77,11 @@ describe("session registry", () => {
     expect(record).toMatchObject({ status: "running", harnessSessionId: `harness-${record.id}` });
     expect(published.map(({ position, event }) => [event.type, position !== undefined])).toEqual([
       ["session.started", true],
+      ["message", true],
       ["message.delta", false],
       ["message", true],
     ]);
-    expect(storedWhenPublished).toEqual([true, true]);
+    expect(storedWhenPublished).toEqual([true, true, true]);
     // The store holds its file alone, so the audit copy is read once it is closed.
     await registry.close();
     store.close();
@@ -131,12 +132,12 @@ describe("session registry", () => {
 
     sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Done" } });
 
-    expect(published.slice(1).map(({ event }) => event.type)).toEqual([
+    expect(published.slice(2).map(({ event }) => event.type)).toEqual([
       "message",
       "error",
       "session.ended",
     ]);
-    expect(published[2]?.event.payload).toEqual({
+    expect(published[3]?.event.payload).toEqual({
       message:
         "This agent's work could not be saved, so the agent was stopped. " +
         "Nothing it does from here on is in its history.",
@@ -147,7 +148,7 @@ describe("session registry", () => {
     await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
       SessionNotRunningError,
     );
-    expect(published[3]?.position).toBeDefined();
+    expect(published[4]?.position).toBeDefined();
     expect(store.getSession(record.id)?.status).toBe("failed");
     await store.deleteTask(record.taskId);
   });

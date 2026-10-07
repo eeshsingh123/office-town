@@ -19,10 +19,11 @@ export function reportResults(context: TeamContext, activity: SessionActivity): 
   const { store, registry } = context;
 
   const finish = (delegation: DelegationRecord, outcome: Outcome, result: string) => {
-    store.endDelegation(delegation.id, outcome, result);
     const worker = store.getAgent(delegation.workerAgentId);
     const name = worker?.name ?? "A worker";
-    tellLead(context, delegation.taskId, {
+    // Told before the delegation ends, so the lead owes a turn for it and its goal never reads
+    // finished in between.
+    const told = tellLead(context, delegation.taskId, {
       text: resultText(name, outcome, result),
       origin: {
         kind: "result",
@@ -30,7 +31,9 @@ export function reportResults(context: TeamContext, activity: SessionActivity): 
         agentId: delegation.workerAgentId,
         outcome,
       },
-    }).catch((error: unknown) => {
+    });
+    store.endDelegation(delegation.id, outcome, result);
+    told.catch((error: unknown) => {
       console.error(`Could not give the lead the result of ${name}.`, error);
     });
   };

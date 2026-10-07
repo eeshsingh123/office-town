@@ -19,33 +19,24 @@ const STATE_EVENTS = new Set<SessionEvent["type"]>([
   "plan.resolved",
 ]);
 
-// Whether a task still has work out, though its top agent finished at `finishedAt`.
-type WorkOut = (store: Store, taskId: string, finishedAt: number) => boolean;
+// Whether a task still has work out once its top agent finished.
+type WorkOut = (store: Store, taskId: string) => boolean;
 
-// A delegation still at work, cut off by a restart (Continue hands it out again), or whose result
-// came after the lead last finished, so the lead has yet to act on it.
-const delegationsOut: WorkOut = (store, taskId, finishedAt) =>
+// A delegation still at work, or cut off by a restart (Continue hands it out again). A result told
+// to the lead is a prompt it owes a turn for; one it never got, as the user stopped it, is no work.
+const delegationsOut: WorkOut = (store, taskId) =>
   store
     .listDelegations(taskId)
-    .some(
-      ({ status, endedAt }) =>
-        status === "working" ||
-        status === "interrupted" ||
-        (endedAt !== undefined && Date.parse(endedAt) > finishedAt),
-    );
+    .some(({ status }) => status === "working" || status === "interrupted");
 
-// A chief's piece queued or at work, one waiting that can still start, or one whose result came
-// after the chief last finished. A piece dropped from the plan is never out.
-const piecesOut: WorkOut = (store, taskId, finishedAt) => {
+// A chief's piece queued or at work, or one waiting that can still start.
+const piecesOut: WorkOut = (store, taskId) => {
   const pieces = store.listPieces(taskId);
   return pieces.some(
     (piece) =>
       piece.status === "working" ||
       piece.status === "queued" ||
-      (piece.status === "waiting" && !isBlocked(piece, pieces)) ||
-      (piece.status !== "dropped" &&
-        piece.endedAt !== undefined &&
-        Date.parse(piece.endedAt) > finishedAt),
+      (piece.status === "waiting" && !isBlocked(piece, pieces)),
   );
 };
 
@@ -58,17 +49,16 @@ function isWorking(store: Store, session: SessionRecord): boolean {
   return session.status === "running" && store.latestTurn(session.id)?.ended !== true;
 }
 
-// When the task's top agent (its lead, or else its first agent) last finished: its latest session
-// ended, or that session's latest turn did. A session cut off by a restart mid-turn never finished.
-function finishedAt(store: Store, task: TaskRecord, sessions: SessionRecord[]): number | undefined {
+// The latest session of the task's top agent: its lead, or else its first agent.
+function topSession(task: TaskRecord, sessions: SessionRecord[]): SessionRecord | undefined {
   const topAgent = task.leadAgentId ?? sessions[0]?.agentId;
-  const latest = sessions.findLast((session) => session.agentId === topAgent);
-  if (latest === undefined) return undefined;
-  if (latest.endedAt !== undefined && latest.status !== "interrupted") {
-    return Date.parse(latest.endedAt);
-  }
-  const turn = store.latestTurn(latest.id);
-  return turn?.ended ? Date.parse(turn.at) : undefined;
+  return sessions.findLast((session) => session.agentId === topAgent);
+}
+
+// The session ended, or its latest turn did. One cut off by a restart mid-turn never finished.
+function finished(store: Store, session: SessionRecord): boolean {
+  if (session.endedAt !== undefined && session.status !== "interrupted") return true;
+  return store.latestTurn(session.id)?.ended === true;
 }
 
 function stateOf(store: Store, task: TaskRecord): TaskState {
@@ -78,9 +68,12 @@ function stateOf(store: Store, task: TaskRecord): TaskState {
   const asking = store.listPendingRequests().requests.some(({ taskId }) => taskId === task.id);
   if (asking) return "waiting";
   if (sessions.some((session) => isWorking(store, session))) return "working";
-  const finished = finishedAt(store, task, sessions);
-  if (finished === undefined) return "idle";
-  return workOutChecks.some((check) => check(store, task.id, finished)) ? "idle" : "ended";
+  const top = topSession(task, sessions);
+  if (top === undefined) return "idle";
+  // A prompt or an answer the top agent has yet to act on: its next turn is about to start.
+  if (top.status === "running" && store.owesTurn(top.id)) return "working";
+  if (!finished(store, top)) return "idle";
+  return workOutChecks.some((check) => check(store, task.id)) ? "idle" : "ended";
 }
 
 // Keeps every task's state current: after each event that can change it, and each change to the

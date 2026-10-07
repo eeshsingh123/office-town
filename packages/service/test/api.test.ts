@@ -263,17 +263,17 @@ describe("api", () => {
       agent?.emit({ type: "message", payload: { role: "assistant", text: "After" } });
       return page;
     });
-    const resumed = await openStream(`/events?session=${session.id}`, { "last-event-id": "1" });
+    const resumed = await openStream(`/events?session=${session.id}`, { "last-event-id": "2" });
     agent?.emit({ type: "message.delta", payload: { text: "Liv" } });
     agent?.emit({ type: "message", payload: { role: "assistant", text: "Live" } });
 
     const frames = await resumed(5);
     expect(frames.map(({ id, event }) => [id, event.type])).toEqual([
-      ["2", "message"],
       ["3", "message"],
       ["4", "message"],
-      [undefined, "message.delta"],
       ["5", "message"],
+      [undefined, "message.delta"],
+      ["6", "message"],
     ]);
     expect(frames.map(({ event }) => event.payload)).toMatchObject([
       { text: "First" },
@@ -285,7 +285,14 @@ describe("api", () => {
 
     // A replay that does not follow ends once it has sent every stored event.
     const replay = await (await call("GET", `/events?session=${session.id}&follow=false`)).text();
-    expect(replay.match(/^id: \d+$/gm)).toEqual(["id: 1", "id: 2", "id: 3", "id: 4", "id: 5"]);
+    expect(replay.match(/^id: \d+$/gm)).toEqual([
+      "id: 1",
+      "id: 2",
+      "id: 3",
+      "id: 4",
+      "id: 5",
+      "id: 6",
+    ]);
   });
 
   it("sends record changes live on the stream of every session only, never on a replay", async () => {
@@ -293,24 +300,29 @@ describe("api", () => {
     const session = sessionRecordSchema.parse(await started.json());
     const everything = await openStream("/events?after=0");
     const oneSession = await openStream(`/events?session=${session.id}&after=0`);
+    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "1" } });
     sessions[0]?.emit({
       type: "turn.ended",
       payload: { turnId: "1", outcome: "completed", usage: { inputTokens: 9, outputTokens: 1 } },
     });
 
     // The turn adds to the task's usage, and ends the goal.
-    const frames = await everything(4);
+    const frames = await everything(6);
     expect(frames.map(({ id, name, event }) => [id, name, event.type])).toEqual([
       ["1", undefined, "session.started"],
+      ["2", undefined, "message"],
+      ["3", undefined, "turn.started"],
       [undefined, "change", "task"],
       [undefined, "change", "task"],
-      ["2", undefined, "turn.ended"],
+      ["4", undefined, "turn.ended"],
     ]);
-    expect(changeSchema.parse(frames[2]?.event)).toMatchObject({
+    expect(changeSchema.parse(frames[4]?.event)).toMatchObject({
       task: { state: "ended", usage: [{ harness: "claude", inputTokens: 9 }] },
     });
-    expect((await oneSession(2)).map(({ event }) => event.type)).toEqual([
+    expect((await oneSession(4)).map(({ event }) => event.type)).toEqual([
       "session.started",
+      "message",
+      "turn.started",
       "turn.ended",
     ]);
     const replay = await (await call("GET", "/events?follow=false")).text();

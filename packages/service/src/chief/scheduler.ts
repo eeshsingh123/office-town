@@ -8,27 +8,12 @@ import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { latestSession, tellLead } from "../team/lead.ts";
 import { DepartmentBusyError, type TeamContext } from "../team/members.ts";
 import { startTeamTask } from "../team/team-tasks.ts";
-import { handOff } from "./briefs.ts";
+import { handOff, type PieceEnding, pieceResult } from "./briefs.ts";
 import { isChiefTask } from "./chief.ts";
 import { startQueuedGoal } from "./goals.ts";
 import { departmentNameOf, readOnlyFolders } from "./piece-folders.ts";
 
-type Ending = "done" | "failed" | "stopped";
-
 const OPEN = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
-
-const REPLAN =
-  "Pieces that wait on it are held. Propose a changed plan with propose_plan, or finish.";
-
-function resultText(store: Store, piece: PlanPiece, ending: Ending, result: string): string {
-  const name = departmentNameOf(store, piece);
-  if (ending === "done") return `${name} finished "${piece.title}":\n${result}`;
-  if (ending === "stopped") {
-    return `${name} was stopped before it finished "${piece.title}".\n\n${REPLAN}`;
-  }
-  const words = result === "" ? "" : ` Its last words:\n${result}`;
-  return `${name} could not finish "${piece.title}".${words}\n\n${REPLAN}`;
-}
 
 // A saved department, or the new one the chief proposed, whose lead first proposes its team.
 function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
@@ -38,12 +23,13 @@ function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
   return { lead: { settings: lead }, workspaceId, autonomy };
 }
 
-// How the lead's latest session in the piece's task ended.
-function endingOf(store: Store, lead: SessionRecord | undefined): Ending {
+// How the lead's latest session in the piece's task ended. A new department whose team the user
+// declined never joined one, so its piece is not done.
+function endingOf(store: Store, task: TaskRecord, lead: SessionRecord | undefined): PieceEnding {
   if (lead === undefined || lead.status === "failed") return "failed";
   if (lead.status === "stopped") return "stopped";
   const outcome = store.latestTurn(lead.id)?.outcome;
-  if (outcome === "failed") return "failed";
+  if (outcome === "failed" || task.departmentId === undefined) return "failed";
   return outcome === "interrupted" ? "stopped" : "done";
 }
 
@@ -115,22 +101,26 @@ export class Scheduler {
       task.leadAgentId === undefined
         ? undefined
         : latestSession(this.#context, task.id, task.leadAgentId);
-    this.#end(piece, endingOf(store, lead), lastWords(store, task));
+    this.#end(piece, endingOf(store, task, lead), lastWords(store, task));
   }
 
-  // The chief hears each piece's end; once none is left open, that it is time to sum up.
-  #end(piece: PlanPiece, ending: Ending, result: string): void {
+  // The chief hears each piece's end; once none is left open, that it is time to sum up. Told
+  // before the piece ends, so the chief owes a turn for it and its goal never reads finished in
+  // between; a chief not running hears it when its goal is continued.
+  #end(piece: PlanPiece, ending: PieceEnding, result: string): void {
     const { store } = this.#context;
-    store.updatePiece(piece.id, { status: ending, result });
     const last =
-      ending === "done" && !store.listPieces(piece.taskId).some((each) => OPEN.has(each.status));
+      ending === "done" &&
+      !store.listPieces(piece.taskId).some((each) => each.id !== piece.id && OPEN.has(each.status));
     const summary = last
       ? "\n\nNo piece of the plan is left open. Give the user a short account of the whole goal."
       : "";
-    tellLead(this.#context, piece.taskId, {
-      text: `${resultText(store, piece, ending, result)}${summary}`,
+    const told = tellLead(this.#context, piece.taskId, {
+      text: `${pieceResult(departmentNameOf(store, piece), piece.title, ending, result)}${summary}`,
       origin: { kind: "piece", pieceId: piece.id, outcome: ending },
-    }).catch((error: unknown) => {
+    });
+    store.updatePiece(piece.id, { status: ending, result });
+    told.catch((error: unknown) => {
       console.error(`Could not give the chief the result of "${piece.title}".`, error);
     });
   }

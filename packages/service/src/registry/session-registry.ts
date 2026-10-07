@@ -103,8 +103,8 @@ interface LiveSession {
   recorded: boolean;
   // The harness's own session id: one conversation must never run in two sessions at once.
   conversation: string | undefined;
-  // Settles once the agent has its first message, so a later one never arrives before it.
-  ready: Promise<void>;
+  // Set until the agent has its first message, so a later one never arrives before it.
+  firstMessage: Promise<void> | undefined;
   stopping: boolean;
   ended: PromiseWithResolvers<void>;
   // It has folders it may read but never change.
@@ -234,7 +234,9 @@ export class SessionRegistry {
   // being stopped cannot take it: once it has ended this says so, and the caller may resume it.
   async tell(sessionId: string, message: Message): Promise<void> {
     const live = this.#running(sessionId);
-    await live.ready;
+    // Not waiting once ready stores the prompt before tell returns, so a caller's next write
+    // (such as ending the delegation it reports) never finds the lead with nothing to act on.
+    if (live.firstMessage !== undefined) await live.firstMessage;
     if (live.stopping) {
       await live.ended.promise;
       throw new SessionNotRunningError(sessionId);
@@ -290,7 +292,7 @@ export class SessionRegistry {
       lastSequence: 0,
       recorded: true,
       conversation: record.options.resumeSessionId,
-      ready: ready.promise,
+      firstMessage: ready.promise,
       stopping: false,
       ended: Promise.withResolvers<void>(),
       readOnly: (record.options.readOnlyPaths ?? []).length > 0,
@@ -301,6 +303,7 @@ export class SessionRegistry {
       // A start that failed has already ended the session.
       if (this.#live.has(session.id)) await session.send({ type: "prompt", ...message });
     } finally {
+      live.firstMessage = undefined;
       ready.resolve();
     }
     const stored = this.#store.getSession(session.id);

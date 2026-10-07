@@ -40,6 +40,14 @@ export class FakeSession implements Session {
     } else if (command.type === "start") {
       this.emit({ type: "session.started", payload: { harnessSessionId: `harness-${this.id}` } });
     }
+    // The harness's session stores every prompt it sends as a user message.
+    if (command.type === "prompt") {
+      const { text, origin } = command;
+      this.emit({
+        type: "message",
+        payload: { role: "user", text, ...(origin ? { origin } : {}) },
+      });
+    }
     if (command.type === "answerPermission") {
       const { requestId, optionId, answeredBy } = command;
       this.emit({

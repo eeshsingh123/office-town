@@ -161,6 +161,9 @@ export interface Store {
   // The agent's sessions across all its tasks, newest first.
   listAgentSessions(agentId: string, query: AgentSessionQuery): SessionPage;
   latestTurn(sessionId: string): LatestTurn | undefined;
+  // Whether a prompt, or the answer to a request of the core's own, was stored after the session's
+  // latest turn started, so the agent has yet to act on it.
+  owesTurn(sessionId: string): boolean;
   // The agent's last message in the session, not counting a subagent's.
   lastMessage(sessionId: string): string | undefined;
   // Marks every session left starting or running by an earlier core as interrupted, with the

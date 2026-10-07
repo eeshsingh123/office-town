@@ -92,3 +92,23 @@ ${input.chiefGoal}${named}${results}${folders}
 
 When the goal is done, your last message goes to the chief as your result, so end with a short account of what your team did and where it is.`;
 }
+
+export type PieceEnding = "done" | "failed" | "stopped";
+
+const REPLAN =
+  "Pieces that wait on it are held. Propose a changed plan with propose_plan, or finish.";
+
+// What the chief is told when a piece ends: the department's result, or why it did not finish.
+export function pieceResult(
+  department: string,
+  title: string,
+  ending: PieceEnding,
+  result: string,
+): string {
+  if (ending === "done") return `${department} finished "${title}":\n${result}`;
+  if (ending === "stopped") {
+    return `${department} was stopped before it finished "${title}".\n\n${REPLAN}`;
+  }
+  const words = result === "" ? "" : ` Its last words:\n${result}`;
+  return `${department} could not finish "${title}".${words}\n\n${REPLAN}`;
+}

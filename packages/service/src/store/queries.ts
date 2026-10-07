@@ -211,6 +211,19 @@ export const queries = {
     SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
     WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
     ORDER BY position DESC LIMIT 1`,
+  // A prompt, or the answer to a request of the core's own, stored after the latest turn started.
+  // The repeated type term lets the subquery use the partial index on turns.
+  promptAfterTurn: `
+    SELECT 1 FROM events
+    WHERE session_ref = ?1
+      AND position > coalesce(
+        (SELECT max(position) FROM events
+         WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
+           AND type = 'turn.started'),
+        0)
+      AND (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
+           OR (type = 'message' AND payload ->> '$.role' = 'user'))
+    LIMIT 1`,
   // The agent's own last words, leaving out those of a subagent it ran.
   lastAgentMessage: `
     SELECT payload ->> '$.text' AS text FROM events
