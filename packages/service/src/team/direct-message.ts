@@ -25,8 +25,10 @@ async function deliver(context: TeamContext, session: SessionRecord, text: strin
       if (!(error instanceof SessionNotRunningError)) throw error;
     }
   }
-  await claimDepartment(context, store.getTask(session.taskId)?.departmentId, session.taskId);
-  await registry.resume(session.id, { text });
+  const departmentId = store.getTask(session.taskId)?.departmentId;
+  await claimDepartment(context, departmentId, session.taskId, () =>
+    registry.resume(session.id, { text }),
+  );
 }
 
 // A worker's lead hears that the user spoke to the worker, if the lead is at work. One that is not

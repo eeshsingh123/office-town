@@ -10,7 +10,7 @@ import { sessionOptionsFor } from "../agents/options.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { startFirstAgent } from "../task-start.ts";
 import type { TeamContext } from "../team/members.ts";
-import { harnessChoices, stopTeam } from "../team/team-tasks.ts";
+import { harnessChoices, isClaimed, stopTeam } from "../team/team-tasks.ts";
 import { chiefBrief, type DepartmentView } from "./briefs.ts";
 import { chiefFolder, chiefOf, NoChiefError } from "./chief.ts";
 
@@ -51,13 +51,13 @@ async function startChief(
   const { store, registry, dataFolder } = context;
   const task = store.getTask(taskId);
   if (task === undefined) throw new RecordNotFoundError("task", taskId);
-  const folder = chiefFolder(dataFolder);
-  const options = sessionOptionsFor(store, chief, {
-    workspacePath: folder,
-    readOnlyPaths: departmentFolders(store),
-  });
-  return startFirstAgent(store, taskId, async () =>
-    registry.start({
+  return startFirstAgent(store, taskId, async () => {
+    const folder = chiefFolder(dataFolder);
+    const options = sessionOptionsFor(store, chief, {
+      workspacePath: folder,
+      readOnlyPaths: departmentFolders(store),
+    });
+    return registry.start({
       taskId,
       agentId: chief.id,
       options,
@@ -68,8 +68,8 @@ async function startChief(
         departments: departmentViews(store),
         choices: await harnessChoices(context, options.environment),
       }),
-    }),
-  );
+    });
+  });
 }
 
 // The chief runs one goal at a time: a goal given while another is running, or waiting before
@@ -79,7 +79,9 @@ export async function startChiefGoal(context: TeamContext, goal: string): Promis
   const chief = chiefOf(store);
   if (chief === undefined) throw new NoChiefError();
   const waits =
-    store.openTaskOfLead(chief.id) !== undefined || store.oldestQueuedTask() !== undefined;
+    store.openTaskOfLead(chief.id) !== undefined ||
+    isClaimed(chief.id) ||
+    store.oldestQueuedTask() !== undefined;
   const task = store.createTask(goal, { leadAgentId: chief.id }, waits ? { queued: true } : {});
   if (!waits) await startChief(context, chief, task.id);
   const started = store.getTask(task.id);
@@ -93,7 +95,7 @@ export async function startQueuedGoal(context: TeamContext): Promise<void> {
   const { store } = context;
   const chief = chiefOf(store);
   if (chief === undefined) return;
-  while (store.openTaskOfLead(chief.id) === undefined) {
+  while (store.openTaskOfLead(chief.id) === undefined && !isClaimed(chief.id)) {
     const next = store.oldestQueuedTask();
     if (next === undefined) return;
     // Marked first, so a goal given meanwhile sees this one running and queues.

@@ -1,9 +1,17 @@
-import type { EnvironmentSpec, SessionRecord, StartTeamTaskRequest } from "@office-town/contract";
+import type {
+  DelegationRecord,
+  EnvironmentSpec,
+  SessionRecord,
+  StartTeamTaskRequest,
+} from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { inFolders, sessionOptionsFor } from "../agents/options.ts";
+import { pieceResult } from "../chief/briefs.ts";
+import { isChiefTask } from "../chief/chief.ts";
+import { departmentNameOf } from "../chief/piece-folders.ts";
 import { type Message, SessionNotRunningError } from "../registry/session-registry.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
 import { isOpen, latestSession } from "./lead.ts";
@@ -33,38 +41,81 @@ export async function harnessChoices(
   });
 }
 
-// A department works on one goal at a time (D-41): a goal starts, or is taken up again, only once
-// every other has ended. Agents its ended goals left open are then stopped as idle, to be resumed
-// if their goal is taken up again.
-export async function claimDepartment(
-  { store, registry }: TeamContext,
-  departmentId: string | undefined,
-  taskId?: string,
-): Promise<void> {
-  if (taskId !== undefined) claimChief(store, taskId);
-  if (departmentId === undefined) return;
-  const active = store.activeTaskOf(departmentId);
-  if (active !== undefined && active !== taskId) {
-    throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
+// Departments, and the chief, being claimed for a goal, by id: the goal claiming them (none for a
+// new one) and how many starts hold the claim. The store shows a goal busy only once its agent
+// has a session, so a claim covers the start in between.
+const claims = new Map<string, { taskId: string | undefined; holders: number }>();
+
+function claimedByOther(id: string, taskId: string | undefined): boolean {
+  const claim = claims.get(id);
+  return claim !== undefined && (claim.taskId === undefined || claim.taskId !== taskId);
+}
+
+// Whether a start is under way for the chief or a department.
+export function isClaimed(id: string): boolean {
+  return claims.has(id);
+}
+
+function hold(ids: string[], taskId: string | undefined): () => void {
+  for (const id of ids) {
+    const claim = claims.get(id) ?? { taskId, holders: 0 };
+    claims.set(id, { ...claim, holders: claim.holders + 1 });
   }
-  const leftOpen = store
-    .listActiveTasks()
-    .filter((task) => task.departmentId === departmentId && task.id !== taskId)
-    .flatMap((task) => task.sessions.filter(isOpen));
-  const stops = await Promise.allSettled(
-    leftOpen.map((session) => registry.stop(session.id, true)),
-  );
-  throwUnlessStopped(stops, "Some agents of an earlier goal could not be stopped.");
+  return () => {
+    for (const id of ids) {
+      const claim = claims.get(id);
+      if (claim === undefined) continue;
+      if (claim.holders > 1) claims.set(id, { ...claim, holders: claim.holders - 1 });
+      else claims.delete(id);
+    }
+  };
 }
 
 // The chief, too, runs one goal at a time (D-49): an ended goal is taken up again only while no
 // other runs.
-function claimChief(store: TeamContext["store"], taskId: string): void {
-  const leadId = store.getTask(taskId)?.leadAgentId;
-  if (leadId === undefined || leadId !== store.readSettings().chiefAgentId) return;
+function claimChief(store: Store, taskId: string | undefined): string[] {
+  const leadId = taskId === undefined ? undefined : store.getTask(taskId)?.leadAgentId;
+  if (leadId === undefined || leadId !== store.readSettings().chiefAgentId) return [];
   const open = store.openTaskOfLead(leadId);
-  if (open !== undefined && open !== taskId) {
+  if ((open !== undefined && open !== taskId) || claimedByOther(leadId, taskId)) {
     throw new DepartmentBusyError("The chief");
+  }
+  return [leadId];
+}
+
+// A department works on one goal at a time (D-41): a goal starts, or is taken up again, only once
+// every other has ended. Agents its ended goals left open are then stopped as idle, to be resumed
+// if their goal is taken up again. The check and the claim happen at once, so two starts never
+// both pass; the claim is held until `start` settles.
+export async function claimDepartment<T>(
+  { store, registry }: TeamContext,
+  departmentId: string | undefined,
+  taskId: string | undefined,
+  start: () => Promise<T>,
+): Promise<T> {
+  const ids = claimChief(store, taskId);
+  if (departmentId !== undefined) {
+    const active = store.activeTaskOf(departmentId);
+    if ((active !== undefined && active !== taskId) || claimedByOther(departmentId, taskId)) {
+      throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
+    }
+    ids.push(departmentId);
+  }
+  const release = hold(ids, taskId);
+  try {
+    if (departmentId !== undefined) {
+      const leftOpen = store
+        .listActiveTasks()
+        .filter((task) => task.departmentId === departmentId && task.id !== taskId)
+        .flatMap((task) => task.sessions.filter(isOpen));
+      const stops = await Promise.allSettled(
+        leftOpen.map((session) => registry.stop(session.id, true)),
+      );
+      throwUnlessStopped(stops, "Some agents of an earlier goal could not be stopped.");
+    }
+    return await start();
+  } finally {
+    release();
   }
 }
 
@@ -86,6 +137,8 @@ export interface PieceStart {
   readOnlyPaths: string[];
   // Called once the task exists, before its lead starts.
   onTaskCreated(taskId: string): void;
+  // False once the chief's goal was stopped, so the lead does not start.
+  stillWanted(): boolean;
 }
 
 function withHandOff(message: Message, piece: PieceStart | undefined): Message {
@@ -97,6 +150,12 @@ function withHandOff(message: Message, piece: PieceStart | undefined): Message {
 
 ${piece.handOff}`,
       };
+}
+
+function requireWanted(piece: PieceStart | undefined): void {
+  if (piece !== undefined && !piece.stillWanted()) {
+    throw new TeamError("The chief's goal was stopped before this piece started.");
+  }
 }
 
 // A goal for a saved department starts its lead with the team it has; a new lead first proposes
@@ -112,35 +171,37 @@ export async function startTeamTask(
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
-    await claimDepartment(context, department.id);
-    const folders = workspaceFolders(store, department.workspaceId);
-    const lead = store.getAgent(department.leadAgentId);
-    if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
-    const task = store.createTask(
-      goal,
-      { leadAgentId: lead.id, departmentId: department.id },
-      placement,
-    );
-    piece?.onTaskCreated(task.id);
-    return startFirstAgent(store, task.id, () =>
-      registry.start({
-        taskId: task.id,
-        agentId: lead.id,
-        options: sessionOptionsFor(store, lead, { ...inFolders(folders), readOnlyPaths }),
-        message: withHandOff(
-          leadBrief({
-            goal,
-            teamName: department.name,
-            folders,
-            instructions: settingsOf(store, lead).instructions,
-            roster: rosterOf(store, department),
-            branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
-            codeFlow: department.codeFlow,
-          }),
-          piece,
-        ),
-      }),
-    );
+    return claimDepartment(context, department.id, undefined, async () => {
+      const folders = workspaceFolders(store, department.workspaceId);
+      const lead = store.getAgent(department.leadAgentId);
+      if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
+      const task = store.createTask(
+        goal,
+        { leadAgentId: lead.id, departmentId: department.id },
+        placement,
+      );
+      piece?.onTaskCreated(task.id);
+      return startFirstAgent(store, task.id, async () => {
+        requireWanted(piece);
+        return registry.start({
+          taskId: task.id,
+          agentId: lead.id,
+          options: sessionOptionsFor(store, lead, { ...inFolders(folders), readOnlyPaths }),
+          message: withHandOff(
+            leadBrief({
+              goal,
+              teamName: department.name,
+              folders,
+              instructions: settingsOf(store, lead).instructions,
+              roster: rosterOf(store, department),
+              branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
+              codeFlow: department.codeFlow,
+            }),
+            piece,
+          ),
+        });
+      });
+    });
   }
   const folders = workspaceFolders(store, team.workspaceId);
   const lead = createAgent(store, team.lead, { role: "Lead", autonomy: team.autonomy });
@@ -151,22 +212,19 @@ export async function startTeamTask(
     placement,
   );
   piece?.onTaskCreated(task.id);
-  return startFirstAgent(store, task.id, async () =>
-    registry.start({
-      taskId: task.id,
-      agentId: lead.id,
-      options,
-      message: withHandOff(
-        proposeTeamBrief({
-          goal,
-          folders,
-          instructions: settingsOf(store, lead).instructions,
-          choices: await harnessChoices(context, options.environment),
-        }),
-        piece,
-      ),
-    }),
-  );
+  return startFirstAgent(store, task.id, async () => {
+    const message = withHandOff(
+      proposeTeamBrief({
+        goal,
+        folders,
+        instructions: settingsOf(store, lead).instructions,
+        choices: await harnessChoices(context, options.environment),
+      }),
+      piece,
+    );
+    requireWanted(piece);
+    return registry.start({ taskId: task.id, agentId: lead.id, options, message });
+  });
 }
 
 // Stops every member at work on the task. Their delegations are closed first, so no "stopped"
@@ -184,8 +242,33 @@ export async function stopTeam({ store, registry }: TeamContext, taskId: string)
   throwUnlessStopped(stops, "Some members could not be stopped.");
 }
 
+function cutOffNotice(store: Store, cut: DelegationRecord[]): string {
+  const lines = cut.map((delegation) => {
+    const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
+    const brief =
+      delegation.brief.length > SHOWN_BRIEF
+        ? `${delegation.brief.slice(0, SHOWN_BRIEF)}…`
+        : delegation.brief;
+    return `- ${name}: ${brief}`;
+  });
+  return `Office Town was closed while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.`;
+}
+
+// The results of a chief's pieces that ended after its latest session did, so it never got them.
+function missedResults(store: Store, taskId: string, chief: SessionRecord): string[] {
+  if (!isChiefTask(store, taskId)) return [];
+  const since = Date.parse(chief.endedAt ?? store.latestTurn(chief.id)?.at ?? chief.createdAt);
+  return store.listPieces(taskId).flatMap((piece) => {
+    const { status, endedAt } = piece;
+    if (status !== "done" && status !== "failed" && status !== "stopped") return [];
+    if (endedAt === undefined || Date.parse(endedAt) <= since) return [];
+    return [pieceResult(departmentNameOf(store, piece), piece.title, status, piece.result ?? "")];
+  });
+}
+
 // After a restart a team's task is interrupted. Continuing resumes its lead, told which pieces of
-// work were cut off, so it can hand them out again (MODULES M4.5).
+// work were cut off, so it can hand them out again (MODULES M4.5), and, for the chief, the results
+// of the pieces that ended while it was not running.
 export async function continueTeam(
   context: TeamContext,
   taskId: string,
@@ -198,23 +281,29 @@ export async function continueTeam(
   const lead = latestSession(context, taskId, task.leadAgentId);
   if (lead === undefined) throw new TeamError("This task's lead never started.");
   if (isOpen(lead)) throw new TeamError("The lead is already at work.");
-  await claimDepartment(context, task.departmentId, taskId);
-  const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
-  for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
-  const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;
-  if (cut.length === 0) {
-    return registry.resume(lead.id, { text: prompt || "Continue where you left off." });
-  }
-  const lines = cut.map((delegation) => {
-    const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
-    const brief =
-      delegation.brief.length > SHOWN_BRIEF
-        ? `${delegation.brief.slice(0, SHOWN_BRIEF)}…`
-        : delegation.brief;
-    return `- ${name}: ${brief}`;
-  });
-  return registry.resume(lead.id, {
-    text: `Office Town was closed while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.${added}`,
-    origin: { kind: "notice", summary: `Work cut off by a restart: ${cut.length}` },
+  return claimDepartment(context, task.departmentId, taskId, async () => {
+    const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
+    const missed = missedResults(store, taskId, lead);
+    const notices = [
+      ...(cut.length === 0 ? [] : [cutOffNotice(store, cut)]),
+      ...(missed.length === 0
+        ? []
+        : [
+            `While you were not running, these pieces of your plan ended:\n\n${missed.join("\n\n")}`,
+          ]),
+    ];
+    const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;
+    const summary =
+      cut.length > 0
+        ? `Work cut off by a restart: ${cut.length}`
+        : `Results that came while you were not running: ${missed.length}`;
+    const message: Message =
+      notices.length === 0
+        ? { text: prompt || "Continue where you left off." }
+        : { text: `${notices.join("\n\n")}${added}`, origin: { kind: "notice", summary } };
+    // Resumed first, so the goal is at work again before the cut-off work stops counting as out.
+    const resumed = registry.resume(lead.id, message);
+    for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
+    return resumed;
   });
 }

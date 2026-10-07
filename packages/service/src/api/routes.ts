@@ -210,10 +210,12 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
         const taskId = store.getSession(param("id"))?.taskId;
-        if (taskId !== undefined) {
-          await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId);
-        }
-        return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
+        const resume = () => registry.resume(param("id"), { text: prompt });
+        const json =
+          taskId === undefined
+            ? await resume()
+            : await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId, resume);
+        return { status: 201, json };
       },
     },
     {

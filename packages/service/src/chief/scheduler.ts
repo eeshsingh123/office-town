@@ -183,19 +183,20 @@ export class Scheduler {
           handOff: text,
           readOnlyPaths,
           onTaskCreated: (taskId) => store.updatePiece(piece.id, { pieceTaskId: taskId }),
+          stillWanted: () => store.getPiece(piece.id)?.status === "working",
         },
       );
     } catch (error) {
+      const current = store.getPiece(piece.id);
+      // Its goal was stopped meanwhile.
+      if (current?.status !== "working") return;
       // Someone gave the department a goal of its own meanwhile.
       if (error instanceof DepartmentBusyError) {
         store.updatePiece(piece.id, { status: "queued" });
         return;
       }
       const reason = error instanceof Error ? error.message : String(error);
-      const current = store.getPiece(piece.id);
-      if (current?.status === "working") {
-        this.#end(current, "failed", `It could not start: ${reason}`);
-      }
+      this.#end(current, "failed", `It could not start: ${reason}`);
     }
   }
 }

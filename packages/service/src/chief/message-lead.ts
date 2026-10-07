@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { tellLead } from "../team/lead.ts";
+import { latestSession, tellLead } from "../team/lead.ts";
 import type { TeamContext } from "../team/members.ts";
 import { defineTool, ToolError } from "../tools/tools.ts";
 import { isChiefCaller } from "./chief.ts";
@@ -28,10 +28,20 @@ export function messageLead(context: TeamContext) {
         throw new ToolError(`${department} has no piece at work. At work now: ${names}.`);
       }
       const chief = store.getAgent(caller.agentId);
-      await tellLead(context, piece.pieceTaskId, {
+      const told = await tellLead(context, piece.pieceTaskId, {
         text: `From the chief, ${chief?.name ?? "the chief"}:\n${message}`,
         origin: { kind: "message", from: caller.agentId },
       });
+      if (!told) {
+        const pieceTask = store.getTask(piece.pieceTaskId);
+        const lead =
+          pieceTask?.leadAgentId === undefined
+            ? undefined
+            : latestSession(context, piece.pieceTaskId, pieceTask.leadAgentId);
+        throw new ToolError(
+          `The lead of ${department} could not be reached: it is ${lead?.status ?? "not started"}.`,
+        );
+      }
       return `Your message is with the lead of ${department}.`;
     },
   });

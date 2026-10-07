@@ -26,28 +26,31 @@ export function latestSession(
 }
 
 // Hands a message to the task's lead: at once if it is at work, or by resuming it if it finished
-// or was stopped for being idle. One the user stopped, or that failed, is left alone; what it
-// missed waits in the delegation records.
+// or was stopped for being idle. One the user stopped, that failed or was cut off is left alone,
+// and this says nothing was delivered; what it missed waits in the delegation or piece records.
+// A lead at work has the message stored before this first waits.
 export async function tellLead(
   context: TeamContext,
   taskId: string,
   message: Message,
-): Promise<void> {
+): Promise<boolean> {
   const task = context.store.getTask(taskId);
   if (task?.leadAgentId === undefined) throw new RecordNotFoundError("task", taskId);
   // A second look, for a lead that was being stopped for being idle when the message came.
   for (let look = 0; look < 2; look += 1) {
     const session = latestSession(context, taskId, task.leadAgentId);
-    if (session === undefined) return;
+    if (session === undefined) return false;
     if (!isOpen(session)) {
-      if (session.status === "exited") await context.registry.resume(session.id, message);
-      return;
+      if (session.status !== "exited") return false;
+      await context.registry.resume(session.id, message);
+      return true;
     }
     try {
       await context.registry.tell(session.id, message);
-      return;
+      return true;
     } catch (error) {
       if (!(error instanceof SessionNotRunningError)) throw error;
     }
   }
+  return false;
 }
