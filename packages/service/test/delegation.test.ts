@@ -296,6 +296,30 @@ Tests pass.`,
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
   });
+
+  it("hands the user's message to a worker and a note to its lead at work", async () => {
+    const { writer, tester } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
+    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id;
+
+    const sent = await core.call("POST", `/agents/${idOf(writer)}/messages`, {
+      text: "Use British spelling",
+    });
+
+    expect(sent.status).toBe(204);
+    expect(lastSent(1)).toEqual({ type: "prompt", text: "Use British spelling" });
+    expect(lastSent(0)).toEqual({
+      type: "prompt",
+      text: `The user told ${writer} directly: "Use British spelling"`,
+      origin: { kind: "notice", summary: `The user messaged ${writer}` },
+    });
+    expect(
+      (await core.call("POST", `/agents/${idOf(tester)}/messages`, { text: "Hi" })).status,
+    ).toBe(409);
+    expect((await core.call("POST", "/agents/nobody/messages", { text: "Hi" })).status).toBe(404);
+  });
 });
 
 async function teamMembers(): Promise<string[]> {

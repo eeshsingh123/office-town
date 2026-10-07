@@ -4,6 +4,7 @@ import type { CoreReady } from "@office-town/contract";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
+import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
 import { Scheduler } from "./chief/scheduler.ts";
 import { defaultDataFolder } from "./data-folder.ts";
@@ -63,6 +64,7 @@ toolServer.offer([
   teamStatus(team, activity),
   outsource(team),
   proposePlan(team, scheduler),
+  messageLead(team),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

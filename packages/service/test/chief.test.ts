@@ -182,6 +182,11 @@ describe("the chief", () => {
       additionalPaths: [api.folder],
       readOnlyPaths: [api.folder],
     });
+    await core.callTool(chief, "message_lead", { department: "web", message: "Keep it simple." });
+    expect(leadOf(webTask)?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("Keep it simple."),
+      origin: { kind: "message", from: goal.task.leadAgentId },
+    });
 
     playTurn(leadOf(piece("docs")?.pieceTaskId), "I could not write the docs.", "failed");
     await settle();

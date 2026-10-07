@@ -3,6 +3,7 @@ import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
+import { messageLead } from "../../src/chief/message-lead.ts";
 import { proposePlan } from "../../src/chief/propose-plan.ts";
 import { Scheduler } from "../../src/chief/scheduler.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
@@ -87,6 +88,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     teamStatus(team, activity),
     outsource(team),
     proposePlan(team, scheduler),
+    messageLead(team),
   ]);
   const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 

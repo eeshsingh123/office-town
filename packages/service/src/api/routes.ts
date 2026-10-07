@@ -1,5 +1,6 @@
 import {
   agentCommandSchema,
+  agentMessageRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
   continueTaskRequestSchema,
@@ -28,6 +29,7 @@ import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
+import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
 import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
@@ -156,6 +158,11 @@ export function apiRoutes(team: TeamContext): Route[] {
     },
     {
       method: "GET",
+      path: "/tasks/:id/plan",
+      reply: ({ param }) => ({ status: 200, json: store.listPieces(param("id")) }),
+    },
+    {
+      method: "GET",
       path: "/tasks/:id/delegations",
       reply: ({ param }) => ({ status: 200, json: store.listDelegations(param("id")) }),
     },
@@ -263,6 +270,15 @@ export function apiRoutes(team: TeamContext): Route[] {
             before === undefined ? { limit } : { limit, before },
           ),
         };
+      },
+    },
+    {
+      method: "POST",
+      path: "/agents/:id/messages",
+      reply: async ({ param, body }) => {
+        const { text } = agentMessageRequestSchema.parse(await body());
+        await messageAgent(team, param("id"), text);
+        return NO_CONTENT;
       },
     },
     {
