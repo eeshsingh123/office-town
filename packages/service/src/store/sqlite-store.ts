@@ -460,6 +460,8 @@ class SqliteStore implements Store {
         await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
         await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
       }
+      // Deleting a chief's goal clears its pieces' link to it, so they are published again.
+      const children = all<{ id: string }>(this.#statements.childTasks, task.ref);
       transaction(this.#db, () => {
         this.#statements.deleteTask.run(task.ref);
         for (const ref of new Set(agents.map((agent) => agent.ref))) {
@@ -469,6 +471,7 @@ class SqliteStore implements Store {
       // Agents deleted with the task were in no department and worked on nothing else, so the
       // task's notice covers them.
       this.#publish({ type: "task.deleted", taskId: id });
+      for (const child of children) this.#publishTask(child.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#returnFreeSpace();
     } finally {

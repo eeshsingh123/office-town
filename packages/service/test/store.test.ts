@@ -432,6 +432,7 @@ describe("store", () => {
       [queries.oldestQueuedTask, "tasks_queued"],
       [queries.lastAgentMessage, "events_messages"],
       [queries.openPieces, "plan_pieces_open"],
+      [queries.childTasks, "tasks_by_parent"],
       // The foreign-key checks SQLite runs when a chief's task, or a piece's, is deleted.
       ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_task"],
       ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_piece_task"],

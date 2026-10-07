@@ -91,6 +91,7 @@ export const queries = {
       output_tokens = output_tokens + excluded.output_tokens,
       cached_input_tokens = cached_input_tokens + excluded.cached_input_tokens`,
   deleteTask: "DELETE FROM tasks WHERE ref = ?",
+  childTasks: "SELECT id FROM tasks WHERE parent_ref = ?",
 
   insertSession: `
     INSERT INTO sessions (id, task_ref, agent_ref, resumed_from_ref, options, status, created_at)
