@@ -101,7 +101,7 @@ describe("runProcess in the native environment", () => {
     expect(isAlive(grandchildPid)).toBe(false);
   });
 
-  it("finds a binary on PATH whether or not it is named with its extension", async () => {
+  it("finds a binary on PATH with or without its extension, and rejects one not there", async () => {
     const { name, base, dir } = path.parse(process.execPath);
     const environment = new NativeEnvironment();
     const env = { PATH: dir };
@@ -110,9 +110,6 @@ describe("runProcess in the native environment", () => {
       const launched = await environment.launch({ binary, args: ["-e", ""], env });
       expect((await launched.exited).code).toBe(0);
     }
-  });
-
-  it("rejects when the binary is not on PATH", async () => {
     await expect(observe("no-such-binary-office-town", [])).rejects.toBeInstanceOf(
       BinaryNotFoundError,
     );

@@ -18,8 +18,7 @@ function answerText(question: string, answers: QuestionAnswer[]): string {
   return `The user answered your question "${question}": ${chosen}`;
 }
 
-// Every agent can ask the user; for a harness with no way of its own, such as OpenCode over ACP,
-// this is the only one. The question waits in Needs you; the answer comes back as a message.
+// For a harness with no way of its own, such as OpenCode over ACP, this is the only one.
 export function askUser(registry: SessionRegistry) {
   return defineTool({
     name: "ask_user",

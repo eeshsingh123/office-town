@@ -1,5 +1,8 @@
 import {
   agentCommandSchema,
+  agentMessageRequestSchema,
+  chiefRequestSchema,
+  chiefTaskRequestSchema,
   continueTaskRequestSchema,
   departmentSettingsSchema,
   environmentSpecSchema,
@@ -7,7 +10,9 @@ import {
   profileRequestSchema,
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
+  roomPositionSchema,
   secondOpinionRequestSchema,
+  sessionPageQuerySchema,
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
@@ -19,18 +24,18 @@ import { z } from "zod";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
+import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
+import { startFirstAgent } from "../task-start.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
+import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
-import {
-  continueTeam,
-  requireDepartmentFree,
-  startTeamTask,
-  stopTeam,
-} from "../team/team-tasks.ts";
+import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
+import { RequestError } from "./errors.ts";
 
 const isRunning = (session: { status: string }) =>
   session.status === "starting" || session.status === "running";
@@ -69,12 +74,14 @@ export function apiRoutes(team: TeamContext): Route[] {
         const folders = chooseTaskFolders(store, request);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt);
-        const session = await registry.start({
-          taskId: task.id,
-          agentId: agent.id,
-          options: sessionOptionsFor(store, agent, folders),
-          message: soloMessage(request.prompt, settingsOf(store, agent)),
-        });
+        const session = await startFirstAgent(store, task.id, () =>
+          registry.start({
+            taskId: task.id,
+            agentId: agent.id,
+            options: sessionOptionsFor(store, agent, folders),
+            message: soloMessage(request.prompt, settingsOf(store, agent)),
+          }),
+        );
         return { status: 201, json: session };
       },
     },
@@ -84,6 +91,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ body }) => ({
         status: 201,
         json: await startTeamTask(team, startTeamTaskRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "POST",
+      path: "/tasks/chief",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: await startChiefGoal(team, chiefTaskRequestSchema.parse(await body()).goal),
       }),
     },
     {
@@ -111,8 +126,12 @@ export function apiRoutes(team: TeamContext): Route[] {
     {
       method: "DELETE",
       path: "/tasks/:id",
+      // A chief's goal also waits for its pieces, or their results would reach no one.
       reply: async ({ param }) => {
-        if (store.listSessions(param("id")).some(isRunning)) {
+        const pieceTasks = store
+          .listPieces(param("id"))
+          .flatMap((piece) => piece.pieceTaskId ?? []);
+        if ([param("id"), ...pieceTasks].some((id) => store.listSessions(id).some(isRunning))) {
           throw new TaskActiveError(param("id"));
         }
         await removeWorktrees(team, param("id"));
@@ -125,7 +144,8 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/tasks/:id/stop",
       reply: async ({ param }) => {
-        await stopTeam(team, param("id"));
+        if (isChiefTask(store, param("id"))) await stopChiefGoal(team, param("id"));
+        else await stopTeam(team, param("id"));
         return NO_CONTENT;
       },
     },
@@ -143,8 +163,25 @@ export function apiRoutes(team: TeamContext): Route[] {
     },
     {
       method: "GET",
+      path: "/tasks/:id/plan",
+      reply: ({ param }) => ({ status: 200, json: store.listPieces(param("id")) }),
+    },
+    {
+      method: "GET",
       path: "/tasks/:id/delegations",
       reply: ({ param }) => ({ status: 200, json: store.listDelegations(param("id")) }),
+    },
+    {
+      method: "POST",
+      path: "/tasks/:id/reviewed",
+      reply: ({ param }) => {
+        const task = store.getTask(param("id"));
+        if (task === undefined) throw new RecordNotFoundError("task", param("id"));
+        if (task.state !== "ended") {
+          throw new RequestError(409, "conflict", "Only a finished goal can be marked reviewed.");
+        }
+        return { status: 200, json: store.markReviewed(task.id) };
+      },
     },
     {
       method: "GET",
@@ -177,8 +214,12 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
         const taskId = store.getSession(param("id"))?.taskId;
-        if (taskId !== undefined) requireDepartmentFree(team, taskId);
-        return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
+        const resume = () => registry.resume(param("id"), { text: prompt });
+        const json =
+          taskId === undefined
+            ? await resume()
+            : await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId, resume);
+        return { status: 201, json };
       },
     },
     {
@@ -225,12 +266,52 @@ export function apiRoutes(team: TeamContext): Route[] {
       },
     },
     {
+      method: "GET",
+      path: "/agents/:id/sessions",
+      reply: ({ param, query }) => {
+        const { limit, before } = sessionPageQuerySchema.parse(Object.fromEntries(query));
+        return {
+          status: 200,
+          json: store.listAgentSessions(
+            param("id"),
+            before === undefined ? { limit } : { limit, before },
+          ),
+        };
+      },
+    },
+    {
+      method: "POST",
+      path: "/agents/:id/messages",
+      reply: async ({ param, body }) => {
+        const { text, taskId } = agentMessageRequestSchema.parse(await body());
+        await messageAgent(team, param("id"), text, taskId);
+        return NO_CONTENT;
+      },
+    },
+    {
       method: "PUT",
       path: "/agents/:id/name",
       reply: async ({ param, body }) => {
         const { name } = renameAgentRequestSchema.parse(await body());
         return { status: 200, json: store.renameAgent(param("id"), name) };
       },
+    },
+    {
+      method: "GET",
+      path: "/chief",
+      reply: () => {
+        const chief = chiefOf(store);
+        if (chief === undefined) throw new RecordNotFoundError("agent", "chief");
+        return { status: 200, json: chief };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/chief",
+      reply: async ({ body }) => ({
+        status: 200,
+        json: saveChief(store, chiefRequestSchema.parse(await body()).settings),
+      }),
     },
     {
       method: "GET",
@@ -327,6 +408,30 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: () => ({ status: 200, json: store.readSettings() }),
     },
     {
+      method: "PUT",
+      path: "/room-positions/:roomId",
+      reply: async ({ param, body }) => {
+        const roomId = param("roomId");
+        if (roomId !== "chief" && store.getDepartment(roomId) === undefined) {
+          throw new RecordNotFoundError("department", roomId);
+        }
+        const position = roomPositionSchema.parse(await body());
+        const positions = store.readSettings().roomPositions ?? {};
+        store.saveSettings({ roomPositions: { ...positions, [roomId]: position } });
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/room-positions/:roomId",
+      reply: ({ param }) => {
+        const positions = Object.entries(store.readSettings().roomPositions ?? {});
+        const kept = positions.filter(([roomId]) => roomId !== param("roomId"));
+        store.saveSettings({ roomPositions: Object.fromEntries(kept) });
+        return NO_CONTENT;
+      },
+    },
+    {
       method: "GET",
       path: "/harnesses",
       reply: () => ({ status: 200, json: listHarnesses() }),
@@ -346,6 +451,11 @@ export function apiRoutes(team: TeamContext): Route[] {
         });
         return { status: 200, json: await readCatalog(param("harness"), environment) };
       },
+    },
+    {
+      method: "GET",
+      path: "/limits",
+      reply: () => ({ status: 200, json: store.listLimits() }),
     },
     {
       method: "GET",

@@ -15,8 +15,7 @@ function departmentOf({ store }: TeamContext, id: string): DepartmentRecord {
   return department;
 }
 
-// A lead at work hears of every change to its team. One not at work learns the team from its next
-// brief, so it is not woken just to be told.
+// A lead not at work learns the team from its next brief, so it is not woken just to be told.
 async function tellLead(
   { store, registry }: TeamContext,
   department: DepartmentRecord,
@@ -41,7 +40,6 @@ async function tellLead(
   }
 }
 
-// A department the user makes without a lead's proposal.
 export function createDepartment(
   context: TeamContext,
   { team, workspaceId, autonomy, lead: newLead }: NewDepartmentRequest,

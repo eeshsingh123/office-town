@@ -24,8 +24,7 @@ function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
   return state === "working" || state === "starting" ? styles.pillWorking : undefined;
 }
-// A team's task shows its members, as does a solo agent's once a guest joins it; otherwise the
-// agent shows alone.
+// A solo agent's task shows as a team once a guest joins it.
 export function TaskView({ taskId }: { taskId: string }) {
   const several = useApp((state) => {
     const entry = state.tasks[taskId];

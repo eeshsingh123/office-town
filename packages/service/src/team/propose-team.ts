@@ -10,6 +10,7 @@ import { z } from "zod";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
+import { leadsTeam } from "./lead.ts";
 import { applyTeam, checkTeam, rosterOf, type TeamContext, TeamError } from "./members.ts";
 
 const MODELS_NAMED = 20;
@@ -35,9 +36,9 @@ const inputSchema = z.object({
 type ProposedRole = z.infer<typeof roleSchema>;
 
 // Checked against what is installed here, so the lead learns of a wrong name at once.
-async function settingsOf(
+export async function checkedSettings(
   { readCatalog }: TeamContext,
-  proposed: ProposedRole,
+  proposed: Pick<ProposedRole, "harness" | "model" | "effort">,
   environment: EnvironmentSpec,
 ) {
   const catalog = await readCatalog(proposed.harness, environment).catch(() => {
@@ -91,8 +92,7 @@ function placeOf(
   };
 }
 
-// Approving saves the department and makes its agents; for a team that exists, it applies the
-// change. Either way the task now belongs to that department.
+// Either way the task now belongs to that department.
 function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRecord {
   const { store } = context;
   const task = store.getTask(caller.taskId);
@@ -175,8 +175,7 @@ function answerProposal(
   };
 }
 
-// The lead's first step for a new team, and how it changes its team later; every proposal is
-// approved, edited or sent back by the user in Needs you (D-40).
+// Every proposal is approved, edited or sent back by the user in Needs you (D-40).
 export function proposeTeam(context: TeamContext) {
   const { store, registry } = context;
   return defineTool({
@@ -186,7 +185,7 @@ export function proposeTeam(context: TeamContext) {
       "have, propose the whole new team, keeping current workers by name. It returns at once; " +
       "the user's answer reaches you later as a message.",
     input: inputSchema,
-    offeredTo: (caller) => store.getTask(caller.taskId)?.leadAgentId === caller.agentId,
+    offeredTo: (caller) => leadsTeam(store, caller),
     async call({ name, roles, reason }, caller) {
       const waiting = store
         .listPendingRequests()
@@ -208,7 +207,7 @@ export function proposeTeam(context: TeamContext) {
         const role: TeamRole = {
           role: proposed.role,
           purpose: proposed.purpose,
-          settings: await settingsOf(context, proposed, environment),
+          settings: await checkedSettings(context, proposed, environment),
           ...(kept === undefined ? {} : { agentId: kept.id }),
         };
         team.roles.push(role);

@@ -6,14 +6,18 @@ import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type AgentRecord,
   type AgentSettings,
+  type Change,
   type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
+  type HarnessLimits,
   type PendingRequestList,
+  type PlanPiece,
   type ProfileRecord,
   type ProfileRequest,
   type SessionEvent,
   type SessionOptions,
+  type SessionPage,
   type SessionRecord,
   type SessionStatus,
   type Settings,
@@ -21,7 +25,10 @@ import {
   settingsSchema,
   type TaskPage,
   type TaskRecord,
+  type TaskState,
   type TaskSummary,
+  type TaskUsage,
+  type UsageLimit,
   type UserRequestEvent,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -31,27 +38,32 @@ import { queries } from "./queries.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type AgentChange,
+  type AgentSessionQuery,
+  type ChangeListener,
   type DelegationEnd,
   type EventQuery,
   InUseError,
+  type LatestTurn,
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
   type NewDelegation,
   type NewDepartment,
+  type NewPiece,
   type NewSession,
+  type PieceChange,
   RecordNotFoundError,
   type Store,
   type StoredEvent,
   TaskActiveError,
+  type TaskPlacement,
   type TaskQuery,
   type TaskTeam,
   type TeamSetup,
+  type TurnOutcome,
 } from "./store.ts";
 
-// Deleting a long session in one statement blocks the process for most of a second; in chunks,
-// live updates get through between them. Freed pages go back to the disk in steps for the same
-// reason.
+// Deleting in chunks lets live updates through; one statement blocks for most of a second.
 const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
 const LINE_CAP_BYTES = 64 * 1024;
@@ -63,7 +75,10 @@ interface TaskRow {
   createdAt: number;
   leadAgentId: string | null;
   departmentId: string | null;
+  parentTaskId: string | null;
   setup: string | null;
+  state: TaskState;
+  reviewedAt: number | null;
 }
 
 interface SessionRow {
@@ -129,6 +144,23 @@ interface DelegationRow {
   endedAt: number | null;
 }
 
+interface PieceRow {
+  ref: number;
+  id: string;
+  taskId: string;
+  key: string;
+  title: string;
+  departmentId: string | null;
+  newDepartment: string | null;
+  brief: string;
+  waitsOn: string;
+  status: PlanPiece["status"];
+  pieceTaskId: string | null;
+  result: string | null;
+  createdAt: number;
+  endedAt: number | null;
+}
+
 interface ProfileRow {
   ref: number;
   id: string;
@@ -165,13 +197,17 @@ function iso(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
-function toTask(row: TaskRow): TaskRecord {
+function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
   return {
     id: row.id,
     prompt: row.prompt,
     createdAt: iso(row.createdAt),
     ...(row.leadAgentId === null ? {} : { leadAgentId: row.leadAgentId }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    ...(row.parentTaskId === null ? {} : { parentTaskId: row.parentTaskId }),
+    state: row.state,
+    ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
+    usage,
   };
 }
 
@@ -232,6 +268,28 @@ function toDelegation(row: DelegationRow): DelegationRecord {
   };
 }
 
+function toPiece(row: PieceRow): PlanPiece {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    key: row.key,
+    title: row.title,
+    ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    ...(row.newDepartment === null
+      ? {}
+      : { newDepartment: JSON.parse(row.newDepartment) as PlanPiece["newDepartment"] }),
+    brief: row.brief,
+    waitsOn: JSON.parse(row.waitsOn) as string[],
+    status: row.status,
+    ...(row.pieceTaskId === null ? {} : { pieceTaskId: row.pieceTaskId }),
+    ...(row.result === null ? {} : { result: row.result }),
+    createdAt: iso(row.createdAt),
+    ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
+  };
+}
+
+const OPEN_PIECE = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
+
 function toProfile(row: ProfileRow): ProfileRecord {
   return {
     id: row.id,
@@ -243,7 +301,6 @@ function toProfile(row: ProfileRow): ProfileRecord {
   };
 }
 
-// SQLite's own codes for a broken UNIQUE constraint, and for a row others still point at.
 const SQLITE_CONSTRAINT_UNIQUE = 2067;
 const SQLITE_CONSTRAINT_FOREIGNKEY = 787;
 
@@ -286,6 +343,9 @@ class SqliteStore implements Store {
   readonly #statements: Statements;
   // While a task's rows are deleted in chunks, no new session may join it.
   readonly #deleting = new Set<string>();
+  readonly #listeners = new Set<ChangeListener>();
+  readonly #outbox: Change[] = [];
+  #publishing = false;
 
   constructor(db: DatabaseSync, file: string, results: ResultFiles) {
     this.#db = db;
@@ -296,7 +356,12 @@ class SqliteStore implements Store {
     ) as Statements;
   }
 
-  createTask(prompt: string, team?: TaskTeam): TaskRecord {
+  subscribe(listener: ChangeListener): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
+
+  createTask(prompt: string, team?: TaskTeam, placement: TaskPlacement = {}): TaskRecord {
     const id = randomUUID();
     const createdAt = Date.now();
     const lead = team === undefined ? undefined : this.#agentRow(team.leadAgentId);
@@ -305,6 +370,8 @@ class SqliteStore implements Store {
         ? this.#departmentRow(team.departmentId)
         : undefined;
     const setup = team !== undefined && "setup" in team ? JSON.stringify(team.setup) : null;
+    const parent =
+      placement.parentTaskId === undefined ? undefined : this.#taskRow(placement.parentTaskId);
     this.#statements.insertTask.run(
       id,
       prompt,
@@ -312,14 +379,10 @@ class SqliteStore implements Store {
       lead?.ref ?? null,
       department?.ref ?? null,
       setup,
+      placement.queued ? "queued" : "working",
+      parent?.ref ?? null,
     );
-    return {
-      id,
-      prompt,
-      createdAt: iso(createdAt),
-      ...(lead === undefined ? {} : { leadAgentId: lead.id }),
-      ...(department === undefined ? {} : { departmentId: department.id }),
-    };
+    return this.#publishTask(id);
   }
 
   taskSetup(taskId: string): TeamSetup | undefined {
@@ -330,7 +393,7 @@ class SqliteStore implements Store {
   joinDepartment(taskId: string, departmentId: string): TaskRecord {
     const task = this.#taskRow(taskId);
     this.#statements.taskJoinsDepartment.run(this.#departmentRow(departmentId).ref, task.ref);
-    return toTask({ ...task, departmentId, setup: null });
+    return this.#publishTask(taskId);
   }
 
   activeTaskOf(departmentId: string): string | undefined {
@@ -338,9 +401,28 @@ class SqliteStore implements Store {
     return one<{ id: string }>(this.#statements.activeTaskOfDepartment, ref)?.id;
   }
 
+  openTaskOfLead(agentId: string): string | undefined {
+    const ref = this.#agentRow(agentId).ref;
+    return one<{ id: string }>(this.#statements.openTaskOfLead, ref)?.id;
+  }
+
+  oldestQueuedTask(): string | undefined {
+    return one<{ id: string }>(this.#statements.oldestQueuedTask)?.id;
+  }
+
+  setTaskState(taskId: string, state: TaskState): void {
+    const { ref } = this.#taskRow(taskId);
+    if (this.#statements.setTaskState.run(state, ref).changes > 0) this.#publishTask(taskId);
+  }
+
+  markReviewed(taskId: string): TaskRecord {
+    this.#statements.taskReviewed.run(Date.now(), this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
   getTask(id: string): TaskRecord | undefined {
     const row = one<TaskRow>(this.#statements.taskById, id);
-    return row === undefined ? undefined : toTask(row);
+    return row === undefined ? undefined : this.#toTask(row);
   }
 
   listTasks({ limit, cursor }: TaskQuery): TaskPage {
@@ -375,12 +457,17 @@ class SqliteStore implements Store {
         await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
         await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
       }
+      // Deleting a chief's goal clears its pieces' link to it, so they are published again.
+      const children = all<{ id: string }>(this.#statements.childTasks, task.ref);
       transaction(this.#db, () => {
         this.#statements.deleteTask.run(task.ref);
         for (const ref of new Set(agents.map((agent) => agent.ref))) {
-          this.#statements.deleteAgentIfUnused.run(ref, ref);
+          this.#statements.deleteAgentIfUnused.run(ref);
         }
       });
+      // Agents deleted with the task worked on nothing else, so the task's notice covers them.
+      this.#publish({ type: "task.deleted", taskId: id });
+      for (const child of children) this.#publishTask(child.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#returnFreeSpace();
     } finally {
@@ -424,14 +511,55 @@ class SqliteStore implements Store {
     );
   }
 
+  listAgentSessions(agentId: string, { limit, before }: AgentSessionQuery): SessionPage {
+    const agentRef = this.#agentRow(agentId).ref;
+    // The cursor is the last session's key, so it stays valid after that session's task is deleted.
+    const beforeRef = before === undefined ? Number.MAX_SAFE_INTEGER : Number(before);
+    const rows = all<SessionRow>(this.#statements.agentSessionsBefore, agentRef, beforeRef, limit);
+    const last = rows.at(-1);
+    const sessions = rows.map(toSession);
+    return rows.length < limit || last === undefined
+      ? { sessions }
+      : { sessions, next: String(last.ref) };
+  }
+
+  latestTurn(sessionId: string): LatestTurn | undefined {
+    const row = one<{ type: string; timestamp: number; outcome: TurnOutcome | null }>(
+      this.#statements.latestTurnOfSession,
+      this.#sessionRef(sessionId),
+    );
+    if (row === undefined) return undefined;
+    const turn = { ended: row.type === "turn.ended", at: iso(row.timestamp) };
+    return row.outcome === null ? turn : { ...turn, outcome: row.outcome };
+  }
+
+  owesTurn(sessionId: string): boolean {
+    return one(this.#statements.promptAfterTurn, this.#sessionRef(sessionId)) !== undefined;
+  }
+
+  lastMessage(sessionId: string): string | undefined {
+    const ref = this.#sessionRef(sessionId);
+    return one<{ text: string }>(this.#statements.lastAgentMessage, ref)?.text;
+  }
+
   markInterrupted(): SessionRecord[] {
-    return transaction(this.#db, () => {
+    const { sessions, delegations } = transaction(this.#db, () => {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+      const delegations = all<DelegationRow>(this.#statements.workingDelegations);
       this.#statements.deleteUnfinishedPendingRequests.run();
       this.#statements.interruptUnfinished.run();
       this.#statements.interruptDelegations.run();
-      return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
+      return { sessions, delegations };
     });
+    for (const row of delegations) {
+      this.#publish({
+        type: "delegation",
+        delegation: toDelegation({ ...row, status: "interrupted" }),
+      });
+    }
+    // The tasks' records are unchanged, but whoever keeps their state reads them again.
+    for (const taskId of new Set(sessions.map((row) => row.taskId))) this.#publishTask(taskId);
+    return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
   }
 
   createDelegation(delegation: NewDelegation): DelegationRecord {
@@ -445,7 +573,9 @@ class SqliteStore implements Store {
       delegation.brief,
       createdAt,
     );
-    return { ...delegation, id, status: "working", createdAt: iso(createdAt) };
+    const record = { ...delegation, id, status: "working" as const, createdAt: iso(createdAt) };
+    this.#publish({ type: "delegation", delegation: record });
+    return record;
   }
 
   listDelegations(taskId: string): DelegationRecord[] {
@@ -460,7 +590,68 @@ class SqliteStore implements Store {
 
   endDelegation(id: string, status: DelegationEnd, result?: string): void {
     const row = this.#delegationRow(id);
-    this.#statements.endDelegation.run(status, result ?? null, Date.now(), row.ref);
+    const endedAt = Date.now();
+    this.#statements.endDelegation.run(status, result ?? null, endedAt, row.ref);
+    const ended = { ...row, status, result: result ?? null, endedAt };
+    this.#publish({ type: "delegation", delegation: toDelegation(ended) });
+  }
+
+  createPiece(piece: NewPiece): PlanPiece {
+    const id = randomUUID();
+    const department =
+      "departmentId" in piece ? this.#departmentRow(piece.departmentId) : undefined;
+    this.#statements.insertPiece.run(
+      id,
+      this.#taskRow(piece.taskId).ref,
+      piece.key,
+      piece.title,
+      department?.ref ?? null,
+      "newDepartment" in piece ? JSON.stringify(piece.newDepartment) : null,
+      piece.brief,
+      JSON.stringify(piece.waitsOn),
+      Date.now(),
+    );
+    return this.#publishPiece(id);
+  }
+
+  getPiece(id: string): PlanPiece | undefined {
+    const row = one<PieceRow>(this.#statements.pieceById, id);
+    return row === undefined ? undefined : toPiece(row);
+  }
+
+  listPieces(taskId: string): PlanPiece[] {
+    const ref = this.#taskRow(taskId).ref;
+    return all<PieceRow>(this.#statements.piecesOfTask, ref).map(toPiece);
+  }
+
+  pieceOfTask(pieceTaskId: string): PlanPiece | undefined {
+    const task = one<TaskRow>(this.#statements.taskById, pieceTaskId);
+    if (task === undefined) return undefined;
+    const row = one<PieceRow>(this.#statements.pieceOfPieceTask, task.ref);
+    return row === undefined ? undefined : toPiece(row);
+  }
+
+  listOpenPieces(): PlanPiece[] {
+    return all<PieceRow>(this.#statements.openPieces)
+      .sort((a, b) => a.ref - b.ref)
+      .map(toPiece);
+  }
+
+  updatePiece(id: string, change: PieceChange): PlanPiece {
+    const row = this.#pieceRow(id);
+    const status = change.status ?? row.status;
+    const departmentId = change.departmentId ?? row.departmentId;
+    const pieceTaskId = change.pieceTaskId ?? row.pieceTaskId;
+    const endedAt = OPEN_PIECE.has(status) ? null : (row.endedAt ?? Date.now());
+    this.#statements.updatePiece.run(
+      status,
+      departmentId === null ? null : this.#departmentRow(departmentId).ref,
+      pieceTaskId === null ? null : this.#taskRow(pieceTaskId).ref,
+      change.result ?? row.result,
+      endedAt,
+      row.ref,
+    );
+    return this.#publishPiece(id);
   }
 
   append(event: SessionEvent): StoredEvent | undefined {
@@ -468,7 +659,7 @@ class SqliteStore implements Store {
     const sessionRef = this.#sessionRef(event.sessionId);
     // A file is written before its row; if the row then fails, the file is removed with its session.
     const stored = this.#keepLargeTextApart(event);
-    const position = transaction(this.#db, () => {
+    const { position, change } = transaction(this.#db, () => {
       const { lastInsertRowid } = this.#statements.insertEvent.run(
         sessionRef,
         stored.sequence,
@@ -480,8 +671,9 @@ class SqliteStore implements Store {
       const position = Number(lastInsertRowid);
       this.#updateSession(sessionRef, stored);
       this.#updatePendingRequests(sessionRef, position, stored);
-      return position;
+      return { position, change: this.#updateUsage(sessionRef, stored) };
     });
+    if (change !== undefined) this.#publish(change);
     return { position, event: stored };
   }
 
@@ -508,6 +700,16 @@ class SqliteStore implements Store {
             limit,
           );
     return rows.map(toStoredEvent);
+  }
+
+  listLimits(): HarnessLimits[] {
+    return all<{ harness: string; limits: string; reportedAt: number }>(
+      this.#statements.allLimits,
+    ).map((row) => ({
+      harness: row.harness,
+      limits: JSON.parse(row.limits) as UsageLimit[],
+      reportedAt: iso(row.reportedAt),
+    }));
   }
 
   readOverflow(sessionId: string, sequence: number): string {
@@ -556,19 +758,7 @@ class SqliteStore implements Store {
       if (isUniqueViolation(error)) throw new NameTakenError(name);
       throw error;
     }
-    return {
-      id,
-      name,
-      colour,
-      ...(role === undefined ? {} : { role }),
-      ...(purpose === undefined ? {} : { purpose }),
-      ...(departmentId === undefined ? {} : { departmentId }),
-      ...(autonomy === undefined ? {} : { autonomy }),
-      ...(guest ? { guest } : {}),
-      ...(profileId === undefined ? {} : { profileId }),
-      settings,
-      createdAt: iso(createdAt),
-    };
+    return this.#publishAgent(id);
   }
 
   getAgent(id: string): AgentRecord | undefined {
@@ -592,7 +782,7 @@ class SqliteStore implements Store {
       if (isUniqueViolation(error)) throw new NameTakenError(name);
       throw error;
     }
-    return toAgent({ ...row, name });
+    return this.#publishAgent(id);
   }
 
   updateAgent(id: string, change: AgentChange): AgentRecord {
@@ -607,19 +797,7 @@ class SqliteStore implements Store {
       JSON.stringify(settings),
       row.ref,
     );
-    const { name, colour, createdAt } = toAgent(row);
-    return {
-      id,
-      name,
-      colour,
-      ...(role === undefined ? {} : { role }),
-      ...(purpose === undefined ? {} : { purpose }),
-      ...(departmentId === undefined ? {} : { departmentId }),
-      ...(autonomy === undefined ? {} : { autonomy }),
-      ...(profileId === undefined ? {} : { profileId }),
-      settings,
-      createdAt,
-    };
+    return this.#publishAgent(id);
   }
 
   createDepartment(department: NewDepartment): DepartmentRecord {
@@ -635,7 +813,7 @@ class SqliteStore implements Store {
       department.codeFlow ? 1 : 0,
       createdAt,
     );
-    return { ...department, id, createdAt: iso(createdAt) };
+    return this.#publishDepartment(id);
   }
 
   getDepartment(id: string): DepartmentRecord | undefined {
@@ -657,7 +835,7 @@ class SqliteStore implements Store {
       codeFlow ? 1 : 0,
       row.ref,
     );
-    return { ...toDepartment(row), ...settings };
+    return this.#publishDepartment(id);
   }
 
   listMembers(departmentId: string): AgentRecord[] {
@@ -696,6 +874,11 @@ class SqliteStore implements Store {
     const now = Date.now();
     this.#statements.insertWorkspace.run(id, name, JSON.stringify(folders), now, now);
     return { id, name, folders, createdAt: iso(now), usedAt: iso(now) };
+  }
+
+  getWorkspace(id: string): WorkspaceRecord | undefined {
+    const row = one<WorkspaceRow>(this.#statements.workspaceById, id);
+    return row === undefined ? undefined : toWorkspace(row);
   }
 
   listWorkspaces(): WorkspaceRecord[] {
@@ -757,7 +940,58 @@ class SqliteStore implements Store {
 
   #summarize(row: TaskRow): TaskSummary {
     const sessions = all<SessionRow>(this.#statements.sessionsOfTask, row.ref).map(toSession);
-    return { ...toTask(row), sessions };
+    return { ...this.#toTask(row), sessions };
+  }
+
+  #toTask(row: TaskRow): TaskRecord {
+    return toTask(row, all<TaskUsage>(this.#statements.usageOfTask, row.ref));
+  }
+
+  #publishTask(id: string): TaskRecord {
+    const task = this.#toTask(this.#taskRow(id));
+    this.#publish({ type: "task", task });
+    return task;
+  }
+
+  #publishAgent(id: string): AgentRecord {
+    const agent = toAgent(this.#agentRow(id));
+    this.#publish({ type: "agent", agent });
+    return agent;
+  }
+
+  #publishDepartment(id: string): DepartmentRecord {
+    const department = toDepartment(this.#departmentRow(id));
+    this.#publish({ type: "department", department });
+    return department;
+  }
+
+  #publishPiece(id: string): PlanPiece {
+    const piece = toPiece(this.#pieceRow(id));
+    this.#publish({ type: "piece", piece });
+    return piece;
+  }
+
+  // Changes made by a listener wait their turn, so every listener sees them in order.
+  #publish(change: Change): void {
+    this.#outbox.push(change);
+    if (this.#publishing) return;
+    this.#publishing = true;
+    try {
+      for (let next = this.#outbox.shift(); next !== undefined; next = this.#outbox.shift()) {
+        for (const listener of this.#listeners) this.#deliver(listener, next);
+      }
+    } finally {
+      this.#publishing = false;
+    }
+  }
+
+  // The write is committed whatever a listener does, so one failing listener must not stop the others.
+  #deliver(listener: ChangeListener, change: Change): void {
+    try {
+      listener(change);
+    } catch (error) {
+      console.error(`A listener failed on a "${change.type}" change.`, error);
+    }
   }
 
   #taskRow(id: string): TaskRow {
@@ -766,8 +1000,14 @@ class SqliteStore implements Store {
     return row;
   }
 
-  #delegationRow(id: string): { ref: number } {
-    const row = one<{ ref: number }>(this.#statements.delegationRef, id);
+  #pieceRow(id: string): PieceRow {
+    const row = one<PieceRow>(this.#statements.pieceById, id);
+    if (row === undefined) throw new RecordNotFoundError("piece", id);
+    return row;
+  }
+
+  #delegationRow(id: string): DelegationRow {
+    const row = one<DelegationRow>(this.#statements.delegationById, id);
     if (row === undefined) throw new RecordNotFoundError("delegation", id);
     return row;
   }
@@ -836,18 +1076,50 @@ class SqliteStore implements Store {
     }
   }
 
-  // The waiting requests change with the events that open and close them. A session that ended
-  // can answer nothing, whether or not the harness closed each request first.
+  // In the event's own transaction; returns what to publish once it commits.
+  #updateUsage(sessionRef: number, event: SessionEvent): Change | undefined {
+    if (event.type === "limits.updated") {
+      const { harness } = this.#sessionTask(sessionRef);
+      const { limits } = event.payload;
+      this.#statements.saveLimits.run(harness, JSON.stringify(limits), Date.parse(event.timestamp));
+      return { type: "limits", limits: { harness, limits, reportedAt: event.timestamp } };
+    }
+    if (event.type !== "turn.ended" || event.payload.usage === undefined) return undefined;
+    const { usage } = event.payload;
+    const { taskRef, harness } = this.#sessionTask(sessionRef);
+    this.#statements.addTaskUsage.run(
+      taskRef,
+      harness,
+      usage.inputTokens,
+      usage.outputTokens,
+      usage.cachedInputTokens ?? 0,
+    );
+    const task = one<TaskRow>(this.#statements.taskByRef, taskRef);
+    return task === undefined ? undefined : { type: "task", task: this.#toTask(task) };
+  }
+
+  #sessionTask(sessionRef: number): { taskRef: number; harness: string } {
+    const row = one<{ taskRef: number; harness: string }>(
+      this.#statements.sessionTaskAndHarness,
+      sessionRef,
+    );
+    if (row === undefined) throw new RecordNotFoundError("session", String(sessionRef));
+    return row;
+  }
+
+  // A session that ended can answer nothing, whether or not the harness closed each request.
   #updatePendingRequests(sessionRef: number, position: number, event: SessionEvent): void {
     switch (event.type) {
       case "permission.requested":
       case "question.requested":
       case "proposal.requested":
+      case "plan.requested":
         this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
         return;
       case "permission.resolved":
       case "question.resolved":
       case "proposal.resolved":
+      case "plan.resolved":
         this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
         return;
       case "session.ended":
@@ -860,7 +1132,7 @@ class SqliteStore implements Store {
     while (statement.run(sessionRef, DELETE_CHUNK).changes > 0) await yieldToEventLoop();
   }
 
-  // Hands the freed space back to the disk now, not when the app next closes.
+  // Now, not when the app next closes.
   async #returnFreeSpace(): Promise<void> {
     const pages = readNumber(this.#db, "PRAGMA freelist_count");
     for (let freed = 0; freed < pages; freed += VACUUM_STEP_PAGES) {

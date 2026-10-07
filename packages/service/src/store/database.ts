@@ -3,20 +3,16 @@ import { DatabaseSync } from "node:sqlite";
 import { migrations } from "./migrations.ts";
 import { StoreFileError } from "./store.ts";
 
-// Written into the file's header, so a different SQLite file is never migrated by mistake.
+// So a different SQLite file is never migrated by mistake.
 const APPLICATION_ID = 0x4f54_4f57;
 
-// SQLite's own code for a file another connection holds.
 const SQLITE_BUSY = 5;
 
 export function openDatabase(file: string): DatabaseSync {
   const db = new DatabaseSync(file);
   try {
-    // One core per data folder: a second one would mark the first one's running agents
-    // interrupted. The lock is held until the connection closes, and the OS drops it if the
-    // process dies. auto_vacuum only takes effect on a new file, before its first table is
-    // created. Without a size limit the WAL file stays as large as its biggest burst of writes
-    // until the app closes.
+    // The exclusive lock keeps one core per data folder; the OS drops it if the process dies.
+    // auto_vacuum works only on a new file; without a size limit the WAL keeps its biggest size.
     db.exec(`
       PRAGMA locking_mode = EXCLUSIVE;
       PRAGMA auto_vacuum = INCREMENTAL;
@@ -69,12 +65,21 @@ function migrate(db: DatabaseSync, file: string): void {
   // The user's history cannot be recreated, so a copy is kept before its schema changes.
   const backup = `${file}.bak-v${version}`;
   if (!fresh && !existsSync(backup)) db.prepare("VACUUM INTO ?").run(backup);
-  for (const [offset, migration] of migrations.slice(version).entries()) {
-    transaction(db, () => {
-      if (typeof migration === "string") db.exec(migration);
-      else migration(db);
-      if (fresh) db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
-      db.exec(`PRAGMA user_version = ${version + offset + 1}`);
-    });
+  // With foreign keys off, dropping the old table does not delete the rows that point at it.
+  db.exec("PRAGMA foreign_keys = OFF");
+  try {
+    for (const [offset, migration] of migrations.slice(version).entries()) {
+      transaction(db, () => {
+        if (typeof migration === "string") db.exec(migration);
+        else migration(db);
+        if (db.prepare("PRAGMA foreign_key_check").get() !== undefined) {
+          throw new StoreFileError(`${file} has rows that point at nothing after migrating.`);
+        }
+        if (fresh) db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
+        db.exec(`PRAGMA user_version = ${version + offset + 1}`);
+      });
+    }
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
   }
 }

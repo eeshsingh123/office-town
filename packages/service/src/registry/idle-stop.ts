@@ -5,9 +5,7 @@ import type { SessionRegistry } from "./session-registry.ts";
 const IDLE_MS = 10 * 60 * 1000;
 const CHECK_EVERY_MS = 60 * 1000;
 
-// An agent left idle keeps its harness process open for nothing, so after ten minutes it is
-// stopped, solo agents included, and resumed when it is next needed. One waiting on the user is
-// not idle. Returns a function that ends the checks.
+// An idle harness process is held open for nothing; one waiting on the user is not idle.
 export function stopIdleAgents(
   registry: SessionRegistry,
   store: Store,

@@ -2,13 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { identityOf } from "../agents/names.ts";
 
-// Each entry moves the schema up one version: SQL, or a step that also moves data. A merged entry
-// is never edited; a change is a new one. Every index here serves a named query; the store test
-// checks that each of those queries uses it.
+// A merged entry is never edited; every index serves a named query the store test checks.
 export type Migration = string | ((db: DatabaseSync) => void);
 
-// Every M3 task had one agent, named by its first session's id; it is stored with the same name,
-// and with its harness settings as its own.
+// Every M3 task had one agent, named by its first session's id; it keeps that name.
 function giveEachTaskItsAgent(db: DatabaseSync): void {
   db.exec(`
   CREATE TABLE profiles (
@@ -212,4 +209,109 @@ export const migrations: readonly Migration[] = [
   WHERE json_extract(options, '$.permissionMode') = 'acceptEdits';
   `,
   "ALTER TABLE agents ADD COLUMN guest INTEGER NOT NULL DEFAULT 0;",
+  `
+  -- Tasks of earlier versions count as finished and reviewed, so old history does not fill the
+  -- review queue.
+  ALTER TABLE tasks ADD COLUMN state TEXT NOT NULL DEFAULT 'ended'
+    CHECK (state IN ('working', 'waiting', 'idle', 'ended'));
+  ALTER TABLE tasks ADD COLUMN reviewed_at INTEGER;
+  UPDATE tasks SET reviewed_at = CAST(unixepoch('subsec') * 1000 AS INTEGER);
+  CREATE INDEX tasks_open_by_department ON tasks (department_ref) WHERE state <> 'ended';
+
+  CREATE INDEX events_turns ON events (session_ref) WHERE type IN ('turn.started', 'turn.ended');
+
+  -- Each task's tokens by harness, summed from its turns as they end.
+  CREATE TABLE task_usage (
+    task_ref            INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    harness             TEXT NOT NULL,
+    input_tokens        INTEGER NOT NULL,
+    output_tokens       INTEGER NOT NULL,
+    cached_input_tokens INTEGER NOT NULL,
+    PRIMARY KEY (task_ref, harness)
+  ) STRICT, WITHOUT ROWID;
+
+  INSERT INTO task_usage
+  SELECT s.task_ref, s.options ->> '$.harness', sum(e.payload ->> '$.usage.inputTokens'),
+         sum(e.payload ->> '$.usage.outputTokens'),
+         sum(coalesce(e.payload ->> '$.usage.cachedInputTokens', 0))
+  FROM events e
+  JOIN sessions s ON s.ref = e.session_ref
+  WHERE e.type = 'turn.ended' AND e.payload ->> '$.usage' IS NOT NULL
+  GROUP BY s.task_ref, s.options ->> '$.harness';
+
+  -- Each harness's latest plan limits, a JSON array, since a limit belongs to the account.
+  CREATE TABLE harness_limits (
+    harness     TEXT PRIMARY KEY,
+    limits      TEXT NOT NULL,
+    reported_at INTEGER NOT NULL
+  ) STRICT, WITHOUT ROWID;
+
+  -- SQLite takes the other columns from the row with the highest position.
+  INSERT INTO harness_limits
+  SELECT harness, limits, timestamp FROM (
+    SELECT s.options ->> '$.harness' AS harness, e.payload ->> '$.limits' AS limits, e.timestamp,
+           max(e.position)
+    FROM events e
+    JOIN sessions s ON s.ref = e.session_ref
+    WHERE e.type = 'limits.updated'
+    GROUP BY s.options ->> '$.harness');
+  `,
+  `
+  -- Rebuilt, as SQLite cannot change a CHECK: a chief's goal can be queued, and a piece of its
+  -- plan runs as a department's task that points at the chief's.
+  CREATE TABLE tasks_rebuilt (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    prompt         TEXT NOT NULL,
+    created_at     INTEGER NOT NULL,
+    lead_ref       INTEGER REFERENCES agents (ref),
+    department_ref INTEGER REFERENCES departments (ref),
+    setup          TEXT,
+    state          TEXT NOT NULL
+                     CHECK (state IN ('queued', 'working', 'waiting', 'idle', 'ended')),
+    reviewed_at    INTEGER,
+    parent_ref     INTEGER REFERENCES tasks (ref) ON DELETE SET NULL
+  ) STRICT;
+  INSERT INTO tasks_rebuilt
+    (ref, id, prompt, created_at, lead_ref, department_ref, setup, state, reviewed_at)
+  SELECT ref, id, prompt, created_at, lead_ref, department_ref, setup, state, reviewed_at
+  FROM tasks;
+  DROP TABLE tasks;
+  ALTER TABLE tasks_rebuilt RENAME TO tasks;
+
+  CREATE INDEX tasks_by_lead ON tasks (lead_ref) WHERE lead_ref IS NOT NULL;
+  CREATE INDEX tasks_by_department ON tasks (department_ref) WHERE department_ref IS NOT NULL;
+  CREATE INDEX tasks_open_by_department ON tasks (department_ref) WHERE state <> 'ended';
+  CREATE INDEX tasks_open_by_lead ON tasks (lead_ref) WHERE state <> 'ended';
+  CREATE INDEX tasks_queued ON tasks (state) WHERE state = 'queued';
+  CREATE INDEX tasks_by_parent ON tasks (parent_ref) WHERE parent_ref IS NOT NULL;
+
+  -- The pieces of a chief's plan. A piece names the pieces it waits on by id, as a JSON array; a
+  -- new department it proposes is a JSON object until the department exists.
+  CREATE TABLE plan_pieces (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    key            TEXT NOT NULL,
+    title          TEXT NOT NULL,
+    department_ref INTEGER REFERENCES departments (ref),
+    new_department TEXT,
+    brief          TEXT NOT NULL,
+    waits_on       TEXT NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN
+                     ('waiting', 'queued', 'working', 'done', 'failed', 'stopped', 'dropped')),
+    piece_task_ref INTEGER REFERENCES tasks (ref) ON DELETE SET NULL,
+    result         TEXT,
+    created_at     INTEGER NOT NULL,
+    ended_at       INTEGER
+  ) STRICT;
+
+  CREATE INDEX plan_pieces_by_task ON plan_pieces (task_ref);
+  CREATE INDEX plan_pieces_by_piece_task ON plan_pieces (piece_task_ref)
+    WHERE piece_task_ref IS NOT NULL;
+  CREATE INDEX plan_pieces_open ON plan_pieces (status)
+    WHERE status IN ('waiting', 'queued', 'working');
+
+  CREATE INDEX events_messages ON events (session_ref) WHERE type = 'message';
+  `,
 ];

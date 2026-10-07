@@ -13,7 +13,7 @@ import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx"
 import styles from "./TeamRows.module.css";
 
 export interface TeamRow extends TeamRole {
-  // What the list keeps the row by while it is edited.
+  // Keeps the row's identity while it is edited.
   key: number;
 }
 
@@ -27,14 +27,12 @@ interface TeamRowsProps {
   rows: TeamRow[];
   onChange: (rows: TeamRow[]) => void;
   lead: { id: string; name: string; colour: string; summary: string } | undefined;
-  // The team as it is, so members left out show as leaving.
+  // So members left out show as leaving.
   departmentId: string | undefined;
-  // What a new role starts with.
   defaults: ChipSettings;
 }
 
-// A team to edit: a row per worker, each with a role, what it does, and a harness, model and
-// effort, or a profile; a worker the team already has keeps its name. The lead's row is fixed.
+// A worker the team already has keeps its name. The lead's row is fixed.
 export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamRowsProps) {
   const agents = useApp((state) => state.agents);
   const harnesses = useApp((state) => state.harnesses);

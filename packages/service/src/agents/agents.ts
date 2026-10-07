@@ -2,8 +2,7 @@ import type { AgentRecord, AgentSettings, Autonomy, NewAgent } from "@office-tow
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { type Identity, randomIdentity } from "./names.ts";
 
-// With 64 names and 10,000 numbers a free handle is found at once; the limit only ends a loop
-// that could not.
+// With 64 names and 10,000 numbers a free handle is found at once; this only ends a stuck loop.
 const NAME_ATTEMPTS = 100;
 
 export function freeIdentity(store: Store): Identity {
@@ -19,7 +18,6 @@ export interface AgentPlace {
   role?: string;
   // The level it works at while it has no department.
   autonomy: Autonomy;
-  // Called in for a second opinion.
   guest?: true;
 }
 
@@ -45,7 +43,7 @@ export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): A
   });
 }
 
-// A profile's saved changes apply to the agents made from it at their next session.
+// A profile's saved changes apply at the agent's next session.
 export function settingsOf(store: Store, agent: AgentRecord): AgentSettings {
   if (agent.profileId === undefined) return agent.settings;
   return store.getProfile(agent.profileId)?.settings ?? agent.settings;

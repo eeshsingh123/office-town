@@ -42,9 +42,7 @@ export function requireSessionFolders({
   );
 }
 
-// A saved workspace is used as it is. Otherwise the task gets a new folder of its own inside the
-// output folder, so tasks never overwrite each other's files; an output folder given is kept as
-// the default for the next task.
+// A new folder per task, so tasks never overwrite each other; an output folder given becomes the default.
 export function chooseTaskFolders(store: Store, request: StartTaskRequest): TaskFolders {
   if (request.workspaceId !== undefined) {
     const { folders } = store.useWorkspace(request.workspaceId);
@@ -70,8 +68,7 @@ function createTaskFolder(parent: string, prompt: string, now: Date): string {
     .filter(Boolean)
     .slice(0, NAME_WORDS)
     .join(" ");
-  // Cut by character, not by UTF-16 unit, so an emoji is never split in half. Windows drops a
-  // trailing dot or space from a name.
+  // By character, so an emoji is never split. Windows drops a trailing dot or space from a name.
   const short = Array.from(words)
     .slice(0, NAME_LENGTH)
     .join("")

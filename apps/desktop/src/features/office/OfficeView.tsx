@@ -1,21 +1,21 @@
-import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { useEffect, useMemo } from "react";
+import type { AgentRecord, DepartmentRecord, HarnessLimits } from "@office-town/contract";
+import { useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
-import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import { DepartmentPanel } from "../departments/DepartmentPanel.tsx";
+import { BoardView } from "../board/BoardView.tsx";
 import { usageByHarness, usageSummary } from "../departments/usage.ts";
-import { AgentPanel } from "./AgentPanel.tsx";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
-import { floorPlan, onTheFloor, type RoomSpec } from "./floor-plan.ts";
-import { GroupPanel } from "./GroupPanel.tsx";
+import { floorPlan, onTheFloor, type Point, type RoomSpec } from "./floor-plan.ts";
 import styles from "./Office.module.css";
+import { OfficePanel } from "./OfficePanel.tsx";
+import { useOffice } from "./office-state.ts";
+import { TopBar } from "./TopBar.tsx";
+import { CHIEF_ROOM, useCommandFloor } from "./use-command-floor.ts";
 
 const BUBBLE_LENGTH = 42;
 const OPEN = "open";
@@ -29,10 +29,12 @@ function requestBubble(request: WaitingRequest): string {
       return "Has a question";
     case "proposal.requested":
       return "Proposes a team";
+    case "plan.requested":
+      return "Proposes a plan";
   }
 }
 
-// What shows above an agent's head: what it asks, or what it does now. Others stay quiet.
+// What it asks, or what it does now. Others stay quiet.
 function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progress) {
   let text: string | undefined;
   if (request !== undefined) {
@@ -46,7 +48,7 @@ function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progre
   return { bubble: text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text };
 }
 
-// A department's members, lead first, then in the order they joined; each keeps its desk.
+// Lead first, then in join order, so each keeps its desk.
 function membersOf(department: DepartmentRecord, agents: Record<string, AgentRecord>) {
   return Object.values(agents)
     .filter((agent) => agent.departmentId === department.id)
@@ -59,7 +61,7 @@ function membersOf(department: DepartmentRecord, agents: Record<string, AgentRec
 
 type Known = Pick<AppState, "agents" | "tasks" | "sessions">;
 
-// The department's latest goal, and its members' sessions in it; a guest is no member.
+// A guest is no member.
 function goalOf(department: DepartmentRecord, state: Known) {
   const entry = Object.values(state.tasks)
     .filter(({ task }) => task.departmentId === department.id)
@@ -70,31 +72,13 @@ function goalOf(department: DepartmentRecord, state: Known) {
   return { task: entry?.task, sessions };
 }
 
-function roomOf(agent: Agent, departments: Record<string, DepartmentRecord>): string {
+function roomOf(agent: Agent, departments: Record<string, DepartmentRecord>, chiefId?: string) {
+  if (agent.id === chiefId) return CHIEF_ROOM;
   if (agent.record.guest) return GUESTS;
   const { departmentId } = agent.record;
   return departmentId !== undefined && departments[departmentId] !== undefined
     ? departmentId
     : OPEN;
-}
-
-function EmptyPanel({ count }: { count: number }) {
-  return (
-    <aside className={styles.panel} aria-label="Office">
-      <p className={styles.empty}>
-        {count === 0
-          ? "No agent is at work today. Start a task and its agent takes a desk here."
-          : "Click an agent or a room's sign, walk up to one and press E, or drag a box around several."}
-      </p>
-      {count === 0 ? (
-        <div>
-          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
-            New task
-          </Button>
-        </div>
-      ) : null}
-    </aside>
-  );
 }
 
 interface Layout {
@@ -103,25 +87,31 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
+  limits: Record<string, HarnessLimits>;
   state: Known;
+  chiefId: string | undefined;
+  positions: Record<string, Point>;
 }
 
-// Every agent at work, or done today, at a desk: in its department's room, on the open floor if
-// it works alone, or at the guest desk if it came for a second opinion (MODULES M4.9).
-function layOut({ agents, traces, waiting, harnessName, departments, state }: Layout) {
+// Every agent at work or done today, at a desk. The chief keeps its office whenever it is set up.
+function layOut(layout: Layout) {
+  const { agents, traces, waiting, harnessName, departments, limits, state, chiefId } = layout;
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
   const byId = Object.fromEntries(departments.map((department) => [department.id, department]));
   // Oldest first, so each agent keeps its desk as others arrive.
   const present = agents
-    .filter((agent) => onTheFloor(agent.latest, asking.has(agent.latest.id)))
+    .filter(
+      (agent) => agent.id === chiefId || onTheFloor(agent.latest, asking.has(agent.latest.id)),
+    )
     .reverse();
-  const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId));
+  const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId, chiefId));
   const members = new Map(departments.map((one) => [one.id, membersOf(one, state.agents)]));
   const solo = inRoom.get(OPEN) ?? [];
   const guests = inRoom.get(GUESTS) ?? [];
   const specs: RoomSpec[] = [
+    ...(chiefId === undefined ? [] : [{ id: CHIEF_ROOM, kind: "chief", desks: 1 } as const]),
     ...departments.map((one): RoomSpec => {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
       return { id: one.id, kind: "department", desks };
@@ -129,17 +119,19 @@ function layOut({ agents, traces, waiting, harnessName, departments, state }: La
     { id: OPEN, kind: "open", desks: Math.max(3, solo.length + 1) },
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];
-  const plan = floorPlan(specs);
+  const plan = floorPlan(specs, layout.positions);
 
   const floorAgents = present.map((agent): FloorAgent => {
-    const roomId = roomOf(agent, byId);
+    const roomId = roomOf(agent, byId, chiefId);
     const room = plan.rooms.find((one) => one.id === roomId);
     const seat =
-      roomId === OPEN
-        ? solo.indexOf(agent)
-        : roomId === GUESTS
-          ? guests.indexOf(agent)
-          : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
+      roomId === CHIEF_ROOM
+        ? 0
+        : roomId === OPEN
+          ? solo.indexOf(agent)
+          : roomId === GUESTS
+            ? guests.indexOf(agent)
+            : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
     const trace = traces[agent.latest.id];
     return {
@@ -148,7 +140,13 @@ function layOut({ agents, traces, waiting, harnessName, departments, state }: La
       harness: harnessName(agent.latest.options.harness),
       position: room?.seats[seat]?.agent ?? plan.start,
       group:
-        roomId === OPEN ? "Open floor" : roomId === GUESTS ? "Guests" : (byId[roomId]?.name ?? ""),
+        roomId === CHIEF_ROOM
+          ? "Chief"
+          : roomId === OPEN
+            ? "Open floor"
+            : roomId === GUESTS
+              ? "Guests"
+              : (byId[roomId]?.name ?? ""),
       ...bubbleOf(
         agentState,
         asking.get(agent.latest.id),
@@ -158,25 +156,18 @@ function layOut({ agents, traces, waiting, harnessName, departments, state }: La
   });
 
   const signs: Record<string, RoomSign> = {
-    [OPEN]: { title: "Open floor", note: "agents working alone", waiting: 0, lines: [] },
-    [GUESTS]: { title: "Guest desk", note: "second opinions", waiting: 0, lines: [] },
+    [OPEN]: { title: "Open floor", note: "agents working alone", lines: [] },
+    [GUESTS]: { title: "Guest desk", note: "second opinions", lines: [] },
   };
-  const everySession = Object.values(state.sessions);
-  const requests = Object.values(waiting);
   for (const department of departments) {
     const goal = goalOf(department, state);
-    const usage = usageByHarness(goal.sessions, traces, everySession)
+    const usage = usageByHarness(goal.sessions, goal.task?.usage ?? [], limits)
       .map((one) => usageSummary(one, harnessName(one.harness)))
       .join(" · ");
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
-    const inRoom = (sessionId: string) => {
-      const agentId = state.sessions[sessionId]?.agentId;
-      return agentId !== undefined && state.agents[agentId]?.departmentId === department.id;
-    };
     signs[department.id] = {
       title: department.name,
       note: AUTONOMY[department.autonomy].label,
-      waiting: requests.filter((request) => inRoom(request.event.sessionId)).length,
       lines: [
         working && goal.task !== undefined ? taskTitle(goal.task.prompt) : "No goal in progress",
         ...(usage === "" ? [] : [`${working ? "This goal" : "Last goal"} · ${usage}`]),
@@ -186,7 +177,7 @@ function layOut({ agents, traces, waiting, harnessName, departments, state }: La
   return { plan, floorAgents, signs };
 }
 
-// The home screen (D-35): departments as rooms, the open floor and a guest desk.
+// The home screen (D-35).
 export function OfficeView() {
   const agents = useAgents();
   const records = useApp((state) => state.agents);
@@ -196,8 +187,12 @@ export function OfficeView() {
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) => state.waiting);
   const harnesses = useApp((state) => state.harnesses);
+  const limits = useApp((state) => state.limits);
   const selection = useApp((state) => state.selection);
+  const mode = useOffice((state) => state.mode);
   const view = useApp((state) => state.view);
+  const chiefId = useApp((state) => state.chiefId);
+  const positions = useApp((state) => state.roomPositions);
   const room = view.name === "office" ? view.room : undefined;
 
   // Oldest first, so a new or renamed department never moves the rooms already there.
@@ -215,21 +210,27 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
+      limits,
       state: { agents: records, tasks, sessions },
+      chiefId,
+      positions,
     });
-  }, [agents, traces, waiting, harnesses, departments, records, tasks, sessions]);
-
-  // A room's usage counts every session of its goal, finished ones included.
-  useEffect(() => {
-    for (const department of departments) {
-      for (const session of goalOf(department, { agents: records, tasks, sessions }).sessions) {
-        loadTrace(session.id);
-      }
-    }
-  }, [departments, records, tasks, sessions]);
+  }, [
+    agents,
+    traces,
+    waiting,
+    harnesses,
+    departments,
+    limits,
+    records,
+    tasks,
+    sessions,
+    chiefId,
+    positions,
+  ]);
+  const { links, goalId, doors } = useCommandFloor(departments);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
-  const asking = floorAgents.filter(({ state }) => state === "waiting").length;
   const openRoom = room === undefined ? undefined : departmentRecords[room];
   const onSelect = (agentIds: string[]) => {
     select(agentIds);
@@ -241,43 +242,35 @@ export function OfficeView() {
   };
 
   return (
-    <section aria-labelledby="office-title" className={styles.office}>
-      <header className={styles.header}>
-        <h1 id="office-title">Office</h1>
-        <span>
-          {floorAgents.length === 1 ? "1 agent" : `${floorAgents.length} agents`}
-          {departments.length === 0
-            ? ""
-            : ` · ${departments.length === 1 ? "1 department" : `${departments.length} departments`}`}
-        </span>
-        {asking === 0 ? null : <span className={styles.asking}>{asking} need you</span>}
-        <span className={styles.keys}>
-          Walk with WASD or the arrow keys · click an agent or a room's sign · drag to select
-          several
-        </span>
-      </header>
-      <div className={styles.body}>
-        <div className={styles.scroll}>
-          <Floor
-            plan={plan}
-            agents={floorAgents}
-            signs={signs}
+    <section aria-label="Office" className={styles.office}>
+      <TopBar />
+      {mode === "board" ? (
+        <BoardView />
+      ) : (
+        <div className={styles.body}>
+          <div className={styles.scroll}>
+            <Floor
+              plan={plan}
+              agents={floorAgents}
+              signs={signs}
+              doors={doors}
+              links={links}
+              linksGoal={goalId}
+              chief={chiefId === undefined ? undefined : records[chiefId]}
+              selection={selection}
+              room={chosen.length === 0 ? openRoom?.id : undefined}
+              onSelect={onSelect}
+              onOpenRoom={onOpenRoom}
+            />
+          </div>
+          <OfficePanel
             selection={selection}
-            room={chosen.length === 0 ? openRoom?.id : undefined}
-            onSelect={onSelect}
-            onOpenRoom={onOpenRoom}
+            chosen={chosen}
+            room={openRoom}
+            floorCount={floorAgents.length}
           />
         </div>
-        {chosen.length === 1 && chosen[0] !== undefined ? (
-          <AgentPanel member={chosen[0]} />
-        ) : chosen.length > 1 ? (
-          <GroupPanel members={chosen} />
-        ) : openRoom !== undefined ? (
-          <DepartmentPanel key={openRoom.id} department={openRoom} />
-        ) : (
-          <EmptyPanel count={floorAgents.length} />
-        )}
-      </div>
+      )}
     </section>
   );
 }

@@ -5,7 +5,6 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import styles from "./RequestCard.module.css";
 
-// Who is asking and what they are working on, for a card shown away from its trace.
 export function RequestContext({ sessionId }: { sessionId: string }) {
   const trace = useApp((state) => state.traces[sessionId]);
   const agent = useSessionAgent(sessionId);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { answeredBySchema } from "./autonomy.ts";
 import { messageOriginSchema, questionAnswerSchema } from "./events.ts";
+import { approvedPieceSchema } from "./plans.ts";
 import { teamSchema } from "./team.ts";
 
 const answerPermissionSchema = z.object({
@@ -25,6 +26,16 @@ const answerProposalSchema = z.object({
   ]),
 });
 
+const answerPlanSchema = z.object({
+  type: z.literal("answerPlan"),
+  requestId: z.string().min(1),
+  answer: z.discriminatedUnion("outcome", [
+    z.object({ outcome: z.literal("approved"), pieces: z.array(approvedPieceSchema).min(1) }),
+    z.object({ outcome: z.literal("revised"), note: z.string().trim().min(1) }),
+    z.object({ outcome: z.literal("declined"), note: z.string().trim().optional() }),
+  ]),
+});
+
 const interruptSchema = z.object({ type: z.literal("interrupt") });
 
 // Starting and stopping belong to whoever owns the session, so only these reach a running agent.
@@ -33,12 +44,12 @@ export const agentCommandSchema = z.discriminatedUnion("type", [
   answerPermissionSchema,
   answerQuestionSchema,
   answerProposalSchema,
+  answerPlanSchema,
   interruptSchema,
 ]);
 export type AgentCommand = z.infer<typeof agentCommandSchema>;
 
-// What the core may send a harness session: the user's commands, and messages of its own. A
-// proposal is the core's own request, so its answer never reaches the harness.
+// A proposal or a plan is the core's own request, so its answer never reaches the harness.
 export const sessionCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start") }),
   z.object({

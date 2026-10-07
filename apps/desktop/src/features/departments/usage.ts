@@ -1,13 +1,15 @@
-import type { SessionRecord, UsageLimit } from "@office-town/contract";
+import type { HarnessLimits, SessionRecord, TaskUsage, UsageLimit } from "@office-town/contract";
 import type { TokenTotals, Trace } from "../../trace/trace.ts";
 import { compactCount } from "../../ui/format.ts";
 
 export interface HarnessUsage {
   harness: string;
-  // The harness's own plan limits, the latest known; empty where it reports none (D-29).
+  // Empty where the harness reports none (D-29).
   limits: UsageLimit[];
   tokens: TokenTotals;
 }
+
+const NO_TOKENS: TokenTotals = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
 
 export function sumUsage(traces: readonly Trace[]): TokenTotals {
   return traces.reduce(
@@ -16,48 +18,44 @@ export function sumUsage(traces: readonly Trace[]): TokenTotals {
       outputTokens: total.outputTokens + usage.outputTokens,
       cachedInputTokens: total.cachedInputTokens + usage.cachedInputTokens,
     }),
-    { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    NO_TOKENS,
   );
 }
 
-// A plan limit belongs to the account, not to one goal, so it is the newest that any loaded
-// session of the harness reported.
-function latestLimits(
-  harness: string,
-  everySession: readonly SessionRecord[],
-  traces: Record<string, Trace>,
-): UsageLimit[] {
-  let latest: Trace | undefined;
-  for (const session of everySession) {
-    const trace = traces[session.id];
-    if (session.options.harness !== harness || trace?.limitsAt === undefined) continue;
-    if (latest?.limitsAt === undefined || trace.limitsAt > latest.limitsAt) latest = trace;
-  }
-  return latest?.limits ?? [];
-}
-
-// Tokens of these sessions by harness, from the traces loaded for them, with each harness's limit.
-export function usageByHarness(
+// From the agent's loaded traces: the core sums tokens per task only.
+export function tracedUsage(
   sessions: readonly SessionRecord[],
   traces: Record<string, Trace>,
-  everySession: readonly SessionRecord[],
-): HarnessUsage[] {
-  const byHarness = Map.groupBy(sessions, (session) => session.options.harness);
-  return [...byHarness]
-    .map(([harness, group]) => ({
+): TaskUsage[] {
+  return [...Map.groupBy(sessions, (session) => session.options.harness)].map(
+    ([harness, group]) => ({
       harness,
-      limits: latestLimits(harness, everySession, traces),
-      tokens: sumUsage(group.flatMap((session) => traces[session.id] ?? [])),
-    }))
-    .sort((a, b) => a.harness.localeCompare(b.harness));
+      ...sumUsage(group.flatMap((session) => traces[session.id] ?? [])),
+    }),
+  );
 }
 
-// New tokens only: cached input is shown apart, so the figure is not inflated (D-29).
+// With the newest plan limits the core keeps, since a limit belongs to the account.
+export function usageByHarness(
+  sessions: readonly SessionRecord[],
+  usage: readonly TaskUsage[],
+  limits: Record<string, HarnessLimits>,
+): HarnessUsage[] {
+  return [...new Set(sessions.map((session) => session.options.harness))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((harness) => ({
+      harness,
+      limits: limits[harness]?.limits ?? [],
+      tokens: usage.find((one) => one.harness === harness) ?? NO_TOKENS,
+    }));
+}
+
+// Cached input is shown apart, so the figure is not inflated (D-29).
 export function newTokens({ inputTokens, outputTokens, cachedInputTokens }: TokenTotals): number {
   return inputTokens - cachedInputTokens + outputTokens;
 }
 
-// A few words for a room's sign: the harness's fullest limit, or else its tokens.
+// The harness's fullest limit, or else its tokens.
 export function usageSummary(usage: HarnessUsage, name: string): string {
   const fullest = usage.limits.toSorted((a, b) => b.usedFraction - a.usedFraction)[0];
   if (fullest !== undefined) return `${name} ${Math.round(fullest.usedFraction * 100)}%`;

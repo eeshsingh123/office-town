@@ -6,7 +6,7 @@ import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import styles from "./Sidebar.module.css";
 
-// The tasks with an agent at work: a team's task shows once, by its lead.
+// A team's task shows once, by its lead.
 export function RunningAgents() {
   const tasks = useTasksWithAgents().filter((entry) =>
     entry.agents.some((agent) => isOpen(agent.latest)),

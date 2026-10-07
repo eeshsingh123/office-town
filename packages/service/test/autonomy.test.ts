@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lowerAutonomy } from "@office-town/contract";
@@ -40,6 +40,31 @@ describe("autonomy policy", () => {
       false,
     ]);
     expect(allows("trusted", request("read", [join(".git", "config")]), folders)).toBe(true);
+  });
+
+  it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own", () => {
+    const own = join(directory, "web");
+    const upstream = join(directory, "api");
+    mkdirSync(own);
+    mkdirSync(upstream);
+    const link = join(own, "api-link");
+    symlinkSync(upstream, link, "junction");
+    const at = (level: "trusted" | "full", kind: string | undefined, path: string) =>
+      allows(level, request(kind, [path]), [own, upstream], [upstream]);
+
+    expect(at("full", "edit", join(upstream, "new", "api.ts"))).toBe(false);
+    expect(at("full", "edit", join(link, "api.ts"))).toBe(false);
+    expect(at("full", "edit", join(upstream, "api.ts").toUpperCase())).toBe(
+      process.platform !== "win32",
+    );
+    expect(at("full", "execute", upstream)).toBe(false);
+    expect(at("full", undefined, join(upstream, "api.ts"))).toBe(false);
+    expect(at("trusted", "read", join(link, "api.ts"))).toBe(true);
+    expect(at("trusted", "edit", join(own, "index.html"))).toBe(true);
+    // An upstream folder that holds the agent's own folder is no guard on its own work.
+    expect(allows("trusted", request("edit", ["index.html"]), [own, directory], [directory])).toBe(
+      true,
+    );
   });
 
   it("lets a profile or an agent lower its level, never raise it", () => {

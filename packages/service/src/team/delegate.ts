@@ -2,12 +2,13 @@ import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/
 import { z } from "zod";
 import { settingsOf } from "../agents/agents.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { readOnlyFoldersOfTask } from "../chief/piece-folders.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
-import { isOpen, latestSession } from "./lead.ts";
+import { isOpen, latestSession, leadsTeam } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
 import { workerFolders } from "./worktrees.ts";
 
@@ -30,17 +31,15 @@ function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
   return { department, lead, goal: task.prompt, workers };
 }
 
-// A harness reads its tools once, when its session starts: a lead sees them from its first
-// session on, and they refuse until its team is approved.
+// A harness reads its tools once, at start, so a lead has them from its first session.
 const isLead =
   ({ store }: TeamContext) =>
   (caller: Caller) =>
-    store.getTask(caller.taskId)?.leadAgentId === caller.agentId;
+    leadsTeam(store, caller);
 
 const NOT_YET = "Your team is not approved yet. Wait for the user to answer your proposal.";
 
-// A worker starts on its piece in a session of its own, or continues the one it has in this task:
-// a message if it is open, a resume if it ended. Workers run at the same time.
+// Continues the worker's session in this task if it has one. Workers run at the same time.
 async function startWork(
   context: TeamContext,
   team: LedTeam,
@@ -77,7 +76,10 @@ async function startWork(
   return registry.start({
     taskId: caller.taskId,
     agentId: worker.id,
-    options: sessionOptionsFor(store, worker, folders),
+    options: sessionOptionsFor(store, worker, {
+      ...folders,
+      readOnlyPaths: readOnlyFoldersOfTask(store, caller.taskId),
+    }),
     message: workerBrief({
       goal: team.goal,
       teamName: team.department.name,
@@ -91,7 +93,7 @@ async function startWork(
   });
 }
 
-// Only the lead hands out work, and only to its own workers; workers cannot hire (MODULES M4.5).
+// Only to the lead's own workers; workers cannot hire.
 export function delegate(context: TeamContext) {
   const { store } = context;
   return defineTool({

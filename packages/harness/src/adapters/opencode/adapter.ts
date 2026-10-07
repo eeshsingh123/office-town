@@ -28,8 +28,7 @@ const PERMISSIONS: Record<PermissionMode, { edit: Rule; bash: Rule; webfetch: Ru
   bypass: { edit: "allow", bash: "allow", webfetch: "allow" },
 };
 
-// ACP's additionalDirectories is not offered by OpenCode 1.18, so additional folders are opened
-// through its own rule for folders outside the workspace.
+// OpenCode 1.18 lacks ACP's additionalDirectories, so extra folders go through its own rule.
 function externalFolders(paths: string[] | undefined) {
   if (paths === undefined || paths.length === 0) return {};
   const rules = paths.map((path) => {
@@ -40,8 +39,7 @@ function externalFolders(paths: string[] | undefined) {
 }
 
 function buildCommand(options: LaunchOptions): HarnessCommand {
-  // The core's own tools never ask, even under a user's stricter rules: what they lead to is
-  // guarded where it happens.
+  // The core's own tools never ask, even under a user's stricter rules; their effects are guarded.
   const toolRules = options.toolServers.map((server) => [`${server.name}_*`, "allow"]);
   // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
   const config = {
@@ -62,8 +60,7 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   };
 }
 
-// OpenCode's switches for project config, plugins, Claude Code's files and outside skills. Its
-// global config and global instructions still load (D-41).
+// Its global config and global instructions still load (D-41).
 const ISOLATED = {
   OPENCODE_PURE: "1",
   OPENCODE_DISABLE_PROJECT_CONFIG: "1",
@@ -71,8 +68,7 @@ const ISOLATED = {
   OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
 };
 
-// The CLI prints each model as a line with its id followed by an indented JSON description.
-// What OpenCode calls a model's variants are its effort values.
+// Each model is a line with its id, then indented JSON; its variants are its effort values.
 const catalog: CatalogQuery = {
   command: { binary: "opencode", args: ["models", "--verbose"] },
   input: [],
@@ -89,8 +85,7 @@ const catalog: CatalogQuery = {
       if (line !== "}") continue;
       const model = modelSchema.parse(JSON.parse(description.join("")));
       const access = accessOf(model);
-      // An agent works by calling tools, so a model that cannot, such as one for images or
-      // speech, is left out.
+      // A model that cannot call tools, such as one for images or speech, is useless to an agent.
       if (model.capabilities?.toolcall !== false) {
         models.push({
           id,

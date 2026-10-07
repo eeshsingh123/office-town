@@ -1,7 +1,7 @@
 import type { AgentSettings } from "@office-town/contract";
 import type { Message } from "../registry/session-registry.ts";
 
-// A solo agent gets the user's words as they are, after its profile's instructions if it has any.
+// The user's words as they are, after the profile's instructions if any.
 export function soloMessage(prompt: string, settings: AgentSettings): Message {
   const instructions = settings.instructions?.trim() ?? "";
   if (instructions === "") return { text: prompt };

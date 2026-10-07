@@ -20,8 +20,7 @@ function show(state: AppState, { event }: WaitingRequest): void {
   };
 }
 
-// A system notification for each new request while the window is not in front. Requests already
-// waiting when the app connects are in the queue, so only ones arriving while live notify.
+// Only while the window is not in front; requests already waiting at connect are in the queue.
 export function notifyNewRequests(): void {
   useApp.subscribe((state, previous) => {
     if (state.waiting === previous.waiting || state.connection !== "live") return;

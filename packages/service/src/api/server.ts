@@ -11,9 +11,8 @@ import { apiRoutes, type Reply, type Route } from "./routes.ts";
 const BODY_LIMIT_BYTES = 1024 * 1024;
 
 export interface ApiOptions {
-  // The registry, the store, and what the team routes share with the team tools.
   team: TeamContext;
-  // Generated per launch: anything else on this machine can reach the port, but not the token.
+  // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
   port: number;

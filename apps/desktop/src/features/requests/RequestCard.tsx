@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
+import { PlanCard } from "../plan/PlanCard.tsx";
 import { ProposalCard } from "./ProposalCard.tsx";
 import styles from "./RequestCard.module.css";
 
@@ -12,7 +13,7 @@ const OWN_ANSWER = "~own";
 
 interface RequestCardProps {
   event: UserRequestEvent;
-  // Who asks and for which task, where the card stands apart from its trace.
+  // Where the card stands apart from its trace.
   context?: ReactNode;
 }
 
@@ -216,9 +217,10 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
   );
 }
 
-// One card for a waiting request, wherever it shows: in its trace and in the Needs you queue.
+// The same card in its trace and in the Needs you queue.
 export function RequestCard({ event, context }: RequestCardProps) {
   if (event.type === "proposal.requested") return <ProposalCard event={event} context={context} />;
+  if (event.type === "plan.requested") return <PlanCard event={event} context={context} />;
   return <AskCard event={event} context={context} />;
 }
 

@@ -28,7 +28,6 @@ interface Draft {
   settings: ChipSettings;
 }
 
-// A value no level can take.
 const SAME = "~same";
 const CAPS: Choice<Autonomy | typeof SAME>[] = [
   { value: SAME, label: "Same as the department" },
@@ -238,14 +237,13 @@ function ProfileForm({
   );
 }
 
-// Saved descriptions of agents, like a character creator: a new task or a team role starts
-// from one.
+// A new task or a team role starts from one.
 export function ProfilesView() {
   const harnesses = useApp((state) => state.harnesses);
   const listed = useLoaded("profiles", api.listProfiles);
   const [profiles, setProfiles] = useState<ProfileRecord[]>();
   const shown = profiles ?? listed.value ?? [];
-  // The profile shown, or "new"; a duplicate is a new one that starts from a copy.
+  // A duplicate is a new one that starts from a copy.
   const [chosen, setChosen] = useState<string>("new");
   const [copy, setCopy] = useState<{ key: number; draft: Draft }>();
   const startNew = (draft?: Draft) => {

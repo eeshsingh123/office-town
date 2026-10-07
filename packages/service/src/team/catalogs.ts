@@ -9,8 +9,7 @@ export type ReadCatalog = (
 const keyOf = (harness: string, environment: EnvironmentSpec) =>
   `${harness}|${environment.kind === "wsl" ? `wsl:${environment.distro}` : "native"}`;
 
-// A catalog comes from running the harness's CLI, which takes seconds, so each is read once per
-// launch of the core; a failed read is tried again next time.
+// Reading a catalog takes seconds, so each is read once per launch; a failed read is retried.
 export function cachedCatalogs(read: ReadCatalog = describeHarness): ReadCatalog {
   const catalogs = new Map<string, Promise<HarnessCatalog>>();
   return (harness, environment) => {

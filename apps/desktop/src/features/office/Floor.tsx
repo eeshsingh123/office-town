@@ -1,47 +1,70 @@
+import { FileText, GripVertical } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import {
   type KeyboardEvent,
   type PointerEvent,
+  type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import type { Agent } from "../../store/agents.ts";
+import { focusAgent, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { Character } from "./Character.tsx";
+import { DoorChips } from "./DoorChips.tsx";
+import type { DoorChip } from "./doors.ts";
+import { FocusCard } from "./FocusCard.tsx";
 import {
   clampToFloor,
+  contains,
   DESK,
   type FloorPlan,
   inRect,
+  movable,
   type Point,
   REACH,
+  type Room,
   rectFrom,
   roomAt,
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
+import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
+import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
 
 export interface FloorAgent {
   agent: Agent;
   state: AgentState;
   position: Point;
   harness: string;
-  // What the agent is doing, shown above its head while it works or waits.
+  // Shown above its head while it works or waits.
   bubble?: string;
-  // The room it sits in, by name, to group a selection.
+  // By name, to group a selection.
   group: string;
 }
 
-// What a room's sign and wall say.
 export interface RoomSign {
   title: string;
   note: string;
-  waiting: number;
   lines: string[];
+}
+
+interface Seated {
+  id: string;
+  name: string;
+  colour: string;
+  // None for a chief that has not worked yet.
+  state?: AgentState;
+  position: Point;
+  bubble?: string;
+  // The session whose request the floor opens when it pans to this agent.
+  sessionId?: string;
+  detail: string;
 }
 
 interface FloorProps {
@@ -49,8 +72,13 @@ interface FloorProps {
   agents: FloorAgent[];
   // By room id.
   signs: Record<string, RoomSign>;
+  // By room id, the chief's included.
+  doors: Record<string, DoorChip[]>;
+  links: Link[];
+  linksGoal: string | undefined;
+  // It keeps its desk even before its first goal.
+  chief: { id: string; name: string; colour: string } | undefined;
   selection: string[];
-  // The department whose panel is open.
   room: string | undefined;
   onSelect: (agentIds: string[]) => void;
   onOpenRoom: (departmentId: string) => void;
@@ -67,14 +95,27 @@ const DIRECTIONS: Record<string, Point> = {
   a: { x: -1, y: 0 },
   d: { x: 1, y: 0 },
 };
-// A press shorter than this is a click on the floor, not a drag.
+// A press shorter than this is a click, not a drag.
 const DRAG_THRESHOLD = 6;
 const FINISHED: AgentState[] = ["idle", "done", "failed", "stopped", "interrupted"];
+const LINK_CLASSES: Record<LinkState, string | undefined> = {
+  waiting: styles.linkWaiting,
+  active: styles.linkActive,
+  done: styles.linkDone,
+  failed: styles.linkFailed,
+};
+const LEGEND: [LinkState, string][] = [
+  ["waiting", "Waiting"],
+  ["active", "Active"],
+  ["done", "Done"],
+  ["failed", "Failed"],
+];
 
-// Holding a direction key walks the player once per frame until every key is released.
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Walks once per frame until every key is released.
 function useWalking(plan: FloorPlan) {
-  // Until the user walks, the player stands at the start of the plan as it is now: rooms appear
-  // once the departments load, and the start moves clear of them.
+  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they load.
   const [walked, setWalked] = useState<Point>();
   const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
@@ -126,14 +167,124 @@ function useWalking(plan: FloorPlan) {
   return { player, press, release };
 }
 
-export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRoom }: FloorProps) {
+// Sends a document along a link once when it turns active; never for links seen when the app opens.
+function useHandoffs(links: readonly DrawnLink[], goalId: string | undefined) {
+  const seen = useRef<{ goalId: string | undefined; states: Map<string, LinkState> }>(undefined);
+  const [tokens, setTokens] = useState<{ key: string; path: string }[]>([]);
+  useEffect(() => {
+    const before = seen.current?.goalId === goalId ? seen.current?.states : undefined;
+    const states = new Map(links.map((link) => [`${link.from}>${link.to}`, link.state]));
+    seen.current = { goalId, states };
+    if (before === undefined || reducedMotion()) return;
+    const started = links.filter(
+      (link) => link.state === "active" && before.get(`${link.from}>${link.to}`) !== "active",
+    );
+    if (started.length === 0) return;
+    const now = Date.now();
+    setTokens((running) => [
+      ...running,
+      ...started.map((link) => ({ key: `${link.from}>${link.to}@${now}`, path: link.path })),
+    ]);
+  }, [links, goalId]);
+  const done = (key: string) => setTokens((running) => running.filter((one) => one.key !== key));
+  return { tokens, done };
+}
+
+// The moved room and its desks follow the move.
+function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] {
+  if (move === undefined) return [...rooms];
+  const dx = move.at.x - move.from.x;
+  const dy = move.at.y - move.from.y;
+  return rooms.map((room) =>
+    room.id !== move.id
+      ? room
+      : {
+          ...room,
+          rect: { ...room.rect, x: room.rect.x + dx, y: room.rect.y + dy },
+          seats: room.seats.map(({ desk, agent }) => ({
+            desk: { x: desk.x + dx, y: desk.y + dy },
+            agent: { x: agent.x + dx, y: agent.y + dy },
+          })),
+        },
+  );
+}
+
+function seatedOf(
+  agents: readonly FloorAgent[],
+  chief: FloorProps["chief"],
+  rooms: readonly Room[],
+  move: RoomMove | undefined,
+): Seated[] {
+  const shift = (position: Point): Point =>
+    move === undefined || !contains(move.from, position)
+      ? position
+      : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
+  const seated = agents.map(({ agent, state, position, harness, bubble }) => ({
+    id: agent.id,
+    name: agent.name,
+    colour: agent.colour,
+    state,
+    position: shift(position),
+    sessionId: agent.latest.id,
+    detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
+    ...(bubble === undefined ? {} : { bubble }),
+  }));
+  const office = rooms.find((room) => room.kind === "chief")?.seats[0];
+  if (chief === undefined || office === undefined || seated.some(({ id }) => id === chief.id)) {
+    return seated;
+  }
+  return [...seated, { ...chief, position: office.agent, detail: "Chief" }];
+}
+
+// Once per request to focus, smoothly unless motion is reduced.
+function usePanTo(floor: RefObject<HTMLDivElement | null>, at: Point | undefined, key = 0) {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: pans once per focus, not as agents move
+  useEffect(() => {
+    const scroller = floor.current?.parentElement;
+    if (at === undefined || scroller === undefined || scroller === null) return;
+    const floorBox = floor.current?.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    const left = (floorBox?.left ?? 0) - box.left + scroller.scrollLeft + at.x;
+    const top = (floorBox?.top ?? 0) - box.top + scroller.scrollTop + at.y;
+    scroller.scrollTo({
+      left: left - scroller.clientWidth / 2,
+      top: top - scroller.clientHeight / 2,
+      behavior: reducedMotion() ? "instant" : "smooth",
+    });
+  }, [key, at === undefined]);
+}
+
+export function Floor(props: FloorProps) {
+  const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
+  const { onSelect, onOpenRoom } = props;
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
-  const near = withinReach(player, agents);
-  // The department room the player stands in: walking into one opens its panel.
+  const { move, handlers, wasClick } = useRoomDrag(plan);
+  const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
+  const seated = seatedOf(agents, chief, rooms, move);
+  const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
+  const { tokens, done } = useHandoffs(drawn, linksGoal);
+  const near = withinReach(player, seated);
+  // Walking into a room opens its panel.
   const inside = useRef<string | undefined>(undefined);
+
+  const focus = useApp((state) => state.focus);
+  // The agent's oldest waiting request, from any of its sessions, as `waitingOrder` finds it.
+  const request = useApp((state) => {
+    const agentId = state.focus?.agentId;
+    if (agentId === undefined) return undefined;
+    return Object.values(state.waiting)
+      .filter(({ event }) => state.sessions[event.sessionId]?.agentId === agentId)
+      .sort((a, b) => a.position - b.position)[0];
+  });
+  const focused = seated.find(({ id }) => id === focus?.agentId);
+  usePanTo(floor, focused?.position, focus?.at);
+  const answered = focused !== undefined && request === undefined;
+  useEffect(() => {
+    if (answered) focusAgent(undefined);
+  }, [answered]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: follows the player as it walks
   useEffect(() => {
@@ -163,9 +314,10 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
       event.preventDefault();
       press(key);
     } else if (key === "e" && near !== undefined) {
-      onSelect([near.agent.id]);
+      onSelect([near.id]);
     } else if (key === "Escape") {
       onSelect([]);
+      focusAgent(undefined);
     }
   };
 
@@ -184,9 +336,31 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
     const box = rectFrom(drag.from, drag.to);
     setDrag(undefined);
     const dragged = box.width > DRAG_THRESHOLD || box.height > DRAG_THRESHOLD;
-    onSelect(dragged ? inRect(box, agents).map(({ agent }) => agent.id) : []);
+    onSelect(dragged ? inRect(box, seated).map(({ id }) => id) : []);
   };
 
+  const signLabel = (id: string, kind: Room["kind"]) => {
+    const sign = signs[id];
+    const chips = doors[id] ?? [];
+    if (kind === "chief") {
+      return (
+        <>
+          Chief
+          <DoorChips chips={chips} />
+        </>
+      );
+    }
+    if (sign === undefined) return null;
+    return (
+      <>
+        {sign.title}
+        <span>{sign.note}</span>
+        <DoorChips chips={chips} />
+      </>
+    );
+  };
+
+  const chiefSelected = chief !== undefined && selection.length === 1 && selection[0] === chief.id;
   const box = drag === undefined ? undefined : rectFrom(drag.from, drag.to);
   return (
     <div
@@ -195,7 +369,7 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
       style={{ width: plan.width, height: plan.height }}
       role="application"
       aria-roledescription="office floor"
-      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Tab moves between agents."
+      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the floor takes the walking keys
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -205,32 +379,64 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      {plan.rooms.map(({ id, kind, rect }) => {
+      {drawn.length === 0 ? null : (
+        <>
+          <svg
+            className={styles.links}
+            width={plan.width}
+            height={plan.height}
+            aria-hidden
+            focusable="false"
+          >
+            {drawn.map(({ from, to, state, path }) => (
+              <path key={`${from}>${to}`} className={LINK_CLASSES[state]} d={path} />
+            ))}
+          </svg>
+          <div className={styles.legend} aria-hidden>
+            <strong>Plan links</strong>
+            {LEGEND.map(([state, label]) => (
+              <span key={state} className={styles.legendItem}>
+                <svg viewBox="0 0 34 8" aria-hidden>
+                  <path className={LINK_CLASSES[state]} d="M2 4h30" />
+                </svg>
+                {label}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+      {rooms.map(({ id, kind, rect }) => {
         const sign = signs[id];
-        const label =
-          sign === undefined ? null : (
-            <>
-              {sign.title}
-              <span>{sign.note}</span>
-              {sign.waiting === 0 ? null : (
-                <span className={styles.signWaiting}>{sign.waiting} waiting</span>
-              )}
-            </>
-          );
+        const label = signLabel(id, kind);
+        const open = kind === "chief" ? chiefSelected : room === id;
+        const lifted = move?.id === id && move.lifted;
+        const classes = [
+          styles.room,
+          kind === "guest" ? styles.guestRoom : "",
+          kind === "chief" ? styles.chiefRoom : "",
+          open ? styles.roomOpen : "",
+          lifted ? styles.roomLifted : "",
+        ];
         return (
           <div
             key={id}
             id={`room-${id}`}
-            className={`${styles.room} ${kind === "guest" ? styles.guestRoom : ""} ${room === id ? styles.roomOpen : ""}`}
+            className={classes.join(" ")}
             style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
           >
-            {kind === "department" ? (
+            {movable(kind) ? (
               <button
                 type="button"
                 className={`${styles.sign} ${styles.signButton}`}
-                aria-pressed={room === id}
-                onClick={() => onOpenRoom(id)}
+                aria-pressed={open}
+                {...handlers(id, rect)}
+                onClick={() => {
+                  if (!wasClick()) return;
+                  if (kind === "chief" && chief !== undefined) onSelect([chief.id]);
+                  else onOpenRoom(id);
+                }}
               >
+                <GripVertical size={13} className={styles.grip} aria-hidden />
                 {label}
               </button>
             ) : (
@@ -246,7 +452,7 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
           </div>
         );
       })}
-      {plan.rooms
+      {rooms
         .flatMap((one) => one.seats)
         .map(({ desk }) => (
           <div
@@ -255,6 +461,17 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
             style={{ left: desk.x, top: desk.y, width: DESK.width, height: DESK.height }}
           />
         ))}
+      {tokens.map(({ key, path }) => (
+        <span
+          key={key}
+          className={styles.token}
+          style={{ offsetPath: `path("${path}")` }}
+          onAnimationEnd={() => done(key)}
+          aria-hidden
+        >
+          <FileText size={10} />
+        </span>
+      ))}
 
       {near === undefined ? null : (
         <div
@@ -277,11 +494,11 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
       >
         You
       </div>
-      {agents.map(({ agent, state, position, harness, bubble }) => {
-        const selected = selection.includes(agent.id);
-        const finished = FINISHED.includes(state);
+      {seated.map(({ id, name, colour, state, position, bubble, detail }) => {
+        const selected = selection.includes(id);
+        const finished = state !== undefined && FINISHED.includes(state);
         return (
-          <div key={agent.id}>
+          <div key={id}>
             {bubble === undefined ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : ""}`}
@@ -297,32 +514,31 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
                   className={`${styles.agent} ${finished ? styles.finished : ""}`}
                   style={{ left: position.x - 40, top: position.y - 18 }}
                   aria-pressed={selected}
-                  aria-label={`${agent.name}, ${harness}, ${STATE_LABELS[state].toLowerCase()}`}
+                  aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}`}
                   onClick={(event) => {
                     const adding = event.shiftKey || event.ctrlKey || event.metaKey;
-                    if (!adding) onSelect([agent.id]);
-                    else if (selected) onSelect(selection.filter((id) => id !== agent.id));
-                    else onSelect([...selection, agent.id]);
+                    if (!adding) onSelect([id]);
+                    else if (selected) onSelect(selection.filter((one) => one !== id));
+                    else onSelect([...selection, id]);
                   }}
                 >
                   <Character
-                    name={agent.name}
-                    colour={agent.colour}
+                    name={name}
+                    colour={colour}
                     state={state}
                     selected={selected}
+                    square={id === chief?.id}
+                    focused={id === focused?.id && request !== undefined}
                   />
                   <span className={styles.nameTag}>
-                    {agent.name}
+                    {name}
                     {finished ? ` · ${STATE_LABELS[state].toLowerCase()}` : ""}
                   </span>
                 </button>
               </Tooltip.Trigger>
               <Tooltip.Portal>
                 <Tooltip.Content className={styles.tooltip} sideOffset={6}>
-                  {harness}
-                  {agent.latest.options.model === undefined
-                    ? ""
-                    : ` · ${agent.latest.options.model}`}
+                  {detail}
                 </Tooltip.Content>
               </Tooltip.Portal>
             </Tooltip.Root>
@@ -332,13 +548,22 @@ export function Floor({ plan, agents, signs, selection, room, onSelect, onOpenRo
 
       {near === undefined ? null : (
         <div className={styles.hint} style={{ left: player.x, top: player.y + 26 }} aria-hidden>
-          <Kbd>E</Kbd>Talk to {near.agent.name}
+          <Kbd>E</Kbd>Talk to {near.name}
         </div>
       )}
       {box === undefined ? null : (
         <div
           className={styles.lasso}
           style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+        />
+      )}
+      {focused === undefined || request === undefined ? null : (
+        <FocusCard
+          key={request.event.id}
+          request={request}
+          at={focused.position}
+          floorWidth={plan.width}
+          onClosed={() => floor.current?.focus({ preventScroll: true })}
         />
       )}
     </div>

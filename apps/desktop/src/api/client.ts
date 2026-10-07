@@ -1,6 +1,7 @@
 import {
   type AgentCommand,
   type AgentRecord,
+  type AgentSettings,
   type ApiError,
   agentRecordSchema,
   apiErrorSchema,
@@ -14,27 +15,36 @@ import {
   environmentListSchema,
   type HarnessCatalog,
   type HarnessDescription,
+  type HarnessLimits,
   harnessCatalogSchema,
   harnessDescriptionSchema,
+  harnessLimitsSchema,
   type PendingRequestList,
+  type PlanPiece,
   type ProfileRecord,
   type ProfileRequest,
   pendingRequestListSchema,
+  planPieceSchema,
   profileRecordSchema,
+  type RoomPosition,
   type SecondOpinionRequest,
+  type SessionPage,
   type SessionRecord,
   type Settings,
   type StartTaskRequest,
   type StartTeamTaskRequest,
   type StoreSize,
+  sessionPageSchema,
   sessionRecordSchema,
   settingsSchema,
   storeSizeSchema,
   type TaskDetail,
   type TaskPage,
+  type TaskRecord,
   type Team,
   taskDetailSchema,
   taskPageSchema,
+  taskRecordSchema,
   type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -128,6 +138,17 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
+  markReviewed: (taskId: string): Promise<TaskRecord> =>
+    write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
+  startChiefTask: (goal: string): Promise<TaskDetail> =>
+    write("POST", "/tasks/chief", { goal }, taskDetailSchema),
+  getPlan: (taskId: string): Promise<PlanPiece[]> =>
+    read(`/tasks/${id(taskId)}/plan`, listOf(planPieceSchema)),
+  getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),
+  saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
+    write("PUT", "/chief", { settings }, agentRecordSchema),
+  messageAgent: (agentId: string, text: string, taskId?: string): Promise<void> =>
+    send("POST", `/agents/${id(agentId)}/messages`, { text, taskId }),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>
@@ -153,9 +174,16 @@ export const api = {
   createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
     write("POST", "/workspaces", workspace, workspaceRecordSchema),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
+  saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
+    send("PUT", `/room-positions/${id(roomId)}`, position),
   listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
   getAgent: (agentId: string): Promise<AgentRecord> =>
     read(`/agents/${id(agentId)}`, agentRecordSchema),
+  listAgentSessions: (agentId: string, before?: string): Promise<SessionPage> =>
+    read(
+      `/agents/${id(agentId)}/sessions${before === undefined ? "" : `?before=${id(before)}`}`,
+      sessionPageSchema,
+    ),
   renameAgent: (agentId: string, name: string): Promise<AgentRecord> =>
     write("PUT", `/agents/${id(agentId)}/name`, { name }, agentRecordSchema),
   listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
@@ -164,5 +192,6 @@ export const api = {
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>
     write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
   deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
+  listLimits: (): Promise<HarnessLimits[]> => read("/limits", listOf(harnessLimitsSchema)),
   readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };

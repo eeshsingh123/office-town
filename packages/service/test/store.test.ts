@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
+  type Change,
   type SessionEvent,
   type SessionEventBody,
   type SessionOptions,
@@ -31,9 +32,12 @@ const options: SessionOptions = {
 let directory: string;
 let store: Store;
 
-function startSession(taskId: string): { id: string; emit: (body: SessionEventBody) => void } {
+function startSession(
+  taskId: string,
+  { harness = "claude", agentId = addAgent(store).id } = {},
+): { id: string; emit: (body: SessionEventBody) => void } {
   const id = randomUUID();
-  store.createSession({ id, taskId, agentId: addAgent(store).id, options });
+  store.createSession({ id, taskId, agentId, options: { ...options, harness } });
   let sequence = 0;
   const emit = (body: SessionEventBody) => {
     sequence += 1;
@@ -160,6 +164,11 @@ describe("store", () => {
          'exited', 0),
         (2, 'resumed', 1, '{"harness":"opencode","environment":{"kind":"native"},"permissionMode":"acceptEdits"}',
          'exited', 0);
+      INSERT INTO events (session_ref, sequence, id, type, timestamp, payload) VALUES
+        (1, 1, 'e1', 'turn.ended', 0,
+         '{"turnId":"t","outcome":"completed","usage":{"inputTokens":10,"outputTokens":2}}'),
+        (2, 1, 'e2', 'turn.ended', 0,
+         '{"turnId":"t","outcome":"completed","usage":{"inputTokens":5,"outputTokens":1,"cachedInputTokens":3}}');
     `);
     m3.close();
 
@@ -177,6 +186,12 @@ describe("store", () => {
     ]);
     // The harness itself now only asks; the level answers what it allows.
     expect(store.getSession("resumed")?.options.permissionMode).toBe("ask");
+    // Old history counts as finished and reviewed, with its usage summed from the stored turns.
+    expect(store.getTask("task-1")).toMatchObject({
+      state: "ended",
+      reviewedAt: expect.any(String),
+      usage: [{ harness: "opencode", inputTokens: 15, outputTokens: 3, cachedInputTokens: 3 }],
+    });
   });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
@@ -275,6 +290,107 @@ describe("store", () => {
     ]);
   });
 
+  it("sums each task's tokens by harness and keeps each harness's latest limits, telling listeners", () => {
+    const changes: Change[] = [];
+    store.subscribe((change) => changes.push(change));
+    const task = store.createTask("Write a report");
+    const claude = startSession(task.id);
+    const opencode = startSession(task.id, { harness: "opencode" });
+    const turnEnded = (inputTokens: number, cachedInputTokens?: number): SessionEventBody => ({
+      type: "turn.ended",
+      payload: {
+        turnId: "turn",
+        outcome: "completed",
+        usage: {
+          inputTokens,
+          outputTokens: 1,
+          ...(cachedInputTokens ? { cachedInputTokens } : {}),
+        },
+      },
+    });
+    const limits = (usedFraction: number): SessionEventBody => ({
+      type: "limits.updated",
+      payload: { limits: [{ id: "five_hour", label: "5 hours", usedFraction }] },
+    });
+    claude.emit(turnEnded(100, 40));
+    claude.emit(limits(0.2));
+    opencode.emit(turnEnded(7));
+    claude.emit(turnEnded(50));
+    claude.emit(limits(0.3));
+
+    const usage = [
+      { harness: "claude", inputTokens: 150, outputTokens: 2, cachedInputTokens: 40 },
+      { harness: "opencode", inputTokens: 7, outputTokens: 1, cachedInputTokens: 0 },
+    ];
+    expect(store.getTask(task.id)?.usage).toEqual(usage);
+    expect(store.listLimits()).toEqual([
+      {
+        harness: "claude",
+        limits: [{ id: "five_hour", label: "5 hours", usedFraction: 0.3 }],
+        reportedAt: expect.any(String),
+      },
+    ]);
+    expect(changes.at(-2)).toEqual({ type: "task", task: store.getTask(task.id) });
+    expect(changes.at(-1)).toEqual({ type: "limits", limits: store.listLimits()[0] });
+  });
+
+  it("pages an agent's sessions across its tasks, newest first", () => {
+    const agentId = addAgent(store).id;
+    const ids = ["one", "two", "three"].map((prompt) => {
+      const task = store.createTask(prompt);
+      startSession(task.id);
+      return startSession(task.id, { agentId }).id;
+    });
+
+    const first = store.listAgentSessions(agentId, { limit: 2 });
+    expect(first.sessions.map((session) => session.id)).toEqual([ids[2], ids[1]]);
+    const rest = store.listAgentSessions(agentId, { limit: 2, before: first.next ?? "" });
+    expect(rest).toEqual({ sessions: [store.getSession(ids[0] ?? "")] });
+  });
+
+  it("keeps a chief's plan with its goal: its pieces go with it, the departments' tasks stay", async () => {
+    const chief = addAgent(store);
+    const goal = store.createTask("Launch the bakery", { leadAgentId: chief.id });
+    const later = store.createTask(
+      "Open a second shop",
+      { leadAgentId: chief.id },
+      { queued: true },
+    );
+    expect(later.state).toBe("queued");
+    expect(store.oldestQueuedTask()).toBe(later.id);
+    expect(store.openTaskOfLead(chief.id)).toBe(goal.id);
+    const changes: Change[] = [];
+    store.subscribe((change) => changes.push(change));
+    const newDepartment = {
+      name: "Web team",
+      purpose: "Builds the site",
+      lead: { harness: "claude", environment: { kind: "native" as const } },
+      workspaceId: "w",
+      autonomy: "trusted" as const,
+    };
+    const site = store.createPiece({
+      taskId: goal.id,
+      key: "site",
+      title: "Build the site",
+      brief: "Build it",
+      waitsOn: [],
+      newDepartment,
+    });
+    const work = store.createTask("Build it", undefined, { parentTaskId: goal.id });
+    store.updatePiece(site.id, { status: "working", pieceTaskId: work.id });
+    expect(store.pieceOfTask(work.id)).toMatchObject({ id: site.id, status: "working" });
+    expect(store.listOpenPieces().map((piece) => piece.id)).toEqual([site.id]);
+    expect(store.updatePiece(site.id, { status: "done", result: "Live" })).toMatchObject({
+      result: "Live",
+      endedAt: expect.any(String),
+    });
+    expect(changes.filter((change) => change.type === "piece")).toHaveLength(3);
+
+    await store.deleteTask(goal.id);
+    expect(store.getPiece(site.id)).toBeUndefined();
+    expect(store.getTask(work.id)?.parentTaskId).toBeUndefined();
+  });
+
   // A query that loses its index reads the whole table and slows down with every event stored.
   it("answers every query through an index", () => {
     store.close();
@@ -285,14 +401,14 @@ describe("store", () => {
         .all()
         .map((row) => String(row.detail))
         .join("\n");
-    // These read a small table whole on purpose: what is waiting now, and the saved workspaces,
-    // agents, profiles and departments.
+    // These read a small table whole on purpose.
     const wholeTableReads = new Set([
       "pendingRequests",
       "workspacesByUse",
       "allAgents",
       "allProfiles",
       "allDepartments",
+      "allLimits",
     ]);
     for (const [name, sql] of Object.entries(queries)) {
       if (!wholeTableReads.has(name)) expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);
@@ -303,9 +419,23 @@ describe("store", () => {
       [queries.deleteSessionEvents, "events_by_session"],
       [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
       [queries.sessionsOfTask, "sessions_by_task"],
+      [queries.agentSessionsBefore, "sessions_by_agent"],
+      [queries.activeTaskOfDepartment, "tasks_open_by_department"],
+      [queries.latestTurnOfSession, "events_turns"],
+      [queries.promptAfterTurn, "events_turns"],
+      [queries.promptAfterTurn, "events_by_session"],
       [queries.unfinishedSessions, "sessions_unfinished"],
       [queries.deleteSessionPendingRequests, "pending_requests_by_session"],
       [queries.deleteUnfinishedPendingRequests, "sessions_unfinished"],
+      [queries.openTaskOfLead, "tasks_open_by_lead"],
+      [queries.oldestQueuedTask, "tasks_queued"],
+      [queries.lastAgentMessage, "events_messages"],
+      [queries.openPieces, "plan_pieces_open"],
+      [queries.childTasks, "tasks_by_parent"],
+      // The foreign-key checks SQLite runs when a chief's task, or a piece's, is deleted.
+      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_task"],
+      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_piece_task"],
+      ["DELETE FROM tasks WHERE ref = ?", "tasks_by_parent"],
       // The foreign-key checks SQLite runs when a session row is deleted with its task.
       ["DELETE FROM sessions WHERE ref = ?", "events_by_session"],
       ["DELETE FROM sessions WHERE ref = ?", "harness_lines_by_session"],

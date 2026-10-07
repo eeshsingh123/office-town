@@ -2,16 +2,36 @@ import { z } from "zod";
 import { newAgentSchema } from "./agents.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
-import { userRequestEventSchema } from "./events.ts";
+import { usageLimitSchema, userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
+
+// idle: none of the others, such as a team cut off by a restart. queued: a chief's goal behind another.
+export const taskStateSchema = z.enum(["queued", "working", "waiting", "idle", "ended"]);
+export type TaskState = z.infer<typeof taskStateSchema>;
+
+// Summed over the turns of a task's sessions on one harness.
+export const taskUsageSchema = z.object({
+  harness: z.string().min(1),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative(),
+});
+export type TaskUsage = z.infer<typeof taskUsageSchema>;
 
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
   prompt: z.string(),
   createdAt: z.iso.datetime(),
-  // Set on a team's task: who leads it, and its department once the team is approved.
+  // Set on a team's task; `departmentId` once the team is approved.
   leadAgentId: z.string().min(1).optional(),
   departmentId: z.string().min(1).optional(),
+  // Set on a piece of a chief's plan.
+  parentTaskId: z.string().min(1).optional(),
+  state: taskStateSchema,
+  // Cleared when the finished goal is taken up again.
+  reviewedAt: z.iso.datetime().optional(),
+  // By harness.
+  usage: z.array(taskUsageSchema),
 });
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
@@ -38,12 +58,36 @@ export const sessionRecordSchema = z.object({
 });
 export type SessionRecord = z.infer<typeof sessionRecordSchema>;
 
+// Newest first. `next` is passed back as `before` for the next page.
+export const sessionPageSchema = z.object({
+  sessions: z.array(sessionRecordSchema),
+  next: z.string().min(1).optional(),
+});
+export type SessionPage = z.infer<typeof sessionPageSchema>;
+
+export const sessionPageQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  before: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .optional(),
+});
+export type SessionPageQuery = z.input<typeof sessionPageQuerySchema>;
+
+// The latest any session reported; a limit belongs to the account.
+export const harnessLimitsSchema = z.object({
+  harness: z.string().min(1),
+  limits: z.array(usageLimitSchema),
+  reportedAt: z.iso.datetime(),
+});
+export type HarnessLimits = z.infer<typeof harnessLimitsSchema>;
+
 export const taskSummarySchema = taskRecordSchema.extend({
   sessions: z.array(sessionRecordSchema),
 });
 export type TaskSummary = z.infer<typeof taskSummarySchema>;
 
-// `next` is set while more tasks may follow; it is passed back as the cursor for the next page.
+// `next` is passed back as the cursor for the next page.
 export const taskPageSchema = z.object({
   tasks: z.array(taskSummarySchema),
   next: z.string().min(1).optional(),
@@ -64,7 +108,6 @@ export type StoreSize = z.infer<typeof storeSizeSchema>;
 
 export const harnessDescriptionSchema = z.object({
   harness: z.string().min(1),
-  // The harness's name as people know it.
   name: z.string().min(1),
   capabilities: adapterCapabilitiesSchema,
   // What still loads in an isolated session, when isolation is partial.
@@ -72,11 +115,10 @@ export const harnessDescriptionSchema = z.object({
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
-// Where a harness can run on this machine: natively, and in each installed WSL distro.
 export const environmentListSchema = z.array(environmentSpecSchema);
 export type EnvironmentList = z.infer<typeof environmentListSchema>;
 
-// The first folder is where the agent works; it may use the others as freely.
+// The first folder is where the agent works.
 export const workspaceRequestSchema = z.object({
   name: z.string().trim().min(1),
   folders: z
@@ -93,15 +135,23 @@ export const workspaceRecordSchema = workspaceRequestSchema.extend({
 });
 export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 
+// In floor pixels.
+export const roomPositionSchema = z.object({
+  x: z.number().int().min(0).max(20_000),
+  y: z.number().int().min(0).max(20_000),
+});
+export type RoomPosition = z.infer<typeof roomPositionSchema>;
+
 export const settingsSchema = z.object({
-  // Where a task with no workspace gets a folder of its own; the last one chosen is kept.
+  // The last one chosen is kept.
   outputFolder: absolutePathSchema.optional(),
+  chiefAgentId: z.string().min(1).optional(),
+  // By department id, or "chief"; a room not listed is placed automatically.
+  roomPositions: z.record(z.string(), roomPositionSchema).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-// A new agent works in a saved workspace, or else in a new folder for this task inside the output
-// folder: the one given, or the last one given. Folders are never passed directly, and a resume
-// goes through its own request, which checks the conversation is not already running.
+// No folders are passed: an agent works in a saved workspace or a new folder in the output folder.
 export const startTaskRequestSchema = z
   .object({
     prompt: z.string().min(1),
@@ -119,8 +169,7 @@ export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 export const resumeSessionRequestSchema = z.object({ prompt: z.string().min(1) });
 export type ResumeSessionRequest = z.infer<typeof resumeSessionRequestSchema>;
 
-// `active=true` lists every task with an agent starting or running instead, on one page: those
-// can be far down the list when an old task was resumed.
+// `active=true` lists every running task on one page; a resumed old task can be far down the list.
 export const taskListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().min(1).optional(),
@@ -128,9 +177,7 @@ export const taskListQuerySchema = z.object({
 });
 export type TaskListQuery = z.input<typeof taskListQuerySchema>;
 
-// The stream starts after `after`, an event position; with none, it carries new events only.
-// A reconnecting client sends its last position as the `Last-Event-ID` header instead.
-// `follow=false` makes it a replay that ends once it has caught up, starting from 0 by default.
+// With no `after` or `Last-Event-ID`, only new events. `follow=false` replays from 0 and ends.
 export const eventStreamQuerySchema = z.object({
   after: z.coerce.number().int().nonnegative().optional(),
   session: z.string().min(1).optional(),
@@ -145,8 +192,7 @@ export const pendingRequestSchema = z.object({
 });
 export type PendingRequest = z.infer<typeof pendingRequestSchema>;
 
-// Oldest first. `position` is where the store stood when the list was read: a stream opened after
-// it carries every later request and answer, with nothing missed or repeated.
+// Oldest first. A stream opened from `position` misses and repeats nothing.
 export const pendingRequestListSchema = z.object({
   requests: z.array(pendingRequestSchema),
   position: z.number().int().nonnegative(),
@@ -167,6 +213,5 @@ export const apiErrorSchema = z.object({
 });
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
-// The one line the core prints on stdout once it accepts requests.
 export const coreReadySchema = z.object({ url: z.url(), token: z.string().min(1) });
 export type CoreReady = z.infer<typeof coreReadySchema>;

@@ -157,6 +157,99 @@ Tests pass.`,
     expect(core.store.listDelegations(task.taskId)).toEqual([]);
   });
 
+  it("keeps a goal's state: working, waiting on the user, working while its lead owes a turn for a result, ended once the lead finished, and idle when cut off", async () => {
+    const first = await teamAtWork("First goal");
+    const state = (taskId: string) => core.store.getTask(taskId)?.state;
+    const [lead] = core.sessions;
+    expect(state(first.task.taskId)).toBe("working");
+
+    lead?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    await core.callTool(lead, "delegate", { agent: first.writer, brief: "Write" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    const writer = core.sessions[1];
+    expect(state(first.task.taskId)).toBe("working");
+    await core.callTool(writer, "ask_user", { question: "Which menu?" });
+    expect(state(first.task.taskId)).toBe("waiting");
+    const [question] = core.store.listPendingRequests().requests;
+    await core.call("POST", `/sessions/${writer?.id}/commands`, {
+      type: "answerQuestion",
+      requestId: question?.event.payload.requestId,
+      answers: [{ questionId: "1", selected: ["Lunch"] }],
+    });
+    // The writer's result reaches the lead after the lead's turn ended: its next turn is due.
+    await settle();
+    playTurn(writer, "The menu is in menu.md.");
+    await settle();
+    expect(state(first.task.taskId)).toBe("working");
+    playTurn(lead, "The site is done.");
+    expect(state(first.task.taskId)).toBe("ended");
+
+    // A new goal stops the agents the ended one left open; a restart cuts the new one off.
+    const second = (
+      await core.call("POST", "/tasks/team", {
+        goal: "Second goal",
+        team: { departmentId: first.department.id },
+      })
+    ).json;
+    expect(
+      [lead, writer].map((session) => core.store.getSession(session?.id ?? "")?.status),
+    ).toEqual(["exited", "exited"]);
+    expect(state(first.task.taskId)).toBe("ended");
+    expect(state(second.taskId)).toBe("working");
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    expect(state(second.taskId)).toBe("idle");
+  });
+
+  it("ends a goal only once its lead acted on every answer and result, not on one given inside its turn, and ends a stopped one whose lead was idle", async () => {
+    const { task, writer } = await teamAtWork();
+    const [lead] = core.sessions;
+    const states: string[] = [];
+    core.store.subscribe((change) => {
+      if (change.type === "task" && change.task.id === task.taskId) states.push(change.task.state);
+    });
+    const state = () => core.store.getTask(task.taskId)?.state;
+
+    // An answer is stored before the lead is told it: the goal goes from waiting to working.
+    lead?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    await core.callTool(lead, "ask_user", { question: "Which menu?" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    const [question] = core.store.listPendingRequests().requests;
+    await core.call("POST", `/sessions/${lead?.id}/commands`, {
+      type: "answerQuestion",
+      requestId: question?.event.payload.requestId,
+      answers: [{ questionId: "1", selected: ["Lunch"] }],
+    });
+    expect(states.slice(-2)).toEqual(["waiting", "working"]);
+
+    // A result told mid-turn is still owed a turn once that turn ends.
+    lead?.emit({ type: "turn.started", payload: { turnId: "2" } });
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write" });
+    playTurn(core.sessions[1], "The menu is in menu.md.");
+    await settle();
+    lead?.emit({ type: "turn.ended", payload: { turnId: "2", outcome: "completed" } });
+    expect(state()).toBe("working");
+    playTurn(lead, "The menu is done.");
+    expect(state()).toBe("ended");
+
+    // The harness's own question is answered inside the turn, so no turn is owed after it.
+    lead?.emit({ type: "turn.started", payload: { turnId: "3" } });
+    const asked = { questionId: "1", text: "Which?", options: [], multiSelect: false };
+    lead?.emit({ type: "question.requested", payload: { requestId: "q", questions: [asked] } });
+    lead?.emit({ type: "question.resolved", payload: { requestId: "q", outcome: "answered" } });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "3", outcome: "completed" } });
+    expect(state()).toBe("ended");
+
+    // Stopping a goal whose lead was stopped as idle ends it, with the worker's work undelivered.
+    lead?.emit({ type: "turn.started", payload: { turnId: "4" } });
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write again" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "4", outcome: "completed" } });
+    await core.registry.stop(lead?.id ?? "", true);
+    expect(state()).toBe("idle");
+    expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
+    expect(state()).toBe("ended");
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });
@@ -251,6 +344,30 @@ Tests pass.`,
 
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
+  });
+
+  it("hands the user's message to a worker and a note to its lead at work", async () => {
+    const { writer, tester } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
+    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id;
+
+    const sent = await core.call("POST", `/agents/${idOf(writer)}/messages`, {
+      text: "Use British spelling",
+    });
+
+    expect(sent.status).toBe(204);
+    expect(lastSent(1)).toEqual({ type: "prompt", text: "Use British spelling" });
+    expect(lastSent(0)).toEqual({
+      type: "prompt",
+      text: `The user told ${writer} directly: "Use British spelling"`,
+      origin: { kind: "notice", summary: `The user messaged ${writer}` },
+    });
+    expect(
+      (await core.call("POST", `/agents/${idOf(tester)}/messages`, { text: "Hi" })).status,
+    ).toBe(409);
+    expect((await core.call("POST", "/agents/nobody/messages", { text: "Hi" })).status).toBe(404);
   });
 });
 

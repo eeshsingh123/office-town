@@ -1,10 +1,9 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
 import { Settings } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -67,10 +66,10 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
 }
 
 function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[] }) {
-  // Read again whenever a member's session or state changes, which is when delegations open or end.
-  const signature = members.map(({ work }) => `${work?.latest.id}:${work?.latest.status}`).join();
-  const delegations = useLoaded(`${task.id}|${signature}`, () => api.listDelegations(task.id));
-  const open = (delegations.value ?? []).filter((one) => one.status === "working");
+  const delegations = useApp((state) => state.delegations);
+  const open = Object.values(delegations)
+    .filter((one) => one.taskId === task.id && one.status === "working")
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (open.length === 0) return null;
   const names = new Map(members.map(({ record }) => [record.id, record.name]));
   return (
@@ -90,8 +89,6 @@ function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[
   );
 }
 
-// A department: its members and their state, its open delegations, usage and autonomy, and what
-// can be done to the whole team (MODULES M4.9).
 export function DepartmentPanel({ department }: { department: DepartmentRecord }) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
@@ -116,23 +113,18 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         const work = task === undefined ? undefined : workOf(known, record.id, task.id);
         return work === undefined ? { record } : { record, work };
       });
-    // The team's own work: a guest called in for a second opinion is no member.
+    // A guest called in for a second opinion is no member.
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);
     return { task, members, goalSessions };
   }, [agents, tasks, sessions, department]);
 
-  // Usage counts every session of the goal, finished ones included.
-  useEffect(() => {
-    for (const session of goalSessions) loadTrace(session.id);
-  }, [goalSessions]);
-
   const lead = members.find(({ record }) => record.id === department.leadAgentId)?.work;
   const working = goalSessions.some(isOpen);
 
   return (
-    <aside className={office.panel} aria-label={`${department.name}, department`}>
+    <>
       <div className={styles.head}>
         <span className={`${styles.dot} ${working ? styles.dotWorking : ""}`} aria-hidden />
         <h2 className={styles.name}>{department.name}</h2>
@@ -184,7 +176,11 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
       </section>
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
-      <Usage sessions={goalSessions} title={working ? "This goal's usage" : "Last goal's usage"} />
+      <Usage
+        sessions={goalSessions}
+        usage={task?.usage ?? []}
+        title={working ? "This goal's usage" : "Last goal's usage"}
+      />
 
       <div className={office.panelActions}>
         {task === undefined ? (
@@ -197,6 +193,6 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         ) : null}
       </div>
       {lead === undefined ? null : <MessageBox agent={lead} className={office.message} />}
-    </aside>
+    </>
   );
 }

@@ -1,0 +1,85 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 -9px;
+}
+
+.instructions {
+  min-height: 60px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-weight: 400;
+  resize: vertical;
+}
+
+.note {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.note svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.headText strong {
+  font-size: var(--size-agent);
+}
+
+.headText span {
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 0;
+  font-size: var(--size-meta);
+}
+
+.facts dt {
+  color: var(--text-3);
+}
+
+.facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.taskLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-weight: 500;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}

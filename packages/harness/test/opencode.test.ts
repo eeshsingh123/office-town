@@ -147,7 +147,7 @@ describe("opencode adapter", () => {
     ]);
   });
 
-  it("sets the chosen effort on the new session before the first prompt", async () => {
+  it("sets the chosen effort before the first prompt, or names the values the model offers", async () => {
     const { events, written } = await replay(opencodeAdapter, effortRecording, withEffort("high"));
 
     const sent = written.map((line) => JSON.parse(line));
@@ -160,17 +160,15 @@ describe("opencode adapter", () => {
     expect(sent[2].params).toMatchObject({ configId: "effort", value: "high" });
     expect(only(events, "error")).toEqual([]);
     expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
 
-  it("says which effort values the model offers when the chosen one is not among them", async () => {
-    const { events, written } = await replay(
+    const invalid = await replay(
       opencodeAdapter,
       effortRecording.slice(0, 2),
       withEffort("extreme"),
     );
 
-    expect(written.some((line) => line.includes("session/set_config_option"))).toBe(false);
-    expect(only(events, "error")[0]?.payload).toEqual({
+    expect(invalid.written.some((line) => line.includes("session/set_config_option"))).toBe(false);
+    expect(only(invalid.events, "error")[0]?.payload).toEqual({
       message: `This model's effort can be low, medium, high, default, so "extreme" was ignored.`,
       fatal: false,
     });

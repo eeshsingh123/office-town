@@ -9,8 +9,7 @@ import type {
 
 type BodyOf<T extends SessionEventBody["type"]> = Extract<SessionEventBody, { type: T }>;
 
-// Turn ids and session end belong to the session, so an adapter reports turns without ids
-// and never reports the session ending.
+// Turn ids and the session's end belong to the session, so adapters report neither.
 export type AdapterEvent =
   | Exclude<SessionEventBody, { type: "session.ended" | "turn.started" | "turn.ended" }>
   | { type: "turn.started" }
@@ -23,27 +22,24 @@ export interface ToolServer {
   token: string;
 }
 
-// A tool server as the harness reaches it from where it runs: directly, or through a command.
 // `token` is the one its headers or env carry, so an adapter can keep it off a command line.
 export type AttachedToolServer = { name: string; token: string } & (
   | { transport: "http"; url: string; headers: Record<string, string> }
   | { transport: "stdio"; command: string; args: string[]; env: Record<string, string> }
 );
 
-// What a session gets for one launch only and never stores: tokens last one launch.
+// Tokens last one launch and are never stored.
 export interface LaunchExtras {
   toolServers?: ToolServer[];
 }
 
-// What an adapter is given: the session options with the workspace, additional folders and tool
-// servers already resolved to what the harness sees where it runs.
+// Workspace, folders and tool servers already resolved to what the harness sees where it runs.
 export type LaunchOptions = SessionOptions & {
   workspacePath: string;
   toolServers: AttachedToolServer[];
 };
 
-// The server and tool an action calls, when the harness names it by one of the attached servers
-// with a prefix of its own, such as "mcp__office-town__" or "office-town_".
+// For a harness that prefixes server names, such as "mcp__office-town__" or "office-town_".
 export function attachedTool(
   title: string,
   servers: readonly { name: string }[],
@@ -85,8 +81,7 @@ export interface Translator {
   interrupt(): Translation;
 }
 
-// How to ask a harness what it offers: a command that runs to its end once its input is closed,
-// and a pure reading of what it printed.
+// A command that runs to its end once its input closes, and a pure reading of its output.
 export interface CatalogQuery {
   command: HarnessCommand;
   input: string[];
@@ -95,7 +90,6 @@ export interface CatalogQuery {
 
 export interface Adapter {
   readonly harness: string;
-  // The harness's name as people know it.
   readonly name: string;
   readonly capabilities: AdapterCapabilities;
   // What still loads in an isolated session, when isolation is partial.

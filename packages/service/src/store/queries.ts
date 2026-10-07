@@ -1,9 +1,10 @@
 const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
-         d.id AS departmentId, t.setup
+         d.id AS departmentId, p.id AS parentTaskId, t.setup, t.state, t.reviewed_at AS reviewedAt
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
-  LEFT JOIN departments d ON d.ref = t.department_ref`;
+  LEFT JOIN departments d ON d.ref = t.department_ref
+  LEFT JOIN tasks p ON p.ref = t.parent_ref`;
 
 const SESSION_SELECT = `
   SELECT s.ref, s.id, t.id AS taskId, a.id AS agentId, s.options, s.status,
@@ -43,33 +44,62 @@ const DELEGATION_SELECT = `
   JOIN tasks t ON t.ref = g.task_ref
   JOIN agents a ON a.ref = g.worker_ref`;
 
+const PIECE_SELECT = `
+  SELECT pp.ref, pp.id, t.id AS taskId, pp.key, pp.title, d.id AS departmentId,
+         pp.new_department AS newDepartment, pp.brief, pp.waits_on AS waitsOn, pp.status,
+         pt.id AS pieceTaskId, pp.result, pp.created_at AS createdAt, pp.ended_at AS endedAt
+  FROM plan_pieces pp
+  JOIN tasks t ON t.ref = pp.task_ref
+  LEFT JOIN departments d ON d.ref = pp.department_ref
+  LEFT JOIN tasks pt ON pt.ref = pp.piece_task_ref`;
+
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
 const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
 
-// Every statement the store runs. The store test checks that none of them reads a whole table,
-// except those marked as reading a small table whole.
+// The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
-    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup)
-    VALUES (?, ?, ?, ?, ?, ?)`,
+    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
+  taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
-  // A department works on one goal at a time: the one with an agent at work.
-  activeTaskOfDepartment: `
-    SELECT t.id FROM tasks t
-    WHERE t.department_ref = ?
-      AND EXISTS (SELECT 1 FROM sessions s WHERE s.task_ref = t.ref AND s.${UNFINISHED})
-    LIMIT 1`,
+  activeTaskOfDepartment:
+    "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
+  openTaskOfLead: `
+    SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' AND state <> 'queued' LIMIT 1`,
+  oldestQueuedTask: "SELECT id FROM tasks WHERE state = 'queued' ORDER BY ref LIMIT 1",
+  // Leaving "ended" clears the review.
+  setTaskState: `
+    UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
+    WHERE ref = ?2 AND state <> ?1`,
+  taskReviewed: "UPDATE tasks SET reviewed_at = ? WHERE ref = ?",
+  usageOfTask: `
+    SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
+           cached_input_tokens AS cachedInputTokens
+    FROM task_usage WHERE task_ref = ? ORDER BY harness`,
+  addTaskUsage: `
+    INSERT INTO task_usage (task_ref, harness, input_tokens, output_tokens, cached_input_tokens)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (task_ref, harness) DO UPDATE SET
+      input_tokens = input_tokens + excluded.input_tokens,
+      output_tokens = output_tokens + excluded.output_tokens,
+      cached_input_tokens = cached_input_tokens + excluded.cached_input_tokens`,
   deleteTask: "DELETE FROM tasks WHERE ref = ?",
+  childTasks: "SELECT id FROM tasks WHERE parent_ref = ?",
 
   insertSession: `
     INSERT INTO sessions (id, task_ref, agent_ref, resumed_from_ref, options, status, created_at)
     VALUES (?, ?, ?, ?, ?, 'starting', ?)`,
   sessionRef: "SELECT ref FROM sessions WHERE id = ?",
+  sessionTaskAndHarness: `
+    SELECT task_ref AS taskRef, options ->> '$.harness' AS harness FROM sessions WHERE ref = ?`,
   sessionById: `${SESSION_SELECT} WHERE s.id = ?`,
   sessionsOfTask: `${SESSION_SELECT} WHERE s.task_ref = ? ORDER BY s.ref`,
+  agentSessionsBefore: `
+    ${SESSION_SELECT} WHERE s.agent_ref = ? AND s.ref < ? ORDER BY s.ref DESC LIMIT ?`,
   unfinishedInTask: `SELECT 1 FROM sessions WHERE task_ref = ? AND ${UNFINISHED} LIMIT 1`,
   unfinishedSessions: `${SESSION_SELECT} WHERE s.${UNFINISHED}`,
   interruptUnfinished: `UPDATE sessions SET status = 'interrupted' WHERE ${UNFINISHED}`,
@@ -93,21 +123,39 @@ export const queries = {
   // Reads the whole table on purpose: one row per agent, which the app shows together.
   allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
   renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
-  // An agent that worked on no other task, and is in no department, goes with its last task.
+  // The chief stands without a task.
   deleteAgentIfUnused: `
     DELETE FROM agents
-    WHERE ref = ? AND department_ref IS NULL
-      AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?)`,
+    WHERE ref = ?1 AND department_ref IS NULL
+      AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?1)
+      AND NOT EXISTS
+        (SELECT 1 FROM settings WHERE key = 'chiefAgentId' AND value = json_quote(agents.id))`,
 
   insertDelegation: `
     INSERT INTO delegations
       (id, task_ref, worker_ref, worker_session, brief, status, created_at)
     VALUES (?, ?, ?, ?, ?, 'working', ?)`,
   delegationsOfTask: `${DELEGATION_SELECT} WHERE g.task_ref = ? ORDER BY g.ref`,
+  workingDelegations: `${DELEGATION_SELECT} WHERE g.status = 'working'`,
   workingDelegationOf: `${DELEGATION_SELECT} WHERE g.worker_session = ? AND g.status = 'working'`,
-  delegationRef: "SELECT ref FROM delegations WHERE id = ?",
+  delegationById: `${DELEGATION_SELECT} WHERE g.id = ?`,
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
+
+  insertPiece: `
+    INSERT INTO plan_pieces
+      (id, task_ref, key, title, department_ref, new_department, brief, waits_on, status,
+       created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)`,
+  pieceById: `${PIECE_SELECT} WHERE pp.id = ?`,
+  piecesOfTask: `${PIECE_SELECT} WHERE pp.task_ref = ? ORDER BY pp.ref`,
+  pieceOfPieceTask: `${PIECE_SELECT} WHERE pp.piece_task_ref = ?`,
+  // In no order: the index serves the status, and the store orders the few rows itself.
+  openPieces: `${PIECE_SELECT} WHERE pp.status IN ('waiting', 'queued', 'working')`,
+  updatePiece: `
+    UPDATE plan_pieces
+    SET status = ?, department_ref = ?, piece_task_ref = ?, result = ?, ended_at = ?
+    WHERE ref = ?`,
 
   insertDepartment: `
     INSERT INTO departments
@@ -156,6 +204,39 @@ export const queries = {
     JOIN sessions s ON s.ref = e.session_ref
     JOIN tasks t ON t.ref = s.task_ref
     ORDER BY p.event_position`,
+  latestTurnOfSession: `
+    SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
+    WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
+    ORDER BY position DESC LIMIT 1`,
+  // The repeated type terms let the subqueries use the partial index on turns. An answer given
+  // mid-turn, such as to Claude's own question, goes back into that turn, so only one after it counts.
+  promptAfterTurn: `
+    SELECT 1 FROM events
+    WHERE session_ref = ?1
+      AND ((type = 'message' AND payload ->> '$.role' = 'user'
+            AND position > coalesce(
+              (SELECT max(position) FROM events
+               WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
+                 AND type = 'turn.started'),
+              0))
+        OR (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
+            AND position > coalesce(
+              (SELECT max(position) FROM events
+               WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
+                 AND type = 'turn.ended'),
+              0)))
+    LIMIT 1`,
+  lastAgentMessage: `
+    SELECT payload ->> '$.text' AS text FROM events
+    WHERE session_ref = ? AND type = 'message' AND payload ->> '$.role' = 'assistant'
+      AND payload ->> '$.parentActionId' IS NULL
+    ORDER BY position DESC LIMIT 1`,
+  saveLimits: `
+    INSERT INTO harness_limits (harness, limits, reported_at) VALUES (?, ?, ?)
+    ON CONFLICT (harness) DO UPDATE SET limits = excluded.limits, reported_at = excluded.reported_at`,
+  // Reads the whole table on purpose: one row per harness.
+  allLimits:
+    "SELECT harness, limits, reported_at AS reportedAt FROM harness_limits ORDER BY harness",
   lastPosition: "SELECT max(position) AS position FROM events",
 
   insertWorkspace: `

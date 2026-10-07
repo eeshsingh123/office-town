@@ -1,7 +1,7 @@
 import type { AgentRecord, PlanStep, SessionRecord, UsageLimit } from "@office-town/contract";
 import { Check, CircleDashed, LoaderCircle } from "lucide-react";
 import { useLevel } from "../../store/agents.ts";
-import { useHarnessName } from "../../store/app-store.ts";
+import { useApp, useHarnessName } from "../../store/app-store.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { clockTime, compactCount, elapsed, environmentName, whenNext } from "../../ui/format.ts";
@@ -17,7 +17,7 @@ function StepIcon({ step }: { step: PlanStep }) {
   return <CircleDashed size={14} className={styles.quiet} aria-label="Not started" />;
 }
 
-function Plan({ plan }: { plan: PlanStep[] }) {
+export function Plan({ plan }: { plan: PlanStep[] }) {
   const done = plan.filter((step) => step.status === "completed").length;
   return (
     <section aria-labelledby="plan-title">
@@ -71,24 +71,26 @@ interface AgentAsideProps {
   agent: AgentRecord;
   first: SessionRecord;
   latest: SessionRecord;
-  // The task's loaded traces, oldest first.
+  // Oldest first.
   traces: Trace[];
 }
 
-// A resumed session reports no plan or limits until they change, so the latest known ones show.
+// A resumed session reports no plan until it changes, so the latest known one shows.
 export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
   const harness = useHarnessName(latest.options.harness);
   const level = useLevel(agent);
   const { options } = latest;
   const ended = latest.endedAt ?? new Date().toISOString();
   const plan = traces.findLast((trace) => trace.plan.length > 0)?.plan;
-  const limits = traces.findLast((trace) => trace.limits.length > 0)?.limits;
+  const limits = useApp((state) => state.limits[latest.options.harness]?.limits);
   const model = traces.findLast((trace) => trace.model !== undefined)?.model;
   const usage = sumUsage(traces);
   return (
     <aside className={styles.aside} aria-label="Agent">
       {plan === undefined ? null : <Plan plan={plan} />}
-      {limits === undefined ? null : <Limits limits={limits} harness={harness} />}
+      {limits === undefined || limits.length === 0 ? null : (
+        <Limits limits={limits} harness={harness} />
+      )}
       <section aria-labelledby="details-title">
         <h2 id="details-title" className={styles.asideTitle}>
           Details

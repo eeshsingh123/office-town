@@ -156,8 +156,7 @@ export const rateLimitSchema = z.looseObject({
 
 export const taskCreateInputSchema = z.looseObject({ subject: z.string() });
 
-// What the CLI recorded for a task tool call. The model may name the input fields otherwise, such
-// as "title" or "task_id", and the CLI still accepts them, so its record is the one to read.
+// The model may name the fields otherwise, such as "task_id", and the CLI accepts them; read its record.
 export const taskCreatedSchema = z.looseObject({
   task: z.looseObject({ id: z.string(), subject: z.string() }),
 });

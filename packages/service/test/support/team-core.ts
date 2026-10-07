@@ -1,7 +1,11 @@
 import type { HarnessCatalog } from "@office-town/contract";
+import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
+import { messageLead } from "../../src/chief/message-lead.ts";
+import { proposePlan } from "../../src/chief/propose-plan.ts";
+import { Scheduler } from "../../src/chief/scheduler.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import { SessionRegistry } from "../../src/registry/session-registry.ts";
 import { openStore } from "../../src/store/sqlite-store.ts";
@@ -12,6 +16,7 @@ import type { TeamContext } from "../../src/team/members.ts";
 import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
+import { TaskStates } from "../../src/team/task-state.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
 import { type RunningToolServer, startToolServer } from "../../src/tools/tool-server.ts";
@@ -31,8 +36,8 @@ export interface Core {
   registry: SessionRegistry;
   tools: RunningToolServer;
   team: TeamContext;
+  scheduler: Scheduler;
   sessions: FakeSession[];
-  // A test reads the few fields it checks; the schemas are proven by the contract tests.
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
   call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }>;
   callTool(session: FakeSession | undefined, name: string, input: object): Promise<ToolReply>;
@@ -47,11 +52,13 @@ export interface ToolReply {
 // The core as main.ts wires it, with harness sessions the test plays and catalogs it makes up.
 export async function startCore(dataFolder: string): Promise<Core> {
   const store = openStore(dataFolder);
+  const taskStates = new TaskStates(store);
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
   const registry = new SessionRegistry(store, {
-    // A model named "broken" fails to start, as a harness missing from its environment would.
+    // Model "broken" fails to start; a harness with no catalog is refused, as the real factory does.
     createSession: (options, extras) => {
+      if (catalogs[options.harness] === undefined) throw new UnknownHarnessError(options.harness);
       const session = new FakeSession(extras, options.model === "broken");
       sessions.push(session);
       return session;
@@ -60,6 +67,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     guard: autonomyGuard(store),
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   });
+  taskStates.follow(registry);
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];
     if (catalog === undefined) throw new Error("not installed");
@@ -70,12 +78,15 @@ export async function startCore(dataFolder: string): Promise<Core> {
   reportResults(team, activity);
   cleanUpWorktrees(team);
   guestsLeave(team);
+  const scheduler = new Scheduler(team);
   tools.offer([
     askUser(registry),
     proposeTeam(team),
     delegate(team),
     teamStatus(team, activity),
     outsource(team),
+    proposePlan(team, scheduler),
+    messageLead(team),
   ]);
   const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 
@@ -84,6 +95,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     registry,
     tools,
     team,
+    scheduler,
     sessions,
     async call(method, path, body) {
       const response = await fetch(`${server.url}${path}`, {

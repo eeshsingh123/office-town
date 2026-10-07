@@ -7,7 +7,7 @@ import dialog from "./Dialog.module.css";
 
 interface BypassDialogProps {
   open: boolean;
-  // Who would run unguarded, such as "Web team" or "this agent".
+  // Such as "Web team" or "this agent".
   who: string;
   // The level kept if the user backs out.
   keepLabel: string;
@@ -16,8 +16,7 @@ interface BypassDialogProps {
   onKeep: () => void;
 }
 
-// Bypass turns off every guard, so it takes a deliberate yes; Full is offered instead, since it
-// still records every action (D-40).
+// Full is offered instead, since it still records every action (D-40).
 export function BypassDialog({
   open,
   who,
@@ -86,7 +85,7 @@ export function BypassDialog({
   );
 }
 
-// Choosing Bypass asks first; every other level is chosen at once.
+// Only Bypass asks first.
 export function useBypassGate(level: Autonomy, setLevel: (level: Autonomy) => void, who: string) {
   const [asking, setAsking] = useState(false);
   const settle = (next: Autonomy) => {

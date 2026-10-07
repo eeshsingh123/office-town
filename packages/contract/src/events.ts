@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { answeredBySchema } from "./autonomy.ts";
+import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
 export const tokenUsageSchema = z.object({
@@ -47,26 +48,23 @@ export const questionSchema = z.object({
 });
 export type Question = z.infer<typeof questionSchema>;
 
-// Each selected value is an option's label, or the user's own words when no option fits.
+// The user's own words when no option fits.
 export const questionAnswerSchema = z.object({
   questionId: z.string().min(1),
   selected: z.array(z.string().min(1)).min(1),
 });
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
-// The name of the core's own MCP server, which gives agents their team tools.
 export const teamToolServer = "office-town";
 
 // Why the core, not the user, sent an agent a message.
 export const messageOriginSchema = z.discriminatedUnion("kind", [
-  // The agent's instructions and its piece of work. `summary` is the one line shown for it;
-  // `from` is the lead that handed the work over.
+  // `summary` is the one line shown; `from` is the lead that handed the work over.
   z.object({
     kind: z.literal("brief"),
     summary: z.string().min(1),
     from: z.string().min(1).optional(),
   }),
-  // A worker's result, which the core hands its lead.
   z.object({
     kind: z.literal("result"),
     delegationId: z.string().min(1),
@@ -75,12 +73,19 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
-  // News for the agent, such as a change to its team. `summary` is the one line shown for it.
+  // News such as a change to the agent's team.
   z.object({ kind: z.literal("notice"), summary: z.string().min(1) }),
+  // A piece of the chief's plan ended, with its department's result.
+  z.object({
+    kind: z.literal("piece"),
+    pieceId: z.string().min(1),
+    outcome: z.enum(["done", "failed", "stopped"]),
+  }),
+  // Another agent's words, such as the chief's to a lead at work.
+  z.object({ kind: z.literal("message"), from: z.string().min(1) }),
 ]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;
 
-// A usage window of the user's subscription, as the harness reports it.
 export const usageLimitSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -89,16 +94,13 @@ export const usageLimitSchema = z.object({
 });
 export type UsageLimit = z.infer<typeof usageLimitSchema>;
 
-// A fragment of text as it is produced. The whole text always follows as a message or reasoning
-// event, so a consumer may ignore fragments entirely.
+// The whole text always follows as a message or reasoning event, so fragments can be ignored.
 const deltaSchema = z.object({
   text: z.string().min(1),
   parentActionId: z.string().optional(),
 });
 
-// Set when the text beside it is only part of a text `bytes` long in UTF-8. `truncated` means the
-// whole text cannot be read back: on `action.ended` the copy stored apart was cut at the size cap;
-// on `action.updated` nothing is stored apart, as the whole output follows with `action.ended`.
+// Set when the text is only part of `bytes`. `truncated`: the stored copy was cut at the size cap.
 export const overflowSchema = z.object({
   bytes: z.number().int().positive(),
   truncated: z.boolean(),
@@ -113,7 +115,7 @@ const payloadSchemas = {
   "session.ended": z.object({
     reason: z.enum(["stopped", "exited", "failed"]),
     exitCode: z.number().int().nullable(),
-    // The core stopped an agent left idle; it resumes when it is next needed.
+    // Stopped while idle; it resumes when next needed.
     idle: z.literal(true).optional(),
   }),
   "turn.started": z.object({ turnId: z.string().min(1) }),
@@ -141,7 +143,7 @@ const payloadSchemas = {
     kind: actionKindSchema,
     title: z.string(),
     input: z.unknown(),
-    // Set when the action calls a tool on an MCP server the core attached to the session.
+    // Set when the tool is on an MCP server the core attached.
     tool: z.object({ server: z.string().min(1), name: z.string().min(1) }).optional(),
     locations: z.array(z.string()).optional(),
     parentActionId: z.string().optional(),
@@ -159,8 +161,7 @@ const payloadSchemas = {
     result: z.string(),
     overflow: overflowSchema.optional(),
   }),
-  // `kind` and `locations` are the action's it asks for, when the harness started one first:
-  // what the autonomy level reads to decide.
+  // `kind` and `locations` of the action it asks for, read by the autonomy policy.
   "permission.requested": z.object({
     requestId: z.string().min(1),
     actionId: z.string().optional(),
@@ -186,8 +187,7 @@ const payloadSchemas = {
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
   }),
-  // A lead's team, for the user to edit and approve. `departmentId` is set when it changes a
-  // department that exists.
+  // `departmentId` is set when it changes an existing department.
   "proposal.requested": z.object({
     requestId: z.string().min(1),
     team: teamSchema,
@@ -198,8 +198,22 @@ const payloadSchemas = {
   "proposal.resolved": z.object({
     requestId: z.string().min(1),
     outcome: z.enum(["approved", "revised", "declined", "cancelled"]),
-    // The team as approved, after the user's changes.
+    // After the user's changes.
     team: teamSchema.optional(),
+    note: z.string().optional(),
+  }),
+  // `replan` is set when it changes an approved plan.
+  "plan.requested": z.object({
+    requestId: z.string().min(1),
+    pieces: z.array(proposedPieceSchema).min(1),
+    reason: z.string().optional(),
+    replan: z.boolean(),
+  }),
+  "plan.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["approved", "revised", "declined", "cancelled"]),
+    // After the user's changes.
+    pieces: z.array(approvedPieceSchema).optional(),
     note: z.string().optional(),
   }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
@@ -240,6 +254,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("question.resolved"),
   eventOf("proposal.requested"),
   eventOf("proposal.resolved"),
+  eventOf("plan.requested"),
+  eventOf("plan.resolved"),
   eventOf("limits.updated"),
   eventOf("error"),
 ]);
@@ -249,10 +265,11 @@ export type SessionEventBody = {
   [E in SessionEvent as E["type"]]: Pick<E, "type" | "payload">;
 }[SessionEvent["type"]];
 
-// What an agent waits on the user for: the events behind the blocked queue.
+// The events behind the blocked queue.
 export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.requested"),
   eventOf("question.requested"),
   eventOf("proposal.requested"),
+  eventOf("plan.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

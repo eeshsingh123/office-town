@@ -45,7 +45,13 @@ export type LineListener = (line: HarnessLine) => void;
 export type CoreReport = Extract<
   SessionEventBody,
   {
-    type: "question.requested" | "question.resolved" | "proposal.requested" | "proposal.resolved";
+    type:
+      | "question.requested"
+      | "question.resolved"
+      | "proposal.requested"
+      | "proposal.resolved"
+      | "plan.requested"
+      | "plan.resolved";
   }
 >;
 
@@ -82,8 +88,7 @@ export class HarnessSession implements Session {
   readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
   readonly #pendingQuestions = new Map<string, Question[]>();
-  // What each running action is and touches, as host paths: a permission request for it carries
-  // them, so a guardrail can tell what it asks for whichever harness asked.
+  // So a permission request carries what its action touches, whichever harness asked.
   readonly #openActions = new Map<string, { kind: ActionKind; locations?: string[] }>();
   readonly #launched = Promise.withResolvers<void>();
   readonly #ended = Promise.withResolvers<void>();
@@ -464,9 +469,7 @@ export class HarnessSession implements Session {
     for (const failure of failures) this.#reportListenerFailure(failure);
   }
 
-  // One failing subscriber must not stop the session or the other subscribers. A subscriber
-  // that also fails on the report is not reported again, or the two would loop forever. Nothing
-  // is reported once the session has ended, because its end is always the last event.
+  // One failing subscriber must not stop the others; a failure on the report itself is not reported again.
   #reportListenerFailure(failure: unknown): void {
     if (this.#reportingListenerFailure || this.#state === "ended") return;
     this.#reportingListenerFailure = true;

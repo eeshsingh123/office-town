@@ -156,3 +156,18 @@
   font-size: var(--size-meta);
   color: var(--text-3);
 }
+
+.chiefMark {
+  width: 9px;
+  height: 9px;
+  margin: 0 3px;
+  flex: none;
+  border: 1.5px solid var(--text-2);
+  border-radius: 3px;
+}
+
+.chiefWorking {
+  flex: none;
+  margin: 0 2px;
+  color: var(--accent);
+}

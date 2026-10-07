@@ -71,8 +71,7 @@ function MemberRow({
   );
 }
 
-// A task with more than one agent: the team as a tree by delegation, the lead at the top, and any
-// guests called in for a second opinion apart, each opening its own trace (MODULES M4.5, M4.8).
+// The team as a tree by delegation, lead at the top, guests apart.
 export function TeamTaskView({ taskId }: { taskId: string }) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);

@@ -1,8 +1,7 @@
 import type { SessionRecord } from "@office-town/contract";
 import type { Trace, TraceAction } from "./trace.ts";
 
-// What an agent is doing, in the words the app shows. "idle" is a session still open after its
-// turn finished: done for now, and ready for another message.
+// "idle": a session still open after its turn finished, ready for another message.
 export type AgentState =
   | "starting"
   | "working"
@@ -20,7 +19,7 @@ export interface Progress {
   stepsDone: number;
   // The latest action still running, a sub-agent's included.
   current?: TraceAction;
-  // The latest actions, newest first.
+  // Newest first.
   recent: TraceAction[];
 }
 

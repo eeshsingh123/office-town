@@ -47,7 +47,6 @@ const KIND_ICONS: Record<TraceAction["actionKind"], LucideIcon> = {
 };
 const INPUT_PREVIEW = 2000;
 
-// Where in the trace an item sits: its session, and whether that session can still act.
 export interface Place {
   sessionId: string;
   // An action left running in a session that is no longer open was interrupted.
@@ -88,8 +87,7 @@ function preview(input: unknown): string | undefined {
   return text.length > INPUT_PREVIEW ? `${text.slice(0, INPUT_PREVIEW)}…` : text;
 }
 
-// A long output keeps only its end while it grows; a long result keeps a preview here, and the
-// rest is read from the core on request (D-30).
+// The rest of a long result is read from the core on request (D-30).
 function OverflowNote({ action, onReadFull }: { action: TraceAction; onReadFull: () => void }) {
   const { overflow } = action;
   if (overflow === undefined) return null;
@@ -216,7 +214,7 @@ const PROPOSAL_OUTCOMES = {
   cancelled: "Not answered",
 };
 
-// A request still waiting is the card to answer it; once answered it shrinks to one line.
+// Once answered it shrinks to one line.
 function RequestLine({ request, live }: { request: TraceRequest; live: boolean }) {
   const resolved = resolutionText(request);
   if (resolved === undefined && live) return <RequestCard event={request.event} />;
@@ -228,7 +226,6 @@ function RequestLine({ request, live }: { request: TraceRequest; live: boolean }
   );
 }
 
-// A delegation opens the worker's trace, in a team's view.
 function WorkerLink({ input }: { input: unknown }) {
   const show = useMemberLinks();
   const name = (input as { agent?: unknown } | null)?.agent;
@@ -243,7 +240,6 @@ function WorkerLink({ input }: { input: unknown }) {
   );
 }
 
-// A worker's brief opens its lead's trace, in a team's view.
 function LeadLink({ agentId }: { agentId: string }) {
   const show = useMemberLinks();
   const lead = useApp((state) => state.agents[agentId]);
@@ -255,7 +251,6 @@ function LeadLink({ agentId }: { agentId: string }) {
   );
 }
 
-// A worker's result, as the lead got it from Office Town.
 function Result({ item }: { item: TraceMessage }) {
   const show = useMemberLinks();
   const origin = item.origin?.kind === "result" ? item.origin : undefined;
@@ -291,7 +286,7 @@ function Result({ item }: { item: TraceMessage }) {
   );
 }
 
-// What Office Town told the agent, such as its brief: one line, opened on request.
+// One line, opened on request.
 function FromOffice({ summary, text }: { summary: string; text: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -399,7 +394,7 @@ interface ActionGroupProps {
   place: Place;
 }
 
-// A run of actions folds into one line once it is done; while it runs, every action shows.
+// Folds into one line once done; while it runs, every action shows.
 export function ActionGroup({ ids, place }: ActionGroupProps) {
   const actions = useApp(
     useShallow((state) =>

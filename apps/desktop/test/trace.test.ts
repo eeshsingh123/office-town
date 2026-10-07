@@ -9,8 +9,7 @@ const SESSION = "session-1";
 
 let count = 0;
 
-// Each event gets the next id and sequence; stored ones also take that number as their position,
-// while text fragments get none, as in the core's stream.
+// Stored events take their sequence as their position; text fragments get none, as in the core's stream.
 function stream(...bodies: SessionEventBody[]): StreamedEvent[] {
   return bodies.map((body) => {
     count += 1;

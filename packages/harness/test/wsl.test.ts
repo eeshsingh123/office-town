@@ -8,7 +8,7 @@ import { runProcess } from "../src/process-runner.ts";
 import { ScriptedEnvironment } from "./support/replay.ts";
 
 describe("WSL path translation", () => {
-  it("maps Windows paths into the distro, leaving another distro's share untouched", () => {
+  it("maps paths into the distro and back, leaving another distro's share untouched", () => {
     const otherDistro = "\\\\wsl.localhost\\Debian\\home\\dev";
     const cases: [string, string][] = [
       ["C:\\Projects\\office town", "/mnt/c/Projects/office town"],
@@ -23,6 +23,16 @@ describe("WSL path translation", () => {
     for (const [windowsPath, wslPath] of cases) {
       expect(toWslPath(windowsPath, "Ubuntu")).toBe(wslPath);
     }
+    const back: [string, string][] = [
+      ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
+      ["/mnt/c", "C:\\"],
+      ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
+      ["/mnt/c/../../work/x", "\\\\wsl.localhost\\Ubuntu\\work\\x"],
+      ["relative/file.txt", "relative/file.txt"],
+    ];
+    for (const [wslPath, windowsPath] of back) {
+      expect(toWindowsPath(wslPath, "Ubuntu")).toBe(windowsPath);
+    }
   });
 
   it("reads the distro list that wsl.exe prints in UTF-16, without Docker's own distros", () => {
@@ -31,19 +41,6 @@ describe("WSL path translation", () => {
       "utf16le",
     );
     expect(parseDistroList(printed)).toEqual(["Ubuntu", "Debian-12"]);
-  });
-
-  it("maps distro paths back to Windows", () => {
-    const cases: [string, string][] = [
-      ["/mnt/c/Projects/office town", "C:\\Projects\\office town"],
-      ["/mnt/c", "C:\\"],
-      ["/home/dev/work", "\\\\wsl.localhost\\Ubuntu\\home\\dev\\work"],
-      ["/mnt/c/../../work/x", "\\\\wsl.localhost\\Ubuntu\\work\\x"],
-      ["relative/file.txt", "relative/file.txt"],
-    ];
-    for (const [wslPath, windowsPath] of cases) {
-      expect(toWindowsPath(wslPath, "Ubuntu")).toBe(windowsPath);
-    }
   });
 });
 

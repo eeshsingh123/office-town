@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AnswerError,
   type PublishedEvent,
   SessionNotResumableError,
   SessionNotRunningError,
@@ -77,10 +78,11 @@ describe("session registry", () => {
     expect(record).toMatchObject({ status: "running", harnessSessionId: `harness-${record.id}` });
     expect(published.map(({ position, event }) => [event.type, position !== undefined])).toEqual([
       ["session.started", true],
+      ["message", true],
       ["message.delta", false],
       ["message", true],
     ]);
-    expect(storedWhenPublished).toEqual([true, true]);
+    expect(storedWhenPublished).toEqual([true, true, true]);
     // The store holds its file alone, so the audit copy is read once it is closed.
     await registry.close();
     store.close();
@@ -131,12 +133,12 @@ describe("session registry", () => {
 
     sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Done" } });
 
-    expect(published.slice(1).map(({ event }) => event.type)).toEqual([
+    expect(published.slice(2).map(({ event }) => event.type)).toEqual([
       "message",
       "error",
       "session.ended",
     ]);
-    expect(published[2]?.event.payload).toEqual({
+    expect(published[3]?.event.payload).toEqual({
       message:
         "This agent's work could not be saved, so the agent was stopped. " +
         "Nothing it does from here on is in its history.",
@@ -147,8 +149,49 @@ describe("session registry", () => {
     await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
       SessionNotRunningError,
     );
-    expect(published[3]?.position).toBeDefined();
+    expect(published[4]?.position).toBeDefined();
     expect(store.getSession(record.id)?.status).toBe("failed");
     await store.deleteTask(record.taskId);
+  });
+
+  it("offers no 'always allow' to an agent with a read-only folder, and takes no answer it was not offered", async () => {
+    const registry = openRegistry();
+    const task = store.createTask("Build on the API");
+    const upstream = join(directory, "api");
+    await registry.start({
+      taskId: task.id,
+      agentId: addAgent(store).id,
+      options: { ...options, additionalPaths: [upstream], readOnlyPaths: [upstream] },
+      message: { text: "Build on the API" },
+    });
+
+    sessions[0]?.emit({
+      type: "permission.requested",
+      payload: {
+        requestId: "edit",
+        title: "Edit",
+        input: {},
+        options: [
+          { optionId: "once", label: "Allow", kind: "allow_once" },
+          { optionId: "always", label: "Always allow", kind: "allow_always" },
+          { optionId: "no", label: "Reject", kind: "reject_once" },
+        ],
+      },
+    });
+
+    const [waiting] = store.listPendingRequests().requests;
+    expect(waiting?.event.payload).toMatchObject({
+      options: [{ optionId: "once" }, { optionId: "no" }],
+    });
+    const answer = (optionId: string) =>
+      registry.send(sessions[0]?.id ?? "", {
+        type: "answerPermission",
+        requestId: "edit",
+        optionId,
+      });
+    await expect(answer("always")).rejects.toThrow(AnswerError);
+    await answer("once");
+    expect(sessions[0]?.sent.at(-1)).toMatchObject({ optionId: "once" });
+    await registry.close();
   });
 });

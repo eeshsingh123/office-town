@@ -82,15 +82,14 @@ async function onCrash(log: string): Promise<void> {
     app.quit();
     return;
   }
-  // The page reaches the core through `serveApp`, which reads `core` on every request, so its
-  // event stream reconnects to the new core by itself.
+  // `serveApp` reads `core` on every request, so the page's event stream reconnects by itself.
   core = await startCore(coreCommand, { onCrash }).catch((error: unknown) => {
     failToStart(error);
     return undefined;
   });
 }
 
-// Open agents include those done with their turn and waiting for another message.
+// Includes agents done with their turn and waiting for another message.
 async function openAgents(): Promise<number> {
   if (core === undefined) return 0;
   const { url, token } = core.ready;

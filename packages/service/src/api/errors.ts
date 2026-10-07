@@ -6,6 +6,7 @@ import {
   UnknownHarnessError,
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
+import { NoChiefError } from "../chief/chief.ts";
 import {
   AnswerError,
   SessionNotResumableError,
@@ -18,6 +19,7 @@ import {
   TaskActiveError,
 } from "../store/store.ts";
 import { FolderNotFoundError, OutputFolderMissingError } from "../task-folders.ts";
+import { NeverStartedError } from "../team/direct-message.ts";
 import { DepartmentBusyError, TeamError } from "../team/members.ts";
 
 type ErrorCode = ApiError["error"];
@@ -44,6 +46,8 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [NameTakenError, 409, "conflict"],
   [InUseError, 409, "conflict"],
   [DepartmentBusyError, 409, "conflict"],
+  [NoChiefError, 409, "conflict"],
+  [NeverStartedError, 409, "conflict"],
   [TeamError, 400, "invalid_request"],
   [UnknownHarnessError, 400, "invalid_request"],
   [FolderNotFoundError, 400, "invalid_request"],

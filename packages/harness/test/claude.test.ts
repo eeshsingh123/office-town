@@ -204,7 +204,7 @@ describe("claude adapter", () => {
     ]);
   });
 
-  it("says what allowing always will change, and returns that change to the harness", async () => {
+  it("offers only changes that end with the session, says what each changes, and returns it", async () => {
     const allowAlways = recordings["write-allowed"].map(
       (entry): RecordingEntry =>
         "send" in entry && entry.send.type === "answerPermission"
@@ -220,9 +220,7 @@ describe("claude adapter", () => {
     expect(JSON.parse(written[1] as string).response.response.updatedPermissions).toEqual([
       { type: "setMode", mode: "acceptEdits", destination: "session" },
     ]);
-  });
 
-  it("offers only changes that end with the session", async () => {
     const sessionRule = {
       type: "addRules",
       rules: [{ toolName: "Bash", ruleContent: "npm test" }],
@@ -241,19 +239,19 @@ describe("claude adapter", () => {
         },
       },
     });
-    const { events, written } = await replay(claudeAdapter, [
+    const { events: offered, written: answered } = await replay(claudeAdapter, [
       request("saved-to-disk", [{ ...sessionRule, destination: "localSettings" }]),
       request("mixed", [sessionRule, { type: "setMode", mode: "acceptEdits" }]),
       { send: { type: "answerPermission", choose: "allow_always" } },
     ]);
 
-    const [savedToDisk, mixed] = only(events, "permission.requested");
+    const [savedToDisk, mixed] = only(offered, "permission.requested");
     expect(savedToDisk?.payload.options.map((option) => option.kind)).toEqual([
       "allow_once",
       "reject_once",
     ]);
     expect(mixed?.payload.options[1]?.label).toBe("Always allow Bash (npm test) for this session");
-    expect(JSON.parse(written[0] as string).response.response.updatedPermissions).toEqual([
+    expect(JSON.parse(answered[0] as string).response.response.updatedPermissions).toEqual([
       sessionRule,
     ]);
   });
@@ -313,13 +311,11 @@ describe("claude adapter", () => {
     ]);
     const titles = only(events, "action.started").map((event) => event.payload.title);
     expect(titles.some((title) => title.startsWith("Task"))).toBe(false);
-  });
 
-  it("reads the plan from what the CLI recorded, whatever the model named the fields", async () => {
-    const { events } = await replay(claudeAdapter, recordings["plan-other-names"]);
-
-    expect(only(events, "error")).toEqual([]);
-    expect(only(events, "plan.updated").at(-1)?.payload.steps).toEqual([
+    // The CLI's own record is read, whatever the model named the fields.
+    const { events: renamed } = await replay(claudeAdapter, recordings["plan-other-names"]);
+    expect(only(renamed, "error")).toEqual([]);
+    expect(only(renamed, "plan.updated").at(-1)?.payload.steps).toEqual([
       { id: "1", title: "List files", status: "completed" },
       { id: "2", title: "Report", status: "completed" },
     ]);

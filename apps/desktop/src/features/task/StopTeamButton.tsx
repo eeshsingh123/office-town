@@ -4,7 +4,6 @@ import { api } from "../../api/client.ts";
 import { Button } from "../../ui/Button.tsx";
 import styles from "./TaskView.module.css";
 
-// Stops every agent of a task; a failure shows beside the button.
 export function StopTeamButton({ taskId, label }: { taskId: string; label: string }) {
   const [error, setError] = useState<string>();
   const stop = async () => {

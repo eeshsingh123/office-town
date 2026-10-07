@@ -15,7 +15,7 @@ interface ModelPickerProps {
   onChange: (model: string | undefined) => void;
 }
 
-// Values no model id can take, since an id must start with a letter or digit.
+// No model id can take this, since an id must start with a letter or digit.
 const DEFAULT_VALUE = "~default";
 const MORE_VALUE = "~more";
 

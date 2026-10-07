@@ -16,11 +16,10 @@ import { levelOf } from "../autonomy/policy.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { isOpen, latestSession } from "./lead.ts";
+import { isOpen, latestSession, leadsTeam } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 
-// What a fresh look must not inherit: instruction files and harness settings, history and the
-// heavy folders nobody reviews.
+// What a fresh look must not inherit, and heavy folders nobody reviews.
 const LEFT_OUT = new Set([
   "AGENTS.md",
   "CLAUDE.md",
@@ -36,15 +35,14 @@ function inside(folder: string, path: string): boolean {
   return way === "" || (!way.startsWith("..") && !isAbsolute(way));
 }
 
-// The folders the asking agent works in, the first being where paths are read from.
+// The first is where paths are read from.
 function foldersOf(session: SessionRecord): string[] {
   const { workspacePath, additionalPaths = [] } = session.options;
   if (workspacePath === undefined) throw new TeamError("This task has no workspace.");
   return [workspacePath, ...additionalPaths];
 }
 
-// Copies the paths into a new folder, so the reviewer cannot change the original. Every path must
-// stay inside the workspace.
+// A copy, so the reviewer cannot change the original. Every path must stay inside the workspace.
 function copyWork(folders: string[], paths: string[], to: string): string[] {
   const [main] = folders;
   if (main === undefined) throw new TeamError("This task has no workspace.");
@@ -83,15 +81,14 @@ Your last message is your answer, so end with your findings, the most serious fi
 
 interface Asked {
   taskId: string;
-  // The agent whose work is examined, and whose folders the files come from.
+  // Whose work is examined, and whose folders the files come from.
   ownerAgentId: string;
   brief: string;
   paths: string[];
   reviewer: NewAgent;
 }
 
-// A fresh agent outside the team, isolated as far as its harness allows, on a copy of the work. It
-// works in the same task, so it shows beside the team, and is no member of it (D-18).
+// Works in the same task, so it shows beside the team, without joining it (D-18).
 async function startReview(context: TeamContext, asked: Asked): Promise<SessionRecord> {
   const { store, registry } = context;
   const session = latestSession(context, asked.taskId, asked.ownerAgentId);
@@ -120,8 +117,7 @@ async function startReview(context: TeamContext, asked: Asked): Promise<SessionR
   });
 }
 
-// Whose work a second opinion examines: the agent named, such as a worker in its own worktree, or
-// else the task's lead or solo agent.
+// The agent named, such as a worker in its own worktree, else the task's lead or solo agent.
 function ownerOf({ store }: TeamContext, taskId: string, agentId: string | undefined): string {
   const owner =
     agentId ?? store.getTask(taskId)?.leadAgentId ?? store.listSessions(taskId)[0]?.agentId;
@@ -129,8 +125,7 @@ function ownerOf({ store }: TeamContext, taskId: string, agentId: string | undef
   return owner;
 }
 
-// The user asks for a second opinion on an agent's work, from its panel. The answer is the
-// reviewer's own trace.
+// The answer is the reviewer's own trace.
 export function secondOpinion(
   context: TeamContext,
   taskId: string,
@@ -140,7 +135,6 @@ export function secondOpinion(
   return startReview(context, { taskId, ownerAgentId, brief, paths, reviewer });
 }
 
-// The top of the agent's own folder, to choose what a second opinion gets.
 export function workspaceEntries(
   context: TeamContext,
   taskId: string,
@@ -155,7 +149,7 @@ export function workspaceEntries(
     .sort((a, b) => Number(b.folder) - Number(a.folder) || a.name.localeCompare(b.name));
 }
 
-// The lead calls in a clean-slate reviewer; its answer comes back like a worker's result.
+// Its answer comes back like a worker's result.
 export function outsource(context: TeamContext) {
   const { store } = context;
   return defineTool({
@@ -175,7 +169,7 @@ export function outsource(context: TeamContext) {
         .optional()
         .describe("The name of a saved profile to use for the reviewer; yours if left out."),
     }),
-    offeredTo: (caller: Caller) => store.getTask(caller.taskId)?.leadAgentId === caller.agentId,
+    offeredTo: (caller: Caller) => leadsTeam(store, caller),
     async call({ brief, paths, profile }, caller) {
       const lead = store.getAgent(caller.agentId);
       if (lead === undefined) throw new RecordNotFoundError("agent", caller.agentId);
@@ -211,7 +205,6 @@ export function outsource(context: TeamContext) {
   });
 }
 
-// A deleted task takes its reviewers' copies with it.
 export function removeCopies({ store, dataFolder }: TeamContext, taskId: string): void {
   const copies = join(dataFolder, OUTSOURCED);
   for (const session of store.listSessions(taskId)) {
@@ -222,8 +215,7 @@ export function removeCopies({ store, dataFolder }: TeamContext, taskId: string)
   }
 }
 
-// A reviewer leaves once it has answered: its first turn that ends with nothing waiting on the
-// user ends its session. Checked after every listener ran, so its result has been handed on.
+// Checked after every listener ran, so its result has already been handed on.
 export function guestsLeave({ store, registry }: TeamContext): void {
   registry.subscribe(({ event }) => {
     if (event.type !== "turn.ended") return;

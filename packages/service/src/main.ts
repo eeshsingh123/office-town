@@ -4,6 +4,9 @@ import type { CoreReady } from "@office-town/contract";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
+import { messageLead } from "./chief/message-lead.ts";
+import { proposePlan } from "./chief/propose-plan.ts";
+import { Scheduler } from "./chief/scheduler.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
@@ -14,6 +17,7 @@ import { delegate, teamStatus } from "./team/delegate.ts";
 import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
+import { TaskStates } from "./team/task-state.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
@@ -26,8 +30,7 @@ const { values } = parseArgs({
   },
 });
 
-// The desktop app runs the core on Electron's own Node. Agents must not inherit that, or an
-// Electron app they start would run as plain Node.
+// Agents must not inherit Electron's Node mode, or an Electron app they start would run as plain Node.
 delete process.env.ELECTRON_RUN_AS_NODE;
 
 const port = Number(values.port);
@@ -37,12 +40,14 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 
 const dataFolder = values["data-folder"] ?? defaultDataFolder();
 const store = openStore(dataFolder);
+const taskStates = new TaskStates(store);
 const toolServer = await startToolServer(store);
 const registry = new SessionRegistry(store, {
   tools: toolServer,
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
 });
+taskStates.follow(registry);
 const readCatalog = cachedCatalogs();
 const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);
@@ -50,13 +55,18 @@ const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
 cleanUpWorktrees(team);
 guestsLeave(team);
+const scheduler = new Scheduler(team);
 toolServer.offer([
   askUser(registry),
   proposeTeam(team),
   delegate(team),
   teamStatus(team, activity),
   outsource(team),
+  proposePlan(team, scheduler),
+  messageLead(team),
 ]);
+// After a restart, queued work may be free to start.
+void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ team, token, port });
 const ready: CoreReady = { url: server.url, token };
@@ -77,8 +87,7 @@ async function shutdown(): Promise<void> {
   }
 }
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, shutdown);
-// Windows cannot send a child SIGTERM, so the app stops the core by closing its stdin. A pipe also
-// closes when the app crashes, so no core is left running unseen.
+// Windows cannot send a child SIGTERM, and a closed pipe also stops the core when the app crashes.
 if (values["stop-when-stdin-closes"]) {
   process.stdin.on("close", shutdown);
   process.stdin.resume();

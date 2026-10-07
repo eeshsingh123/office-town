@@ -1,6 +1,6 @@
 import type { Autonomy, EnvironmentSpec } from "@office-town/contract";
 
-// What the user picked last for a harness, when the agent is not made from a profile.
+// When the agent is not made from a profile.
 export interface HarnessChoices {
   environment: EnvironmentSpec;
   model?: string;
@@ -14,7 +14,6 @@ export interface HarnessChoices {
 export interface Remembered {
   harness?: string;
   profileId?: string;
-  // Whether the last goal went to a team rather than one agent.
   team?: boolean;
   workspaceId?: string;
   byHarness: Record<string, HarnessChoices>;
