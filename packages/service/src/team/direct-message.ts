@@ -51,15 +51,19 @@ async function noteLead(
   }
 }
 
-// The user's own words to any agent, in its latest conversation (D-49).
+// The user's own words to any agent, in the given goal or else its latest conversation (D-49).
 export async function messageAgent(
   context: TeamContext,
   agentId: string,
   text: string,
+  taskId?: string,
 ): Promise<void> {
   const agent = context.store.getAgent(agentId);
   if (agent === undefined) throw new RecordNotFoundError("agent", agentId);
-  const [latest] = context.store.listAgentSessions(agentId, { limit: 1 }).sessions;
+  const [latest] =
+    taskId === undefined
+      ? context.store.listAgentSessions(agentId, { limit: 1 }).sessions
+      : [latestSession(context, taskId, agentId)];
   if (latest === undefined) throw new NeverStartedError(agent.name);
   await deliver(context, latest, text);
   await noteLead(context, agent, latest.taskId, text);

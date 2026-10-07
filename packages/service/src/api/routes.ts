@@ -277,8 +277,8 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/agents/:id/messages",
       reply: async ({ param, body }) => {
-        const { text } = agentMessageRequestSchema.parse(await body());
-        await messageAgent(team, param("id"), text);
+        const { text, taskId } = agentMessageRequestSchema.parse(await body());
+        await messageAgent(team, param("id"), text, taskId);
         return NO_CONTENT;
       },
     },

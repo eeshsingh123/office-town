@@ -147,8 +147,8 @@ export const api = {
   getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),
   saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
     write("PUT", "/chief", { settings }, agentRecordSchema),
-  messageAgent: (agentId: string, text: string): Promise<void> =>
-    send("POST", `/agents/${id(agentId)}/messages`, { text }),
+  messageAgent: (agentId: string, text: string, taskId?: string): Promise<void> =>
+    send("POST", `/agents/${id(agentId)}/messages`, { text, taskId }),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>

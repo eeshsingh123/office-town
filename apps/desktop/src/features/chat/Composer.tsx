@@ -34,17 +34,20 @@ export function Composer({
 }) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
-  const composeAt = useOffice((state) => state.composeAt);
+  const compose = useOffice((state) => state.compose);
+  // A follow-up goes to the goal it was opened from, not to a newer one.
+  const [followUp, setFollowUp] = useState<string>();
   const lead = useLead(agent);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    if (composeAt === undefined) return;
+    if (compose === undefined) return;
+    setFollowUp(compose.taskId);
     field.current?.focus();
-    useOffice.setState({ composeAt: undefined });
-  }, [composeAt]);
+    useOffice.setState({ compose: undefined });
+  }, [compose]);
 
   const send = async (event?: FormEvent) => {
     event?.preventDefault();
@@ -54,9 +57,10 @@ export function Composer({
     setError(undefined);
     const noted = lead !== undefined && leadAtWork(lead.id);
     try {
-      await api.messageAgent(agent.id, message);
+      await api.messageAgent(agent.id, message, followUp);
       if (noted) onNoted(message);
       setText("");
+      setFollowUp(undefined);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {

@@ -166,7 +166,7 @@ function ReviewActions({
         variant="ghost"
         onClick={() => {
           open();
-          composeIn(kind);
+          composeIn(kind, task.id);
         }}
       >
         <MessageSquare size={14} aria-hidden />
