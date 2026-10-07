@@ -1,5 +1,6 @@
 import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
 import { useEffect, useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
@@ -21,7 +22,11 @@ interface Goal {
 // The agent's sessions across its goals: pages read from the core, newest first, joined by any
 // the app learns of live, such as one a message just resumed.
 function useConversation(agentId: string) {
-  const live = useApp((state) => state.sessions);
+  const live = useApp(
+    useShallow((state) =>
+      Object.values(state.sessions).filter((session) => session.agentId === agentId),
+    ),
+  );
   const [loaded, setLoaded] = useState<SessionRecord[]>([]);
   const [next, setNext] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -45,18 +50,21 @@ function useConversation(agentId: string) {
   }, []);
 
   const goals = useMemo(() => {
-    const byId = new Map(loaded.map((session) => [session.id, live[session.id] ?? session]));
+    const current = new Map(live.map((session) => [session.id, session]));
+    const byId = new Map(loaded.map((session) => [session.id, current.get(session.id) ?? session]));
     const oldestLoaded = loaded.at(-1)?.createdAt ?? "";
-    for (const session of Object.values(live)) {
+    for (const session of live) {
       // Older ones wait for their page, so a goal never shows only part of its sessions.
-      if (session.agentId === agentId && session.createdAt >= oldestLoaded) {
-        byId.set(session.id, session);
-      }
+      if (session.createdAt >= oldestLoaded) byId.set(session.id, session);
     }
     const sessions = [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const grouped = Map.groupBy(sessions, (session) => session.taskId);
-    return [...grouped].map(([taskId, list]): Goal => ({ taskId, sessions: list }));
-  }, [loaded, live, agentId]);
+    // By their latest session, so a follow-up to an older goal shows last, where the view follows.
+    const latest = (goal: Goal) => goal.sessions.at(-1)?.createdAt ?? "";
+    return [...grouped]
+      .map(([taskId, list]): Goal => ({ taskId, sessions: list }))
+      .sort((a, b) => latest(a).localeCompare(latest(b)));
+  }, [loaded, live]);
 
   useEffect(() => {
     for (const goal of goals) for (const session of goal.sessions) loadTrace(session.id);
@@ -107,19 +115,24 @@ function GoalChat({
   speaker: AgentRecord;
   noted: ReadonlySet<string>;
 }) {
-  const traces = useApp((state) => state.traces);
+  const traces = useApp(
+    useShallow((state) => goal.sessions.map((session) => state.traces[session.id])),
+  );
   const agents = useApp((state) => state.agents);
+  const delegations = useApp((state) => state.delegations);
+  const ended = task?.state === "ended";
   const chiefName = useApp((state) =>
     state.chiefId === undefined ? "the chief" : (state.agents[state.chiefId]?.name ?? "the chief"),
   );
   const { items, waiting } = useMemo(() => {
-    const loaded = goal.sessions.flatMap((session) => traces[session.id] ?? []);
+    const loaded = traces.filter((trace) => trace !== undefined);
     const ids = new Map(Object.values(agents).map((agent) => [agent.name, agent.id]));
+    const records = Object.values(delegations).filter((one) => one.taskId === goal.taskId);
     return {
-      items: chatOf(loaded, (name) => ids.get(name)),
+      items: chatOf(loaded, { idOfName: (name) => ids.get(name), delegations: records, ended }),
       waiting: loaded.length < goal.sessions.length,
     };
-  }, [agents, traces, goal.sessions]);
+  }, [agents, traces, delegations, ended, goal.taskId, goal.sessions.length]);
   const start = goal.sessions[0]?.createdAt ?? "";
   return (
     <section aria-label={task === undefined ? "A goal" : taskTitle(task.prompt)}>
@@ -146,11 +159,12 @@ export function ChatTab({ agentId }: { agentId: string }) {
   );
   const { goals, more, loading, error, loadEarlier } = useConversation(agentId);
   const tasks = useTasks(goals.map((goal) => goal.taskId));
-  const traces = useApp((state) => state.traces);
   const [noted, setNoted] = useState<ReadonlySet<string>>(new Set());
   const last = goals.at(-1)?.sessions.at(-1);
-  const lastTrace = last === undefined ? undefined : traces[last.id];
-  const follow = useFollow(`${goals.length}:${lastTrace?.position}`);
+  const lastPosition = useApp((state) =>
+    last === undefined ? undefined : state.traces[last.id]?.position,
+  );
+  const follow = useFollow(`${goals.length}:${lastPosition}`);
   if (agent === undefined) return null;
   const role =
     department === undefined

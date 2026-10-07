@@ -111,9 +111,7 @@ function DelegationEntry({ thread }: { thread: DelegationThread }) {
     thread.workerId === undefined ? undefined : state.agents[thread.workerId],
   );
   const record = useApp((state) =>
-    Object.values(state.delegations).find(
-      (one) => one.workerAgentId === thread.workerId && one.brief === thread.brief,
-    ),
+    thread.delegationId === undefined ? undefined : state.delegations[thread.delegationId],
   );
   const state =
     thread.result === undefined && record !== undefined

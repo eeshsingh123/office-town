@@ -68,7 +68,10 @@ export function Composer({
     }
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && !event.shiftKey) void send(event);
+    // Enter while an input method composes picks a word; it does not send.
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      void send(event);
+    }
   };
 
   return (

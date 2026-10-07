@@ -1,3 +1,4 @@
+import type { DelegationRecord } from "@office-town/contract";
 import type { Trace, TraceAction, TraceMessage } from "../../trace/trace.ts";
 
 export type ThreadState = "working" | "done" | "failed" | "stopped";
@@ -6,6 +7,8 @@ export type ThreadState = "working" | "done" | "failed" | "stopped";
 export interface DelegationThread {
   kind: "delegation";
   id: string;
+  // The record of this piece of work, once one is known.
+  delegationId?: string;
   workerId: string | undefined;
   workerName: string | undefined;
   brief: string;
@@ -66,37 +69,63 @@ function itemOf(message: TraceMessage): ChatItem | undefined {
   }
 }
 
+export interface ChatContext {
+  idOfName: (name: string) => string | undefined;
+  // The goal's delegation records the app holds.
+  delegations: readonly DelegationRecord[];
+  // The goal is finished: a thread with no result and no record will not get one.
+  ended: boolean;
+}
+
 // One goal's conversation, across its sessions in order. A delegation and the result that answers
 // it are one thread, at the place of the delegation; tool calls and nested work stay in the trace.
-export function chatOf(
-  traces: readonly Trace[],
-  idOfName: (name: string) => string | undefined,
-): ChatItem[] {
+// A result finds its thread by its delegation record, which is linked to a delegate call by worker
+// and brief; only a result whose record the app does not hold falls back to the worker's oldest
+// open thread. A delegate call that failed handed nothing over, so no result answers it.
+export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem[] {
   const items: ChatItem[] = [];
   const threads: DelegationThread[] = [];
+  const unlinked = [...context.delegations];
+  const known = new Set(context.delegations.map((record) => record.id));
   for (const trace of traces) {
     for (const id of trace.order) {
       const entry = trace.items.get(id);
       if (entry?.kind === "action") {
-        const thread = delegationOf(entry, idOfName);
+        const thread = delegationOf(entry, context.idOfName);
         if (thread === undefined) continue;
-        threads.push(thread);
         items.push(thread);
+        if (thread.state === "failed") continue;
+        const index = unlinked.findIndex(
+          (record) => record.workerAgentId === thread.workerId && record.brief === thread.brief,
+        );
+        const [record] = index === -1 ? [] : unlinked.splice(index, 1);
+        if (record !== undefined) thread.delegationId = record.id;
+        threads.push(thread);
         continue;
       }
       if (entry?.kind !== "message") continue;
       if (entry.origin?.kind === "result") {
-        const { agentId, outcome } = entry.origin;
-        const open = threads.find((one) => one.workerId === agentId && one.result === undefined);
-        const thread = open ?? {
+        const { delegationId, agentId, outcome } = entry.origin;
+        const matched =
+          threads.find((one) => one.delegationId === delegationId) ??
+          (known.has(delegationId)
+            ? undefined
+            : threads.find(
+                (one) =>
+                  one.delegationId === undefined &&
+                  one.workerId === agentId &&
+                  one.result === undefined,
+              ));
+        const thread = matched ?? {
           kind: "delegation",
           id,
+          delegationId,
           workerId: agentId,
           workerName: undefined,
           brief: "",
           state: outcome,
         };
-        if (open === undefined) {
+        if (matched === undefined) {
           threads.push(thread);
           items.push(thread);
         }
@@ -106,6 +135,12 @@ export function chatOf(
       }
       const item = itemOf(entry);
       if (item !== undefined) items.push(item);
+    }
+  }
+  if (context.ended) {
+    for (const thread of threads) {
+      const open = thread.state === "working" && thread.result === undefined;
+      if (open && thread.delegationId === undefined) thread.state = "stopped";
     }
   }
   return items;
