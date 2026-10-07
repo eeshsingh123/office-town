@@ -60,8 +60,8 @@ Why stdin: Windows cannot send SIGTERM to a child process, and a process-tree ki
 
 ### D-35 The office is the home screen — accepted (2026-10-04)
 
-A top-down 2D office in which agents are characters at desks. You walk your own character up to an agent with the keyboard, or click the agent; both open the same side panel: purpose, task, step, current action, and any request. Dragging a box selects several agents; the panel lists them grouped. Single-user: no space shared with other people. The first version is the M3 office (one open floor); M4 and M6 add departments as rooms on the same frame, so the layout is never rebuilt. The floor shows open and waiting agents and those finished today; older ones are under Tasks. Arrow keys or WASD walk, E talks to the agent beside you, and "Open full trace" switches to the task view with a way back. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
-Why now: the owner wants the office as the main screen; building M3's panels outside it would mean rebuilding the layout in M6. Replaces D-9's "not a walk-up world" (owner, 2026-10-04).
+A top-down 2D office in which agents are characters at desks. You walk your own character up to an agent with the keyboard, or click the agent; both open the same side panel: purpose, task, step, current action, and any request. Dragging a box selects several agents; the panel lists them grouped. Single-user: no space shared with other people. The first version is the M3 office (one open floor); M4 and M5 add departments as rooms on the same frame, so the layout is never rebuilt. The floor shows open and waiting agents and those finished today; older ones are under Tasks. Arrow keys or WASD walk, E talks to the agent beside you, and "Open full trace" switches to the task view with a way back. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
+Why now: the owner wants the office as the main screen; building M3's panels outside it would mean rebuilding the layout in the command center. Replaces D-9's "not a walk-up world" (owner, 2026-10-04).
 
 ### D-36 The UI reaches the core through its own origin — accepted (2026-10-04)
 
@@ -84,7 +84,7 @@ Why: a zero-cost flag alone put image and speech models first and hid the subscr
 ### D-39 Team tools come from the core's own MCP server — accepted (2026-10-05), confirmed by the M4.1 spike
 
 The core serves MCP and attaches it to each agent's session, with one token per session. Tools return at once; outcomes (a proposal answered, a worker finished) reach the agent later as a message from the core. The server is a small one of our own over HTTP on its own port: POST carries one JSON-RPC message and is answered with JSON, a notification gets 202, and GET gets 405 since the server never pushes. Both CLIs accept that; the official SDK is not needed.
-Why: Claude Code and OpenCode both call MCP tools, so delegation works the same on every harness, and M7 connectors attach through the same seam. Tools that wait on a person or another agent would run into harness tool timeouts and block parallel work.
+Why: Claude Code and OpenCode both call MCP tools, so delegation works the same on every harness, and M6 connectors attach through the same seam. Tools that wait on a person or another agent would run into harness tool timeouts and block parallel work.
 
 ### D-41 What the M4.1 spike settled — accepted (2026-10-05)
 
@@ -117,7 +117,7 @@ Why: names and roles must survive resumes and new goals, and agent memory (its o
 - Team tools are offered to a lead from its first session: a harness reads its tool list once, at launch.
 - A request a tool makes (`ask_user`, `propose_team`) is stored and answered like a harness's own; the answer reaches the agent as a message.
 - Calls to our tools get their trace title and kind from one shared rule (`trace/team-tools.ts`), never per adapter.
-Why: M7 connectors attach through the same seam, so it must stay harness-neutral and tied to one agent per call.
+Why: M6 connectors attach through the same seam, so it must stay harness-neutral and tied to one agent per call.
 
 ### D-44 Delegation and results — accepted (2026-10-05)
 
@@ -140,16 +140,26 @@ Why: a clean-slate review must not inherit the team's context or change its work
 
 ### D-48 Departments are rooms on one floor — accepted (2026-10-05)
 
-Every saved department has a room, with a desk per member in a fixed order (lead first), so an agent keeps its desk while the team stays the same; a member who leaves closes the gap. Rooms keep the order departments were made in. Agents working alone share the open floor; guests sit at the guest desk. Clicking a room's sign or walking in opens the department panel. A room's usage is labelled by goal: its members' new tokens in the current or last goal, with cached ones apart (D-29), and each harness's plan limit, the newest any session reported, since a limit belongs to the account. A running total per department waits for M6, as it needs the core to sum it.
-Why: the layout M6 grows into the command center (D-9, D-35), without rebuilding it.
+Every saved department has a room, with a desk per member in a fixed order (lead first), so an agent keeps its desk while the team stays the same; a member who leaves closes the gap. Rooms keep the order departments were made in. Agents working alone share the open floor; guests sit at the guest desk. Clicking a room's sign or walking in opens the department panel. A room's usage is labelled by goal: its members' new tokens in the current or last goal, with cached ones apart (D-29), and each harness's plan limit, the newest any session reported, since a limit belongs to the account. A running total per department waits for M5, as it needs the core to sum it. Since D-49 a room can be dragged and keeps its place.
+Why: the layout M5 grows into the command center (D-35, D-49), without rebuilding it.
 
-### D-9 Command-center interface — direction accepted
+### D-49 Command center: a chief over departments — accepted (2026-10-07)
 
-A top-down view of departments, their agents and dependencies, with chat, task and status panels. Its first version is the M3 office (D-35); M6 grows it.
+All owner choices, made after a look at other agent command centers.
+- The office stays the home screen; a top status bar and a right panel with Overview, Chat and Work tabs sit around it. A board view shows the same goals in columns.
+- One standing chief, set up once, with its own office on the floor. A goal goes to it only when the user chooses; it runs one goal at a time and queues the rest.
+- The chief's plan is a graph of pieces, one per department. The user always approves it and any change to it. The chief may propose a new department, re-plan after a failure and message leads, never workers.
+- A piece for a busy department waits in a queue. A downstream department gets the upstream result in its brief and read-only access to the upstream workspace.
+- The user can chat with any lead or agent; hand-offs read as threads. A direct message to a worker is noted to its lead.
+- A finished goal waits in To review until the user marks it reviewed.
+- Rooms are placed automatically and can be dragged; positions are kept (amends D-48).
+- Usage limits stay show-only (D-29 holds). A next-waiting button jumps to each waiting agent in turn.
+Why a chief: a goal can need several teams in order, and someone has to own the order and pass results on. A lead of leads leaves each department working as in M4. Gas Town's Mayor and Paperclip's CEO agent do the same.
+Why links on the floor: no product we found draws team dependencies on the map; it keeps "who waits on whom" on the one screen instead of in a separate graph editor.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M7.
+Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool should be able to request one. Needs a deep dive before M6.
 
 ### D-23 macOS is a target, parked — accepted
 
@@ -177,6 +187,7 @@ All accepted and built.
 - D-6 Never touch harness credentials: spawn the unmodified vendor binary only.
 - D-7 Open source; free and low-cost models are first class.
 - D-8 The app orchestrates across harnesses; a harness's own sub-agents show as nested activity.
+- D-9 Command-center direction: expanded into D-49.
 - D-10 Human in the loop: per-team autonomy plus one blocked queue.
 - D-14 Where a harness runs (native, WSL) is an `Environment`, separate from which harness it is.
 - D-16 Sandbox and computer use are deferred; D-14 keeps the door open.

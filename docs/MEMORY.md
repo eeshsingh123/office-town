@@ -1,12 +1,12 @@
 # Memory
 
-Last updated: 2026-10-05
+Last updated: 2026-10-07
 
 ## State
 
 - M1 (harness core), M2 (core service) and M3 (desktop app) are done and merged to `main` (M3 is PR #27).
-- M4 Orchestration is built on `feat/m4-orchestration`, PR #28 open; the owner's review findings are fixed on the branch (2026-10-05), waiting for the merge. Live runs 2026-10-05 (Claude haiku lead, OpenCode free and Claude haiku workers): proposal, approval and parallel delegation end to end; a second opinion from the task view (haiku guest on a copy of one file) answered, left, and showed under Visiting and at the guest desk.
-- Next: after the merge, plan the next module with the owner. Candidates: M5 Packaging (MODULES.md), or the agent memory deep dive first (see below).
+- M4 Orchestration is done and merged (PR #28). Live runs 2026-10-05 (Claude haiku lead, OpenCode free and Claude haiku workers): proposal, approval and parallel delegation end to end; a second opinion from the task view (haiku guest on a copy of one file) answered, left, and showed under Visiting and at the guest desk.
+- Active: M5 Command center, planned with the owner 2026-10-07 (MODULES.md, D-49). Next step: M5.0 mockups for the owner to accept, then M5.1. Packaging moved to the very end (owner).
 - Local only: `.claude/launch.json` (browser preview on a scratch data folder) is kept out of git through `.git/info/exclude`.
 - Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`, idle stop), `src/api` (server, routes, event stream), `src/task-folders.ts`, `src/team` (departments, proposals, delegation, results, worktrees, outsource), `src/tools` (tool server, `ask_user`), `src/autonomy` (policy). API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
 - Desktop: `apps/desktop/electron` (main, core process, app protocol, window, tray, preload.cjs), `src/api` (client, event stream), `src/store` (Zustand app store, records, live stream batching, agents), `src/trace` (pure event-to-trace functions), `src/features` (office, departments, profiles, task, new-task, needs-you, requests, tasks, sidebar), `src/ui` (shared parts), `src/styles/tokens.css`, `dev/web.ts` (browser mode).
@@ -61,8 +61,8 @@ Still unplaced:
 - OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
 - `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
-- The app runs from the repository: the shell starts the core from `packages/service/src/main.ts` and serves `apps/desktop/dist`. The installer is M5, Packaging and release (owner, 2026-10-04).
-- A room's usage is per goal, not a running total per department (D-48); that needs the core to sum it (M6).
+- The app runs from the repository: the shell starts the core from `packages/service/src/main.ts` and serves `apps/desktop/dist`. The installer is the last module, Packaging and release (owner, 2026-10-07).
+- A room's usage is per goal, not a running total per department (D-48); that needs the core to sum it (M5.1).
 - A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45).
 - OpenCode isolates only in part: its global config and instructions still load (D-41); the dialog says so.
 - Logging in to a harness or provider from the app is deferred (owner, 2026-10-04): the user logs in with the CLI. Claude Code reports no model `access` yet (D-38).
@@ -71,3 +71,4 @@ Still unplaced:
 
 - Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) only visualises one harness. Orchestrating across harnesses is the product.
 - Interface references from the owner: gather.town, Age of Empires style command view.
+- Command center research (2026-10-07): Gas Town (one "Mayor" agent you talk to), Paperclip (CEO agent, org chart, goals traced down), Cursor 3 "Needs Attention", Codex review queue, Vibe Kanban (cross-harness board), RimWorld and RTS (jump to the next waiting unit). Complaints to avoid: walls of live transcripts, waiting agents nobody notices, too many notifications.
