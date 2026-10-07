@@ -119,7 +119,8 @@ function WaitsOn({
   kept: KeptPiece[];
   onChange: (waitsOn: string[]) => void;
 }) {
-  const titled = [...kept, ...rows];
+  // A changed plan may list a kept piece again; it is offered once.
+  const titled = [...kept.filter((piece) => !rows.some((one) => one.key === piece.key)), ...rows];
   const titleOf = (key: string) => titled.find((piece) => piece.key === key)?.title ?? key;
   const offered = titled.filter(
     (piece) =>
@@ -146,7 +147,10 @@ function WaitsOn({
       ))}
       {offered.length === 0 ? null : (
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger className={styles.add}>
+          <DropdownMenu.Trigger
+            className={styles.add}
+            aria-label={`Add a piece for ${row.title.trim() || "this piece"} to wait on`}
+          >
             <Plus size={12} aria-hidden />
             Add
           </DropdownMenu.Trigger>
@@ -169,9 +173,10 @@ function WaitsOn({
   );
 }
 
-function nextKey(rows: readonly PlanRow[]): string {
+function nextKey(rows: readonly PlanRow[], kept: readonly KeptPiece[]): string {
+  const taken = new Set([...rows, ...kept].map((piece) => piece.key));
   let number = rows.length + 1;
-  while (rows.some((row) => row.key === `piece-${number}`)) number += 1;
+  while (taken.has(`piece-${number}`)) number += 1;
   return `piece-${number}`;
 }
 
@@ -218,80 +223,86 @@ export function PlanRows({
   return (
     <>
       <ol className={styles.rows} aria-label="Pieces">
-        {rows.map((row, index) => (
-          <li key={row.key} className={styles.row}>
-            <div className={styles.rowHead}>
-              <span className={styles.number}>{index + 1}</span>
-              <ChoiceMenu
-                label="Department"
-                value={
-                  "departmentId" in row.department ? row.department.departmentId : NEW_DEPARTMENT
-                }
-                choices={[
-                  ...saved.map((department) => ({ value: department.id, label: department.name })),
-                  { value: NEW_DEPARTMENT, label: "New department" },
-                ]}
-                onChange={(value) => chooseDepartment(row, value)}
+        {rows.map((row, index) => {
+          const name = row.title.trim() || `piece ${index + 1}`;
+          return (
+            <li key={row.key} className={styles.row}>
+              <div className={styles.rowHead}>
+                <span className={styles.number}>{index + 1}</span>
+                <ChoiceMenu
+                  label="Department"
+                  value={
+                    "departmentId" in row.department ? row.department.departmentId : NEW_DEPARTMENT
+                  }
+                  choices={[
+                    ...saved.map((department) => ({
+                      value: department.id,
+                      label: department.name,
+                    })),
+                    { value: NEW_DEPARTMENT, label: "New department" },
+                  ]}
+                  onChange={(value) => chooseDepartment(row, value)}
+                />
+                <span className={styles.spacer} />
+                <Button
+                  variant="ghost"
+                  icon
+                  aria-label={`Move ${name} up`}
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                >
+                  <ArrowUp size={14} aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon
+                  aria-label={`Move ${name} down`}
+                  disabled={index === rows.length - 1}
+                  onClick={() => move(index, 1)}
+                >
+                  <ArrowDown size={14} aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon
+                  aria-label={`Remove ${name}`}
+                  onClick={() => remove(row.key)}
+                >
+                  <X size={14} aria-hidden />
+                </Button>
+              </div>
+              <input
+                className={styles.input}
+                aria-label="Title"
+                placeholder="Title"
+                value={row.title}
+                onChange={(change) => update(row.key, { title: change.target.value })}
               />
-              <span className={styles.spacer} />
-              <Button
-                variant="ghost"
-                icon
-                aria-label="Move up"
-                disabled={index === 0}
-                onClick={() => move(index, -1)}
-              >
-                <ArrowUp size={14} aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                icon
-                aria-label="Move down"
-                disabled={index === rows.length - 1}
-                onClick={() => move(index, 1)}
-              >
-                <ArrowDown size={14} aria-hidden />
-              </Button>
-              <Button
-                variant="ghost"
-                icon
-                aria-label={`Remove ${row.title || "this piece"}`}
-                onClick={() => remove(row.key)}
-              >
-                <X size={14} aria-hidden />
-              </Button>
-            </div>
-            <input
-              className={styles.input}
-              aria-label="Title"
-              placeholder="Title"
-              value={row.title}
-              onChange={(change) => update(row.key, { title: change.target.value })}
-            />
-            <textarea
-              className={styles.input}
-              aria-label="Brief"
-              placeholder="What the department is to do and hand back"
-              rows={2}
-              value={row.brief}
-              onChange={(change) => update(row.key, { brief: change.target.value })}
-            />
-            <WaitsOn
-              row={row}
-              rows={rows}
-              kept={kept}
-              onChange={(waitsOn) => update(row.key, { waitsOn })}
-            />
-            {"newDepartment" in row.department ? (
-              <NewDepartmentFields
-                draft={row.department.newDepartment}
-                onChange={(newDepartment) => update(row.key, { department: { newDepartment } })}
-                workspaces={workspaces}
-                onNewWorkspace={onNewWorkspace}
+              <textarea
+                className={styles.input}
+                aria-label="Brief"
+                placeholder="What the department is to do and hand back"
+                rows={2}
+                value={row.brief}
+                onChange={(change) => update(row.key, { brief: change.target.value })}
               />
-            ) : null}
-          </li>
-        ))}
+              <WaitsOn
+                row={row}
+                rows={rows}
+                kept={kept}
+                onChange={(waitsOn) => update(row.key, { waitsOn })}
+              />
+              {"newDepartment" in row.department ? (
+                <NewDepartmentFields
+                  draft={row.department.newDepartment}
+                  onChange={(newDepartment) => update(row.key, { department: { newDepartment } })}
+                  workspaces={workspaces}
+                  onNewWorkspace={onNewWorkspace}
+                />
+              ) : null}
+            </li>
+          );
+        })}
       </ol>
       <div>
         <Button
@@ -299,7 +310,7 @@ export function PlanRows({
             onChange([
               ...rows,
               {
-                key: nextKey(rows),
+                key: nextKey(rows, kept),
                 title: "",
                 brief: "",
                 waitsOn: [],

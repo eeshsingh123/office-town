@@ -62,14 +62,25 @@ export function wouldCycle(rows: readonly PlanRow[], from: string, to: string): 
   return reaches(rows, to, from);
 }
 
-// What keeps the plan from being approved, in words for the user; undefined if nothing.
+const newDepartmentNames = (rows: readonly PlanRow[]) =>
+  rows.flatMap(({ department }) =>
+    "newDepartment" in department ? [department.newDepartment.name.trim()] : [],
+  );
+
+// What keeps the plan from being approved, in words for the user; undefined if nothing. It mirrors
+// the core's checks, so the user is not sent an answer the core refuses.
 export function planProblem(
   rows: readonly PlanRow[],
   kept: readonly KeptPiece[] = [],
+  departmentNames: readonly string[] = [],
 ): string | undefined {
   if (rows.length === 0) return "Add a piece to approve the plan.";
   if (rows.some((row) => row.title.trim() === "" || row.brief.trim() === "")) {
     return "Every piece needs a title and a brief.";
+  }
+  const keys = rows.map((row) => row.key);
+  if (keys.some((key, index) => keys.indexOf(key) !== index)) {
+    return "Two pieces share a key; remove one and add it again.";
   }
   const known = new Set([...rows.map((row) => row.key), ...kept.map((piece) => piece.key)]);
   if (rows.some((row) => row.waitsOn.some((key) => !known.has(key)))) {
@@ -84,6 +95,13 @@ export function planProblem(
     if (name.trim() === "") return "Name each new department to approve.";
     if (workspaceId === undefined) return `Choose a workspace for ${name.trim()} to approve.`;
   }
+  const names = newDepartmentNames(rows);
+  const twice = names.find((name, index) => names.indexOf(name) !== index);
+  if (twice !== undefined) {
+    return `The new department ${twice} has two pieces. Give it one; it can take more in a changed plan once it exists.`;
+  }
+  const taken = names.find((name) => departmentNames.includes(name));
+  if (taken !== undefined) return `A department called ${taken} exists already.`;
   return undefined;
 }
 

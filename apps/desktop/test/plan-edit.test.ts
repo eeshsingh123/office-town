@@ -27,4 +27,22 @@ describe("plan edits", () => {
     const placed = { newDepartment: { ...content, workspaceId: "w1" } };
     expect(planProblem([...rows, row("copy", [], { department: placed })])).toBeUndefined();
   });
+
+  const lead = { harness: "opencode", environment: { kind: "native" as const } };
+  const team = (name: string) => ({
+    department: {
+      newDepartment: { name, purpose: "", lead, autonomy: "trusted" as const, workspaceId: "w1" },
+    },
+  });
+  it.each([
+    ["the same key twice", [row("a", []), row("a", [])], "Two pieces share a key"],
+    [
+      "one new department in two pieces",
+      [row("a", [], team("QA")), row("b", [], team(" QA "))],
+      "The new department QA has two pieces",
+    ],
+    ["a new department named like a saved one", [row("a", [], team("Web"))], "called Web exists"],
+  ])("refuses %s, as the core does", (_, rows, problem) => {
+    expect(planProblem(rows, [], ["Web"])).toContain(problem);
+  });
 });

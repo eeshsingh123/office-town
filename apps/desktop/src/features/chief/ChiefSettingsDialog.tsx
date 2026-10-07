@@ -62,13 +62,11 @@ function ChiefForm() {
               ...(draft.model === undefined ? {} : { model: draft.model }),
               ...(draft.effort === undefined ? {} : { effort: draft.effort }),
             }}
-            onChange={(next) =>
-              setDraft(
-                draft.instructions === undefined
-                  ? next
-                  : { ...next, instructions: draft.instructions },
-              )
-            }
+            onChange={(next) => {
+              // The chips own these four; a harness change drops its model and effort.
+              const { harness, environment, model, effort, ...others } = draft;
+              setDraft({ ...others, ...next });
+            }}
           />
         </div>
         <label className={dialog.label}>

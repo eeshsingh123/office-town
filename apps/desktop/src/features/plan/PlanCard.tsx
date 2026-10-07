@@ -122,7 +122,11 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
   const kept: KeptPiece[] = plan.filter(
     (piece) => piece.status === "done" || piece.status === "working",
   );
-  const problem = planProblem(rows, kept);
+  const problem = planProblem(
+    rows,
+    kept,
+    Object.values(departments).map((department) => department.name),
+  );
   const warnings = guardWarnings(rows, departments);
   const answer = async (decision: PlanAnswer) => {
     setSending(true);
@@ -171,7 +175,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
           <ChangeList event={event} rows={rows} />
         )}
         <label className={styles.field}>
-          <span className={styles.fieldLabel}>Note for the chief (optional)</span>
+          <span className={styles.fieldLabel}>Note (sent with Send back or Decline)</span>
           <textarea
             className={styles.input}
             rows={2}
