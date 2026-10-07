@@ -348,6 +348,49 @@ describe("store", () => {
     expect(rest).toEqual({ sessions: [store.getSession(ids[0] ?? "")] });
   });
 
+  it("keeps a chief's plan with its goal: its pieces go with it, the departments' tasks stay", async () => {
+    const chief = addAgent(store);
+    const goal = store.createTask("Launch the bakery", { leadAgentId: chief.id });
+    const later = store.createTask(
+      "Open a second shop",
+      { leadAgentId: chief.id },
+      { queued: true },
+    );
+    expect(later.state).toBe("queued");
+    expect(store.oldestQueuedTask()).toBe(later.id);
+    expect(store.openTaskOfLead(chief.id)).toBe(goal.id);
+    const changes: Change[] = [];
+    store.subscribe((change) => changes.push(change));
+    const newDepartment = {
+      name: "Web team",
+      purpose: "Builds the site",
+      lead: { harness: "claude", environment: { kind: "native" as const } },
+      workspaceId: "w",
+      autonomy: "trusted" as const,
+    };
+    const site = store.createPiece({
+      taskId: goal.id,
+      key: "site",
+      title: "Build the site",
+      brief: "Build it",
+      waitsOn: [],
+      newDepartment,
+    });
+    const work = store.createTask("Build it", undefined, { parentTaskId: goal.id });
+    store.updatePiece(site.id, { status: "working", pieceTaskId: work.id });
+    expect(store.pieceOfTask(work.id)).toMatchObject({ id: site.id, status: "working" });
+    expect(store.listOpenPieces().map((piece) => piece.id)).toEqual([site.id]);
+    expect(store.updatePiece(site.id, { status: "done", result: "Live" })).toMatchObject({
+      result: "Live",
+      endedAt: expect.any(String),
+    });
+    expect(changes.filter((change) => change.type === "piece")).toHaveLength(3);
+
+    await store.deleteTask(goal.id);
+    expect(store.getPiece(site.id)).toBeUndefined();
+    expect(store.getTask(work.id)?.parentTaskId).toBeUndefined();
+  });
+
   // A query that loses its index reads the whole table and slows down with every event stored.
   it("answers every query through an index", () => {
     store.close();
@@ -383,6 +426,14 @@ describe("store", () => {
       [queries.unfinishedSessions, "sessions_unfinished"],
       [queries.deleteSessionPendingRequests, "pending_requests_by_session"],
       [queries.deleteUnfinishedPendingRequests, "sessions_unfinished"],
+      [queries.openTaskOfLead, "tasks_open_by_lead"],
+      [queries.oldestQueuedTask, "tasks_queued"],
+      [queries.lastAgentMessage, "events_messages"],
+      [queries.openPieces, "plan_pieces_open"],
+      // The foreign-key checks SQLite runs when a chief's task, or a piece's, is deleted.
+      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_task"],
+      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_piece_task"],
+      ["DELETE FROM tasks WHERE ref = ?", "tasks_by_parent"],
       // The foreign-key checks SQLite runs when a session row is deleted with its task.
       ["DELETE FROM sessions WHERE ref = ?", "events_by_session"],
       ["DELETE FROM sessions WHERE ref = ?", "harness_lines_by_session"],

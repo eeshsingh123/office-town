@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { answeredBySchema } from "./autonomy.ts";
+import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
 export const tokenUsageSchema = z.object({
@@ -77,6 +78,14 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
   // News for the agent, such as a change to its team. `summary` is the one line shown for it.
   z.object({ kind: z.literal("notice"), summary: z.string().min(1) }),
+  // A piece of the chief's plan ended; its department's result, which the core hands the chief.
+  z.object({
+    kind: z.literal("piece"),
+    pieceId: z.string().min(1),
+    outcome: z.enum(["done", "failed", "stopped"]),
+  }),
+  // Another agent's words, such as the chief's to a lead at work.
+  z.object({ kind: z.literal("message"), from: z.string().min(1) }),
 ]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;
 
@@ -202,6 +211,21 @@ const payloadSchemas = {
     team: teamSchema.optional(),
     note: z.string().optional(),
   }),
+  // The chief's plan, for the user to edit and approve. `replan` is set when it changes a plan
+  // already approved.
+  "plan.requested": z.object({
+    requestId: z.string().min(1),
+    pieces: z.array(proposedPieceSchema).min(1),
+    reason: z.string().optional(),
+    replan: z.boolean(),
+  }),
+  "plan.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["approved", "revised", "declined", "cancelled"]),
+    // The pieces as approved, after the user's changes.
+    pieces: z.array(approvedPieceSchema).optional(),
+    note: z.string().optional(),
+  }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   error: z.object({
     message: z.string(),
@@ -240,6 +264,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("question.resolved"),
   eventOf("proposal.requested"),
   eventOf("proposal.resolved"),
+  eventOf("plan.requested"),
+  eventOf("plan.resolved"),
   eventOf("limits.updated"),
   eventOf("error"),
 ]);
@@ -254,5 +280,6 @@ export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("permission.requested"),
   eventOf("question.requested"),
   eventOf("proposal.requested"),
+  eventOf("plan.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

@@ -69,12 +69,22 @@ function migrate(db: DatabaseSync, file: string): void {
   // The user's history cannot be recreated, so a copy is kept before its schema changes.
   const backup = `${file}.bak-v${version}`;
   if (!fresh && !existsSync(backup)) db.prepare("VACUUM INTO ?").run(backup);
-  for (const [offset, migration] of migrations.slice(version).entries()) {
-    transaction(db, () => {
-      if (typeof migration === "string") db.exec(migration);
-      else migration(db);
-      if (fresh) db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
-      db.exec(`PRAGMA user_version = ${version + offset + 1}`);
-    });
+  // SQLite's way to rebuild a table: with foreign keys off, dropping the old table does not delete
+  // the rows that point at it. Each step is checked before it commits.
+  db.exec("PRAGMA foreign_keys = OFF");
+  try {
+    for (const [offset, migration] of migrations.slice(version).entries()) {
+      transaction(db, () => {
+        if (typeof migration === "string") db.exec(migration);
+        else migration(db);
+        if (db.prepare("PRAGMA foreign_key_check").get() !== undefined) {
+          throw new StoreFileError(`${file} has rows that point at nothing after migrating.`);
+        }
+        if (fresh) db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
+        db.exec(`PRAGMA user_version = ${version + offset + 1}`);
+      });
+    }
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
   }
 }

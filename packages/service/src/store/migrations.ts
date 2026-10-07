@@ -259,4 +259,62 @@ export const migrations: readonly Migration[] = [
     WHERE e.type = 'limits.updated'
     GROUP BY s.options ->> '$.harness');
   `,
+  `
+  -- Rebuilt, as SQLite cannot change a CHECK: a chief's goal can be queued, and a piece of its
+  -- plan runs as a department's task that points at the chief's.
+  CREATE TABLE tasks_rebuilt (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    prompt         TEXT NOT NULL,
+    created_at     INTEGER NOT NULL,
+    lead_ref       INTEGER REFERENCES agents (ref),
+    department_ref INTEGER REFERENCES departments (ref),
+    setup          TEXT,
+    state          TEXT NOT NULL
+                     CHECK (state IN ('queued', 'working', 'waiting', 'idle', 'ended')),
+    reviewed_at    INTEGER,
+    parent_ref     INTEGER REFERENCES tasks (ref) ON DELETE SET NULL
+  ) STRICT;
+  INSERT INTO tasks_rebuilt
+    (ref, id, prompt, created_at, lead_ref, department_ref, setup, state, reviewed_at)
+  SELECT ref, id, prompt, created_at, lead_ref, department_ref, setup, state, reviewed_at
+  FROM tasks;
+  DROP TABLE tasks;
+  ALTER TABLE tasks_rebuilt RENAME TO tasks;
+
+  CREATE INDEX tasks_by_lead ON tasks (lead_ref) WHERE lead_ref IS NOT NULL;
+  CREATE INDEX tasks_by_department ON tasks (department_ref) WHERE department_ref IS NOT NULL;
+  CREATE INDEX tasks_open_by_department ON tasks (department_ref) WHERE state <> 'ended';
+  CREATE INDEX tasks_open_by_lead ON tasks (lead_ref) WHERE state <> 'ended';
+  CREATE INDEX tasks_queued ON tasks (state) WHERE state = 'queued';
+  CREATE INDEX tasks_by_parent ON tasks (parent_ref) WHERE parent_ref IS NOT NULL;
+
+  -- The pieces of a chief's plan. A piece names the pieces it waits on by id, as a JSON array; a
+  -- new department it proposes is a JSON object until the department exists.
+  CREATE TABLE plan_pieces (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    key            TEXT NOT NULL,
+    title          TEXT NOT NULL,
+    department_ref INTEGER REFERENCES departments (ref),
+    new_department TEXT,
+    brief          TEXT NOT NULL,
+    waits_on       TEXT NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN
+                     ('waiting', 'queued', 'working', 'done', 'failed', 'stopped', 'dropped')),
+    piece_task_ref INTEGER REFERENCES tasks (ref) ON DELETE SET NULL,
+    result         TEXT,
+    created_at     INTEGER NOT NULL,
+    ended_at       INTEGER
+  ) STRICT;
+
+  CREATE INDEX plan_pieces_by_task ON plan_pieces (task_ref);
+  CREATE INDEX plan_pieces_by_piece_task ON plan_pieces (piece_task_ref)
+    WHERE piece_task_ref IS NOT NULL;
+  CREATE INDEX plan_pieces_open ON plan_pieces (status)
+    WHERE status IN ('waiting', 'queued', 'working');
+
+  CREATE INDEX events_messages ON events (session_ref) WHERE type = 'message';
+  `,
 ];

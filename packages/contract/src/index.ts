@@ -7,4 +7,5 @@ export * from "./changes.ts";
 export * from "./commands.ts";
 export * from "./events.ts";
 export * from "./options.ts";
+export * from "./plans.ts";
 export * from "./team.ts";

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { agentRecordSchema } from "./agents.ts";
 import { harnessLimitsSchema, taskRecordSchema } from "./api.ts";
+import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
 
 // A record the core changed, sent whole on the live stream so the UI replaces its copy. Changes
@@ -12,5 +13,6 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("department"), department: departmentRecordSchema }),
   z.object({ type: z.literal("delegation"), delegation: delegationRecordSchema }),
   z.object({ type: z.literal("limits"), limits: harnessLimitsSchema }),
+  z.object({ type: z.literal("piece"), piece: planPieceSchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

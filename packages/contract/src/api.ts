@@ -6,8 +6,9 @@ import { usageLimitSchema, userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
 // waiting: an agent asks the user something. working: an agent is at work. ended: the goal is
-// finished. idle: none of these, such as a team cut off by a restart.
-export const taskStateSchema = z.enum(["working", "waiting", "idle", "ended"]);
+// finished. idle: none of these, such as a team cut off by a restart. queued: a chief's goal
+// waiting for the one before it to end.
+export const taskStateSchema = z.enum(["queued", "working", "waiting", "idle", "ended"]);
 export type TaskState = z.infer<typeof taskStateSchema>;
 
 // The tokens a task's sessions on one harness used, summed over their turns.
@@ -26,6 +27,8 @@ export const taskRecordSchema = z.object({
   // Set on a team's task: who leads it, and its department once the team is approved.
   leadAgentId: z.string().min(1).optional(),
   departmentId: z.string().min(1).optional(),
+  // Set on a piece of a chief's plan: the chief's task.
+  parentTaskId: z.string().min(1).optional(),
   state: taskStateSchema,
   // When the user marked the finished goal reviewed; cleared when the goal is taken up again.
   reviewedAt: z.iso.datetime().optional(),
@@ -137,6 +140,8 @@ export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 export const settingsSchema = z.object({
   // Where a task with no workspace gets a folder of its own; the last one chosen is kept.
   outputFolder: absolutePathSchema.optional(),
+  // The one standing chief, once it is set up.
+  chiefAgentId: z.string().min(1).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 

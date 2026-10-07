@@ -1,9 +1,10 @@
 const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
-         d.id AS departmentId, t.setup, t.state, t.reviewed_at AS reviewedAt
+         d.id AS departmentId, p.id AS parentTaskId, t.setup, t.state, t.reviewed_at AS reviewedAt
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
-  LEFT JOIN departments d ON d.ref = t.department_ref`;
+  LEFT JOIN departments d ON d.ref = t.department_ref
+  LEFT JOIN tasks p ON p.ref = t.parent_ref`;
 
 const SESSION_SELECT = `
   SELECT s.ref, s.id, t.id AS taskId, a.id AS agentId, s.options, s.status,
@@ -43,6 +44,15 @@ const DELEGATION_SELECT = `
   JOIN tasks t ON t.ref = g.task_ref
   JOIN agents a ON a.ref = g.worker_ref`;
 
+const PIECE_SELECT = `
+  SELECT pp.ref, pp.id, t.id AS taskId, pp.key, pp.title, d.id AS departmentId,
+         pp.new_department AS newDepartment, pp.brief, pp.waits_on AS waitsOn, pp.status,
+         pt.id AS pieceTaskId, pp.result, pp.created_at AS createdAt, pp.ended_at AS endedAt
+  FROM plan_pieces pp
+  JOIN tasks t ON t.ref = pp.task_ref
+  LEFT JOIN departments d ON d.ref = pp.department_ref
+  LEFT JOIN tasks pt ON pt.ref = pp.piece_task_ref`;
+
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
 const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
@@ -51,8 +61,8 @@ const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used
 // except those marked as reading a small table whole.
 export const queries = {
   insertTask: `
-    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state)
-    VALUES (?, ?, ?, ?, ?, ?, 'working')`,
+    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
@@ -60,6 +70,10 @@ export const queries = {
   // A department works on one goal at a time: the one that has not ended.
   activeTaskOfDepartment:
     "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
+  // The lead's goal that has started and not ended, such as the chief's one at a time.
+  openTaskOfLead: `
+    SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' AND state <> 'queued' LIMIT 1`,
+  oldestQueuedTask: "SELECT id FROM tasks WHERE state = 'queued' ORDER BY ref LIMIT 1",
   // Leaving "ended" takes the goal up again, so its review is cleared.
   setTaskState: `
     UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
@@ -111,11 +125,14 @@ export const queries = {
   // Reads the whole table on purpose: one row per agent, which the app shows together.
   allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
   renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
-  // An agent that worked on no other task, and is in no department, goes with its last task.
+  // An agent that worked on no other task, and is in no department, goes with its last task; the
+  // chief stands without one.
   deleteAgentIfUnused: `
     DELETE FROM agents
-    WHERE ref = ? AND department_ref IS NULL
-      AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?)`,
+    WHERE ref = ?1 AND department_ref IS NULL
+      AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?1)
+      AND NOT EXISTS
+        (SELECT 1 FROM settings WHERE key = 'chiefAgentId' AND value = json_quote(agents.id))`,
 
   insertDelegation: `
     INSERT INTO delegations
@@ -127,6 +144,21 @@ export const queries = {
   delegationById: `${DELEGATION_SELECT} WHERE g.id = ?`,
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
+
+  insertPiece: `
+    INSERT INTO plan_pieces
+      (id, task_ref, key, title, department_ref, new_department, brief, waits_on, status,
+       created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)`,
+  pieceById: `${PIECE_SELECT} WHERE pp.id = ?`,
+  piecesOfTask: `${PIECE_SELECT} WHERE pp.task_ref = ? ORDER BY pp.ref`,
+  pieceOfPieceTask: `${PIECE_SELECT} WHERE pp.piece_task_ref = ?`,
+  // In no order: the index serves the status, and the store orders the few rows itself.
+  openPieces: `${PIECE_SELECT} WHERE pp.status IN ('waiting', 'queued', 'working')`,
+  updatePiece: `
+    UPDATE plan_pieces
+    SET status = ?, department_ref = ?, piece_task_ref = ?, result = ?, ended_at = ?
+    WHERE ref = ?`,
 
   insertDepartment: `
     INSERT INTO departments
@@ -176,8 +208,14 @@ export const queries = {
     JOIN tasks t ON t.ref = s.task_ref
     ORDER BY p.event_position`,
   latestTurnOfSession: `
-    SELECT type, timestamp FROM events
+    SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
     WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
+    ORDER BY position DESC LIMIT 1`,
+  // The agent's own last words, leaving out those of a subagent it ran.
+  lastAgentMessage: `
+    SELECT payload ->> '$.text' AS text FROM events
+    WHERE session_ref = ? AND type = 'message' AND payload ->> '$.role' = 'assistant'
+      AND payload ->> '$.parentActionId' IS NULL
     ORDER BY position DESC LIMIT 1`,
   saveLimits: `
     INSERT INTO harness_limits (harness, limits, reported_at) VALUES (?, ?, ?)

@@ -5,6 +5,7 @@ import type {
   MessageOrigin,
   PermissionMode,
   SessionEvent,
+  SessionEventBody,
   SessionOptions,
   SessionRecord,
 } from "@office-town/contract";
@@ -34,14 +35,17 @@ export interface ToolAccess {
 }
 
 export type CoreRequest = Extract<
-  CoreReport,
-  { type: "question.requested" | "proposal.requested" }
+  SessionEventBody,
+  { type: "question.requested" | "proposal.requested" | "plan.requested" }
 >;
 export type AnswerCommand = Extract<AgentCommand, { requestId: string }>;
 
 // What a request of the core's own comes to once answered.
 export interface CoreAnswer {
-  resolution: Extract<CoreReport, { type: "question.resolved" | "proposal.resolved" }>;
+  resolution: Extract<
+    SessionEventBody,
+    { type: "question.resolved" | "proposal.resolved" | "plan.resolved" }
+  >;
   // Runs once the resolution is recorded, such as telling the agent.
   afterwards?: () => Promise<void>;
 }
@@ -213,11 +217,11 @@ export class SessionRegistry {
     if (handler !== undefined && key !== undefined && "requestId" in command) {
       const answer = handler(command);
       this.#asked.delete(key);
-      live.session.report(answer.resolution);
+      live.session.report(answer.resolution as CoreReport);
       await answer.afterwards?.();
       return;
     }
-    if (command.type === "answerProposal") {
+    if (command.type === "answerProposal" || command.type === "answerPlan") {
       throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
     }
     if (command.type === "answerPermission") {
@@ -244,7 +248,8 @@ export class SessionRegistry {
   ask(sessionId: string, request: CoreRequest, onAnswer: CoreRequestHandler): void {
     const live = this.#running(sessionId);
     this.#asked.set(askedKey(sessionId, request.payload.requestId), onAnswer);
-    live.session.report(request);
+    // The harness adds whatever the core reports to the stream; its type predates plans.
+    live.session.report(request as CoreReport);
   }
 
   // `idle` ends an agent left idle as finished, to be resumed when it is next needed.

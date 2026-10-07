@@ -9,6 +9,7 @@ import type {
   DepartmentSettings,
   HarnessLimits,
   PendingRequestList,
+  PlanPiece,
   ProfileRecord,
   ProfileRequest,
   SessionEvent,
@@ -61,10 +62,27 @@ export interface TeamSetup {
   autonomy: Autonomy;
 }
 
-// A team's task: its lead, and its department or else the setup of the team to be proposed.
+// A team's task: its lead, and its department or else the setup of the team to be proposed. A
+// chief's task has a lead only.
 export type TaskTeam =
   | { leadAgentId: string; departmentId: string }
-  | { leadAgentId: string; setup: TeamSetup };
+  | { leadAgentId: string; setup: TeamSetup }
+  | { leadAgentId: string };
+
+// A task starts working unless it is queued; a piece of a chief's plan names the chief's task.
+export interface TaskPlacement {
+  parentTaskId?: string;
+  queued?: true;
+}
+
+export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
+  ({ departmentId: string } | { newDepartment: NonNullable<PlanPiece["newDepartment"]> });
+
+// A piece's fields that change as it runs; one left out keeps its value. A piece that ends
+// (done, failed, stopped or dropped) gets its end time.
+export type PieceChange = Partial<
+  Pick<PlanPiece, "status" | "departmentId" | "pieceTaskId" | "result">
+>;
 
 export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt">;
 
@@ -97,10 +115,13 @@ export interface AgentSessionQuery {
   before?: string;
 }
 
-// A session's latest turn: whether it has ended, and when it started or ended.
+export type TurnOutcome = Extract<SessionEvent, { type: "turn.ended" }>["payload"]["outcome"];
+
+// A session's latest turn: whether it has ended, how, and when it started or ended.
 export interface LatestTurn {
   ended: boolean;
   at: string;
+  outcome?: TurnOutcome;
 }
 
 export type ChangeListener = (change: Change) => void;
@@ -114,13 +135,16 @@ export interface Store {
   // Hears every change to a task, agent, department, delegation or plan limit once it is
   // written, in the order written.
   subscribe(listener: ChangeListener): () => void;
-  createTask(prompt: string, team?: TaskTeam): TaskRecord;
+  createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
   // Set until the task's team is approved.
   taskSetup(taskId: string): TeamSetup | undefined;
   // The task's proposed team was approved as this department.
   joinDepartment(taskId: string, departmentId: string): TaskRecord;
   // The department's goal that has not ended, if any: a department works on one at a time.
   activeTaskOf(departmentId: string): string | undefined;
+  // The lead's goal that has started and not ended, if any: the chief runs one at a time.
+  openTaskOfLead(agentId: string): string | undefined;
+  oldestQueuedTask(): string | undefined;
   // Does nothing if the task is already in that state. Leaving "ended" clears its review.
   setTaskState(taskId: string, state: TaskState): void;
   markReviewed(taskId: string): TaskRecord;
@@ -137,6 +161,8 @@ export interface Store {
   // The agent's sessions across all its tasks, newest first.
   listAgentSessions(agentId: string, query: AgentSessionQuery): SessionPage;
   latestTurn(sessionId: string): LatestTurn | undefined;
+  // The agent's last message in the session, not counting a subagent's.
+  lastMessage(sessionId: string): string | undefined;
   // Marks every session left starting or running by an earlier core as interrupted, with the
   // delegations they were working on.
   markInterrupted(): SessionRecord[];
@@ -146,6 +172,16 @@ export interface Store {
   // The delegation a worker's session is working on, if any.
   workingDelegation(workerSessionId: string): DelegationRecord | undefined;
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
+  // Waiting, until it starts.
+  createPiece(piece: NewPiece): PlanPiece;
+  getPiece(id: string): PlanPiece | undefined;
+  // The chief task's pieces, oldest first.
+  listPieces(taskId: string): PlanPiece[];
+  // The piece a department's task works on, if it is one.
+  pieceOfTask(pieceTaskId: string): PlanPiece | undefined;
+  // Every piece waiting, queued or working, across all chief tasks, oldest first.
+  listOpenPieces(): PlanPiece[];
+  updatePiece(id: string, change: PieceChange): PlanPiece;
   // Returns the event as stored, or nothing for a text fragment, which is never stored. A turn's
   // usage is added to its task's, and reported limits replace the harness's earlier ones.
   append(event: SessionEvent): StoredEvent | undefined;
@@ -178,6 +214,7 @@ export interface Store {
   // Agents made from it keep working with the settings it had when they were made.
   deleteProfile(id: string): void;
   createWorkspace(workspace: WorkspaceRequest): WorkspaceRecord;
+  getWorkspace(id: string): WorkspaceRecord | undefined;
   // Most recently used first.
   listWorkspaces(): WorkspaceRecord[];
   updateWorkspace(id: string, workspace: WorkspaceRequest): WorkspaceRecord;
@@ -201,7 +238,8 @@ export class RecordNotFoundError extends Error {
       | "agent"
       | "profile"
       | "department"
-      | "delegation",
+      | "delegation"
+      | "piece",
     id: string,
   ) {
     super(`No ${kind} "${id}".`);

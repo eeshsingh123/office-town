@@ -14,6 +14,8 @@ const STATE_EVENTS = new Set<SessionEvent["type"]>([
   "question.resolved",
   "proposal.requested",
   "proposal.resolved",
+  "plan.requested",
+  "plan.resolved",
 ]);
 
 // Whether a task still has work out, though its top agent finished at `finishedAt`.

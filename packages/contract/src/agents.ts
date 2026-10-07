@@ -58,6 +58,10 @@ export const agentRecordSchema = z.object({
 });
 export type AgentRecord = z.infer<typeof agentRecordSchema>;
 
+// The user's own words to an agent, whether it is at work or has finished.
+export const agentMessageRequestSchema = z.object({ text: z.string().trim().min(1) });
+export type AgentMessageRequest = z.infer<typeof agentMessageRequestSchema>;
+
 export const renameAgentRequestSchema = z.object({ name: agentNameSchema });
 export type RenameAgentRequest = z.infer<typeof renameAgentRequestSchema>;
 
