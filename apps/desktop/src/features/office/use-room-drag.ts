@@ -69,6 +69,15 @@ export function useRoomDrag(plan: FloorPlan) {
       setMove(undefined);
     },
     onPointerCancel: () => setMove(undefined),
+    onLostPointerCapture: () => {
+      if (move?.id === id && move.pointer !== undefined) setMove(undefined);
+    },
+    // A keyboard move is kept when the sign loses focus before Alt is let go.
+    onBlur: () => {
+      if (move?.id !== id || move.pointer !== undefined) return;
+      save(move);
+      setMove(undefined);
+    },
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
       const step = STEPS[event.key];
       if (!event.altKey || step === undefined) return;

@@ -53,9 +53,15 @@ describe("floor plan", () => {
       { id: "qa", kind: "department", desks: 2 },
       { id: "open", kind: "open", desks: 3 },
     ] as const;
-    const plan = floorPlan(specs, { web: { x: 900, y: 600 }, gone: { x: 0, y: 0 } });
+    // QA was moved next to Web before Web's team grew over it, so QA goes back to its own place.
+    const plan = floorPlan(specs, {
+      web: { x: 900, y: 600 },
+      qa: { x: 1000, y: 620 },
+      gone: { x: 0, y: 0 },
+    });
     const rect = (id: string) => plan.rooms.find((room) => room.id === id)?.rect as Rect;
     expect(rect("web")).toMatchObject({ x: 900, y: 600 });
+    expect(rect("qa").x).toBeLessThan(900);
     expect(plan.width).toBeGreaterThan(900 + rect("web").width);
     // The open floor comes after every room, the moved one too.
     expect(rect("open").y).toBeGreaterThan(600 + rect("web").height);

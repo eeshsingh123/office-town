@@ -123,8 +123,9 @@ function pack(specs: readonly RoomSpec[], placed: readonly Room[], top: number):
 }
 
 // The chief's office sits at the top centre and departments in rows below it, in the order given;
-// a room the user dragged stays where they put it. Every other room keeps the place it would have
-// with no room moved, unless a moved room took it; then it steps past. The open floor and the
+// a room the user dragged stays where they put it, unless a room moved before it already took that
+// spot, as when a team grew. Every other room keeps the place it would have with no room moved,
+// unless a moved room took it; then it steps past. The open floor and the
 // guest desk come after every room, so a moved room never covers them, and the player starts in
 // the corridor below. Departments are rooms on the one floor M3 started (D-35, D-49).
 export function floorPlan(
@@ -132,10 +133,14 @@ export function floorPlan(
   positions: Readonly<Record<string, Point>> = {},
 ): FloorPlan {
   const movedTo = (spec: RoomSpec) => (movable(spec.kind) ? positions[spec.id] : undefined);
-  const rooms = specs.flatMap((spec) => {
+  const rooms: Room[] = [];
+  for (const spec of specs) {
     const at = movedTo(spec);
-    return at === undefined ? [] : [placeRoom(spec, at)];
-  });
+    if (at === undefined) continue;
+    const room = placeRoom(spec, at);
+    if (!rooms.some((other) => overlaps(room.rect, other.rect))) rooms.push(room);
+  }
+  const moved = new Set(rooms.map((room) => room.id));
   const homes: Room[] = [];
   let top = TOP;
   const chief = specs.find((spec) => spec.kind === "chief");
@@ -153,7 +158,7 @@ export function floorPlan(
     ),
   );
   const displaced: RoomSpec[] = [];
-  for (const home of homes.filter((one) => movedTo(one) === undefined)) {
+  for (const home of homes.filter((one) => !moved.has(one.id))) {
     if (rooms.some((room) => overlaps(room.rect, home.rect))) displaced.push(home);
     else rooms.push(home);
   }

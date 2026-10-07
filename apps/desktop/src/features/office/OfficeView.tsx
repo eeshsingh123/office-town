@@ -230,7 +230,7 @@ export function OfficeView() {
     chiefId,
     positions,
   ]);
-  const { links, doors } = useCommandFloor(departments);
+  const { links, goalId, doors } = useCommandFloor(departments);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const openRoom = room === undefined ? undefined : departmentRecords[room];
@@ -257,6 +257,7 @@ export function OfficeView() {
               signs={signs}
               doors={doors}
               links={links}
+              linksGoal={goalId}
               chief={chiefId === undefined ? undefined : records[chiefId]}
               selection={selection}
               room={chosen.length === 0 ? openRoom?.id : undefined}

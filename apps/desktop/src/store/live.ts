@@ -172,14 +172,17 @@ export async function track(taskId: string): Promise<void> {
   watchActive([summary]);
 }
 
-// Moves a room at once and keeps its place in the core; a failed save puts it back.
+// Moves a room at once and keeps its place in the core; a failed save puts that room back.
 export async function placeRoom(roomId: string, position: RoomPosition): Promise<void> {
-  const before = useApp.getState().roomPositions;
-  useApp.setState({ roomPositions: { ...before, [roomId]: position } });
+  const before = useApp.getState().roomPositions[roomId];
+  useApp.setState((state) => ({ roomPositions: { ...state.roomPositions, [roomId]: position } }));
   try {
     await api.saveRoomPosition(roomId, position);
   } catch (error) {
-    useApp.setState({ roomPositions: before });
+    useApp.setState((state) => {
+      const { [roomId]: _, ...others } = state.roomPositions;
+      return { roomPositions: before === undefined ? others : { ...others, [roomId]: before } };
+    });
     throw error;
   }
 }

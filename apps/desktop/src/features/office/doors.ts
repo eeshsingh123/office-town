@@ -25,27 +25,25 @@ interface DepartmentDoor {
 const newestFirst = (a: TaskRecord, b: TaskRecord) => b.createdAt.localeCompare(a.createdAt);
 
 // What a department's door shows, most pressing first and at most two: its agents waiting for the
-// user, its current goal at work, its latest own goal finished and not yet reviewed, its piece of
-// the chief's plan queued, or waiting on an unfinished upstream department.
+// user, its current goal at work, its latest own goal finished and not yet reviewed, a piece of the
+// chief's plan queued for it, or one waiting on an unfinished upstream department.
 export function departmentDoor(door: DepartmentDoor): DoorChip[] {
   const { department, tasks, pieces, departments, needsYou } = door;
   const goals = tasks.filter((task) => task.departmentId === department.id).sort(newestFirst);
   const ownGoal = goals.find((task) => task.parentTaskId === undefined);
-  const piece = pieces.find(
+  const own = pieces.filter(
     (one) => one.departmentId === department.id && one.status !== "dropped",
   );
-  const upstream = pieces.find(
-    (one) =>
-      piece?.status === "waiting" &&
-      piece.waitsOn.includes(one.id) &&
-      one.status !== "done" &&
-      one.status !== "dropped",
-  );
+  const byId = new Map(pieces.map((one) => [one.id, one]));
+  const upstream = own
+    .filter((one) => one.status === "waiting")
+    .flatMap((one) => one.waitsOn.flatMap((id) => byId.get(id) ?? []))
+    .find((one) => one.status !== "done" && one.status !== "dropped");
   const chips: (DoorChip | false)[] = [
     needsYou > 0 && { kind: "needs-you", count: needsYou },
     goals[0]?.state === "working" && { kind: "working" },
     ownGoal?.state === "ended" && ownGoal.reviewedAt === undefined && { kind: "review" },
-    piece?.status === "queued" && { kind: "queued" },
+    own.some((one) => one.status === "queued") && { kind: "queued" },
     upstream !== undefined && {
       kind: "waits-on",
       department:

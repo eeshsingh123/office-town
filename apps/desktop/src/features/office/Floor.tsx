@@ -76,8 +76,9 @@ interface FloorProps {
   signs: Record<string, RoomSign>;
   // The chief's state chips and each room's, by room id.
   doors: Record<string, DoorChip[]>;
-  // The links of the chief's current plan.
+  // The links of the chief's current plan, and that goal's id.
   links: Link[];
+  linksGoal: string | undefined;
   // The standing chief, once set up; it keeps its desk even before its first goal.
   chief: { id: string; name: string; colour: string } | undefined;
   selection: string[];
@@ -173,24 +174,26 @@ function useWalking(plan: FloorPlan) {
 
 // A link that turns active while the app is open sends a document along it once; under reduced
 // motion the link only changes colour.
-function useHandoffs(links: readonly DrawnLink[]) {
-  const seen = useRef<Map<string, LinkState> | undefined>(undefined);
+// A link that turns active, or first shows up active, sends a token along it. Nothing moves the
+// first time a goal's links are seen, so opening the app does not replay hand-offs.
+function useHandoffs(links: readonly DrawnLink[], goalId: string | undefined) {
+  const seen = useRef<{ goalId: string | undefined; states: Map<string, LinkState> }>(undefined);
   const [tokens, setTokens] = useState<{ key: string; path: string }[]>([]);
   useEffect(() => {
-    const before = seen.current;
-    seen.current = new Map(links.map((link) => [`${link.from}>${link.to}`, link.state]));
+    const before = seen.current?.goalId === goalId ? seen.current?.states : undefined;
+    const states = new Map(links.map((link) => [`${link.from}>${link.to}`, link.state]));
+    seen.current = { goalId, states };
     if (before === undefined || reducedMotion()) return;
-    const started = links.filter((link) => {
-      const was = before.get(`${link.from}>${link.to}`);
-      return link.state === "active" && was !== undefined && was !== "active";
-    });
+    const started = links.filter(
+      (link) => link.state === "active" && before.get(`${link.from}>${link.to}`) !== "active",
+    );
     if (started.length === 0) return;
     const now = Date.now();
     setTokens((running) => [
       ...running,
       ...started.map((link) => ({ key: `${link.from}>${link.to}@${now}`, path: link.path })),
     ]);
-  }, [links]);
+  }, [links, goalId]);
   const done = (key: string) => setTokens((running) => running.filter((one) => one.key !== key));
   return { tokens, done };
 }
@@ -260,7 +263,8 @@ function usePanTo(floor: RefObject<HTMLDivElement | null>, at: Point | undefined
 }
 
 export function Floor(props: FloorProps) {
-  const { plan, agents, signs, doors, links, chief, selection, room, onSelect, onOpenRoom } = props;
+  const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
+  const { onSelect, onOpenRoom } = props;
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
@@ -269,7 +273,7 @@ export function Floor(props: FloorProps) {
   const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
   const seated = seatedOf(agents, chief, rooms, move);
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
-  const { tokens, done } = useHandoffs(drawn);
+  const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
   // The department room the player stands in: walking into one opens its panel.
   const inside = useRef<string | undefined>(undefined);
