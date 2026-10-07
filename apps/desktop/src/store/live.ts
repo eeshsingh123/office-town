@@ -40,7 +40,7 @@ export function connect(): void {
     // A core restarted meanwhile has marked its agents interrupted without an event.
     if (status === "live" && wasOffline) {
       wasOffline = false;
-      void refresh().catch((error: unknown) => console.error("Could not refresh.", error));
+      void refresh(false).catch((error: unknown) => console.error("Could not refresh.", error));
     }
   };
   const follow = (after: number) => {
@@ -49,7 +49,7 @@ export function connect(): void {
   };
   const open = async (): Promise<void> => {
     try {
-      await refresh(following ? undefined : follow);
+      await refresh(true, following ? undefined : follow);
     } catch (error) {
       console.warn("The core is not reachable yet; retrying.", error);
       useApp.setState({ connection: "offline" });
@@ -62,18 +62,20 @@ export function connect(): void {
 // Reads what is true now. The waiting list is read first and the stream, when not open yet,
 // opens at its position; anything that changes after it arrives as an event or a change and is
 // applied once the lists are in.
-async function refresh(openStream?: (after: number) => void): Promise<void> {
+async function refresh(first: boolean, openStream?: (after: number) => void): Promise<void> {
   refreshing += 1;
   try {
-    await readAll(openStream);
+    await readAll(first, openStream);
   } finally {
     refreshing -= 1;
     if (refreshing === 0 && (queue.length > 0 || changes.length > 0)) schedule();
   }
 }
 
-async function readAll(openStream: ((after: number) => void) | undefined): Promise<void> {
-  const first = openStream !== undefined;
+async function readAll(
+  first: boolean,
+  openStream: ((after: number) => void) | undefined,
+): Promise<void> {
   const waiting = await api.listPendingRequests();
   openStream?.(waiting.position);
   const [page, active, harnesses, agents, departments, limits, settings] = await Promise.all([

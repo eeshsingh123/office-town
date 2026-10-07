@@ -172,10 +172,9 @@ function useWalking(plan: FloorPlan) {
   return { player, press, release };
 }
 
-// A link that turns active while the app is open sends a document along it once; under reduced
-// motion the link only changes colour.
-// A link that turns active, or first shows up active, sends a token along it. Nothing moves the
-// first time a goal's links are seen, so opening the app does not replay hand-offs.
+// A link that turns active, or first shows up active, sends a document along it once; under reduced
+// motion the link only changes colour. Nothing moves the first time a goal's links are seen, so
+// opening the app does not replay hand-offs.
 function useHandoffs(links: readonly DrawnLink[], goalId: string | undefined) {
   const seen = useRef<{ goalId: string | undefined; states: Map<string, LinkState> }>(undefined);
   const [tokens, setTokens] = useState<{ key: string; path: string }[]>([]);
