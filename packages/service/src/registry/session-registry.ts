@@ -224,10 +224,28 @@ export class SessionRegistry {
       throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
     }
     if (command.type === "answerPermission") {
+      if (live.readOnly) this.#requireOffered(sessionId, command.requestId, command.optionId);
       await live.session.send({ ...command, answeredBy: "user" });
       return;
     }
     await live.session.send(command);
+  }
+
+  // An agent with read-only folders was never offered "allow always", so an answer naming it, or
+  // any option its request did not offer, is refused.
+  #requireOffered(sessionId: string, requestId: string, optionId: string): void {
+    const request = this.#store
+      .listPendingRequests()
+      .requests.find(
+        ({ event }) =>
+          event.sessionId === sessionId &&
+          event.type === "permission.requested" &&
+          event.payload.requestId === requestId,
+      )?.event;
+    const offered =
+      request?.type === "permission.requested" &&
+      request.payload.options.some((option) => option.optionId === optionId);
+    if (!offered) throw new AnswerError(`Request "${requestId}" offers no option "${optionId}".`);
   }
 
   // A message from the core to a running agent, such as the answer to its question. An agent

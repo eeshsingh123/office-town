@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AnswerError,
   type PublishedEvent,
   SessionNotResumableError,
   SessionNotRunningError,
@@ -153,7 +154,7 @@ describe("session registry", () => {
     await store.deleteTask(record.taskId);
   });
 
-  it("offers no 'always allow' to an agent with a read-only folder", async () => {
+  it("offers no 'always allow' to an agent with a read-only folder, and takes no answer it was not offered", async () => {
     const registry = openRegistry();
     const task = store.createTask("Build on the API");
     const upstream = join(directory, "api");
@@ -182,6 +183,15 @@ describe("session registry", () => {
     expect(waiting?.event.payload).toMatchObject({
       options: [{ optionId: "once" }, { optionId: "no" }],
     });
+    const answer = (optionId: string) =>
+      registry.send(sessions[0]?.id ?? "", {
+        type: "answerPermission",
+        requestId: "edit",
+        optionId,
+      });
+    await expect(answer("always")).rejects.toThrow(AnswerError);
+    await answer("once");
+    expect(sessions[0]?.sent.at(-1)).toMatchObject({ optionId: "once" });
     await registry.close();
   });
 });

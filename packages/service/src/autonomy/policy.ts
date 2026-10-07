@@ -1,4 +1,5 @@
-import { isAbsolute, relative, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import {
   type Autonomy,
   lowerAutonomy,
@@ -24,33 +25,58 @@ const RUNS_COMMANDS = new Set([
   ".mcp.json",
 ]);
 
+// The only kinds let through inside a read-only folder.
+const READS = new Set(["read", "search", "think"]);
+
 function inside(folder: string, path: string): boolean {
   const way = relative(folder, path);
   return way === "" || (!way.startsWith("..") && !isAbsolute(way));
 }
 
-// A change inside a read-only folder, whatever the level; checked before the workspace's folders,
-// as a read-only folder may sit inside one of them.
-function changesReadOnly(request: PermissionRequest, folders: string[], readOnly: string[]) {
-  const { kind, locations = [] } = request;
-  if (kind === undefined || !CHANGES.has(kind)) return false;
-  const base = folders[0] ?? "";
-  return locations.some((location) =>
-    readOnly.some((folder) => inside(folder, resolve(base, location))),
-  );
+const WSL_LOCALHOST = /^\\\\wsl\.localhost\\/i;
+
+// One form for one place: links and junctions resolved through the nearest part that exists,
+// WSL's two share names made one, and case ignored where Windows ignores it.
+function canonicalPath(path: string): string {
+  const missing: string[] = [];
+  let existing = resolve(path);
+  while (!existsSync(existing) && dirname(existing) !== existing) {
+    missing.unshift(basename(existing));
+    existing = dirname(existing);
+  }
+  const real = join(existsSync(existing) ? realpathSync.native(existing) : existing, ...missing);
+  const shared = real.replace(WSL_LOCALHOST, "\\\\wsl$\\");
+  return process.platform === "win32" ? shared.toLowerCase() : shared;
 }
 
-// Whether the level lets a request through without the user. A change inside a read-only folder
-// never goes through. Trusted allows reading and editing inside the workspace's folders and asks
-// for everything else: commands, web access, anything outside, changes to what runs commands, and
-// anything whose action it cannot read. Full and Bypass allow all; Supervised none.
+// A location inside a read-only folder may only be read, whatever the level. A read-only folder
+// that holds one of the agent's own folders is left out, or every edit of its own would ask.
+function touchesReadOnly(request: PermissionRequest, folders: string[], readOnly: string[]) {
+  const { kind, locations = [] } = request;
+  if (readOnly.length === 0 || locations.length === 0) return false;
+  const guarded = new Set(readOnly.map(canonicalPath));
+  const own = folders.map(canonicalPath).filter((folder) => !guarded.has(folder));
+  const kept = [...guarded].filter((folder) => !own.some((each) => inside(folder, each)));
+  const base = folders[0] ?? "";
+  const touched = locations.some((location) => {
+    const path = canonicalPath(resolve(base, location));
+    return kept.some((folder) => inside(folder, path));
+  });
+  return touched && (kind === undefined || !READS.has(kind));
+}
+
+// Whether the level lets a request through without the user. Anything but a read inside a
+// read-only folder never goes through. Trusted allows reading and editing inside the workspace's
+// folders and asks for everything else: commands, web access, anything outside, changes to what
+// runs commands, and anything whose action it cannot read. Full and Bypass allow all; Supervised
+// none.
 export function allows(
   level: Autonomy,
   request: PermissionRequest,
   folders: string[],
   readOnly: string[] = [],
 ): boolean {
-  if (changesReadOnly(request, folders, readOnly)) return false;
+  if (touchesReadOnly(request, folders, readOnly)) return false;
   if (level === "full" || level === "bypass") return true;
   if (level === "supervised") return false;
   const { kind, locations = [] } = request;
