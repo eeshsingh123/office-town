@@ -1,6 +1,7 @@
 import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
+import { ChiefSettingsDialog } from "./features/chief/ChiefSettingsDialog.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
@@ -52,6 +53,7 @@ export function App() {
           <Main view={view} />
         </main>
       </div>
+      <ChiefSettingsDialog />
     </Tooltip.Provider>
   );
 }
