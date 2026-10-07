@@ -1,6 +1,6 @@
 import { agentColours, type PlanPiece, type TaskRecord } from "@office-town/contract";
 import { Check, Clock, LoaderCircle, MessageSquare } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { memo, type ReactNode, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type AppState, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
@@ -28,10 +28,19 @@ function harnessColour(harness: string): string {
   return agentColours[sum % agentColours.length]?.value ?? "";
 }
 
-// Who works on a goal, the harness it runs on, and where its panel is.
+// Who works on a goal, the harness it runs on, and whose panel it opens: a department's room, else
+// an agent's. Plain values, so a card's props stay equal while its owner does.
 type Known = Pick<AppState, "chiefId" | "agents" | "departments" | "sessions" | "tasks">;
 
-function ownerOf(task: TaskRecord, state: Known) {
+interface Owner {
+  who: string;
+  harness: string | undefined;
+  kind: PanelKind;
+  roomId: string | undefined;
+  agentId: string | undefined;
+}
+
+function ownerOf(task: TaskRecord, state: Known): Owner {
   const { chiefId, agents, departments, sessions, tasks } = state;
   const firstSession = sessions[tasks[task.id]?.sessionIds[0] ?? ""];
   const firstAgent = firstSession === undefined ? undefined : agents[firstSession.agentId];
@@ -44,12 +53,14 @@ function ownerOf(task: TaskRecord, state: Known) {
     who: department?.name ?? (isChief ? chief?.name : firstAgent?.name) ?? "An agent",
     harness,
     kind,
-    open: () => {
-      if (department !== undefined) selectRoom(department.id);
-      else if (isChief && chiefId !== undefined) selectAgent(chiefId);
-      else if (firstAgent !== undefined) selectAgent(firstAgent.id);
-    },
+    roomId: department?.id,
+    agentId: isChief ? chiefId : firstAgent?.id,
   };
+}
+
+function openOwner({ roomId, agentId }: Pick<Owner, "roomId" | "agentId">): void {
+  if (roomId !== undefined) selectRoom(roomId);
+  else if (agentId !== undefined) selectAgent(agentId);
 }
 
 function Harness({ harness }: { harness: string | undefined }) {
@@ -120,28 +131,20 @@ function PartOf({ taskId }: { taskId: string | undefined }) {
   return <span className={styles.note}>Part of {taskTitle(goal.prompt)}</span>;
 }
 
-function useAsking(task: TaskRecord): string | undefined {
-  return useApp((state) => {
-    const sessionIds = new Set(state.tasks[task.id]?.sessionIds);
-    const request = Object.values(state.waiting)
-      .filter(({ event }) => sessionIds.has(event.sessionId))
-      .sort((a, b) => a.position - b.position)[0];
-    if (request === undefined) return undefined;
-    const agentId = state.sessions[request.event.sessionId]?.agentId;
-    const name = agentId === undefined ? undefined : state.agents[agentId]?.name;
-    return `${name ?? "An agent"}: ${requestSummary(request.event)}`;
-  });
+// What each goal asks the user first, by task id: the agent's name and its oldest request.
+function askingOf(state: Pick<AppState, "sessions" | "agents" | "waiting">) {
+  const asking: Record<string, string> = {};
+  const newestFirst = Object.values(state.waiting).sort((a, b) => b.position - a.position);
+  for (const request of newestFirst) {
+    const session = state.sessions[request.event.sessionId];
+    if (session === undefined) continue;
+    const name = state.agents[session.agentId]?.name;
+    asking[session.taskId] = `${name ?? "An agent"}: ${requestSummary(request.event)}`;
+  }
+  return asking;
 }
 
-function ReviewActions({
-  task,
-  kind,
-  open,
-}: {
-  task: TaskRecord;
-  kind: PanelKind;
-  open: () => void;
-}) {
+function ReviewActions({ task, owner }: { task: TaskRecord; owner: Owner }) {
   const [error, setError] = useState<string>();
   const markReviewed = async () => {
     try {
@@ -165,8 +168,8 @@ function ReviewActions({
       <Button
         variant="ghost"
         onClick={() => {
-          open();
-          composeIn(kind, task.id);
+          openOwner(owner);
+          composeIn(owner.kind, task.id);
         }}
       >
         <MessageSquare size={14} aria-hidden />
@@ -184,27 +187,25 @@ function lastEnd(task: TaskRecord, state: Known): string | undefined {
     .at(-1);
 }
 
-function TaskCard({
-  task,
-  note,
-  column,
-}: {
+interface TaskCardProps extends Owner {
   task: TaskRecord;
   note: CardNote | undefined;
   column: ColumnId;
-}) {
-  const chiefId = useApp((app) => app.chiefId);
-  const agents = useApp((app) => app.agents);
-  const departments = useApp((app) => app.departments);
-  const sessions = useApp((app) => app.sessions);
-  const tasks = useApp((app) => app.tasks);
-  const state = { chiefId, agents, departments, sessions, tasks };
-  const owner = ownerOf(task, state);
-  const asking = useAsking(task);
-  const ended = column === "review" ? lastEnd(task, state) : undefined;
+  asking: string | undefined;
+  ended: string | undefined;
+}
+
+const TaskCard = memo(function TaskCard({
+  task,
+  note,
+  column,
+  asking,
+  ended,
+  ...owner
+}: TaskCardProps) {
   return (
     <article className={styles.card}>
-      <button type="button" className={styles.main} onClick={owner.open}>
+      <button type="button" className={styles.main} onClick={() => openOwner(owner)}>
         <span className={styles.titleLine}>
           {column === "review" ? (
             <span role="img" className={styles.unread} aria-label="Not reviewed" />
@@ -222,21 +223,22 @@ function TaskCard({
         <PartOf taskId={task.parentTaskId} />
       </button>
       <NoteLine note={note} task={task} />
-      {column === "review" ? (
-        <ReviewActions task={task} kind={owner.kind} open={owner.open} />
-      ) : null}
+      {column === "review" ? <ReviewActions task={task} owner={owner} /> : null}
     </article>
   );
-}
+});
 
-function PieceCard({ piece, note }: { piece: PlanPiece; note: CardNote }) {
-  const departments = useApp((state) => state.departments);
-  const lead = useApp((state) => {
-    const department =
-      piece.departmentId === undefined ? undefined : state.departments[piece.departmentId];
-    return department === undefined ? undefined : state.agents[department.leadAgentId];
-  });
-  const harness = lead?.settings.harness ?? piece.newDepartment?.lead.harness;
+const PieceCard = memo(function PieceCard({
+  piece,
+  note,
+  department,
+  harness,
+}: {
+  piece: PlanPiece;
+  note: CardNote;
+  department: string;
+  harness: string | undefined;
+}) {
   const { departmentId } = piece;
   return (
     <article className={styles.card}>
@@ -252,7 +254,7 @@ function PieceCard({ piece, note }: { piece: PlanPiece; note: CardNote }) {
           <strong>{piece.title}</strong>
         </span>
         <span className={styles.owner}>
-          {departmentName(piece, departments)}
+          {department}
           <Harness harness={harness} />
         </span>
         <PartOf taskId={piece.taskId} />
@@ -260,22 +262,59 @@ function PieceCard({ piece, note }: { piece: PlanPiece; note: CardNote }) {
       <NoteLine note={note} />
     </article>
   );
-}
-
-function CardView({ card, column }: { card: BoardCard; column: ColumnId }) {
-  if (card.kind === "piece") return <PieceCard piece={card.piece} note={card.note} />;
-  return <TaskCard task={card.task} note={card.note} column={column} />;
-}
+});
 
 // The goals and the plan pieces that wait for a department, in columns by what they need (D-49).
+// Cards get what they show as props, so a streamed change renders only the cards it touches.
 export function BoardView() {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
   const pieces = useApp((state) => state.pieces);
+  const delegations = useApp((state) => state.delegations);
+  const agents = useApp((state) => state.agents);
+  const departments = useApp((state) => state.departments);
+  const chiefId = useApp((state) => state.chiefId);
+  const waiting = useApp((state) => state.waiting);
   const columns = useMemo(
-    () => boardColumns({ tasks, sessions, pieces }),
-    [tasks, sessions, pieces],
+    () => boardColumns({ tasks, sessions, pieces, delegations }),
+    [tasks, sessions, pieces, delegations],
   );
+  const asking = useMemo(
+    () => askingOf({ sessions, agents, waiting }),
+    [sessions, agents, waiting],
+  );
+  const known = { chiefId, agents, departments, sessions, tasks };
+
+  const cardOf = (card: BoardCard, column: ColumnId) => {
+    if (card.kind === "piece") {
+      const { piece } = card;
+      const department =
+        piece.departmentId === undefined ? undefined : departments[piece.departmentId];
+      const lead = department === undefined ? undefined : agents[department.leadAgentId];
+      return (
+        <PieceCard
+          key={piece.id}
+          piece={piece}
+          note={card.note}
+          department={departmentName(piece, departments)}
+          harness={lead?.settings.harness ?? piece.newDepartment?.lead.harness}
+        />
+      );
+    }
+    const { task } = card;
+    return (
+      <TaskCard
+        key={task.id}
+        task={task}
+        note={card.note}
+        column={column}
+        {...ownerOf(task, known)}
+        asking={asking[task.id]}
+        ended={column === "review" ? lastEnd(task, known) : undefined}
+      />
+    );
+  };
+
   return (
     <div className={styles.board}>
       {COLUMNS.map((column) => (
@@ -285,13 +324,7 @@ export function BoardView() {
             {column.title}
             <span className={styles.count}>{columns[column.id].length}</span>
           </h2>
-          {columns[column.id].map((card) => (
-            <CardView
-              key={card.kind === "task" ? card.task.id : card.piece.id}
-              card={card}
-              column={column.id}
-            />
-          ))}
+          {columns[column.id].map((card) => cardOf(card, column.id))}
         </section>
       ))}
     </div>

@@ -1,4 +1,4 @@
-import type { PlanPiece, SessionRecord, TaskRecord } from "@office-town/contract";
+import type { DelegationRecord, PlanPiece, SessionRecord, TaskRecord } from "@office-town/contract";
 import type { TaskEntry } from "../../store/records.ts";
 
 export type ColumnId = "needs-you" | "working" | "waiting" | "review" | "done";
@@ -24,12 +24,25 @@ interface BoardInput {
   tasks: Record<string, TaskEntry>;
   sessions: Record<string, SessionRecord>;
   pieces: Record<string, PlanPiece>;
+  delegations: Record<string, DelegationRecord>;
+}
+
+// The goal's top agent, its lead or else the agent of its first session, was cut off in its latest
+// session, or a worker it handed work to was.
+function cutOff(entry: TaskEntry, input: BoardInput): boolean {
+  const top = entry.task.leadAgentId ?? input.sessions[entry.sessionIds[0] ?? ""]?.agentId;
+  const latest = entry.sessionIds
+    .map((id) => input.sessions[id])
+    .findLast((session) => session !== undefined && session.agentId === top);
+  if (latest?.status === "interrupted") return true;
+  return Object.values(input.delegations).some(
+    (delegation) => delegation.taskId === entry.task.id && delegation.status === "interrupted",
+  );
 }
 
 // What an idle goal waits on: a restart cut its agents off, or a chief's pieces still run.
 function idleNote(entry: TaskEntry, input: BoardInput): CardNote | undefined {
-  const last = input.sessions[entry.sessionIds.at(-1) ?? ""];
-  if (last?.status === "interrupted") return { kind: "cut-off" };
+  if (cutOff(entry, input)) return { kind: "cut-off" };
   const open = Object.values(input.pieces).filter(
     (piece) => piece.taskId === entry.task.id && OPEN.has(piece.status),
   );

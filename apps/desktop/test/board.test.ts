@@ -27,21 +27,25 @@ describe("board", () => {
     const tasks = {
       asking: entry("asking", { state: "waiting" }),
       launch: entry("launch", { state: "idle", leadAgentId: "chief" }),
-      cut: entry("cut", { state: "idle", leadAgentId: "kai" }, ["s1"]),
+      cut: entry("cut", { state: "idle", leadAgentId: "kai" }, ["s1", "s2"]),
       later: entry("later", { state: "queued", leadAgentId: "chief" }),
       research: entry("research", { parentTaskId: "launch" }),
       summary: entry("summary", {}),
       fixed: entry("fixed", { reviewedAt: "2026-10-07T11:00:00.000Z" }),
       build: entry("build", { state: "working", parentTaskId: "launch" }),
     };
-    const sessions = { s1: { id: "s1", status: "interrupted" } as SessionRecord };
+    // The lead was cut off; a worker it started later still runs.
+    const sessions = {
+      s1: { id: "s1", agentId: "kai", status: "interrupted" } as SessionRecord,
+      s2: { id: "s2", agentId: "ben", status: "running" } as SessionRecord,
+    };
     const pieces = {
       compare: piece("compare", { status: "done", pieceTaskId: "research" }),
       build: piece("build", { status: "working", pieceTaskId: "build", waitsOn: ["compare"] }),
       test: piece("test", { waitsOn: ["build"] }),
     };
 
-    const columns = boardColumns({ tasks, sessions, pieces });
+    const columns = boardColumns({ tasks, sessions, pieces, delegations: {} });
     const ids = (column: keyof typeof columns) =>
       columns[column].map((card) => (card.kind === "task" ? card.task.id : card.piece.id));
 
