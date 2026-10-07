@@ -332,4 +332,14 @@ describe("api", () => {
     expect(store.getTask(started.taskId)).toMatchObject({ state: "working" });
     expect(store.getTask(started.taskId)?.reviewedAt).toBeUndefined();
   });
+
+  it("keeps a dragged room's position in the settings until it is reset", async () => {
+    expect((await call("PUT", "/room-positions/chief", { x: 12.5, y: 40 })).status).toBe(400);
+    expect((await call("PUT", "/room-positions/chief", { x: 120, y: 40 })).status).toBe(204);
+    expect((await call("PUT", "/room-positions/web", { x: 0, y: 300 })).status).toBe(204);
+    expect((await call("DELETE", "/room-positions/web")).status).toBe(204);
+    expect(await (await call("GET", "/settings")).json()).toEqual({
+      roomPositions: { chief: { x: 120, y: 40 } },
+    });
+  });
 });

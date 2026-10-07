@@ -3,6 +3,7 @@ import type {
   Change,
   DelegationRecord,
   PlanPiece,
+  RoomPosition,
   TaskSummary,
 } from "@office-town/contract";
 import { api } from "../api/client.ts";
@@ -81,6 +82,7 @@ async function refresh(first = false): Promise<number> {
   useApp.setState((state) => ({
     harnesses,
     chiefId: settings.chiefAgentId,
+    roomPositions: settings.roomPositions ?? {},
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),
@@ -149,6 +151,18 @@ export async function track(taskId: string): Promise<void> {
     agents: { ...state.agents, ...byId(agents) },
   }));
   watchActive([summary]);
+}
+
+// Moves a room at once and keeps its place in the core; a failed save puts it back.
+export async function placeRoom(roomId: string, position: RoomPosition): Promise<void> {
+  const before = useApp.getState().roomPositions;
+  useApp.setState({ roomPositions: { ...before, [roomId]: position } });
+  try {
+    await api.saveRoomPosition(roomId, position);
+  } catch (error) {
+    useApp.setState({ roomPositions: before });
+    throw error;
+  }
 }
 
 export async function deleteTask(taskId: string): Promise<void> {

@@ -71,12 +71,8 @@
   color: var(--text-3);
 }
 
-.sign .signWaiting {
-  font-weight: 600;
-  color: var(--warn);
-}
-
 .signButton {
+  padding-left: 5px;
   cursor: pointer;
 }
 
@@ -537,4 +533,194 @@
 
 .roomLines span + span {
   color: var(--text-3);
+}
+
+.chiefRoom {
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.roomLifted {
+  box-shadow: var(--shadow-raised);
+  outline: 2px dashed var(--border-strong);
+  outline-offset: 6px;
+}
+
+.roomLifted .signButton {
+  cursor: grabbing;
+}
+
+.grip {
+  flex: none;
+  color: var(--text-3);
+  cursor: grab;
+}
+
+.sign .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.sign .chipNeeds {
+  color: var(--warn);
+}
+
+.sign .chipDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.sign .unread {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.square,
+.square > :first-child {
+  border-radius: 10px;
+}
+
+.focused {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 6px var(--warn),
+    0 2px 6px rgb(0 0 0 / 18%);
+}
+
+.links {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.links path,
+.legend path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.linkWaiting {
+  stroke: var(--text-3);
+  stroke-dasharray: 5 5;
+  opacity: 0.75;
+}
+
+.linkActive {
+  stroke: var(--accent);
+}
+
+.linkDone {
+  stroke: var(--ok);
+  opacity: 0.45;
+}
+
+.linkFailed {
+  stroke: var(--bad);
+}
+
+.legend {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 11.5px;
+  color: var(--text-2);
+  pointer-events: none;
+}
+
+.legend strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend svg {
+  flex: none;
+  width: 34px;
+  height: 8px;
+}
+
+.token {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 14px;
+  margin: -7px 0 0 -9px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  offset-rotate: 0deg;
+  pointer-events: none;
+  animation: handoff 1.5s ease-in-out 1 forwards;
+}
+
+@keyframes handoff {
+  from {
+    offset-distance: 0%;
+  }
+
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .token {
+    display: none;
+  }
+}
+
+.focusCard {
+  position: absolute;
+  z-index: 5;
+  border-radius: var(--radius-card);
+  outline: none;
+  box-shadow: var(--shadow-raised);
+}
+
+/* Points at the agent asking. */
+.focusCard::after {
+  position: absolute;
+  top: 58px;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  border-bottom: 1px solid var(--warn-border);
+  border-left: 1px solid var(--warn-border);
+  background: var(--surface);
+  transform: rotate(45deg);
+  content: "";
+}
+
+.focusCardLeft::after {
+  right: -6px;
+  left: auto;
+  transform: rotate(-135deg);
 }

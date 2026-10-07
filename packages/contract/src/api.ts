@@ -137,11 +137,20 @@ export const workspaceRecordSchema = workspaceRequestSchema.extend({
 });
 export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 
+// Where the user dragged a room on the floor, in floor pixels.
+export const roomPositionSchema = z.object({
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+});
+export type RoomPosition = z.infer<typeof roomPositionSchema>;
+
 export const settingsSchema = z.object({
   // Where a task with no workspace gets a folder of its own; the last one chosen is kept.
   outputFolder: absolutePathSchema.optional(),
   // The one standing chief, once it is set up.
   chiefAgentId: z.string().min(1).optional(),
+  // By department id, or "chief" for the chief's office; a room not listed is placed for itself.
+  roomPositions: z.record(z.string(), roomPositionSchema).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
