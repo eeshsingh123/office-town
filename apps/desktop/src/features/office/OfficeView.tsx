@@ -7,11 +7,13 @@ import { type AgentState, type Progress, progressOf } from "../../trace/progress
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
+import { BoardView } from "../board/BoardView.tsx";
 import { usageByHarness, usageSummary } from "../departments/usage.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type RoomSpec } from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
+import { useOffice } from "./office-state.ts";
 import { TopBar } from "./TopBar.tsx";
 
 const BUBBLE_LENGTH = 42;
@@ -178,6 +180,7 @@ export function OfficeView() {
   const harnesses = useApp((state) => state.harnesses);
   const limits = useApp((state) => state.limits);
   const selection = useApp((state) => state.selection);
+  const mode = useOffice((state) => state.mode);
   const view = useApp((state) => state.view);
   const room = view.name === "office" ? view.room : undefined;
 
@@ -215,25 +218,29 @@ export function OfficeView() {
   return (
     <section aria-label="Office" className={styles.office}>
       <TopBar />
-      <div className={styles.body}>
-        <div className={styles.scroll}>
-          <Floor
-            plan={plan}
-            agents={floorAgents}
-            signs={signs}
+      {mode === "board" ? (
+        <BoardView />
+      ) : (
+        <div className={styles.body}>
+          <div className={styles.scroll}>
+            <Floor
+              plan={plan}
+              agents={floorAgents}
+              signs={signs}
+              selection={selection}
+              room={chosen.length === 0 ? openRoom?.id : undefined}
+              onSelect={onSelect}
+              onOpenRoom={onOpenRoom}
+            />
+          </div>
+          <OfficePanel
             selection={selection}
-            room={chosen.length === 0 ? openRoom?.id : undefined}
-            onSelect={onSelect}
-            onOpenRoom={onOpenRoom}
+            chosen={chosen}
+            room={openRoom}
+            floorCount={floorAgents.length}
           />
         </div>
-        <OfficePanel
-          selection={selection}
-          chosen={chosen}
-          room={openRoom}
-          floorCount={floorAgents.length}
-        />
-      </div>
+      )}
     </section>
   );
 }
