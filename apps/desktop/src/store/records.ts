@@ -62,30 +62,35 @@ export const isOpen = (session: SessionRecord) =>
 // Keeps session records and the waiting requests current from the live stream. Events of a
 // session the app does not know yet are left out; the caller loads that session instead.
 // A status only moves forward, so an event applied again over a newer record changes nothing.
+// A map nothing changed in is returned as it was, so views that read it do not render again.
 export function applyToRecords(records: Records, events: readonly StreamedEvent[]): Records {
-  const sessions = { ...records.sessions };
-  const waiting = { ...records.waiting };
+  let sessions = records.sessions;
+  let waiting = records.waiting;
+  const setSession = (session: SessionRecord) => {
+    if (sessions === records.sessions) sessions = { ...sessions };
+    sessions[session.id] = session;
+  };
+  const editWaiting = () => {
+    if (waiting === records.waiting) waiting = { ...waiting };
+    return waiting;
+  };
   for (const { position, event } of events) {
     const session = sessions[event.sessionId];
     if (session === undefined) continue;
     switch (event.type) {
       case "session.started":
         if (session.status !== "starting") break;
-        sessions[session.id] = {
+        setSession({
           ...session,
           status: "running",
           harnessSessionId: event.payload.harnessSessionId,
-        };
+        });
         break;
       case "session.ended":
         if (!isOpen(session)) break;
-        sessions[session.id] = {
-          ...session,
-          status: event.payload.reason,
-          endedAt: event.timestamp,
-        };
-        for (const key of Object.keys(waiting)) {
-          if (waiting[key]?.event.sessionId === session.id) delete waiting[key];
+        setSession({ ...session, status: event.payload.reason, endedAt: event.timestamp });
+        for (const [key, request] of Object.entries(waiting)) {
+          if (request.event.sessionId === session.id) delete editWaiting()[key];
         }
         break;
       case "permission.requested":
@@ -93,15 +98,17 @@ export function applyToRecords(records: Records, events: readonly StreamedEvent[
       case "proposal.requested":
       case "plan.requested":
         if (position !== undefined) {
-          waiting[waitingKey(session.id, event.payload.requestId)] = { position, event };
+          editWaiting()[waitingKey(session.id, event.payload.requestId)] = { position, event };
         }
         break;
       case "permission.resolved":
       case "question.resolved":
       case "proposal.resolved":
-      case "plan.resolved":
-        delete waiting[waitingKey(session.id, event.payload.requestId)];
+      case "plan.resolved": {
+        const key = waitingKey(session.id, event.payload.requestId);
+        if (waiting[key] !== undefined) delete editWaiting()[key];
         break;
+      }
     }
   }
   return { tasks: records.tasks, sessions, waiting };

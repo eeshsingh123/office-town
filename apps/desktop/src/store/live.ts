@@ -20,6 +20,9 @@ let queue: StreamedEvent[] = [];
 let changes: Change[] = [];
 let scheduled = false;
 let cancelFlush = () => {};
+// Refreshes running. Change frames have no position and are never replayed, so what the stream
+// delivers while the lists are read is held and applied on top of them.
+let refreshing = 0;
 // Live events of a session whose trace is being replayed, applied once the replay is in.
 const loading = new Map<string, StreamedEvent[]>();
 // Live events of a session being looked up, applied to its record once it is known.
@@ -30,6 +33,7 @@ let replays = Promise.resolve();
 // Opens the app's one live stream. Called once, when the page loads.
 export function connect(): void {
   let wasOffline = false;
+  let following = false;
   const onStatus = (status: "connecting" | "live" | "offline") => {
     useApp.setState({ connection: status });
     if (status === "offline") wasOffline = true;
@@ -39,10 +43,13 @@ export function connect(): void {
       void refresh().catch((error: unknown) => console.error("Could not refresh.", error));
     }
   };
+  const follow = (after: number) => {
+    following = true;
+    followEvents({ after, onEvent: enqueue, onChange: enqueueChange, onStatus });
+  };
   const open = async (): Promise<void> => {
     try {
-      const after = await refresh(true);
-      followEvents({ after, onEvent: enqueue, onChange: enqueueChange, onStatus });
+      await refresh(following ? undefined : follow);
     } catch (error) {
       console.warn("The core is not reachable yet; retrying.", error);
       useApp.setState({ connection: "offline" });
@@ -52,10 +59,23 @@ export function connect(): void {
   void open();
 }
 
-// Reads what is true now. The waiting list is read first: the stream opens at its position, and
-// anything that changes after it arrives as an event or a change.
-async function refresh(first = false): Promise<number> {
+// Reads what is true now. The waiting list is read first and the stream, when not open yet,
+// opens at its position; anything that changes after it arrives as an event or a change and is
+// applied once the lists are in.
+async function refresh(openStream?: (after: number) => void): Promise<void> {
+  refreshing += 1;
+  try {
+    await readAll(openStream);
+  } finally {
+    refreshing -= 1;
+    if (refreshing === 0 && (queue.length > 0 || changes.length > 0)) schedule();
+  }
+}
+
+async function readAll(openStream: ((after: number) => void) | undefined): Promise<void> {
+  const first = openStream !== undefined;
   const waiting = await api.listPendingRequests();
+  openStream?.(waiting.position);
   const [page, active, harnesses, agents, departments, limits, settings] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
@@ -96,7 +116,6 @@ async function refresh(first = false): Promise<number> {
     if (useApp.getState().sessions[event.sessionId] === undefined) discover(event.sessionId);
   }
   watchActive(tasks);
-  return waiting.position;
 }
 
 // The delegations of every team task that has not ended; an ended one has none at work.
@@ -247,6 +266,7 @@ function schedule(): void {
 function flush(): void {
   cancelFlush();
   scheduled = false;
+  if (refreshing > 0) return;
   const events = queue;
   queue = [];
   const state = applyChanges(useApp.getState(), changes);
@@ -272,7 +292,7 @@ function flush(): void {
     batch.push(streamed);
     forTraces.set(sessionId, batch);
   }
-  const traces = { ...state.traces };
+  const traces = forTraces.size === 0 ? state.traces : { ...state.traces };
   for (const [sessionId, batch] of forTraces) {
     const trace = traces[sessionId];
     if (trace !== undefined) traces[sessionId] = applyEvents(trace, batch);
