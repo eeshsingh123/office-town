@@ -131,8 +131,7 @@ describe("teams", () => {
     });
     expect(second.status).toBe(409);
 
-    // A change keeps the writer by name, drops the frontend developer and adds a tester. Declined
-    // first, so nothing changes; then approved.
+    // Keeps the writer, drops the frontend developer, adds a tester; declined first, then approved.
     const [, writerName] = (await workersOf(department)).map(([name]) => name);
     const change = {
       name: "Web team",

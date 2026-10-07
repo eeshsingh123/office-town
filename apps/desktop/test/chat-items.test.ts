@@ -64,8 +64,7 @@ describe("chat", () => {
       "@kim-2001": "kim",
     };
 
-    // Ben's result is matched by its record; Lena's record is not held, so hers falls back to
-    // worker order; Kim's thread has neither in an ended goal.
+    // Ben's result matches by record, Lena's falls back to worker order, Kim's gets none in an ended goal.
     const items = chatOf([first, resumed], {
       idOfName: (name) => ids[name],
       delegations: [record("ben", "Build the layout")],

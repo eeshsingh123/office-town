@@ -38,7 +38,6 @@ export interface Core {
   team: TeamContext;
   scheduler: Scheduler;
   sessions: FakeSession[];
-  // A test reads the few fields it checks; the schemas are proven by the contract tests.
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
   call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }>;
   callTool(session: FakeSession | undefined, name: string, input: object): Promise<ToolReply>;
@@ -57,8 +56,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
   const registry = new SessionRegistry(store, {
-    // A model named "broken" fails to start, as a harness missing from its environment would; a
-    // harness with no catalog is refused, as the real factory refuses one it does not know.
+    // Model "broken" fails to start; a harness with no catalog is refused, as the real factory does.
     createSession: (options, extras) => {
       if (catalogs[options.harness] === undefined) throw new UnknownHarnessError(options.harness);
       const session = new FakeSession(extras, options.model === "broken");

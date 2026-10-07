@@ -401,8 +401,7 @@ describe("store", () => {
         .all()
         .map((row) => String(row.detail))
         .join("\n");
-    // These read a small table whole on purpose: what is waiting now, and the saved workspaces,
-    // agents, profiles and departments, and the latest limits of each harness.
+    // These read a small table whole on purpose.
     const wholeTableReads = new Set([
       "pendingRequests",
       "workspacesByUse",
