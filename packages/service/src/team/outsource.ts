@@ -16,7 +16,7 @@ import { levelOf } from "../autonomy/policy.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { isOpen, latestSession } from "./lead.ts";
+import { isOpen, latestSession, leadsTeam } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 
 // What a fresh look must not inherit: instruction files and harness settings, history and the
@@ -175,7 +175,7 @@ export function outsource(context: TeamContext) {
         .optional()
         .describe("The name of a saved profile to use for the reviewer; yours if left out."),
     }),
-    offeredTo: (caller: Caller) => store.getTask(caller.taskId)?.leadAgentId === caller.agentId,
+    offeredTo: (caller: Caller) => leadsTeam(store, caller),
     async call({ brief, paths, profile }, caller) {
       const lead = store.getAgent(caller.agentId);
       if (lead === undefined) throw new RecordNotFoundError("agent", caller.agentId);
