@@ -26,6 +26,7 @@ import {
   pendingRequestListSchema,
   planPieceSchema,
   profileRecordSchema,
+  type RoomPosition,
   type SecondOpinionRequest,
   type SessionPage,
   type SessionRecord,
@@ -173,6 +174,8 @@ export const api = {
   createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
     write("POST", "/workspaces", workspace, workspaceRecordSchema),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
+  saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
+    send("PUT", `/room-positions/${id(roomId)}`, position),
   listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
   getAgent: (agentId: string): Promise<AgentRecord> =>
     read(`/agents/${id(agentId)}`, agentRecordSchema),

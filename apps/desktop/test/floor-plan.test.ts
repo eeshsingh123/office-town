@@ -2,10 +2,12 @@ import type { SessionRecord } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import {
   clampToFloor,
+  dragTarget,
   floorPlan,
   inRect,
   onTheFloor,
   REACH,
+  type Rect,
   rectFrom,
   roomAt,
   withinReach,
@@ -42,6 +44,33 @@ describe("floor plan", () => {
     const outside = clampToFloor({ x: -50, y: plan.height + 50 }, plan);
     expect(outside.x).toBeGreaterThan(0);
     expect(outside.y).toBeLessThan(plan.height);
+  });
+
+  it("keeps a dragged room where it was put, and lands drags on the grid clear of other rooms", () => {
+    const specs = [
+      { id: "chief", kind: "chief", desks: 1 },
+      { id: "web", kind: "department", desks: 3 },
+      { id: "qa", kind: "department", desks: 2 },
+      { id: "open", kind: "open", desks: 3 },
+    ] as const;
+    const plan = floorPlan(specs, { web: { x: 900, y: 600 }, gone: { x: 0, y: 0 } });
+    const rect = (id: string) => plan.rooms.find((room) => room.id === id)?.rect as Rect;
+    expect(rect("web")).toMatchObject({ x: 900, y: 600 });
+    expect(plan.width).toBeGreaterThan(900 + rect("web").width);
+    // The open floor comes after every room, the moved one too.
+    expect(rect("open").y).toBeGreaterThan(600 + rect("web").height);
+
+    const floor = { width: plan.width, height: plan.height };
+    const qa = rect("qa");
+    expect(dragTarget(qa, { x: qa.x + 23, y: qa.y + 7 }, [], floor)).toEqual({
+      x: Math.round((qa.x + 23) / 10) * 10,
+      y: Math.round((qa.y + 7) / 10) * 10,
+    });
+    expect(dragTarget(qa, { x: -500, y: 99_999 }, [], floor)).toEqual({
+      x: 10,
+      y: Math.floor((floor.height - qa.height) / 10) * 10,
+    });
+    expect(dragTarget(qa, { x: 905, y: 605 }, [rect("web")], floor)).toBeUndefined();
   });
 
   it("finds the nearest agent within reach, and the agents inside a dragged box", () => {

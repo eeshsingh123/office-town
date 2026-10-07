@@ -5,6 +5,7 @@ import type {
   HarnessDescription,
   HarnessLimits,
   PlanPiece,
+  RoomPosition,
 } from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
@@ -44,6 +45,8 @@ export interface AppState extends Records {
   chiefId: string | undefined;
   // The agent the office pans to and whose request it opens there; `at` makes a repeat count.
   focus: { agentId: string; at: number } | undefined;
+  // Where the user dragged rooms on the floor, by department id or "chief".
+  roomPositions: Record<string, RoomPosition>;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -64,6 +67,7 @@ export const useApp = create<AppState>(() => ({
   selection: [],
   chiefId: undefined,
   focus: undefined,
+  roomPositions: {},
 }));
 
 export function focusAgent(agentId: string | undefined): void {
