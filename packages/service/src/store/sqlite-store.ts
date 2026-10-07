@@ -981,10 +981,20 @@ class SqliteStore implements Store {
     this.#publishing = true;
     try {
       for (let next = this.#outbox.shift(); next !== undefined; next = this.#outbox.shift()) {
-        for (const listener of this.#listeners) listener(next);
+        for (const listener of this.#listeners) this.#deliver(listener, next);
       }
     } finally {
       this.#publishing = false;
+    }
+  }
+
+  // The write is committed whatever a listener does, so one that fails must not make it look
+  // failed, nor keep the change from the others.
+  #deliver(listener: ChangeListener, change: Change): void {
+    try {
+      listener(change);
+    } catch (error) {
+      console.error(`A listener failed on a "${change.type}" change.`, error);
     }
   }
 
