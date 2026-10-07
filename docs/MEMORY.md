@@ -4,16 +4,14 @@ Last updated: 2026-10-07
 
 ## State
 
-- M1 (harness core), M2 (core service) and M3 (desktop app) are done and merged to `main` (M3 is PR #27).
-- M4 Orchestration is done and merged (PR #28). Live runs 2026-10-05 (Claude haiku lead, OpenCode free and Claude haiku workers): proposal, approval and parallel delegation end to end; a second opinion from the task view (haiku guest on a copy of one file) answered, left, and showed under Visiting and at the guest desk.
-- M5 Command center is built on `feat/m5-command-center` (2026-10-07), checks green, reviewed in four parallel slices with every finding fixed. NOT yet live-run: the MODULES done check (a chief goal across two departments on two harnesses: plan edited and approved, a downstream piece waits then starts with the upstream result, a busy department queues its piece, a stopped or failed piece leads to an approved re-plan, the goal lands in To review) is the first thing to do next session. Scripts for it: a small API helper and a stream logger, rebuilt from scratch (the scratchpad does not persist). Packaging stays last (owner).
-- Unverified M5 paths worth a click: the plan card and re-plan view, next waiting with real waiting agents and the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor.
-- Open M5 points: the "owes a turn" rule (D-50) assumes a prompt sent mid-turn starts a new turn; if Claude folds it into the current turn, a goal stays working until its next turn (check in the live run). WSL share-name folding in the read-only check is untested. `worktrees.test.ts` can time out under a full parallel run; it passes alone.
-- Local only: `.claude/launch.json` (browser preview on a scratch data folder) is kept out of git through `.git/info/exclude`.
-- Where things are: `packages/service/src/main.ts` is the core process; `src/store` (`openStore(folder)`), `src/registry` (`SessionRegistry`, idle stop), `src/api` (server, routes, event stream), `src/task-folders.ts`, `src/team` (departments, proposals, delegation, results, worktrees, outsource), `src/tools` (tool server, `ask_user`), `src/autonomy` (policy), `src/chief` (chief, goals and queue, plans, scheduler, `message_lead`), `team/task-state.ts` (task state). API messages are in `packages/contract/src/api.ts`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- Desktop: `apps/desktop/electron` (main, core process, app protocol, window, tray, preload.cjs), `src/api` (client, event stream), `src/store` (Zustand app store, records, live stream batching, agents), `src/trace` (pure event-to-trace functions), `src/features` (office with top bar, floor, links and doors; board, chat, work, plan, chief, departments, profiles, task, new-task, needs-you, requests, tasks, sidebar), `src/ui` (shared parts), `src/styles/tokens.css`, `dev/web.ts` (browser mode).
-- Never checked by an agent, worth a click when touched: the tray menu's Quit and its prompt, how the Windows notification looks, the store size warning (above 1 GiB), "Show older tasks" (over 50 tasks), a WSL run from the New task form, a drag selection grouped by room, Message lead and Stop team from the department panel, a room with a waiting request, a WSL Claude agent calling a team tool since its token moved to the environment.
-- M3 mockups: https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp (private to the owner). M4 mockups: https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B (private to the owner), accepted 2026-10-05. M5 mockups: https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3 (private to the owner), accepted 2026-10-07.
+- M1 to M4 are done and merged to `main` (M3 is PR #27, M4 is PR #28).
+- M5 Command center is built on `feat/m5-command-center`, checks green, not yet live-run. Next session starts with the MODULES done check: a chief goal across two departments on two harnesses, plan edited and approved, a downstream piece waits then starts with the upstream result, a busy department queues its piece, a stopped or failed piece leads to an approved re-plan, the goal lands in To review. Write a small API helper and stream logger for it (the scratchpad does not persist).
+- Check in that run: the "owes a turn" rule (D-50) assumes a prompt sent mid-turn starts a new turn; if Claude folds it into the current turn, a goal stays working until its next turn.
+- Never checked by an agent, worth a click when touched: M5's plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50), a WSL run from New task, a drag selection grouped by room, Message lead and Stop team from the department panel, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check.
+- `worktrees.test.ts` can time out under a full parallel run; it passes alone.
+- Local only: `.claude/launch.json` (browser preview on a scratch data folder), kept out of git through `.git/info/exclude`.
+- Where things are: core process `packages/service/src/main.ts`; `src/store`, `src/registry`, `src/api`, `src/team`, `src/tools`, `src/autonomy`, `src/chief`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
+- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -31,8 +29,7 @@ Last updated: 2026-10-07
 
 ## Owner requirements not yet built
 
-Still unplaced:
-- Agent memory: out of M4, but the owner wants it as its own module after a detailed discussion of storage, recency and how relevant an old memory still is. Raise it when planning after M4.
+- Agent memory: its own module after a design discussion (see MODULES.md).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
 
@@ -63,13 +60,12 @@ Still unplaced:
 - OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
 - `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
-- The app runs from the repository: the shell starts the core from `packages/service/src/main.ts` and serves `apps/desktop/dist`. The installer is the last module, Packaging and release (owner, 2026-10-07).
+- The app runs from the repository; the installer is the last module.
 - A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45).
 - OpenCode isolates only in part: its global config and instructions still load (D-41); the dialog says so.
 - Logging in to a harness or provider from the app is deferred (owner, 2026-10-04): the user logs in with the CLI. Claude Code reports no model `access` yet (D-38).
 
 ## Reference notes
 
-- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) only visualises one harness. Orchestrating across harnesses is the product.
-- Interface references from the owner: gather.town, Age of Empires style command view.
+- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) visualises one harness only. Interface references: gather.town, Age of Empires.
 - Command center research (2026-10-07): Gas Town (one "Mayor" agent you talk to), Paperclip (CEO agent, org chart, goals traced down), Cursor 3 "Needs Attention", Codex review queue, Vibe Kanban (cross-harness board), RimWorld and RTS (jump to the next waiting unit). Complaints to avoid: walls of live transcripts, waiting agents nobody notices, too many notifications.

@@ -26,7 +26,7 @@ Keep all three short. If a line would not change what the next session does, del
 - Explain the why behind every non-trivial choice. Say so when there is a better way than what was asked.
 - Ask when a requirement is ambiguous. Do not guess on product behaviour.
 - Never break existing behaviour. A change that touches many modules is a design smell: stop and raise it.
-- Before reporting done: run the checks, re-read the diff against RULES.md, state what was and was not verified.
+- Before reporting done: run the checks, state what was and was not verified.
 
 ## Build protocol
 
@@ -47,12 +47,10 @@ The owner hands well-scoped stories to other agents. A brief must stand alone, w
 
 A story must not require changing an existing contract. If it would, the architect changes the contract first.
 
-## Delegation and sub-agents
+## Session limits
 
-Goal: spend session limits well without lowering quality.
+Session limits are tight; spend them on the work.
 
-- The main session (Opus 5.5, high effort) understands the task, plans and orchestrates. Before starting, it plans which parts can go to sub-agents and delegates them, rather than doing everything in the main context.
-- Sub-agents: `opus-medium` by default, `sonnet-xhigh` for well-specified work, unless the owner names a model. Definitions live in `.claude/agents/`.
-- Every brief stands alone: goal, context, numbered steps, to-do list, constraints and out-of-scope, files and contracts, acceptance checks, expected report. A `sonnet-xhigh` brief spells out every step; no gaps left for the agent to fill.
-- Independent pieces run in parallel. The main session checks each result before relying on it.
-- Code review: the main session orchestrates. It splits the diff into independent slices (by area or concern), reviews them with parallel sub-agents under the same brief rules, then verifies and merges the findings itself.
+- No sub-agents unless the owner asks. When asked: `opus-medium` by default, `sonnet-xhigh` for fully specified work (`.claude/agents/`), with a brief that stands alone.
+- No code review and no review fixes unless the owner asks for one in that session. Reviews happen in their own sessions.
+- Read only the files the task needs. Checks: `pnpm check` before the PR, one live smoke run per module.
