@@ -104,6 +104,8 @@ interface LiveSession {
   ready: Promise<void>;
   stopping: boolean;
   ended: PromiseWithResolvers<void>;
+  // It has folders it may read but never change.
+  readOnly: boolean;
 }
 
 const NOT_RECORDED =
@@ -118,6 +120,14 @@ function errorMessage(error: unknown): string {
 }
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>;
+
+// "Always allow" an edit opens every folder for the rest of the session, a read-only one too.
+function withoutAllowAlways(event: SessionEvent): SessionEvent {
+  if (event.type !== "permission.requested") return event;
+  const options = event.payload.options.filter((option) => option.kind !== "allow_always");
+  if (options.length === 0) return event;
+  return { ...event, payload: { ...event.payload, options } };
+}
 
 // Says which autonomy level lets a request through without the user, if any.
 export type Guard = (
@@ -280,6 +290,7 @@ export class SessionRegistry {
       ready: ready.promise,
       stopping: false,
       ended: Promise.withResolvers<void>(),
+      readOnly: (record.options.readOnlyPaths ?? []).length > 0,
     };
     this.#live.set(session.id, live);
     try {
@@ -313,7 +324,8 @@ export class SessionRegistry {
     throw new SessionNotRunningError(sessionId);
   }
 
-  #record(live: LiveSession, event: SessionEvent): void {
+  #record(live: LiveSession, received: SessionEvent): void {
+    const event = live.readOnly ? withoutAllowAlways(received) : received;
     live.lastSequence = event.sequence;
     if (event.type === "session.started") live.conversation ??= event.payload.harnessSessionId;
     if (event.type === "session.ended") this.#forget(event.sessionId);

@@ -151,4 +151,36 @@ describe("session registry", () => {
     expect(store.getSession(record.id)?.status).toBe("failed");
     await store.deleteTask(record.taskId);
   });
+
+  it("offers no 'always allow' to an agent with a read-only folder", async () => {
+    const registry = openRegistry();
+    const task = store.createTask("Build on the API");
+    const upstream = join(directory, "api");
+    await registry.start({
+      taskId: task.id,
+      agentId: addAgent(store).id,
+      options: { ...options, additionalPaths: [upstream], readOnlyPaths: [upstream] },
+      message: { text: "Build on the API" },
+    });
+
+    sessions[0]?.emit({
+      type: "permission.requested",
+      payload: {
+        requestId: "edit",
+        title: "Edit",
+        input: {},
+        options: [
+          { optionId: "once", label: "Allow", kind: "allow_once" },
+          { optionId: "always", label: "Always allow", kind: "allow_always" },
+          { optionId: "no", label: "Reject", kind: "reject_once" },
+        ],
+      },
+    });
+
+    const [waiting] = store.listPendingRequests().requests;
+    expect(waiting?.event.payload).toMatchObject({
+      options: [{ optionId: "once" }, { optionId: "no" }],
+    });
+    await registry.close();
+  });
 });

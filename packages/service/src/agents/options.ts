@@ -9,20 +9,31 @@ export function permissionModeOf(store: Store, agentId: string): PermissionMode 
   return levelOf(store, agentId) === "bypass" ? "bypass" : "ask";
 }
 
+export interface SessionFolders {
+  workspacePath?: string | undefined;
+  additionalPaths?: string[] | undefined;
+  // Folders the agent may read but never change, such as an upstream department's workspace.
+  readOnlyPaths?: string[] | undefined;
+}
+
 // How an agent's session runs: its harness settings in the given folders, the first being where
-// it works.
+// it works. A read-only folder is opened like the others, and the policy keeps it unchanged.
 export function sessionOptionsFor(
   store: Store,
   agent: AgentRecord,
-  folders: { workspacePath?: string | undefined; additionalPaths?: string[] | undefined },
+  folders: SessionFolders,
 ): SessionOptions {
   const { instructions: _, autonomy: __, ...settings } = settingsOf(store, agent);
-  const { workspacePath, additionalPaths = [] } = folders;
+  const { workspacePath, readOnlyPaths = [] } = folders;
+  const additionalPaths = [
+    ...new Set([...(folders.additionalPaths ?? []), ...readOnlyPaths]),
+  ].filter((path) => path !== workspacePath);
   return {
     ...settings,
     permissionMode: permissionModeOf(store, agent.id),
     ...(workspacePath === undefined ? {} : { workspacePath }),
     ...(additionalPaths.length === 0 ? {} : { additionalPaths }),
+    ...(readOnlyPaths.length === 0 ? {} : { readOnlyPaths }),
   };
 }
 

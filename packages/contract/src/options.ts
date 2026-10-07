@@ -30,6 +30,8 @@ export const sessionOptionsSchema = z.object({
   workspacePath: z.string().min(1).optional(),
   // Further folders the agent may use as freely as its workspace.
   additionalPaths: z.array(absolutePathSchema).optional(),
+  // Also in additionalPaths: the agent may read them, never change them.
+  readOnlyPaths: z.array(absolutePathSchema).optional(),
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,

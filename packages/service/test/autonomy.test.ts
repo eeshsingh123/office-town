@@ -42,6 +42,19 @@ describe("autonomy policy", () => {
     expect(allows("trusted", request("read", [join(".git", "config")]), folders)).toBe(true);
   });
 
+  it("never lets a change inside a read-only folder through, even at Full, but lets Trusted read there", () => {
+    const upstream = join(workspace, "upstream");
+    const folders = [workspace, upstream];
+    expect(allows("full", request("edit", [join(upstream, "api.ts")]), folders, [upstream])).toBe(
+      false,
+    );
+    expect(allows("full", request("delete", ["upstream"]), folders, [upstream])).toBe(false);
+    expect(
+      allows("trusted", request("read", [join(upstream, "api.ts")]), folders, [upstream]),
+    ).toBe(true);
+    expect(allows("trusted", request("edit", ["index.html"]), folders, [upstream])).toBe(true);
+  });
+
   it("lets a profile or an agent lower its level, never raise it", () => {
     expect(lowerAutonomy("full", "trusted")).toBe("trusted");
     expect(lowerAutonomy("trusted", "full")).toBe("trusted");

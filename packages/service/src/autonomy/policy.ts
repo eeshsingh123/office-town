@@ -29,11 +29,28 @@ function inside(folder: string, path: string): boolean {
   return way === "" || (!way.startsWith("..") && !isAbsolute(way));
 }
 
-// Whether the level lets a request through without the user. Trusted allows reading and editing
-// inside the workspace's folders and asks for everything else: commands, web access, anything
-// outside, changes to what runs commands, and anything whose action it cannot read. Full and
-// Bypass allow all; Supervised none.
-export function allows(level: Autonomy, request: PermissionRequest, folders: string[]): boolean {
+// A change inside a read-only folder, whatever the level; checked before the workspace's folders,
+// as a read-only folder may sit inside one of them.
+function changesReadOnly(request: PermissionRequest, folders: string[], readOnly: string[]) {
+  const { kind, locations = [] } = request;
+  if (kind === undefined || !CHANGES.has(kind)) return false;
+  const base = folders[0] ?? "";
+  return locations.some((location) =>
+    readOnly.some((folder) => inside(folder, resolve(base, location))),
+  );
+}
+
+// Whether the level lets a request through without the user. A change inside a read-only folder
+// never goes through. Trusted allows reading and editing inside the workspace's folders and asks
+// for everything else: commands, web access, anything outside, changes to what runs commands, and
+// anything whose action it cannot read. Full and Bypass allow all; Supervised none.
+export function allows(
+  level: Autonomy,
+  request: PermissionRequest,
+  folders: string[],
+  readOnly: string[] = [],
+): boolean {
+  if (changesReadOnly(request, folders, readOnly)) return false;
   if (level === "full" || level === "bypass") return true;
   if (level === "supervised") return false;
   const { kind, locations = [] } = request;
@@ -67,9 +84,9 @@ type Guard = (session: SessionRecord, request: PermissionRequest) => Autonomy | 
 export function autonomyGuard(store: Store): Guard {
   return (session, request) => {
     const level = levelOf(store, session.agentId);
-    const { workspacePath, additionalPaths = [] } = session.options;
+    const { workspacePath, additionalPaths = [], readOnlyPaths = [] } = session.options;
     const folders =
       workspacePath === undefined ? additionalPaths : [workspacePath, ...additionalPaths];
-    return allows(level, request, folders) ? level : undefined;
+    return allows(level, request, folders, readOnlyPaths) ? level : undefined;
   };
 }
