@@ -4,7 +4,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { openChiefSettings } from "../office/office-state.ts";
-import { useChiefGoals } from "../work/WorkTab.tsx";
+import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./NewTaskView.module.css";
 
 // Who takes a goal given to the chief, and whether it waits its turn (D-49).

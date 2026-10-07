@@ -11,12 +11,8 @@ export interface StreamedEvent {
   event: SessionEvent;
 }
 
-// A change to a record, sent live only on the stream of every session.
-export interface StreamedChange {
-  change: Change;
-}
-
-export type StreamFrame = StreamedEvent | StreamedChange;
+// A change is a record sent live only on the stream of every session.
+export type StreamFrame = StreamedEvent | { change: Change };
 
 export type StreamStatus = "connecting" | "live" | "offline";
 

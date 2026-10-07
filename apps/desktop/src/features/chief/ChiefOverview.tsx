@@ -5,7 +5,7 @@ import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { openChiefSettings } from "../office/office-state.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
-import { useChiefGoals } from "../work/WorkTab.tsx";
+import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./Chief.module.css";
 
 // The chief at a glance: how it runs, its goal, its queue and any request it waits on (D-49).

@@ -1,6 +1,6 @@
-import type { DepartmentRecord, PlanPiece, TaskRecord } from "@office-town/contract";
+import type { DepartmentRecord, PlanPiece } from "@office-town/contract";
 import { Lock } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -11,7 +11,9 @@ import { clockTime, taskTitle } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { Plan } from "../task/AgentAside.tsx";
+import { DELEGATION_STATUS } from "./delegation-status.ts";
 import { PieceIcon } from "./PieceIcon.tsx";
+import { useChiefGoals } from "./use-chief-goals.ts";
 import { departmentName, usePlan } from "./use-plan.ts";
 import styles from "./Work.module.css";
 
@@ -66,26 +68,6 @@ function PieceRow({ piece, plan }: { piece: PlanPiece; plan: PlanPiece[] }) {
         </span>
       </button>
     </li>
-  );
-}
-
-function chiefGoals(tasks: Record<string, { task: TaskRecord }>, chiefId: string) {
-  const goals = Object.values(tasks)
-    .map((entry) => entry.task)
-    .filter((task) => task.leadAgentId === chiefId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const open = goals.find((task) => task.state !== "queued" && task.state !== "ended");
-  return {
-    current: open ?? goals.find((task) => task.state === "ended"),
-    queue: goals.filter((task) => task.state === "queued").reverse(),
-  };
-}
-
-export function useChiefGoals(chiefId: string | undefined) {
-  const tasks = useApp((state) => state.tasks);
-  return useMemo(
-    () => (chiefId === undefined ? { current: undefined, queue: [] } : chiefGoals(tasks, chiefId)),
-    [tasks, chiefId],
   );
 }
 
@@ -176,14 +158,6 @@ function PieceOfGoal({ piece, department }: { piece: PlanPiece; department: Depa
   );
 }
 
-const DELEGATION_LABELS = {
-  working: "working",
-  done: "done",
-  failed: "failed",
-  stopped: "stopped",
-  interrupted: "cut off",
-} as const;
-
 // A department's current goal, the work its lead handed out, and the pieces queued for it.
 export function DepartmentWork({ department }: { department: DepartmentRecord }) {
   const tasks = useApp((state) => state.tasks);
@@ -234,11 +208,11 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
                   <span className={styles.pieceText}>
                     <strong>{taskTitle(one.brief)}</strong>
                     <span className={styles.meta}>
-                      {worker?.name ?? "A worker"} · {DELEGATION_LABELS[one.status]}
+                      {worker?.name ?? "A worker"} · {DELEGATION_STATUS[one.status].label}
                       {one.endedAt === undefined ? "" : ` ${clockTime(one.endedAt)}`}
                     </span>
                   </span>
-                  <PieceIcon status={one.status === "interrupted" ? "stopped" : one.status} />
+                  <PieceIcon status={DELEGATION_STATUS[one.status].state} />
                 </li>
               );
             })}

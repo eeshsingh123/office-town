@@ -5,18 +5,11 @@ import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { DELEGATION_STATUS } from "../work/delegation-status.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
 import { usePlan } from "../work/use-plan.ts";
 import styles from "./Chat.module.css";
 import type { ChatItem, DelegationThread, ThreadState } from "./chat-items.ts";
-
-const DELEGATION_STATES: Record<string, ThreadState> = {
-  working: "working",
-  done: "done",
-  failed: "failed",
-  stopped: "stopped",
-  interrupted: "stopped",
-};
 
 function Said({
   who,
@@ -115,7 +108,7 @@ function DelegationEntry({ thread }: { thread: DelegationThread }) {
   );
   const state =
     thread.result === undefined && record !== undefined
-      ? (DELEGATION_STATES[record.status] ?? thread.state)
+      ? DELEGATION_STATUS[record.status].state
       : thread.state;
   const name = worker?.name ?? thread.workerName ?? "a worker";
   return (
