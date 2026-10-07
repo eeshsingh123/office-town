@@ -275,11 +275,15 @@ export function Floor(props: FloorProps) {
   const inside = useRef<string | undefined>(undefined);
 
   const focus = useApp((state) => state.focus);
-  const waiting = useApp((state) => state.waiting);
+  // The agent's oldest waiting request, from any of its sessions, as `waitingOrder` finds it.
+  const request = useApp((state) => {
+    const agentId = state.focus?.agentId;
+    if (agentId === undefined) return undefined;
+    return Object.values(state.waiting)
+      .filter(({ event }) => state.sessions[event.sessionId]?.agentId === agentId)
+      .sort((a, b) => a.position - b.position)[0];
+  });
   const focused = seated.find(({ id }) => id === focus?.agentId);
-  const request = Object.values(waiting).find(
-    ({ event }) => focused !== undefined && event.sessionId === focused.sessionId,
-  );
   usePanTo(floor, focused?.position, focus?.at);
   const answered = focused !== undefined && request === undefined;
   useEffect(() => {
@@ -558,7 +562,12 @@ export function Floor(props: FloorProps) {
         />
       )}
       {focused === undefined || request === undefined ? null : (
-        <FocusCard request={request} at={focused.position} floorWidth={plan.width} />
+        <FocusCard
+          request={request}
+          at={focused.position}
+          floorWidth={plan.width}
+          onClosed={() => floor.current?.focus({ preventScroll: true })}
+        />
       )}
     </div>
   );

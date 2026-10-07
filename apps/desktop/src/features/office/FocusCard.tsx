@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { focusAgent } from "../../store/app-store.ts";
 import type { WaitingRequest } from "../../store/records.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
@@ -14,11 +14,13 @@ interface FocusCardProps {
   // The centre of the agent asking.
   at: Point;
   floorWidth: number;
+  // Takes the keyboard back when the card closes while it held it.
+  onClosed: () => void;
 }
 
 // The waiting request of the agent the floor panned to, opened beside it so it can be answered
 // there. Esc closes it unanswered; it closes by itself once answered.
-export function FocusCard({ request, at, floorWidth }: FocusCardProps) {
+export function FocusCard({ request, at, floorWidth, onClosed }: FocusCardProps) {
   const card = useRef<HTMLDivElement>(null);
   const left = at.x + OFFSET.x + WIDTH > floorWidth;
   const sessionId = request.event.sessionId;
@@ -27,6 +29,15 @@ export function FocusCard({ request, at, floorWidth }: FocusCardProps) {
   useEffect(() => {
     card.current?.focus({ preventScroll: true });
   }, [request.event.id]);
+
+  // A layout cleanup runs while the card is still in the page, so it can tell where focus was.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once, as the card closes
+  useLayoutEffect(() => {
+    const element = card.current;
+    return () => {
+      if (element?.contains(document.activeElement)) onClosed();
+    };
+  }, []);
 
   return (
     <div
@@ -39,6 +50,7 @@ export function FocusCard({ request, at, floorWidth }: FocusCardProps) {
       }}
       role="dialog"
       aria-label="Request"
+      data-focus-card
       tabIndex={-1}
       // The card's keys and clicks stay off the floor, so typing an answer never walks.
       onKeyDown={(event) => {
