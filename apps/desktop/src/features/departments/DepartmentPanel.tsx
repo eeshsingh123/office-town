@@ -126,7 +126,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
   const working = goalSessions.some(isOpen);
 
   return (
-    <aside className={office.panel} aria-label={`${department.name}, department`}>
+    <>
       <div className={styles.head}>
         <span className={`${styles.dot} ${working ? styles.dotWorking : ""}`} aria-hidden />
         <h2 className={styles.name}>{department.name}</h2>
@@ -195,6 +195,6 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         ) : null}
       </div>
       {lead === undefined ? null : <MessageBox agent={lead} className={office.message} />}
-    </aside>
+    </>
   );
 }

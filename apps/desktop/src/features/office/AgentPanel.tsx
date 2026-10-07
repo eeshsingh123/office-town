@@ -59,7 +59,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
   const open = () => navigate({ name: "task", taskId: agent.taskId });
 
   return (
-    <aside className={styles.panel} aria-label={`${agent.name}, selected agent`}>
+    <>
       <div className={styles.who}>
         <Avatar name={agent.name} colour={agent.colour} size={40} />
         <div className={styles.whoText}>
@@ -124,6 +124,6 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
       </div>
       <MessageBox agent={agent} className={styles.message} />
       <SecondOpinionDialog agent={agent} open={asking} onOpenChange={setAsking} />
-    </aside>
+    </>
   );
 }

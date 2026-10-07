@@ -6,15 +6,12 @@ import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
-import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import { DepartmentPanel } from "../departments/DepartmentPanel.tsx";
 import { usageByHarness, usageSummary } from "../departments/usage.ts";
-import { AgentPanel } from "./AgentPanel.tsx";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type RoomSpec } from "./floor-plan.ts";
-import { GroupPanel } from "./GroupPanel.tsx";
 import styles from "./Office.module.css";
+import { OfficePanel } from "./OfficePanel.tsx";
 import { TopBar } from "./TopBar.tsx";
 
 const BUBBLE_LENGTH = 42;
@@ -78,25 +75,6 @@ function roomOf(agent: Agent, departments: Record<string, DepartmentRecord>): st
   return departmentId !== undefined && departments[departmentId] !== undefined
     ? departmentId
     : OPEN;
-}
-
-function EmptyPanel({ count }: { count: number }) {
-  return (
-    <aside className={styles.panel} aria-label="Office">
-      <p className={styles.empty}>
-        {count === 0
-          ? "No agent is at work today. Start a task and its agent takes a desk here."
-          : "Click an agent or a room's sign, walk up to one and press E, or drag a box around several."}
-      </p>
-      {count === 0 ? (
-        <div>
-          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
-            New task
-          </Button>
-        </div>
-      ) : null}
-    </aside>
-  );
 }
 
 interface Layout {
@@ -249,15 +227,12 @@ export function OfficeView() {
             onOpenRoom={onOpenRoom}
           />
         </div>
-        {chosen.length === 1 && chosen[0] !== undefined ? (
-          <AgentPanel member={chosen[0]} />
-        ) : chosen.length > 1 ? (
-          <GroupPanel members={chosen} />
-        ) : openRoom !== undefined ? (
-          <DepartmentPanel key={openRoom.id} department={openRoom} />
-        ) : (
-          <EmptyPanel count={floorAgents.length} />
-        )}
+        <OfficePanel
+          selection={selection}
+          chosen={chosen}
+          room={openRoom}
+          floorCount={floorAgents.length}
+        />
       </div>
     </section>
   );

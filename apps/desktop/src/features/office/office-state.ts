@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { navigate, select } from "../../store/app-store.ts";
 
 export type OfficeMode = "floor" | "board";
 export type PanelKind = "chief" | "department" | "agent";
@@ -36,4 +37,17 @@ export function composeIn(kind: PanelKind): void {
 
 export function openChiefSettings(open = true): void {
   useOffice.setState({ chiefSettingsOpen: open });
+}
+
+// Shows a department's room on the floor, with its panel.
+export function selectRoom(departmentId: string): void {
+  select([]);
+  showMode("floor");
+  navigate({ name: "office", room: departmentId });
+}
+
+export function selectAgent(agentId: string): void {
+  select([agentId]);
+  showMode("floor");
+  navigate({ name: "office" });
 }

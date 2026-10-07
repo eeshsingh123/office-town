@@ -17,7 +17,7 @@ function StepIcon({ step }: { step: PlanStep }) {
   return <CircleDashed size={14} className={styles.quiet} aria-label="Not started" />;
 }
 
-function Plan({ plan }: { plan: PlanStep[] }) {
+export function Plan({ plan }: { plan: PlanStep[] }) {
   const done = plan.filter((step) => step.status === "completed").length;
   return (
     <section aria-labelledby="plan-title">
