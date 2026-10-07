@@ -70,7 +70,10 @@ export type SessionPage = z.infer<typeof sessionPageSchema>;
 
 export const sessionPageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  before: z.string().min(1).optional(),
+  before: z
+    .string()
+    .regex(/^[1-9]\d*$/)
+    .optional(),
 });
 export type SessionPageQuery = z.input<typeof sessionPageQuerySchema>;
 
@@ -139,8 +142,8 @@ export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 
 // Where the user dragged a room on the floor, in floor pixels.
 export const roomPositionSchema = z.object({
-  x: z.number().int().nonnegative(),
-  y: z.number().int().nonnegative(),
+  x: z.number().int().min(0).max(20_000),
+  y: z.number().int().min(0).max(20_000),
 });
 export type RoomPosition = z.infer<typeof roomPositionSchema>;
 

@@ -407,9 +407,13 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "PUT",
       path: "/room-positions/:roomId",
       reply: async ({ param, body }) => {
+        const roomId = param("roomId");
+        if (roomId !== "chief" && store.getDepartment(roomId) === undefined) {
+          throw new RecordNotFoundError("department", roomId);
+        }
         const position = roomPositionSchema.parse(await body());
         const positions = store.readSettings().roomPositions ?? {};
-        store.saveSettings({ roomPositions: { ...positions, [param("roomId")]: position } });
+        store.saveSettings({ roomPositions: { ...positions, [roomId]: position } });
         return NO_CONTENT;
       },
     },
