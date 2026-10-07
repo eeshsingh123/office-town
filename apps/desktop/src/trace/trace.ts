@@ -21,14 +21,13 @@ export interface TraceAction {
   output?: string;
   result?: string;
   overflow?: Overflow;
-  // The `action.ended` event's sequence: the full result is read back by it.
+  // The full result is read back by this sequence.
   resultSequence?: number;
   planStepId?: string;
   startedAt: string;
   endedAt?: string;
-  // What a sub-agent did inside this action, in order.
+  // In order.
   children: string[];
-  // Requests the harness raised for this action.
   requestIds: string[];
 }
 
@@ -78,14 +77,14 @@ export interface TokenTotals {
 
 export interface Trace {
   sessionId: string;
-  // The last stored event applied; anything at or before it is a repeat.
+  // Anything at or before it is a repeat.
   position: number;
   // In the order each item first appeared.
   items: Map<string, TraceItem>;
-  // Top-level items in the order they happened; nested ones hang off their action.
+  // Top-level only; nested items hang off their action.
   order: string[];
   plan: PlanStep[];
-  // Text still being written, by the action it belongs to ("" for the agent itself).
+  // By action id ("" for the agent itself).
   streaming: Record<string, string>;
   turnOpen: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
@@ -109,8 +108,7 @@ export function emptyTrace(sessionId: string): Trace {
 
 export const requestKey = (requestId: string) => `request:${requestId}`;
 
-// Applies a batch of events to a trace and returns a new one. Items that change are replaced, so
-// a view of an unchanged item can skip drawing it again.
+// Changed items are replaced, so a view of an unchanged item can skip drawing it.
 export function applyEvents(trace: Trace, events: readonly StreamedEvent[]): Trace {
   const next: Trace = {
     ...trace,

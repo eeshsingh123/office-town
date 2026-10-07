@@ -26,7 +26,7 @@ import { isRepository } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
 
-// What a lead may choose from: each harness that can list its models where the lead runs.
+// Each harness that can list its models where the lead runs.
 export async function harnessChoices(
   { readCatalog }: TeamContext,
   environment: EnvironmentSpec,
@@ -41,9 +41,7 @@ export async function harnessChoices(
   });
 }
 
-// Departments, and the chief, being claimed for a goal, by id: the goal claiming them (none for a
-// new one) and how many starts hold the claim. The store shows a goal busy only once its agent
-// has a session, so a claim covers the start in between.
+// The store shows a goal busy only once its agent has a session, so a claim covers the start before.
 const claims = new Map<string, { taskId: string | undefined; holders: number }>();
 
 function claimedByOther(id: string, taskId: string | undefined): boolean {
@@ -51,7 +49,6 @@ function claimedByOther(id: string, taskId: string | undefined): boolean {
   return claim !== undefined && (claim.taskId === undefined || claim.taskId !== taskId);
 }
 
-// Whether a start is under way for the chief or a department.
 export function isClaimed(id: string): boolean {
   return claims.has(id);
 }
@@ -71,8 +68,7 @@ function hold(ids: string[], taskId: string | undefined): () => void {
   };
 }
 
-// The chief, too, runs one goal at a time (D-49): an ended goal is taken up again only while no
-// other runs.
+// An ended goal is taken up again only while no other chief goal runs (D-49).
 function claimChief(store: Store, taskId: string | undefined): string[] {
   const leadId = taskId === undefined ? undefined : store.getTask(taskId)?.leadAgentId;
   if (leadId === undefined || leadId !== store.readSettings().chiefAgentId) return [];
@@ -83,10 +79,7 @@ function claimChief(store: Store, taskId: string | undefined): string[] {
   return [leadId];
 }
 
-// A department works on one goal at a time (D-41): a goal starts, or is taken up again, only once
-// every other has ended. Agents its ended goals left open are then stopped as idle, to be resumed
-// if their goal is taken up again. The check and the claim happen at once, so two starts never
-// both pass; the claim is held until `start` settles.
+// One goal per department (D-41). Check and claim happen at once, so two starts never both pass.
 export async function claimDepartment<T>(
   { store, registry }: TeamContext,
   departmentId: string | undefined,
@@ -129,15 +122,14 @@ function throwUnlessStopped(stops: PromiseSettledResult<void>[], message: string
   if (failures.length > 0) throw new AggregateError(failures, message);
 }
 
-// A goal that is a piece of the chief's plan.
 export interface PieceStart {
   parentTaskId: string;
-  // Added to the lead's brief: the chief's goal and the results this piece builds on.
+  // The chief's goal and the results this piece builds on.
   handOff: string;
   readOnlyPaths: string[];
-  // Called once the task exists, before its lead starts.
+  // Called before the lead starts.
   onTaskCreated(taskId: string): void;
-  // False once the chief's goal was stopped, so the lead does not start.
+  // False once the chief's goal was stopped.
   stillWanted(): boolean;
 }
 
@@ -158,8 +150,7 @@ function requireWanted(piece: PieceStart | undefined): void {
   }
 }
 
-// A goal for a saved department starts its lead with the team it has; a new lead first proposes
-// one. Only the lead starts: it hands out the work.
+// A new lead first proposes its team; only the lead starts, as it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
   { goal, team }: StartTeamTaskRequest,
@@ -227,8 +218,7 @@ export async function startTeamTask(
   });
 }
 
-// Stops every member at work on the task. Their delegations are closed first, so no "stopped"
-// result wakes the lead the user is stopping too.
+// Delegations close first, so no "stopped" result wakes the lead being stopped too.
 export async function stopTeam({ store, registry }: TeamContext, taskId: string): Promise<void> {
   for (const delegation of store.listDelegations(taskId)) {
     if (delegation.status === "working") store.endDelegation(delegation.id, "stopped");
@@ -254,7 +244,7 @@ function cutOffNotice(store: Store, cut: DelegationRecord[]): string {
   return `Office Town was closed while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.`;
 }
 
-// The results of a chief's pieces that ended after its latest session did, so it never got them.
+// Pieces that ended after the chief's latest session did, so it never got their results.
 function missedResults(store: Store, taskId: string, chief: SessionRecord): string[] {
   if (!isChiefTask(store, taskId)) return [];
   const since = Date.parse(chief.endedAt ?? store.latestTurn(chief.id)?.at ?? chief.createdAt);
@@ -266,9 +256,7 @@ function missedResults(store: Store, taskId: string, chief: SessionRecord): stri
   });
 }
 
-// After a restart a team's task is interrupted. Continuing resumes its lead, told which pieces of
-// work were cut off, so it can hand them out again (MODULES M4.5), and, for the chief, the results
-// of the pieces that ended while it was not running.
+// Resumes the lead after a restart, told which work was cut off and, for the chief, missed results.
 export async function continueTeam(
   context: TeamContext,
   taskId: string,

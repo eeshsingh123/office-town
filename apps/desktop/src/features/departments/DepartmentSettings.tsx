@@ -17,7 +17,7 @@ import { useLoaded } from "../../ui/use-loaded.ts";
 import styles from "./DepartmentSettings.module.css";
 import { type TeamRow, TeamRows, toRoles, toRows } from "./TeamRows.tsx";
 
-// A member as a row of its team: kept by its agent, with its profile or its own settings.
+// Kept by its agent, with its profile or its own settings.
 function roleOf(agent: AgentRecord): TeamRole {
   const { harness, environment, model, effort } = agent.settings;
   return {
@@ -195,7 +195,6 @@ function Settings({ department }: { department: DepartmentRecord }) {
   );
 }
 
-// A department's settings: its name, autonomy level, code switches and its team (D-40).
 export function DepartmentSettings({ departmentId }: { departmentId: string }) {
   const department = useApp((state) => state.departments[departmentId]);
   return (

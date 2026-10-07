@@ -12,8 +12,7 @@ export class NeverStartedError extends Error {
   }
 }
 
-// The message reaches the agent at work at once; one that finished is resumed with it, in its
-// latest task, once that task's department is free.
+// A finished agent is resumed in its latest task, once that department is free.
 async function deliver(context: TeamContext, session: SessionRecord, text: string): Promise<void> {
   const { store, registry } = context;
   if (isOpen(session)) {
@@ -31,8 +30,7 @@ async function deliver(context: TeamContext, session: SessionRecord, text: strin
   );
 }
 
-// A worker's lead hears that the user spoke to the worker, if the lead is at work. One that is not
-// is left alone: resuming it would spend a turn on a note, and it sees the worker's result anyway.
+// Only if the lead is at work: resuming it would spend a turn on a note.
 async function noteLead(
   context: TeamContext,
   agent: AgentRecord,
@@ -53,7 +51,7 @@ async function noteLead(
   }
 }
 
-// The user's own words to any agent, in the given goal or else its latest conversation (D-49).
+// In the given goal or else the agent's latest conversation (D-49).
 export async function messageAgent(
   context: TeamContext,
   agentId: string,

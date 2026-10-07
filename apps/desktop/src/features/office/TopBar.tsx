@@ -15,14 +15,13 @@ import { goToNextWaiting } from "./waiting-keys.ts";
 interface PlanWindow {
   harness: string;
   text: string;
-  // How full its fullest limit is, where the harness reports one.
   fraction?: number;
   detail?: string;
 }
 
 const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
-// Each harness's fullest plan limit, or else the new tokens of today's goals on it (D-29).
+// Or else the new tokens of today's goals on it (D-29).
 function planWindows(
   harnesses: readonly HarnessDescription[],
   limits: Record<string, HarnessLimits>,
@@ -78,7 +77,6 @@ function useCounts(entries: Record<string, TaskEntry>) {
   }, [agents, traces, waitingSessions, waiting, sessions, pieces, entries]);
 }
 
-// What the whole office is doing at a glance, and where to go next (D-49).
 export function TopBar() {
   const entries = useApp((state) => state.tasks);
   const harnesses = useApp((state) => state.harnesses);

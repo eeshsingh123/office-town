@@ -15,8 +15,7 @@ import { useMinutesSince } from "./RequestCard.tsx";
 
 type ProposalEvent = Extract<UserRequestEvent, { type: "proposal.requested" }>;
 
-// The lead's team for the user to edit: a row per worker, each with a harness, a model and an
-// effort; a worker the team already has keeps its name. The lead's own row cannot change.
+// A worker the team already has keeps its name. The lead's own row cannot change.
 export function ProposalCard({ event, context }: { event: ProposalEvent; context?: ReactNode }) {
   const { requestId, team, reason, place, departmentId } = event.payload;
   const lead = useSessionAgent(event.sessionId);

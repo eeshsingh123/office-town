@@ -4,7 +4,7 @@ import { isOpen } from "../../store/records.ts";
 import { openChiefSettings, selectAgent } from "../office/office-state.ts";
 import styles from "./Sidebar.module.css";
 
-// The standing chief, or a way to set it up; it spins while one of its goals is at work.
+// It spins while one of its goals is at work.
 function ChiefEntry() {
   const chiefId = useApp((state) => state.chiefId);
   const working = useApp((state) =>
@@ -30,7 +30,7 @@ function ChiefEntry() {
   );
 }
 
-// The departments the user keeps, each with how many members it has; a dot marks one at work.
+// A dot marks one at work.
 export function Departments() {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);

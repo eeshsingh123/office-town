@@ -39,8 +39,7 @@ async function forward(url: string, token: string, line: string): Promise<string
   }
 }
 
-// A stdio MCP server that forwards each JSON-RPC line to the core's tool server over HTTP. It runs
-// on Windows for a harness in WSL, where 127.0.0.1 is the Windows machine's own.
+// Runs on Windows for a harness in WSL, which cannot reach the Windows 127.0.0.1.
 function bridge(url: string, token: string): void {
   const lines = createInterface({ input: process.stdin });
   lines.on("line", async (line) => {

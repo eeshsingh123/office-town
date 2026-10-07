@@ -15,7 +15,7 @@ import { departmentNameOf, readOnlyFolders } from "./piece-folders.ts";
 
 const OPEN = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
 
-// A saved department, or the new one the chief proposed, whose lead first proposes its team.
+// A new department's lead first proposes its team.
 function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
   if (piece.departmentId !== undefined) return { departmentId: piece.departmentId };
   if (piece.newDepartment === undefined) throw new RecordNotFoundError("department", piece.id);
@@ -23,8 +23,7 @@ function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
   return { lead: { settings: lead }, workspaceId, autonomy };
 }
 
-// How the lead's latest session in the piece's task ended. A new department whose team the user
-// declined never joined one, so its piece is not done.
+// A new department whose team the user declined never joined one, so its piece is not done.
 function endingOf(store: Store, task: TaskRecord, lead: SessionRecord | undefined): PieceEnding {
   if (lead === undefined || lead.status === "failed") return "failed";
   if (lead.status === "stopped") return "stopped";
@@ -33,7 +32,7 @@ function endingOf(store: Store, task: TaskRecord, lead: SessionRecord | undefine
   return outcome === "interrupted" ? "stopped" : "done";
 }
 
-// The lead's last words in the task, from its latest session that said anything.
+// From the lead's latest session in the task that said anything.
 function lastWords(store: Store, task: TaskRecord): string {
   const sessions = store
     .listSessions(task.id)
@@ -46,9 +45,7 @@ function lastWords(store: Store, task: TaskRecord): string {
   return "";
 }
 
-// Starts what can start: the chief's next queued goal, and each piece of a plan whose pieces
-// before it are done and whose department is free. Runs once at a time, so two triggers never
-// start the same piece twice. A piece that ends hands its result to the chief.
+// Runs once at a time, so two triggers never start the same piece twice.
 export class Scheduler {
   readonly #context: TeamContext;
   #running: Promise<void> = Promise.resolve();
@@ -85,7 +82,6 @@ export class Scheduler {
     void this.advance();
   }
 
-  // A goal that ended leaves the pieces it never started.
   #dropUnstarted(taskId: string): void {
     const { store } = this.#context;
     for (const piece of store.listPieces(taskId)) {
@@ -104,9 +100,7 @@ export class Scheduler {
     this.#end(piece, endingOf(store, task, lead), lastWords(store, task));
   }
 
-  // The chief hears each piece's end; once none is left open, that it is time to sum up. Told
-  // before the piece ends, so the chief owes a turn for it and its goal never reads finished in
-  // between; a chief not running hears it when its goal is continued.
+  // Told before the piece ends, so the chief owes a turn and its goal never reads finished in between.
   #end(piece: PlanPiece, ending: PieceEnding, result: string): void {
     const { store } = this.#context;
     const last =

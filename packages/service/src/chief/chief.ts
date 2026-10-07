@@ -19,13 +19,12 @@ export function chiefOf(store: Store): AgentRecord | undefined {
   return id === undefined ? undefined : store.getAgent(id);
 }
 
-// A chief's task is led by the chief; every other led task is a department's.
 export function isChiefTask(store: Store, taskId: string): boolean {
   const id = store.readSettings().chiefAgentId;
   return id !== undefined && store.getTask(taskId)?.leadAgentId === id;
 }
 
-// The one standing chief: made once, then its settings change and apply at its next session.
+// Made once; later settings apply at its next session.
 export function saveChief(store: Store, settings: AgentSettings): AgentRecord {
   const chief = chiefOf(store);
   if (chief !== undefined) {
@@ -43,14 +42,13 @@ export function saveChief(store: Store, settings: AgentSettings): AgentRecord {
   return created;
 }
 
-// The chief works in a folder of its own in the data folder, apart from every department's.
 export function chiefFolder(dataFolder: string): string {
   const folder = join(dataFolder, "chief");
   mkdirSync(folder, { recursive: true });
   return folder;
 }
 
-// The chief at work on one of its goals: only it gets the chief's tools.
+// Only the chief at work on one of its goals gets the chief's tools.
 export function isChiefCaller(store: Store, caller: Caller): boolean {
   return (
     store.readSettings().chiefAgentId === caller.agentId &&

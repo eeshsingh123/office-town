@@ -13,7 +13,7 @@ const OWN_ANSWER = "~own";
 
 interface RequestCardProps {
   event: UserRequestEvent;
-  // Who asks and for which task, where the card stands apart from its trace.
+  // Where the card stands apart from its trace.
   context?: ReactNode;
 }
 
@@ -217,7 +217,7 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
   );
 }
 
-// One card for a waiting request, wherever it shows: in its trace and in the Needs you queue.
+// The same card in its trace and in the Needs you queue.
 export function RequestCard({ event, context }: RequestCardProps) {
   if (event.type === "proposal.requested") return <ProposalCard event={event} context={context} />;
   if (event.type === "plan.requested") return <PlanCard event={event} context={context} />;

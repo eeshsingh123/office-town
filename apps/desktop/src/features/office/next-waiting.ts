@@ -1,7 +1,7 @@
 import type { SessionRecord } from "@office-town/contract";
 import type { WaitingRequest } from "../../store/records.ts";
 
-// The agents with a request waiting, the one asking longest first.
+// The one asking longest first.
 export function waitingOrder(
   waiting: Record<string, WaitingRequest>,
   sessions: Record<string, SessionRecord>,

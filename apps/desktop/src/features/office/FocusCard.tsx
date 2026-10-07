@@ -11,15 +11,13 @@ const OFFSET = { x: 36, y: 64 };
 
 interface FocusCardProps {
   request: WaitingRequest;
-  // The centre of the agent asking.
   at: Point;
   floorWidth: number;
   // Takes the keyboard back when the card closes while it held it.
   onClosed: () => void;
 }
 
-// The waiting request of the agent the floor panned to, opened beside it so it can be answered
-// there. Esc closes it unanswered; it closes by itself once answered.
+// Opened beside the agent the floor panned to. Esc closes it unanswered.
 export function FocusCard({ request, at, floorWidth, onClosed }: FocusCardProps) {
   const card = useRef<HTMLDivElement>(null);
   const left = at.x + OFFSET.x + WIDTH > floorWidth;

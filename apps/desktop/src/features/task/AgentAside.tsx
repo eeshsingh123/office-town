@@ -71,12 +71,11 @@ interface AgentAsideProps {
   agent: AgentRecord;
   first: SessionRecord;
   latest: SessionRecord;
-  // The task's loaded traces, oldest first.
+  // Oldest first.
   traces: Trace[];
 }
 
-// A resumed session reports no plan until it changes, so the latest known one shows. Plan limits
-// belong to the account, so they are the harness's latest the core keeps.
+// A resumed session reports no plan until it changes, so the latest known one shows.
 export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
   const harness = useHarnessName(latest.options.harness);
   const level = useLevel(agent);

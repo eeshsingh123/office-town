@@ -12,7 +12,7 @@ import styles from "./PlanCard.module.css";
 import type { DraftDepartment, KeptPiece, PlanRow } from "./plan-edit.ts";
 import { wouldCycle } from "./plan-edit.ts";
 
-// A value no department id can take, since an id starts with a letter or digit.
+// No department id can take this, since an id starts with a letter or digit.
 const NEW_DEPARTMENT = "~new";
 
 interface PlanRowsProps {
@@ -21,7 +21,6 @@ interface PlanRowsProps {
   kept: KeptPiece[];
   workspaces: WorkspaceRecord[];
   onNewWorkspace: (onCreated: (workspaceId: string) => void) => void;
-  // What a new department's lead starts with.
   defaultLead: DraftDepartment["lead"];
 }
 
@@ -180,7 +179,6 @@ function nextKey(rows: readonly PlanRow[], kept: readonly KeptPiece[]): string {
   return `piece-${number}`;
 }
 
-// The plan's pieces to edit: a department, a title and brief, and what each waits on (D-49).
 export function PlanRows({
   rows,
   onChange,

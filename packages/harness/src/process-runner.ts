@@ -38,8 +38,7 @@ export async function runProcess(
   child.stdin.on("error", () => {});
 
   child.exited.then(async (exit) => {
-    // Output still buffered in the pipe is delivered before the exit is reported. The timeout
-    // covers an orphaned grandchild that keeps the pipe open forever.
+    // Buffered output is delivered before the exit; the timeout covers a grandchild holding the pipe open.
     await Promise.race([drained, delay(DRAIN_TIMEOUT_MS, undefined, { ref: false })]);
     lines.close();
     handlers.onExit(exit, stderrTail);

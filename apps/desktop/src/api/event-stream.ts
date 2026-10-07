@@ -5,13 +5,12 @@ import {
   sessionEventSchema,
 } from "@office-town/contract";
 
-// A text fragment is never stored, so it has no position.
 export interface StreamedEvent {
   position?: number;
   event: SessionEvent;
 }
 
-// A change is a record sent live only on the stream of every session.
+// Sent live only, on the stream of every session.
 export type StreamFrame = StreamedEvent | { change: Change };
 
 export type StreamStatus = "connecting" | "live" | "offline";
@@ -31,9 +30,7 @@ function readFrame(name: string | undefined, data: string): StreamFrame | undefi
   }
 }
 
-// Splits server-sent event text into frames. What follows the last complete frame is returned as
-// `rest`, to be read again with the next chunk. Frames named "change" carry changes; the others
-// carry events.
+// The text after the last complete frame comes back as `rest`, to read again with the next chunk.
 export function parseFrames(text: string): { frames: StreamFrame[]; rest: string } {
   const blocks = text.split("\n\n");
   const rest = blocks.pop() ?? "";
@@ -76,7 +73,6 @@ async function readStream(
   }
 }
 
-// Every stored event of one session so far; the stream ends once it has caught up.
 export async function replaySession(sessionId: string): Promise<StreamedEvent[]> {
   const events: StreamedEvent[] = [];
   await readStream(`/events?session=${encodeURIComponent(sessionId)}&follow=false`, (frame) => {
@@ -92,9 +88,7 @@ export interface FollowOptions {
   onStatus: (status: StreamStatus) => void;
 }
 
-// The one live stream of the app (D-32). After a drop it reconnects from the last stored position
-// it saw, so no event is missed or repeated; changes made meanwhile are read again by the caller.
-// Returns a function that closes it.
+// Reconnects from the last stored position it saw; changes made meanwhile are read again by the caller.
 export function followEvents({ after, onEvent, onChange, onStatus }: FollowOptions): () => void {
   const controller = new AbortController();
   const { signal } = controller;

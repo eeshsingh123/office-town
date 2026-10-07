@@ -13,8 +13,7 @@ interface MessageBoxProps {
   className?: string | undefined;
 }
 
-// A message goes to the running agent, or resumes an ended one in a new session of the task. A
-// team's lead cut off by a restart continues the team, so it hears which work was cut off.
+// A team's lead cut off by a restart continues the team, so it hears which work was cut off.
 export function MessageBox({ agent, className }: MessageBoxProps) {
   const id = useId();
   const [text, setText] = useState("");

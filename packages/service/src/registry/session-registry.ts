@@ -26,7 +26,7 @@ import { requireSessionFolders } from "../task-folders.ts";
 
 export type HarnessSessionFactory = (options: SessionOptions, extras: LaunchExtras) => Session;
 
-// Gives each session the core's tool servers, with a token that names that session alone.
+// One token per session, so a tool call names its agent.
 export interface ToolAccess {
   // `bind` names the session once it exists, before it starts.
   grant(): { servers: ToolServer[]; bind(sessionId: string): void };
@@ -45,11 +45,11 @@ export interface CoreAnswer {
     SessionEventBody,
     { type: "question.resolved" | "proposal.resolved" | "plan.resolved" }
   >;
-  // Runs once the resolution is recorded, such as telling the agent.
+  // Runs once the resolution is recorded.
   afterwards?: () => Promise<void>;
 }
 
-// Reads the user's answer; throws an AnswerError if it does not fit the request.
+// Throws an AnswerError if the answer does not fit the request.
 export type CoreRequestHandler = (command: AnswerCommand) => CoreAnswer;
 
 export class AnswerError extends Error {
@@ -59,7 +59,6 @@ export class AnswerError extends Error {
   }
 }
 
-// Text fragments are published live but never stored, so they carry no position.
 export interface PublishedEvent {
   position?: number;
   event: SessionEvent;
@@ -67,7 +66,7 @@ export interface PublishedEvent {
 
 export type RegistryListener = (published: PublishedEvent) => void;
 
-// A message the agent gets; one with an origin was sent by the core in the user's place.
+// A message with an origin was sent by the core in the user's place.
 export interface Message {
   text: string;
   origin?: MessageOrigin;
@@ -101,13 +100,12 @@ interface LiveSession {
   stopListening: () => void;
   lastSequence: number;
   recorded: boolean;
-  // The harness's own session id: one conversation must never run in two sessions at once.
+  // One conversation must never run in two sessions at once.
   conversation: string | undefined;
-  // Set until the agent has its first message, so a later one never arrives before it.
+  // Set until the first message is sent, so a later one never overtakes it.
   firstMessage: Promise<void> | undefined;
   stopping: boolean;
   ended: PromiseWithResolvers<void>;
-  // It has folders it may read but never change.
   readOnly: boolean;
 }
 
@@ -132,7 +130,6 @@ function withoutAllowAlways(event: SessionEvent): SessionEvent {
   return { ...event, payload: { ...event.payload, options } };
 }
 
-// Says which autonomy level lets a request through without the user, if any.
 export type Guard = (
   session: SessionRecord,
   request: PermissionRequest["payload"],
@@ -142,7 +139,7 @@ export interface RegistryOptions {
   createSession?: HarnessSessionFactory;
   tools?: ToolAccess;
   guard?: Guard;
-  // The mode an agent's harness runs in now, so a resume follows a level changed since.
+  // Read at each start, so a resume follows a level changed since.
   permissionModeOf?: (agentId: string) => PermissionMode;
 }
 
@@ -154,7 +151,7 @@ export class SessionRegistry {
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
-  // The core's own requests waiting for the user, by session and request id.
+  // By session and request id.
   readonly #asked = new Map<string, CoreRequestHandler>();
   readonly #outbox: PublishedEvent[] = [];
   #publishing = false;
@@ -168,7 +165,6 @@ export class SessionRegistry {
     this.#tools = tools;
     this.#guard = guard;
     this.#permissionModeOf = permissionModeOf;
-    // Whatever an earlier core left running is not running now.
     store.markInterrupted();
   }
 
@@ -177,13 +173,11 @@ export class SessionRegistry {
     return () => this.#listeners.delete(listener);
   }
 
-  // Starts an agent's new session in a task, with its first message.
   async start({ taskId, agentId, options, message }: Launch): Promise<SessionRecord> {
     const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
 
-  // Continues an ended session's conversation in a new session of the same task.
   async resume(sessionId: string, message: Message): Promise<SessionRecord> {
     const earlier = this.#store.getSession(sessionId);
     if (earlier === undefined) throw new RecordNotFoundError("session", sessionId);
@@ -231,8 +225,7 @@ export class SessionRegistry {
     await live.session.send(command);
   }
 
-  // An agent with read-only folders was never offered "allow always", so an answer naming it, or
-  // any option its request did not offer, is refused.
+  // Read-only sessions are never offered "allow always"; refuse any option not offered.
   #requireOffered(sessionId: string, requestId: string, optionId: string): void {
     const request = this.#store
       .listPendingRequests()
@@ -248,12 +241,10 @@ export class SessionRegistry {
     if (!offered) throw new AnswerError(`Request "${requestId}" offers no option "${optionId}".`);
   }
 
-  // A message from the core to a running agent, such as the answer to its question. An agent
-  // being stopped cannot take it: once it has ended this says so, and the caller may resume it.
+  // An agent that has ended cannot take it; the caller may resume it.
   async tell(sessionId: string, message: Message): Promise<void> {
     const live = this.#running(sessionId);
-    // Not waiting once ready stores the prompt before tell returns, so a caller's next write
-    // (such as ending the delegation it reports) never finds the lead with nothing to act on.
+    // Storing the prompt before returning means the caller's next write never finds the lead idle.
     if (live.firstMessage !== undefined) await live.firstMessage;
     if (live.stopping) {
       await live.ended.promise;
@@ -262,15 +253,14 @@ export class SessionRegistry {
     await this.#running(sessionId).session.send({ type: "prompt", ...message });
   }
 
-  // Puts a request of the core's own in Needs you, stored and shown like a harness's; the answer
-  // goes to `onAnswer` instead of the harness. It lasts as long as the session.
+  // The answer goes to `onAnswer` instead of the harness; it lasts as long as the session.
   ask(sessionId: string, request: CoreRequest, onAnswer: CoreRequestHandler): void {
     const live = this.#running(sessionId);
     this.#asked.set(askedKey(sessionId, request.payload.requestId), onAnswer);
     live.session.report(request);
   }
 
-  // `idle` ends an agent left idle as finished, to be resumed when it is next needed.
+  // `idle` ends the agent as finished, to be resumed when next needed.
   async stop(sessionId: string, idle = false): Promise<void> {
     const live = this.#running(sessionId);
     live.stopping = true;
@@ -281,7 +271,7 @@ export class SessionRegistry {
     return this.#live.has(sessionId);
   }
 
-  // A shutdown is recorded like a crash: the sessions end interrupted and can be resumed later.
+  // Recorded like a crash, so the sessions can be resumed later.
   async close(): Promise<void> {
     const running = [...this.#live.values()];
     this.#live.clear();
@@ -387,9 +377,7 @@ export class SessionRegistry {
       });
   }
 
-  // One more try once the agent has stopped, so a brief storage failure does not leave the session
-  // "running" with no way to stop it or delete its task. The fatal error already told the user
-  // that saving fails, so a second failure only leaves the session for the next start to interrupt.
+  // One more try once stopped, so a brief storage failure does not leave the session stuck "running".
   #recordFailedEnd(event: SessionEndedEvent): PublishedEvent {
     const failed = { ...event, payload: { ...event.payload, reason: "failed" as const } };
     try {
@@ -417,7 +405,7 @@ export class SessionRegistry {
     }
   }
 
-  // Work that cannot be recorded cannot be traced, so the agent is stopped, not left unseen.
+  // Work that cannot be recorded cannot be traced, so the agent is stopped.
   #stopUnrecorded(live: LiveSession, error: unknown): void {
     live.recorded = false;
     this.#forget(live.session.id);
@@ -427,8 +415,7 @@ export class SessionRegistry {
     });
   }
 
-  // Never stored, so taking the session's last sequence clashes with nothing in the log and
-  // leaves the session's own numbering intact.
+  // Never stored, so reusing the last sequence clashes with nothing in the log.
   #publishError(live: LiveSession, message: string, detail: string): void {
     this.#publish({
       event: {
@@ -442,9 +429,7 @@ export class SessionRegistry {
     });
   }
 
-  // A listener that acts on an event, such as answering a request, makes new events while the
-  // first is still being handed out. Those wait their turn, so every listener sees the events in
-  // the order they were stored, and a stream never sends a later position before an earlier one.
+  // Events made by a listener wait their turn, so every listener sees store order.
   #publish(published: PublishedEvent): void {
     this.#outbox.push(published);
     if (this.#publishing) return;

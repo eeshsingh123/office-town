@@ -1,8 +1,7 @@
 import type { SessionRecord } from "@office-town/contract";
 import type { Store } from "./store/store.ts";
 
-// A task is made to start its first agent at once. One whose start failed would stay "working"
-// with nobody at work, keeping its department busy, so it goes; the error still reaches the caller.
+// A task whose start failed would stay "working" and keep its department busy, so it goes.
 export async function startFirstAgent(
   store: Store,
   taskId: string,

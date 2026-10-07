@@ -8,7 +8,7 @@ import { Button } from "../../ui/Button.tsx";
 import { useOffice } from "../office/office-state.ts";
 import styles from "./Chat.module.css";
 
-// The lead of a worker's department, and whether it is at work: only then does it get the note.
+// Only a lead at work gets the note.
 function useLead(agent: AgentRecord) {
   return useApp((state) => {
     const department =
@@ -24,7 +24,7 @@ function leadAtWork(leadId: string): boolean {
   );
 }
 
-// The user's words to the agent, at work or finished; a worker's lead hears of it (D-49).
+// A worker's lead hears of it (D-49).
 export function Composer({
   agent,
   onNoted,

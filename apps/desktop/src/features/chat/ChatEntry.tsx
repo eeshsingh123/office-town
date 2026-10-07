@@ -155,7 +155,6 @@ function HandoffEntry({
 
 interface ChatEntryProps {
   item: ChatItem;
-  // Whose conversation this is.
   speaker: AgentRecord;
   noted: ReadonlySet<string>;
   goalId: string;

@@ -34,7 +34,7 @@ function requestBubble(request: WaitingRequest): string {
   }
 }
 
-// What shows above an agent's head: what it asks, or what it does now. Others stay quiet.
+// What it asks, or what it does now. Others stay quiet.
 function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progress) {
   let text: string | undefined;
   if (request !== undefined) {
@@ -48,7 +48,7 @@ function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progre
   return { bubble: text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text };
 }
 
-// A department's members, lead first, then in the order they joined; each keeps its desk.
+// Lead first, then in join order, so each keeps its desk.
 function membersOf(department: DepartmentRecord, agents: Record<string, AgentRecord>) {
   return Object.values(agents)
     .filter((agent) => agent.departmentId === department.id)
@@ -61,7 +61,7 @@ function membersOf(department: DepartmentRecord, agents: Record<string, AgentRec
 
 type Known = Pick<AppState, "agents" | "tasks" | "sessions">;
 
-// The department's latest goal, and its members' sessions in it; a guest is no member.
+// A guest is no member.
 function goalOf(department: DepartmentRecord, state: Known) {
   const entry = Object.values(state.tasks)
     .filter(({ task }) => task.departmentId === department.id)
@@ -93,9 +93,7 @@ interface Layout {
   positions: Record<string, Point>;
 }
 
-// Every agent at work, or done today, at a desk: in its department's room, on the open floor if
-// it works alone, or at the guest desk if it came for a second opinion (MODULES M4.9). The chief
-// keeps its office whenever it is set up.
+// Every agent at work or done today, at a desk. The chief keeps its office whenever it is set up.
 function layOut(layout: Layout) {
   const { agents, traces, waiting, harnessName, departments, limits, state, chiefId } = layout;
   const asking = new Map(
@@ -179,7 +177,7 @@ function layOut(layout: Layout) {
   return { plan, floorAgents, signs };
 }
 
-// The home screen (D-35): departments as rooms, the open floor and a guest desk.
+// The home screen (D-35).
 export function OfficeView() {
   const agents = useAgents();
   const records = useApp((state) => state.agents);

@@ -49,8 +49,7 @@ export const agentCommandSchema = z.discriminatedUnion("type", [
 ]);
 export type AgentCommand = z.infer<typeof agentCommandSchema>;
 
-// What the core may send a harness session: the user's commands, and messages of its own. A
-// proposal or a plan is the core's own request, so its answer never reaches the harness.
+// A proposal or a plan is the core's own request, so its answer never reaches the harness.
 export const sessionCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start") }),
   z.object({

@@ -2,13 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { identityOf } from "../agents/names.ts";
 
-// Each entry moves the schema up one version: SQL, or a step that also moves data. A merged entry
-// is never edited; a change is a new one. Every index here serves a named query; the store test
-// checks that each of those queries uses it.
+// A merged entry is never edited; every index serves a named query the store test checks.
 export type Migration = string | ((db: DatabaseSync) => void);
 
-// Every M3 task had one agent, named by its first session's id; it is stored with the same name,
-// and with its harness settings as its own.
+// Every M3 task had one agent, named by its first session's id; it keeps that name.
 function giveEachTaskItsAgent(db: DatabaseSync): void {
   db.exec(`
   CREATE TABLE profiles (

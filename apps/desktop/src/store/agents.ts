@@ -10,8 +10,7 @@ import { type AgentState, agentState } from "../trace/progress.ts";
 import type { Trace } from "../trace/trace.ts";
 import { type AppState, useApp } from "./app-store.ts";
 
-// An agent's work on one task: its stored record, and its sessions there. Resuming continues the
-// same agent in a new session of the task.
+// Resuming continues the same agent in a new session of the task.
 export interface Agent {
   id: string;
   record: AgentRecord;
@@ -40,7 +39,7 @@ export function workOf(known: Known, agentId: string, taskId: string): Agent | u
   return { id: agentId, record, name, colour, taskId, task: entry.task, sessions, latest };
 }
 
-// The task an agent worked on most recently, which the office and the panels show.
+// The task an agent worked on most recently.
 export function agentOf(known: Known, agentId: string): Agent | undefined {
   let latest: SessionRecord | undefined;
   for (const session of Object.values(known.sessions)) {
@@ -50,7 +49,7 @@ export function agentOf(known: Known, agentId: string): Agent | undefined {
   return latest === undefined ? undefined : workOf(known, agentId, latest.taskId);
 }
 
-// The agents that worked on a task, in the order they joined it.
+// In join order.
 export function agentsInTask(known: Known, taskId: string): Agent[] {
   const ids = new Set(
     (known.tasks[taskId]?.sessionIds ?? []).flatMap((id) => known.sessions[id]?.agentId ?? []),
@@ -62,8 +61,7 @@ export function stateOf(agent: Agent, traces: Record<string, Trace>, waiting: bo
   return agentState(agent.latest, traces[agent.latest.id], waiting);
 }
 
-// A task's state with all its agents: one asking makes it wait for the user, and one at work keeps
-// it at work, such as workers busy while their lead was stopped for being idle.
+// One asking makes it wait for the user; one at work keeps it at work, even if its lead was idle-stopped.
 export function taskStateOf(
   agents: readonly Agent[],
   traces: Record<string, Trace>,
@@ -74,7 +72,7 @@ export function taskStateOf(
   return states.find((state) => state === "working" || state === "starting") ?? states[0];
 }
 
-// Every agent with work, by its latest task, newest first.
+// By latest task, newest first.
 export function useAgents(): Agent[] {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
@@ -105,7 +103,6 @@ export function useAgent(agentId: string): Agent | undefined {
   );
 }
 
-// The agent asking, for a request shown away from its trace.
 export function useSessionAgent(sessionId: string): Agent | undefined {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
@@ -117,7 +114,6 @@ export function useSessionAgent(sessionId: string): Agent | undefined {
   }, [agents, tasks, sessions, sessionId]);
 }
 
-// The level an agent works at: its department's, or its own, lowered by its settings.
 export function useLevel(agent: AgentRecord | undefined): Autonomy {
   const department = useApp((state) =>
     agent?.departmentId === undefined ? undefined : state.departments[agent.departmentId],
@@ -126,7 +122,7 @@ export function useLevel(agent: AgentRecord | undefined): Autonomy {
   return lowerAutonomy(level, agent?.settings.autonomy);
 }
 
-// The sessions with a request waiting, so each agent's state can be read in one lookup.
+// So each agent's state can be read in one lookup.
 export function useWaitingSessions(): Set<string> {
   const waiting = useApp((state) => state.waiting);
   return useMemo(
@@ -137,11 +133,11 @@ export function useWaitingSessions(): Set<string> {
 
 export interface TaskWithAgents {
   task: TaskRecord;
-  // The first is the one who started it: the solo agent, or the lead.
+  // The first is the solo agent or the lead.
   agents: Agent[];
 }
 
-// Every task the app holds, with its agents, newest first.
+// Newest first.
 export function useTasksWithAgents(): TaskWithAgents[] {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);

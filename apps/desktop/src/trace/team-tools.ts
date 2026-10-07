@@ -4,7 +4,7 @@ type Input = Record<string, unknown>;
 
 const words = (value: unknown) => (typeof value === "string" ? value : "");
 
-// The core's own tools, as the trace names them, whichever harness called them.
+// Whichever harness called them.
 const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => string }> = {
   ask_user: { kind: "other", title: (input) => `Asked you: ${words(input.question)}` },
   propose_team: { kind: "other", title: () => "Proposed a team" },

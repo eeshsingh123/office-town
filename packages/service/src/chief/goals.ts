@@ -35,7 +35,7 @@ function departmentViews(store: Store): DepartmentView[] {
   });
 }
 
-// The chief reads every department's workspace as it is when the goal starts, and changes none.
+// As each workspace is when the goal starts; it changes none.
 function departmentFolders(store: Store): string[] {
   const folders = store
     .listDepartments()
@@ -72,8 +72,7 @@ async function startChief(
   });
 }
 
-// The chief runs one goal at a time: a goal given while another is running, or waiting before
-// it, is queued.
+// A goal given while another is running or queued is queued.
 export async function startChiefGoal(context: TeamContext, goal: string): Promise<TaskDetail> {
   const { store } = context;
   const chief = chiefOf(store);
@@ -89,8 +88,7 @@ export async function startChiefGoal(context: TeamContext, goal: string): Promis
   return { task: started, sessions: store.listSessions(task.id) };
 }
 
-// Once no chief goal is running, the oldest queued one starts. One whose chief cannot start is
-// deleted like any task that could not start, and the next one is tried.
+// A goal whose chief cannot start is deleted like any task that could not start.
 export async function startQueuedGoal(context: TeamContext): Promise<void> {
   const { store } = context;
   const chief = chiefOf(store);
@@ -108,9 +106,7 @@ export async function startQueuedGoal(context: TeamContext): Promise<void> {
   }
 }
 
-// A queued goal ends at once. A running one stops every department at work on it, then the
-// chief; its pieces are closed first, so no "stopped" result wakes the chief the user is stopping
-// too, and those that never started are dropped.
+// Pieces close first, so no "stopped" result wakes the chief being stopped; unstarted ones are dropped.
 export async function stopChiefGoal(context: TeamContext, taskId: string): Promise<void> {
   const { store } = context;
   if (store.getTask(taskId)?.state === "queued") {

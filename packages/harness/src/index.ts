@@ -62,12 +62,10 @@ export async function listEnvironments(): Promise<EnvironmentSpec[]> {
   return [{ kind: "native" }, ...distros.map((distro) => ({ kind: "wsl" as const, distro }))];
 }
 
-// The models a harness offers in an environment, with the effort values each one accepts.
 export function describeHarness(harness: string, input: EnvironmentSpec): Promise<HarnessCatalog> {
   return readCatalog(findAdapter(harness), environmentFor(environmentSpecSchema.parse(input)));
 }
 
-// Runs a command to its end where a harness would run, with paths as that environment sees them.
 export function runCommand(
   spec: EnvironmentSpec,
   command: { binary: string; args: string[]; cwd?: string },
@@ -75,7 +73,7 @@ export function runCommand(
   return runIn(environmentFor(environmentSpecSchema.parse(spec)), command);
 }
 
-// A host path as a harness in that environment sees it, such as /mnt/c/work for C:work in WSL.
+// Such as /mnt/c/work for C:\work in WSL.
 export function environmentPath(spec: EnvironmentSpec, hostPath: string): string {
   return environmentFor(spec).toEnvironmentPath(hostPath);
 }

@@ -16,16 +16,14 @@ function foldersOf(store: Store, piece: PlanPiece): string[] {
   return workspaceId === undefined ? [] : (store.getWorkspace(workspaceId)?.folders ?? []);
 }
 
-// A piece's department may read, never change, the workspaces of every department before it,
-// directly or through others; its own folders stay its own.
+// Every department before it, directly or through others; its own folders stay writable.
 export function readOnlyFolders(store: Store, piece: PlanPiece, pieces: PlanPiece[]): string[] {
   const own = new Set(foldersOf(store, piece));
   const upstream = upstreamOf(piece, pieces).flatMap((each) => foldersOf(store, each));
   return [...new Set(upstream)].filter((folder) => !own.has(folder));
 }
 
-// The same for any session in a piece's task, such as a worker the lead hands work; none for a
-// task that is no piece.
+// For any session in a piece's task, such as a worker the lead hands work.
 export function readOnlyFoldersOfTask(store: Store, taskId: string): string[] {
   const piece = store.pieceOfTask(taskId);
   if (piece === undefined) return [];

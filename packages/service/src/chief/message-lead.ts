@@ -5,7 +5,7 @@ import { defineTool, ToolError } from "../tools/tools.ts";
 import { isChiefCaller } from "./chief.ts";
 import { departmentNameOf } from "./piece-folders.ts";
 
-// The chief steers a department at work on its plan through the lead, never its workers (D-49).
+// Through the lead, never its workers (D-49).
 export function messageLead(context: TeamContext) {
   const { store } = context;
   return defineTool({

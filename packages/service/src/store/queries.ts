@@ -57,8 +57,7 @@ const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS cr
 
 const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
 
-// Every statement the store runs. The store test checks that none of them reads a whole table,
-// except those marked as reading a small table whole.
+// The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
     INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref)
@@ -67,14 +66,12 @@ export const queries = {
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
-  // A department works on one goal at a time: the one that has not ended.
   activeTaskOfDepartment:
     "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
-  // The lead's goal that has started and not ended, such as the chief's one at a time.
   openTaskOfLead: `
     SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' AND state <> 'queued' LIMIT 1`,
   oldestQueuedTask: "SELECT id FROM tasks WHERE state = 'queued' ORDER BY ref LIMIT 1",
-  // Leaving "ended" takes the goal up again, so its review is cleared.
+  // Leaving "ended" clears the review.
   setTaskState: `
     UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
     WHERE ref = ?2 AND state <> ?1`,
@@ -126,8 +123,7 @@ export const queries = {
   // Reads the whole table on purpose: one row per agent, which the app shows together.
   allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
   renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
-  // An agent that worked on no other task, and is in no department, goes with its last task; the
-  // chief stands without one.
+  // The chief stands without a task.
   deleteAgentIfUnused: `
     DELETE FROM agents
     WHERE ref = ?1 AND department_ref IS NULL
@@ -212,7 +208,6 @@ export const queries = {
     SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
     WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
     ORDER BY position DESC LIMIT 1`,
-  // A prompt, or the answer to a request of the core's own, stored after the latest turn started.
   // The repeated type term lets the subquery use the partial index on turns.
   promptAfterTurn: `
     SELECT 1 FROM events
@@ -225,7 +220,6 @@ export const queries = {
       AND (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
            OR (type = 'message' AND payload ->> '$.role' = 'user'))
     LIMIT 1`,
-  // The agent's own last words, leaving out those of a subagent it ran.
   lastAgentMessage: `
     SELECT payload ->> '$.text' AS text FROM events
     WHERE session_ref = ? AND type = 'message' AND payload ->> '$.role' = 'assistant'

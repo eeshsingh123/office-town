@@ -7,7 +7,6 @@ import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import styles from "./NeedsYouView.module.css";
 
-// Why a request reached the user: the level the agent works at let it through to them.
 function LevelNote({ event }: { event: UserRequestEvent }) {
   const agent = useSessionAgent(event.sessionId);
   const level = useLevel(agent?.record);
@@ -36,8 +35,7 @@ interface Group {
   requests: WaitingRequest[];
 }
 
-// Every request waiting for the user, grouped by department, oldest first (D-10). What a level
-// allows never reaches this list.
+// Grouped by department, oldest first. What a level allows never reaches this list.
 export function NeedsYouView() {
   const waiting = useApp((state) => state.waiting);
   const sessions = useApp((state) => state.sessions);

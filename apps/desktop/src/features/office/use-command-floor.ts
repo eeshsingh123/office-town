@@ -4,11 +4,9 @@ import { useApp } from "../../store/app-store.ts";
 import { chiefDoor, chiefGoal, type DoorChip, departmentDoor } from "./doors.ts";
 import { type Link, planLinks } from "./plan-links.ts";
 
-// The chief's office, by room id.
 export const CHIEF_ROOM = "chief";
 
-// What the floor shows of the command center (M5.4): the links of the chief's current plan, that
-// goal's id, and each room's door chips, by room id.
+// The current plan's links, its goal's id, and each room's door chips (M5.4).
 export function useCommandFloor(departments: readonly DepartmentRecord[]): {
   links: Link[];
   goalId: string | undefined;

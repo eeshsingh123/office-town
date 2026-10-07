@@ -29,9 +29,7 @@ function utf8Suffix(data: Buffer, bytes: number): string {
   return data.subarray(start).toString("utf8");
 }
 
-// The harness resends the whole output with every update, so a file per update would grow with
-// the square of the output. Only the end is kept: it is what changed, and the whole text follows
-// when the action ends.
+// The harness resends the whole output each update, so only the changed end is kept.
 export function previewOutput(text: string): KeptApart | undefined {
   const bytes = Buffer.byteLength(text);
   if (bytes <= INLINE_BYTES) return undefined;
@@ -50,7 +48,7 @@ export async function fileSize(path: string): Promise<number> {
   }
 }
 
-// One folder per session and one file per event, so deleting a session removes one folder.
+// One folder per session, so deleting a session removes one folder.
 export class ResultFiles {
   readonly #root: string;
 
@@ -58,7 +56,6 @@ export class ResultFiles {
     this.#root = root;
   }
 
-  // Stores text too large for an event and returns what the event keeps instead.
   keepApart(sessionId: string, sequence: number, text: string): KeptApart | undefined {
     const bytes = Buffer.byteLength(text);
     if (bytes <= INLINE_BYTES) return undefined;

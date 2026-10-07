@@ -3,9 +3,7 @@ import type { PlanPiece } from "@office-town/contract";
 // A piece that ended this way holds every piece after it.
 const HOLDS = new Set<PlanPiece["status"]>(["failed", "stopped", "dropped"]);
 
-// Pieces, by key, in an order where each comes after those it waits on; undefined if they wait
-// on each other in a circle. Keys outside the list, such as pieces already approved, are taken
-// as ready.
+// Undefined on a cycle. Keys outside the list, such as pieces already approved, count as ready.
 export function orderByWaits<Piece extends { key: string; waitsOn: string[] }>(
   pieces: Piece[],
 ): Piece[] | undefined {
@@ -26,7 +24,7 @@ export function orderByWaits<Piece extends { key: string; waitsOn: string[] }>(
   return ordered;
 }
 
-// Every piece this one waits on, directly or through others.
+// Directly or through others.
 export function upstreamOf(piece: PlanPiece, pieces: PlanPiece[]): PlanPiece[] {
   const found = new Map<string, PlanPiece>();
   const visit = (current: PlanPiece) => {
@@ -41,8 +39,7 @@ export function upstreamOf(piece: PlanPiece, pieces: PlanPiece[]): PlanPiece[] {
   return [...found.values()];
 }
 
-// A waiting piece that can never start as the plan stands: a piece before it failed, was
-// stopped or dropped. Only a changed plan frees it.
+// A piece before it failed, was stopped or dropped; only a changed plan frees it.
 export function isBlocked(piece: PlanPiece, pieces: PlanPiece[]): boolean {
   return piece.waitsOn.some((id) => {
     const upstream = pieces.find((candidate) => candidate.id === id);

@@ -65,9 +65,7 @@ function json(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
 }
 
-// The core's own MCP server (D-39): one JSON-RPC message per POST, answered with JSON. It never
-// pushes, so GET is refused, which clients read as "no stream". It listens apart from the API, so
-// neither one's token opens the other.
+// It never pushes, so GET is refused. Its own port, so neither token opens the other (D-39).
 export async function startToolServer(store: Store, port = 0): Promise<RunningToolServer> {
   const sessionsByToken = new Map<string, string | undefined>();
   const tokensBySession = new Map<string, string>();

@@ -27,7 +27,7 @@ import {
 type PlanEvent = Extract<UserRequestEvent, { type: "plan.requested" }>;
 type PlanAnswer = Extract<AgentCommand, { type: "answerPlan" }>["answer"];
 
-// The saved workspaces, with any made from this card first.
+// Any made from this card first.
 function useWorkspaces() {
   const listed = useLoaded("workspaces", api.listWorkspaces);
   const [created, setCreated] = useState<WorkspaceRecord[]>([]);
@@ -105,7 +105,6 @@ function ChangeList({ event, rows }: { event: PlanEvent; rows: PlanRow[] }) {
   );
 }
 
-// The chief's plan for the user to edit and approve, or a changed plan to approve (D-49).
 export function PlanCard({ event, context }: { event: PlanEvent; context?: ReactNode }) {
   const { requestId, reason, replan, pieces } = event.payload;
   const chief = useSessionAgent(event.sessionId);

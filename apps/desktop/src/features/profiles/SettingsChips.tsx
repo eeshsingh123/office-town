@@ -16,10 +16,9 @@ interface SettingsChipsProps {
   onChange: (next: ChipSettings) => void;
 }
 
-// A value no effort can take, since the harness's own words start with a letter or digit.
+// No effort can take this, since the harness's own words start with a letter or digit.
 const DEFAULT_EFFORT = "~default";
 
-// The harness, where it runs, the model and the effort, as chips that each open a list.
 export function SettingsChips({ value, recentModels = [], onChange }: SettingsChipsProps) {
   const harnesses = useApp((state) => state.harnesses);
   const description = harnesses.find((known) => known.harness === value.harness) ?? harnesses[0];

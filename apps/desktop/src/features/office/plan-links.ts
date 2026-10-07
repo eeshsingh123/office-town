@@ -3,7 +3,7 @@ import type { Point, Rect, Room } from "./floor-plan.ts";
 
 export type LinkState = "waiting" | "active" | "done" | "failed";
 
-// A link between two rooms of the chief's plan, by room id.
+// By room id.
 export interface Link {
   from: string;
   to: string;
@@ -11,7 +11,7 @@ export interface Link {
 }
 
 export interface DrawnLink extends Link {
-  // An SVG path in floor pixels.
+  // In floor pixels.
   path: string;
 }
 
@@ -30,9 +30,7 @@ const SPREAD = 34;
 const DIP = 40;
 const INSET = 18;
 
-// One chief goal's plan as links: from the chief's office to each piece that waits on nothing, and
-// from each upstream piece's room to its downstream piece's room, in the downstream piece's state.
-// A piece whose department does not exist yet, or that was dropped, draws nothing.
+// Chief to each piece that waits on nothing, else upstream to downstream; dropped pieces draw nothing.
 export function planLinks(pieces: readonly PlanPiece[], chiefRoom: string): Link[] {
   const byId = new Map(pieces.map((piece) => [piece.id, piece]));
   const links = new Map<string, Link>();
@@ -76,9 +74,7 @@ function endOf(rect: Rect, edge: Edge, other: Rect): End {
   return { rect, edge, towards: centreX(other), at };
 }
 
-// The rule: a link leaves the bottom edge of the upper room for the top edge of the lower one, and
-// rooms side by side join bottom to bottom with a curve dipping below them; ends sharing an edge
-// spread apart in the order of where they lead.
+// Upper room's bottom edge to the lower room's top; side-by-side rooms join bottom to bottom.
 function edgesOf(from: Rect, to: Rect): [Edge, Edge] {
   if (from.y + from.height <= to.y) return ["bottom", "top"];
   if (to.y + to.height <= from.y) return ["top", "bottom"];

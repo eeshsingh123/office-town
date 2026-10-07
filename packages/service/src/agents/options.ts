@@ -3,8 +3,7 @@ import { levelOf } from "../autonomy/policy.ts";
 import type { Store } from "../store/store.ts";
 import { settingsOf } from "./agents.ts";
 
-// The harness runs in its ask mode, so every request reaches the core's guardrail, unless the
-// agent's level is Bypass now.
+// Ask mode, so every request reaches the core's guardrail, unless the level is Bypass now.
 export function permissionModeOf(store: Store, agentId: string): PermissionMode {
   return levelOf(store, agentId) === "bypass" ? "bypass" : "ask";
 }
@@ -12,12 +11,10 @@ export function permissionModeOf(store: Store, agentId: string): PermissionMode 
 export interface SessionFolders {
   workspacePath?: string | undefined;
   additionalPaths?: string[] | undefined;
-  // Folders the agent may read but never change, such as an upstream department's workspace.
   readOnlyPaths?: string[] | undefined;
 }
 
-// How an agent's session runs: its harness settings in the given folders, the first being where
-// it works. A read-only folder is opened like the others, and the policy keeps it unchanged.
+// A read-only folder is opened like the others; the policy keeps it unchanged.
 export function sessionOptionsFor(
   store: Store,
   agent: AgentRecord,
@@ -37,7 +34,7 @@ export function sessionOptionsFor(
   };
 }
 
-// A workspace's folders as session options: the first is where the agent works.
+// The first is where the agent works.
 export function inFolders(folders: string[]) {
   const [workspacePath, ...additionalPaths] = folders;
   return { workspacePath, additionalPaths };

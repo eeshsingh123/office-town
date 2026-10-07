@@ -3,11 +3,10 @@ import type { Trace, TraceAction, TraceMessage } from "../../trace/trace.ts";
 
 export type ThreadState = "working" | "done" | "failed" | "stopped";
 
-// A lead's piece of work for a worker: the brief it handed over, then the result it got back.
+// The brief a lead handed over, then the result it got back.
 export interface DelegationThread {
   kind: "delegation";
   id: string;
-  // The record of this piece of work, once one is known.
   delegationId?: string;
   workerId: string | undefined;
   workerName: string | undefined;
@@ -19,11 +18,10 @@ export interface DelegationThread {
 export type ChatItem =
   | { kind: "user"; id: string; text: string; at: string }
   | { kind: "agent"; id: string; text: string; at: string }
-  // Words the core passed on: a brief, or another agent's message.
+  // A brief, or another agent's message.
   | { kind: "passed"; id: string; text: string; at: string; from?: string; brief: boolean }
   | { kind: "notice"; id: string; text: string }
   | DelegationThread
-  // A piece of the chief's plan that ended, with its department's result.
   | { kind: "handoff"; id: string; pieceId: string; state: ThreadState; result: string };
 
 function delegationOf(
@@ -71,17 +69,12 @@ function itemOf(message: TraceMessage): ChatItem | undefined {
 
 export interface ChatContext {
   idOfName: (name: string) => string | undefined;
-  // The goal's delegation records the app holds.
   delegations: readonly DelegationRecord[];
-  // The goal is finished: a thread with no result and no record will not get one.
+  // A thread with no result and no record will not get one.
   ended: boolean;
 }
 
-// One goal's conversation, across its sessions in order. A delegation and the result that answers
-// it are one thread, at the place of the delegation; tool calls and nested work stay in the trace.
-// A result finds its thread by its delegation record, which is linked to a delegate call by worker
-// and brief; only a result whose record the app does not hold falls back to the worker's oldest
-// open thread. A delegate call that failed handed nothing over, so no result answers it.
+// A delegation and its result are one thread; a result whose record the app lacks takes the oldest open one.
 export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem[] {
   const items: ChatItem[] = [];
   const threads: DelegationThread[] = [];

@@ -4,7 +4,7 @@ import { compactCount } from "../../ui/format.ts";
 
 export interface HarnessUsage {
   harness: string;
-  // The harness's own plan limits, the latest known; empty where it reports none (D-29).
+  // Empty where the harness reports none (D-29).
   limits: UsageLimit[];
   tokens: TokenTotals;
 }
@@ -22,7 +22,7 @@ export function sumUsage(traces: readonly Trace[]): TokenTotals {
   );
 }
 
-// One agent's tokens by harness, from its loaded traces: the core sums tokens per task only.
+// From the agent's loaded traces: the core sums tokens per task only.
 export function tracedUsage(
   sessions: readonly SessionRecord[],
   traces: Record<string, Trace>,
@@ -35,8 +35,7 @@ export function tracedUsage(
   );
 }
 
-// Each harness these sessions ran on, with its tokens and the newest plan limits the core keeps
-// for it, since a limit belongs to the account (D-48).
+// With the newest plan limits the core keeps, since a limit belongs to the account.
 export function usageByHarness(
   sessions: readonly SessionRecord[],
   usage: readonly TaskUsage[],
@@ -51,12 +50,12 @@ export function usageByHarness(
     }));
 }
 
-// New tokens only: cached input is shown apart, so the figure is not inflated (D-29).
+// Cached input is shown apart, so the figure is not inflated (D-29).
 export function newTokens({ inputTokens, outputTokens, cachedInputTokens }: TokenTotals): number {
   return inputTokens - cachedInputTokens + outputTokens;
 }
 
-// A few words for a room's sign: the harness's fullest limit, or else its tokens.
+// The harness's fullest limit, or else its tokens.
 export function usageSummary(usage: HarnessUsage, name: string): string {
   const fullest = usage.limits.toSorted((a, b) => b.usedFraction - a.usedFraction)[0];
   if (fullest !== undefined) return `${name} ${Math.round(fullest.usedFraction * 100)}%`;

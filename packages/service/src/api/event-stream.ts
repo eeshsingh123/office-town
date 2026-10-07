@@ -4,9 +4,7 @@ import type { PublishedEvent, SessionRegistry } from "../registry/session-regist
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 
 const PAGE_SIZE = 500;
-// A client this far behind is dropped: it reconnects from its last id and catches up from the
-// store, so the core never holds an unbounded backlog for it. The second limit applies while a
-// replay waits for a client that has stopped reading.
+// A client this far behind is dropped and catches up from the store, so no backlog is unbounded.
 const MAX_BEHIND_BYTES = 4 * 1024 * 1024;
 const MAX_HELD_EVENTS = 10_000;
 
@@ -21,15 +19,14 @@ export interface StreamQuery {
   follow: boolean;
 }
 
-// A change to a record goes out live only: a client that reconnects reads its records again.
+// Live only: a reconnecting client reads its records again.
 interface ChangeFrame {
   change: Change;
 }
 
 type Frame = PublishedEvent | ChangeFrame;
 
-// A text fragment has no position, so it carries no id and a reconnecting client skips it. A
-// change is named apart from the events and carries no id either.
+// Fragments and changes carry no id, so a reconnecting client skips them.
 function format(frame: Frame): string {
   if ("change" in frame) return `event: change\ndata: ${JSON.stringify(frame.change)}\n\n`;
   const id = frame.position === undefined ? "" : `id: ${frame.position}\n`;
@@ -48,9 +45,7 @@ function drainedOrClosed(response: ServerResponse): Promise<void> {
   });
 }
 
-// Live events are subscribed to before the store is read and held until the stored ones are
-// sent, so none is missed in between; positions already sent are skipped, so none is repeated.
-// A live stream of every session also carries the store's changes, held the same way.
+// Live events are held while the store is read; positions already sent are skipped.
 export async function streamEvents(
   response: ServerResponse,
   { registry, store }: StreamSource,

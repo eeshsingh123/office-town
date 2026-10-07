@@ -70,7 +70,6 @@ export function workerBrief(input: {
   role: string;
   lead: { id: string; name: string };
   folders: string[];
-  // Set when the worker has a worktree of its own.
   branch: string | undefined;
   instructions: string | undefined;
   work: string;
@@ -113,8 +112,7 @@ export function leadBrief(input: {
   folders: string[];
   instructions: string | undefined;
   roster: string;
-  // A git workspace where each worker has a branch of its own, and whether the lead also
-  // commits, pushes and opens a pull request.
+  // Whether the lead also commits, pushes and opens a pull request.
   branches: boolean;
   codeFlow: boolean;
 }): Message {

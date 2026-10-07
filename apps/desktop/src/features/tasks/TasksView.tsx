@@ -133,7 +133,6 @@ function StoreSize() {
   );
 }
 
-// Every past task, newest first; opening one replays it through the same trace view.
 export function TasksView() {
   const tasks = useTasksWithAgents();
   const waiting = useWaitingSessions();

@@ -7,9 +7,9 @@ export type PanelTab = "overview" | "chat" | "work";
 
 interface OfficeState {
   mode: OfficeMode;
-  // The tab last chosen for each kind of selection, kept for the session.
+  // Kept for the session.
   tabs: Record<PanelKind, PanelTab>;
-  // Set when the chat's composer should take focus; a follow-up names the goal it answers.
+  // Set when the composer should take focus; a follow-up names the goal it answers.
   compose: { at: number; taskId?: string } | undefined;
   chiefSettingsOpen: boolean;
 }
@@ -29,7 +29,6 @@ export function chooseTab(kind: PanelKind, tab: PanelTab): void {
   useOffice.setState((state) => ({ tabs: { ...state.tabs, [kind]: tab } }));
 }
 
-// Opens the chat of what is selected next, with its composer ready.
 export function composeIn(kind: PanelKind, taskId?: string): void {
   chooseTab(kind, "chat");
   useOffice.setState({ compose: { at: Date.now(), ...(taskId === undefined ? {} : { taskId }) } });
@@ -39,7 +38,6 @@ export function openChiefSettings(open = true): void {
   useOffice.setState({ chiefSettingsOpen: open });
 }
 
-// Shows a department's room on the floor, with its panel.
 export function selectRoom(departmentId: string): void {
   select([]);
   showMode("floor");

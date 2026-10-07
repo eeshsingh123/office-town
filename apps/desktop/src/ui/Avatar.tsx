@@ -6,8 +6,7 @@ interface AvatarProps {
   size?: number;
 }
 
-// The one place an agent's face is drawn, so pixel art or themes can replace it later as a skin.
-// It shows the first letter of the name, past the "@" of a handle.
+// The one place a face is drawn, so pixel art or themes can replace it later.
 export function Avatar({ name, colour, size = 26 }: AvatarProps) {
   return (
     <span

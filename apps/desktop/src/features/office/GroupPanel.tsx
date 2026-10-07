@@ -23,8 +23,7 @@ const ORDER: AgentState[] = [
   "stopped",
 ];
 
-// Several agents at once: who they are, grouped by department, and what can be done to all of
-// them. There is no "approve all": each request is read before it is answered.
+// No "approve all": each request is read before it is answered.
 export function GroupPanel({ members }: { members: FloorAgent[] }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();

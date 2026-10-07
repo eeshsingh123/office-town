@@ -20,17 +20,16 @@ let queue: StreamedEvent[] = [];
 let changes: Change[] = [];
 let scheduled = false;
 let cancelFlush = () => {};
-// Refreshes running. Change frames have no position and are never replayed, so what the stream
-// delivers while the lists are read is held and applied on top of them.
+// Change frames are never replayed, so those arriving during a refresh are held and applied on top.
 let refreshing = 0;
-// Live events of a session whose trace is being replayed, applied once the replay is in.
+// Applied once the replay is in.
 const loading = new Map<string, StreamedEvent[]>();
-// Live events of a session being looked up, applied to its record once it is known.
+// Applied once its record is known.
 const discovering = new Map<string, StreamedEvent[]>();
 // Replays run one at a time: the browser allows only six connections to the core (D-32).
 let replays = Promise.resolve();
 
-// Opens the app's one live stream. Called once, when the page loads.
+// Called once, when the page loads.
 export function connect(): void {
   let wasOffline = false;
   let following = false;
@@ -59,9 +58,7 @@ export function connect(): void {
   void open();
 }
 
-// Reads what is true now. The waiting list is read first and the stream, when not open yet,
-// opens at its position; anything that changes after it arrives as an event or a change and is
-// applied once the lists are in.
+// The waiting list is read first and a new stream opens at its position, so nothing is missed.
 async function refresh(first: boolean, openStream?: (after: number) => void): Promise<void> {
   refreshing += 1;
   try {
@@ -87,8 +84,7 @@ async function readAll(
     api.listLimits(),
     api.readSettings(),
   ]);
-  // A task the app still holds as open, but that neither list has, may have been interrupted by a
-  // core restart; it is read again so it does not stay "running".
+  // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
   const stale = new Set(
     Object.values(useApp.getState().sessions)
@@ -120,14 +116,14 @@ async function readAll(
   watchActive(tasks);
 }
 
-// The delegations of every team task that has not ended; an ended one has none at work.
+// An ended task has none at work.
 async function readDelegations(tasks: readonly TaskSummary[]): Promise<DelegationRecord[]> {
   const teams = tasks.filter((task) => task.leadAgentId !== undefined && task.state !== "ended");
   const ids = [...new Set(teams.map((task) => task.id))];
   return (await Promise.all(ids.map(api.listDelegations))).flat();
 }
 
-// The plans of every chief goal that has not ended; an ended one has no piece left to run.
+// An ended goal has no piece left to run.
 async function readPlans(
   tasks: readonly TaskSummary[],
   chiefAgentId: string | undefined,
@@ -143,7 +139,7 @@ async function readTask(taskId: string): Promise<TaskSummary> {
   return { ...task, sessions };
 }
 
-// Reads the agents of these tasks that the app does not know yet, such as one just made.
+// Agents the app does not know yet, such as one just made.
 async function readAgents(tasks: readonly TaskSummary[]): Promise<AgentRecord[]> {
   const known = useApp.getState().agents;
   const missing = new Set(tasks.flatMap((task) => task.sessions.map((session) => session.agentId)));
@@ -163,7 +159,7 @@ function watchActive(tasks: readonly TaskSummary[]): void {
   }
 }
 
-// Adds a task the app has not listed yet, such as one it just started.
+// Such as one it just started.
 export async function track(taskId: string): Promise<void> {
   const summary = await readTask(taskId);
   const agents = await readAgents([summary]);
@@ -174,7 +170,7 @@ export async function track(taskId: string): Promise<void> {
   watchActive([summary]);
 }
 
-// Moves a room at once and keeps its place in the core; a failed save puts that room back.
+// Moves at once; a failed save puts the room back.
 export async function placeRoom(roomId: string, position: RoomPosition): Promise<void> {
   const before = useApp.getState().roomPositions[roomId];
   useApp.setState((state) => ({ roomPositions: { ...state.roomPositions, [roomId]: position } }));
@@ -266,8 +262,7 @@ function schedule(): void {
   };
 }
 
-// Applies everything that arrived since the last frame in one update (D-37). Changes go first:
-// they replace whole records, and the events then apply to the session records they touch.
+// Changes go first: they replace whole records, then events apply to the sessions they touch (D-37).
 function flush(): void {
   cancelFlush();
   scheduled = false;

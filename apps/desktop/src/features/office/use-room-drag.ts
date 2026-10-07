@@ -15,9 +15,8 @@ export interface RoomMove {
   id: string;
   from: Rect;
   at: Point;
-  // Where the pointer went down; none when the keyboard moves the room.
+  // None when the keyboard moves the room.
   pointer?: Point;
-  // Past the first few pixels of a pointer drag.
   lifted: boolean;
 }
 
@@ -28,8 +27,7 @@ function save({ id, from, at }: RoomMove): void {
   );
 }
 
-// Dragging a room by its sign, or moving it with Alt and the arrow keys while the sign has focus.
-// The room stops at the last free spot it passed and keeps its place once let go.
+// By its sign, or with Alt and the arrow keys; the room stops at the last free spot it passed.
 export function useRoomDrag(plan: FloorPlan) {
   const [move, setMove] = useState<RoomMove>();
   const dragged = useRef(false);

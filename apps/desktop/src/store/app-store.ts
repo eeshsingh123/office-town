@@ -29,9 +29,9 @@ export interface AppState extends Records {
   departments: Record<string, DepartmentRecord>;
   // Of every team task that has not ended, and each one made since.
   delegations: Record<string, DelegationRecord>;
-  // The plans of every chief goal that has not ended, and each piece made since.
+  // Of every chief goal that has not ended, and each piece made since.
   pieces: Record<string, PlanPiece>;
-  // Each harness's latest plan limits, by harness.
+  // By harness.
   limits: Record<string, HarnessLimits>;
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
@@ -39,13 +39,12 @@ export interface AppState extends Records {
   // The cursor of the next page of older tasks, while there is one.
   olderTasks: string | undefined;
   view: View;
-  // The office's selected agents, by agent id; kept while the user looks at a trace.
+  // Kept while the user looks at a trace.
   selection: string[];
-  // The standing chief's agent id, once it is set up.
   chiefId: string | undefined;
-  // The agent the office pans to and whose request it opens there; `at` makes a repeat count.
+  // `at` makes a repeat count.
   focus: { agentId: string; at: number } | undefined;
-  // Where the user dragged rooms on the floor, by department id or "chief".
+  // By department id or "chief".
   roomPositions: Record<string, RoomPosition>;
 }
 
@@ -82,7 +81,6 @@ export function select(selection: string[]): void {
   useApp.setState({ selection });
 }
 
-// The name people know a harness by, such as "Claude Code".
 export function useHarnessName(harness: string): string {
   return useApp(
     (state) => state.harnesses.find((known) => known.harness === harness)?.name ?? harness,

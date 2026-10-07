@@ -14,14 +14,13 @@ export interface CoreCommand {
 }
 
 export interface CoreOptions {
-  // Called when the core exits without being asked to, with the end of what it logged.
+  // With the end of what it logged.
   onCrash: (log: string) => void;
   stopTimeoutMs?: number;
 }
 
 export interface CoreProcess {
   ready: CoreReady;
-  // Resolves once the core has exited.
   stop(): Promise<void>;
 }
 

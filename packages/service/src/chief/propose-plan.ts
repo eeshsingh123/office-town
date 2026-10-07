@@ -47,8 +47,7 @@ type PlannedPiece = ProposedPiece | ApprovedPiece;
 const STAYS = new Set<PlanPiece["status"]>(["done", "working", "failed", "stopped"]);
 const BUILDS_ON = new Set<PlanPiece["status"]>(["done", "working"]);
 
-// What is wrong with a plan, checked the same for the chief's proposal and the user's edits;
-// undefined if nothing.
+// Checked the same for the chief's proposal and the user's edits.
 function problemWith(store: Store, pieces: PlannedPiece[], kept: PlanPiece[]): string | undefined {
   const keys = pieces.map((piece) => piece.key);
   const twice = keys.find((key, index) => keys.indexOf(key) !== index);
@@ -91,7 +90,7 @@ function problemWith(store: Store, pieces: PlannedPiece[], kept: PlanPiece[]): s
   return undefined;
 }
 
-// The chief names departments; the request carries their ids, and a new one's checked settings.
+// The chief names departments; the request carries their ids.
 async function resolvePieces(
   context: TeamContext,
   caller: Caller,
@@ -124,8 +123,7 @@ async function resolvePieces(
   return resolved;
 }
 
-// The approved pieces join the plan; pieces that had not started give way to them. A new piece
-// names those it waits on by key: the newest piece with that key, a new one first.
+// Unstarted pieces give way. A new piece's waits name the newest piece with that key, a new one first.
 function savePlan(store: Store, taskId: string, approved: ApprovedPiece[]): void {
   const existing = store.listPieces(taskId);
   for (const piece of existing) {
@@ -211,8 +209,7 @@ function answerPlan(
   };
 }
 
-// The chief's first step on a goal, and how it changes the plan later; the user approves,
-// edits or sends back every plan in Needs you (D-49).
+// The user approves, edits or sends back every plan in Needs you (D-49).
 export function proposePlan(context: TeamContext, scheduler: Scheduler) {
   const { store, registry } = context;
   return defineTool({

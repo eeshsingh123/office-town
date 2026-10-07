@@ -4,8 +4,7 @@ import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 
-// A chief goal's pieces, oldest first, without those dropped. The app keeps the plans of goals
-// still open; an ended goal's plan is read once.
+// Without dropped pieces. An ended goal's plan is read once; open ones stay in the store.
 export function usePlan(taskId: string | undefined): PlanPiece[] {
   const pieces = useApp((state) => state.pieces);
   const held = useMemo(
@@ -25,7 +24,6 @@ export function usePlan(taskId: string | undefined): PlanPiece[] {
   );
 }
 
-// Where a piece's department is named: a saved department, or the new one the chief proposed.
 export function departmentName(
   piece: PlanPiece,
   departments: Record<string, { name: string }>,

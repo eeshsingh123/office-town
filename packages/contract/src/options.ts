@@ -6,8 +6,7 @@ export const environmentSpecSchema = z.discriminatedUnion("kind", [
 ]);
 export type EnvironmentSpec = z.infer<typeof environmentSpecSchema>;
 
-// The harness's own mode: it asks about everything, and the core's autonomy level answers what it
-// allows (MODULES M4.6); or, under Bypass, it asks nothing.
+// Ask: the core's autonomy level answers every request. Bypass: the harness asks nothing.
 export const permissionModeSchema = z.enum(["ask", "bypass"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
 
@@ -28,17 +27,16 @@ export const sessionOptionsSchema = z.object({
   harness: z.string().min(1),
   environment: environmentSpecSchema,
   workspacePath: z.string().min(1).optional(),
-  // Further folders the agent may use as freely as its workspace.
+  // Folders the agent may use as freely as its workspace.
   additionalPaths: z.array(absolutePathSchema).optional(),
   // Also in additionalPaths: the agent may read them, never change them.
   readOnlyPaths: z.array(absolutePathSchema).optional(),
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,
-  // The harness's own id of an earlier session to continue, as reported by `session.started`.
+  // As reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
-  // Keeps out the user's and the project's instruction files, memory, MCP servers and plugins,
-  // as far as the harness allows: for a clean-slate second opinion.
+  // For a clean-slate second opinion, as far as the harness allows.
   isolated: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

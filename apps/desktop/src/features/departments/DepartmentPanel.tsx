@@ -89,8 +89,6 @@ function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[
   );
 }
 
-// A department: its members and their state, its open delegations, usage and autonomy, and what
-// can be done to the whole team (MODULES M4.9).
 export function DepartmentPanel({ department }: { department: DepartmentRecord }) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
@@ -115,7 +113,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         const work = task === undefined ? undefined : workOf(known, record.id, task.id);
         return work === undefined ? { record } : { record, work };
       });
-    // The team's own work: a guest called in for a second opinion is no member.
+    // A guest called in for a second opinion is no member.
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);

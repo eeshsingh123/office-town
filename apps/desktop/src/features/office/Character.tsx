@@ -8,14 +8,11 @@ interface CharacterProps {
   colour: string;
   state: AgentState | undefined;
   selected: boolean;
-  // The chief is a rounded square, unlike the round agents.
   square?: boolean;
-  // The agent the floor panned to for its waiting request.
   focused?: boolean;
 }
 
-// An agent on the floor: its face and a small status badge. Pixel art or themes replace this one
-// component later, as a skin.
+// Pixel art or themes replace this component later, as a skin.
 export function Character({ name, colour, state, selected, square, focused }: CharacterProps) {
   const classes = [
     styles.character,

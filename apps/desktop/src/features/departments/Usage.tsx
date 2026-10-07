@@ -9,7 +9,7 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 interface UsageProps {
   sessions: readonly SessionRecord[];
-  // The sessions' tokens by harness.
+  // By harness.
   usage: readonly TaskUsage[];
   title?: string;
 }

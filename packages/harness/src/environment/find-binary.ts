@@ -22,8 +22,7 @@ function readVariable(env: NodeJS.ProcessEnv, name: string): string | undefined 
 }
 
 function executableExtensions(binary: string, env: NodeJS.ProcessEnv): string[] {
-  // On Windows a bare name is never run as is: npm puts an extensionless shell script next to
-  // each .cmd shim, and that one is not executable there.
+  // On Windows npm puts a non-executable shell script beside each .cmd shim, so a bare name is never run.
   if (process.platform !== "win32" || path.extname(binary) !== "") return [""];
   return (readVariable(env, "PATHEXT") ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
 }

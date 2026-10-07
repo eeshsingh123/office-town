@@ -17,12 +17,10 @@ export interface Seat {
   agent: Point;
 }
 
-// A department's room, the chief's office, the open floor for agents working alone, or the guest
-// desk for second opinions (MODULES M4.9).
 export type RoomKind = "department" | "chief" | "open" | "guest";
 
 export interface RoomSpec {
-  // A department's id, or the kind for the chief's office, the open floor and the guest desk.
+  // A department's id, or the kind for the other rooms.
   id: string;
   kind: RoomKind;
   desks: number;
@@ -30,7 +28,7 @@ export interface RoomSpec {
 
 export interface Room extends RoomSpec {
   rect: Rect;
-  // One per desk, filled in order.
+  // Filled in order.
   seats: Seat[];
 }
 
@@ -54,18 +52,17 @@ const INNER_WIDTH = 780;
 const FLOOR_WIDTH = MARGIN * 2 + INNER_WIDTH;
 const TOP = MARGIN + 20;
 const GAP = { x: 40, y: 50 };
-// Space above a room's first desk, for its sign, goal and usage, and below its last desk. The
-// chief's office has no goal or usage lines.
+// Room for the sign, goal and usage lines above the first desk; the chief's office has no goal or usage.
 const DESK_TOP = 160;
 const CHIEF_DESK_TOP = 90;
 const DESK_BOTTOM = 34;
 const CORRIDOR = 90;
-// Room for the plan's links between the chief's office and the rooms below it.
+// Room for the plan's links between the chief's office and the rooms below.
 const CHIEF_GAP = 70;
-// Rooms keep this far apart, so a sign never sits on the room above it.
+// So a sign never sits on the room above it.
 const ROOM_GAP = 20;
 
-// Rooms the user can drag; the open floor and the guest desk are always placed for them.
+// The open floor and the guest desk are always placed automatically.
 export const movable = (kind: RoomKind) => kind === "department" || kind === "chief";
 
 function placeRoom(spec: RoomSpec, at: Point): Room {
@@ -97,7 +94,7 @@ function overlaps(a: Rect, b: Rect): boolean {
 const bottomOf = (rooms: readonly Room[]) =>
   Math.max(0, ...rooms.map(({ rect }) => rect.y + rect.height));
 
-// Packs rooms into rows left to right from `top`, stepping past the rooms already placed.
+// Rows left to right from `top`, stepping past rooms already placed.
 function pack(specs: readonly RoomSpec[], placed: readonly Room[], top: number): Room[] {
   const rooms: Room[] = [];
   let at = { x: MARGIN, y: top };
@@ -122,12 +119,8 @@ function pack(specs: readonly RoomSpec[], placed: readonly Room[], top: number):
   return rooms;
 }
 
-// The chief's office sits at the top centre and departments in rows below it, in the order given;
-// a room the user dragged stays where they put it, unless a room moved before it already took that
-// spot, as when a team grew. Every other room keeps the place it would have with no room moved,
-// unless a moved room took it; then it steps past. The open floor and the
-// guest desk come after every room, so a moved room never covers them, and the player starts in
-// the corridor below. Departments are rooms on the one floor M3 started (D-35, D-49).
+// A dragged room stays put unless an earlier moved room took the spot; other rooms step past moved ones.
+// The open floor and guest desk come last, so a moved room never covers them.
 export function floorPlan(
   specs: readonly RoomSpec[],
   positions: Readonly<Record<string, Point>> = {},
@@ -176,8 +169,7 @@ export function floorPlan(
   };
 }
 
-// Where a dragged room lands: on the grid, inside the floor and clear of the other rooms; none when
-// that spot is taken, so the room stays at the last free spot it passed.
+// None when the spot is taken, so the room stays at the last free spot it passed.
 export function dragTarget(
   room: Rect,
   to: Point,
@@ -203,12 +195,11 @@ export function clampToFloor(point: Point, plan: FloorPlan, margin = 22): Point 
 export const contains = (rect: Rect, { x, y }: Point) =>
   x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 
-// The room the player stands in, if any.
 export function roomAt(point: Point, plan: FloorPlan): Room | undefined {
   return plan.rooms.find((room) => contains(room.rect, point));
 }
 
-// The agent the player stands next to, if any: the nearest one within reach.
+// The nearest agent within reach.
 export function withinReach<T extends { position: Point }>(player: Point, agents: T[]) {
   let nearest: T | undefined;
   let distance = REACH;

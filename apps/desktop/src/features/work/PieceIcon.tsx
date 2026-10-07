@@ -12,7 +12,6 @@ const LABELS: Record<PieceStatus, string> = {
   dropped: "Dropped",
 };
 
-// A plan piece's or a thread's state as a small icon (D-37).
 export function PieceIcon({ status, size = 14 }: { status: PieceStatus; size?: number }) {
   const label = LABELS[status];
   switch (status) {

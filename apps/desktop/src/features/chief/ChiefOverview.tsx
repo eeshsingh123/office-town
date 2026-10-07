@@ -8,7 +8,6 @@ import { RequestCard } from "../requests/RequestCard.tsx";
 import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./Chief.module.css";
 
-// The chief at a glance: how it runs, its goal, its queue and any request it waits on (D-49).
 export function ChiefOverview({ chiefId }: { chiefId: string }) {
   const chief = useApp((state) => state.agents[chiefId]);
   const harness = useHarnessName(chief?.settings.harness ?? "");

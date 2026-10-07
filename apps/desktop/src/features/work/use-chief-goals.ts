@@ -14,7 +14,7 @@ function chiefGoals(tasks: Record<string, { task: TaskRecord }>, chiefId: string
   };
 }
 
-// The chief's goal now, else its last, and the goals queued behind it, next first.
+// The goal now, else the last, and the goals queued behind it, next first.
 export function useChiefGoals(chiefId: string | undefined) {
   const tasks = useApp((state) => state.tasks);
   return useMemo(

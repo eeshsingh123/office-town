@@ -2,13 +2,12 @@ import type { SessionRegistry } from "./session-registry.ts";
 
 export interface Activity {
   turnOpen: boolean;
-  // The agent's last message of its latest turn: a worker's result.
+  // A worker's result.
   lastMessage: string | undefined;
   lastActive: number;
 }
 
-// What each running session is doing now, read from its events: whether a turn is open, what the
-// agent last said, and when anything last happened.
+// Whether a turn is open, what the agent last said, and when anything last happened.
 export class SessionActivity {
   readonly #sessions = new Map<string, Activity>();
 

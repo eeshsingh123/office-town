@@ -45,7 +45,7 @@ function Chip({ chip }: { chip: DoorChip }) {
   }
 }
 
-// A room's state at its door: small icons and dots, amber only for "needs you" (D-37).
+// Small icons and dots, amber only for "needs you" (D-37).
 export function DoorChips({ chips }: { chips: readonly DoorChip[] }) {
   return chips.map((chip) => <Chip key={chip.kind} chip={chip} />);
 }

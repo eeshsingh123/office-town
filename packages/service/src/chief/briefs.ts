@@ -1,17 +1,14 @@
 import type { Message } from "../registry/session-registry.ts";
 import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
 
-// A department as the chief reads it: who is in it, where it works, and whether it is free.
 export interface DepartmentView {
   name: string;
-  // One line each, the lead first.
+  // The lead first.
   members: string[];
   folders: string[];
-  // The goal it is busy with, if any.
   busyWith: string | undefined;
 }
 
-// A finished piece another one builds on.
 export interface UpstreamResult {
   department: string;
   title: string;
@@ -65,12 +62,11 @@ If you cannot go on without the user's decision, ask with the ask_user tool.`;
   };
 }
 
-// Added to a department lead's brief when its goal is a piece of the chief's.
 export function handOff(input: {
   chief: string;
   chiefGoal: string;
   title: string;
-  // Set for a department the chief proposed, which its lead still has to propose.
+  // Set for a department the chief proposed, whose lead still has to propose its team.
   newDepartment: { name: string; purpose: string } | undefined;
   upstream: UpstreamResult[];
   readOnly: string[];
@@ -98,7 +94,7 @@ export type PieceEnding = "done" | "failed" | "stopped";
 const REPLAN =
   "Pieces that wait on it are held. Propose a changed plan with propose_plan, or finish.";
 
-// What the chief is told when a piece ends: the department's result, or why it did not finish.
+// The department's result, or why it did not finish.
 export function pieceResult(
   department: string,
   title: string,

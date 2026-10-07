@@ -11,14 +11,11 @@ import { toWindowsPath, toWslPath } from "./wsl-paths.ts";
 
 const MARKER = "OFFICE_TOWN_LAUNCH";
 const FIND_SCRIPT = 'command -v -- "$0"';
-// The harness runs under the same interactive login shell that found it, so it gets the same
-// PATH and variables. What the shell's own startup files print goes to stderr, keeping stdout
-// for the harness alone.
+// The login shell gives the harness the same PATH; startup-file output goes to stderr, not stdout.
 const EXEC_SCRIPT = `exec bash -lic 'exec "$0" "$@" 1>&3 3>&-' "$0" "$@" 3>&1 1>&2`;
 const ALIAS_TARGET = /^alias [^=]+='(\/[^']+)'$/;
 const DISTRO_TIMEOUT_MS = 15_000;
-// Every process in the launched tree inherits the marker variable, including ones that detached
-// themselves, so matching on it reaches processes a signal to the relay would miss.
+// Detached processes keep the marker too, so matching on it reaches what a signal would miss.
 const KILL_SCRIPT = `for p in /proc/[0-9]*; do if grep -qz "^${MARKER}=$0$" "$p/environ" 2>/dev/null; then kill -9 "\${p#/proc/}"; fi; done`;
 const NOT_FOUND_EXIT_CODE = 1;
 const BRIDGE = join(import.meta.dirname, "tool-bridge.ts");
@@ -125,9 +122,7 @@ export class WslEnvironment implements Environment {
     return toWindowsPath(environmentPath, this.#distro);
   }
 
-  // WSL2 cannot reach Windows' 127.0.0.1 by default, so the harness runs a stdio bridge that is a
-  // Windows process: the core's own Node, through WSL interop. The token travels in a variable
-  // WSLENV hands over, never on a command line.
+  // WSL2 cannot reach Windows' 127.0.0.1, so the harness runs a Windows stdio bridge (D-41).
   reach({ name, url, token }: ToolServer): AttachedToolServer {
     const env: Record<string, string> = { [BRIDGE_TOKEN]: token };
     // The desktop app runs the core on Electron, which acts as Node only when told so.

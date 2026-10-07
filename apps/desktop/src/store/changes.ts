@@ -2,7 +2,6 @@ import type { Change } from "@office-town/contract";
 import type { AppState } from "./app-store.ts";
 import { removeTask } from "./records.ts";
 
-// Drops a task with everything the app holds of it.
 export function withoutTask(state: AppState, taskId: string): AppState {
   const sessionIds = new Set(state.tasks[taskId]?.sessionIds);
   const traces = Object.fromEntries(
@@ -17,8 +16,7 @@ export function withoutTask(state: AppState, taskId: string): AppState {
   return { ...state, ...removeTask(state, taskId), traces, delegations, pieces };
 }
 
-// Each change carries the whole record, so it replaces the app's copy. A task the app does not
-// hold yet is left out: it is read whole once one of its sessions shows up.
+// A task the app does not hold yet is left out: it is read whole once one of its sessions shows up.
 function applyChange(state: AppState, change: Change): AppState {
   switch (change.type) {
     case "task": {

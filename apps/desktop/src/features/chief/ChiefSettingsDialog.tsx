@@ -103,7 +103,6 @@ function ChiefForm() {
   );
 }
 
-// The one standing chief's harness, model, effort and instructions (D-49).
 export function ChiefSettingsDialog() {
   const open = useOffice((state) => state.chiefSettingsOpen);
   return (

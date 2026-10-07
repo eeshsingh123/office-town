@@ -92,8 +92,7 @@ function placeOf(
   };
 }
 
-// Approving saves the department and makes its agents; for a team that exists, it applies the
-// change. Either way the task now belongs to that department.
+// Either way the task now belongs to that department.
 function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRecord {
   const { store } = context;
   const task = store.getTask(caller.taskId);
@@ -176,8 +175,7 @@ function answerProposal(
   };
 }
 
-// The lead's first step for a new team, and how it changes its team later; every proposal is
-// approved, edited or sent back by the user in Needs you (D-40).
+// Every proposal is approved, edited or sent back by the user in Needs you (D-40).
 export function proposeTeam(context: TeamContext) {
   const { store, registry } = context;
   return defineTool({

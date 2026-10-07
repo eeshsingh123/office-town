@@ -95,8 +95,7 @@ function describeSuggestion(suggestion: PermissionSuggestion): string | undefine
   return undefined;
 }
 
-// Only changes that end with the session and that we can put into words are offered: a change
-// written to a settings file would outlive the session, and the user must know what they accept.
+// Only session-scoped changes we can put into words: a settings-file change would outlive the session.
 function standingChangesOf(suggestions: unknown[]): StandingChange[] {
   return suggestions.flatMap((suggestion) => {
     const parsed = permissionSuggestionSchema.safeParse(suggestion);
@@ -231,8 +230,7 @@ export class ClaudeTranslator implements Translator {
     );
   }
 
-  // The CLI asks a question as a tool it needs permission for, and takes the answers as part of
-  // the allowed input: question text to chosen labels.
+  // The CLI asks a question as a tool needing permission, and takes the answers in the allowed input.
   answerQuestion(requestId: string, answered: AnsweredQuestion[]): Translation {
     const pending = this.#pendingPermissions.get(requestId);
     if (pending === undefined) throw new Error(`Unknown question "${requestId}".`);

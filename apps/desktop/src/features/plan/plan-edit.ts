@@ -6,7 +6,6 @@ import type {
   RoleSettings,
 } from "@office-town/contract";
 
-// A department the chief proposed, as the user places it before approving.
 export interface DraftDepartment {
   name: string;
   purpose: string;
@@ -15,7 +14,7 @@ export interface DraftDepartment {
   autonomy: Autonomy;
 }
 
-// One piece while the user edits the plan; `waitsOn` names other pieces by key.
+// `waitsOn` names other pieces by key.
 export interface PlanRow {
   key: string;
   title: string;
@@ -24,7 +23,7 @@ export interface PlanRow {
   department: { departmentId: string } | { newDepartment: DraftDepartment };
 }
 
-// A piece that stays when a changed plan is approved, which a new piece may build on.
+// A new piece may build on it.
 export interface KeptPiece {
   key: string;
   title: string;
@@ -43,7 +42,6 @@ export function toRows(pieces: readonly ProposedPiece[]): PlanRow[] {
   }));
 }
 
-// Whether `to` waits, directly or through others, on `from`.
 function reaches(
   rows: readonly PlanRow[],
   to: string,
@@ -57,7 +55,6 @@ function reaches(
   return row?.waitsOn.some((key) => reaches(rows, key, from, seen)) ?? false;
 }
 
-// Letting `from` wait on `to` would close a circle.
 export function wouldCycle(rows: readonly PlanRow[], from: string, to: string): boolean {
   return reaches(rows, to, from);
 }
@@ -67,8 +64,7 @@ const newDepartmentNames = (rows: readonly PlanRow[]) =>
     "newDepartment" in department ? [department.newDepartment.name.trim()] : [],
   );
 
-// What keeps the plan from being approved, in words for the user; undefined if nothing. It mirrors
-// the core's checks, so the user is not sent an answer the core refuses.
+// Mirrors the core's checks, so the user is not sent an answer the core refuses.
 export function planProblem(
   rows: readonly PlanRow[],
   kept: readonly KeptPiece[] = [],
@@ -105,7 +101,7 @@ export function planProblem(
   return undefined;
 }
 
-// The plan as approved; call only once `planProblem` finds nothing.
+// Call only once `planProblem` finds nothing.
 export function toApproved(rows: readonly PlanRow[]): ApprovedPiece[] {
   return rows.map(({ key, title, brief, waitsOn, department }) => {
     const shared = { key, title: title.trim(), brief: brief.trim(), waitsOn };
@@ -138,8 +134,7 @@ function placedOf(row: PlanRow, departments: Record<string, Placed>): Placed | u
     : department.newDepartment;
 }
 
-// Read-only upstream folders are enforced for file edits only: a downstream department on Full can
-// still change them with a command, and on Bypass nothing guards them at all (MODULES M5).
+// Only file edits are guarded: on Full a command can change upstream folders, on Bypass anything can.
 export function guardWarnings(
   rows: readonly PlanRow[],
   departments: Record<string, Placed>,
@@ -173,7 +168,7 @@ export interface PlanChanges {
 const departmentKey = (department: ProposedPiece["department"]) =>
   "departmentId" in department ? department.departmentId : `new:${department.newDepartment.name}`;
 
-// A changed plan against the plan as it is: the pieces it drops, adds and changes.
+// The pieces it drops, adds and changes.
 export function planChanges(current: readonly PlanPiece[], proposed: readonly ProposedPiece[]) {
   const live = current.filter((piece) => piece.status !== "dropped");
   const keyOf = new Map(live.map((piece) => [piece.id, piece.key]));

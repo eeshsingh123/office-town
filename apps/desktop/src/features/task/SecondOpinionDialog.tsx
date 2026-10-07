@@ -15,7 +15,7 @@ import styles from "./SecondOpinionDialog.module.css";
 
 const SAME = "same";
 
-// What still loads in the reviewer's session, from what its harness can keep out (D-41).
+// From what its harness can keep out (D-41).
 function isolationLine(harness: HarnessDescription | undefined): string {
   switch (harness?.capabilities.isolation) {
     case "full":
@@ -28,15 +28,13 @@ function isolationLine(harness: HarnessDescription | undefined): string {
 }
 
 interface SecondOpinionDialogProps {
-  // The agent whose work is examined, in its own folder, such as a worker's worktree; the
-  // reviewer starts with its harness, model and effort.
+  // The reviewer starts with this agent's harness, model and effort.
   agent: Agent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// A fresh agent outside the team examines a copy of the agent's files (D-18). Its answer is its own
-// trace, beside the task's agents.
+// Its answer is its own trace, beside the task's agents (D-18).
 export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinionDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
   const files = useLoaded(open ? `files:${agent.taskId}:${agent.id}` : undefined, () =>

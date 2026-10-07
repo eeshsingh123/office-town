@@ -3,7 +3,6 @@ import type { TaskEntry } from "../../store/records.ts";
 
 export type ColumnId = "needs-you" | "working" | "waiting" | "review" | "done";
 
-// Why a card waits, or how it ended; the board puts it in words.
 export type CardNote =
   | { kind: "waits-on"; pieces: PlanPiece[] }
   | { kind: "cut-off" }
@@ -27,8 +26,7 @@ interface BoardInput {
   delegations: Record<string, DelegationRecord>;
 }
 
-// The goal's top agent, its lead or else the agent of its first session, was cut off in its latest
-// session, or a worker it handed work to was.
+// The top agent, or a worker it handed work to, was cut off in its latest session.
 function cutOff(entry: TaskEntry, input: BoardInput): boolean {
   const top = entry.task.leadAgentId ?? input.sessions[entry.sessionIds[0] ?? ""]?.agentId;
   const latest = entry.sessionIds
@@ -40,7 +38,7 @@ function cutOff(entry: TaskEntry, input: BoardInput): boolean {
   );
 }
 
-// What an idle goal waits on: a restart cut its agents off, or a chief's pieces still run.
+// A restart cut its agents off, or a chief's pieces still run.
 function idleNote(entry: TaskEntry, input: BoardInput): CardNote | undefined {
   if (cutOff(entry, input)) return { kind: "cut-off" };
   const open = Object.values(input.pieces).filter(
@@ -51,7 +49,7 @@ function idleNote(entry: TaskEntry, input: BoardInput): CardNote | undefined {
   return { kind: "waits-on", pieces: working.length > 0 ? working : open };
 }
 
-// A piece not started yet waits on the pieces before it that are not done, or on its department.
+// On the unfinished pieces before it, or on its department.
 function pieceNote(piece: PlanPiece, pieces: Record<string, PlanPiece>): CardNote {
   if (piece.status === "queued") return { kind: "queued" };
   const before = piece.waitsOn.flatMap((id) => {
@@ -84,8 +82,7 @@ function taskNote(entry: TaskEntry, column: ColumnId, input: BoardInput): CardNo
   return task.reviewedAt === undefined ? undefined : { kind: "reviewed", at: task.reviewedAt };
 }
 
-// The goals the app holds and the pieces with no task yet, in the board's columns (D-49). A chief's
-// piece reports to the chief, so only the chief's whole goal waits for review.
+// A chief's piece reports to the chief, so only the chief's whole goal waits for review.
 export function boardColumns(input: BoardInput): Columns {
   const columns: Columns = { "needs-you": [], working: [], waiting: [], review: [], done: [] };
   const entries = Object.values(input.tasks).sort((a, b) =>

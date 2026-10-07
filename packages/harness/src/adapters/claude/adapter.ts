@@ -23,8 +23,7 @@ const PERMISSION_MODES: Record<PermissionMode, string> = {
   bypass: "bypassPermissions",
 };
 
-// The config goes on the command line, which other processes can read, so it names the token by
-// a variable of Claude's own environment, which Claude fills in (D-41).
+// The config is on the command line, which others can read, so it names a variable Claude fills in (D-41).
 const tokenVariable = (index: number) => `OFFICE_TOWN_TOOL_TOKEN_${index}`;
 
 function mcpConfigOf(server: AttachedToolServer, index: number) {

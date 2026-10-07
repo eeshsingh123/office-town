@@ -31,7 +31,7 @@ const LEVELS: Choice<Autonomy>[] = autonomySchema.options.map((level) => ({
   value: level,
   ...AUTONOMY[level],
 }));
-// A value no profile id can take, since an id starts with a letter or digit.
+// No profile id can take this, since an id starts with a letter or digit.
 const LAST_CHOICES = "~last";
 
 export function NewTaskView() {

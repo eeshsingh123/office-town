@@ -42,20 +42,18 @@ export interface FloorAgent {
   state: AgentState;
   position: Point;
   harness: string;
-  // What the agent is doing, shown above its head while it works or waits.
+  // Shown above its head while it works or waits.
   bubble?: string;
-  // The room it sits in, by name, to group a selection.
+  // By name, to group a selection.
   group: string;
 }
 
-// What a room's sign and wall say.
 export interface RoomSign {
   title: string;
   note: string;
   lines: string[];
 }
 
-// Who sits at a desk on the floor, as drawn.
 interface Seated {
   id: string;
   name: string;
@@ -74,15 +72,13 @@ interface FloorProps {
   agents: FloorAgent[];
   // By room id.
   signs: Record<string, RoomSign>;
-  // The chief's state chips and each room's, by room id.
+  // By room id, the chief's included.
   doors: Record<string, DoorChip[]>;
-  // The links of the chief's current plan, and that goal's id.
   links: Link[];
   linksGoal: string | undefined;
-  // The standing chief, once set up; it keeps its desk even before its first goal.
+  // It keeps its desk even before its first goal.
   chief: { id: string; name: string; colour: string } | undefined;
   selection: string[];
-  // The department whose panel is open.
   room: string | undefined;
   onSelect: (agentIds: string[]) => void;
   onOpenRoom: (departmentId: string) => void;
@@ -99,7 +95,7 @@ const DIRECTIONS: Record<string, Point> = {
   a: { x: -1, y: 0 },
   d: { x: 1, y: 0 },
 };
-// A press shorter than this is a click on the floor, not a drag.
+// A press shorter than this is a click, not a drag.
 const DRAG_THRESHOLD = 6;
 const FINISHED: AgentState[] = ["idle", "done", "failed", "stopped", "interrupted"];
 const LINK_CLASSES: Record<LinkState, string | undefined> = {
@@ -117,10 +113,9 @@ const LEGEND: [LinkState, string][] = [
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Holding a direction key walks the player once per frame until every key is released.
+// Walks once per frame until every key is released.
 function useWalking(plan: FloorPlan) {
-  // Until the user walks, the player stands at the start of the plan as it is now: rooms appear
-  // once the departments load, and the start moves clear of them.
+  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they load.
   const [walked, setWalked] = useState<Point>();
   const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
@@ -172,9 +167,7 @@ function useWalking(plan: FloorPlan) {
   return { player, press, release };
 }
 
-// A link that turns active, or first shows up active, sends a document along it once; under reduced
-// motion the link only changes colour. Nothing moves the first time a goal's links are seen, so
-// opening the app does not replay hand-offs.
+// Sends a document along a link once when it turns active; never for links seen when the app opens.
 function useHandoffs(links: readonly DrawnLink[], goalId: string | undefined) {
   const seen = useRef<{ goalId: string | undefined; states: Map<string, LinkState> }>(undefined);
   const [tokens, setTokens] = useState<{ key: string; path: string }[]>([]);
@@ -197,7 +190,7 @@ function useHandoffs(links: readonly DrawnLink[], goalId: string | undefined) {
   return { tokens, done };
 }
 
-// The rooms as drawn while one is being moved: it and its desks follow the move.
+// The moved room and its desks follow the move.
 function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] {
   if (move === undefined) return [...rooms];
   const dx = move.at.x - move.from.x;
@@ -243,7 +236,7 @@ function seatedOf(
   return [...seated, { ...chief, position: office.agent, detail: "Chief" }];
 }
 
-// Pans the floor to the agent in focus once per request to focus, smoothly unless motion is reduced.
+// Once per request to focus, smoothly unless motion is reduced.
 function usePanTo(floor: RefObject<HTMLDivElement | null>, at: Point | undefined, key = 0) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: pans once per focus, not as agents move
   useEffect(() => {
@@ -274,7 +267,7 @@ export function Floor(props: FloorProps) {
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
-  // The department room the player stands in: walking into one opens its panel.
+  // Walking into a room opens its panel.
   const inside = useRef<string | undefined>(undefined);
 
   const focus = useApp((state) => state.focus);

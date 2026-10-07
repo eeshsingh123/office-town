@@ -6,16 +6,15 @@ export interface ModelGroup {
 }
 
 export interface GroupedModels {
-  // Shown at once: recent, free, those in the user's plan, and the providers of models used before.
+  // Recent, free, in the user's plan, and providers used before.
   first: ModelGroup[];
-  // Every other provider's models, shown on request or when filtering.
+  // Shown on request or when filtering.
   more: ModelGroup[];
 }
 
 const RECENT = 5;
 
-// No hand-made list of popular models: what the user ran before, what costs nothing and what their
-// plan covers come first, then the rest by provider. Each model is listed once.
+// No hand-made list of popular models. Each model is listed once.
 export function groupModels(
   models: readonly HarnessModel[],
   recentIds: readonly string[],

@@ -20,8 +20,7 @@ export type JsonRpcIncoming =
 
 export const METHOD_NOT_FOUND = -32601;
 
-// Encodes and decodes JSON-RPC 2.0 lines and pairs responses with the requests that caused them.
-// It does no I/O: the caller writes the returned lines and feeds it the lines it reads.
+// Does no I/O: the caller writes the returned lines and feeds it the lines it reads.
 export class JsonRpcPeer {
   #nextId = 1;
   readonly #pendingMethods = new Map<JsonRpcId, string>();

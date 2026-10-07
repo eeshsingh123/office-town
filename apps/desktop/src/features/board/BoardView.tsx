@@ -22,14 +22,13 @@ const COLUMNS: { id: ColumnId; title: string; icon: ReactNode }[] = [
   { id: "done", title: "Done", icon: <Check size={14} className={styles.ok} /> },
 ];
 
-// A harness keeps one colour wherever it shows, without a list of harnesses to keep up.
+// One colour per harness wherever it shows, without a list of harnesses to keep up.
 function harnessColour(harness: string): string {
   const sum = [...harness].reduce((total, char) => total + char.charCodeAt(0), 0);
   return agentColours[sum % agentColours.length]?.value ?? "";
 }
 
-// Who works on a goal, the harness it runs on, and whose panel it opens: a department's room, else
-// an agent's. Plain values, so a card's props stay equal while its owner does.
+// Plain values, so a card's props stay equal while its owner does.
 type Known = Pick<AppState, "chiefId" | "agents" | "departments" | "sessions" | "tasks">;
 
 interface Owner {
@@ -131,7 +130,7 @@ function PartOf({ taskId }: { taskId: string | undefined }) {
   return <span className={styles.note}>Part of {taskTitle(goal.prompt)}</span>;
 }
 
-// What each goal asks the user first, by task id: the agent's name and its oldest request.
+// By task id: the agent's name and its oldest request.
 function askingOf(state: Pick<AppState, "sessions" | "agents" | "waiting">) {
   const asking: Record<string, string> = {};
   const newestFirst = Object.values(state.waiting).sort((a, b) => b.position - a.position);
@@ -264,7 +263,6 @@ const PieceCard = memo(function PieceCard({
   );
 });
 
-// The goals and the plan pieces that wait for a department, in columns by what they need (D-49).
 // Cards get what they show as props, so a streamed change renders only the cards it touches.
 export function BoardView() {
   const tasks = useApp((state) => state.tasks);

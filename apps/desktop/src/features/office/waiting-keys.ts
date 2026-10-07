@@ -17,8 +17,7 @@ function typingIn(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-// Dialogs, menus and lists use letters themselves. The focus card is a dialog too, but N moves on
-// from it.
+// Dialogs, menus and lists use letters themselves. The focus card is a dialog too, but N moves on from it.
 const OWNS_KEYS =
   "[role=dialog]:not([data-focus-card]), [role=alertdialog], [role=menu], [role=listbox]";
 
@@ -29,8 +28,7 @@ function keysOwnedAt(target: EventTarget | null): boolean {
 const modified = (event: KeyboardEvent) =>
   event.ctrlKey || event.metaKey || event.altKey || event.shiftKey;
 
-// N goes to the next waiting agent and Esc lets go of it, wherever the user is, unless they type.
-// N is read in the capture phase, before the focus card keeps its keys to itself.
+// Read in the capture phase, before the focus card keeps its keys to itself.
 export function useWaitingKeys(): void {
   useEffect(() => {
     const onNext = (event: KeyboardEvent) => {

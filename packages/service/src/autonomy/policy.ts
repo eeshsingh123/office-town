@@ -11,11 +11,10 @@ import type { Store } from "../store/store.ts";
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>["payload"];
 
-// Reading and changing files, which Trusted lets through inside the workspace.
+// What Trusted lets through inside the workspace.
 const FILE_WORK = new Set(["read", "search", "edit", "delete", "move", "think"]);
 const CHANGES = new Set(["edit", "delete", "move"]);
-// Git's and the harnesses' own settings, hooks and MCP servers: changing them can make a command
-// run later without asking, so Trusted asks for it.
+// Changing these can make a command run later without asking, so Trusted asks.
 const RUNS_COMMANDS = new Set([
   ".git",
   ".claude",
@@ -25,7 +24,6 @@ const RUNS_COMMANDS = new Set([
   ".mcp.json",
 ]);
 
-// The only kinds let through inside a read-only folder.
 const READS = new Set(["read", "search", "think"]);
 
 function inside(folder: string, path: string): boolean {
@@ -35,8 +33,7 @@ function inside(folder: string, path: string): boolean {
 
 const WSL_LOCALHOST = /^\\\\wsl\.localhost\\/i;
 
-// One form for one place: links and junctions resolved through the nearest part that exists,
-// WSL's two share names made one, and case ignored where Windows ignores it.
+// Links resolved, WSL's two share names made one, case ignored where Windows ignores it.
 function canonicalPath(path: string): string {
   const missing: string[] = [];
   let existing = resolve(path);
@@ -49,8 +46,7 @@ function canonicalPath(path: string): string {
   return process.platform === "win32" ? shared.toLowerCase() : shared;
 }
 
-// A location inside a read-only folder may only be read, whatever the level. A read-only folder
-// that holds one of the agent's own folders is left out, or every edit of its own would ask.
+// A read-only folder holding the agent's own folder is left out, or its every edit would ask.
 function touchesReadOnly(request: PermissionRequest, folders: string[], readOnly: string[]) {
   const { kind, locations = [] } = request;
   if (readOnly.length === 0 || locations.length === 0) return false;
@@ -65,11 +61,7 @@ function touchesReadOnly(request: PermissionRequest, folders: string[], readOnly
   return touched && (kind === undefined || !READS.has(kind));
 }
 
-// Whether the level lets a request through without the user. Anything but a read inside a
-// read-only folder never goes through. Trusted allows reading and editing inside the workspace's
-// folders and asks for everything else: commands, web access, anything outside, changes to what
-// runs commands, and anything whose action it cannot read. Full and Bypass allow all; Supervised
-// none.
+// Only reads go through inside a read-only folder, at any level. Trusted asks for anything it cannot read.
 export function allows(
   level: Autonomy,
   request: PermissionRequest,
@@ -92,8 +84,7 @@ export function allows(
   });
 }
 
-// The level an agent works at now: its department's, or its own without one, lowered by its
-// profile or settings. A change applies to the next request.
+// The department's level, or the agent's own without one, lowered by its profile or settings.
 export function levelOf(store: Store, agentId: string): Autonomy {
   const agent = store.getAgent(agentId);
   if (agent === undefined) return "supervised";
@@ -105,8 +96,6 @@ export function levelOf(store: Store, agentId: string): Autonomy {
 
 type Guard = (session: SessionRecord, request: PermissionRequest) => Autonomy | undefined;
 
-// The core's one guardrail, the same for every harness: the level answers what it allows, and the
-// rest waits for the user in Needs you.
 export function autonomyGuard(store: Store): Guard {
   return (session, request) => {
     const level = levelOf(store, session.agentId);

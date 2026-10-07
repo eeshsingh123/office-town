@@ -38,7 +38,6 @@ function ActionLine({ action, live }: { action: TraceAction; live: boolean }) {
   );
 }
 
-// One agent: what it is for, where it is, what it does now and what it asks (D-35).
 export function AgentPanel({ member }: { member: FloorAgent }) {
   const { agent, state, harness } = member;
   const { latest } = agent;
@@ -48,8 +47,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
   const [asking, setAsking] = useState(false);
-  // Every session of its task, for its own usage, which the core does not sum per agent; the
-  // latest also for its step and actions.
+  // Every session of its task, since the core does not sum usage per agent; the latest also for its step.
   useEffect(() => {
     for (const session of agent.sessions) loadTrace(session.id);
   }, [agent.sessions]);

@@ -9,7 +9,7 @@ import type { StreamedEvent } from "../api/event-stream.ts";
 
 export interface TaskEntry {
   task: TaskRecord;
-  // In the order they started; each one after the first resumed an earlier one.
+  // Each one after the first resumed an earlier one.
   sessionIds: string[];
 }
 
@@ -18,11 +18,11 @@ export interface WaitingRequest {
   event: UserRequestEvent;
 }
 
-// The functions here return exactly these fields, so a result merges into the app's state as is.
+// Exactly these fields, so a result merges into the app's state as is.
 export interface Records {
   tasks: Record<string, TaskEntry>;
   sessions: Record<string, SessionRecord>;
-  // Requests no one has answered yet, by `waitingKey`.
+  // By `waitingKey`.
   waiting: Record<string, WaitingRequest>;
 }
 
@@ -59,10 +59,7 @@ export function waitingFrom(requests: readonly PendingRequest[]): Record<string,
 export const isOpen = (session: SessionRecord) =>
   session.status === "starting" || session.status === "running";
 
-// Keeps session records and the waiting requests current from the live stream. Events of a
-// session the app does not know yet are left out; the caller loads that session instead.
-// A status only moves forward, so an event applied again over a newer record changes nothing.
-// A map nothing changed in is returned as it was, so views that read it do not render again.
+// A status only moves forward, so a replayed event changes nothing; an unchanged map is returned as is.
 export function applyToRecords(records: Records, events: readonly StreamedEvent[]): Records {
   let sessions = records.sessions;
   let waiting = records.waiting;

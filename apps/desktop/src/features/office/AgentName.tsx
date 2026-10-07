@@ -4,7 +4,7 @@ import { api } from "../../api/client.ts";
 import { keepAgent } from "../../store/live.ts";
 import styles from "./Office.module.css";
 
-// What the user types becomes a handle: "Ben Smith" reads as "@ben-smith".
+// "Ben Smith" reads as "@ben-smith".
 function toHandle(text: string): string {
   const words = text
     .trim()
@@ -15,7 +15,7 @@ function toHandle(text: string): string {
   return `@${words}`;
 }
 
-// An agent's name, which the user can change. Names are unique: a lead names its workers by them.
+// Names are unique: a lead names its workers by them.
 export function AgentName({ agentId, name }: { agentId: string; name: string }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(name);

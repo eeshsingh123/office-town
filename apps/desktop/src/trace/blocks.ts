@@ -1,7 +1,6 @@
 import type { Trace, TraceAction } from "./trace.ts";
 
-// What the trace view draws, top to bottom: single items, and runs of actions that belong to the
-// same plan step. A step's heading shows once, where its work begins.
+// Single items, and runs of actions in the same plan step; a step's heading shows where its work begins.
 export type TraceBlock =
   | { kind: "item"; id: string }
   | { kind: "actions"; ids: string[]; stepId: string | undefined; showsStep: boolean };

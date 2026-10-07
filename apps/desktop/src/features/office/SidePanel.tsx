@@ -7,14 +7,13 @@ import styles from "./SidePanel.module.css";
 interface SidePanelProps {
   kind: PanelKind;
   label: string;
-  // Whose conversation the Chat tab shows: the agent, a department's lead, or the chief.
+  // The agent, a department's lead, or the chief.
   chatAgentId: string;
   overview: ReactNode;
   work: ReactNode;
 }
 
-// The right panel for whatever is selected: Overview, Chat and Work (D-49). The tab chosen last
-// for each kind of selection stays chosen.
+// The tab chosen last for each kind of selection stays chosen.
 export function SidePanel({ kind, label, chatAgentId, overview, work }: SidePanelProps) {
   const tab = useOffice((state) => state.tabs[kind]);
   return (

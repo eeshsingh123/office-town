@@ -12,7 +12,6 @@ interface WorkspaceDialogProps {
   onCreated: (workspace: WorkspaceRecord) => void;
 }
 
-// A workspace is named and reused across tasks; the agent works in its first folder (D-33).
 export function WorkspaceDialog({ open, onOpenChange, onCreated }: WorkspaceDialogProps) {
   const [name, setName] = useState("");
   const [folders, setFolders] = useState<(string | undefined)[]>([undefined]);

@@ -12,17 +12,14 @@ function resultText(name: string, outcome: Outcome, result: string): string {
   return `${name} could not finish its work.${result === "" ? "" : ` Its last words:\n${result}`}`;
 }
 
-// When a worker's turn ends with nothing waiting on the user, its last message is its result,
-// and the lead gets it as a message from the core. A worker that failed, was stopped or ended is
-// reported the same way (MODULES M4.5).
+// A worker's last message when its turn ends with nothing waiting on the user; failures too.
 export function reportResults(context: TeamContext, activity: SessionActivity): void {
   const { store, registry } = context;
 
   const finish = (delegation: DelegationRecord, outcome: Outcome, result: string) => {
     const worker = store.getAgent(delegation.workerAgentId);
     const name = worker?.name ?? "A worker";
-    // Told before the delegation ends, so the lead owes a turn for it and its goal never reads
-    // finished in between.
+    // Told before the delegation ends, so the lead owes a turn and its goal never reads finished in between.
     const told = tellLead(context, delegation.taskId, {
       text: resultText(name, outcome, result),
       origin: {

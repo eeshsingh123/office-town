@@ -15,12 +15,11 @@ import { chatOf } from "./chat-items.ts";
 
 interface Goal {
   taskId: string;
-  // This agent's sessions in it, oldest first.
+  // Oldest first.
   sessions: SessionRecord[];
 }
 
-// The agent's sessions across its goals: pages read from the core, newest first, joined by any
-// the app learns of live, such as one a message just resumed.
+// Pages read from the core, newest first, joined by sessions the app learns of live.
 function useConversation(agentId: string) {
   const live = useApp(
     useShallow((state) =>
@@ -73,7 +72,7 @@ function useConversation(agentId: string) {
   return { goals, more: next !== undefined, loading, error, loadEarlier: () => read(next) };
 }
 
-// The tasks of goals the app does not hold, such as old ones, read once for their titles.
+// Goals the app does not hold, such as old ones, read once for their titles.
 function useTasks(taskIds: readonly string[]): Record<string, TaskRecord> {
   const held = useApp((state) => state.tasks);
   const [read, setRead] = useState<Record<string, TaskRecord>>({});
@@ -151,7 +150,7 @@ function GoalChat({
   );
 }
 
-// One conversation with an agent across all its goals, a divider at each goal (D-49).
+// A divider at each goal (D-49).
 export function ChatTab({ agentId }: { agentId: string }) {
   const agent = useApp((state) => state.agents[agentId]);
   const department = useApp((state) =>

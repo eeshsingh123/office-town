@@ -9,7 +9,7 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import styles from "./NewTaskView.module.css";
 
-// The department a goal goes to, or none yet: then the lead proposes one.
+// No department yet: the lead proposes one.
 export const PROPOSE = "~propose";
 const LEVELS: Autonomy[] = ["supervised", "trusted", "full", "bypass"];
 
@@ -24,7 +24,7 @@ interface TeamChoiceProps {
   onAutonomy: (autonomy: Autonomy) => void;
 }
 
-// The goal each department is at work on: a department works on one goal at a time.
+// A department works on one goal at a time.
 function useBusy(): Map<string, string> {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);

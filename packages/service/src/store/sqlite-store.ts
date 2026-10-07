@@ -63,9 +63,7 @@ import {
   type TurnOutcome,
 } from "./store.ts";
 
-// Deleting a long session in one statement blocks the process for most of a second; in chunks,
-// live updates get through between them. Freed pages go back to the disk in steps for the same
-// reason.
+// Deleting in chunks lets live updates through; one statement blocks for most of a second.
 const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
 const LINE_CAP_BYTES = 64 * 1024;
@@ -303,7 +301,6 @@ function toProfile(row: ProfileRow): ProfileRecord {
   };
 }
 
-// SQLite's own codes for a broken UNIQUE constraint, and for a row others still point at.
 const SQLITE_CONSTRAINT_UNIQUE = 2067;
 const SQLITE_CONSTRAINT_FOREIGNKEY = 787;
 
@@ -468,8 +465,7 @@ class SqliteStore implements Store {
           this.#statements.deleteAgentIfUnused.run(ref);
         }
       });
-      // Agents deleted with the task were in no department and worked on nothing else, so the
-      // task's notice covers them.
+      // Agents deleted with the task worked on nothing else, so the task's notice covers them.
       this.#publish({ type: "task.deleted", taskId: id });
       for (const child of children) this.#publishTask(child.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
@@ -951,7 +947,6 @@ class SqliteStore implements Store {
     return toTask(row, all<TaskUsage>(this.#statements.usageOfTask, row.ref));
   }
 
-  // Each write publishes the record as it now reads, so a listener never sees a partial copy.
   #publishTask(id: string): TaskRecord {
     const task = this.#toTask(this.#taskRow(id));
     this.#publish({ type: "task", task });
@@ -976,8 +971,7 @@ class SqliteStore implements Store {
     return piece;
   }
 
-  // A listener that writes, such as one keeping a task's state, makes new changes while the first
-  // is still being handed out. Those wait their turn, so every listener sees them in order.
+  // Changes made by a listener wait their turn, so every listener sees them in order.
   #publish(change: Change): void {
     this.#outbox.push(change);
     if (this.#publishing) return;
@@ -991,8 +985,7 @@ class SqliteStore implements Store {
     }
   }
 
-  // The write is committed whatever a listener does, so one that fails must not make it look
-  // failed, nor keep the change from the others.
+  // The write is committed whatever a listener does, so one failing listener must not stop the others.
   #deliver(listener: ChangeListener, change: Change): void {
     try {
       listener(change);
@@ -1083,8 +1076,7 @@ class SqliteStore implements Store {
     }
   }
 
-  // A turn's tokens are added to its task's, and reported limits replace the harness's earlier
-  // ones, in the event's own transaction. Returns what to publish once it commits.
+  // In the event's own transaction; returns what to publish once it commits.
   #updateUsage(sessionRef: number, event: SessionEvent): Change | undefined {
     if (event.type === "limits.updated") {
       const { harness } = this.#sessionTask(sessionRef);
@@ -1115,8 +1107,7 @@ class SqliteStore implements Store {
     return row;
   }
 
-  // The waiting requests change with the events that open and close them. A session that ended
-  // can answer nothing, whether or not the harness closed each request first.
+  // A session that ended can answer nothing, whether or not the harness closed each request.
   #updatePendingRequests(sessionRef: number, position: number, event: SessionEvent): void {
     switch (event.type) {
       case "permission.requested":
@@ -1141,7 +1132,7 @@ class SqliteStore implements Store {
     while (statement.run(sessionRef, DELETE_CHUNK).changes > 0) await yieldToEventLoop();
   }
 
-  // Hands the freed space back to the disk now, not when the app next closes.
+  // Now, not when the app next closes.
   async #returnFreeSpace(): Promise<void> {
     const pages = readNumber(this.#db, "PRAGMA freelist_count");
     for (let freed = 0; freed < pages; freed += VACUUM_STEP_PAGES) {

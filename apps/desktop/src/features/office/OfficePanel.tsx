@@ -57,13 +57,11 @@ function AgentSide({ agentId, onFloor }: { agentId: string; onFloor: FloorAgent 
 
 interface OfficePanelProps {
   selection: string[];
-  // The selected agents that sit on the floor.
   chosen: FloorAgent[];
   room: DepartmentRecord | undefined;
   floorCount: number;
 }
 
-// The right panel for what is selected: the chief, an agent, several agents or a room (D-49).
 export function OfficePanel({ selection, chosen, room, floorCount }: OfficePanelProps) {
   const chiefId = useApp((state) => state.chiefId);
   const [single] = selection;

@@ -25,21 +25,18 @@ export const agentNameSchema = z
     'Must start with "@" and contain only lowercase letters, digits and hyphens',
   );
 
-// How an agent works, whichever harness it runs on.
 export const agentSettingsSchema = z.object({
   harness: z.string().min(1),
   environment: environmentSpecSchema,
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
-  // Given to the agent with every brief.
   instructions: z.string().optional(),
   // Lowers the level the agent works at, never raises it.
   autonomy: autonomySchema.optional(),
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
-// An agent made from a profile follows it: a saved change applies to its next session. Its own
-// settings are what it was made with, used if the profile is deleted.
+// Follows its profile from the next session; its own settings apply if the profile is deleted.
 export const agentRecordSchema = z.object({
   id: z.string().min(1),
   name: agentNameSchema,
@@ -50,7 +47,7 @@ export const agentRecordSchema = z.object({
   departmentId: z.string().min(1).optional(),
   // The level it works at when it has no department, such as a solo agent's.
   autonomy: autonomySchema.optional(),
-  // Called in for a second opinion: not a member of any team, and gone once it answers.
+  // Not a member of any team, and gone once it answers.
   guest: z.literal(true).optional(),
   profileId: z.string().min(1).optional(),
   settings: agentSettingsSchema,
@@ -58,7 +55,6 @@ export const agentRecordSchema = z.object({
 });
 export type AgentRecord = z.infer<typeof agentRecordSchema>;
 
-// The user's own words to an agent, whether it is at work or has finished.
 // `taskId` sends it to the agent in that goal, such as a follow-up; else to its latest.
 export const agentMessageRequestSchema = z.object({
   text: z.string().trim().min(1),
@@ -69,7 +65,6 @@ export type AgentMessageRequest = z.infer<typeof agentMessageRequestSchema>;
 export const renameAgentRequestSchema = z.object({ name: agentNameSchema });
 export type RenameAgentRequest = z.infer<typeof renameAgentRequestSchema>;
 
-// A saved description of an agent, like a character creator.
 export const profileRequestSchema = z.object({
   name: z.string().trim().min(1),
   // What agents made from it do, in a few words.
@@ -85,7 +80,6 @@ export const profileRecordSchema = profileRequestSchema.extend({
 });
 export type ProfileRecord = z.infer<typeof profileRecordSchema>;
 
-// Who works on a new task: an agent made from a saved profile, or from settings chosen for it.
 export const newAgentSchema = z.union([
   z.object({ profileId: z.string().min(1) }),
   z.object({ settings: agentSettingsSchema }),

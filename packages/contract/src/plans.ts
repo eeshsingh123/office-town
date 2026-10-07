@@ -3,15 +3,14 @@ import { agentSettingsSchema } from "./agents.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { roleSettingsSchema } from "./team.ts";
 
-// A department the chief proposes for a piece; its lead proposes the team once the piece starts.
+// Its lead proposes the team once the piece starts.
 const proposedDepartmentSchema = z.object({
   name: z.string().trim().min(1),
-  // What it does, in a few words.
   purpose: z.string().trim(),
   lead: roleSettingsSchema,
 });
 
-// Where the user put the new department when approving the plan.
+// With the place the user chose when approving the plan.
 const placedDepartmentSchema = proposedDepartmentSchema.extend({
   workspaceId: z.string().min(1),
   autonomy: autonomySchema,
@@ -19,14 +18,14 @@ const placedDepartmentSchema = proposedDepartmentSchema.extend({
 export type PlacedDepartment = z.infer<typeof placedDepartmentSchema>;
 
 const pieceFieldsShape = {
-  // A short name the chief chose, unique among the plan's pieces that are not dropped.
+  // Unique among the plan's pieces that are not dropped.
   key: z.string().trim().min(1),
   title: z.string().trim().min(1),
-  // What the department is to do; it stands alone.
+  // It stands alone.
   brief: z.string().trim().min(1),
 };
 
-// A piece as the chief proposes it: `waitsOn` names other pieces by key.
+// `waitsOn` names other pieces by key.
 export const proposedPieceSchema = z.object({
   ...pieceFieldsShape,
   waitsOn: z.array(z.string().min(1)),
@@ -37,7 +36,6 @@ export const proposedPieceSchema = z.object({
 });
 export type ProposedPiece = z.infer<typeof proposedPieceSchema>;
 
-// A piece as the user approved it, after their changes; a new department has its place.
 export const approvedPieceSchema = proposedPieceSchema.extend({
   department: z.union([
     z.object({ departmentId: z.string().min(1) }),
@@ -46,8 +44,7 @@ export const approvedPieceSchema = proposedPieceSchema.extend({
 });
 export type ApprovedPiece = z.infer<typeof approvedPieceSchema>;
 
-// waiting: on the pieces before it. queued: its department is busy. dropped: left out of a
-// changed plan, or of a goal that ended before it started.
+// queued: its department is busy. dropped: left out of a changed plan or an ended goal.
 export const pieceStatusSchema = z.enum([
   "waiting",
   "queued",
@@ -59,8 +56,7 @@ export const pieceStatusSchema = z.enum([
 ]);
 export type PieceStatus = z.infer<typeof pieceStatusSchema>;
 
-// One department's part of a chief's goal. A piece for a new department carries it until the
-// department exists; from then on `departmentId` is set too.
+// A piece for a new department carries it until the department exists, then `departmentId` too.
 export const planPieceSchema = z.object({
   id: z.string().min(1),
   // The chief's task.
@@ -71,16 +67,16 @@ export const planPieceSchema = z.object({
   // Piece ids.
   waitsOn: z.array(z.string().min(1)),
   status: pieceStatusSchema,
-  // The department's task for this piece, once it started.
+  // The department's task for this piece.
   pieceTaskId: z.string().min(1).optional(),
-  // The department lead's last message, once the piece ended.
+  // The department lead's last message.
   result: z.string().optional(),
   createdAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),
 });
 export type PlanPiece = z.infer<typeof planPieceSchema>;
 
-// The one standing chief's settings; a change applies at its next session.
+// A change applies at its next session.
 export const chiefRequestSchema = z.object({ settings: agentSettingsSchema });
 export type ChiefRequest = z.infer<typeof chiefRequestSchema>;
 

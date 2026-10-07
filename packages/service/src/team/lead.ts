@@ -8,7 +8,7 @@ import type { TeamContext } from "./members.ts";
 export const isOpen = (session: SessionRecord) =>
   session.status === "starting" || session.status === "running";
 
-// A department's lead, which has the team tools; the chief leads its task too, but no team.
+// The chief leads its task too, but has no team.
 export function leadsTeam(store: Store, caller: Caller): boolean {
   return (
     store.getTask(caller.taskId)?.leadAgentId === caller.agentId &&
@@ -16,7 +16,6 @@ export function leadsTeam(store: Store, caller: Caller): boolean {
   );
 }
 
-// An agent's latest session in a task, if it has worked on it.
 export function latestSession(
   { store }: TeamContext,
   taskId: string,
@@ -25,10 +24,7 @@ export function latestSession(
   return store.listSessions(taskId).findLast((session) => session.agentId === agentId);
 }
 
-// Hands a message to the task's lead: at once if it is at work, or by resuming it if it finished
-// or was stopped for being idle. One the user stopped, that failed or was cut off is left alone,
-// and this says nothing was delivered; what it missed waits in the delegation or piece records.
-// A lead at work has the message stored before this first waits.
+// A lead the user stopped, that failed or was cut off is left alone; what it missed waits in the records.
 export async function tellLead(
   context: TeamContext,
   taskId: string,

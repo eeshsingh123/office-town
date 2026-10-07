@@ -27,7 +27,7 @@ export class TeamError extends Error {
   }
 }
 
-// The workspace's folders, which must all still exist; the first is where the team works.
+// All must still exist; the first is where the team works.
 export function workspaceFolders(store: Store, workspaceId: string): string[] {
   const { folders } = store.useWorkspace(workspaceId);
   requireFolders(folders);
@@ -49,8 +49,7 @@ const canonical = (value: unknown) =>
       : inner,
   );
 
-// A team's rows carry harness settings only, so a kept member keeps its own instructions and its
-// lowered level unless the row names them.
+// Team rows carry harness settings only, so a kept member keeps its instructions and lowered level.
 function ownOf({ settings: { instructions, autonomy } }: AgentRecord) {
   return {
     ...(instructions === undefined ? {} : { instructions }),
@@ -98,9 +97,7 @@ function addMember(store: Store, departmentId: string, role: TeamRole): AgentRec
   });
 }
 
-// Makes the department's workers match the team: kept members take their new role and settings,
-// new roles become new agents, and members left out leave the department. The team is checked
-// first (checkTeam).
+// Call checkTeam first.
 export function applyTeam(store: Store, department: DepartmentRecord, team: Team): TeamChange {
   const members = workersOf(store, department);
   const kept = new Set(team.roles.flatMap((role) => role.agentId ?? []));
@@ -137,7 +134,6 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
   return { added, removed, updated };
 }
 
-// One line per worker, as the lead reads its team.
 export function rosterOf(store: Store, department: DepartmentRecord): string {
   const workers = workersOf(store, department);
   if (workers.length === 0) return "You have no workers yet.";

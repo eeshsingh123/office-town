@@ -7,7 +7,6 @@ import { openChiefSettings } from "../office/office-state.ts";
 import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./NewTaskView.module.css";
 
-// Who takes a goal given to the chief, and whether it waits its turn (D-49).
 export function ChiefChoice() {
   const chiefId = useApp((state) => state.chiefId);
   const chief = useApp((state) => (chiefId === undefined ? undefined : state.agents[chiefId]));

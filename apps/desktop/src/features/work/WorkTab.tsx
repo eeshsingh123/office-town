@@ -19,7 +19,6 @@ import styles from "./Work.module.css";
 
 const BLOCKERS = new Set<PlanPiece["status"]>(["failed", "stopped", "dropped"]);
 
-// Every piece a piece builds on, directly or through others.
 export function upstreamOf(piece: PlanPiece, plan: readonly PlanPiece[]): PlanPiece[] {
   const found = new Map<string, PlanPiece>();
   const visit = (one: PlanPiece) => {
@@ -71,7 +70,6 @@ function PieceRow({ piece, plan }: { piece: PlanPiece; plan: PlanPiece[] }) {
   );
 }
 
-// The chief's plan for its current or last goal, then the goals waiting their turn.
 export function ChiefWork({ chiefId }: { chiefId: string }) {
   const { current, queue } = useChiefGoals(chiefId);
   const plan = usePlan(current?.id);
@@ -158,7 +156,6 @@ function PieceOfGoal({ piece, department }: { piece: PlanPiece; department: Depa
   );
 }
 
-// A department's current goal, the work its lead handed out, and the pieces queued for it.
 export function DepartmentWork({ department }: { department: DepartmentRecord }) {
   const tasks = useApp((state) => state.tasks);
   const pieces = useApp((state) => state.pieces);
@@ -245,7 +242,6 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
   );
 }
 
-// An agent's steps in its latest session, and what it does now.
 export function AgentWork({ agent }: { agent: Agent }) {
   const trace = useApp((state) => state.traces[agent.latest.id]);
   useEffect(() => loadTrace(agent.latest.id), [agent.latest.id]);

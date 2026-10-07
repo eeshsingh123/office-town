@@ -16,7 +16,6 @@ interface ChoiceMenuProps<T extends string> {
   disabled?: boolean;
 }
 
-// A labelled chip that opens a list of choices, one of them current.
 export function ChoiceMenu<T extends string>({
   label,
   value,

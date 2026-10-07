@@ -8,7 +8,6 @@ import type { TeamContext } from "./members.ts";
 import { workspaceFolders } from "./members.ts";
 
 const WORKTREES = "worktrees";
-// Characters a branch or folder name should not carry.
 const UNSAFE = /[^a-z0-9-]+/g;
 
 export class GitError extends Error {
@@ -55,11 +54,7 @@ function inTurn<T>(repository: string, work: () => Promise<T>): Promise<T> {
   return next;
 }
 
-// Where a worker works: its own worktree and branch, made from the lead's branch, when the
-// workspace is a git repository and the department keeps a branch per worker; otherwise the
-// shared workspace. The worktree lives in the data folder, so the user's folder gains only a
-// branch. It is made by the git of the worker's own environment, as Windows and WSL git cannot
-// read each other's worktrees (D-41).
+// Made by the git of the worker's own environment, as Windows and WSL git cannot read each other's (D-41).
 export async function workerFolders(
   context: TeamContext,
   department: DepartmentRecord,
@@ -103,7 +98,6 @@ interface Worktree {
   main: string;
 }
 
-// The worktrees the task's workers worked in, each with the environment that made it.
 function worktreesOf({ store, dataFolder }: TeamContext, taskId: string): Worktree[] {
   const root = join(dataFolder, WORKTREES, taskId);
   const task = store.getTask(taskId);
@@ -135,7 +129,7 @@ async function remove({ path, environment, main }: Worktree): Promise<void> {
   }
 }
 
-// Merged: the branch is in the lead's, and nothing is left uncommitted, which removing would lose.
+// Uncommitted work would be lost by removing it.
 async function isMerged({ path, environment, main }: Worktree): Promise<boolean> {
   const inside = (folder: string) => environmentPath(environment, folder);
   const changes = await git(
@@ -156,8 +150,7 @@ async function isMerged({ path, environment, main }: Worktree): Promise<boolean>
   return result.code === 0;
 }
 
-// A worktree whose branch the lead has merged, and whose worker is not at work, is removed; its
-// branch stays.
+// Its branch stays.
 export async function removeMergedWorktrees(context: TeamContext, taskId: string): Promise<void> {
   const busy = new Set(
     context.store
@@ -171,7 +164,7 @@ export async function removeMergedWorktrees(context: TeamContext, taskId: string
   }
 }
 
-// A deleted task takes its worktrees with it; the branches stay in the user's repository.
+// The branches stay in the user's repository.
 export async function removeWorktrees(context: TeamContext, taskId: string): Promise<void> {
   for (const worktree of worktreesOf(context, taskId)) {
     await inTurn(worktree.main, () => remove(worktree));
@@ -179,8 +172,7 @@ export async function removeWorktrees(context: TeamContext, taskId: string): Pro
   rmSync(join(context.dataFolder, WORKTREES, taskId), { recursive: true, force: true });
 }
 
-// Checks a team's worktrees whenever one of its agents finishes a turn or ends: the lead may have
-// merged a branch, or a worker may have left its worktree free to remove.
+// After a turn or session ends: the lead may have merged a branch, or a worker left its worktree free.
 export function cleanUpWorktrees(context: TeamContext): void {
   const checking = new Map<string, Promise<void>>();
   context.registry.subscribe(({ event }) => {

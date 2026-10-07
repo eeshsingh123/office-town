@@ -1,6 +1,5 @@
 import type { UserRequestEvent } from "@office-town/contract";
 
-// One line for what a request asks, as a notification or a trace line shows it.
 export function requestSummary(event: UserRequestEvent): string {
   switch (event.type) {
     case "permission.requested":
