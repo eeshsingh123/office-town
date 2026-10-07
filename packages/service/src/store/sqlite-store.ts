@@ -6,14 +6,17 @@ import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type AgentRecord,
   type AgentSettings,
+  type Change,
   type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
+  type HarnessLimits,
   type PendingRequestList,
   type ProfileRecord,
   type ProfileRequest,
   type SessionEvent,
   type SessionOptions,
+  type SessionPage,
   type SessionRecord,
   type SessionStatus,
   type Settings,
@@ -21,7 +24,10 @@ import {
   settingsSchema,
   type TaskPage,
   type TaskRecord,
+  type TaskState,
   type TaskSummary,
+  type TaskUsage,
+  type UsageLimit,
   type UserRequestEvent,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -31,9 +37,12 @@ import { queries } from "./queries.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type AgentChange,
+  type AgentSessionQuery,
+  type ChangeListener,
   type DelegationEnd,
   type EventQuery,
   InUseError,
+  type LatestTurn,
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
@@ -64,6 +73,8 @@ interface TaskRow {
   leadAgentId: string | null;
   departmentId: string | null;
   setup: string | null;
+  state: TaskState;
+  reviewedAt: number | null;
 }
 
 interface SessionRow {
@@ -165,13 +176,16 @@ function iso(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
-function toTask(row: TaskRow): TaskRecord {
+function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
   return {
     id: row.id,
     prompt: row.prompt,
     createdAt: iso(row.createdAt),
     ...(row.leadAgentId === null ? {} : { leadAgentId: row.leadAgentId }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    state: row.state,
+    ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
+    usage,
   };
 }
 
@@ -286,6 +300,9 @@ class SqliteStore implements Store {
   readonly #statements: Statements;
   // While a task's rows are deleted in chunks, no new session may join it.
   readonly #deleting = new Set<string>();
+  readonly #listeners = new Set<ChangeListener>();
+  readonly #outbox: Change[] = [];
+  #publishing = false;
 
   constructor(db: DatabaseSync, file: string, results: ResultFiles) {
     this.#db = db;
@@ -294,6 +311,11 @@ class SqliteStore implements Store {
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
+  }
+
+  subscribe(listener: ChangeListener): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
   }
 
   createTask(prompt: string, team?: TaskTeam): TaskRecord {
@@ -313,13 +335,7 @@ class SqliteStore implements Store {
       department?.ref ?? null,
       setup,
     );
-    return {
-      id,
-      prompt,
-      createdAt: iso(createdAt),
-      ...(lead === undefined ? {} : { leadAgentId: lead.id }),
-      ...(department === undefined ? {} : { departmentId: department.id }),
-    };
+    return this.#publishTask(id);
   }
 
   taskSetup(taskId: string): TeamSetup | undefined {
@@ -330,7 +346,7 @@ class SqliteStore implements Store {
   joinDepartment(taskId: string, departmentId: string): TaskRecord {
     const task = this.#taskRow(taskId);
     this.#statements.taskJoinsDepartment.run(this.#departmentRow(departmentId).ref, task.ref);
-    return toTask({ ...task, departmentId, setup: null });
+    return this.#publishTask(taskId);
   }
 
   activeTaskOf(departmentId: string): string | undefined {
@@ -338,9 +354,19 @@ class SqliteStore implements Store {
     return one<{ id: string }>(this.#statements.activeTaskOfDepartment, ref)?.id;
   }
 
+  setTaskState(taskId: string, state: TaskState): void {
+    const { ref } = this.#taskRow(taskId);
+    if (this.#statements.setTaskState.run(state, ref).changes > 0) this.#publishTask(taskId);
+  }
+
+  markReviewed(taskId: string): TaskRecord {
+    this.#statements.taskReviewed.run(Date.now(), this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
   getTask(id: string): TaskRecord | undefined {
     const row = one<TaskRow>(this.#statements.taskById, id);
-    return row === undefined ? undefined : toTask(row);
+    return row === undefined ? undefined : this.#toTask(row);
   }
 
   listTasks({ limit, cursor }: TaskQuery): TaskPage {
@@ -381,6 +407,9 @@ class SqliteStore implements Store {
           this.#statements.deleteAgentIfUnused.run(ref, ref);
         }
       });
+      // Agents deleted with the task were in no department and worked on nothing else, so the
+      // task's notice covers them.
+      this.#publish({ type: "task.deleted", taskId: id });
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#returnFreeSpace();
     } finally {
@@ -424,14 +453,46 @@ class SqliteStore implements Store {
     );
   }
 
+  listAgentSessions(agentId: string, { limit, before }: AgentSessionQuery): SessionPage {
+    const agentRef = this.#agentRow(agentId).ref;
+    // The cursor is the last session's key, so it stays valid after that session's task is deleted.
+    const beforeRef = before === undefined ? Number.MAX_SAFE_INTEGER : Number(before);
+    const rows = all<SessionRow>(this.#statements.agentSessionsBefore, agentRef, beforeRef, limit);
+    const last = rows.at(-1);
+    const sessions = rows.map(toSession);
+    return rows.length < limit || last === undefined
+      ? { sessions }
+      : { sessions, next: String(last.ref) };
+  }
+
+  latestTurn(sessionId: string): LatestTurn | undefined {
+    const row = one<{ type: string; timestamp: number }>(
+      this.#statements.latestTurnOfSession,
+      this.#sessionRef(sessionId),
+    );
+    return row === undefined
+      ? undefined
+      : { ended: row.type === "turn.ended", at: iso(row.timestamp) };
+  }
+
   markInterrupted(): SessionRecord[] {
-    return transaction(this.#db, () => {
+    const { sessions, delegations } = transaction(this.#db, () => {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+      const delegations = all<DelegationRow>(this.#statements.workingDelegations);
       this.#statements.deleteUnfinishedPendingRequests.run();
       this.#statements.interruptUnfinished.run();
       this.#statements.interruptDelegations.run();
-      return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
+      return { sessions, delegations };
     });
+    for (const row of delegations) {
+      this.#publish({
+        type: "delegation",
+        delegation: toDelegation({ ...row, status: "interrupted" }),
+      });
+    }
+    // The tasks' records are unchanged, but whoever keeps their state reads them again.
+    for (const taskId of new Set(sessions.map((row) => row.taskId))) this.#publishTask(taskId);
+    return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
   }
 
   createDelegation(delegation: NewDelegation): DelegationRecord {
@@ -445,7 +506,9 @@ class SqliteStore implements Store {
       delegation.brief,
       createdAt,
     );
-    return { ...delegation, id, status: "working", createdAt: iso(createdAt) };
+    const record = { ...delegation, id, status: "working" as const, createdAt: iso(createdAt) };
+    this.#publish({ type: "delegation", delegation: record });
+    return record;
   }
 
   listDelegations(taskId: string): DelegationRecord[] {
@@ -460,7 +523,10 @@ class SqliteStore implements Store {
 
   endDelegation(id: string, status: DelegationEnd, result?: string): void {
     const row = this.#delegationRow(id);
-    this.#statements.endDelegation.run(status, result ?? null, Date.now(), row.ref);
+    const endedAt = Date.now();
+    this.#statements.endDelegation.run(status, result ?? null, endedAt, row.ref);
+    const ended = { ...row, status, result: result ?? null, endedAt };
+    this.#publish({ type: "delegation", delegation: toDelegation(ended) });
   }
 
   append(event: SessionEvent): StoredEvent | undefined {
@@ -468,7 +534,7 @@ class SqliteStore implements Store {
     const sessionRef = this.#sessionRef(event.sessionId);
     // A file is written before its row; if the row then fails, the file is removed with its session.
     const stored = this.#keepLargeTextApart(event);
-    const position = transaction(this.#db, () => {
+    const { position, change } = transaction(this.#db, () => {
       const { lastInsertRowid } = this.#statements.insertEvent.run(
         sessionRef,
         stored.sequence,
@@ -480,8 +546,9 @@ class SqliteStore implements Store {
       const position = Number(lastInsertRowid);
       this.#updateSession(sessionRef, stored);
       this.#updatePendingRequests(sessionRef, position, stored);
-      return position;
+      return { position, change: this.#updateUsage(sessionRef, stored) };
     });
+    if (change !== undefined) this.#publish(change);
     return { position, event: stored };
   }
 
@@ -508,6 +575,16 @@ class SqliteStore implements Store {
             limit,
           );
     return rows.map(toStoredEvent);
+  }
+
+  listLimits(): HarnessLimits[] {
+    return all<{ harness: string; limits: string; reportedAt: number }>(
+      this.#statements.allLimits,
+    ).map((row) => ({
+      harness: row.harness,
+      limits: JSON.parse(row.limits) as UsageLimit[],
+      reportedAt: iso(row.reportedAt),
+    }));
   }
 
   readOverflow(sessionId: string, sequence: number): string {
@@ -556,19 +633,7 @@ class SqliteStore implements Store {
       if (isUniqueViolation(error)) throw new NameTakenError(name);
       throw error;
     }
-    return {
-      id,
-      name,
-      colour,
-      ...(role === undefined ? {} : { role }),
-      ...(purpose === undefined ? {} : { purpose }),
-      ...(departmentId === undefined ? {} : { departmentId }),
-      ...(autonomy === undefined ? {} : { autonomy }),
-      ...(guest ? { guest } : {}),
-      ...(profileId === undefined ? {} : { profileId }),
-      settings,
-      createdAt: iso(createdAt),
-    };
+    return this.#publishAgent(id);
   }
 
   getAgent(id: string): AgentRecord | undefined {
@@ -592,7 +657,7 @@ class SqliteStore implements Store {
       if (isUniqueViolation(error)) throw new NameTakenError(name);
       throw error;
     }
-    return toAgent({ ...row, name });
+    return this.#publishAgent(id);
   }
 
   updateAgent(id: string, change: AgentChange): AgentRecord {
@@ -607,19 +672,7 @@ class SqliteStore implements Store {
       JSON.stringify(settings),
       row.ref,
     );
-    const { name, colour, createdAt } = toAgent(row);
-    return {
-      id,
-      name,
-      colour,
-      ...(role === undefined ? {} : { role }),
-      ...(purpose === undefined ? {} : { purpose }),
-      ...(departmentId === undefined ? {} : { departmentId }),
-      ...(autonomy === undefined ? {} : { autonomy }),
-      ...(profileId === undefined ? {} : { profileId }),
-      settings,
-      createdAt,
-    };
+    return this.#publishAgent(id);
   }
 
   createDepartment(department: NewDepartment): DepartmentRecord {
@@ -635,7 +688,7 @@ class SqliteStore implements Store {
       department.codeFlow ? 1 : 0,
       createdAt,
     );
-    return { ...department, id, createdAt: iso(createdAt) };
+    return this.#publishDepartment(id);
   }
 
   getDepartment(id: string): DepartmentRecord | undefined {
@@ -657,7 +710,7 @@ class SqliteStore implements Store {
       codeFlow ? 1 : 0,
       row.ref,
     );
-    return { ...toDepartment(row), ...settings };
+    return this.#publishDepartment(id);
   }
 
   listMembers(departmentId: string): AgentRecord[] {
@@ -757,7 +810,45 @@ class SqliteStore implements Store {
 
   #summarize(row: TaskRow): TaskSummary {
     const sessions = all<SessionRow>(this.#statements.sessionsOfTask, row.ref).map(toSession);
-    return { ...toTask(row), sessions };
+    return { ...this.#toTask(row), sessions };
+  }
+
+  #toTask(row: TaskRow): TaskRecord {
+    return toTask(row, all<TaskUsage>(this.#statements.usageOfTask, row.ref));
+  }
+
+  // Each write publishes the record as it now reads, so a listener never sees a partial copy.
+  #publishTask(id: string): TaskRecord {
+    const task = this.#toTask(this.#taskRow(id));
+    this.#publish({ type: "task", task });
+    return task;
+  }
+
+  #publishAgent(id: string): AgentRecord {
+    const agent = toAgent(this.#agentRow(id));
+    this.#publish({ type: "agent", agent });
+    return agent;
+  }
+
+  #publishDepartment(id: string): DepartmentRecord {
+    const department = toDepartment(this.#departmentRow(id));
+    this.#publish({ type: "department", department });
+    return department;
+  }
+
+  // A listener that writes, such as one keeping a task's state, makes new changes while the first
+  // is still being handed out. Those wait their turn, so every listener sees them in order.
+  #publish(change: Change): void {
+    this.#outbox.push(change);
+    if (this.#publishing) return;
+    this.#publishing = true;
+    try {
+      for (let next = this.#outbox.shift(); next !== undefined; next = this.#outbox.shift()) {
+        for (const listener of this.#listeners) listener(next);
+      }
+    } finally {
+      this.#publishing = false;
+    }
   }
 
   #taskRow(id: string): TaskRow {
@@ -766,8 +857,8 @@ class SqliteStore implements Store {
     return row;
   }
 
-  #delegationRow(id: string): { ref: number } {
-    const row = one<{ ref: number }>(this.#statements.delegationRef, id);
+  #delegationRow(id: string): DelegationRow {
+    const row = one<DelegationRow>(this.#statements.delegationById, id);
     if (row === undefined) throw new RecordNotFoundError("delegation", id);
     return row;
   }
@@ -834,6 +925,38 @@ class SqliteStore implements Store {
         sessionRef,
       );
     }
+  }
+
+  // A turn's tokens are added to its task's, and reported limits replace the harness's earlier
+  // ones, in the event's own transaction. Returns what to publish once it commits.
+  #updateUsage(sessionRef: number, event: SessionEvent): Change | undefined {
+    if (event.type === "limits.updated") {
+      const { harness } = this.#sessionTask(sessionRef);
+      const { limits } = event.payload;
+      this.#statements.saveLimits.run(harness, JSON.stringify(limits), Date.parse(event.timestamp));
+      return { type: "limits", limits: { harness, limits, reportedAt: event.timestamp } };
+    }
+    if (event.type !== "turn.ended" || event.payload.usage === undefined) return undefined;
+    const { usage } = event.payload;
+    const { taskRef, harness } = this.#sessionTask(sessionRef);
+    this.#statements.addTaskUsage.run(
+      taskRef,
+      harness,
+      usage.inputTokens,
+      usage.outputTokens,
+      usage.cachedInputTokens ?? 0,
+    );
+    const task = one<TaskRow>(this.#statements.taskByRef, taskRef);
+    return task === undefined ? undefined : { type: "task", task: this.#toTask(task) };
+  }
+
+  #sessionTask(sessionRef: number): { taskRef: number; harness: string } {
+    const row = one<{ taskRef: number; harness: string }>(
+      this.#statements.sessionTaskAndHarness,
+      sessionRef,
+    );
+    if (row === undefined) throw new RecordNotFoundError("session", String(sessionRef));
+    return row;
   }
 
   // The waiting requests change with the events that open and close them. A session that ended

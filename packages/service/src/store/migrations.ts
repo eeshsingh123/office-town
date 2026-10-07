@@ -212,4 +212,51 @@ export const migrations: readonly Migration[] = [
   WHERE json_extract(options, '$.permissionMode') = 'acceptEdits';
   `,
   "ALTER TABLE agents ADD COLUMN guest INTEGER NOT NULL DEFAULT 0;",
+  `
+  -- Tasks of earlier versions count as finished and reviewed, so old history does not fill the
+  -- review queue.
+  ALTER TABLE tasks ADD COLUMN state TEXT NOT NULL DEFAULT 'ended'
+    CHECK (state IN ('working', 'waiting', 'idle', 'ended'));
+  ALTER TABLE tasks ADD COLUMN reviewed_at INTEGER;
+  UPDATE tasks SET reviewed_at = CAST(unixepoch('subsec') * 1000 AS INTEGER);
+  CREATE INDEX tasks_open_by_department ON tasks (department_ref) WHERE state <> 'ended';
+
+  CREATE INDEX events_turns ON events (session_ref) WHERE type IN ('turn.started', 'turn.ended');
+
+  -- Each task's tokens by harness, summed from its turns as they end.
+  CREATE TABLE task_usage (
+    task_ref            INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    harness             TEXT NOT NULL,
+    input_tokens        INTEGER NOT NULL,
+    output_tokens       INTEGER NOT NULL,
+    cached_input_tokens INTEGER NOT NULL,
+    PRIMARY KEY (task_ref, harness)
+  ) STRICT, WITHOUT ROWID;
+
+  INSERT INTO task_usage
+  SELECT s.task_ref, s.options ->> '$.harness', sum(e.payload ->> '$.usage.inputTokens'),
+         sum(e.payload ->> '$.usage.outputTokens'),
+         sum(coalesce(e.payload ->> '$.usage.cachedInputTokens', 0))
+  FROM events e
+  JOIN sessions s ON s.ref = e.session_ref
+  WHERE e.type = 'turn.ended' AND e.payload ->> '$.usage' IS NOT NULL
+  GROUP BY s.task_ref, s.options ->> '$.harness';
+
+  -- Each harness's latest plan limits, a JSON array, since a limit belongs to the account.
+  CREATE TABLE harness_limits (
+    harness     TEXT PRIMARY KEY,
+    limits      TEXT NOT NULL,
+    reported_at INTEGER NOT NULL
+  ) STRICT, WITHOUT ROWID;
+
+  -- SQLite takes the other columns from the row with the highest position.
+  INSERT INTO harness_limits
+  SELECT harness, limits, timestamp FROM (
+    SELECT s.options ->> '$.harness' AS harness, e.payload ->> '$.limits' AS limits, e.timestamp,
+           max(e.position)
+    FROM events e
+    JOIN sessions s ON s.ref = e.session_ref
+    WHERE e.type = 'limits.updated'
+    GROUP BY s.options ->> '$.harness');
+  `,
 ];

@@ -3,19 +3,23 @@ import type {
   AgentRecord,
   AgentSettings,
   Autonomy,
+  Change,
   DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
+  HarnessLimits,
   PendingRequestList,
   ProfileRecord,
   ProfileRequest,
   SessionEvent,
   SessionOptions,
+  SessionPage,
   SessionRecord,
   Settings,
   StoreSize,
   TaskPage,
   TaskRecord,
+  TaskState,
   TaskSummary,
   WorkspaceRecord,
   WorkspaceRequest,
@@ -88,12 +92,28 @@ export interface TaskQuery {
   cursor?: string;
 }
 
+export interface AgentSessionQuery {
+  limit: number;
+  before?: string;
+}
+
+// A session's latest turn: whether it has ended, and when it started or ended.
+export interface LatestTurn {
+  ended: boolean;
+  at: string;
+}
+
+export type ChangeListener = (change: Change) => void;
+
 export type LineDirection = "in" | "out";
 
 // Synchronous on purpose: SQLite runs in this process and a write takes microseconds, so an async
 // interface would only add a queue to keep "stored before published" in order. Deleting is the
 // one long operation, so it alone is async.
 export interface Store {
+  // Hears every change to a task, agent, department, delegation or plan limit once it is
+  // written, in the order written.
+  subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam): TaskRecord;
   // Set until the task's team is approved.
   taskSetup(taskId: string): TeamSetup | undefined;
@@ -101,6 +121,9 @@ export interface Store {
   joinDepartment(taskId: string, departmentId: string): TaskRecord;
   // The department's task with an agent at work, if any.
   activeTaskOf(departmentId: string): string | undefined;
+  // Does nothing if the task is already in that state. Leaving "ended" clears its review.
+  setTaskState(taskId: string, state: TaskState): void;
+  markReviewed(taskId: string): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first, each with its sessions.
   listTasks(query: TaskQuery): TaskPage;
@@ -111,6 +134,9 @@ export interface Store {
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];
+  // The agent's sessions across all its tasks, newest first.
+  listAgentSessions(agentId: string, query: AgentSessionQuery): SessionPage;
+  latestTurn(sessionId: string): LatestTurn | undefined;
   // Marks every session left starting or running by an earlier core as interrupted, with the
   // delegations they were working on.
   markInterrupted(): SessionRecord[];
@@ -120,11 +146,14 @@ export interface Store {
   // The delegation a worker's session is working on, if any.
   workingDelegation(workerSessionId: string): DelegationRecord | undefined;
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
-  // Returns the event as stored, or nothing for a text fragment, which is never stored.
+  // Returns the event as stored, or nothing for a text fragment, which is never stored. A turn's
+  // usage is added to its task's, and reported limits replace the harness's earlier ones.
   append(event: SessionEvent): StoredEvent | undefined;
   // A line over 64 KiB is cut: the events already hold the text, the audit copy needs its shape.
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
+  // Each harness's latest plan limits, by harness.
+  listLimits(): HarnessLimits[];
   readOverflow(sessionId: string, sequence: number): string;
   // Every permission request and question no one has answered yet, across all sessions.
   listPendingRequests(): PendingRequestList;

@@ -1,6 +1,6 @@
 const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
-         d.id AS departmentId, t.setup
+         d.id AS departmentId, t.setup, t.state, t.reviewed_at AS reviewedAt
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
   LEFT JOIN departments d ON d.ref = t.department_ref`;
@@ -51,9 +51,10 @@ const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used
 // except those marked as reading a small table whole.
 export const queries = {
   insertTask: `
-    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup)
-    VALUES (?, ?, ?, ?, ?, ?)`,
+    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state)
+    VALUES (?, ?, ?, ?, ?, ?, 'working')`,
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
+  taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
   // A department works on one goal at a time: the one with an agent at work.
@@ -62,14 +63,34 @@ export const queries = {
     WHERE t.department_ref = ?
       AND EXISTS (SELECT 1 FROM sessions s WHERE s.task_ref = t.ref AND s.${UNFINISHED})
     LIMIT 1`,
+  // Leaving "ended" takes the goal up again, so its review is cleared.
+  setTaskState: `
+    UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
+    WHERE ref = ?2 AND state <> ?1`,
+  taskReviewed: "UPDATE tasks SET reviewed_at = ? WHERE ref = ?",
+  usageOfTask: `
+    SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
+           cached_input_tokens AS cachedInputTokens
+    FROM task_usage WHERE task_ref = ? ORDER BY harness`,
+  addTaskUsage: `
+    INSERT INTO task_usage (task_ref, harness, input_tokens, output_tokens, cached_input_tokens)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (task_ref, harness) DO UPDATE SET
+      input_tokens = input_tokens + excluded.input_tokens,
+      output_tokens = output_tokens + excluded.output_tokens,
+      cached_input_tokens = cached_input_tokens + excluded.cached_input_tokens`,
   deleteTask: "DELETE FROM tasks WHERE ref = ?",
 
   insertSession: `
     INSERT INTO sessions (id, task_ref, agent_ref, resumed_from_ref, options, status, created_at)
     VALUES (?, ?, ?, ?, ?, 'starting', ?)`,
   sessionRef: "SELECT ref FROM sessions WHERE id = ?",
+  sessionTaskAndHarness: `
+    SELECT task_ref AS taskRef, options ->> '$.harness' AS harness FROM sessions WHERE ref = ?`,
   sessionById: `${SESSION_SELECT} WHERE s.id = ?`,
   sessionsOfTask: `${SESSION_SELECT} WHERE s.task_ref = ? ORDER BY s.ref`,
+  agentSessionsBefore: `
+    ${SESSION_SELECT} WHERE s.agent_ref = ? AND s.ref < ? ORDER BY s.ref DESC LIMIT ?`,
   unfinishedInTask: `SELECT 1 FROM sessions WHERE task_ref = ? AND ${UNFINISHED} LIMIT 1`,
   unfinishedSessions: `${SESSION_SELECT} WHERE s.${UNFINISHED}`,
   interruptUnfinished: `UPDATE sessions SET status = 'interrupted' WHERE ${UNFINISHED}`,
@@ -104,8 +125,9 @@ export const queries = {
       (id, task_ref, worker_ref, worker_session, brief, status, created_at)
     VALUES (?, ?, ?, ?, ?, 'working', ?)`,
   delegationsOfTask: `${DELEGATION_SELECT} WHERE g.task_ref = ? ORDER BY g.ref`,
+  workingDelegations: `${DELEGATION_SELECT} WHERE g.status = 'working'`,
   workingDelegationOf: `${DELEGATION_SELECT} WHERE g.worker_session = ? AND g.status = 'working'`,
-  delegationRef: "SELECT ref FROM delegations WHERE id = ?",
+  delegationById: `${DELEGATION_SELECT} WHERE g.id = ?`,
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
 
@@ -156,6 +178,16 @@ export const queries = {
     JOIN sessions s ON s.ref = e.session_ref
     JOIN tasks t ON t.ref = s.task_ref
     ORDER BY p.event_position`,
+  latestTurnOfSession: `
+    SELECT type, timestamp FROM events
+    WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
+    ORDER BY position DESC LIMIT 1`,
+  saveLimits: `
+    INSERT INTO harness_limits (harness, limits, reported_at) VALUES (?, ?, ?)
+    ON CONFLICT (harness) DO UPDATE SET limits = excluded.limits, reported_at = excluded.reported_at`,
+  // Reads the whole table on purpose: one row per harness.
+  allLimits:
+    "SELECT harness, limits, reported_at AS reportedAt FROM harness_limits ORDER BY harness",
   lastPosition: "SELECT max(position) AS position FROM events",
 
   insertWorkspace: `
