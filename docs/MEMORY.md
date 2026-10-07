@@ -5,8 +5,8 @@ Last updated: 2026-10-07
 ## State
 
 - M1 to M4 are done and merged to `main` (M3 is PR #27, M4 is PR #28).
-- M5 Command center is built on `feat/m5-command-center`, checks green, not yet live-run. Next session starts with the MODULES done check: a chief goal across two departments on two harnesses, plan edited and approved, a downstream piece waits then starts with the upstream result, a busy department queues its piece, a stopped or failed piece leads to an approved re-plan, the goal lands in To review. Write a small API helper and stream logger for it (the scratchpad does not persist).
-- Check in that run: the "owes a turn" rule (D-50) assumes a prompt sent mid-turn starts a new turn; if Claude folds it into the current turn, a goal stays working until its next turn.
+- M5 Command center is on `feat/m5-command-center` (PR #30), reviewed and fixed. Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
+- The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
 - Never checked by an agent, worth a click when touched: M5's plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50), a WSL run from New task, a drag selection grouped by room, Message lead and Stop team from the department panel, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check.
 - `worktrees.test.ts` can time out under a full parallel run; it passes alone.
 - Local only: `.claude/launch.json` (browser preview on a scratch data folder), kept out of git through `.git/info/exclude`.
