@@ -559,6 +559,7 @@ export function Floor(props: FloorProps) {
       )}
       {focused === undefined || request === undefined ? null : (
         <FocusCard
+          key={request.event.id}
           request={request}
           at={focused.position}
           floorWidth={plan.width}

@@ -126,8 +126,12 @@ export function apiRoutes(team: TeamContext): Route[] {
     {
       method: "DELETE",
       path: "/tasks/:id",
+      // A chief's goal also waits for its pieces, or their results would reach no one.
       reply: async ({ param }) => {
-        if (store.listSessions(param("id")).some(isRunning)) {
+        const pieceTasks = store
+          .listPieces(param("id"))
+          .flatMap((piece) => piece.pieceTaskId ?? []);
+        if ([param("id"), ...pieceTasks].some((id) => store.listSessions(id).some(isRunning))) {
           throw new TaskActiveError(param("id"));
         }
         await removeWorktrees(team, param("id"));

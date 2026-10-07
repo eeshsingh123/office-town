@@ -201,7 +201,7 @@ Tests pass.`,
     expect(state(second.taskId)).toBe("idle");
   });
 
-  it("ends a goal only once its lead acted on every answer and result, and ends a stopped one whose lead was idle", async () => {
+  it("ends a goal only once its lead acted on every answer and result, not on one given inside its turn, and ends a stopped one whose lead was idle", async () => {
     const { task, writer } = await teamAtWork();
     const [lead] = core.sessions;
     const states: string[] = [];
@@ -232,10 +232,18 @@ Tests pass.`,
     playTurn(lead, "The menu is done.");
     expect(state()).toBe("ended");
 
-    // Stopping a goal whose lead was stopped as idle ends it, with the worker's work undelivered.
+    // The harness's own question is answered inside the turn, so no turn is owed after it.
     lead?.emit({ type: "turn.started", payload: { turnId: "3" } });
-    await core.callTool(lead, "delegate", { agent: writer, brief: "Write again" });
+    const asked = { questionId: "1", text: "Which?", options: [], multiSelect: false };
+    lead?.emit({ type: "question.requested", payload: { requestId: "q", questions: [asked] } });
+    lead?.emit({ type: "question.resolved", payload: { requestId: "q", outcome: "answered" } });
     lead?.emit({ type: "turn.ended", payload: { turnId: "3", outcome: "completed" } });
+    expect(state()).toBe("ended");
+
+    // Stopping a goal whose lead was stopped as idle ends it, with the worker's work undelivered.
+    lead?.emit({ type: "turn.started", payload: { turnId: "4" } });
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write again" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "4", outcome: "completed" } });
     await core.registry.stop(lead?.id ?? "", true);
     expect(state()).toBe("idle");
     expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);

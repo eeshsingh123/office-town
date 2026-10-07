@@ -208,17 +208,23 @@ export const queries = {
     SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
     WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')
     ORDER BY position DESC LIMIT 1`,
-  // The repeated type term lets the subquery use the partial index on turns.
+  // The repeated type terms let the subqueries use the partial index on turns. An answer given
+  // mid-turn, such as to Claude's own question, goes back into that turn, so only one after it counts.
   promptAfterTurn: `
     SELECT 1 FROM events
     WHERE session_ref = ?1
-      AND position > coalesce(
-        (SELECT max(position) FROM events
-         WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
-           AND type = 'turn.started'),
-        0)
-      AND (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
-           OR (type = 'message' AND payload ->> '$.role' = 'user'))
+      AND ((type = 'message' AND payload ->> '$.role' = 'user'
+            AND position > coalesce(
+              (SELECT max(position) FROM events
+               WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
+                 AND type = 'turn.started'),
+              0))
+        OR (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
+            AND position > coalesce(
+              (SELECT max(position) FROM events
+               WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
+                 AND type = 'turn.ended'),
+              0)))
     LIMIT 1`,
   lastAgentMessage: `
     SELECT payload ->> '$.text' AS text FROM events

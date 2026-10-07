@@ -57,7 +57,7 @@ export function ChiefOverview({ chiefId }: { chiefId: string }) {
             : `${queue.length === 1 ? "1 goal" : `${queue.length} goals`}: ${taskTitle(queue[0]?.prompt ?? "")}`}
         </dd>
       </dl>
-      {waiting === undefined ? null : <RequestCard event={waiting.event} />}
+      {waiting === undefined ? null : <RequestCard key={waiting.event.id} event={waiting.event} />}
       <p className={styles.note}>
         The chief plans and messages leads. It does not change departments' files.
       </p>

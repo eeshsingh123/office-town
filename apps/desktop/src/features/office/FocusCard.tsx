@@ -53,7 +53,8 @@ export function FocusCard({ request, at, floorWidth, onClosed }: FocusCardProps)
       // The card's keys and clicks stay off the floor, so typing an answer never walks.
       onKeyDown={(event) => {
         event.stopPropagation();
-        if (event.key === "Escape") focusAgent(undefined);
+        // A menu or dialog opened from the card takes its own Escape.
+        if (event.key === "Escape" && !event.defaultPrevented) focusAgent(undefined);
       }}
       onKeyUp={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
