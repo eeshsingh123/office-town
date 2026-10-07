@@ -38,6 +38,7 @@ export interface TraceMessage {
   id: string;
   role: "user" | "assistant";
   text: string;
+  at: string;
   // Set when the core sent it in the user's place.
   origin?: MessageOrigin;
 }
@@ -184,6 +185,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         id: event.id,
         role,
         text,
+        at: event.timestamp,
         ...(origin === undefined ? {} : { origin }),
       });
       place(trace, event.id, parentActionId);
