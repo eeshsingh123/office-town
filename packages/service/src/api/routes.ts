@@ -1,5 +1,7 @@
 import {
   agentCommandSchema,
+  chiefRequestSchema,
+  chiefTaskRequestSchema,
   continueTaskRequestSchema,
   departmentSettingsSchema,
   environmentSpecSchema,
@@ -20,6 +22,8 @@ import { z } from "zod";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
+import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
@@ -87,6 +91,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       }),
     },
     {
+      method: "POST",
+      path: "/tasks/chief",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: await startChiefGoal(team, chiefTaskRequestSchema.parse(await body()).goal),
+      }),
+    },
+    {
       method: "GET",
       path: "/tasks",
       reply: ({ query }) => {
@@ -125,7 +137,8 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/tasks/:id/stop",
       reply: async ({ param }) => {
-        await stopTeam(team, param("id"));
+        if (isChiefTask(store, param("id"))) await stopChiefGoal(team, param("id"));
+        else await stopTeam(team, param("id"));
         return NO_CONTENT;
       },
     },
@@ -259,6 +272,23 @@ export function apiRoutes(team: TeamContext): Route[] {
         const { name } = renameAgentRequestSchema.parse(await body());
         return { status: 200, json: store.renameAgent(param("id"), name) };
       },
+    },
+    {
+      method: "GET",
+      path: "/chief",
+      reply: () => {
+        const chief = chiefOf(store);
+        if (chief === undefined) throw new RecordNotFoundError("agent", "chief");
+        return { status: 200, json: chief };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/chief",
+      reply: async ({ body }) => ({
+        status: 200,
+        json: saveChief(store, chiefRequestSchema.parse(await body()).settings),
+      }),
     },
     {
       method: "GET",

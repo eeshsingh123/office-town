@@ -3,6 +3,7 @@ import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
+import { Scheduler } from "../../src/chief/scheduler.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import { SessionRegistry } from "../../src/registry/session-registry.ts";
 import { openStore } from "../../src/store/sqlite-store.ts";
@@ -33,6 +34,7 @@ export interface Core {
   registry: SessionRegistry;
   tools: RunningToolServer;
   team: TeamContext;
+  scheduler: Scheduler;
   sessions: FakeSession[];
   // A test reads the few fields it checks; the schemas are proven by the contract tests.
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
@@ -83,6 +85,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     teamStatus(team, activity),
     outsource(team),
   ]);
+  const scheduler = new Scheduler(team);
   const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 
   return {
@@ -90,6 +93,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     registry,
     tools,
     team,
+    scheduler,
     sessions,
     async call(method, path, body) {
       const response = await fetch(`${server.url}${path}`, {

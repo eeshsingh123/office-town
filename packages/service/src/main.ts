@@ -4,6 +4,7 @@ import type { CoreReady } from "@office-town/contract";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
+import { Scheduler } from "./chief/scheduler.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
@@ -60,6 +61,9 @@ toolServer.offer([
   teamStatus(team, activity),
   outsource(team),
 ]);
+const scheduler = new Scheduler(team);
+// After a restart, queued work may be free to start.
+void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ team, token, port });
 const ready: CoreReady = { url: server.url, token };

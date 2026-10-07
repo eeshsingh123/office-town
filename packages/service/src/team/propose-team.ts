@@ -10,6 +10,7 @@ import { z } from "zod";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
+import { leadsTeam } from "./lead.ts";
 import { applyTeam, checkTeam, rosterOf, type TeamContext, TeamError } from "./members.ts";
 
 const MODELS_NAMED = 20;
@@ -186,7 +187,7 @@ export function proposeTeam(context: TeamContext) {
       "have, propose the whole new team, keeping current workers by name. It returns at once; " +
       "the user's answer reaches you later as a message.",
     input: inputSchema,
-    offeredTo: (caller) => store.getTask(caller.taskId)?.leadAgentId === caller.agentId,
+    offeredTo: (caller) => leadsTeam(store, caller),
     async call({ name, roles, reason }, caller) {
       const waiting = store
         .listPendingRequests()

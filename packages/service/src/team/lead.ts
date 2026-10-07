@@ -1,10 +1,20 @@
 import type { SessionRecord } from "@office-town/contract";
+import { isChiefTask } from "../chief/chief.ts";
 import { type Message, SessionNotRunningError } from "../registry/session-registry.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
+import type { Caller } from "../tools/tools.ts";
 import type { TeamContext } from "./members.ts";
 
 export const isOpen = (session: SessionRecord) =>
   session.status === "starting" || session.status === "running";
+
+// A department's lead, which has the team tools; the chief leads its task too, but no team.
+export function leadsTeam(store: Store, caller: Caller): boolean {
+  return (
+    store.getTask(caller.taskId)?.leadAgentId === caller.agentId &&
+    !isChiefTask(store, caller.taskId)
+  );
+}
 
 // An agent's latest session in a task, if it has worked on it.
 export function latestSession(

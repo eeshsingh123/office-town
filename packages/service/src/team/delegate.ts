@@ -7,7 +7,7 @@ import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
-import { isOpen, latestSession } from "./lead.ts";
+import { isOpen, latestSession, leadsTeam } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
 import { workerFolders } from "./worktrees.ts";
 
@@ -35,7 +35,7 @@ function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
 const isLead =
   ({ store }: TeamContext) =>
   (caller: Caller) =>
-    store.getTask(caller.taskId)?.leadAgentId === caller.agentId;
+    leadsTeam(store, caller);
 
 const NOT_YET = "Your team is not approved yet. Wait for the user to answer your proposal.";
 
