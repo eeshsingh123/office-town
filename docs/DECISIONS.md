@@ -140,7 +140,7 @@ Why: a clean-slate review must not inherit the team's context or change its work
 
 ### D-48 Departments are rooms on one floor — accepted (2026-10-05)
 
-Every saved department has a room, with a desk per member in a fixed order (lead first), so an agent keeps its desk while the team stays the same; a member who leaves closes the gap. Rooms keep the order departments were made in. Agents working alone share the open floor; guests sit at the guest desk. Clicking a room's sign or walking in opens the department panel. A room's usage is labelled by goal: its members' new tokens in the current or last goal, with cached ones apart (D-29), and each harness's plan limit, the newest any session reported, since a limit belongs to the account. A running total per department waits for M5, as it needs the core to sum it. Since D-49 a room can be dragged and keeps its place.
+Every saved department has a room, with a desk per member in a fixed order (lead first), so an agent keeps its desk while the team stays the same; a member who leaves closes the gap. Rooms keep the order departments were made in. Agents working alone share the open floor; guests sit at the guest desk. Clicking a room's sign or walking in opens the department panel. A room's usage is labelled by goal: its members' new tokens in the current or last goal, with cached ones apart (D-29), and each harness's plan limit, the newest any session reported, since a limit belongs to the account. Since D-50 the core sums it per goal. Since D-49 a room can be dragged and keeps its place.
 Why: the layout M5 grows into the command center (D-35, D-49), without rebuilding it.
 
 ### D-49 Command center: a chief over departments — accepted (2026-10-07)
@@ -156,6 +156,22 @@ All owner choices, made after a look at other agent command centers.
 - Usage limits stay show-only (D-29 holds). A next-waiting button jumps to each waiting agent in turn.
 Why a chief: a goal can need several teams in order, and someone has to own the order and pass results on. A lead of leads leaves each department working as in M4. Gas Town's Mayor and Paperclip's CEO agent do the same.
 Why links on the floor: no product we found draws team dependencies on the map; it keeps "who waits on whom" on the one screen instead of in a separate graph editor.
+
+### D-50 Live team state: changes on the stream, task state in the core — accepted (2026-10-07)
+
+- The store publishes every change to a task, agent, department, delegation, plan piece or plan limit as a whole record, after its write. The API streams them as `event: change` frames with no id, only on a following, unfiltered stream. They are not stored: a reconnecting app reads everything again, as it already did.
+- A task's state (queued, working, waiting, idle, ended) is kept by one module, `team/task-state.ts`. Ended means the goal is finished: its top agent's latest turn or session ended, with nothing waiting on the user and no work out (a delegation at work, cut off, or whose result came after the lead last finished; for a chief goal, a piece not finished and not blocked). Leaving ended clears `reviewedAt`.
+- A department is busy while it has a goal that has not ended, so it frees up as soon as its goal finishes, not when its idle lead is stopped; a new goal stops agents an ended goal left open. The chief, likewise, takes up one goal at a time.
+- Token usage is summed per task and harness, and each harness's latest plan limits are kept, in the same write as the event. The UI no longer replays traces for usage.
+Why: the command center shows every goal's state at once; deriving it in the UI needed every trace, and the chief needs the same "finished" rule to pass results on.
+
+### D-51 Chief plans, hand-offs and read-only folders — accepted (2026-10-07)
+
+- The chief is an agent record whose id is kept in settings; it works in `<data folder>/chief` at Trusted and may read every department's workspace. Team tools are never offered to it.
+- A plan is stored as pieces of the chief's task; a piece runs as its department's own task (`parentTaskId`), so a department works as in M4. One scheduler starts a piece once everything it waits on is done and its department is free, one step at a time. A finished piece's result is the piece lead's last message, read from the store, and goes to the chief as a message. An approved re-plan drops pieces not yet started and keeps the rest.
+- A piece's agents get the upstream departments' folders as read-only (`readOnlyPaths`, also in `additionalPaths`). The policy never lets a change inside one through, at any level, so it goes to the user (owner). Sessions with read-only folders are never offered "allow always", which on Claude opens every folder for edits. The spike (both harnesses, native and WSL) showed reads there ask nothing and every file change carries its real path; a command carries none, so under Full a command could still change an upstream folder, and under Bypass nothing is guarded. The plan card warns for both (owner).
+- A new department in a plan is named by the chief; the user picks its workspace and autonomy on the plan card (owner).
+- A message from the user to a worker is noted to its lead only if the lead is at work: resuming it would spend a turn on a note.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
