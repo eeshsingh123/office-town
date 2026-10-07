@@ -45,7 +45,13 @@ export type LineListener = (line: HarnessLine) => void;
 export type CoreReport = Extract<
   SessionEventBody,
   {
-    type: "question.requested" | "question.resolved" | "proposal.requested" | "proposal.resolved";
+    type:
+      | "question.requested"
+      | "question.resolved"
+      | "proposal.requested"
+      | "proposal.resolved"
+      | "plan.requested"
+      | "plan.resolved";
   }
 >;
 

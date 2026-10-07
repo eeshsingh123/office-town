@@ -10,7 +10,6 @@ import type {
   SessionRecord,
 } from "@office-town/contract";
 import {
-  type CoreReport,
   createSession as createHarnessSession,
   type HarnessLine,
   type LaunchExtras,
@@ -217,7 +216,7 @@ export class SessionRegistry {
     if (handler !== undefined && key !== undefined && "requestId" in command) {
       const answer = handler(command);
       this.#asked.delete(key);
-      live.session.report(answer.resolution as CoreReport);
+      live.session.report(answer.resolution);
       await answer.afterwards?.();
       return;
     }
@@ -248,8 +247,7 @@ export class SessionRegistry {
   ask(sessionId: string, request: CoreRequest, onAnswer: CoreRequestHandler): void {
     const live = this.#running(sessionId);
     this.#asked.set(askedKey(sessionId, request.payload.requestId), onAnswer);
-    // The harness adds whatever the core reports to the stream; its type predates plans.
-    live.session.report(request as CoreReport);
+    live.session.report(request);
   }
 
   // `idle` ends an agent left idle as finished, to be resumed when it is next needed.

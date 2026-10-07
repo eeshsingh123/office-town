@@ -41,6 +41,7 @@ export async function claimDepartment(
   departmentId: string | undefined,
   taskId?: string,
 ): Promise<void> {
+  if (taskId !== undefined) claimChief(store, taskId);
   if (departmentId === undefined) return;
   const active = store.activeTaskOf(departmentId);
   if (active !== undefined && active !== taskId) {
@@ -54,6 +55,17 @@ export async function claimDepartment(
     leftOpen.map((session) => registry.stop(session.id, true)),
   );
   throwUnlessStopped(stops, "Some agents of an earlier goal could not be stopped.");
+}
+
+// The chief, too, runs one goal at a time (D-49): an ended goal is taken up again only while no
+// other runs.
+function claimChief(store: TeamContext["store"], taskId: string): void {
+  const leadId = store.getTask(taskId)?.leadAgentId;
+  if (leadId === undefined || leadId !== store.readSettings().chiefAgentId) return;
+  const open = store.openTaskOfLead(leadId);
+  if (open !== undefined && open !== taskId) {
+    throw new DepartmentBusyError("The chief");
+  }
 }
 
 // An agent that ended on its own in the meantime has nothing left to stop.
