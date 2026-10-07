@@ -80,6 +80,7 @@ async function refresh(first = false): Promise<number> {
   ]);
   useApp.setState((state) => ({
     harnesses,
+    chiefId: settings.chiefAgentId,
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),

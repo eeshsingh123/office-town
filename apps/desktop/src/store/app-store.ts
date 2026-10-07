@@ -40,6 +40,10 @@ export interface AppState extends Records {
   view: View;
   // The office's selected agents, by agent id; kept while the user looks at a trace.
   selection: string[];
+  // The standing chief's agent id, once it is set up.
+  chiefId: string | undefined;
+  // The agent the office pans to and whose request it opens there; `at` makes a repeat count.
+  focus: { agentId: string; at: number } | undefined;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -58,7 +62,13 @@ export const useApp = create<AppState>(() => ({
   olderTasks: undefined,
   view: { name: "office" },
   selection: [],
+  chiefId: undefined,
+  focus: undefined,
 }));
+
+export function focusAgent(agentId: string | undefined): void {
+  useApp.setState({ focus: agentId === undefined ? undefined : { agentId, at: Date.now() } });
+}
 
 export function navigate(view: View): void {
   useApp.setState({ view });
