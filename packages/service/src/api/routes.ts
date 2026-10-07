@@ -10,6 +10,7 @@ import {
   profileRequestSchema,
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
+  roomPositionSchema,
   secondOpinionRequestSchema,
   sessionPageQuerySchema,
   startTaskRequestSchema,
@@ -399,6 +400,26 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "GET",
       path: "/settings",
       reply: () => ({ status: 200, json: store.readSettings() }),
+    },
+    {
+      method: "PUT",
+      path: "/room-positions/:roomId",
+      reply: async ({ param, body }) => {
+        const position = roomPositionSchema.parse(await body());
+        const positions = store.readSettings().roomPositions ?? {};
+        store.saveSettings({ roomPositions: { ...positions, [param("roomId")]: position } });
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/room-positions/:roomId",
+      reply: ({ param }) => {
+        const positions = Object.entries(store.readSettings().roomPositions ?? {});
+        const kept = positions.filter(([roomId]) => roomId !== param("roomId"));
+        store.saveSettings({ roomPositions: Object.fromEntries(kept) });
+        return NO_CONTENT;
+      },
     },
     {
       method: "GET",
