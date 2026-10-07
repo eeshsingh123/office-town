@@ -4,7 +4,6 @@ import type {
   Overflow,
   PlanStep,
   SessionEvent,
-  UsageLimit,
   UserRequestEvent,
 } from "@office-town/contract";
 import { teamToolServer } from "@office-town/contract";
@@ -91,7 +90,6 @@ export interface Trace {
   turnOpen: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
-  limits: UsageLimit[];
   model?: string;
   ended?: Extract<SessionEvent, { type: "session.ended" }>["payload"];
 }
@@ -106,7 +104,6 @@ export function emptyTrace(sessionId: string): Trace {
     streaming: {},
     turnOpen: false,
     usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
-    limits: [],
   };
 }
 
@@ -270,8 +267,8 @@ function apply(trace: Trace, event: SessionEvent): void {
         trace.items.set(id, { ...request, resolution: event.payload });
       return;
     }
+    // The core keeps each harness's latest limits for the whole app.
     case "limits.updated":
-      trace.limits = event.payload.limits;
       return;
     case "error": {
       const { message, detail, fatal } = event.payload;
