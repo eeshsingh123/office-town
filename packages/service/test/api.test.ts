@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   agentRecordSchema,
+  changeSchema,
   profileRecordSchema,
   type SessionEvent,
   sessionRecordSchema,
@@ -15,14 +16,17 @@ import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
+import { TaskStates } from "../src/team/task-state.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
 const TOKEN = "test-token";
 const settings = { harness: "claude", environment: { kind: "native" } };
 const newTask = { agent: { settings }, autonomy: "supervised" };
 
+// A change frame is named "change" and carries a record change instead of an event.
 interface Frame {
   id: string | undefined;
+  name: string | undefined;
   event: SessionEvent;
 }
 
@@ -71,7 +75,11 @@ async function openStream(path: string, headers: Record<string, string> = {}) {
           .map((line) => [line.slice(0, line.indexOf(": ")), line.slice(line.indexOf(": ") + 2)]),
       );
       buffer = buffer.slice(end + 2);
-      frames.push({ id: fields.get("id"), event: JSON.parse(fields.get("data") ?? "") });
+      frames.push({
+        id: fields.get("id"),
+        name: fields.get("event"),
+        event: JSON.parse(fields.get("data") ?? ""),
+      });
     }
     return frames;
   };
@@ -80,6 +88,7 @@ async function openStream(path: string, headers: Record<string, string> = {}) {
 beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "office-town-api-"));
   store = openStore(directory);
+  const taskStates = new TaskStates(store);
   sessions = [];
   registry = new SessionRegistry(store, {
     createSession: () => {
@@ -88,6 +97,7 @@ beforeEach(async () => {
       return session;
     },
   });
+  taskStates.follow(registry);
   const readCatalog = cachedCatalogs(async () => ({ models: [] }));
   const team = { registry, store, readCatalog, dataFolder: directory };
   server = await startApiServer({ team, token: TOKEN, port: 0 });
@@ -276,5 +286,50 @@ describe("api", () => {
     // A replay that does not follow ends once it has sent every stored event.
     const replay = await (await call("GET", `/events?session=${session.id}&follow=false`)).text();
     expect(replay.match(/^id: \d+$/gm)).toEqual(["id: 1", "id: 2", "id: 3", "id: 4", "id: 5"]);
+  });
+
+  it("sends record changes live on the stream of every session only, never on a replay", async () => {
+    const started = await startTask("Write a report");
+    const session = sessionRecordSchema.parse(await started.json());
+    const everything = await openStream("/events?after=0");
+    const oneSession = await openStream(`/events?session=${session.id}&after=0`);
+    sessions[0]?.emit({
+      type: "turn.ended",
+      payload: { turnId: "1", outcome: "completed", usage: { inputTokens: 9, outputTokens: 1 } },
+    });
+
+    // The turn adds to the task's usage, and ends the goal.
+    const frames = await everything(4);
+    expect(frames.map(({ id, name, event }) => [id, name, event.type])).toEqual([
+      ["1", undefined, "session.started"],
+      [undefined, "change", "task"],
+      [undefined, "change", "task"],
+      ["2", undefined, "turn.ended"],
+    ]);
+    expect(changeSchema.parse(frames[2]?.event)).toMatchObject({
+      task: { state: "ended", usage: [{ harness: "claude", inputTokens: 9 }] },
+    });
+    expect((await oneSession(2)).map(({ event }) => event.type)).toEqual([
+      "session.started",
+      "turn.ended",
+    ]);
+    const replay = await (await call("GET", "/events?follow=false")).text();
+    expect(replay).not.toContain("event: change");
+  });
+
+  it("marks only a finished goal reviewed, and clears the review when the goal is taken up again", async () => {
+    const started = sessionRecordSchema.parse(await (await startTask("Write a report")).json());
+    const reviewed = `/tasks/${started.taskId}/reviewed`;
+    expect((await call("POST", reviewed)).status).toBe(409);
+
+    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    sessions[0]?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    const marked = await call("POST", reviewed);
+    expect(marked.status).toBe(200);
+    expect(await marked.json()).toMatchObject({ state: "ended", reviewedAt: expect.any(String) });
+
+    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "2" } });
+    expect(store.getTask(started.taskId)).toMatchObject({ state: "working" });
+    expect(store.getTask(started.taskId)?.reviewedAt).toBeUndefined();
   });
 });

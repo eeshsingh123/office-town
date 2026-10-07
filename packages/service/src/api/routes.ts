@@ -8,6 +8,7 @@ import {
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
   secondOpinionRequestSchema,
+  sessionPageQuerySchema,
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
@@ -26,6 +27,7 @@ import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
 import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
+import { RequestError } from "./errors.ts";
 
 const isRunning = (session: { status: string }) =>
   session.status === "starting" || session.status === "running";
@@ -142,6 +144,18 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: ({ param }) => ({ status: 200, json: store.listDelegations(param("id")) }),
     },
     {
+      method: "POST",
+      path: "/tasks/:id/reviewed",
+      reply: ({ param }) => {
+        const task = store.getTask(param("id"));
+        if (task === undefined) throw new RecordNotFoundError("task", param("id"));
+        if (task.state !== "ended") {
+          throw new RequestError(409, "conflict", "Only a finished goal can be marked reviewed.");
+        }
+        return { status: 200, json: store.markReviewed(task.id) };
+      },
+    },
+    {
       method: "GET",
       path: "/tasks/:id/files",
       reply: ({ param, query }) => ({
@@ -219,6 +233,20 @@ export function apiRoutes(team: TeamContext): Route[] {
         const agent = store.getAgent(param("id"));
         if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
         return { status: 200, json: agent };
+      },
+    },
+    {
+      method: "GET",
+      path: "/agents/:id/sessions",
+      reply: ({ param, query }) => {
+        const { limit, before } = sessionPageQuerySchema.parse(Object.fromEntries(query));
+        return {
+          status: 200,
+          json: store.listAgentSessions(
+            param("id"),
+            before === undefined ? { limit } : { limit, before },
+          ),
+        };
       },
     },
     {
@@ -343,6 +371,11 @@ export function apiRoutes(team: TeamContext): Route[] {
         });
         return { status: 200, json: await readCatalog(param("harness"), environment) };
       },
+    },
+    {
+      method: "GET",
+      path: "/limits",
+      reply: () => ({ status: 200, json: store.listLimits() }),
     },
     {
       method: "GET",
