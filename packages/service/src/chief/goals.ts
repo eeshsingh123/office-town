@@ -106,12 +106,23 @@ export async function startQueuedGoal(context: TeamContext): Promise<void> {
   }
 }
 
-// A queued goal ends at once; a running one stops its chief.
+// A queued goal ends at once. A running one stops every department at work on it, then the
+// chief; its pieces are closed first, so no "stopped" result wakes the chief the user is stopping
+// too, and those that never started are dropped.
 export async function stopChiefGoal(context: TeamContext, taskId: string): Promise<void> {
   const { store } = context;
   if (store.getTask(taskId)?.state === "queued") {
     store.setTaskState(taskId, "ended");
     return;
   }
+  const working = store.listPieces(taskId).flatMap((piece) => {
+    if (piece.status === "waiting" || piece.status === "queued") {
+      store.updatePiece(piece.id, { status: "dropped" });
+    }
+    if (piece.status !== "working") return [];
+    store.updatePiece(piece.id, { status: "stopped" });
+    return piece.pieceTaskId === undefined ? [] : [piece.pieceTaskId];
+  });
+  await Promise.all(working.map((pieceTaskId) => stopTeam(context, pieceTaskId)));
   await stopTeam(context, taskId);
 }

@@ -36,9 +36,9 @@ const inputSchema = z.object({
 type ProposedRole = z.infer<typeof roleSchema>;
 
 // Checked against what is installed here, so the lead learns of a wrong name at once.
-async function settingsOf(
+export async function checkedSettings(
   { readCatalog }: TeamContext,
-  proposed: ProposedRole,
+  proposed: Pick<ProposedRole, "harness" | "model" | "effort">,
   environment: EnvironmentSpec,
 ) {
   const catalog = await readCatalog(proposed.harness, environment).catch(() => {
@@ -209,7 +209,7 @@ export function proposeTeam(context: TeamContext) {
         const role: TeamRole = {
           role: proposed.role,
           purpose: proposed.purpose,
-          settings: await settingsOf(context, proposed, environment),
+          settings: await checkedSettings(context, proposed, environment),
           ...(kept === undefined ? {} : { agentId: kept.id }),
         };
         team.roles.push(role);

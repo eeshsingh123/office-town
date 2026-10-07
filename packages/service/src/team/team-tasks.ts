@@ -2,7 +2,7 @@ import type { EnvironmentSpec, SessionRecord, StartTeamTaskRequest } from "@offi
 import { listHarnesses } from "@office-town/harness";
 import { createAgent, settingsOf } from "../agents/agents.ts";
 import { inFolders, sessionOptionsFor } from "../agents/options.ts";
-import { SessionNotRunningError } from "../registry/session-registry.ts";
+import { type Message, SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
@@ -66,13 +66,37 @@ function throwUnlessStopped(stops: PromiseSettledResult<void>[], message: string
   if (failures.length > 0) throw new AggregateError(failures, message);
 }
 
+// A goal that is a piece of the chief's plan.
+export interface PieceStart {
+  parentTaskId: string;
+  // Added to the lead's brief: the chief's goal and the results this piece builds on.
+  handOff: string;
+  readOnlyPaths: string[];
+  // Called once the task exists, before its lead starts.
+  onTaskCreated(taskId: string): void;
+}
+
+function withHandOff(message: Message, piece: PieceStart | undefined): Message {
+  return piece === undefined
+    ? message
+    : {
+        ...message,
+        text: `${message.text}
+
+${piece.handOff}`,
+      };
+}
+
 // A goal for a saved department starts its lead with the team it has; a new lead first proposes
 // one. Only the lead starts: it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
   { goal, team }: StartTeamTaskRequest,
+  piece?: PieceStart,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
+  const placement = piece === undefined ? {} : { parentTaskId: piece.parentTaskId };
+  const readOnlyPaths = piece?.readOnlyPaths;
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
@@ -80,42 +104,55 @@ export async function startTeamTask(
     const folders = workspaceFolders(store, department.workspaceId);
     const lead = store.getAgent(department.leadAgentId);
     if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
-    const task = store.createTask(goal, { leadAgentId: lead.id, departmentId: department.id });
+    const task = store.createTask(
+      goal,
+      { leadAgentId: lead.id, departmentId: department.id },
+      placement,
+    );
+    piece?.onTaskCreated(task.id);
     return startFirstAgent(store, task.id, () =>
       registry.start({
         taskId: task.id,
         agentId: lead.id,
-        options: sessionOptionsFor(store, lead, inFolders(folders)),
-        message: leadBrief({
-          goal,
-          teamName: department.name,
-          folders,
-          instructions: settingsOf(store, lead).instructions,
-          roster: rosterOf(store, department),
-          branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
-          codeFlow: department.codeFlow,
-        }),
+        options: sessionOptionsFor(store, lead, { ...inFolders(folders), readOnlyPaths }),
+        message: withHandOff(
+          leadBrief({
+            goal,
+            teamName: department.name,
+            folders,
+            instructions: settingsOf(store, lead).instructions,
+            roster: rosterOf(store, department),
+            branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
+            codeFlow: department.codeFlow,
+          }),
+          piece,
+        ),
       }),
     );
   }
   const folders = workspaceFolders(store, team.workspaceId);
   const lead = createAgent(store, team.lead, { role: "Lead", autonomy: team.autonomy });
-  const options = sessionOptionsFor(store, lead, inFolders(folders));
-  const task = store.createTask(goal, {
-    leadAgentId: lead.id,
-    setup: { workspaceId: team.workspaceId, autonomy: team.autonomy },
-  });
+  const options = sessionOptionsFor(store, lead, { ...inFolders(folders), readOnlyPaths });
+  const task = store.createTask(
+    goal,
+    { leadAgentId: lead.id, setup: { workspaceId: team.workspaceId, autonomy: team.autonomy } },
+    placement,
+  );
+  piece?.onTaskCreated(task.id);
   return startFirstAgent(store, task.id, async () =>
     registry.start({
       taskId: task.id,
       agentId: lead.id,
       options,
-      message: proposeTeamBrief({
-        goal,
-        folders,
-        instructions: settingsOf(store, lead).instructions,
-        choices: await harnessChoices(context, options.environment),
-      }),
+      message: withHandOff(
+        proposeTeamBrief({
+          goal,
+          folders,
+          instructions: settingsOf(store, lead).instructions,
+          choices: await harnessChoices(context, options.environment),
+        }),
+        piece,
+      ),
     }),
   );
 }

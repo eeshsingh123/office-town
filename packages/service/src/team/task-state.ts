@@ -1,4 +1,5 @@
 import type { SessionEvent, SessionRecord, TaskRecord, TaskState } from "@office-town/contract";
+import { isBlocked } from "../chief/plan-graph.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 
@@ -33,7 +34,22 @@ const delegationsOut: WorkOut = (store, taskId, finishedAt) =>
         (endedAt !== undefined && Date.parse(endedAt) > finishedAt),
     );
 
-const workOutChecks: WorkOut[] = [delegationsOut];
+// A chief's piece queued or at work, one waiting that can still start, or one whose result came
+// after the chief last finished. A piece dropped from the plan is never out.
+const piecesOut: WorkOut = (store, taskId, finishedAt) => {
+  const pieces = store.listPieces(taskId);
+  return pieces.some(
+    (piece) =>
+      piece.status === "working" ||
+      piece.status === "queued" ||
+      (piece.status === "waiting" && !isBlocked(piece, pieces)) ||
+      (piece.status !== "dropped" &&
+        piece.endedAt !== undefined &&
+        Date.parse(piece.endedAt) > finishedAt),
+  );
+};
+
+const workOutChecks: WorkOut[] = [delegationsOut, piecesOut];
 
 // The store's turn record serves sessions that are open and those cut off by a restart alike, and
 // is current whichever listener runs first.
@@ -68,7 +84,7 @@ function stateOf(store: Store, task: TaskRecord): TaskState {
 }
 
 // Keeps every task's state current: after each event that can change it, and each change to the
-// task or its delegations, including the interruptions a restart records.
+// task, its delegations or its plan, including the interruptions a restart records.
 export class TaskStates {
   readonly #store: Store;
 
@@ -78,6 +94,7 @@ export class TaskStates {
     store.subscribe((change) => {
       if (change.type === "task") this.#update(change.task.id);
       if (change.type === "delegation") this.#update(change.delegation.taskId);
+      if (change.type === "piece") this.#update(change.piece.taskId);
     });
   }
 

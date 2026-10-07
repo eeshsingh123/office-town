@@ -2,6 +2,7 @@ import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/
 import { z } from "zod";
 import { settingsOf } from "../agents/agents.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { readOnlyFoldersOfTask } from "../chief/piece-folders.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
@@ -77,7 +78,10 @@ async function startWork(
   return registry.start({
     taskId: caller.taskId,
     agentId: worker.id,
-    options: sessionOptionsFor(store, worker, folders),
+    options: sessionOptionsFor(store, worker, {
+      ...folders,
+      readOnlyPaths: readOnlyFoldersOfTask(store, caller.taskId),
+    }),
     message: workerBrief({
       goal: team.goal,
       teamName: team.department.name,

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { AgentRecord, AgentSettings } from "@office-town/contract";
 import { freeIdentity } from "../agents/agents.ts";
 import type { Store } from "../store/store.ts";
+import type { Caller } from "../tools/tools.ts";
 
 const CHIEF_NAME = "@chief";
 
@@ -47,4 +48,12 @@ export function chiefFolder(dataFolder: string): string {
   const folder = join(dataFolder, "chief");
   mkdirSync(folder, { recursive: true });
   return folder;
+}
+
+// The chief at work on one of its goals: only it gets the chief's tools.
+export function isChiefCaller(store: Store, caller: Caller): boolean {
+  return (
+    store.readSettings().chiefAgentId === caller.agentId &&
+    store.getTask(caller.taskId)?.leadAgentId === caller.agentId
+  );
 }
