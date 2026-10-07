@@ -1,4 +1,5 @@
 import type { HarnessCatalog } from "@office-town/contract";
+import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
@@ -52,8 +53,10 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
   const registry = new SessionRegistry(store, {
-    // A model named "broken" fails to start, as a harness missing from its environment would.
+    // A model named "broken" fails to start, as a harness missing from its environment would; a
+    // harness with no catalog is refused, as the real factory refuses one it does not know.
     createSession: (options, extras) => {
+      if (catalogs[options.harness] === undefined) throw new UnknownHarnessError(options.harness);
       const session = new FakeSession(extras, options.model === "broken");
       sessions.push(session);
       return session;

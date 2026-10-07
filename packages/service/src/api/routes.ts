@@ -22,6 +22,7 @@ import { soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
+import { startFirstAgent } from "../task-start.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
@@ -66,12 +67,14 @@ export function apiRoutes(team: TeamContext): Route[] {
         const folders = chooseTaskFolders(store, request);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt);
-        const session = await registry.start({
-          taskId: task.id,
-          agentId: agent.id,
-          options: sessionOptionsFor(store, agent, folders),
-          message: soloMessage(request.prompt, settingsOf(store, agent)),
-        });
+        const session = await startFirstAgent(store, task.id, () =>
+          registry.start({
+            taskId: task.id,
+            agentId: agent.id,
+            options: sessionOptionsFor(store, agent, folders),
+            message: soloMessage(request.prompt, settingsOf(store, agent)),
+          }),
+        );
         return { status: 201, json: session };
       },
     },

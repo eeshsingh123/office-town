@@ -4,6 +4,7 @@ import { createAgent, settingsOf } from "../agents/agents.ts";
 import { inFolders, sessionOptionsFor } from "../agents/options.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
+import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
 import { isOpen, latestSession } from "./lead.ts";
 import {
@@ -80,20 +81,22 @@ export async function startTeamTask(
     const lead = store.getAgent(department.leadAgentId);
     if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
     const task = store.createTask(goal, { leadAgentId: lead.id, departmentId: department.id });
-    return registry.start({
-      taskId: task.id,
-      agentId: lead.id,
-      options: sessionOptionsFor(store, lead, inFolders(folders)),
-      message: leadBrief({
-        goal,
-        teamName: department.name,
-        folders,
-        instructions: settingsOf(store, lead).instructions,
-        roster: rosterOf(store, department),
-        branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
-        codeFlow: department.codeFlow,
+    return startFirstAgent(store, task.id, () =>
+      registry.start({
+        taskId: task.id,
+        agentId: lead.id,
+        options: sessionOptionsFor(store, lead, inFolders(folders)),
+        message: leadBrief({
+          goal,
+          teamName: department.name,
+          folders,
+          instructions: settingsOf(store, lead).instructions,
+          roster: rosterOf(store, department),
+          branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
+          codeFlow: department.codeFlow,
+        }),
       }),
-    });
+    );
   }
   const folders = workspaceFolders(store, team.workspaceId);
   const lead = createAgent(store, team.lead, { role: "Lead", autonomy: team.autonomy });
@@ -102,17 +105,19 @@ export async function startTeamTask(
     leadAgentId: lead.id,
     setup: { workspaceId: team.workspaceId, autonomy: team.autonomy },
   });
-  return registry.start({
-    taskId: task.id,
-    agentId: lead.id,
-    options,
-    message: proposeTeamBrief({
-      goal,
-      folders,
-      instructions: settingsOf(store, lead).instructions,
-      choices: await harnessChoices(context, options.environment),
+  return startFirstAgent(store, task.id, async () =>
+    registry.start({
+      taskId: task.id,
+      agentId: lead.id,
+      options,
+      message: proposeTeamBrief({
+        goal,
+        folders,
+        instructions: settingsOf(store, lead).instructions,
+        choices: await harnessChoices(context, options.environment),
+      }),
     }),
-  });
+  );
 }
 
 // Stops every member at work on the task. Their delegations are closed first, so no "stopped"

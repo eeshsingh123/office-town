@@ -183,4 +183,27 @@ describe("teams", () => {
     expect(core.store.getAgent(designer.id)?.settings.instructions).toBe("Use the brand colours");
     expect(lead.sent).toHaveLength(told);
   });
+
+  it("leaves no task behind when its first agent cannot start, so the department stays free", async () => {
+    const project = join(directory, "bakery");
+    mkdirSync(project);
+    const workspace = (await call("POST", "/workspaces", { name: "Bakery", folders: [project] }))
+      .json;
+    const department = (
+      await call("POST", "/departments", {
+        team: { name: "Web team", roles: [] },
+        workspaceId: workspace.id,
+        autonomy: "trusted",
+        lead: { settings: { harness: "missing", environment: native } },
+      })
+    ).json as DepartmentRecord;
+
+    const started = await call("POST", "/tasks/team", {
+      goal: "Build a bakery site",
+      team: { departmentId: department.id },
+    });
+    expect(started.status).toBe(400);
+    expect((await call("GET", "/tasks")).json.tasks).toEqual([]);
+    expect(core.store.activeTaskOf(department.id)).toBeUndefined();
+  });
 });
