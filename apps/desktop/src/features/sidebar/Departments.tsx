@@ -1,6 +1,34 @@
+import { LoaderCircle } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
+import { openChiefSettings, selectAgent } from "../office/office-state.ts";
 import styles from "./Sidebar.module.css";
+
+// The standing chief, or a way to set it up; it spins while one of its goals is at work.
+function ChiefEntry() {
+  const chiefId = useApp((state) => state.chiefId);
+  const working = useApp((state) =>
+    Object.values(state.tasks).some(
+      ({ task }) =>
+        chiefId !== undefined && task.leadAgentId === chiefId && task.state === "working",
+    ),
+  );
+  return (
+    <button
+      type="button"
+      className={styles.nav}
+      onClick={() => (chiefId === undefined ? openChiefSettings() : selectAgent(chiefId))}
+    >
+      {working ? (
+        <LoaderCircle size={11} className={`${styles.chiefWorking} spin`} aria-label="Working" />
+      ) : (
+        <span className={styles.chiefMark} aria-hidden />
+      )}
+      Chief
+      {chiefId === undefined ? <span className={styles.members}>Set up</span> : null}
+    </button>
+  );
+}
 
 // The departments the user keeps, each with how many members it has; a dot marks one at work.
 export function Departments() {
@@ -9,7 +37,6 @@ export function Departments() {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
   const list = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
-  if (list.length === 0) return null;
   const working = new Set(
     Object.values(tasks).flatMap(({ task, sessionIds }) => {
       const open = sessionIds.some((id) => {
@@ -22,6 +49,7 @@ export function Departments() {
   return (
     <>
       <div className={styles.label}>Departments</div>
+      <ChiefEntry />
       {list.map((department) => {
         const members = Object.values(agents).filter(
           (agent) => agent.departmentId === department.id,
