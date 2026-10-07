@@ -157,6 +157,50 @@ Tests pass.`,
     expect(core.store.listDelegations(task.taskId)).toEqual([]);
   });
 
+  it("keeps a goal's state: working, waiting on the user, idle while a result is out, ended once the lead finished, and idle when cut off", async () => {
+    const first = await teamAtWork("First goal");
+    const state = (taskId: string) => core.store.getTask(taskId)?.state;
+    const [lead] = core.sessions;
+    expect(state(first.task.taskId)).toBe("working");
+
+    lead?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    await core.callTool(lead, "delegate", { agent: first.writer, brief: "Write" });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    const writer = core.sessions[1];
+    expect(state(first.task.taskId)).toBe("working");
+    await core.callTool(writer, "ask_user", { question: "Which menu?" });
+    expect(state(first.task.taskId)).toBe("waiting");
+    const [question] = core.store.listPendingRequests().requests;
+    await core.call("POST", `/sessions/${writer?.id}/commands`, {
+      type: "answerQuestion",
+      requestId: question?.event.payload.requestId,
+      answers: [{ questionId: "1", selected: ["Lunch"] }],
+    });
+    // The writer's result reaches the lead after the lead's turn ended, so it is still to act on.
+    await settle();
+    playTurn(writer, "The menu is in menu.md.");
+    await settle();
+    expect(state(first.task.taskId)).toBe("idle");
+    playTurn(lead, "The site is done.");
+    expect(state(first.task.taskId)).toBe("ended");
+
+    // A new goal stops the agents the ended one left open; a restart cuts the new one off.
+    const second = (
+      await core.call("POST", "/tasks/team", {
+        goal: "Second goal",
+        team: { departmentId: first.department.id },
+      })
+    ).json;
+    expect(
+      [lead, writer].map((session) => core.store.getSession(session?.id ?? "")?.status),
+    ).toEqual(["exited", "exited"]);
+    expect(state(first.task.taskId)).toBe("ended");
+    expect(state(second.taskId)).toBe("working");
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    expect(state(second.taskId)).toBe("idle");
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });

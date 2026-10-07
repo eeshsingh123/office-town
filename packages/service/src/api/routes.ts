@@ -24,12 +24,7 @@ import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
-import {
-  continueTeam,
-  requireDepartmentFree,
-  startTeamTask,
-  stopTeam,
-} from "../team/team-tasks.ts";
+import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
 
 const isRunning = (session: { status: string }) =>
@@ -177,7 +172,9 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ param, body }) => {
         const { prompt } = resumeSessionRequestSchema.parse(await body());
         const taskId = store.getSession(param("id"))?.taskId;
-        if (taskId !== undefined) requireDepartmentFree(team, taskId);
+        if (taskId !== undefined) {
+          await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId);
+        }
         return { status: 201, json: await registry.resume(param("id"), { text: prompt }) };
       },
     },

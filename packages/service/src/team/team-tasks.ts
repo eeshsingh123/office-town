@@ -32,13 +32,37 @@ export async function harnessChoices(
   });
 }
 
-// A department works on one goal at a time, so a goal's agents wait while another goal runs.
-export function requireDepartmentFree({ store }: TeamContext, taskId: string): void {
-  const departmentId = store.getTask(taskId)?.departmentId;
+// A department works on one goal at a time (D-41): a goal starts, or is taken up again, only once
+// every other has ended. Agents its ended goals left open are then stopped as idle, to be resumed
+// if their goal is taken up again.
+export async function claimDepartment(
+  { store, registry }: TeamContext,
+  departmentId: string | undefined,
+  taskId?: string,
+): Promise<void> {
   if (departmentId === undefined) return;
   const active = store.activeTaskOf(departmentId);
-  if (active === undefined || active === taskId) return;
-  throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
+  if (active !== undefined && active !== taskId) {
+    throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
+  }
+  const leftOpen = store
+    .listActiveTasks()
+    .filter((task) => task.departmentId === departmentId && task.id !== taskId)
+    .flatMap((task) => task.sessions.filter(isOpen));
+  const stops = await Promise.allSettled(
+    leftOpen.map((session) => registry.stop(session.id, true)),
+  );
+  throwUnlessStopped(stops, "Some agents of an earlier goal could not be stopped.");
+}
+
+// An agent that ended on its own in the meantime has nothing left to stop.
+function throwUnlessStopped(stops: PromiseSettledResult<void>[], message: string): void {
+  const failures = stops.flatMap((stop) =>
+    stop.status === "rejected" && !(stop.reason instanceof SessionNotRunningError)
+      ? [stop.reason]
+      : [],
+  );
+  if (failures.length > 0) throw new AggregateError(failures, message);
 }
 
 // A goal for a saved department starts its lead with the team it has; a new lead first proposes
@@ -51,9 +75,7 @@ export async function startTeamTask(
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
-    if (store.activeTaskOf(department.id) !== undefined) {
-      throw new DepartmentBusyError(department.name);
-    }
+    await claimDepartment(context, department.id);
     const folders = workspaceFolders(store, department.workspaceId);
     const lead = store.getAgent(department.leadAgentId);
     if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
@@ -105,13 +127,7 @@ export async function stopTeam({ store, registry }: TeamContext, taskId: string)
       .filter(isOpen)
       .map((session) => registry.stop(session.id)),
   );
-  // A member that ended on its own in the meantime has nothing left to stop.
-  const failures = stops.flatMap((stop) =>
-    stop.status === "rejected" && !(stop.reason instanceof SessionNotRunningError)
-      ? [stop.reason]
-      : [],
-  );
-  if (failures.length > 0) throw new AggregateError(failures, "Some members could not be stopped.");
+  throwUnlessStopped(stops, "Some members could not be stopped.");
 }
 
 // After a restart a team's task is interrupted. Continuing resumes its lead, told which pieces of
@@ -128,7 +144,7 @@ export async function continueTeam(
   const lead = latestSession(context, taskId, task.leadAgentId);
   if (lead === undefined) throw new TeamError("This task's lead never started.");
   if (isOpen(lead)) throw new TeamError("The lead is already at work.");
-  requireDepartmentFree(context, taskId);
+  await claimDepartment(context, task.departmentId, taskId);
   const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
   for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
   const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;

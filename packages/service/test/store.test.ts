@@ -378,6 +378,7 @@ describe("store", () => {
       [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
       [queries.sessionsOfTask, "sessions_by_task"],
       [queries.agentSessionsBefore, "sessions_by_agent"],
+      [queries.activeTaskOfDepartment, "tasks_open_by_department"],
       [queries.latestTurnOfSession, "events_turns"],
       [queries.unfinishedSessions, "sessions_unfinished"],
       [queries.deleteSessionPendingRequests, "pending_requests_by_session"],

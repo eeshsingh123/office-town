@@ -14,6 +14,7 @@ import { delegate, teamStatus } from "./team/delegate.ts";
 import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
+import { TaskStates } from "./team/task-state.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
@@ -37,12 +38,14 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 
 const dataFolder = values["data-folder"] ?? defaultDataFolder();
 const store = openStore(dataFolder);
+const taskStates = new TaskStates(store);
 const toolServer = await startToolServer(store);
 const registry = new SessionRegistry(store, {
   tools: toolServer,
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
 });
+taskStates.follow(registry);
 const readCatalog = cachedCatalogs();
 const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);

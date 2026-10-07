@@ -12,6 +12,7 @@ import type { TeamContext } from "../../src/team/members.ts";
 import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
+import { TaskStates } from "../../src/team/task-state.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
 import { type RunningToolServer, startToolServer } from "../../src/tools/tool-server.ts";
@@ -47,6 +48,7 @@ export interface ToolReply {
 // The core as main.ts wires it, with harness sessions the test plays and catalogs it makes up.
 export async function startCore(dataFolder: string): Promise<Core> {
   const store = openStore(dataFolder);
+  const taskStates = new TaskStates(store);
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
   const registry = new SessionRegistry(store, {
@@ -60,6 +62,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     guard: autonomyGuard(store),
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   });
+  taskStates.follow(registry);
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];
     if (catalog === undefined) throw new Error("not installed");

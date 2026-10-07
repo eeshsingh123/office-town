@@ -57,12 +57,9 @@ export const queries = {
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
-  // A department works on one goal at a time: the one with an agent at work.
-  activeTaskOfDepartment: `
-    SELECT t.id FROM tasks t
-    WHERE t.department_ref = ?
-      AND EXISTS (SELECT 1 FROM sessions s WHERE s.task_ref = t.ref AND s.${UNFINISHED})
-    LIMIT 1`,
+  // A department works on one goal at a time: the one that has not ended.
+  activeTaskOfDepartment:
+    "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
   // Leaving "ended" takes the goal up again, so its review is cleared.
   setTaskState: `
     UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)

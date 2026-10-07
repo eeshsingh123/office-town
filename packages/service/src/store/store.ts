@@ -119,7 +119,7 @@ export interface Store {
   taskSetup(taskId: string): TeamSetup | undefined;
   // The task's proposed team was approved as this department.
   joinDepartment(taskId: string, departmentId: string): TaskRecord;
-  // The department's task with an agent at work, if any.
+  // The department's goal that has not ended, if any: a department works on one at a time.
   activeTaskOf(departmentId: string): string | undefined;
   // Does nothing if the task is already in that state. Leaving "ended" clears its review.
   setTaskState(taskId: string, state: TaskState): void;
