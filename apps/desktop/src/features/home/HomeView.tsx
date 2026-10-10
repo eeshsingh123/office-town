@@ -1,5 +1,5 @@
 import type { TaskState } from "@office-town/contract";
-import { Check, CircleUser, Network, Plus, Users } from "lucide-react";
+import { Check, Network, Plus, SwatchBook, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   type Agent,
@@ -241,9 +241,9 @@ function Team() {
           <Plus size={14} aria-hidden />
           Build a department
         </Button>
-        <Button onClick={() => navigate({ name: "profiles" })}>
-          <CircleUser size={14} aria-hidden />
-          Saved assistants
+        <Button onClick={() => navigate({ name: "templates" })}>
+          <SwatchBook size={14} aria-hidden />
+          Templates
         </Button>
       </div>
     </section>

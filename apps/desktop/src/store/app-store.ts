@@ -5,7 +5,9 @@ import type {
   HarnessDescription,
   HarnessLimits,
   PlanPiece,
+  ProfileRecord,
   RoomPosition,
+  UserProfile,
 } from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
@@ -17,13 +19,21 @@ export type View =
   | { name: "home" }
   | { name: "office"; room?: string }
   // Home's composer hands over what was typed and who it was for.
-  | { name: "new-task"; prompt?: string; who?: "one" | "team" | "chief"; departmentId?: string }
+  | {
+      name: "new-task";
+      prompt?: string;
+      who?: "one" | "team" | "chief";
+      departmentId?: string;
+      // Fills the form in from this template.
+      templateId?: string;
+    }
   | { name: "new-department" }
   // Set up or edit the chief; once it exists, its page.
   | { name: "chief"; edit?: boolean }
   | { name: "needs-you" }
   | { name: "tasks" }
-  | { name: "profiles" }
+  | { name: "templates" }
+  | { name: "you" }
   | { name: "department"; departmentId: string }
   | { name: "task"; taskId: string };
 
@@ -51,6 +61,10 @@ export interface AppState extends Records {
   focus: { agentId: string; at: number } | undefined;
   // By department id or "chief".
   roomPositions: Record<string, RoomPosition>;
+  // The user's own profile; undefined until they save one.
+  you: UserProfile | undefined;
+  // Saved templates, by name; undefined until loaded.
+  templates: ProfileRecord[] | undefined;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -72,6 +86,8 @@ export const useApp = create<AppState>(() => ({
   chiefId: undefined,
   focus: undefined,
   roomPositions: {},
+  you: undefined,
+  templates: undefined,
 }));
 
 export function focusAgent(agentId: string | undefined): void {

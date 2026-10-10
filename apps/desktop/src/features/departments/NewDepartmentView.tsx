@@ -8,13 +8,13 @@ import { Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useTemplates } from "../../store/templates.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
-import { profileSummary } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { ProjectPicker } from "../new-task/PlaceChoice.tsx";
@@ -26,8 +26,8 @@ import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx"
 import styles from "./NewDepartment.module.css";
 import { type TeamRow, TeamRows, toRoles } from "./TeamRows.tsx";
 
-// No profile id can take this, since an id starts with a letter or digit.
-const OWN_SETTINGS = "~own";
+// No template id can take this, since an id starts with a letter or digit.
+const BLANK = "~blank";
 
 // Starting points; each stays editable once added.
 const ROLE_TEMPLATES = [
@@ -46,14 +46,14 @@ const memberColour = (index: number) =>
 export function NewDepartmentView() {
   const harnesses = useApp((state) => state.harnesses);
   const listed = useLoaded("workspaces", api.listWorkspaces);
-  const profiles = useLoaded("profiles", api.listProfiles);
+  const templates = useTemplates() ?? [];
   const [created, setCreated] = useState<WorkspaceRecord[]>([]);
   const workspaces = [...created, ...(listed.value ?? [])];
   const [name, setName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string>();
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [autonomy, setAutonomy] = useState<Autonomy>("supervised");
-  const [leadProfile, setLeadProfile] = useState(OWN_SETTINGS);
+  const [leadTemplate, setLeadTemplate] = useState(BLANK);
   const defaults: ChipSettings = {
     harness: harnesses[0]?.harness ?? "claude",
     environment: { kind: "native" },
@@ -65,7 +65,7 @@ export function NewDepartmentView() {
   const gate = useBypassGate(autonomy, setAutonomy, name.trim() || "the department");
 
   const workspace = workspaces.find((known) => known.id === (workspaceId ?? workspaces[0]?.id));
-  const profile = profiles.value?.find((known) => known.id === leadProfile);
+  const template = templates.find((known) => known.id === leadTemplate);
   const leadSummary = useAiSummary(leadSettings ?? defaults);
   const title = name.trim() || "Your new department";
   const missing =
@@ -92,10 +92,11 @@ export function NewDepartmentView() {
     if (missing !== undefined || workspace === undefined || saving) return;
     setSaving(true);
     setError(undefined);
-    const lead: NewAgent =
-      leadProfile === OWN_SETTINGS
-        ? { settings: leadSettings ?? defaults }
-        : { profileId: leadProfile };
+    // A template fills in the lead's choices; its notes come with it through its id.
+    const lead: NewAgent = {
+      settings: leadSettings ?? defaults,
+      ...(template === undefined ? {} : { profileId: template.id }),
+    };
     try {
       const department = await api.createDepartment({
         team: { name: name.trim(), roles: toRoles(rows) },
@@ -165,29 +166,31 @@ export function NewDepartmentView() {
                 <span className={page.hint}>Takes each goal and hands out the work</span>
                 <AiLine
                   summary={
-                    profile === undefined
-                      ? leadSummary
-                      : `${profile.name} · ${profileSummary(profile, harnesses)}`
+                    template === undefined ? leadSummary : `${template.name} · ${leadSummary}`
                   }
                 >
-                  {(profiles.value ?? []).length === 0 ? null : (
+                  {templates.length === 0 ? null : (
                     <ChoiceMenu
-                      label="Saved assistant"
-                      value={leadProfile}
+                      label="Template"
+                      value={leadTemplate}
                       choices={[
-                        { value: OWN_SETTINGS, label: "None, choose below" },
-                        ...(profiles.value ?? []).map((known) => ({
+                        { value: BLANK, label: "None, choose below" },
+                        ...templates.map((known) => ({
                           value: known.id,
                           label: known.name,
-                          description: profileSummary(known, harnesses),
+                          description: known.role,
                         })),
                       ]}
-                      onChange={setLeadProfile}
+                      onChange={(next) => {
+                        setLeadTemplate(next);
+                        const picked = templates.find((known) => known.id === next);
+                        if (picked === undefined) return;
+                        const { instructions: _, autonomy: __, ...settings } = picked.settings;
+                        setLeadSettings(settings);
+                      }}
                     />
                   )}
-                  {leadProfile === OWN_SETTINGS ? (
-                    <SettingsChips value={leadSettings ?? defaults} onChange={setLeadSettings} />
-                  ) : null}
+                  <SettingsChips value={leadSettings ?? defaults} onChange={setLeadSettings} />
                 </AiLine>
               </div>
             </div>

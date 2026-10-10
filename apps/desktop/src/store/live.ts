@@ -101,6 +101,7 @@ async function readAll(
     harnesses,
     chiefId: settings.chiefAgentId,
     roomPositions: settings.roomPositions ?? {},
+    you: settings.you,
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),

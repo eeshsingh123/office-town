@@ -1,5 +1,6 @@
 import {
   type AgentCommand,
+  type AgentProfileRequest,
   type AgentRecord,
   type AgentSettings,
   type ApiError,
@@ -46,6 +47,8 @@ import {
   taskDetailSchema,
   taskPageSchema,
   taskRecordSchema,
+  type UserProfile,
+  userProfileSchema,
   type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -189,6 +192,9 @@ export const api = {
     ),
   renameAgent: (agentId: string, name: string): Promise<AgentRecord> =>
     write("PUT", `/agents/${id(agentId)}/name`, { name }, agentRecordSchema),
+  updateAgent: (agentId: string, profile: AgentProfileRequest): Promise<AgentRecord> =>
+    write("PUT", `/agents/${id(agentId)}`, profile, agentRecordSchema),
+  saveYou: (you: UserProfile): Promise<UserProfile> => write("PUT", "/you", you, userProfileSchema),
   listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
   createProfile: (profile: ProfileRequest): Promise<ProfileRecord> =>
     write("POST", "/profiles", profile, profileRecordSchema),

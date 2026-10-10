@@ -196,3 +196,25 @@
   margin: 0 2px;
   color: var(--accent);
 }
+
+.you {
+  height: auto;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+
+.youText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+  text-align: left;
+  color: var(--text);
+}
+
+.youHint {
+  font-size: var(--size-small);
+  color: var(--text-3);
+}

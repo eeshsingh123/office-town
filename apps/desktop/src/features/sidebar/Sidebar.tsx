@@ -1,5 +1,4 @@
 import {
-  CircleUser,
   House,
   Inbox,
   LayoutPanelLeft,
@@ -8,19 +7,22 @@ import {
   Moon,
   Plus,
   Sun,
+  SwatchBook,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
+import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 
 interface NavItemProps {
-  view: "home" | "office" | "needs-you" | "tasks" | "profiles";
+  view: "home" | "office" | "needs-you" | "tasks" | "templates";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
@@ -64,6 +66,27 @@ function ThemeToggle() {
   );
 }
 
+// The person using the app, at the very bottom.
+function YouItem() {
+  const you = useYou();
+  const current = useApp((state) => state.view.name === "you");
+  const name = you.name.trim();
+  return (
+    <button
+      type="button"
+      className={`${styles.nav} ${styles.you}`}
+      aria-current={current ? "page" : undefined}
+      onClick={() => navigate({ name: "you" })}
+    >
+      <Avatar name={name || "You"} colour={you.colour} size={26} />
+      <span className={styles.youText}>
+        {name || "You"}
+        <span className={styles.youHint}>Your profile</span>
+      </span>
+    </button>
+  );
+}
+
 export function Sidebar() {
   return (
     <nav aria-label="Main" className={styles.sidebar}>
@@ -86,12 +109,13 @@ export function Sidebar() {
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
       <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
       <NavItem view="tasks" icon={List} label="Tasks" />
+      <NavItem view="templates" icon={SwatchBook} label="Templates" />
       <Departments />
       <RunningAgents />
       <div className={styles.footer}>
-        <NavItem view="profiles" icon={CircleUser} label="Saved assistants" />
         <ThemeToggle />
         <ConnectionStatus />
+        <YouItem />
       </div>
     </nav>
   );

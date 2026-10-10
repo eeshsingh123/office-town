@@ -1,15 +1,19 @@
-import type { Autonomy, StartTaskRequest, WorkspaceRecord } from "@office-town/contract";
+import type {
+  Autonomy,
+  ProfileRecord,
+  StartTaskRequest,
+  WorkspaceRecord,
+} from "@office-town/contract";
 import { Network, User, Users } from "lucide-react";
-import { type KeyboardEvent, useState } from "react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { useTemplates } from "../../store/templates.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { type CardOption, OptionCards } from "../../ui/Choice.tsx";
-import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
-import { profileSummary } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { NextSteps } from "../../ui/NextSteps.tsx";
 import page from "../../ui/Page.module.css";
@@ -17,6 +21,7 @@ import { useLoaded } from "../../ui/use-loaded.ts";
 import { selectAgent } from "../office/office-state.ts";
 import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
+import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
 import { ChiefChoice, useChief } from "./ChiefChoice.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
 import styles from "./NewTaskView.module.css";
@@ -24,9 +29,6 @@ import { nextSteps, type Who } from "./next-steps.ts";
 import { PlaceChoice } from "./PlaceChoice.tsx";
 import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
 import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
-
-// No profile id can take this, since an id starts with a letter or digit.
-const LAST_CHOICES = "~last";
 
 const WHO: CardOption<Who>[] = [
   {
@@ -58,7 +60,7 @@ export function NewTaskView() {
   const handed = useApp((state) => (state.view.name === "new-task" ? state.view : undefined));
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
-  const [profileId, setProfileId] = useState(remembered.profileId);
+  const [profileId, setProfileId] = useState(handed?.templateId ?? remembered.profileId);
   const [who, setWho] = useState<Who>(handed?.who ?? (remembered.team ? "team" : "one"));
   const [departmentId, setDepartmentId] = useState(handed?.departmentId ?? PROPOSE);
   const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
@@ -80,15 +82,14 @@ export function NewTaskView() {
   const [created, setCreated] = useState<WorkspaceRecord[]>([]);
   const workspaces = [...created, ...(listed.value ?? [])];
   const settings = useLoaded("settings", api.readSettings);
-  const profiles = useLoaded("profiles", api.listProfiles);
-  const profile = profiles.value?.find((known) => known.id === profileId);
+  const templates = useTemplates();
+  const profile = templates?.find((known) => known.id === profileId);
   const outputFolder = chosenFolder ?? settings.value?.outputFolder;
   const workspace = workspaces.find((known) => known.id === workspaceId) ?? workspaces[0];
   const where =
     place === "workspace"
       ? workspace && { workspaceId: workspace.id }
       : outputFolder && { outputFolder };
-  const fromProfile = profile !== undefined;
   const soloAutonomy = choices.autonomy ?? "supervised";
   const soloGate = useBypassGate(
     soloAutonomy,
@@ -119,7 +120,7 @@ export function NewTaskView() {
         ? chief === undefined
           ? "Set up your chief first."
           : undefined
-        : !fromProfile && description === undefined
+        : description === undefined
           ? "No AI app is installed yet."
           : team
             ? proposing && workspace === undefined
@@ -156,16 +157,16 @@ export function NewTaskView() {
       }
       if (description === undefined) return;
       const { environment, model, effort } = choices;
-      const agent: StartTaskRequest["agent"] = fromProfile
-        ? { profileId: profile.id }
-        : {
-            settings: {
-              harness: description.harness,
-              environment,
-              ...(model === undefined ? {} : { model }),
-              ...(effort === undefined ? {} : { effort }),
-            },
-          };
+      // A template fills in the choices; its notes come with it through its id.
+      const agent: StartTaskRequest["agent"] = {
+        settings: {
+          harness: description.harness,
+          environment,
+          ...(model === undefined ? {} : { model }),
+          ...(effort === undefined ? {} : { effort }),
+        },
+        ...(profile === undefined ? {} : { profileId: profile.id }),
+      };
       const session = team
         ? await api.startTeamTask({
             goal,
@@ -190,6 +191,29 @@ export function NewTaskView() {
     }
   };
 
+  // Fills in the AI choices; the template's notes come along when the task starts.
+  const pickTemplate = (template: ProfileRecord | undefined) => {
+    setProfileId(template?.id);
+    if (template === undefined) return;
+    const { harness: next, environment, model, effort } = template.settings;
+    setHarness(next);
+    const { autonomy, recentModels } = loadRemembered().byHarness[next] ?? DEFAULT_CHOICES;
+    setChoices({
+      environment,
+      recentModels,
+      ...(autonomy === undefined ? {} : { autonomy }),
+      ...(model === undefined ? {} : { model }),
+      ...(effort === undefined ? {} : { effort }),
+    });
+  };
+  // A template handed in, such as from its card's Use button, fills the form once it is loaded.
+  const handedTemplate = handed?.templateId;
+  const handedLoaded = templates?.find((known) => known.id === handedTemplate);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fill once, when it first loads
+  useEffect(() => {
+    if (handedLoaded !== undefined) pickTemplate(handedLoaded);
+  }, [handedLoaded?.id]);
+
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
       event.preventDefault();
@@ -199,28 +223,8 @@ export function NewTaskView() {
 
   const aiChoices =
     who === "chief" || (team && !proposing) ? null : (
-      <AiLine
-        lead={team ? "The lead thinks with" : "Thinks with"}
-        summary={
-          fromProfile ? `${profile.name} · ${profileSummary(profile, harnesses)}` : aiSummary
-        }
-      >
-        {(profiles.value ?? []).length === 0 ? null : (
-          <ChoiceMenu
-            label="Saved assistant"
-            value={profile?.id ?? LAST_CHOICES}
-            choices={[
-              { value: LAST_CHOICES, label: "None, choose below" },
-              ...(profiles.value ?? []).map((known) => ({
-                value: known.id,
-                label: known.name,
-                description: profileSummary(known, harnesses),
-              })),
-            ]}
-            onChange={(next) => setProfileId(next === LAST_CHOICES ? undefined : next)}
-          />
-        )}
-        {fromProfile || chipSettings === undefined ? null : (
+      <AiLine lead={team ? "The lead thinks with" : "Thinks with"} summary={aiSummary}>
+        {chipSettings === undefined ? null : (
           <SettingsChips
             value={chipSettings}
             recentModels={choices.recentModels}
@@ -275,6 +279,15 @@ export function NewTaskView() {
             />
             {aiChoices === null ? null : <div className={styles.composerFoot}>{aiChoices}</div>}
           </div>
+
+          {who === "one" || proposing ? (
+            <TemplatePicker
+              chosen={profile?.id}
+              who={team ? "the lead" : "this agent"}
+              title={team ? "Start the lead from a template" : "Start from a template"}
+              onPick={pickTemplate}
+            />
+          ) : null}
 
           <section className={page.section}>
             <h2 className={page.sectionTitle}>Who should handle it?</h2>

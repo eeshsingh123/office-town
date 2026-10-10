@@ -14,7 +14,7 @@ import { harnessChoices, isClaimed, stopTeam } from "../team/team-tasks.ts";
 import { chiefBrief, type DepartmentView } from "./briefs.ts";
 import { chiefFolder, chiefOf, NoChiefError } from "./chief.ts";
 
-function memberLine(store: Store, department: DepartmentRecord, member: AgentRecord): string {
+function memberLine(department: DepartmentRecord, member: AgentRecord): string {
   const { harness, model } = member.settings;
   const role = member.id === department.leadAgentId ? "lead" : (member.role ?? "worker");
   const what = member.purpose ? `: ${member.purpose}` : "";
@@ -26,9 +26,7 @@ function departmentViews(store: Store): DepartmentView[] {
     const busy = store.activeTaskOf(department.id);
     return {
       name: department.name,
-      members: store
-        .listMembers(department.id)
-        .map((member) => memberLine(store, department, member)),
+      members: store.listMembers(department.id).map((member) => memberLine(department, member)),
       folders: store.getWorkspace(department.workspaceId)?.folders ?? [],
       busyWith: busy === undefined ? undefined : store.getTask(busy)?.prompt,
     };

@@ -82,7 +82,7 @@ export function QuickTask() {
   const soloNote =
     solo === undefined
       ? "Pick where it works in New task"
-      : `${remembered.profileId === undefined ? (soloHarness?.name ?? "Agent") : "Your saved assistant"} · ${AUTONOMY[solo.autonomy].label}`;
+      : `${remembered.profileId === undefined ? (soloHarness?.name ?? "Agent") : "From a template"} · ${AUTONOMY[solo.autonomy].label}`;
 
   return (
     <div className={styles.composer}>

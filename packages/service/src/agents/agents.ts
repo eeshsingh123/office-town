@@ -42,6 +42,18 @@ export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): A
     ...(profile.role === "" ? {} : { purpose: profile.role }),
     ...named,
     profileId: profile.id,
-    settings: settings ?? profile.settings,
+    // A filled-in template keeps its notes and level unless the request gives its own.
+    settings:
+      settings === undefined
+        ? profile.settings
+        : {
+            ...(profile.settings.instructions === undefined
+              ? {}
+              : { instructions: profile.settings.instructions }),
+            ...(profile.settings.autonomy === undefined
+              ? {}
+              : { autonomy: profile.settings.autonomy }),
+            ...settings,
+          },
   });
 }

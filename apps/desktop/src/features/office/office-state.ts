@@ -3,7 +3,7 @@ import { navigate, select } from "../../store/app-store.ts";
 
 export type OfficeMode = "floor" | "board";
 export type PanelKind = "chief" | "department" | "agent";
-export type PanelTab = "overview" | "chat" | "work";
+export type PanelTab = "overview" | "chat" | "work" | "profile";
 
 interface OfficeState {
   mode: OfficeMode;
