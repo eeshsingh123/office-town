@@ -11,6 +11,7 @@ import {
 } from "@office-town/contract";
 import { z } from "zod";
 import { createAgent } from "../agents/agents.ts";
+import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { levelOf } from "../autonomy/policy.ts";
 import type { Message } from "../registry/session-registry.ts";
@@ -63,8 +64,15 @@ function copyWork(folders: string[], paths: string[], to: string): string[] {
   });
 }
 
-function reviewBrief(input: { askedBy: string; brief: string; folder: string; paths: string[] }) {
-  const text = `You give a second opinion in Office Town. You have never seen this work before, and that is the point: judge it fresh.
+function reviewBrief(input: {
+  askedBy: string;
+  brief: string;
+  folder: string;
+  paths: string[];
+  instructions: string | undefined;
+}) {
+  const first = input.instructions === undefined ? "" : `${input.instructions}\n\n`;
+  const text = `${first}You give a second opinion in Office Town. You have never seen this work before, and that is the point: judge it fresh.
 
 A copy of the files to examine is in ${input.folder}; changing it changes nothing else. You were given: ${input.paths.join(", ")}.
 
@@ -113,7 +121,13 @@ async function startReview(context: TeamContext, asked: Asked): Promise<SessionR
     taskId: asked.taskId,
     agentId: guest.id,
     options: { ...sessionOptionsFor(store, guest, { workspacePath: folder }), isolated: true },
-    message: reviewBrief({ askedBy: owner.name, brief: asked.brief, folder, paths: copied }),
+    message: reviewBrief({
+      askedBy: owner.name,
+      brief: asked.brief,
+      folder,
+      paths: copied,
+      instructions: instructionsFor(store, guest),
+    }),
   });
 }
 

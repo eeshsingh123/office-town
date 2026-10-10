@@ -190,7 +190,16 @@ describe("api", () => {
     });
   });
 
-  it("gives each task's agent a free name, follows its profile, and refuses a name in use", async () => {
+  it("gives each task's agent a free name, copies its template, reads the user's profile first, and refuses a name in use", async () => {
+    await call("PUT", "/you", {
+      name: "Eesh",
+      colour: "#A2456E",
+      about: "Python developer.",
+      answerStyle: ["Explain the why"],
+      answerNotes: "",
+      notifyNeedsYou: true,
+      notifyFinished: false,
+    });
     const profile = profileRecordSchema.parse(
       await (
         await call("POST", "/profiles", {
@@ -213,7 +222,10 @@ describe("api", () => {
     );
     expect(fromProfile.options.model).toBe("haiku");
     expect(sessions[0]?.sent[1]).toMatchObject({
-      text: "Write plainly.\n\nYour task:\nWrite the menu",
+      text:
+        "About the person you work for (Eesh):\nPython developer.\n\n" +
+        "How Eesh likes answers:\n- Explain the why\n\n" +
+        "Your own notes:\nWrite plainly.\n\nYour task:\nWrite the menu",
       origin: { kind: "brief" },
     });
     const solo = sessionRecordSchema.parse(await (await startTask("Write a report")).json());
@@ -229,6 +241,16 @@ describe("api", () => {
     expect((await rename(taken)).status).toBe(409);
     expect((await rename("Ben")).status).toBe(400);
     expect(await (await rename("@ben")).json()).toMatchObject({ name: "@ben" });
+
+    // Editing the template later leaves the agent made from it as it is.
+    await call("PUT", `/profiles/${profile.id}`, {
+      ...profile,
+      settings: { ...settings, model: "sonnet" },
+    });
+    const copied = agentRecordSchema.parse(
+      await (await call("GET", `/agents/${fromProfile.agentId}`)).json(),
+    );
+    expect(copied.settings.model).toBe("haiku");
 
     // A deleted profile leaves its agents working with the settings they were made with.
     expect((await call("DELETE", `/profiles/${profile.id}`)).status).toBe(204);

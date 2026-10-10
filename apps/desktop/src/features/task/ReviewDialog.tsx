@@ -6,11 +6,13 @@ import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { useTemplates } from "../../store/templates.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
-import { profileSummary, taskTitle } from "../../ui/format.ts";
+import { taskTitle } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { modelLine, useModels } from "../profiles/model-line.ts";
 import styles from "./ReviewDialog.module.css";
 
 const SAME = "same";
@@ -46,7 +48,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
   const files = useLoaded(open ? `files:${agent.taskId}:${agent.id}` : undefined, () =>
     api.listTaskFiles(agent.taskId, agent.id),
   );
-  const profiles = useLoaded(open ? "profiles" : undefined, api.listProfiles);
+  const templates = useTemplates() ?? [];
   const [brief, setBrief] = useState(() => defaultBrief(agent));
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [reviewer, setReviewer] = useState(SAME);
@@ -54,7 +56,8 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
   const [starting, setStarting] = useState(false);
 
   const { instructions: _, autonomy: __, ...settings } = agent.record.settings;
-  const profile = profiles.value?.find((known) => known.id === reviewer);
+  const profile = templates.find((known) => known.id === reviewer);
+  const modelOf = useModels([settings, ...templates.map((known) => known.settings)]);
   const chosenHarness = profile?.settings.harness ?? settings.harness;
   const isolation = harnesses.find((known) => known.harness === chosenHarness);
   const paths = (files.value ?? [])
@@ -64,12 +67,12 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
     {
       value: SAME,
       label: `Like ${agent.name}`,
-      description: profileSummary({ settings }, harnesses),
+      description: modelLine(settings, harnesses, modelOf(settings)),
     },
-    ...(profiles.value ?? []).map((known) => ({
+    ...templates.map((known) => ({
       value: known.id,
       label: known.name,
-      description: profileSummary(known, harnesses),
+      description: modelLine(known.settings, harnesses, modelOf(known.settings)),
     })),
   ];
 

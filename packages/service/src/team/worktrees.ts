@@ -2,7 +2,6 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentRecord, DepartmentRecord, EnvironmentSpec } from "@office-town/contract";
 import { environmentPath, runCommand } from "@office-town/harness";
-import { settingsOf } from "../agents/agents.ts";
 import { inFolders } from "../agents/options.ts";
 import type { TeamContext } from "./members.ts";
 import { workspaceFolders } from "./members.ts";
@@ -69,7 +68,7 @@ export async function workerFolders(
   const task = context.store.getTask(taskId);
   const name = slug(worker.name, 40);
   const base = `office-town/${slug(task?.prompt ?? "", 24)}-${taskId.slice(0, 4)}/${name}`;
-  const { environment } = settingsOf(context.store, worker);
+  const { environment } = worker.settings;
   const inside = (path: string) => environmentPath(environment, path);
   return inTurn(main, async () => {
     let path = join(context.dataFolder, WORKTREES, taskId, name);

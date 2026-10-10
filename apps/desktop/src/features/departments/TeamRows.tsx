@@ -1,15 +1,17 @@
-import type { TeamRole } from "@office-town/contract";
-import { CircleUser, Lock, Plus, X } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
-import { useMemo } from "react";
-import { api } from "../../api/client.ts";
+import type { AgentRecord, ProfileRecord, TeamRole } from "@office-town/contract";
+import { Lock, MoreHorizontal, Plus, X } from "lucide-react";
+import { Dialog, DropdownMenu } from "radix-ui";
+import { useMemo, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { useTemplates } from "../../store/templates.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { profileSummary } from "../../ui/format.ts";
+import dialog from "../../ui/Dialog.module.css";
 import menu from "../../ui/Menu.module.css";
-import { useLoaded } from "../../ui/use-loaded.ts";
+import { AgentProfileDialog } from "../office/AgentProfile.tsx";
+import { SaveTemplateDialog, type TemplateSource } from "../profiles/SaveTemplateDialog.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
+import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
 import styles from "./TeamRows.module.css";
 
 export interface TeamRow extends TeamRole {
@@ -23,6 +25,12 @@ export const toRows = (roles: readonly TeamRole[]): TeamRow[] =>
 export const toRoles = (rows: readonly TeamRow[]): TeamRole[] =>
   rows.map(({ key: _, ...role }) => role);
 
+// The AI choices a template fills in; its notes come with it through its id.
+function chipsOf(template: ProfileRecord): ChipSettings {
+  const { instructions: _, autonomy: __, ...settings } = template.settings;
+  return settings;
+}
+
 interface TeamRowsProps {
   rows: TeamRow[];
   onChange: (rows: TeamRow[]) => void;
@@ -32,11 +40,57 @@ interface TeamRowsProps {
   defaults: ChipSettings;
 }
 
+type Opened =
+  | { kind: "profile"; agent: AgentRecord }
+  | { kind: "template"; source: TemplateSource }
+  | undefined;
+
+function RowMenu({
+  label,
+  agent,
+  onOpen,
+  source,
+}: {
+  label: string;
+  agent: AgentRecord | undefined;
+  onOpen: (opened: Opened) => void;
+  source: TemplateSource;
+}) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <Button variant="ghost" icon aria-label={`More for ${label}`}>
+          <MoreHorizontal size={14} aria-hidden />
+        </Button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
+          {agent === undefined ? null : (
+            <DropdownMenu.Item
+              className={menu.item}
+              onSelect={() => onOpen({ kind: "profile", agent })}
+            >
+              Open profile
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Item
+            className={menu.item}
+            onSelect={() => onOpen({ kind: "template", source })}
+          >
+            Save as template
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
 // A worker the team already has keeps its name. The lead's row is fixed.
 export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamRowsProps) {
   const agents = useApp((state) => state.agents);
-  const harnesses = useApp((state) => state.harnesses);
-  const profiles = useLoaded("profiles", api.listProfiles);
+  const templates = useTemplates() ?? [];
+  const [adding, setAdding] = useState(false);
+  const [opened, setOpened] = useState<Opened>();
 
   const leaving = useMemo(() => {
     const kept = new Set(rows.flatMap((row) => row.agentId ?? []));
@@ -52,6 +106,32 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
   const update = (key: number, change: Partial<TeamRole>) =>
     onChange(rows.map((row) => (row.key === key ? { ...row, ...change } : row)));
   const nextKey = () => Math.max(-1, ...rows.map((row) => row.key)) + 1;
+  const add = (template: ProfileRecord | undefined) => {
+    setAdding(false);
+    onChange([
+      ...rows,
+      template === undefined
+        ? { key: nextKey(), role: "", purpose: "", settings: defaults }
+        : {
+            key: nextKey(),
+            role: template.name,
+            purpose: template.role,
+            profileId: template.id,
+            settings: chipsOf(template),
+          },
+    ]);
+  };
+  const sourceOf = (row: TeamRow, member: AgentRecord | undefined): TemplateSource => ({
+    who: member?.name ?? (row.role || "this team member"),
+    name: row.role,
+    job: row.purpose,
+    colour: member?.colour ?? "#3A6EA5",
+    settings: {
+      ...(member === undefined ? {} : member.settings),
+      ...(row.settings ?? defaults),
+    },
+  });
+  const leadAgent = lead === undefined ? undefined : agents[lead.id];
 
   return (
     <>
@@ -68,13 +148,30 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
             <span className={styles.hint}>Plans, hands out the work, and puts it together</span>
             <span className={styles.locked}>
               {lead.summary}
-              <Lock size={13} aria-label="The lead is fixed" />
+              <Lock size={13} aria-label="The lead stays the lead" />
+              {leadAgent === undefined ? null : (
+                <RowMenu
+                  label={lead.name}
+                  agent={leadAgent}
+                  onOpen={setOpened}
+                  source={{
+                    who: leadAgent.name,
+                    name: "",
+                    job: leadAgent.purpose ?? "",
+                    colour: leadAgent.colour,
+                    settings: leadAgent.settings,
+                  }}
+                />
+              )}
             </span>
           </li>
         )}
         {rows.map((row) => {
           const member = row.agentId === undefined ? undefined : agents[row.agentId];
-          const profile = profiles.value?.find((known) => known.id === row.profileId);
+          const template =
+            row.agentId === undefined
+              ? templates.find((known) => known.id === row.profileId)
+              : undefined;
           return (
             <li key={row.key} className={styles.role}>
               <div className={styles.texts}>
@@ -95,28 +192,34 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
                 {member === undefined ? null : (
                   <span className={styles.hint}>Keeps {member.name}</span>
                 )}
-              </div>
-              <div className={styles.chips}>
-                {row.settings === undefined ? (
+                {template === undefined ? null : (
                   <span className={styles.hint}>
-                    Saved assistant {profile?.name ?? ""}
-                    {profile === undefined ? "" : ` · ${profileSummary(profile, harnesses)}`}
+                    Filled in from {template.name}. Changing this won't change the template.
                   </span>
-                ) : (
-                  <SettingsChips
-                    value={row.settings}
-                    onChange={(settings) => update(row.key, { settings })}
-                  />
                 )}
               </div>
-              <Button
-                variant="ghost"
-                icon
-                aria-label={`Remove ${row.role || "this role"}`}
-                onClick={() => onChange(rows.filter((other) => other.key !== row.key))}
-              >
-                <X size={14} aria-hidden />
-              </Button>
+              <div className={styles.chips}>
+                <SettingsChips
+                  value={row.settings ?? defaults}
+                  onChange={(settings) => update(row.key, { settings })}
+                />
+              </div>
+              <div className={styles.rowActions}>
+                <RowMenu
+                  label={row.role || "this role"}
+                  agent={member}
+                  onOpen={setOpened}
+                  source={sourceOf(row, member)}
+                />
+                <Button
+                  variant="ghost"
+                  icon
+                  aria-label={`Remove ${row.role || "this role"}`}
+                  onClick={() => onChange(rows.filter((other) => other.key !== row.key))}
+                >
+                  <X size={14} aria-hidden />
+                </Button>
+              </div>
             </li>
           );
         })}
@@ -127,54 +230,47 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
         </p>
       )}
       <div className={styles.add}>
-        <Button
-          onClick={() =>
-            onChange([...rows, { key: nextKey(), role: "", purpose: "", settings: defaults }])
-          }
-        >
+        <Button onClick={() => (templates.length === 0 ? add(undefined) : setAdding(true))}>
           <Plus size={14} aria-hidden />
           Add someone
         </Button>
-        {(profiles.value ?? []).length === 0 ? null : (
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button>
-                <CircleUser size={14} aria-hidden />
-                Add a saved assistant
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className={menu.surface} align="start" sideOffset={4}>
-                {(profiles.value ?? []).map((profile) => (
-                  <DropdownMenu.Item
-                    key={profile.id}
-                    className={menu.item}
-                    onSelect={() =>
-                      onChange([
-                        ...rows,
-                        {
-                          key: nextKey(),
-                          role: profile.name,
-                          purpose: profile.role,
-                          profileId: profile.id,
-                        },
-                      ])
-                    }
-                  >
-                    <span className={menu.itemText}>
-                      {profile.name}
-                      <span className={menu.itemDescription}>
-                        {profileSummary(profile, harnesses)}
-                      </span>
-                    </span>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        )}
-        <span className={styles.hint}>Each person can use a different AI app and model.</span>
+        <span className={styles.hint}>
+          {templates.length === 0
+            ? "Save time next time: save any agent as a template from its profile."
+            : "Each person can use a different AI app and model."}
+        </span>
       </div>
+      <Dialog.Root open={adding} onOpenChange={setAdding}>
+        <Dialog.Portal>
+          <Dialog.Overlay className={dialog.overlay} />
+          <Dialog.Content className={`${dialog.content} ${styles.addDialog}`}>
+            <Dialog.Title className={dialog.title}>Add someone to the team</Dialog.Title>
+            <Dialog.Description className={dialog.description}>
+              Start from a template to fill in their job and AI, or start blank. You can change
+              everything after.
+            </Dialog.Description>
+            <TemplatePicker chosen={undefined} onPick={add} title="Start from a template" />
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+      {opened?.kind === "profile" ? (
+        <AgentProfileDialog
+          agent={opened.agent}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(undefined);
+          }}
+        />
+      ) : null}
+      {opened?.kind === "template" ? (
+        <SaveTemplateDialog
+          source={opened.source}
+          open
+          onOpenChange={(open) => {
+            if (!open) setOpened(undefined);
+          }}
+        />
+      ) : null}
     </>
   );
 }

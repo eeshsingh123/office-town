@@ -21,7 +21,7 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 - Environment: where a harness process is launched (native OS, WSL, later a sandbox).
 - Adapter: the per-harness translator between the harness's own wire format and events.
 - Agent (employee): a stored worker with a name, a role and settings. It works through sessions.
-- Profile: a saved, harness-neutral description of an agent: role, instructions, harness, model, effort, autonomy.
+- Template (profile in code): a saved, harness-neutral description of an agent: role, instructions, harness, model, effort, autonomy. An agent made from one keeps a copy (D-55).
 - Department: a team with one lead and its workers, one workspace and one autonomy level.
 - Delegation: a piece of work the lead hands a worker, and the result that comes back.
 - Autonomy: how much a department's agents may do without asking the user.

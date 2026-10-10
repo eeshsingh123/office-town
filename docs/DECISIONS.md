@@ -92,9 +92,9 @@ Why: both CLIs call MCP tools, so delegation works the same on every harness and
 - Outward actions (push, PR, publish) go ahead only under Full (owner).
 - Outsourced agents work on a copy, never the original (owner).
 
-### D-42 Agents are stored records; profiles are followed — accepted (2026-10-05)
+### D-42 Agents are stored records — accepted (2026-10-05), template part replaced by D-55
 
-Every session belongs to an agent: unique handle, colour, role, optional department. An agent made from a profile follows the profile's changes at its next session. Settings flow department, role, agent; a profile or agent may lower its department's autonomy, never raise it.
+Every session belongs to an agent: unique handle, colour, role, optional department. Settings flow department, role, agent; a profile or agent may lower its department's autonomy, never raise it.
 Why: names and roles survive resumes and goals, and agent memory will hang off this record.
 
 ### D-43 Tool server rules — accepted (2026-10-05)
@@ -154,7 +154,7 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
 - New task asks "What do you need done?", then "Who should handle it?" as three cards (one assistant, a department, your chief). The AI app and model fold into one "Thinks with … · Change" line. A side panel says what starting will do.
-- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Project for a workspace, AI app for a harness, Saved assistants for profiles. Code and API keep their names.
+- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Project for a workspace, AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
 - The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
 - New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
 - Look "Dusk": warm greys in both themes, a muted slate blue for actions, soft amber only for what needs the user, Plus Jakarta Sans. Agent colours stay as stored and are drawn softened into the surface.
@@ -167,6 +167,16 @@ Why: the owner found the old form vague, full of jargon and generic-looking; the
 - Open folder moved into the header's facts as the folder's name; in the app a click opens it.
 - The offer comes from the app, not the agent: it shows the same way on every harness, costs no tokens, and only appears when the lead really finished (not interrupted, stopped or failed).
 Why: the header buttons were out of place and unclear (owner feedback); a review should feel like part of the work.
+
+### D-55 Your profile, agent profiles and templates — accepted (2026-10-10)
+
+- Each kind of setting lives on the page of the thing it changes. Your profile (sidebar, bottom) holds your name, colour, About you, how you like answers, and the two pop-up switches (an agent needs you: on; a task is finished: off), stored as `settings.you`. An agent's settings are its Profile tab in the office (`PUT /agents/:id`). A department adds Team rules (`departments.rules`). The chief keeps its House rules, which only the chief reads.
+- Every agent, guests included, reads in this order: About you and how you like answers, its team's rules, its own notes, then the task (`agents/briefs.ts` `instructionsFor`). Each profile page shows that list.
+- Profiles are called Templates and sit in the main menu: search, filter by AI app or free models, sort, cards or list. A card shows its name, job and one line "model · app · effort", with Use and a ⋯ menu. Save as template is on every agent's profile and team row; picking a template fills in the form.
+- An agent made from a template gets a copy. `profileId` only records which template, to count "Used for N agents". The migration copied each followed template into its agents.
+- An agent can be more careful than its team, not less; the screen says to change the team's setting instead.
+- Words: plain and human, no internal terms (session, level, handle, harness) in what the user reads; models by their full names.
+Why: the Saved assistants page had no clear purpose, mixed one agent's settings into a top-level page, used jargon, and the person using the app had no profile (owner feedback). Copies are easier to understand than settings that change under a running team.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 

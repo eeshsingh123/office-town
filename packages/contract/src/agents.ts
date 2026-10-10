@@ -36,7 +36,7 @@ export const agentSettingsSchema = z.object({
 });
 export type AgentSettings = z.infer<typeof agentSettingsSchema>;
 
-// Follows its profile from the next session; its own settings apply if the profile is deleted.
+// One made from a template keeps a copy of it; `profileId` only says which template (D-55).
 export const agentRecordSchema = z.object({
   id: z.string().min(1),
   name: agentNameSchema,
@@ -80,8 +80,31 @@ export const profileRecordSchema = profileRequestSchema.extend({
 });
 export type ProfileRecord = z.infer<typeof profileRecordSchema>;
 
+// From a template, or from settings of its own; a filled-in template keeps its id to count its uses.
+// The settings variant comes first, so a filled-in template keeps its settings.
 export const newAgentSchema = z.union([
+  z.object({ settings: agentSettingsSchema, profileId: z.string().min(1).optional() }),
   z.object({ profileId: z.string().min(1) }),
-  z.object({ settings: agentSettingsSchema }),
 ]);
 export type NewAgent = z.infer<typeof newAgentSchema>;
+
+// What the user can change on an agent's own profile; its name changes through a rename.
+export const agentProfileRequestSchema = z.object({
+  colour: agentColourSchema,
+  purpose: z.string().trim(),
+  settings: agentSettingsSchema,
+});
+export type AgentProfileRequest = z.infer<typeof agentProfileRequestSchema>;
+
+// The person using the app. Every agent reads who they are and how they like answers (D-55).
+export const userProfileSchema = z.object({
+  name: z.string().trim().max(60),
+  colour: agentColourSchema,
+  about: z.string(),
+  // Quick picks such as "Explain the why", then the user's own words.
+  answerStyle: z.array(z.string().trim().min(1)),
+  answerNotes: z.string(),
+  notifyNeedsYou: z.boolean(),
+  notifyFinished: z.boolean(),
+});
+export type UserProfile = z.infer<typeof userProfileSchema>;

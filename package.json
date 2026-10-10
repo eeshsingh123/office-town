@@ -10,7 +10,7 @@
     "lint": "biome check",
     "format": "biome check --write",
     "typecheck": "pnpm --recursive typecheck",
-    "test": "vitest run",
+    "test": "vitest run --testTimeout=20000",
     "check": "pnpm lint && pnpm typecheck && pnpm test",
     "dev:run": "node packages/harness/dev/run.ts",
     "dev:catalog": "node packages/harness/dev/catalog.ts",

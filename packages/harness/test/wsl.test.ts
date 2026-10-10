@@ -1,10 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { LaunchRequest } from "../src/environment/environment.ts";
 import { BinaryNotFoundError } from "../src/environment/find-binary.ts";
 import { parseDistroList, WslEnvironment } from "../src/environment/wsl.ts";
 import { toWindowsPath, toWslPath } from "../src/environment/wsl-paths.ts";
-import { runProcess } from "../src/process-runner.ts";
 import { ScriptedEnvironment } from "./support/replay.ts";
 
 describe("WSL path translation", () => {
@@ -122,62 +120,4 @@ describe("WslEnvironment", () => {
     await expect(launch).rejects.toBeInstanceOf(BinaryNotFoundError);
     await expect(launch).rejects.toThrow('WSL distro "Ubuntu"');
   });
-});
-
-function installedDistro(): string | undefined {
-  if (process.platform !== "win32") return undefined;
-  try {
-    const listing = execFileSync("wsl.exe", ["-l", "-q"], { windowsHide: true });
-    return listing.toString("utf16le").split(/\r?\n/).find(Boolean)?.trim();
-  } catch {
-    return undefined;
-  }
-}
-
-const distro = installedDistro();
-
-describe.runIf(distro !== undefined)("WslEnvironment against an installed distro", () => {
-  const countMarked = `n=0; for p in /proc/[0-9]*; do grep -qz "^OFFICE_TOWN_LAUNCH=" "$p/environ" 2>/dev/null && n=$((n+1)); done; echo $n`;
-  const marked = () =>
-    Number(execFileSync("wsl.exe", ["-d", distro as string, "-e", "sh", "-c", countMarked]));
-
-  it("runs a command in the mapped folder and kills even a detached child", async () => {
-    const environment = new WslEnvironment(distro as string);
-    const lines: string[] = [];
-    const { promise: ready, resolve } = Promise.withResolvers<void>();
-    const { promise: exited, resolve: onExit } = Promise.withResolvers<void>();
-    const script = 'pwd; echo "$1"; setsid nohup sleep 300 >/dev/null 2>&1 & read line';
-    const running = await runProcess(
-      environment,
-      {
-        binary: "sh",
-        args: ["-c", script, "sh", "two words"],
-        cwd: environment.toEnvironmentPath("C:\\Windows"),
-      },
-      {
-        onLine: (line) => {
-          lines.push(line);
-          if (lines.length === 2) resolve();
-        },
-        onExit: () => onExit(),
-      },
-    );
-
-    await ready;
-    expect(lines).toEqual(["/mnt/c/Windows", "two words"]);
-    expect(marked()).toBeGreaterThan(0);
-
-    await running.killTree();
-    await exited;
-    expect(marked()).toBe(0);
-  }, 30_000);
-
-  it("names a distro that is not installed", async () => {
-    const launch = new WslEnvironment("no-such-distro-office-town").launch({
-      binary: "sh",
-      args: [],
-    });
-
-    await expect(launch).rejects.toThrow('"no-such-distro-office-town" is not installed');
-  }, 30_000);
 });

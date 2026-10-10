@@ -82,3 +82,13 @@
     grid-column: 1 / -1;
   }
 }
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.addDialog {
+  width: min(720px, calc(100vw - 32px));
+}

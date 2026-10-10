@@ -1,0 +1,53 @@
+.profile {
+  gap: 18px;
+}
+
+.reads {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
+.reads summary {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.reads ol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding-left: 20px;
+  font-size: var(--size-meta);
+}
+
+.reads li > span {
+  display: inline;
+}
+
+.reads q {
+  display: block;
+  color: var(--text-2);
+  quotes: none;
+}
+
+.edit {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+}

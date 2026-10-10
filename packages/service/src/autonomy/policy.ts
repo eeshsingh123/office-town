@@ -6,7 +6,6 @@ import {
   type SessionEvent,
   type SessionRecord,
 } from "@office-town/contract";
-import { settingsOf } from "../agents/agents.ts";
 import type { Store } from "../store/store.ts";
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>["payload"];
@@ -91,7 +90,7 @@ export function levelOf(store: Store, agentId: string): Autonomy {
   const department =
     agent.departmentId === undefined ? undefined : store.getDepartment(agent.departmentId);
   const level = department?.autonomy ?? agent.autonomy ?? "supervised";
-  return lowerAutonomy(level, settingsOf(store, agent).autonomy);
+  return lowerAutonomy(level, agent.settings.autonomy);
 }
 
 type Guard = (session: SessionRecord, request: PermissionRequest) => Autonomy | undefined;

@@ -1,5 +1,5 @@
 import type { AgentRecord, DepartmentRecord, Team, TeamRole } from "@office-town/contract";
-import { freeIdentity, settingsOf } from "../agents/agents.ts";
+import { freeIdentity } from "../agents/agents.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { requireFolders } from "../task-folders.ts";
@@ -50,7 +50,7 @@ const canonical = (value: unknown) =>
   );
 
 // Team rows carry harness settings only, so a kept member keeps its instructions and lowered level.
-function ownOf({ settings: { instructions, autonomy } }: AgentRecord) {
+function ownOf({ settings: { instructions, autonomy } }: Pick<AgentRecord, "settings">) {
   return {
     ...(instructions === undefined ? {} : { instructions }),
     ...(autonomy === undefined ? {} : { autonomy }),
@@ -84,7 +84,14 @@ export function checkTeam(
 function addMember(store: Store, departmentId: string, role: TeamRole): AgentRecord {
   const profile = role.profileId === undefined ? undefined : store.getProfile(role.profileId);
   const identity = freeIdentity(store);
-  const settings = role.settings ?? profile?.settings;
+  // A row filled in from a template keeps the template's notes and level beside its own settings.
+  const settings =
+    role.settings === undefined
+      ? profile?.settings
+      : {
+          ...(profile === undefined ? {} : ownOf({ settings: profile.settings })),
+          ...role.settings,
+        };
   if (settings === undefined) throw new TeamError(`The role "${role.role}" has no settings.`);
   return store.createAgent({
     name: identity.name,
@@ -110,7 +117,8 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
     }
     const member = members.find((known) => known.id === role.agentId);
     if (member === undefined) continue;
-    const linked = role.settings === undefined ? (role.profileId ?? member.profileId) : undefined;
+    // Which template it was made from stays known, so the template can count its agents.
+    const linked = role.profileId ?? member.profileId;
     const after = store.updateAgent(member.id, {
       role: role.role,
       purpose: role.purpose,
@@ -139,7 +147,7 @@ export function rosterOf(store: Store, department: DepartmentRecord): string {
   if (workers.length === 0) return "You have no workers yet.";
   return workers
     .map((member) => {
-      const { harness, model } = settingsOf(store, member);
+      const { harness, model } = member.settings;
       const what = member.purpose ? `: ${member.purpose}` : "";
       return `- ${member.name}, ${member.role ?? "worker"}${what} (${harness}${model ? `, ${model}` : ""})`;
     })

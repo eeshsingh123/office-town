@@ -6,6 +6,7 @@ import { ChiefOverview } from "../chief/ChiefOverview.tsx";
 import { DepartmentPanel } from "../departments/DepartmentPanel.tsx";
 import { AgentWork, ChiefWork, DepartmentWork } from "../work/WorkTab.tsx";
 import { AgentPanel } from "./AgentPanel.tsx";
+import { AgentProfile } from "./AgentProfile.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import { GroupPanel } from "./GroupPanel.tsx";
 import styles from "./Office.module.css";
@@ -51,6 +52,11 @@ function AgentSide({ agentId, onFloor }: { agentId: string; onFloor: FloorAgent 
       chatAgentId={agentId}
       overview={<AgentPanel member={member} />}
       work={<AgentWork agent={member.agent} />}
+      profile={
+        member.agent.record.guest ? undefined : (
+          <AgentProfile key={member.agent.id} agent={member.agent.record} />
+        )
+      }
     />
   );
 }

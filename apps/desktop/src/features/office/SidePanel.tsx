@@ -11,17 +11,22 @@ interface SidePanelProps {
   chatAgentId: string;
   overview: ReactNode;
   work: ReactNode;
+  // An agent's own settings; the chief and departments have their own pages.
+  profile?: ReactNode;
 }
 
 // The tab chosen last for each kind of selection stays chosen.
-export function SidePanel({ kind, label, chatAgentId, overview, work }: SidePanelProps) {
-  const tab = useOffice((state) => state.tabs[kind]);
+export function SidePanel({ kind, label, chatAgentId, overview, work, profile }: SidePanelProps) {
+  const chosen = useOffice((state) => state.tabs[kind]);
+  const tab = chosen === "profile" && profile === undefined ? "overview" : chosen;
   return (
     <Tabs.Root
       className={styles.panel}
       value={tab}
       onValueChange={(next) => {
-        if (next === "overview" || next === "chat" || next === "work") chooseTab(kind, next);
+        if (next === "overview" || next === "chat" || next === "work" || next === "profile") {
+          chooseTab(kind, next);
+        }
       }}
       aria-label={label}
       asChild
@@ -37,6 +42,11 @@ export function SidePanel({ kind, label, chatAgentId, overview, work }: SidePane
           <Tabs.Trigger value="work" className={styles.tab}>
             Work
           </Tabs.Trigger>
+          {profile === undefined ? null : (
+            <Tabs.Trigger value="profile" className={styles.tab}>
+              Profile
+            </Tabs.Trigger>
+          )}
         </Tabs.List>
         <Tabs.Content value="overview" className={styles.content}>
           {overview}
@@ -47,6 +57,11 @@ export function SidePanel({ kind, label, chatAgentId, overview, work }: SidePane
         <Tabs.Content value="work" className={styles.content}>
           {work}
         </Tabs.Content>
+        {profile === undefined ? null : (
+          <Tabs.Content value="profile" className={styles.content}>
+            {profile}
+          </Tabs.Content>
+        )}
       </aside>
     </Tabs.Root>
   );

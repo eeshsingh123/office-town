@@ -46,8 +46,9 @@ export interface NewAgentRecord {
   settings: AgentSettings;
 }
 
-// An agent's fields that can change; one left out is cleared.
+// An agent's fields that can change; one left out is cleared, except its colour, which stays.
 export interface AgentChange {
+  colour?: AgentColour;
   role?: string | undefined;
   purpose?: string | undefined;
   departmentId?: string | undefined;

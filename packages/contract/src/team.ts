@@ -40,6 +40,8 @@ export const departmentRecordSchema = z.object({
   branchPerWorker: z.boolean(),
   // The lead commits, pushes and opens pull requests through the user's own git and gh logins.
   codeFlow: z.boolean(),
+  // Every member reads these before each task.
+  rules: z.string().optional(),
   createdAt: z.iso.datetime(),
 });
 export type DepartmentRecord = z.infer<typeof departmentRecordSchema>;
@@ -49,6 +51,7 @@ export const departmentSettingsSchema = departmentRecordSchema.pick({
   autonomy: true,
   branchPerWorker: true,
   codeFlow: true,
+  rules: true,
 });
 export type DepartmentSettings = z.infer<typeof departmentSettingsSchema>;
 
