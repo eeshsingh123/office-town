@@ -28,7 +28,7 @@ function save({ id, from, at }: RoomMove): void {
 }
 
 // By its sign, or with Alt and the arrow keys; the room stops at the last free spot it passed.
-export function useRoomDrag(plan: FloorPlan) {
+export function useRoomDrag(plan: FloorPlan, scale: number) {
   const [move, setMove] = useState<RoomMove>();
   const dragged = useRef(false);
 
@@ -52,8 +52,9 @@ export function useRoomDrag(plan: FloorPlan) {
     },
     onPointerMove: (event: PointerEvent<HTMLElement>) => {
       if (move?.id !== id || move.pointer === undefined) return;
-      const dx = event.clientX - move.pointer.x;
-      const dy = event.clientY - move.pointer.y;
+      // The pointer moves in screen pixels; the floor may be shrunk to fit.
+      const dx = (event.clientX - move.pointer.x) / scale;
+      const dy = (event.clientY - move.pointer.y) / scale;
       if (!move.lifted && Math.hypot(dx, dy) < DRAG_START) return;
       const at = target(id, move.from, { x: move.from.x + dx, y: move.from.y + dy }) ?? move.at;
       setMove({ ...move, at, lifted: true });

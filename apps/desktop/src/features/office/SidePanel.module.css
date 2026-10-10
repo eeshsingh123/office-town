@@ -2,7 +2,7 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  width: 380px;
+  width: clamp(280px, 32vw, 380px);
   min-height: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);

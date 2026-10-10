@@ -205,7 +205,7 @@
   flex: none;
   flex-direction: column;
   gap: 22px;
-  width: 300px;
+  width: clamp(240px, 26vw, 300px);
   padding: 20px;
   overflow-y: auto;
   border-left: 1px solid var(--border);

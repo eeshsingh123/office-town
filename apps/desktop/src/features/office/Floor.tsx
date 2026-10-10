@@ -236,16 +236,41 @@ function seatedOf(
   return [...seated, { ...chief, position: office.agent, detail: "Chief" }];
 }
 
+// Small enough that names still read; below it the floor scrolls.
+const MIN_SCALE = 0.6;
+
+// The floor shrinks to fit its pane's width, never grows past full size.
+function useFitScale(floor: RefObject<HTMLDivElement | null>, width: number) {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const scroller = floor.current?.parentElement;
+    if (scroller === undefined || scroller === null) return;
+    const fit = () => {
+      const ratio = Math.min(1, Math.max(MIN_SCALE, scroller.clientWidth / width));
+      setScale(Math.floor(ratio * 100) / 100);
+    };
+    const observer = new ResizeObserver(fit);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [floor, width]);
+  return scale;
+}
+
 // Once per request to focus, smoothly unless motion is reduced.
-function usePanTo(floor: RefObject<HTMLDivElement | null>, at: Point | undefined, key = 0) {
+function usePanTo(
+  floor: RefObject<HTMLDivElement | null>,
+  scale: number,
+  at: Point | undefined,
+  key = 0,
+) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: pans once per focus, not as agents move
   useEffect(() => {
     const scroller = floor.current?.parentElement;
     if (at === undefined || scroller === undefined || scroller === null) return;
     const floorBox = floor.current?.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
-    const left = (floorBox?.left ?? 0) - box.left + scroller.scrollLeft + at.x;
-    const top = (floorBox?.top ?? 0) - box.top + scroller.scrollTop + at.y;
+    const left = (floorBox?.left ?? 0) - box.left + scroller.scrollLeft + at.x * scale;
+    const top = (floorBox?.top ?? 0) - box.top + scroller.scrollTop + at.y * scale;
     scroller.scrollTo({
       left: left - scroller.clientWidth / 2,
       top: top - scroller.clientHeight / 2,
@@ -261,7 +286,8 @@ export function Floor(props: FloorProps) {
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
-  const { move, handlers, wasClick } = useRoomDrag(plan);
+  const scale = useFitScale(floor, plan.width);
+  const { move, handlers, wasClick } = useRoomDrag(plan, scale);
   const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
   const seated = seatedOf(agents, chief, rooms, move);
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
@@ -280,7 +306,7 @@ export function Floor(props: FloorProps) {
       .sort((a, b) => a.position - b.position)[0];
   });
   const focused = seated.find(({ id }) => id === focus?.agentId);
-  usePanTo(floor, focused?.position, focus?.at);
+  usePanTo(floor, scale, focused?.position, focus?.at);
   const answered = focused !== undefined && request === undefined;
   useEffect(() => {
     if (answered) focusAgent(undefined);
@@ -305,7 +331,10 @@ export function Floor(props: FloorProps) {
 
   const pointOf = (event: PointerEvent): Point => {
     const bounds = floor.current?.getBoundingClientRect();
-    return { x: event.clientX - (bounds?.left ?? 0), y: event.clientY - (bounds?.top ?? 0) };
+    return {
+      x: (event.clientX - (bounds?.left ?? 0)) / scale,
+      y: (event.clientY - (bounds?.top ?? 0)) / scale,
+    };
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -366,7 +395,7 @@ export function Floor(props: FloorProps) {
     <div
       ref={floor}
       className={styles.floor}
-      style={{ width: plan.width, height: plan.height }}
+      style={{ width: plan.width, height: plan.height, zoom: scale }}
       role="application"
       aria-roledescription="office floor"
       aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
