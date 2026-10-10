@@ -2,11 +2,11 @@ import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentRecord, DepartmentRecord, EnvironmentSpec } from "@office-town/contract";
 import { environmentPath, runCommand } from "@office-town/harness";
-import { inFolders } from "../agents/options.ts";
-import type { TeamContext } from "./members.ts";
-import { workspaceFolders } from "./members.ts";
+import type { Store } from "../store/store.ts";
+import { requireFolders, type TaskFolders } from "../task-folders.ts";
+import { type TeamContext, TeamError } from "./members.ts";
 
-const WORKTREES = "worktrees";
+export const WORKTREES = "worktrees";
 const UNSAFE = /[^a-z0-9-]+/g;
 
 export class GitError extends Error {
@@ -53,18 +53,32 @@ function inTurn<T>(repository: string, work: () => Promise<T>): Promise<T> {
   return next;
 }
 
-// Made by the git of the worker's own environment, as Windows and WSL git cannot read each other's (D-41).
+// As the lead's first session got them: in Scratch, the folder made for this task.
+function leadFolders(store: Store, taskId: string): TaskFolders | undefined {
+  const leadAgentId = store.getTask(taskId)?.leadAgentId;
+  const lead = store.listSessions(taskId).find((session) => session.agentId === leadAgentId);
+  if (lead?.options.workspacePath === undefined) return undefined;
+  const { workspacePath, additionalPaths = [], readOnlyPaths = [] } = lead.options;
+  return {
+    workspacePath,
+    additionalPaths: additionalPaths.filter((path) => !readOnlyPaths.includes(path)),
+    readOnlyPaths,
+  };
+}
+
+// A worker works where its lead does. Its worktree is made by the git of its own environment, as
+// Windows and WSL git cannot read each other's (D-41).
 export async function workerFolders(
   context: TeamContext,
   department: DepartmentRecord,
   worker: AgentRecord,
   taskId: string,
-) {
-  const folders = workspaceFolders(context.store, department.workspaceId);
-  const [main, ...others] = folders;
-  if (main === undefined || !department.branchPerWorker || !isRepository(main)) {
-    return { ...inFolders(folders), branch: undefined };
-  }
+): Promise<TaskFolders & { branch: string | undefined }> {
+  const folders = leadFolders(context.store, taskId);
+  if (folders === undefined) throw new TeamError("The lead has no folder to share.");
+  requireFolders([folders.workspacePath, ...folders.additionalPaths]);
+  const main = folders.workspacePath;
+  if (!department.branchPerWorker || !isRepository(main)) return { ...folders, branch: undefined };
   const task = context.store.getTask(taskId);
   const name = slug(worker.name, 40);
   const base = `office-town/${slug(task?.prompt ?? "", 24)}-${taskId.slice(0, 4)}/${name}`;
@@ -87,7 +101,7 @@ export async function workerFolders(
       ["-C", inside(main), "worktree", "add", "-b", branch, inside(path), "HEAD"],
       "make a worktree for the worker",
     );
-    return { workspacePath: path, additionalPaths: others, branch };
+    return { ...folders, workspacePath: path, branch };
   });
 }
 
@@ -99,11 +113,7 @@ interface Worktree {
 
 function worktreesOf({ store, dataFolder }: TeamContext, taskId: string): Worktree[] {
   const root = join(dataFolder, WORKTREES, taskId);
-  const task = store.getTask(taskId);
-  const department =
-    task?.departmentId === undefined ? undefined : store.getDepartment(task.departmentId);
-  const main = store.listWorkspaces().find((workspace) => workspace.id === department?.workspaceId)
-    ?.folders[0];
+  const main = leadFolders(store, taskId)?.workspacePath;
   const seen = new Map<string, Worktree>();
   for (const session of store.listSessions(taskId)) {
     const path = session.options.workspacePath;

@@ -16,8 +16,13 @@ let core: Core;
 async function teamAtWork(goal = "Build a bakery site") {
   const project = join(directory, "bakery");
   mkdirSync(project, { recursive: true });
-  const workspace = (await core.call("POST", "/workspaces", { name: "Bakery", folders: [project] }))
-    .json;
+  const workspace = (
+    await core.call("POST", "/workspaces", {
+      name: "Bakery",
+      kind: "folders",
+      folders: [{ path: project, access: "edit" }],
+    })
+  ).json;
   const role = (name: string) => ({ role: name, purpose: `${name}s`, settings: claude });
   const department = (
     await core.call("POST", "/departments", {

@@ -8,6 +8,7 @@ import type {
 import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { workspacePaths } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import type { TeamContext } from "../team/members.ts";
 import { harnessChoices, isClaimed, stopTeam } from "../team/team-tasks.ts";
@@ -27,7 +28,7 @@ function departmentViews(store: Store): DepartmentView[] {
     return {
       name: department.name,
       members: store.listMembers(department.id).map((member) => memberLine(department, member)),
-      folders: store.getWorkspace(department.workspaceId)?.folders ?? [],
+      folders: workspacePaths(store, department.workspaceId),
       busyWith: busy === undefined ? undefined : store.getTask(busy)?.prompt,
     };
   });
@@ -37,7 +38,7 @@ function departmentViews(store: Store): DepartmentView[] {
 function departmentFolders(store: Store): string[] {
   const folders = store
     .listDepartments()
-    .flatMap((department) => store.getWorkspace(department.workspaceId)?.folders ?? []);
+    .flatMap((department) => workspacePaths(store, department.workspaceId));
   return [...new Set(folders)].filter((folder) => existsSync(folder));
 }
 

@@ -27,6 +27,8 @@ export const taskRecordSchema = z.object({
   departmentId: z.string().min(1).optional(),
   // Set on a piece of a chief's plan.
   parentTaskId: z.string().min(1).optional(),
+  // Where its agents work; a chief's goal has none.
+  workspaceId: z.string().min(1).optional(),
   state: taskStateSchema,
   // Cleared when the finished goal is taken up again.
   reviewedAt: z.iso.datetime().optional(),
@@ -118,13 +120,34 @@ export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 export const environmentListSchema = z.array(environmentSpecSchema);
 export type EnvironmentList = z.infer<typeof environmentListSchema>;
 
-// The first folder is where the agent works.
+// Folders: the user's own, used as they are. Scratch: each task gets a new folder inside the first.
+export const workspaceKindSchema = z.enum(["folders", "scratch"]);
+export type WorkspaceKind = z.infer<typeof workspaceKindSchema>;
+
+export const folderAccessSchema = z.enum(["edit", "read"]);
+export type FolderAccess = z.infer<typeof folderAccessSchema>;
+
+export const workspaceFolderSchema = z.object({
+  path: absolutePathSchema,
+  access: folderAccessSchema,
+});
+export type WorkspaceFolder = z.infer<typeof workspaceFolderSchema>;
+
+// The first folder is where agents start, so they must be able to edit it.
 export const workspaceRequestSchema = z.object({
   name: z.string().trim().min(1),
+  kind: workspaceKindSchema,
   folders: z
-    .array(absolutePathSchema)
+    .array(workspaceFolderSchema)
     .min(1)
-    .refine((folders) => new Set(folders).size === folders.length, "Each folder may appear once"),
+    .refine(
+      (folders) => new Set(folders.map((folder) => folder.path)).size === folders.length,
+      "Each folder may appear once",
+    )
+    .refine(
+      (folders) => folders[0]?.access === "edit",
+      "Agents must be able to edit the first folder",
+    ),
 });
 export type WorkspaceRequest = z.infer<typeof workspaceRequestSchema>;
 
@@ -135,6 +158,30 @@ export const workspaceRecordSchema = workspaceRequestSchema.extend({
 });
 export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 
+// What uses a workspace now, read fresh on each request.
+export const workspaceUsageSchema = z.object({
+  workspaceId: z.string().min(1),
+  departmentIds: z.array(z.string().min(1)),
+  // Agents with a session running in one of its tasks.
+  working: z.array(z.object({ agentId: z.string().min(1), taskId: z.string().min(1) })),
+  taskCount: z.number().int().nonnegative(),
+  // Newest first, at most five.
+  recentTasks: z.array(taskRecordSchema),
+  // A Scratch workspace's first folder is made when a task needs it, so it is never listed.
+  missingFolders: z.array(absolutePathSchema),
+  // Of the first folder, when it is a git repository.
+  branch: z.string().min(1).optional(),
+  // Workers' own copies of the repository in its unfinished tasks.
+  worktrees: z.array(
+    z.object({
+      agentId: z.string().min(1),
+      taskId: z.string().min(1),
+      branch: z.string().min(1).optional(),
+    }),
+  ),
+});
+export type WorkspaceUsage = z.infer<typeof workspaceUsageSchema>;
+
 // In floor pixels.
 export const roomPositionSchema = z.object({
   x: z.number().int().min(0).max(20_000),
@@ -143,8 +190,6 @@ export const roomPositionSchema = z.object({
 export type RoomPosition = z.infer<typeof roomPositionSchema>;
 
 export const settingsSchema = z.object({
-  // The last one chosen is kept.
-  outputFolder: absolutePathSchema.optional(),
   chiefAgentId: z.string().min(1).optional(),
   you: userProfileSchema.optional(),
   // By department id, or "chief"; a room not listed is placed automatically.
@@ -152,19 +197,13 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-// No folders are passed: an agent works in a saved workspace or a new folder in the output folder.
-export const startTaskRequestSchema = z
-  .object({
-    prompt: z.string().min(1),
-    agent: newAgentSchema,
-    autonomy: autonomySchema,
-    workspaceId: z.string().min(1).optional(),
-    outputFolder: absolutePathSchema.optional(),
-  })
-  .refine(
-    (request) => request.workspaceId === undefined || request.outputFolder === undefined,
-    "Give a workspace or an output folder, not both",
-  );
+// No folders are passed: an agent works in a saved workspace.
+export const startTaskRequestSchema = z.object({
+  prompt: z.string().min(1),
+  agent: newAgentSchema,
+  autonomy: autonomySchema,
+  workspaceId: z.string().min(1),
+});
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({ prompt: z.string().min(1) });

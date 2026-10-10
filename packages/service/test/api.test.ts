@@ -9,6 +9,7 @@ import {
   sessionRecordSchema,
   taskDetailSchema,
   workspaceRecordSchema,
+  workspaceUsageSchema,
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
@@ -35,6 +36,7 @@ let store: Store;
 let registry: SessionRegistry;
 let server: ApiServer;
 let sessions: FakeSession[];
+let scratchId: string;
 const streams: AbortController[] = [];
 
 function call(method: string, path: string, body?: unknown, token = TOKEN): Promise<Response> {
@@ -46,7 +48,7 @@ function call(method: string, path: string, body?: unknown, token = TOKEN): Prom
 }
 
 function startTask(prompt: string): Promise<Response> {
-  return call("POST", "/tasks", { prompt, ...newTask, outputFolder: directory });
+  return call("POST", "/tasks", { prompt, ...newTask, workspaceId: scratchId });
 }
 
 async function openStream(path: string, headers: Record<string, string> = {}) {
@@ -88,6 +90,11 @@ async function openStream(path: string, headers: Record<string, string> = {}) {
 beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "office-town-api-"));
   store = openStore(directory);
+  scratchId = store.createWorkspace({
+    name: "Scratch",
+    kind: "scratch",
+    folders: [{ path: directory, access: "edit" }],
+  }).id;
   const taskStates = new TaskStates(store);
   sessions = [];
   registry = new SessionRegistry(store, {
@@ -148,39 +155,54 @@ describe("api", () => {
     expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(204);
   });
 
-  it("starts a task in a saved workspace or a new folder in the remembered output folder, and resumes only where it started", async () => {
-    const start = (request: object) =>
-      call("POST", "/tasks", { prompt: "Write: a report?", ...newTask, ...request });
-    const workspaceOf = async (response: Response) =>
+  it("starts a task in its workspace, a new folder per task in Scratch, keeps folder access, counts the use, and resumes only where it started", async () => {
+    const start = (workspaceId: string) =>
+      call("POST", "/tasks", { prompt: "Write: a report?", ...newTask, workspaceId });
+    const optionsOf = async (response: Response) =>
       sessionRecordSchema.parse(await response.json()).options;
     const project = join(directory, "project");
     const notes = join(directory, "notes");
     mkdirSync(project);
     mkdirSync(notes);
 
-    expect((await start({})).status).toBe(400);
-    const missing = { name: "Gone", folders: [join(directory, "gone")] };
-    expect((await call("POST", "/workspaces", missing)).status).toBe(400);
+    expect((await call("POST", "/tasks", { prompt: "Write", ...newTask })).status).toBe(400);
+    const gone = [{ path: join(directory, "gone"), access: "edit" }];
+    expect(
+      (await call("POST", "/workspaces", { name: "Gone", kind: "folders", folders: gone })).status,
+    ).toBe(400);
     const created = await call("POST", "/workspaces", {
       name: "Report",
-      folders: [project, notes],
+      kind: "folders",
+      folders: [
+        { path: project, access: "edit" },
+        { path: notes, access: "read" },
+      ],
     });
     const workspace = workspaceRecordSchema.parse(await created.json());
-    expect(await workspaceOf(await start({ workspaceId: workspace.id }))).toMatchObject({
+    expect(await optionsOf(await start(workspace.id))).toMatchObject({
       workspacePath: project,
       additionalPaths: [notes],
+      readOnlyPaths: [notes],
     });
 
-    const first = await workspaceOf(await start({ outputFolder: directory }));
-    const second = await workspaceOf(await start({}));
+    const first = await optionsOf(await start(scratchId));
+    const second = await optionsOf(await start(scratchId));
     expect(dirname(first.workspacePath ?? "")).toBe(directory);
     expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} Write a report$/);
     expect(second.workspacePath).toBe(`${first.workspacePath} (2)`);
     expect(existsSync(second.workspacePath ?? "")).toBe(true);
-    expect(await (await call("GET", "/settings")).json()).toEqual({ outputFolder: directory });
+
+    const usage = workspaceUsageSchema
+      .array()
+      .parse(await (await call("GET", "/workspaces/usage")).json());
+    expect(usage.find((each) => each.workspaceId === scratchId)).toMatchObject({
+      taskCount: 2,
+      working: [expect.anything(), expect.anything()],
+      missingFolders: [],
+    });
 
     // A resume runs where the session started, so a folder removed since is reported as such.
-    const ended = sessionRecordSchema.parse(await (await start({})).json());
+    const ended = sessionRecordSchema.parse(await (await start(scratchId)).json());
     await call("POST", `/sessions/${ended.id}/stop`);
     rmSync(ended.options.workspacePath ?? "", { recursive: true });
     const resumed = await call("POST", `/sessions/${ended.id}/resume`, { prompt: "Go on" });
@@ -216,7 +238,7 @@ describe("api", () => {
           prompt: "Write the menu",
           agent: { profileId: profile.id },
           autonomy: "supervised",
-          outputFolder: directory,
+          workspaceId: scratchId,
         })
       ).json(),
     );

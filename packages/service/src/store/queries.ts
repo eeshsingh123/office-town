@@ -1,6 +1,8 @@
 const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
-         d.id AS departmentId, p.id AS parentTaskId, t.setup, t.state, t.reviewed_at AS reviewedAt
+         d.id AS departmentId, p.id AS parentTaskId,
+         (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
+         t.reviewed_at AS reviewedAt
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
   LEFT JOIN departments d ON d.ref = t.department_ref
@@ -30,11 +32,11 @@ const AGENT_SELECT = `
   LEFT JOIN departments d ON d.ref = a.department_ref`;
 
 const DEPARTMENT_SELECT = `
-  SELECT d.ref, d.id, d.name, w.id AS workspaceId, d.autonomy, l.id AS leadAgentId,
+  SELECT d.ref, d.id, d.name, (SELECT id FROM workspaces WHERE ref = d.workspace_ref) AS workspaceId,
+         d.autonomy, l.id AS leadAgentId,
          d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
          d.created_at AS createdAt
   FROM departments d
-  JOIN workspaces w ON w.ref = d.workspace_ref
   JOIN agents l ON l.ref = d.lead_ref`;
 
 const DELEGATION_SELECT = `
@@ -55,13 +57,15 @@ const PIECE_SELECT = `
 
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
-const WORKSPACE_COLUMNS = "ref, id, name, folders, created_at AS createdAt, used_at AS usedAt";
+const WORKSPACE_COLUMNS =
+  "ref, id, name, kind, folders, created_at AS createdAt, used_at AS usedAt";
 
 // The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
-    INSERT INTO tasks (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    INSERT INTO tasks
+      (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
@@ -241,11 +245,20 @@ export const queries = {
   lastPosition: "SELECT max(position) AS position FROM events",
 
   insertWorkspace: `
-    INSERT INTO workspaces (id, name, folders, created_at, used_at) VALUES (?, ?, ?, ?, ?)`,
+    INSERT INTO workspaces (id, name, kind, folders, created_at, used_at) VALUES (?, ?, ?, ?, ?, ?)`,
   workspaceById: `SELECT ${WORKSPACE_COLUMNS} FROM workspaces WHERE id = ?`,
   // Reads the whole table on purpose: one row per workspace the user saved.
   workspacesByUse: `SELECT ${WORKSPACE_COLUMNS} FROM workspaces ORDER BY used_at DESC`,
-  updateWorkspace: "UPDATE workspaces SET name = ?, folders = ? WHERE ref = ?",
+  updateWorkspace: "UPDATE workspaces SET name = ?, kind = ?, folders = ? WHERE ref = ?",
+  recentTasksOfWorkspace: `${TASK_SELECT} WHERE t.workspace_ref = ? ORDER BY t.ref DESC LIMIT 5`,
+  taskCountOfWorkspace: "SELECT count(*) AS count FROM tasks WHERE workspace_ref = ?",
+  openTasksOfWorkspace: "SELECT id FROM tasks WHERE workspace_ref = ? AND state <> 'ended'",
+  workingInWorkspace: `
+    SELECT a.id AS agentId, t.id AS taskId
+    FROM sessions s
+    JOIN tasks t ON t.ref = s.task_ref
+    JOIN agents a ON a.ref = s.agent_ref
+    WHERE s.${UNFINISHED} AND t.workspace_ref = ?`,
   workspaceUsed: "UPDATE workspaces SET used_at = ? WHERE ref = ?",
   deleteWorkspace: "DELETE FROM workspaces WHERE ref = ?",
 

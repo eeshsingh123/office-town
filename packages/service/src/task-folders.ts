@@ -1,6 +1,6 @@
 import { mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import type { SessionOptions, StartTaskRequest } from "@office-town/contract";
+import type { SessionOptions, WorkspaceRecord } from "@office-town/contract";
 import type { Store } from "./store/store.ts";
 
 // Characters Windows refuses in a file name, and control characters.
@@ -8,19 +8,17 @@ const UNSAFE_IN_NAME = /[<>:"/\\|?*\p{Cc}]/gu;
 const NAME_WORDS = 6;
 const NAME_LENGTH = 50;
 
-export type TaskFolders = Pick<SessionOptions, "workspacePath" | "additionalPaths">;
+// Where a task's agents work: the first folder, then the others they may edit, then read only.
+export interface TaskFolders {
+  workspacePath: string;
+  additionalPaths: string[];
+  readOnlyPaths: string[];
+}
 
 export class FolderNotFoundError extends Error {
   constructor(folder: string) {
     super(`The folder "${folder}" does not exist.`);
     this.name = "FolderNotFoundError";
-  }
-}
-
-export class OutputFolderMissingError extends Error {
-  constructor() {
-    super("Choose a workspace or an output folder for this task.");
-    this.name = "OutputFolderMissingError";
   }
 }
 
@@ -42,19 +40,36 @@ export function requireSessionFolders({
   );
 }
 
-// A new folder per task, so tasks never overwrite each other; an output folder given becomes the default.
-export function chooseTaskFolders(store: Store, request: StartTaskRequest): TaskFolders {
-  if (request.workspaceId !== undefined) {
-    const { folders } = store.useWorkspace(request.workspaceId);
-    requireFolders(folders);
-    const [workspacePath, ...additionalPaths] = folders;
-    return additionalPaths.length === 0 ? { workspacePath } : { workspacePath, additionalPaths };
-  }
-  const outputFolder = request.outputFolder ?? store.readSettings().outputFolder;
-  if (outputFolder === undefined) throw new OutputFolderMissingError();
-  requireFolders([outputFolder]);
-  if (request.outputFolder !== undefined) store.saveSettings({ outputFolder });
-  return { workspacePath: createTaskFolder(outputFolder, request.prompt, new Date()) };
+export const pathsOf = (workspace: WorkspaceRecord): string[] =>
+  workspace.folders.map((folder) => folder.path);
+
+export function workspacePaths(store: Store, workspaceId: string): string[] {
+  const workspace = store.getWorkspace(workspaceId);
+  return workspace === undefined ? [] : pathsOf(workspace);
+}
+
+// A Scratch workspace's first folder is made when a task needs it.
+export function requireWorkspaceFolders({
+  kind,
+  folders,
+}: Pick<WorkspaceRecord, "kind" | "folders">) {
+  requireFolders(folders.slice(kind === "scratch" ? 1 : 0).map((folder) => folder.path));
+}
+
+// Scratch gives each task a new folder, so tasks never overwrite each other; its parent is made if
+// missing, as the default one is only made when first needed.
+export function foldersForTask(store: Store, workspaceId: string, prompt: string): TaskFolders {
+  const { kind, folders } = store.useWorkspace(workspaceId);
+  const [main, ...others] = folders;
+  if (main === undefined) throw new FolderNotFoundError(workspaceId);
+  requireFolders(others.map((folder) => folder.path));
+  if (kind === "scratch") mkdirSync(main.path, { recursive: true });
+  else requireFolders([main.path]);
+  return {
+    workspacePath: kind === "scratch" ? createTaskFolder(main.path, prompt, new Date()) : main.path,
+    additionalPaths: others.filter((folder) => folder.access === "edit").map((f) => f.path),
+    readOnlyPaths: others.filter((folder) => folder.access === "read").map((f) => f.path),
+  };
 }
 
 // Named by the day and the prompt's first words, so the user can tell the folders apart.

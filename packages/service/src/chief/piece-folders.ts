@@ -1,5 +1,6 @@
 import type { PlanPiece } from "@office-town/contract";
 import type { Store } from "../store/store.ts";
+import { workspacePaths } from "../task-folders.ts";
 import { upstreamOf } from "./plan-graph.ts";
 
 export function departmentNameOf(store: Store, piece: PlanPiece): string {
@@ -13,7 +14,7 @@ function foldersOf(store: Store, piece: PlanPiece): string[] {
     piece.departmentId === undefined
       ? piece.newDepartment?.workspaceId
       : store.getDepartment(piece.departmentId)?.workspaceId;
-  return workspaceId === undefined ? [] : (store.getWorkspace(workspaceId)?.folders ?? []);
+  return workspaceId === undefined ? [] : workspacePaths(store, workspaceId);
 }
 
 // Every department before it, directly or through others; its own folders stay writable.

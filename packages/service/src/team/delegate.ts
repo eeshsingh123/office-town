@@ -78,14 +78,16 @@ async function startWork(
     agentId: worker.id,
     options: sessionOptionsFor(store, worker, {
       ...folders,
-      readOnlyPaths: readOnlyFoldersOfTask(store, caller.taskId),
+      readOnlyPaths: [
+        ...new Set([...folders.readOnlyPaths, ...readOnlyFoldersOfTask(store, caller.taskId)]),
+      ],
     }),
     message: workerBrief({
       goal: team.goal,
       teamName: team.department.name,
       role: worker.role ?? "worker",
       lead,
-      folders: [folders.workspacePath ?? "", ...folders.additionalPaths],
+      folders,
       branch,
       instructions: instructionsFor(store, worker),
       work,

@@ -7,7 +7,8 @@ import type {
 import { createAgent } from "../agents/agents.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
-import { applyTeam, checkTeam, rosterOf, type TeamContext, workspaceFolders } from "./members.ts";
+import { requireWorkspaceFolders } from "../task-folders.ts";
+import { applyTeam, checkTeam, rosterOf, type TeamContext } from "./members.ts";
 
 function departmentOf({ store }: TeamContext, id: string): DepartmentRecord {
   const department = store.getDepartment(id);
@@ -45,7 +46,7 @@ export function createDepartment(
   { team, workspaceId, autonomy, lead: newLead }: NewDepartmentRequest,
 ): DepartmentRecord {
   const { store } = context;
-  workspaceFolders(store, workspaceId);
+  requireWorkspaceFolders(store.useWorkspace(workspaceId));
   checkTeam(store, undefined, team);
   const lead = createAgent(store, newLead, { role: "Lead", autonomy });
   const department = store.createDepartment({

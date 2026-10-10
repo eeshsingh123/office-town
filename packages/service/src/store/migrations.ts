@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { identityOf } from "../agents/names.ts";
 
@@ -61,6 +63,65 @@ function giveEachTaskItsAgent(db: DatabaseSync): void {
       createdAt,
     );
     assign.run(lastInsertRowid, taskRef);
+  }
+}
+
+// D-56: folders carry access, the output folder becomes a Scratch workspace, a task names its
+// workspace. A solo task is matched by the folder its first session worked in.
+function giveWorkspacesKinds(db: DatabaseSync): void {
+  db.exec(`
+  ALTER TABLE workspaces ADD COLUMN kind TEXT NOT NULL DEFAULT 'folders'
+    CHECK (kind IN ('folders', 'scratch'));
+  ALTER TABLE tasks ADD COLUMN workspace_ref INTEGER REFERENCES workspaces (ref) ON DELETE SET NULL;
+  CREATE INDEX tasks_by_workspace ON tasks (workspace_ref) WHERE workspace_ref IS NOT NULL;
+  `);
+  const workspaces = db.prepare("SELECT ref, folders FROM workspaces").all() as {
+    ref: number;
+    folders: string;
+  }[];
+  const setFolders = db.prepare("UPDATE workspaces SET folders = ? WHERE ref = ?");
+  const byMainFolder = new Map<string, number>();
+  for (const { ref, folders } of workspaces) {
+    const paths = JSON.parse(folders) as string[];
+    if (paths[0] !== undefined && !byMainFolder.has(paths[0])) byMainFolder.set(paths[0], ref);
+    setFolders.run(JSON.stringify(paths.map((path) => ({ path, access: "edit" }))), ref);
+  }
+  const saved = db.prepare("SELECT value FROM settings WHERE key = 'outputFolder'").get() as
+    | { value: string }
+    | undefined;
+  const scratchFolder =
+    saved === undefined
+      ? join(homedir(), "OfficeTown", "Scratch")
+      : (JSON.parse(saved.value) as string);
+  const now = Date.now();
+  const scratch = db
+    .prepare(`
+      INSERT INTO workspaces (id, name, kind, folders, created_at, used_at)
+      VALUES (?, 'Scratch', 'scratch', ?, ?, ?)`)
+    .run(randomUUID(), JSON.stringify([{ path: scratchFolder, access: "edit" }]), now, now);
+  db.exec("DELETE FROM settings WHERE key = 'outputFolder'");
+  db.exec(`
+  UPDATE tasks SET workspace_ref =
+    (SELECT workspace_ref FROM departments WHERE departments.ref = tasks.department_ref)
+  WHERE department_ref IS NOT NULL;
+  UPDATE tasks SET workspace_ref =
+    (SELECT ref FROM workspaces WHERE workspaces.id = tasks.setup ->> '$.workspaceId')
+  WHERE workspace_ref IS NULL AND setup IS NOT NULL;
+  `);
+  const solo = db
+    .prepare(`
+      SELECT t.ref, s.options ->> '$.workspacePath' AS folder
+      FROM tasks t
+      JOIN sessions s ON s.ref = (SELECT min(ref) FROM sessions WHERE task_ref = t.ref)
+      WHERE t.lead_ref IS NULL AND t.workspace_ref IS NULL`)
+    .all() as { ref: number; folder: string | null }[];
+  const setWorkspace = db.prepare("UPDATE tasks SET workspace_ref = ? WHERE ref = ?");
+  for (const { ref, folder } of solo) {
+    if (folder === null) continue;
+    const workspace =
+      byMainFolder.get(folder) ??
+      (dirname(folder) === scratchFolder ? Number(scratch.lastInsertRowid) : undefined);
+    if (workspace !== undefined) setWorkspace.run(workspace, ref);
   }
 }
 
@@ -323,4 +384,5 @@ export const migrations: readonly Migration[] = [
   SET settings = (SELECT p.settings FROM profiles p WHERE p.ref = agents.profile_ref)
   WHERE profile_ref IS NOT NULL;
   `,
+  giveWorkspacesKinds,
 ];

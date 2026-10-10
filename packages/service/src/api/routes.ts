@@ -29,7 +29,7 @@ import { sessionOptionsFor } from "../agents/options.ts";
 import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
-import { chooseTaskFolders, requireFolders } from "../task-folders.ts";
+import { foldersForTask, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import { messageAgent } from "../team/direct-message.ts";
@@ -37,6 +37,7 @@ import type { TeamContext } from "../team/members.ts";
 import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
 import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
 import { removeWorktrees } from "../team/worktrees.ts";
+import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
 
 const isRunning = (session: { status: string }) =>
@@ -73,9 +74,11 @@ export function apiRoutes(team: TeamContext): Route[] {
       path: "/tasks",
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
-        const folders = chooseTaskFolders(store, request);
+        const folders = foldersForTask(store, request.workspaceId, request.prompt);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
-        const task = store.createTask(request.prompt);
+        const task = store.createTask(request.prompt, undefined, {
+          workspaceId: request.workspaceId,
+        });
         const session = await startFirstAgent(store, task.id, () =>
           registry.start({
             taskId: task.id,
@@ -396,7 +399,7 @@ export function apiRoutes(team: TeamContext): Route[] {
       path: "/workspaces",
       reply: async ({ body }) => {
         const workspace = workspaceRequestSchema.parse(await body());
-        requireFolders(workspace.folders);
+        requireWorkspaceFolders(workspace);
         return { status: 201, json: store.createWorkspace(workspace) };
       },
     },
@@ -406,11 +409,19 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: () => ({ status: 200, json: store.listWorkspaces() }),
     },
     {
+      method: "GET",
+      path: "/workspaces/usage",
+      reply: () => ({
+        status: 200,
+        json: store.listWorkspaces().map((workspace) => workspaceUsage(team, workspace)),
+      }),
+    },
+    {
       method: "PUT",
       path: "/workspaces/:id",
       reply: async ({ param, body }) => {
         const workspace = workspaceRequestSchema.parse(await body());
-        requireFolders(workspace.folders);
+        requireWorkspaceFolders(workspace);
         return { status: 200, json: store.updateWorkspace(param("id"), workspace) };
       },
     },
