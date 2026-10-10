@@ -14,7 +14,6 @@ interface Situation {
 
 const ASKS: Record<Autonomy, string> = {
   supervised: "It checks with you before every change. You answer in Needs you.",
-  trusted: "It asks you before running commands or using the web. You answer in Needs you.",
   full: "It goes ahead without asking. Every action is still recorded.",
   bypass: "It runs with no safety checks at all.",
 };

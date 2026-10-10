@@ -57,7 +57,7 @@ export function NewTaskView() {
   const [profileId, setProfileId] = useState(handed?.templateId ?? remembered.profileId);
   const [who, setWho] = useState<Who>(handed?.who ?? (remembered.team ? "team" : "one"));
   const [departmentId, setDepartmentId] = useState(handed?.departmentId ?? PROPOSE);
-  const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
+  const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("full");
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
@@ -71,7 +71,7 @@ export function NewTaskView() {
   const templates = useTemplates();
   const profile = templates?.find((known) => known.id === profileId);
   const workspace = defaultWorkspace(workspaces, workspaceId);
-  const soloAutonomy = choices.autonomy ?? "supervised";
+  const soloAutonomy = choices.autonomy ?? "full";
   const soloGate = useBypassGate(
     soloAutonomy,
     (autonomy) => setChoices({ ...choices, autonomy }),

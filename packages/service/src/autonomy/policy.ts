@@ -10,19 +10,6 @@ import type { Store } from "../store/store.ts";
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>["payload"];
 
-// What Trusted lets through inside the workspace.
-const FILE_WORK = new Set(["read", "search", "edit", "delete", "move", "think"]);
-const CHANGES = new Set(["edit", "delete", "move"]);
-// Changing these can make a command run later without asking, so Trusted asks.
-const RUNS_COMMANDS = new Set([
-  ".git",
-  ".claude",
-  ".opencode",
-  "opencode.json",
-  "opencode.jsonc",
-  ".mcp.json",
-]);
-
 const READS = new Set(["read", "search", "think"]);
 
 function inside(folder: string, path: string): boolean {
@@ -60,7 +47,7 @@ function touchesReadOnly(request: PermissionRequest, folders: string[], readOnly
   return touched && (kind === undefined || !READS.has(kind));
 }
 
-// Only reads go through inside a read-only folder, at any level. Trusted asks for anything it cannot read.
+// Only reads go through inside a read-only folder, at any level (D-57).
 export function allows(
   level: Autonomy,
   request: PermissionRequest,
@@ -68,19 +55,7 @@ export function allows(
   readOnly: string[] = [],
 ): boolean {
   if (touchesReadOnly(request, folders, readOnly)) return false;
-  if (level === "full" || level === "bypass") return true;
-  if (level === "supervised") return false;
-  const { kind, locations = [] } = request;
-  if (kind === undefined || !FILE_WORK.has(kind) || locations.length === 0) return false;
-  const [workspace] = folders;
-  if (workspace === undefined) return false;
-  return locations.every((location) => {
-    const path = resolve(workspace, location);
-    const folder = folders.find((candidate) => inside(candidate, path));
-    if (folder === undefined) return false;
-    const parts = relative(folder, path).toLowerCase().split(/[\\/]/);
-    return !CHANGES.has(kind) || !parts.some((part) => RUNS_COMMANDS.has(part));
-  });
+  return level !== "supervised";
 }
 
 // The department's level, or the agent's own without one, lowered by its profile or settings.

@@ -43,7 +43,7 @@ export function NewDepartmentView() {
   const templates = useTemplates() ?? [];
   const [name, setName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string>();
-  const [autonomy, setAutonomy] = useState<Autonomy>("supervised");
+  const [autonomy, setAutonomy] = useState<Autonomy>("full");
   const [leadTemplate, setLeadTemplate] = useState(BLANK);
   const defaults: ChipSettings = {
     harness: harnesses[0]?.harness ?? "claude",

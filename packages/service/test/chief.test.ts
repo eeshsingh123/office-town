@@ -26,7 +26,7 @@ async function departmentIn(name: string) {
     await core.call("POST", "/departments", {
       team: { name, roles: [] },
       workspaceId: workspace.id,
-      autonomy: "trusted",
+      autonomy: "full",
       lead: { settings: claude },
     })
   ).json as DepartmentRecord;
@@ -64,7 +64,7 @@ describe("the chief", () => {
   it("runs one goal at a time and starts the next queued one when the first ends", async () => {
     expect((await core.call("POST", "/tasks/chief", { goal: "Launch" })).status).toBe(409);
     const chief = (await core.call("PUT", "/chief", { settings: claude })).json;
-    expect(chief).toMatchObject({ name: "@chief", role: "Chief", autonomy: "trusted" });
+    expect(chief).toMatchObject({ name: "@chief", role: "Chief", autonomy: "full" });
     expect((await core.call("GET", "/chief")).json.id).toBe(chief.id);
 
     const first = (await core.call("POST", "/tasks/chief", { goal: "Launch the bakery" })).json;
@@ -143,7 +143,7 @@ describe("the chief", () => {
     // The user places the new department when approving.
     const approve = () => {
       const { requestId, pieces } = waitingPlan().payload;
-      const place = { workspaceId: docs.id, autonomy: "trusted" };
+      const place = { workspaceId: docs.id, autonomy: "full" };
       return core.call("POST", `/sessions/${goal.sessions[0].id}/commands`, {
         type: "answerPlan",
         requestId,

@@ -88,7 +88,7 @@ Why: both CLIs call MCP tools, so delegation works the same on every harness and
 ### D-40 Departments, proposals and autonomy — accepted (2026-10-05)
 
 - Departments are saved standing teams with their own room. The lead proposes the team first; the user edits and approves it and can change it any time (owner).
-- Autonomy: Supervised (every request asks), Trusted (reads and edits inside the workspace go ahead), Full (everything goes ahead and is recorded). Bypass stays, with a warning (owner).
+- Autonomy: Supervised (every request asks) and Full (everything goes ahead and is recorded); Trusted was removed in D-57. Bypass stays, with a warning (owner).
 - Outward actions (push, PR, publish) go ahead only under Full (owner).
 - Outsourced agents work on a copy, never the original (owner).
 
@@ -112,7 +112,7 @@ Why: tools return at once (D-39), and only a turn's end says the work is finishe
 
 ### D-45 Autonomy is one policy in the core — accepted (2026-10-05)
 
-Agents run in the harness's `ask` mode; the session attaches each request's action (kind, paths, command) and the core's policy answers what the level allows; anything unreadable goes to the user. Under Trusted, changing `.git`, `.claude`, `.opencode`, `opencode.json` or `.mcp.json` always asks. A session already in Bypass stays unguarded until it ends.
+Agents run in the harness's `ask` mode; the session attaches each request's action (kind, paths, command) and the core's policy answers what the level allows; anything unreadable goes to the user. A read-only folder asks for anything but a read at every level (D-57). A session already in Bypass stays unguarded until it ends.
 Why: one guardrail for every harness; a new harness or connector only reports its actions' kinds and paths.
 
 ### D-47 Outsourced agents are guests on a copy — accepted (2026-10-05)
@@ -154,7 +154,7 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
 - New task asks "What do you need done?", then "Who should handle it?" as three cards (one assistant, a department, your chief). The AI app and model fold into one "Thinks with … · Change" line. A side panel says what starting will do.
-- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
+- Words the user reads: "How much can it do without asking you?" (Ask me first, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
 - The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
 - New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
 - Look "Dusk": warm greys in both themes, a muted slate blue for actions, soft amber only for what needs the user, Plus Jakarta Sans. Agent colours stay as stored and are drawn softened into the surface.

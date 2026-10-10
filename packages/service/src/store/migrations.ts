@@ -385,4 +385,19 @@ export const migrations: readonly Migration[] = [
   WHERE profile_ref IS NOT NULL;
   `,
   giveWorkspacesKinds,
+  `
+  -- Trusted is gone (D-57): every saved Trusted level, pending setup and past answer becomes Full.
+  UPDATE agents SET autonomy = 'full' WHERE autonomy = 'trusted';
+  UPDATE departments SET autonomy = 'full' WHERE autonomy = 'trusted';
+  UPDATE agents SET settings = json_set(settings, '$.autonomy', 'full')
+  WHERE settings ->> '$.autonomy' = 'trusted';
+  UPDATE profiles SET settings = json_set(settings, '$.autonomy', 'full')
+  WHERE settings ->> '$.autonomy' = 'trusted';
+  UPDATE tasks SET setup = json_set(setup, '$.autonomy', 'full')
+  WHERE setup ->> '$.autonomy' = 'trusted';
+  UPDATE plan_pieces SET new_department = json_set(new_department, '$.autonomy', 'full')
+  WHERE new_department ->> '$.autonomy' = 'trusted';
+  UPDATE events SET payload = replace(payload, '"autonomy":"trusted"', '"autonomy":"full"')
+  WHERE instr(payload, '"autonomy":"trusted"') > 0;
+  `,
 ];

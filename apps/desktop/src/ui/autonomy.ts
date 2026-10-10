@@ -4,20 +4,17 @@ import type { Autonomy } from "@office-town/contract";
 export const AUTONOMY: Record<Autonomy, { label: string; description: string }> = {
   supervised: {
     label: "Ask me first",
-    description: "Checks with you before every change it makes.",
-  },
-  trusted: {
-    label: "Ask for risky things",
     description:
-      "Reads and edits files in the workspace freely. Asks before running commands, using the web, pushing code or touching other folders.",
+      "Checks with you before every change, command and web search. Each one waits in Needs you.",
   },
   full: {
     label: "Don't ask",
     description:
-      "Goes ahead with everything, other folders and pushing code included. Every action is still recorded.",
+      "Goes ahead with everything and records every action. Folders you marked read-only still ask before any change.",
   },
   bypass: {
     label: "No safety checks",
-    description: "Uses the AI app's own bypass mode. Nothing is checked and nothing asks you.",
+    description:
+      "Uses the AI app's own bypass mode. Nothing is checked, read-only folders included.",
   },
 };

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// From least to most (D-40).
-export const autonomySchema = z.enum(["supervised", "trusted", "full", "bypass"]);
+// From least to most (D-40). Trusted was removed in D-57; stored Trusted became Full.
+export const autonomySchema = z.enum(["supervised", "full", "bypass"]);
 export type Autonomy = z.infer<typeof autonomySchema>;
 
 // A department sets the level; a profile or an agent may only lower it.
