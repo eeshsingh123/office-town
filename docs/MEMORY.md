@@ -1,11 +1,12 @@
 # Memory
 
-Last updated: 2026-10-07
+Last updated: 2026-10-10
 
 ## State
 
-- M1 to M4 are done and merged to `main` (M3 is PR #27, M4 is PR #28).
-- M5 Command center is on `feat/m5-command-center` (PR #30), reviewed and fixed. Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
+- M1 to M5 are merged to `main` (M5 is PR #30). Feedback phase: one fix at a time; the first round is PR #31 (merged).
+- `feat/home-dashboard`: Home as the default screen and New department (D-52). Checked in the browser on a fresh data folder: first-run Home, a department built by hand, Home listing it. Not checked live: a goal started from Home's composer (same calls as New task).
+- M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
 - Never checked by an agent, worth a click when touched: M5's plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50), a WSL run from New task, a drag selection grouped by room, Message lead and Stop team from the department panel, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check.
 - `worktrees.test.ts` can time out under a full parallel run; it passes alone.

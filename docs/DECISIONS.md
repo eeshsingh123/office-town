@@ -52,7 +52,7 @@ Why: the stream is one-way, reconnect and catch-up are built in, and it is testa
 Closing the window hides it; Quit with agents running asks first and records them as interrupted. The shell runs the core on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so users install no Node, and stops it by closing its stdin (`--stop-when-stdin-closes`), killing the tree only after 15 seconds.
 Why stdin: Windows cannot send SIGTERM to a child, and a tree kill does not reach WSL agents (D-22); a closed pipe also stops the core if the shell crashes.
 
-### D-35 The office is the home screen — accepted (2026-10-04)
+### D-35 The office floor — accepted (2026-10-04), no longer the home screen (D-52)
 
 A top-down 2D office with agents at desks. Walk up (arrows/WASD, E) or click to open the side panel; drag-select several. Single-user. Rooms are added on the same frame, never a rebuilt layout. A selection offers Stop all and Message all, never Approve all: each request is read before it is answered (owner).
 
@@ -145,6 +145,11 @@ Why: the command center shows every goal's state at once, and the chief needs th
 - Upstream folders are `readOnlyPaths`: the policy compares real paths and allows only reads inside them, at any level; anything else goes to the user (owner). Such sessions are never offered "allow always", and the core refuses an answer that was not offered. Under Full a command, and under Bypass anything, could still change them; the plan card warns (owner).
 - The user picks a new department's workspace and autonomy on the plan card (owner).
 - A user's message to a worker is noted to its lead only while the lead is at work, so no turn is spent on a note.
+
+### D-52 Home is the screen the app opens on — accepted (2026-10-10)
+
+Home shows the office at a glance: a one-line composer (to the chief, a department, or a solo agent on New task's last choices; otherwise it hands the text to New task), what needs you, the status counts, the team with one line each, and recent tasks or a Get started list before the first task. Departments can be built by hand on New department through the existing `POST /departments`.
+Why: the floor alone opened on a near-empty screen and gave a new user no next step (owner feedback, squad.so as reference). The floor and board stay one click away.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
