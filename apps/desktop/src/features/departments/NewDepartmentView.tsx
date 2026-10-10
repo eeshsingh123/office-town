@@ -1,27 +1,46 @@
 import {
   type Autonomy,
-  autonomySchema,
+  agentColours,
   type NewAgent,
   type WorkspaceRecord,
 } from "@office-town/contract";
-import { ArrowLeft, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
+import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { profileSummary } from "../../ui/format.ts";
+import page from "../../ui/Page.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { ProjectPicker } from "../new-task/PlaceChoice.tsx";
+import { teamLine } from "../new-task/TeamChoice.tsx";
 import { WorkspaceDialog } from "../new-task/WorkspaceDialog.tsx";
 import { selectRoom } from "../office/office-state.ts";
+import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
-import styles from "./DepartmentSettings.module.css";
+import styles from "./NewDepartment.module.css";
 import { type TeamRow, TeamRows, toRoles } from "./TeamRows.tsx";
 
 // No profile id can take this, since an id starts with a letter or digit.
 const OWN_SETTINGS = "~own";
+
+// Starting points; each stays editable once added.
+const ROLE_TEMPLATES = [
+  { role: "Researcher", purpose: "Finds and reads sources, then sums up what matters" },
+  { role: "Writer", purpose: "Drafts and edits text" },
+  { role: "Developer", purpose: "Writes and fixes code" },
+  { role: "Reviewer", purpose: "Checks the work and points out problems" },
+  { role: "Tester", purpose: "Tries the result and reports what breaks" },
+];
+
+const LEAD_COLOUR = agentColours[3].value;
+const memberColour = (index: number) =>
+  agentColours[(index + 4) % agentColours.length]?.value ?? LEAD_COLOUR;
 
 // A department built by hand, the same record a lead's approved proposal makes.
 export function NewDepartmentView() {
@@ -46,12 +65,31 @@ export function NewDepartmentView() {
   const gate = useBypassGate(autonomy, setAutonomy, name.trim() || "the department");
 
   const workspace = workspaces.find((known) => known.id === (workspaceId ?? workspaces[0]?.id));
-  const ready =
-    name.trim() !== "" && workspace !== undefined && rows.every((row) => row.role.trim() !== "");
+  const profile = profiles.value?.find((known) => known.id === leadProfile);
+  const leadSummary = useAiSummary(leadSettings ?? defaults);
+  const title = name.trim() || "Your new department";
+  const missing =
+    name.trim() === ""
+      ? "Give the department a name."
+      : workspace === undefined
+        ? "Choose the project it works in."
+        : rows.some((row) => row.role.trim() === "")
+          ? "Give every team member a role."
+          : undefined;
+
+  const addTemplate = (template: (typeof ROLE_TEMPLATES)[number]) =>
+    setRows([
+      ...rows,
+      {
+        key: Math.max(-1, ...rows.map((row) => row.key)) + 1,
+        ...template,
+        settings: leadSettings ?? defaults,
+      },
+    ]);
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (!ready || saving) return;
+    if (missing !== undefined || workspace === undefined || saving) return;
     setSaving(true);
     setError(undefined);
     const lead: NewAgent =
@@ -73,120 +111,156 @@ export function NewDepartmentView() {
   };
 
   return (
-    <section className={styles.page} aria-labelledby="new-department-title">
-      <div className={styles.column}>
-        <Button variant="ghost" onClick={() => navigate({ name: "home" })}>
-          <ArrowLeft size={14} aria-hidden />
-          Home
-        </Button>
-        <h1 id="new-department-title" className={styles.title}>
-          New department
-        </h1>
-        <form className={styles.form} onSubmit={create}>
+    <section className={page.page} aria-labelledby="new-department-title">
+      <form className={page.layout} onSubmit={create}>
+        <div className={page.main}>
+          <header className={page.header}>
+            <button type="button" className={page.back} onClick={() => navigate({ name: "home" })}>
+              ← Home
+            </button>
+            <h1 id="new-department-title" className={page.title}>
+              Build a department
+            </h1>
+            <p className={page.lead}>
+              A department is a small team with a lead. You give the lead a goal; the lead hands out
+              the work and puts the result together.
+            </p>
+          </header>
+
           <div className={styles.pair}>
-            <label className={styles.field}>
-              <span className={styles.label}>Name</span>
+            <section className={page.section}>
+              <label htmlFor="department-name" className={page.sectionTitle}>
+                Name
+              </label>
               <input
-                className={styles.input}
+                id="department-name"
+                className={page.input}
                 value={name}
                 onChange={(change) => setName(change.target.value)}
-                placeholder="For example: Backend"
+                placeholder="For example: Website"
                 // biome-ignore lint/a11y/noAutofocus: the view exists to take this text
                 autoFocus
               />
-            </label>
-            <div className={styles.field}>
-              <span className={styles.label}>Workspace · where the team works</span>
-              <div className={styles.row}>
-                {workspaces.length > 0 ? (
-                  <ChoiceMenu
-                    label="Workspace"
-                    value={workspace?.id ?? ""}
-                    choices={workspaces.map((known) => ({
-                      value: known.id,
-                      label: known.name,
-                      description: known.folders.join(" · "),
-                    }))}
-                    onChange={setWorkspaceId}
-                  />
-                ) : null}
-                <Button variant="ghost" onClick={() => setCreatingWorkspace(true)}>
-                  <Plus size={14} aria-hidden />
-                  New workspace
-                </Button>
+            </section>
+            <section className={page.section}>
+              <h2 className={page.sectionTitle}>Project</h2>
+              <ProjectPicker
+                workspaces={workspaces}
+                workspaceId={workspace?.id}
+                onWorkspace={setWorkspaceId}
+                onNewWorkspace={() => setCreatingWorkspace(true)}
+              />
+            </section>
+          </div>
+
+          <section className={page.section}>
+            <div className={page.sectionHead}>
+              <h2 className={page.sectionTitle}>Team</h2>
+              <span className={page.hint}>The lead can also work alone</span>
+            </div>
+            <div className={styles.lead}>
+              <Avatar name="Lead" colour={LEAD_COLOUR} size={36} />
+              <div className={styles.leadText}>
+                <strong>Lead</strong>
+                <span className={page.hint}>Takes each goal and hands out the work</span>
+                <AiLine
+                  summary={
+                    profile === undefined
+                      ? leadSummary
+                      : `${profile.name} · ${profileSummary(profile, harnesses)}`
+                  }
+                >
+                  {(profiles.value ?? []).length === 0 ? null : (
+                    <ChoiceMenu
+                      label="Saved assistant"
+                      value={leadProfile}
+                      choices={[
+                        { value: OWN_SETTINGS, label: "None, choose below" },
+                        ...(profiles.value ?? []).map((known) => ({
+                          value: known.id,
+                          label: known.name,
+                          description: profileSummary(known, harnesses),
+                        })),
+                      ]}
+                      onChange={setLeadProfile}
+                    />
+                  )}
+                  {leadProfile === OWN_SETTINGS ? (
+                    <SettingsChips value={leadSettings ?? defaults} onChange={setLeadSettings} />
+                  ) : null}
+                </AiLine>
               </div>
             </div>
-          </div>
-
-          <div className={styles.field}>
-            <span className={styles.label}>Lead · takes each goal and hands out the work</span>
-            <div className={styles.row}>
-              {(profiles.value ?? []).length === 0 ? null : (
-                <ChoiceMenu
-                  label="Lead"
-                  value={leadProfile}
-                  choices={[
-                    { value: OWN_SETTINGS, label: "Choose a harness and model" },
-                    ...(profiles.value ?? []).map((known) => ({
-                      value: known.id,
-                      label: known.name,
-                      description: profileSummary(known, harnesses),
-                    })),
-                  ]}
-                  onChange={setLeadProfile}
-                />
-              )}
-              {leadProfile === OWN_SETTINGS ? (
-                <SettingsChips value={leadSettings ?? defaults} onChange={setLeadSettings} />
-              ) : null}
-            </div>
-          </div>
-
-          <div className={styles.field}>
-            <span className={styles.label}>Workers · optional, the lead can work alone</span>
             <TeamRows
               rows={rows}
               onChange={setRows}
               lead={undefined}
               departmentId={undefined}
-              defaults={defaults}
+              defaults={leadSettings ?? defaults}
             />
-          </div>
+            <div className={styles.templates}>
+              <span className={page.hint}>Quick add:</span>
+              {ROLE_TEMPLATES.map((template) => (
+                <button
+                  key={template.role}
+                  type="button"
+                  className={styles.template}
+                  onClick={() => addTemplate(template)}
+                >
+                  <Plus size={13} aria-hidden />
+                  {template.role}
+                </button>
+              ))}
+            </div>
+          </section>
 
-          <fieldset className={styles.fieldset}>
-            <legend className={styles.label}>Autonomy</legend>
-            {autonomySchema.options.map((level) => (
-              <label key={level} className={styles.choice}>
-                <input
-                  type="radio"
-                  name="autonomy"
-                  checked={autonomy === level}
-                  onChange={() => gate.choose(level)}
-                />
-                <span>
-                  <strong>{AUTONOMY[level].label}</strong>
-                  <br />
-                  <span className={styles.hint}>{AUTONOMY[level].description}</span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <section className={page.section}>
+            <h2 className={page.sectionTitle}>How much can the team do without asking you?</h2>
+            <AutonomyChoice name="department-level" value={autonomy} onChoose={gate.choose} />
+          </section>
+        </div>
 
+        <aside className={page.aside}>
+          <section className={`${page.panel} ${styles.card}`} aria-label="Your new team">
+            <span className={page.eyebrow}>Your new team</span>
+            <div className={styles.cardLead}>
+              <Avatar name={title} colour={LEAD_COLOUR} size={56} />
+              <strong className={styles.cardName}>{title}</strong>
+              <span className={page.hint}>
+                {teamLine(rows.length)}
+                {workspace === undefined ? "" : ` · ${workspace.name}`}
+              </span>
+            </div>
+            {rows.length === 0 ? null : (
+              <ul className={styles.members}>
+                {rows.map((row, index) => (
+                  <li key={row.key}>
+                    <Avatar name={row.role || "?"} colour={memberColour(index)} size={36} />
+                    <span>{row.role || "New role"}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className={styles.cardNote}>{AUTONOMY[autonomy].description}</p>
+          </section>
+          <Button
+            type="submit"
+            variant="primary"
+            className={page.start}
+            disabled={missing !== undefined || saving}
+          >
+            {saving ? "Creating…" : `Create ${name.trim() || "department"}`}
+          </Button>
+          <span className={`${page.hint} ${page.center}`}>
+            {missing ?? "It moves into a room in the office, ready for its first goal."}
+          </span>
           {error === undefined ? null : (
-            <p className={styles.error} role="alert">
+            <p className={page.error} role="alert">
               {error}
             </p>
           )}
-          <div className={styles.actions}>
-            <Button type="submit" variant="primary" disabled={!ready || saving}>
-              {saving ? "Creating…" : "Create department"}
-            </Button>
-            <span className={styles.hint}>
-              It opens on the office floor, ready for a goal from Home or New task.
-            </span>
-          </div>
-        </form>
-      </div>
+        </aside>
+      </form>
       {gate.confirm}
       <WorkspaceDialog
         open={creatingWorkspace}
