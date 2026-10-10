@@ -1,8 +1,18 @@
-import { CircleUser, Inbox, LayoutPanelLeft, List, type LucideIcon, Plus } from "lucide-react";
+import {
+  CircleUser,
+  Inbox,
+  LayoutPanelLeft,
+  List,
+  type LucideIcon,
+  Moon,
+  Plus,
+  Sun,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
+import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
@@ -42,6 +52,17 @@ function WaitingCount() {
   );
 }
 
+function ThemeToggle() {
+  const dark = useTheme() === "dark";
+  const Icon = dark ? Sun : Moon;
+  return (
+    <button type="button" className={styles.nav} onClick={toggleTheme}>
+      <Icon size={16} aria-hidden />
+      {dark ? "Light mode" : "Dark mode"}
+    </button>
+  );
+}
+
 export function Sidebar() {
   return (
     <nav aria-label="Main" className={styles.sidebar}>
@@ -63,6 +84,7 @@ export function Sidebar() {
       <RunningAgents />
       <div className={styles.footer}>
         <NavItem view="profiles" icon={CircleUser} label="Profiles" />
+        <ThemeToggle />
         <ConnectionStatus />
       </div>
     </nav>

@@ -7,9 +7,11 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
 import { notifyNewRequests } from "./features/requests/notifications.ts";
 import { connect } from "./store/live.ts";
+import { applyTheme } from "./ui/theme.ts";
 
 const root = document.getElementById("root");
 if (root === null) throw new Error("The page has no #root element.");
+applyTheme();
 connect();
 notifyNewRequests();
 createRoot(root).render(

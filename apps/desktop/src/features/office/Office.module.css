@@ -263,7 +263,7 @@
   flex: none;
   flex-direction: column;
   gap: 18px;
-  width: 340px;
+  width: clamp(260px, 30vw, 340px);
   padding: 20px;
   overflow-y: auto;
   border-left: 1px solid var(--border);

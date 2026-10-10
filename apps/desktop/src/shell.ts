@@ -3,6 +3,7 @@ interface ShellBridge {
   pickFolder(): Promise<string | null>;
   openFolder(path: string): Promise<void>;
   showWindow(): Promise<void>;
+  setTheme(theme: "light" | "dark" | "system"): Promise<void>;
 }
 
 declare global {
