@@ -11,7 +11,7 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import { profileSummary, taskTitle } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import styles from "./SecondOpinionDialog.module.css";
+import styles from "./ReviewDialog.module.css";
 
 const SAME = "same";
 
@@ -27,21 +27,27 @@ function isolationLine(harness: HarnessDescription | undefined): string {
   }
 }
 
-interface SecondOpinionDialogProps {
+interface ReviewDialogProps {
   // The reviewer starts with this agent's harness, model and effort.
   agent: Agent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // With the reviewer's agent id, so a team view can show its work.
+  onStarted?: (agentId: string) => void;
 }
 
+// Ready to send as is, so a review is one click away.
+const defaultBrief = (agent: Agent) =>
+  `Check that this work does what was asked: "${taskTitle(agent.task.prompt)}". List anything wrong, missing or risky, most important first.`;
+
 // Its answer is its own trace, beside the task's agents (D-18).
-export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinionDialogProps) {
+export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
   const files = useLoaded(open ? `files:${agent.taskId}:${agent.id}` : undefined, () =>
     api.listTaskFiles(agent.taskId, agent.id),
   );
   const profiles = useLoaded(open ? "profiles" : undefined, api.listProfiles);
-  const [brief, setBrief] = useState("");
+  const [brief, setBrief] = useState(() => defaultBrief(agent));
   const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
   const [reviewer, setReviewer] = useState(SAME);
   const [error, setError] = useState<string>();
@@ -80,7 +86,7 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
     setError(undefined);
     try {
       const chosen: NewAgent = profile === undefined ? { settings } : { profileId: profile.id };
-      await api.secondOpinion(agent.taskId, {
+      const started = await api.secondOpinion(agent.taskId, {
         brief: brief.trim(),
         paths,
         reviewer: chosen,
@@ -88,8 +94,9 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
       });
       await track(agent.taskId);
       onOpenChange(false);
-      setBrief("");
+      setBrief(defaultBrief(agent));
       navigate({ name: "task", taskId: agent.taskId });
+      onStarted?.(started.agentId);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -102,14 +109,14 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
       <Dialog.Portal>
         <Dialog.Overlay className={dialog.overlay} />
         <Dialog.Content className={`${dialog.content} ${styles.content}`}>
-          <Dialog.Title className={dialog.title}>Get a second opinion</Dialog.Title>
+          <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            A fresh agent that has never seen this work reviews a copy of {agent.name}'s files. It
-            cannot change the original, and it does not join the team.
+            A fresh agent that has never seen this work checks {agent.name}'s files and tells you
+            what it finds. It works on a copy, so nothing in your project changes.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             <label className={dialog.label}>
-              What should it look at?
+              What should the reviewer check?
               <textarea
                 className={styles.brief}
                 rows={3}
@@ -119,7 +126,7 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
               />
             </label>
             <fieldset className={styles.files}>
-              <legend className={styles.legend}>What it gets</legend>
+              <legend className={styles.legend}>Files it gets a copy of</legend>
               {files.error !== undefined ? (
                 <p className={dialog.error}>{files.error}</p>
               ) : files.value === undefined ? (
@@ -162,8 +169,7 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
               </span>
             </div>
             <p className={styles.note}>
-              The answer is the reviewer's own trace, shown with the agents of "
-              {taskTitle(agent.task.prompt)}".
+              The review shows up in this task under Reviewers, beside the team.
             </p>
             {error === undefined ? null : (
               <p className={dialog.error} role="alert">
@@ -179,7 +185,7 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
                 variant="primary"
                 disabled={starting || brief.trim() === "" || paths.length === 0}
               >
-                Start review
+                Send for review
               </Button>
             </div>
           </form>

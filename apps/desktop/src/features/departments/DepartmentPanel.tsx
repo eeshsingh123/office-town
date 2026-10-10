@@ -113,7 +113,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         const work = task === undefined ? undefined : workOf(known, record.id, task.id);
         return work === undefined ? { record } : { record, work };
       });
-    // A guest called in for a second opinion is no member.
+    // A guest called in to review is no member.
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);

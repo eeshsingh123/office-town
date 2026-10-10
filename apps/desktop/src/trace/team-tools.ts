@@ -10,7 +10,7 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   propose_team: { kind: "other", title: () => "Proposed a team" },
   delegate: { kind: "delegate", title: (input) => `Delegated to ${words(input.agent)}` },
   team_status: { kind: "other", title: () => "Checked on the team" },
-  outsource: { kind: "delegate", title: () => "Asked for a second opinion" },
+  outsource: { kind: "delegate", title: () => "Sent the work for review" },
   propose_plan: { kind: "other", title: () => "Proposed a plan" },
   message_lead: {
     kind: "other",
