@@ -31,7 +31,7 @@ export function workspaceUsage(
   { store, dataFolder }: TeamContext,
   workspace: WorkspaceRecord,
 ): WorkspaceUsage {
-  const { taskCount, recentTasks, openTaskIds, working } = store.workspaceActivity(workspace.id);
+  const { taskCount, recentTasks, openTaskIds } = store.workspaceActivity(workspace.id);
   const checked = workspace.folders.slice(workspace.kind === "scratch" ? 1 : 0);
   const main = workspace.folders[0]?.path;
   const branch = workspace.kind === "folders" && main !== undefined ? gitBranch(main) : undefined;
@@ -55,7 +55,6 @@ export function workspaceUsage(
       .listDepartments()
       .filter((department) => department.workspaceId === workspace.id)
       .map((department) => department.id),
-    working,
     taskCount,
     recentTasks,
     missingFolders: checked.map((folder) => folder.path).filter((path) => !existsSync(path)),

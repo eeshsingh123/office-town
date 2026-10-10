@@ -178,7 +178,7 @@ Why: the header buttons were out of place and unclear (owner feedback); a review
 - Words: plain and human, no internal terms (session, level, handle, harness) in what the user reads; models by their full names.
 Why: the Saved assistants page had no clear purpose, mixed one agent's settings into a top-level page, used jargon, and the person using the app had no profile (owner feedback). Copies are easier to understand than settings that change under a running team.
 
-### D-56 Workspaces, end to end — owner decisions taken, design in progress (2026-10-10)
+### D-56 Workspaces, end to end — accepted (2026-10-10)
 
 - One idea, "Workspace" in every word the user reads, with a hover tip saying what it is (owner). "A fresh folder" and the output folder go away.
 - Two kinds: Your folders (existing folders, git noticed) and Scratch (a new folder per task inside a parent folder, owner). A default Scratch workspace exists from the start; a migration moves `settings.outputFolder` into it.
@@ -186,7 +186,9 @@ Why: the Saved assistants page had no clear purpose, mixed one agent's settings 
 - Workspaces page in the main nav: search, filters, cards with who uses it; a detail page with folders, departments, live agents, recent tasks and worktrees. Creating one is a side sheet with two choice cards, reachable from one shared picker in New task, New department and the plan card.
 - Two departments may edit the same workspace at once, with a clear warning (owner).
 - Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner).
-- Contract first: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a usage read per workspace. D-33's resume rule holds.
+- Contract: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a task names its workspace, `GET /workspaces/usage` (departments, task count, recent tasks, missing folders, git branch, worktrees). D-33's resume rule holds.
+- Workers work where their lead does (its first session's folders), so a Scratch team shares one task folder. "Working now" is read from the app's live agent states, not the usage read, so an agent that finished its turn does not count.
+- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.
 Why: two answers to one question, one saved and one not, three words for one idea, and no place to see, edit or share workspaces (owner feedback).
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending

@@ -1,10 +1,8 @@
 import { FolderOpen, TriangleAlert } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { shell } from "../../shell.ts";
-import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { isOpen } from "../../store/records.ts";
-import { useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
+import { useWorkingNow, useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
@@ -24,28 +22,12 @@ const TASK_STATE: Record<string, string> = {
   ended: "Done",
 };
 
-// Agents with an open session in one of this workspace's tasks, read from the live records.
-function useWorkingHere(workspaceId: string) {
-  const agents = useApp((state) => state.agents);
-  const tasks = useApp((state) => state.tasks);
-  const sessions = useApp((state) => state.sessions);
-  const traces = useApp((state) => state.traces);
-  const asking = useWaitingSessions();
-  return useMemo(() => {
-    return Object.values(tasks)
-      .filter((entry) => entry.task.workspaceId === workspaceId)
-      .flatMap((entry) => agentsInTask({ agents, tasks, sessions }, entry.task.id))
-      .filter((agent) => isOpen(agent.latest))
-      .map((agent) => ({ agent, state: stateOf(agent, traces, asking.has(agent.latest.id)) }));
-  }, [agents, tasks, sessions, traces, asking, workspaceId]);
-}
-
 export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
   const workspaces = useWorkspaces();
   const usage = useWorkspaceUsage()?.[workspaceId];
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
-  const working = useWorkingHere(workspaceId);
+  const working = useWorkingNow()[workspaceId] ?? [];
   const [editing, setEditing] = useState(false);
   const workspace = workspaces?.find((known) => known.id === workspaceId);
   if (workspace === undefined) {
@@ -106,9 +88,9 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
           <p className={styles.banner}>
             <TriangleAlert size={16} aria-hidden />
             <span>
-              <b>{used.map((department) => department.name).join(" and ")}</b> all edit this
-              workspace. Their agents can change the same files at the same time. Give one of them
-              its own workspace if that is a problem.
+              <b>{used.map((department) => department.name).join(" and ")}</b>{" "}
+              {used.length === 2 ? "both" : "all"} edit this workspace. Their agents can change the
+              same files at the same time. Give one of them its own workspace if that is a problem.
             </span>
           </p>
         ) : null}

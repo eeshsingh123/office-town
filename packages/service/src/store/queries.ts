@@ -253,12 +253,6 @@ export const queries = {
   recentTasksOfWorkspace: `${TASK_SELECT} WHERE t.workspace_ref = ? ORDER BY t.ref DESC LIMIT 5`,
   taskCountOfWorkspace: "SELECT count(*) AS count FROM tasks WHERE workspace_ref = ?",
   openTasksOfWorkspace: "SELECT id FROM tasks WHERE workspace_ref = ? AND state <> 'ended'",
-  workingInWorkspace: `
-    SELECT a.id AS agentId, t.id AS taskId
-    FROM sessions s
-    JOIN tasks t ON t.ref = s.task_ref
-    JOIN agents a ON a.ref = s.agent_ref
-    WHERE s.${UNFINISHED} AND t.workspace_ref = ?`,
   workspaceUsed: "UPDATE workspaces SET used_at = ? WHERE ref = ?",
   deleteWorkspace: "DELETE FROM workspaces WHERE ref = ?",
 

@@ -3,7 +3,12 @@ import { ChevronDown, Plus, Search, TriangleAlert } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
-import { mainPath, useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
+import {
+  mainPath,
+  useWorkingNow,
+  useWorkspaces,
+  useWorkspaceUsage,
+} from "../../store/workspaces.ts";
 import form from "../../ui/Form.module.css";
 import { WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
@@ -21,15 +26,23 @@ interface WorkspacePickerProps {
 
 function useUsageLine() {
   const departments = useApp((state) => state.departments);
+  const workingNow = useWorkingNow();
   return (workspace: WorkspaceRecord, usage: WorkspaceUsage | undefined) => {
     const names = (usage?.departmentIds ?? []).flatMap((id) => departments[id]?.name ?? []);
-    const working = usage?.working.length ?? 0;
+    const working = new Set(workingNow[workspace.id]?.map(({ agent }) => agent.id)).size;
     const parts = [
       names.join(", "),
       working > 0 ? `${working} agent${working === 1 ? "" : "s"} working now` : "",
     ].filter(Boolean);
-    if (parts.length > 0) return parts.join(" · ");
-    return workspace.kind === "scratch" ? "A new empty folder for each task" : mainPath(workspace);
+    const text =
+      parts.length > 0
+        ? parts.join(" · ")
+        : workspace.kind === "scratch"
+          ? "A new empty folder for each task"
+          : mainPath(workspace);
+    // Only a folder's path is drawn as code.
+    const path = parts.length === 0 && workspace.kind === "folders";
+    return <span className={path ? styles.path : styles.usage}>{text}</span>;
   };
 }
 
@@ -82,7 +95,7 @@ export function WorkspacePicker({
                 <WorkspaceIcon kind={chosen.kind} />
                 <span className={styles.optionText}>
                   <strong>{chosen.name}</strong>
-                  <span className={styles.path}>{usageLine(chosen, usage?.[chosen.id])}</span>
+                  {usageLine(chosen, usage?.[chosen.id])}
                 </span>
               </>
             )}
@@ -122,9 +135,7 @@ export function WorkspacePicker({
                         <WorkspaceIcon kind={workspace.kind} small />
                         <span className={styles.optionText}>
                           <strong>{workspace.name}</strong>
-                          <span className={styles.path}>
-                            {usageLine(workspace, usage?.[workspace.id])}
-                          </span>
+                          {usageLine(workspace, usage?.[workspace.id])}
                         </span>
                       </button>
                     ))}

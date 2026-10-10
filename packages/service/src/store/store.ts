@@ -62,8 +62,6 @@ export interface WorkspaceActivity {
   // Newest first, at most five.
   recentTasks: TaskRecord[];
   openTaskIds: string[];
-  // Agents with a session running in one of its tasks.
-  working: { agentId: string; taskId: string }[];
 }
 
 // Where a team the lead has yet to propose would work.

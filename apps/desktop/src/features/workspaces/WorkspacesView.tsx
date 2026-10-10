@@ -6,6 +6,7 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import {
   mainPath,
   removeWorkspace,
+  useWorkingNow,
   useWorkspaces,
   useWorkspaceUsage,
 } from "../../store/workspaces.ts";
@@ -80,7 +81,7 @@ function Card({
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const names = (usage?.departmentIds ?? []).flatMap((id) => departments[id]?.name ?? []);
-  const working = [...new Set(usage?.working.map((each) => each.agentId) ?? [])];
+  const working = [...new Set(useWorkingNow()[workspace.id]?.map(({ agent }) => agent.id))];
   const missing = (usage?.missingFolders.length ?? 0) > 0;
   const open = () => navigate({ name: "workspace", workspaceId: workspace.id });
   const meta = [
@@ -150,6 +151,7 @@ function Card({
 export function WorkspacesView() {
   const workspaces = useWorkspaces();
   const usage = useWorkspaceUsage();
+  const working = useWorkingNow();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<{ workspace?: WorkspaceRecord; key: number }>();
@@ -158,7 +160,7 @@ export function WorkspacesView() {
   const shown = all.filter((workspace) => {
     const text = `${workspace.name} ${workspace.folders.map((folder) => folder.path).join(" ")}`;
     if (words !== "" && !text.toLowerCase().includes(words)) return false;
-    if (filter === "busy") return (usage?.[workspace.id]?.working.length ?? 0) > 0;
+    if (filter === "busy") return (working[workspace.id]?.length ?? 0) > 0;
     return filter === "all" || workspace.kind === filter;
   });
   const filters: { value: Filter; label: string }[] = [

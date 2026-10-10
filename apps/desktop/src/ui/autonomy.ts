@@ -9,7 +9,7 @@ export const AUTONOMY: Record<Autonomy, { label: string; description: string }> 
   trusted: {
     label: "Ask for risky things",
     description:
-      "Reads and edits files in the project freely. Asks before running commands, using the web, pushing code or touching other folders.",
+      "Reads and edits files in the workspace freely. Asks before running commands, using the web, pushing code or touching other folders.",
   },
   full: {
     label: "Don't ask",

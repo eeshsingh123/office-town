@@ -916,7 +916,6 @@ class SqliteStore implements Store {
       openTaskIds: all<{ id: string }>(this.#statements.openTasksOfWorkspace, ref).map(
         (row) => row.id,
       ),
-      working: all<WorkspaceActivity["working"][number]>(this.#statements.workingInWorkspace, ref),
     };
   }
 

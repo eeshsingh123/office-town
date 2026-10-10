@@ -197,7 +197,6 @@ describe("api", () => {
       .parse(await (await call("GET", "/workspaces/usage")).json());
     expect(usage.find((each) => each.workspaceId === scratchId)).toMatchObject({
       taskCount: 2,
-      working: [expect.anything(), expect.anything()],
       missingFolders: [],
     });
 

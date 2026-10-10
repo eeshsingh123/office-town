@@ -134,6 +134,14 @@
   text-overflow: ellipsis;
 }
 
+.usage {
+  overflow: hidden;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .live {
   display: inline-flex;
   align-items: center;

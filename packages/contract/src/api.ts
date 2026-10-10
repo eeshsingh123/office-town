@@ -162,8 +162,6 @@ export type WorkspaceRecord = z.infer<typeof workspaceRecordSchema>;
 export const workspaceUsageSchema = z.object({
   workspaceId: z.string().min(1),
   departmentIds: z.array(z.string().min(1)),
-  // Agents with a session running in one of its tasks.
-  working: z.array(z.object({ agentId: z.string().min(1), taskId: z.string().min(1) })),
   taskCount: z.number().int().nonnegative(),
   // Newest first, at most five.
   recentTasks: z.array(taskRecordSchema),
