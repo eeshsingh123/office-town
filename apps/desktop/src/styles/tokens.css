@@ -1,31 +1,31 @@
-/* Every colour, size and timing the app uses (D-37). Light and dark follow the system. */
+/* Every colour, size and timing the app uses (D-37). Light and dark follow the system unless the user picks one (theme.ts). */
 :root {
   color-scheme: light dark;
 
-  --bg: #f7f7f5;
-  --surface: #ffffff;
-  --side: #f1f1ee;
-  --hover: #e8e8e4;
-  --border: #e4e3df;
-  --border-strong: #d3d2cd;
-  --text: #1b1b19;
-  --text-2: #57564f;
-  --text-3: #6b6a64;
-  --accent: #3a5bd9;
-  --accent-soft: #ecf0fc;
-  --accent-text: #2f4bb8;
-  --on-accent: #ffffff;
-  --warn: #8f5400;
-  --warn-soft: #fdf4e3;
-  --warn-border: #eed7a8;
-  --ok: #2e7a4c;
-  --bad: #b93a2b;
-  --code: #f3f3f0;
-  --floor: #f1efea;
-  --desk: #e2ded5;
-  --desk-line: #cfcac0;
-  --shadow: 0 2px 8px rgb(0 0 0 / 6%);
-  --shadow-raised: 0 12px 32px rgb(0 0 0 / 14%);
+  --bg: light-dark(#f7f7f5, #121211);
+  --surface: light-dark(#ffffff, #181817);
+  --side: light-dark(#f1f1ee, #141413);
+  --hover: light-dark(#e8e8e4, #232320);
+  --border: light-dark(#e4e3df, #282826);
+  --border-strong: light-dark(#d3d2cd, #383835);
+  --text: light-dark(#1b1b19, #ecebe7);
+  --text-2: light-dark(#57564f, #aaa9a3);
+  --text-3: light-dark(#6b6a64, #908f89);
+  --accent: light-dark(#3a5bd9, #7d98f2);
+  --accent-soft: light-dark(#ecf0fc, #1d2440);
+  --accent-text: light-dark(#2f4bb8, #afc0f8);
+  --on-accent: light-dark(#ffffff, #0f1530);
+  --warn: light-dark(#8f5400, #e9b866);
+  --warn-soft: light-dark(#fdf4e3, #2a2214);
+  --warn-border: light-dark(#eed7a8, #4b3b1d);
+  --ok: light-dark(#2e7a4c, #6cc08f);
+  --bad: light-dark(#b93a2b, #ee8576);
+  --code: light-dark(#f3f3f0, #1e1e1c);
+  --floor: light-dark(#f1efea, #1c1c1a);
+  --desk: light-dark(#e2ded5, #2a2926);
+  --desk-line: light-dark(#cfcac0, #3a3935);
+  --shadow: 0 2px 8px light-dark(rgb(0 0 0 / 6%), rgb(0 0 0 / 30%));
+  --shadow-raised: 0 12px 32px light-dark(rgb(0 0 0 / 14%), rgb(0 0 0 / 45%));
 
   --font-ui: "Geist Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
@@ -39,35 +39,6 @@
   --radius-control: 7px;
   --radius-card: 12px;
   --motion: 150ms ease-out;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121211;
-    --surface: #181817;
-    --side: #141413;
-    --hover: #232320;
-    --border: #282826;
-    --border-strong: #383835;
-    --text: #ecebe7;
-    --text-2: #aaa9a3;
-    --text-3: #908f89;
-    --accent: #7d98f2;
-    --accent-soft: #1d2440;
-    --accent-text: #afc0f8;
-    --on-accent: #0f1530;
-    --warn: #e9b866;
-    --warn-soft: #2a2214;
-    --warn-border: #4b3b1d;
-    --ok: #6cc08f;
-    --bad: #ee8576;
-    --code: #1e1e1c;
-    --floor: #1c1c1a;
-    --desk: #2a2926;
-    --desk-line: #3a3935;
-    --shadow: 0 2px 8px rgb(0 0 0 / 30%);
-    --shadow-raised: 0 12px 32px rgb(0 0 0 / 45%);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

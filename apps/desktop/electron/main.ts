@@ -7,6 +7,7 @@ import {
   dialog,
   type IpcMainInvokeEvent,
   ipcMain,
+  nativeTheme,
   net,
   shell,
   type Tray,
@@ -170,5 +171,13 @@ function registerBridge(): void {
   ipcMain.handle("show-window", (event) => {
     fromApp(event);
     open();
+  });
+  // The window frame follows the theme the user picks in the app.
+  ipcMain.handle("set-theme", (event, theme: unknown) => {
+    fromApp(event);
+    if (theme !== "light" && theme !== "dark" && theme !== "system") {
+      throw new Error("Unknown theme.");
+    }
+    nativeTheme.themeSource = theme;
   });
 }
