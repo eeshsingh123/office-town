@@ -1,7 +1,7 @@
 import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
-import { ChiefSettingsDialog } from "./features/chief/ChiefSettingsDialog.tsx";
+import { ChiefView } from "./features/chief/ChiefView.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
 import { HomeView } from "./features/home/HomeView.tsx";
@@ -25,6 +25,8 @@ function Main({ view }: { view: View }) {
       return <NewTaskView />;
     case "new-department":
       return <NewDepartmentView />;
+    case "chief":
+      return <ChiefView key={view.edit ? "edit" : "page"} edit={view.edit ?? false} />;
     case "needs-you":
       return <NeedsYouView />;
     case "tasks":
@@ -59,7 +61,6 @@ export function App() {
           <Main view={view} />
         </main>
       </div>
-      <ChiefSettingsDialog />
     </Tooltip.Provider>
   );
 }

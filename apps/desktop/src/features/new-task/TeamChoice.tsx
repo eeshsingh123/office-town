@@ -1,17 +1,17 @@
-import type { Autonomy, DepartmentRecord, WorkspaceRecord } from "@office-town/contract";
+import type { Autonomy, WorkspaceRecord } from "@office-town/contract";
 import { Plus } from "lucide-react";
-import { ToggleGroup } from "radix-ui";
-import { useApp } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
+import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
-import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { OptionRows } from "../../ui/Choice.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import styles from "./NewTaskView.module.css";
+import page from "../../ui/Page.module.css";
+import { ProjectPicker } from "./PlaceChoice.tsx";
 
 // No department yet: the lead proposes one.
 export const PROPOSE = "~propose";
-const LEVELS: Autonomy[] = ["supervised", "trusted", "full", "bypass"];
 
 interface TeamChoiceProps {
   departmentId: string;
@@ -39,28 +39,9 @@ function useBusy(): Map<string, string> {
   return busy;
 }
 
-function DepartmentOption({
-  department,
-  busyWith,
-  members,
-  workspace,
-}: {
-  department: DepartmentRecord;
-  busyWith: string | undefined;
-  members: number;
-  workspace: WorkspaceRecord | undefined;
-}) {
-  return (
-    <span>
-      <span className={styles.choiceName}>{department.name}</span>
-      <br />
-      <span className={styles.hint}>
-        {busyWith === undefined
-          ? `${members} ${members === 1 ? "member" : "members"} · ${AUTONOMY[department.autonomy].label}${workspace === undefined ? "" : ` · ${workspace.name}`}`
-          : `At work on ${taskTitle(busyWith)}`}
-      </span>
-    </span>
-  );
+export function teamLine(members: number): string {
+  if (members <= 0) return "A lead working alone";
+  return `A lead and ${members} ${members === 1 ? "person" : "people"}`;
 }
 
 export function TeamChoice(props: TeamChoiceProps) {
@@ -69,97 +50,72 @@ export function TeamChoice(props: TeamChoiceProps) {
   const busy = useBusy();
   const proposing = props.departmentId === PROPOSE;
   const sorted = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
-  const workspace = props.workspaces.find((known) => known.id === props.workspaceId);
+  // The lead is one of the department's agents.
+  const workers = (departmentId: string) =>
+    Object.values(agents).filter((agent) => agent.departmentId === departmentId).length - 1;
 
   return (
     <>
-      <fieldset className={styles.where}>
-        <legend className={styles.heading}>Department</legend>
-        <div className={styles.choices}>
-          <label className={styles.choice}>
-            <input
-              type="radio"
-              name="department"
-              checked={proposing}
-              onChange={() => props.onDepartment(PROPOSE)}
-            />
-            <span>
-              <span className={styles.choiceName}>Let the lead propose a team</span>
-              <br />
-              <span className={styles.hint}>
-                The lead reads the goal and the workspace, then proposes roles with a harness and
-                model for each. You edit and approve before anyone starts.
-              </span>
-            </span>
-          </label>
-          {sorted.map((department) => (
-            <label key={department.id} className={styles.choice}>
-              <input
-                type="radio"
-                name="department"
-                checked={props.departmentId === department.id}
-                disabled={busy.has(department.id)}
-                onChange={() => props.onDepartment(department.id)}
-              />
-              <DepartmentOption
-                department={department}
-                busyWith={busy.get(department.id)}
-                members={
-                  Object.values(agents).filter((agent) => agent.departmentId === department.id)
-                    .length
-                }
-                workspace={props.workspaces.find((known) => known.id === department.workspaceId)}
-              />
-            </label>
-          ))}
+      <section className={page.section}>
+        <div className={page.sectionHead}>
+          <h2 className={page.sectionTitle}>Which department?</h2>
+          <Button variant="ghost" onClick={() => navigate({ name: "new-department" })}>
+            <Plus size={14} aria-hidden />
+            Build a department
+          </Button>
         </div>
-      </fieldset>
+        <OptionRows
+          name="department"
+          label="Which department"
+          value={props.departmentId}
+          options={[
+            ...sorted.map((department) => {
+              const busyWith = busy.get(department.id);
+              const workspace = props.workspaces.find(
+                (known) => known.id === department.workspaceId,
+              );
+              return {
+                value: department.id,
+                title: department.name,
+                disabled: busyWith !== undefined,
+                description:
+                  busyWith === undefined
+                    ? [
+                        teamLine(workers(department.id)),
+                        workspace?.name,
+                        AUTONOMY[department.autonomy].label,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : `Busy with "${taskTitle(busyWith)}". It takes one goal at a time.`,
+              };
+            }),
+            {
+              value: PROPOSE,
+              title: "A new team for this goal",
+              description:
+                "A lead reads the goal and suggests who to bring in. You approve the team before anyone starts.",
+            },
+          ]}
+          onChange={props.onDepartment}
+        />
+      </section>
 
       {proposing ? (
         <>
-          <div className={styles.where}>
-            <h2 className={styles.heading}>Workspace</h2>
-            <div className={styles.workspace}>
-              {props.workspaces.length > 0 ? (
-                <ChoiceMenu
-                  label="Workspace"
-                  value={workspace?.id ?? ""}
-                  choices={props.workspaces.map((known) => ({
-                    value: known.id,
-                    label: known.name,
-                    description: known.folders.join(" · "),
-                  }))}
-                  onChange={props.onWorkspace}
-                />
-              ) : (
-                <span className={styles.hint}>A team needs a saved workspace to share.</span>
-              )}
-              <Button variant="ghost" onClick={props.onNewWorkspace}>
-                <Plus size={14} aria-hidden />
-                New workspace
-              </Button>
-            </div>
-          </div>
-          <div className={styles.where}>
-            <h2 className={styles.heading}>Autonomy</h2>
-            <ToggleGroup.Root
-              type="single"
-              className={styles.segments}
-              value={props.autonomy}
-              onValueChange={(next) => {
-                const level = LEVELS.find((known) => known === next);
-                if (level !== undefined) props.onAutonomy(level);
-              }}
-              aria-label="Autonomy"
-            >
-              {LEVELS.map((level) => (
-                <ToggleGroup.Item key={level} value={level} className={styles.segment}>
-                  {AUTONOMY[level].label}
-                </ToggleGroup.Item>
-              ))}
-            </ToggleGroup.Root>
-            <p className={styles.hint}>{AUTONOMY[props.autonomy].description}</p>
-          </div>
+          <section className={page.section}>
+            <h2 className={page.sectionTitle}>Which project does the team work in?</h2>
+            <ProjectPicker
+              workspaces={props.workspaces}
+              workspaceId={props.workspaceId}
+              onWorkspace={props.onWorkspace}
+              onNewWorkspace={props.onNewWorkspace}
+            />
+          </section>
+          <section className={page.section}>
+            <h2 className={page.sectionTitle}>How much can the team do without asking you?</h2>
+            <AutonomyChoice name="team-level" value={props.autonomy} onChoose={props.onAutonomy} />
+          </section>
         </>
       ) : null}
     </>
