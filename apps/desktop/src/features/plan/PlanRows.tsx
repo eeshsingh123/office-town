@@ -54,17 +54,17 @@ function NewDepartmentFields({
         />
       </label>
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>Lead harness and model</span>
+        <span className={styles.fieldLabel}>Lead AI and model</span>
         <div className={styles.chips}>
           <SettingsChips value={draft.lead} onChange={(lead) => onChange({ ...draft, lead })} />
         </div>
       </div>
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>Workspace · required</span>
+        <span className={styles.fieldLabel}>Project · required</span>
         <div className={styles.chips}>
           {workspaces.length === 0 ? null : (
             <ChoiceMenu
-              label="Workspace"
+              label="Project"
               value={draft.workspaceId ?? ""}
               choices={workspaces.map((known) => ({
                 value: known.id,
@@ -79,12 +79,12 @@ function NewDepartmentFields({
             onClick={() => onNewWorkspace((workspaceId) => onChange({ ...draft, workspaceId }))}
           >
             <Plus size={14} aria-hidden />
-            New workspace
+            New project
           </Button>
         </div>
       </div>
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>Autonomy</span>
+        <span className={styles.fieldLabel}>Without asking</span>
         <ToggleGroup.Root
           type="single"
           className={styles.segments}
@@ -93,7 +93,7 @@ function NewDepartmentFields({
             const level = autonomySchema.options.find((known) => known === next);
             if (level !== undefined) gate.choose(level);
           }}
-          aria-label="Autonomy"
+          aria-label="How much it can do without asking"
         >
           {autonomySchema.options.map((level) => (
             <ToggleGroup.Item key={level} value={level} className={styles.segment}>

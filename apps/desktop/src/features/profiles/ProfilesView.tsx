@@ -148,7 +148,7 @@ function ProfileForm({
       </div>
       <div className={styles.pair}>
         <label className={styles.field}>
-          <span className={styles.label}>Profile name</span>
+          <span className={styles.label}>Name</span>
           <input
             className={styles.input}
             value={draft.name}
@@ -188,17 +188,17 @@ function ProfileForm({
         </div>
       </div>
       <div className={styles.field}>
-        <span className={styles.label}>Autonomy</span>
+        <span className={styles.label}>Without asking</span>
         <div>
           <ChoiceMenu
-            label="Autonomy"
+            label="Without asking"
             value={draft.autonomy ?? SAME}
             choices={CAPS}
             onChange={(next) => setDraft({ ...draft, autonomy: next === SAME ? undefined : next })}
           />
         </div>
         <span className={styles.hint}>
-          A profile can lower its department's level, never raise it.
+          A saved assistant can ask more often than its department, never less.
         </span>
       </div>
       {error === undefined ? null : (
@@ -219,7 +219,7 @@ function ProfileForm({
                 })
               }
             >
-              Delete profile
+              Delete
             </Button>
             <Button
               disabled={saving}
@@ -257,9 +257,9 @@ export function ProfilesView() {
 
   return (
     <section className={styles.page} aria-labelledby="profiles-title">
-      <nav className={styles.list} aria-label="Saved profiles">
+      <nav className={styles.list} aria-label="Saved assistants">
         <div className={styles.listHead}>
-          <h1 id="profiles-title">Profiles</h1>
+          <h1 id="profiles-title">Saved assistants</h1>
           <Button variant="ghost" onClick={() => startNew()}>
             <Plus size={14} aria-hidden />
             New
@@ -283,7 +283,7 @@ export function ProfilesView() {
         ))}
         {shown.length === 0 ? (
           <p className={styles.hint}>
-            No profiles yet. Save one to start tasks and team roles from it.
+            No saved assistants yet. Save one to start tasks and team members from it.
           </p>
         ) : null}
       </nav>

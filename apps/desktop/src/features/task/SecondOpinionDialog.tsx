@@ -23,7 +23,7 @@ function isolationLine(harness: HarnessDescription | undefined): string {
     case "partial":
       return `Isolated in part. ${harness.isolationNote ?? "Some of your own settings still load."}`;
     default:
-      return "This harness cannot isolate itself, so your own settings load. Instruction files in the workspace are still left out of the copy.";
+      return "This AI app cannot isolate itself, so your own settings load. Instruction files in the project are still left out of the copy.";
   }
 }
 
@@ -125,7 +125,7 @@ export function SecondOpinionDialog({ agent, open, onOpenChange }: SecondOpinion
               ) : files.value === undefined ? (
                 <p className={styles.note}>Reading the workspace…</p>
               ) : files.value.length === 0 ? (
-                <p className={styles.note}>The workspace has nothing to examine yet.</p>
+                <p className={styles.note}>The project has nothing to examine yet.</p>
               ) : (
                 files.value.map((entry) => (
                   <label key={entry.name} className={styles.file}>

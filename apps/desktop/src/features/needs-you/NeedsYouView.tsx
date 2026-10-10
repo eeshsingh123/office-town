@@ -14,7 +14,7 @@ function LevelNote({ event }: { event: UserRequestEvent }) {
   if (event.type !== "permission.requested") return null;
   return (
     <p className={styles.levelNote}>
-      {AUTONOMY[level].label} asks you before this.{" "}
+      Your setting "{AUTONOMY[level].label}" asks you before this.{" "}
       {departmentId === undefined ? null : (
         <button
           type="button"
@@ -67,7 +67,7 @@ export function NeedsYouView() {
         <p className={styles.lead}>
           {requests.length === 0
             ? "No agent is waiting for you."
-            : `${requests.length === 1 ? "1 request" : `${requests.length} requests`}, grouped by department, oldest first. What a department's autonomy allows never reaches this list.`}
+            : `${requests.length === 1 ? "1 request" : `${requests.length} requests`}, grouped by department, oldest first. What a department may do without asking never reaches this list.`}
         </p>
         {[...groups.values()].map((group) => (
           <section key={group.key} aria-label={group.name}>

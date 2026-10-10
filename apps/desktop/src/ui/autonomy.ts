@@ -1,20 +1,23 @@
 import type { Autonomy } from "@office-town/contract";
 
-// The levels as the user reads them (D-40, MODULES M4.6).
+// The levels as the user reads them (D-40, MODULES M4.6), worded as how much it may do without asking.
 export const AUTONOMY: Record<Autonomy, { label: string; description: string }> = {
-  supervised: { label: "Supervised", description: "Every request comes to you." },
+  supervised: {
+    label: "Ask me first",
+    description: "Checks with you before every change it makes.",
+  },
   trusted: {
-    label: "Trusted",
+    label: "Ask for risky things",
     description:
-      "Reading and editing inside the workspace go ahead. Commands, web access, pushing code and anything outside the workspace ask you first.",
+      "Reads and edits files in the project freely. Asks before running commands, using the web, pushing code or touching other folders.",
   },
   full: {
-    label: "Full",
+    label: "Don't ask",
     description:
-      "Everything goes ahead, other folders, pushing and pull requests included. Each action is still recorded.",
+      "Goes ahead with everything, other folders and pushing code included. Every action is still recorded.",
   },
   bypass: {
-    label: "Bypass",
-    description: "The harness's own bypass mode. Nothing is guarded or asked.",
+    label: "No safety checks",
+    description: "Uses the AI app's own bypass mode. Nothing is checked and nothing asks you.",
   },
 };
