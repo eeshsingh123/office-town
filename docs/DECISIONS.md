@@ -234,3 +234,11 @@ All accepted and built.
 - D-27 Withdrawn: a per-agent budget inside the app. Replaced by D-29.
 - D-46 A worker's worktree is made from the lead's branch by the worker's own git, kept in the data folder, removed once merged and ended; the branch stays.
 - D-48 Every department is a room with a desk per member, lead first; solo agents share the open floor, guests the guest desk. Room usage is per goal (D-50); rooms are draggable (D-49).
+
+### D-57 Two everyday levels and a Needs you built for volume — accepted (2026-10-11)
+
+- Trusted goes away (owner): it asked before every web search and command, broke the flow and read like Full. Levels: Ask me first, Don't ask (Full), and Bypass behind More options. Stored Trusted becomes Full; New task, the chief and reviewers default to Full. A read-only folder still asks at every level.
+- Needs you is grouped by task by default (an ask matters through the work it blocks), switchable to department, workspace, agent or type. Each ask is one compact row that opens its detail. Plans and team proposals first, then questions, then approvals; oldest first inside each. Search, filter chips with counts (type, workspace, department, AI app, waiting over 1h), 25 per group with Show more.
+- Approve all and Reject all, per group and per filtered view, with a confirm; approvals only, since questions and plans need real answers. One batch call answers them.
+- Out: undo (an action already run cannot be taken back) and "always allow this" rules (parked, owner wants them later).
+Why: the owner hit repeated web-search asks under Trusted and needs a queue that stays readable at 500 asks (research: squad.so My Tickets).
