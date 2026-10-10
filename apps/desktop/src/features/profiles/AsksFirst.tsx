@@ -3,7 +3,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import form from "../../ui/Form.module.css";
 
 // Most careful first; an agent may only move left of its team's level.
-const ORDER: Autonomy[] = ["supervised", "trusted", "full", "bypass"];
+const ORDER: Autonomy[] = ["supervised", "full", "bypass"];
 
 interface AsksFirstProps {
   name: string;

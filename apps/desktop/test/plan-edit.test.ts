@@ -21,7 +21,7 @@ describe("plan edits", () => {
     );
 
     const lead = { harness: "opencode", environment: { kind: "native" as const } };
-    const content = { name: "Content", purpose: "copy", lead, autonomy: "trusted" as const };
+    const content = { name: "Content", purpose: "copy", lead, autonomy: "full" as const };
     const placing = [...rows, row("copy", [], { department: { newDepartment: content } })];
     expect(planProblem(placing)).toBe("Choose a workspace for Content to approve.");
     const placed = { newDepartment: { ...content, workspaceId: "w1" } };
@@ -32,7 +32,7 @@ describe("plan edits", () => {
     const lead = { harness: "opencode", environment: { kind: "native" as const } };
     const team = (name: string) => ({
       department: {
-        newDepartment: { name, purpose: "", lead, autonomy: "trusted" as const, workspaceId: "w1" },
+        newDepartment: { name, purpose: "", lead, autonomy: "full" as const, workspaceId: "w1" },
       },
     });
     const cases: [PlanRow[], string][] = [

@@ -35,7 +35,7 @@ export function saveChief(store: Store, settings: AgentSettings): AgentRecord {
     name: store.isNameTaken(CHIEF_NAME) ? identity.name : CHIEF_NAME,
     colour: identity.colour,
     role: "Chief",
-    autonomy: "trusted",
+    autonomy: "full",
     settings,
   });
   store.saveSettings({ chiefAgentId: created.id });

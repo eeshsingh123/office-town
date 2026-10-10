@@ -237,6 +237,23 @@ export const pendingRequestListSchema = z.object({
 });
 export type PendingRequestList = z.infer<typeof pendingRequestListSchema>;
 
+// Approve all or Reject all in Needs you (D-57): approvals only, each answered with its "once"
+// option. A request already answered, or whose agent has ended, is skipped.
+export const answerPermissionsRequestSchema = z.object({
+  decision: z.enum(["allow", "reject"]),
+  requests: z
+    .array(z.object({ sessionId: z.string().min(1), requestId: z.string().min(1) }))
+    .min(1)
+    .max(1000),
+});
+export type AnswerPermissionsRequest = z.infer<typeof answerPermissionsRequestSchema>;
+
+export const answerPermissionsResultSchema = z.object({
+  answered: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+});
+export type AnswerPermissionsResult = z.infer<typeof answerPermissionsResultSchema>;
+
 export const apiErrorSchema = z.object({
   error: z.enum([
     "invalid_request",

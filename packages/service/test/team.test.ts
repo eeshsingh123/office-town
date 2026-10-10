@@ -65,7 +65,7 @@ describe("teams", () => {
       team: {
         lead: { settings: { harness: "claude", environment: native } },
         workspaceId: workspace.id,
-        autonomy: "trusted",
+        autonomy: "full",
       },
     });
     expect(started.status).toBe(201);
@@ -99,7 +99,7 @@ describe("teams", () => {
     expect(proposal.payload.place).toEqual({
       workspaceName: "Bakery",
       folders: [project],
-      autonomy: "trusted",
+      autonomy: "full",
     });
 
     // The user renames a role before approving.
@@ -115,7 +115,7 @@ describe("teams", () => {
     if (department === undefined) throw new Error("expected the department");
     expect(department).toMatchObject({
       name: "Web team",
-      autonomy: "trusted",
+      autonomy: "full",
       branchPerWorker: true,
     });
     expect((await workersOf(department)).map(([, role]) => role)).toEqual([
@@ -202,7 +202,7 @@ describe("teams", () => {
       await call("POST", "/departments", {
         team: { name: "Web team", roles: [] },
         workspaceId: workspace.id,
-        autonomy: "trusted",
+        autonomy: "full",
         lead: { settings: { harness: "missing", environment: native } },
       })
     ).json as DepartmentRecord;

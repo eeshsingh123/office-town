@@ -3,8 +3,11 @@ import {
   type AgentProfileRequest,
   type AgentRecord,
   type AgentSettings,
+  type AnswerPermissionsRequest,
+  type AnswerPermissionsResult,
   type ApiError,
   agentRecordSchema,
+  answerPermissionsResultSchema,
   apiErrorSchema,
   type DelegationRecord,
   type DepartmentRecord,
@@ -137,6 +140,8 @@ export const api = {
     (await call("GET", `/sessions/${id(sessionId)}/results/${sequence}`)).text(),
   listPendingRequests: (): Promise<PendingRequestList> =>
     read("/pending-requests", pendingRequestListSchema),
+  answerPermissions: (request: AnswerPermissionsRequest): Promise<AnswerPermissionsResult> =>
+    write("POST", "/pending-requests/answer", request, answerPermissionsResultSchema),
   startTask: (request: StartTaskRequest): Promise<SessionRecord> =>
     write("POST", "/tasks", request, sessionRecordSchema),
   startTeamTask: (request: StartTeamTaskRequest): Promise<SessionRecord> =>

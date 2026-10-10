@@ -38,7 +38,7 @@ export function toRows(pieces: readonly ProposedPiece[]): PlanRow[] {
     department:
       "departmentId" in department
         ? department
-        : { newDepartment: { ...department.newDepartment, autonomy: "supervised" } },
+        : { newDepartment: { ...department.newDepartment, autonomy: "full" } },
   }));
 }
 

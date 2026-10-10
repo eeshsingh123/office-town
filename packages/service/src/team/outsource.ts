@@ -104,8 +104,8 @@ async function startReview(context: TeamContext, asked: Asked): Promise<SessionR
   if (session === undefined || owner === undefined) {
     throw new RecordNotFoundError("agent", asked.ownerAgentId);
   }
-  // A reviewer reads and writes only its copy, so Trusted is all it ever needs.
-  const autonomy = lowerAutonomy(levelOf(store, owner.id), "trusted");
+  // A reviewer works only on its copy, so it never needs more than Full.
+  const autonomy = lowerAutonomy(levelOf(store, owner.id), "full");
   // The copy comes first, so a path that cannot be copied leaves no guest behind.
   const folder = join(context.dataFolder, OUTSOURCED, randomUUID());
   let copied: string[];

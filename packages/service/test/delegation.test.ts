@@ -28,7 +28,7 @@ async function teamAtWork(goal = "Build a bakery site") {
     await core.call("POST", "/departments", {
       team: { name: "Web team", roles: [role("Writer"), role("Tester")] },
       workspaceId: workspace.id,
-      autonomy: "trusted",
+      autonomy: "full",
       lead: { settings: claude },
     })
   ).json;

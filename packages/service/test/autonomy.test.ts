@@ -25,21 +25,11 @@ describe("autonomy policy", () => {
     const command = request("execute");
     const unknown = request("edit");
     const folders = [workspace, notes];
-    const verdicts = (level: "supervised" | "trusted" | "full") =>
+    const verdicts = (level: "supervised" | "full") =>
       [inside, second, outside, command, unknown].map((each) => allows(level, each, folders));
 
     expect(verdicts("supervised")).toEqual([false, false, false, false, false]);
-    expect(verdicts("trusted")).toEqual([true, true, false, false, false]);
     expect(verdicts("full")).toEqual([true, true, true, true, true]);
-    expect(allows("trusted", request("edit", ["index.html"]), folders)).toBe(true);
-    // Changing what makes git or a harness run commands asks; reading it does not.
-    const settings = [join(".git", "config"), join(".Claude", "settings.json"), ".mcp.json"];
-    expect(settings.map((path) => allows("trusted", request("edit", [path]), folders))).toEqual([
-      false,
-      false,
-      false,
-    ]);
-    expect(allows("trusted", request("read", [join(".git", "config")]), folders)).toBe(true);
   });
 
   it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own", () => {
@@ -49,7 +39,7 @@ describe("autonomy policy", () => {
     mkdirSync(upstream);
     const link = join(own, "api-link");
     symlinkSync(upstream, link, "junction");
-    const at = (level: "trusted" | "full", kind: string | undefined, path: string) =>
+    const at = (level: "full", kind: string | undefined, path: string) =>
       allows(level, request(kind, [path]), [own, upstream], [upstream]);
 
     expect(at("full", "edit", join(upstream, "new", "api.ts"))).toBe(false);
@@ -59,17 +49,17 @@ describe("autonomy policy", () => {
     );
     expect(at("full", "execute", upstream)).toBe(false);
     expect(at("full", undefined, join(upstream, "api.ts"))).toBe(false);
-    expect(at("trusted", "read", join(link, "api.ts"))).toBe(true);
-    expect(at("trusted", "edit", join(own, "index.html"))).toBe(true);
+    expect(at("full", "read", join(link, "api.ts"))).toBe(true);
+    expect(at("full", "edit", join(own, "index.html"))).toBe(true);
     // An upstream folder that holds the agent's own folder is no guard on its own work.
-    expect(allows("trusted", request("edit", ["index.html"]), [own, directory], [directory])).toBe(
+    expect(allows("full", request("edit", ["index.html"]), [own, directory], [directory])).toBe(
       true,
     );
   });
 
   it("lets a profile or an agent lower its level, never raise it", () => {
-    expect(lowerAutonomy("full", "trusted")).toBe("trusted");
-    expect(lowerAutonomy("trusted", "full")).toBe("trusted");
+    expect(lowerAutonomy("full", "supervised")).toBe("supervised");
+    expect(lowerAutonomy("supervised", "full")).toBe("supervised");
     expect(lowerAutonomy("bypass", undefined)).toBe("bypass");
   });
 });
@@ -90,36 +80,41 @@ afterEach(async () => {
 describe("the guardrail", () => {
   it("answers what the level allows, records that it did, and leaves the rest to the user", async () => {
     const project = join(directory, "project");
+    const upstream = join(directory, "upstream");
     mkdirSync(project);
+    mkdirSync(upstream);
     const ws = (
       await core.call("POST", "/workspaces", {
         name: "P",
         kind: "folders",
-        folders: [{ path: project, access: "edit" }],
+        folders: [
+          { path: project, access: "edit" },
+          { path: upstream, access: "read" },
+        ],
       })
     ).json;
     const started = await core.call("POST", "/tasks", {
       prompt: "Edit the page",
       agent: { settings: { harness: "claude", environment: { kind: "native" } } },
-      autonomy: "trusted",
+      autonomy: "full",
       workspaceId: ws.id,
     });
     const agent = core.sessions[0];
-    const ask = (requestId: string, kind: "edit" | "execute", path: string) =>
+    const ask = (requestId: string, kind: "edit", path: string) =>
       agent?.emit({
         type: "permission.requested",
         payload: { ...request(kind, [path]), requestId },
       });
 
     ask("inside", "edit", join(project, "index.html"));
-    ask("command", "execute", project);
+    ask("command", "edit", join(upstream, "api.ts"));
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(agent?.sent.at(-1)).toEqual({
       type: "answerPermission",
       requestId: "inside",
       optionId: "allow",
-      answeredBy: { autonomy: "trusted" },
+      answeredBy: { autonomy: "full" },
     });
     const waiting = core.store.listPendingRequests().requests;
     expect(waiting.map(({ event }) => event.payload.requestId)).toEqual(["command"]);
@@ -130,6 +125,48 @@ describe("the guardrail", () => {
       optionId: "allow",
     });
     expect(agent?.sent.at(-1)).toMatchObject({ requestId: "command", answeredBy: "user" });
+  });
+
+  it("answers many approvals at once with their one-time option and skips what no longer waits", async () => {
+    const started = await core.call("POST", "/tasks", {
+      prompt: "Look things up",
+      agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+      autonomy: "supervised",
+      workspaceId: core.store.createWorkspace({
+        name: "Scratch",
+        kind: "scratch",
+        folders: [{ path: directory, access: "edit" }],
+      }).id,
+    });
+    const agent = core.sessions[0];
+    const options = [
+      { optionId: "always", label: "Always", kind: "allow_always" as const },
+      { optionId: "once", label: "Once", kind: "allow_once" as const },
+      { optionId: "no", label: "No", kind: "reject_once" as const },
+    ];
+    for (const requestId of ["a", "b"]) {
+      agent?.emit({
+        type: "permission.requested",
+        payload: { requestId, title: "Web search", input: {}, options, kind: "fetch" },
+      });
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+    const sessionId = started.json.id;
+
+    const answer = await core.call("POST", "/pending-requests/answer", {
+      decision: "allow",
+      requests: ["a", "b", "gone"].map((requestId) => ({ sessionId, requestId })),
+    });
+
+    expect(answer.json).toEqual({ answered: 2, skipped: 1 });
+    expect(agent?.sent.slice(-2)).toEqual(
+      ["a", "b"].map((requestId) => ({
+        type: "answerPermission",
+        requestId,
+        optionId: "once",
+        answeredBy: "user",
+      })),
+    );
   });
 
   it("resumes an agent in the mode its level has now, not the one it started in", async () => {

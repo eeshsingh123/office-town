@@ -24,17 +24,20 @@ const RECENT_LIMIT = 5;
 
 export const DEFAULT_CHOICES: HarnessChoices = {
   environment: { kind: "native" },
-  autonomy: "supervised",
+  autonomy: "full",
   recentModels: [],
 };
 
-// Bypass turns every guard off, so it is never brought back without its warning.
+// Bypass turns every guard off, so it is never brought back without its warning. Trusted is
+// gone (D-57) and reads as Full, as the core's migration does.
 function withoutBypass(remembered: Remembered): Remembered {
   const byHarness = Object.fromEntries(
-    Object.entries(remembered.byHarness).map(([harness, choices]) => [
-      harness,
-      choices.autonomy === "bypass" ? { ...choices, autonomy: "supervised" as const } : choices,
-    ]),
+    Object.entries(remembered.byHarness).map(([harness, choices]) => {
+      const saved: string | undefined = choices.autonomy;
+      if (saved === "bypass") return [harness, { ...choices, autonomy: "supervised" as const }];
+      if (saved === "trusted") return [harness, { ...choices, autonomy: "full" as const }];
+      return [harness, choices];
+    }),
   );
   return { ...remembered, byHarness };
 }

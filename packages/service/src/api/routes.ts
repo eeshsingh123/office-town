@@ -2,6 +2,7 @@ import {
   agentCommandSchema,
   agentMessageRequestSchema,
   agentProfileRequestSchema,
+  answerPermissionsRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
   continueTaskRequestSchema,
@@ -28,6 +29,7 @@ import { instructionsFor, soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
+import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
@@ -255,6 +257,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "GET",
       path: "/pending-requests",
       reply: () => ({ status: 200, json: store.listPendingRequests() }),
+    },
+    {
+      method: "POST",
+      path: "/pending-requests/answer",
+      reply: async ({ body }) => {
+        const request = answerPermissionsRequestSchema.parse(await body());
+        return { status: 200, json: await answerPermissions(registry, store, request) };
+      },
     },
     {
       method: "GET",

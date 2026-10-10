@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AUTONOMY } from "./autonomy.ts";
 import { MoreButton, OptionRows } from "./Choice.tsx";
 
-const EVERYDAY: Autonomy[] = ["supervised", "trusted", "full"];
+const EVERYDAY: Autonomy[] = ["supervised", "full"];
 
 interface AutonomyChoiceProps {
   name: string;

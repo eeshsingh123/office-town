@@ -176,7 +176,7 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
     name: "",
     purpose: "",
     lead: defaultLead,
-    autonomy: "supervised",
+    autonomy: "full",
   });
   const chooseDepartment = (row: PlanRow, value: string) => {
     if (value !== NEW_DEPARTMENT) {

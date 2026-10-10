@@ -177,7 +177,7 @@ describe("store", () => {
     expect(agent).toMatchObject({
       name: "@gil-4498",
       colour: "#A2456E",
-      autonomy: "trusted",
+      autonomy: "full",
       settings: { harness: "opencode", environment: { kind: "native" }, model: "m" },
     });
     expect(store.listSessions("task-1").map((session) => session.agentId)).toEqual([
@@ -199,7 +199,7 @@ describe("store", () => {
     const file = join(directory, "d55", "store.db");
     mkdirSync(dirname(file));
     const d55 = new DatabaseSync(file);
-    for (const sql of migrations.slice(0, -1)) {
+    for (const sql of migrations.slice(0, -2)) {
       if (typeof sql === "string") d55.exec(sql);
       else sql(d55);
     }
@@ -209,7 +209,7 @@ describe("store", () => {
       JSON.stringify({ harness: "claude", environment: { kind: "native" }, workspacePath: folder });
     d55.exec(`
       PRAGMA application_id = ${0x4f54_4f57};
-      PRAGMA user_version = ${migrations.length - 1};
+      PRAGMA user_version = ${migrations.length - 2};
       INSERT INTO settings (key, value) VALUES ('outputFolder', '${JSON.stringify(output)}');
       INSERT INTO workspaces (ref, id, name, folders, created_at, used_at)
         VALUES (1, 'report', 'Report', '${JSON.stringify([project])}', 0, 0);
@@ -231,6 +231,33 @@ describe("store", () => {
     expect(store.getTask("in-project")?.workspaceId).toBe("report");
     expect(store.getTask("in-scratch")?.workspaceId).toBe(scratch?.id);
     expect(store.readSettings()).toEqual({});
+  });
+
+  it("turns every stored Trusted level, past answers included, into Full", () => {
+    const agent = addAgent(store);
+    const task = store.createTask("Edit the report");
+    const session = startSession(task.id, { agentId: agent.id });
+    session.emit({
+      type: "permission.resolved",
+      payload: { requestId: "r", outcome: "allowed", answeredBy: { autonomy: "full" } },
+    });
+    store.close();
+    const old = new DatabaseSync(join(directory, "store.db"));
+    old.exec(`
+      UPDATE agents SET autonomy = 'trusted',
+        settings = json_set(settings, '$.autonomy', 'trusted');
+      UPDATE events SET payload = replace(payload, '"full"', '"trusted"');
+      PRAGMA user_version = ${migrations.length - 1};
+    `);
+    old.close();
+
+    store = openStore(directory);
+    expect(store.getAgent(agent.id)).toMatchObject({
+      autonomy: "full",
+      settings: { autonomy: "full" },
+    });
+    const [resolved] = store.readEvents({ sessionId: session.id, after: 0, limit: 10 });
+    expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
   });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
@@ -405,7 +432,7 @@ describe("store", () => {
       purpose: "Builds the site",
       lead: { harness: "claude", environment: { kind: "native" as const } },
       workspaceId: "w",
-      autonomy: "trusted" as const,
+      autonomy: "full" as const,
     };
     const site = store.createPiece({
       taskId: goal.id,

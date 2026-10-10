@@ -22,5 +22,5 @@ export function soloRequest(
             ...(effort === undefined ? {} : { effort }),
           },
         };
-  return { prompt, agent, autonomy: autonomy ?? "supervised", workspaceId };
+  return { prompt, agent, autonomy: autonomy ?? "full", workspaceId };
 }
