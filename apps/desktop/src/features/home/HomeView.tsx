@@ -18,7 +18,7 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
-import { openChiefSettings, selectAgent, selectRoom, showMode } from "../office/office-state.ts";
+import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
 import styles from "./Home.module.css";
 import { QuickTask } from "./QuickTask.tsx";
@@ -191,7 +191,7 @@ function Team() {
             name="Chief"
             line="Not set up. The chief splits big goals across departments."
             state="Set up"
-            onOpen={() => openChiefSettings()}
+            onOpen={() => navigate({ name: "chief" })}
           />
         ) : (
           <TeamRow
@@ -199,7 +199,7 @@ function Team() {
             name={records[chiefId]?.name ?? "Chief"}
             line={chiefGoal === undefined ? "Ready for a big goal" : taskTitle(chiefGoal.prompt)}
             state={chiefGoal === undefined ? undefined : GOAL_STATE[chiefGoal.state]}
-            onOpen={() => selectAgent(chiefId)}
+            onOpen={() => navigate({ name: "chief" })}
           />
         )}
         {list.map((department) => {
@@ -239,11 +239,11 @@ function Team() {
       <div className={styles.create}>
         <Button onClick={() => navigate({ name: "new-department" })}>
           <Plus size={14} aria-hidden />
-          Department
+          Build a department
         </Button>
         <Button onClick={() => navigate({ name: "profiles" })}>
           <CircleUser size={14} aria-hidden />
-          Agent profiles
+          Saved assistants
         </Button>
       </div>
     </section>
@@ -318,16 +318,16 @@ function GetStarted() {
         Get started
       </h2>
       <ol className={styles.list}>
-        <Step number={1} done={false} title="Log in to your coding CLIs">
-          Agents run on your own {harnesses.map((one) => one.name).join(" and ") || "CLI"} logins.
-          Log in once in each CLI; nothing is set up here.
+        <Step number={1} done={false} title="Sign in to your AI apps">
+          Your agents use your own {harnesses.map((one) => one.name).join(" and ") || "AI app"}{" "}
+          accounts. Sign in once in each app; there is nothing to set up here.
         </Step>
         <Step number={2} done={hasTeam} title="Build your team (optional)">
-          Set up the chief for big goals, or add a department with a lead and workers on any
-          harness.
+          Set up your chief for big goals, or build a department: a lead and a few people, each on
+          the AI app you choose.
         </Step>
         <Step number={3} done={false} title="Give your first task">
-          Type it above. A solo agent is the quickest start; it asks before risky actions.
+          Type it above. One assistant is the quickest start, and it asks before risky steps.
         </Step>
       </ol>
     </section>

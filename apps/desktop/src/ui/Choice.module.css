@@ -1,0 +1,164 @@
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    box-shadow var(--motion);
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+}
+
+/* Marked from state: Chrome does not always restyle a radio that another one unchecked. */
+.card[data-selected] {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.card:has(input:focus-visible),
+.row:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cardIcon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border-radius: 11px;
+  background: var(--hover);
+  color: var(--text-2);
+}
+
+.card[data-selected] .cardIcon {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.cardTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.best {
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.detail {
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rowsWide {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    box-shadow var(--motion);
+}
+
+.row:hover {
+  border-color: var(--border-strong);
+}
+
+.row[data-selected] {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.row:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.radio {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  transition: border var(--motion);
+}
+
+.row[data-selected] .radio {
+  border: 5px solid var(--accent);
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.tag {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.more {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+}

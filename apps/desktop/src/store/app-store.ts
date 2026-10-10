@@ -19,6 +19,8 @@ export type View =
   // Home's composer hands over what was typed and who it was for.
   | { name: "new-task"; prompt?: string; who?: "one" | "team" | "chief"; departmentId?: string }
   | { name: "new-department" }
+  // Set up or edit the chief; once it exists, its page.
+  | { name: "chief"; edit?: boolean }
   | { name: "needs-you" }
   | { name: "tasks" }
   | { name: "profiles" }

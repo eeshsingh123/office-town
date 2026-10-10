@@ -198,7 +198,7 @@ function resolutionText(request: TraceRequest): string | undefined {
     );
     if (resolution.outcome === "allowed") {
       const by = "answeredBy" in resolution ? resolution.answeredBy : undefined;
-      if (typeof by === "object") return `Allowed by autonomy · ${AUTONOMY[by.autonomy].label}`;
+      if (typeof by === "object") return `Allowed by your setting · ${AUTONOMY[by.autonomy].label}`;
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
     return resolution.outcome === "denied" ? "Denied" : "Cancelled";

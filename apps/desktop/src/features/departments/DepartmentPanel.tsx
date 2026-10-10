@@ -152,11 +152,11 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
             </button>
           )}
         </dd>
-        <dt>Autonomy</dt>
+        <dt>Without asking</dt>
         <dd title={AUTONOMY[department.autonomy].description}>
           {AUTONOMY[department.autonomy].label}
         </dd>
-        <dt>Workspace</dt>
+        <dt>Project</dt>
         <dd className={styles.path} title={workspace?.folders[0]}>
           {workspace?.folders[0] ?? ""}
         </dd>

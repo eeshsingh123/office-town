@@ -93,14 +93,14 @@ function Settings({ department }: { department: DepartmentRecord }) {
         </label>
         <div className={styles.field}>
           <span className={styles.label}>
-            Workspace{workspace === undefined ? "" : ` · ${workspace.name}`}
+            Project{workspace === undefined ? "" : ` · ${workspace.name}`}
           </span>
           <span className={styles.path}>{workspace?.folders.join(" · ") ?? ""}</span>
         </div>
       </div>
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.label}>Autonomy</legend>
+        <legend className={styles.label}>How much it can do without asking you</legend>
         {autonomySchema.options.map((level) => (
           <label key={level} className={styles.choice}>
             <input
@@ -130,7 +130,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
             <strong>One branch per worker</strong>
             <br />
             <span className={styles.hint}>
-              When the workspace is a git repository, each worker gets its own worktree and branch;
+              When the project is a git repository, each worker gets its own worktree and branch;
               the lead merges them.
             </span>
           </span>
@@ -145,8 +145,8 @@ function Settings({ department }: { department: DepartmentRecord }) {
             <strong>Commit, push and open pull requests</strong>
             <br />
             <span className={styles.hint}>
-              Uses your own git and GitHub CLI logins. Pushing and pull requests follow the autonomy
-              level.
+              Uses your own git and GitHub CLI logins. Pushing and pull requests follow what the
+              team may do without asking.
             </span>
           </span>
         </label>

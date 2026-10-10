@@ -13,13 +13,20 @@ interface SettingsChipsProps {
   value: ChipSettings;
   // Newest first, shown at the top of the model list.
   recentModels?: readonly string[];
+  // Off where the page already offers the AI apps as larger choices.
+  showHarness?: boolean;
   onChange: (next: ChipSettings) => void;
 }
 
 // No effort can take this, since the harness's own words start with a letter or digit.
 const DEFAULT_EFFORT = "~default";
 
-export function SettingsChips({ value, recentModels = [], onChange }: SettingsChipsProps) {
+export function SettingsChips({
+  value,
+  recentModels = [],
+  showHarness = true,
+  onChange,
+}: SettingsChipsProps) {
   const harnesses = useApp((state) => state.harnesses);
   const description = harnesses.find((known) => known.harness === value.harness) ?? harnesses[0];
   const environments = useLoaded("environments", api.listEnvironments);
@@ -40,12 +47,14 @@ export function SettingsChips({ value, recentModels = [], onChange }: SettingsCh
 
   return (
     <>
-      <ChoiceMenu
-        label="Harness"
-        value={description?.harness ?? ""}
-        choices={harnesses.map((known) => ({ value: known.harness, label: known.name }))}
-        onChange={(harness) => onChange({ harness, environment: value.environment })}
-      />
+      {showHarness ? (
+        <ChoiceMenu
+          label="AI app"
+          value={description?.harness ?? ""}
+          choices={harnesses.map((known) => ({ value: known.harness, label: known.name }))}
+          onChange={(harness) => onChange({ harness, environment: value.environment })}
+        />
+      ) : null}
       <ChoiceMenu
         label="Runs on"
         value={environmentKey(value.environment)}
@@ -74,7 +83,7 @@ export function SettingsChips({ value, recentModels = [], onChange }: SettingsCh
       ) : null}
       {efforts.length > 0 ? (
         <ChoiceMenu
-          label="Effort"
+          label="Thinking"
           value={value.effort ?? DEFAULT_EFFORT}
           choices={[
             { value: DEFAULT_EFFORT, label: "Default" },

@@ -47,12 +47,12 @@ export function BypassDialog({
           <AlertDialog.Description asChild>
             <div className={dialog.description}>
               <p>
-                With Bypass, the agents run in their harness's bypass mode. They will not ask before
+                With Bypass, the agents run in their AI app's bypass mode. They will not ask before
                 they:
               </p>
               <ul>
                 <li>run any command on this computer</li>
-                <li>change or delete files in any folder, not only the workspace</li>
+                <li>change or delete files in any folder, not only the project</li>
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>

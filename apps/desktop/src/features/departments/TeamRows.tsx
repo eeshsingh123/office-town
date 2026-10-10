@@ -87,8 +87,8 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
                 />
                 <input
                   className={styles.input}
-                  aria-label="What it does"
-                  placeholder="What it does"
+                  aria-label="What they do"
+                  placeholder="What they do"
                   value={row.purpose}
                   onChange={(change) => update(row.key, { purpose: change.target.value })}
                 />
@@ -99,7 +99,7 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
               <div className={styles.chips}>
                 {row.settings === undefined ? (
                   <span className={styles.hint}>
-                    From the profile {profile?.name ?? ""}
+                    Saved assistant {profile?.name ?? ""}
                     {profile === undefined ? "" : ` · ${profileSummary(profile, harnesses)}`}
                   </span>
                 ) : (
@@ -133,14 +133,14 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
           }
         >
           <Plus size={14} aria-hidden />
-          Add a role
+          Add someone
         </Button>
         {(profiles.value ?? []).length === 0 ? null : (
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <Button>
                 <CircleUser size={14} aria-hidden />
-                Add from a profile
+                Add a saved assistant
               </Button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
@@ -173,9 +173,7 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
         )}
-        <span className={styles.hint}>
-          Models come from the harnesses installed on this computer.
-        </span>
+        <span className={styles.hint}>Each person can use a different AI app and model.</span>
       </div>
     </>
   );

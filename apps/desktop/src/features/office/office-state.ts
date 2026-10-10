@@ -11,14 +11,12 @@ interface OfficeState {
   tabs: Record<PanelKind, PanelTab>;
   // Set when the composer should take focus; a follow-up names the goal it answers.
   compose: { at: number; taskId?: string } | undefined;
-  chiefSettingsOpen: boolean;
 }
 
 export const useOffice = create<OfficeState>(() => ({
   mode: "floor",
   tabs: { chief: "overview", department: "overview", agent: "overview" },
   compose: undefined,
-  chiefSettingsOpen: false,
 }));
 
 export function showMode(mode: OfficeMode): void {
@@ -32,10 +30,6 @@ export function chooseTab(kind: PanelKind, tab: PanelTab): void {
 export function composeIn(kind: PanelKind, taskId?: string): void {
   chooseTab(kind, "chat");
   useOffice.setState({ compose: { at: Date.now(), ...(taskId === undefined ? {} : { taskId }) } });
-}
-
-export function openChiefSettings(open = true): void {
-  useOffice.setState({ chiefSettingsOpen: open });
 }
 
 export function selectRoom(departmentId: string): void {

@@ -1,12 +1,12 @@
 import { LoaderCircle, Plus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { openChiefSettings, selectAgent } from "../office/office-state.ts";
 import styles from "./Sidebar.module.css";
 
 // It spins while one of its goals is at work.
 function ChiefEntry() {
   const chiefId = useApp((state) => state.chiefId);
+  const current = useApp((state) => state.view.name === "chief");
   const working = useApp((state) =>
     Object.values(state.tasks).some(
       ({ task }) =>
@@ -17,7 +17,8 @@ function ChiefEntry() {
     <button
       type="button"
       className={styles.nav}
-      onClick={() => (chiefId === undefined ? openChiefSettings() : selectAgent(chiefId))}
+      aria-current={current ? "page" : undefined}
+      onClick={() => navigate({ name: "chief" })}
     >
       {working ? (
         <LoaderCircle size={11} className={`${styles.chiefWorking} spin`} aria-label="Working" />
@@ -49,13 +50,13 @@ export function Departments() {
   return (
     <>
       <div className={`${styles.label} ${styles.labelRow}`}>
-        Departments
+        Your team
         <button
           type="button"
           className={styles.add}
           onClick={() => navigate({ name: "new-department" })}
-          aria-label="New department"
-          title="New department"
+          aria-label="Build a department"
+          title="Build a department"
         >
           <Plus size={13} aria-hidden />
         </button>

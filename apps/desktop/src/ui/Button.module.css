@@ -3,15 +3,17 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 12px;
+  height: 34px;
+  padding: 0 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--motion);
+  transition:
+    background var(--motion),
+    filter var(--motion);
 }
 
 .button:hover:not(:disabled) {
@@ -45,6 +47,6 @@
 }
 
 .icon {
-  width: 30px;
+  width: 34px;
   padding: 0;
 }

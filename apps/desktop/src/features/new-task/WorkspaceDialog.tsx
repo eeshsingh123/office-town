@@ -39,9 +39,10 @@ export function WorkspaceDialog({ open, onOpenChange, onCreated }: WorkspaceDial
       <Dialog.Portal>
         <Dialog.Overlay className={dialog.overlay} />
         <Dialog.Content className={dialog.content}>
-          <Dialog.Title className={dialog.title}>New workspace</Dialog.Title>
+          <Dialog.Title className={dialog.title}>New project</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            The agent works in the first folder and may use the others as freely.
+            A project is the folder your agents work in, such as a code repository. Add more folders
+            if the work spans several; they may use those just as freely.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             <label className={dialog.label}>
@@ -83,7 +84,7 @@ export function WorkspaceDialog({ open, onOpenChange, onCreated }: WorkspaceDial
                 variant="primary"
                 disabled={name.trim() === "" || chosen.length === 0}
               >
-                Save workspace
+                Save project
               </Button>
             </div>
           </form>

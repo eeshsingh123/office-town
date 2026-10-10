@@ -74,7 +74,7 @@ export function ModelPicker({ models = [], error, value, recent, onChange }: Mod
                   className={menu.item}
                   onSelect={() => choose(undefined)}
                 >
-                  <span className={menu.itemText}>The harness's default</span>
+                  <span className={menu.itemText}>The app's default model</span>
                   {value === undefined ? <Check size={14} className={menu.check} /> : null}
                 </Command.Item>
               ) : null}

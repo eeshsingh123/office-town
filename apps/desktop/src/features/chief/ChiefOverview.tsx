@@ -3,7 +3,6 @@ import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import { openChiefSettings } from "../office/office-state.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./Chief.module.css";
@@ -28,13 +27,13 @@ export function ChiefOverview({ chiefId }: { chiefId: string }) {
           <strong>{chief.name}</strong>
           <span>Chief</span>
         </div>
-        <Button variant="ghost" onClick={() => openChiefSettings()}>
+        <Button variant="ghost" onClick={() => navigate({ name: "chief", edit: true })}>
           <Settings size={14} aria-hidden />
           Settings
         </Button>
       </div>
       <dl className={styles.facts}>
-        <dt>Harness</dt>
+        <dt>Thinks with</dt>
         <dd>{[harness, model, effort].filter((part) => part !== undefined).join(" · ")}</dd>
         <dt>Working on</dt>
         <dd>

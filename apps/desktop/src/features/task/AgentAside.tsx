@@ -96,13 +96,13 @@ export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
           Details
         </h2>
         <dl className={styles.details}>
-          <dt>Harness</dt>
+          <dt>AI app</dt>
           <dd>{harness}</dd>
           <dt>Model</dt>
           <dd>{model ?? options.model ?? "Default"}</dd>
           <dt>Effort</dt>
           <dd>{options.effort ?? "Default"}</dd>
-          <dt>Autonomy</dt>
+          <dt>Without asking</dt>
           <dd title={AUTONOMY[level].description}>{AUTONOMY[level].label}</dd>
           <dt>Runs on</dt>
           <dd>{environmentName(options.environment)}</dd>

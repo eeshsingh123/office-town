@@ -63,9 +63,9 @@ Why: one code path, no CORS, and the token never reaches a page that shows agent
 
 ### D-37 UI building blocks and look — accepted (2026-10-04)
 
-- React 19, Vite, Zustand, Radix primitives, `cmdk`, `react-markdown` (never raw HTML), lucide, Geist shipped with the app.
+- React 19, Vite, Zustand, Radix primitives, `cmdk`, `react-markdown` (never raw HTML), lucide, Plus Jakarta Sans and Geist Mono shipped with the app.
 - CSS Modules plus one tokens file; no Tailwind.
-- Look (owner): warm greys; one blue accent for actions and running work; amber only for "needs you"; status as small icons, never large fills; agent text 14 px, interface 13 px; light and dark follow the OS; reduced motion respected.
+- Look (owner): warm greys; one blue accent for actions and running work; amber only for "needs you"; status as small icons, never large fills; interface 14 px (D-53); light and dark follow the OS; reduced motion respected.
 - Stream events are applied once per animation frame, or after 100 ms when hidden.
 
 ### D-38 The model list is ordered by what a model costs the user — accepted (2026-10-04)
@@ -150,6 +150,15 @@ Why: the command center shows every goal's state at once, and the chief needs th
 
 Home shows the office at a glance: a one-line composer (to the chief, a department, or a solo agent on New task's last choices; otherwise it hands the text to New task), what needs you, the status counts, the team with one line each, and recent tasks or a Get started list before the first task. Departments can be built by hand on New department through the existing `POST /departments`.
 Why: the floor alone opened on a near-empty screen and gave a new user no next step (owner feedback, squad.so as reference). The floor and board stay one click away.
+
+### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
+
+- New task asks "What do you need done?", then "Who should handle it?" as three cards (one assistant, a department, your chief). The AI app and model fold into one "Thinks with … · Change" line. A side panel says what starting will do.
+- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Project for a workspace, AI app for a harness, Saved assistants for profiles. Code and API keep their names.
+- The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
+- New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
+- Look "Dusk": warm greys in both themes, a muted slate blue for actions, soft amber only for what needs the user, Plus Jakarta Sans. Agent colours stay as stored and are drawn softened into the surface.
+Why: the owner found the old form vague, full of jargon and generic-looking; the same calls are used, so no contract changed.
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
