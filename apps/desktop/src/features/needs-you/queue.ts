@@ -118,8 +118,12 @@ function inputLine(input: unknown): string | undefined {
 
 function describe(event: UserRequestEvent): { title: string; detail: string | undefined } {
   switch (event.type) {
-    case "permission.requested":
-      return { title: event.payload.title, detail: inputLine(event.payload.input) };
+    case "permission.requested": {
+      const { title, input } = event.payload;
+      const line = inputLine(input);
+      // Some harnesses already put the search or file in the title.
+      return { title, detail: line !== undefined && title.includes(line) ? undefined : line };
+    }
     case "question.requested":
       return { title: "Has a question", detail: event.payload.questions[0]?.text };
     case "plan.requested": {

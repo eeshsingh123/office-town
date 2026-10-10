@@ -46,7 +46,9 @@ export function BulkConfirm({ answer, send, onCancel, onDone }: BulkConfirmProps
   const count = asks.length;
   const verb = decision === "allow" ? "Approve" : "Reject";
   const tasks = new Set(asks.map((ask) => ask.taskId)).size;
-  const departments = [...new Set(asks.map((ask) => ask.departmentName))];
+  const departments = [
+    ...new Set(asks.flatMap((ask) => (ask.departmentId === undefined ? [] : [ask.departmentName]))),
+  ];
   const where =
     scope === "filtered"
       ? "Every approval that matches your filters."
@@ -93,8 +95,11 @@ export function BulkConfirm({ answer, send, onCancel, onDone }: BulkConfirmProps
             ))}
           </ul>
           <p className={styles.levelNote}>
-            Across {tasks === 1 ? "1 task" : `${tasks} tasks`} in{" "}
-            {departments.length > 3 ? `${departments.length} departments` : departments.join(", ")}.
+            Across {tasks === 1 ? "1 task" : `${tasks} tasks`}
+            {departments.length === 0
+              ? ""
+              : ` in ${departments.length > 3 ? `${departments.length} departments` : departments.join(", ")}`}
+            .
           </p>
           {error === undefined ? null : (
             <p className={dialog.error} role="alert">
