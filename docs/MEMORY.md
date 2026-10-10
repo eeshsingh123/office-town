@@ -5,14 +5,15 @@ Last updated: 2026-10-10
 ## State
 
 - M1 to M5 are merged to `main` (M5 is PR #30). Feedback phase: one fix at a time; the first round is PR #31 (merged).
-- `feat/home-dashboard`: Home as the default screen and New department (D-52). Checked in the browser on a fresh data folder: first-run Home, a department built by hand, Home listing it. Not checked live: a goal started from Home's composer (same calls as New task).
+- Home (D-52) merged as PR #32. `feat/creation-flows`: New task, the chief page and setup, New department and the Dusk look (D-53). Checked in browser mode on a fresh data folder: the chief set up and renamed through all four steps, a project and a department built by hand, New task's three choices and their side panel. Not run live: a task started from the new New task page (same calls as before).
+- `wsl.test.ts` ("kills even a detached child") fails on this machine on main too: the WSL distro does not answer in time.
 - M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
 - Never checked by an agent, worth a click when touched: M5's plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50), a WSL run from New task, a drag selection grouped by room, Message lead and Stop team from the department panel, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check.
 - `worktrees.test.ts` can time out under a full parallel run; it passes alone.
 - Local only: `.claude/launch.json` (browser preview on a scratch data folder), kept out of git through `.git/info/exclude`.
 - Where things are: core process `packages/service/src/main.ts`; `src/store`, `src/registry`, `src/api`, `src/team`, `src/tools`, `src/autonomy`, `src/chief`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3.
+- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows and colour options https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
