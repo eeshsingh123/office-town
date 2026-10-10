@@ -62,6 +62,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
     ),
   );
   const you = useYou();
+  const leads = department?.leadAgentId === agent.id;
   const [draft, setDraft] = useState(() => draftOf(agent));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -111,7 +112,15 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
       text: draft.notes.trim() === "" ? "None written yet." : shorten(draft.notes),
       edit: undefined,
     },
-    { title: "The task", from: department === undefined ? "from you" : "from the team lead" },
+    {
+      title: "The task",
+      from:
+        department === undefined
+          ? "from you"
+          : leads
+            ? "from you or your chief"
+            : "from the team lead",
+    },
   ];
 
   return (
@@ -149,7 +158,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           onChange={(event) => set({ job: event.target.value })}
         />
         <span className={form.hint}>
-          {department === undefined
+          {department === undefined || leads
             ? "One line, so you can tell your agents apart."
             : "One line. The team lead uses it to decide what to give them."}
         </span>
