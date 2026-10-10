@@ -1,14 +1,10 @@
-import {
-  type Autonomy,
-  agentColours,
-  type NewAgent,
-  type WorkspaceRecord,
-} from "@office-town/contract";
+import { type Autonomy, agentColours, type NewAgent } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useTemplates } from "../../store/templates.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -16,13 +12,11 @@ import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import page from "../../ui/Page.module.css";
-import { useLoaded } from "../../ui/use-loaded.ts";
-import { ProjectPicker } from "../new-task/PlaceChoice.tsx";
 import { teamLine } from "../new-task/TeamChoice.tsx";
-import { WorkspaceDialog } from "../new-task/WorkspaceDialog.tsx";
 import { selectRoom } from "../office/office-state.ts";
 import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
+import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./NewDepartment.module.css";
 import { type TeamRow, TeamRows, toRoles } from "./TeamRows.tsx";
 
@@ -45,13 +39,10 @@ const memberColour = (index: number) =>
 // A department built by hand, the same record a lead's approved proposal makes.
 export function NewDepartmentView() {
   const harnesses = useApp((state) => state.harnesses);
-  const listed = useLoaded("workspaces", api.listWorkspaces);
+  const workspaces = useWorkspaces() ?? [];
   const templates = useTemplates() ?? [];
-  const [created, setCreated] = useState<WorkspaceRecord[]>([]);
-  const workspaces = [...created, ...(listed.value ?? [])];
   const [name, setName] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string>();
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [autonomy, setAutonomy] = useState<Autonomy>("supervised");
   const [leadTemplate, setLeadTemplate] = useState(BLANK);
   const defaults: ChipSettings = {
@@ -72,7 +63,7 @@ export function NewDepartmentView() {
     name.trim() === ""
       ? "Give the department a name."
       : workspace === undefined
-        ? "Choose the project it works in."
+        ? "Choose the workspace it works in."
         : rows.some((row) => row.role.trim() === "")
           ? "Give every team member a role."
           : undefined;
@@ -144,13 +135,7 @@ export function NewDepartmentView() {
               />
             </section>
             <section className={page.section}>
-              <h2 className={page.sectionTitle}>Project</h2>
-              <ProjectPicker
-                workspaces={workspaces}
-                workspaceId={workspace?.id}
-                onWorkspace={setWorkspaceId}
-                onNewWorkspace={() => setCreatingWorkspace(true)}
-              />
+              <WorkspacePicker value={workspace?.id} onChange={setWorkspaceId} warnShared />
             </section>
           </div>
 
@@ -265,14 +250,6 @@ export function NewDepartmentView() {
         </aside>
       </form>
       {gate.confirm}
-      <WorkspaceDialog
-        open={creatingWorkspace}
-        onOpenChange={setCreatingWorkspace}
-        onCreated={(added) => {
-          setCreated([added, ...created]);
-          setWorkspaceId(added.id);
-        }}
-      />
     </section>
   );
 }

@@ -1,17 +1,16 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
 import { Settings } from "lucide-react";
 import { useMemo } from "react";
-import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
+import { mainPath, useWorkspaces } from "../../store/workspaces.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import office from "../office/Office.module.css";
 import { MessageBox } from "../task/MessageBox.tsx";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
@@ -93,8 +92,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const workspaces = useLoaded("workspaces", api.listWorkspaces);
-  const workspace = workspaces.value?.find((known) => known.id === department.workspaceId);
+  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
 
   const { task, members, goalSessions } = useMemo(() => {
     const task = Object.values(tasks)
@@ -156,9 +154,15 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
         <dd title={AUTONOMY[department.autonomy].description}>
           {AUTONOMY[department.autonomy].label}
         </dd>
-        <dt>Project</dt>
-        <dd className={styles.path} title={workspace?.folders[0]}>
-          {workspace?.folders[0] ?? ""}
+        <dt>Workspace</dt>
+        <dd title={workspace === undefined ? undefined : mainPath(workspace)}>
+          <button
+            type="button"
+            className={office.taskLink}
+            onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
+          >
+            {workspace?.name ?? "Open"}
+          </button>
         </dd>
       </dl>
 

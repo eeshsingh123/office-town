@@ -25,7 +25,7 @@ function isolationLine(harness: HarnessDescription | undefined): string {
     case "partial":
       return `Isolated in part. ${harness.isolationNote ?? "Some of your own settings still load."}`;
     default:
-      return "This AI app cannot isolate itself, so your own settings load. Instruction files in the project are still left out of the copy.";
+      return "This AI app cannot isolate itself, so your own settings load. Instruction files in the workspace are still left out of the copy.";
   }
 }
 
@@ -115,7 +115,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
           <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
           <Dialog.Description className={dialog.description}>
             A fresh agent that has never seen this work checks {agent.name}'s files and tells you
-            what it finds. It works on a copy, so nothing in your project changes.
+            what it finds. It works on a copy, so nothing in your workspace changes.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             <label className={dialog.label}>
@@ -135,7 +135,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
               ) : files.value === undefined ? (
                 <p className={styles.note}>Reading the workspace…</p>
               ) : files.value.length === 0 ? (
-                <p className={styles.note}>The project has nothing to examine yet.</p>
+                <p className={styles.note}>The workspace has nothing to examine yet.</p>
               ) : (
                 files.value.map((entry) => (
                   <label key={entry.name} className={styles.file}>

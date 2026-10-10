@@ -13,6 +13,8 @@ import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
+import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
+import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
 import { YouView } from "./features/you/YouView.tsx";
 import { navigate, useApp, type View } from "./store/app-store.ts";
 import { Toaster } from "./ui/Toast.tsx";
@@ -35,6 +37,10 @@ function Main({ view }: { view: View }) {
       return <TasksView />;
     case "templates":
       return <TemplatesView />;
+    case "workspaces":
+      return <WorkspacesView />;
+    case "workspace":
+      return <WorkspaceView key={view.workspaceId} workspaceId={view.workspaceId} />;
     case "you":
       return <YouView />;
     case "department":

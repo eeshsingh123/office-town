@@ -1,4 +1,4 @@
-import { autonomySchema, type WorkspaceRecord } from "@office-town/contract";
+import { autonomySchema } from "@office-town/contract";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { DropdownMenu, ToggleGroup } from "radix-ui";
 import { useApp } from "../../store/app-store.ts";
@@ -8,6 +8,7 @@ import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import menu from "../../ui/Menu.module.css";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
+import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./PlanCard.module.css";
 import type { DraftDepartment, KeptPiece, PlanRow } from "./plan-edit.ts";
 import { wouldCycle } from "./plan-edit.ts";
@@ -19,21 +20,15 @@ interface PlanRowsProps {
   rows: PlanRow[];
   onChange: (rows: PlanRow[]) => void;
   kept: KeptPiece[];
-  workspaces: WorkspaceRecord[];
-  onNewWorkspace: (onCreated: (workspaceId: string) => void) => void;
   defaultLead: DraftDepartment["lead"];
 }
 
 function NewDepartmentFields({
   draft,
   onChange,
-  workspaces,
-  onNewWorkspace,
 }: {
   draft: DraftDepartment;
   onChange: (draft: DraftDepartment) => void;
-  workspaces: WorkspaceRecord[];
-  onNewWorkspace: PlanRowsProps["onNewWorkspace"];
 }) {
   const gate = useBypassGate(
     draft.autonomy,
@@ -59,30 +54,11 @@ function NewDepartmentFields({
           <SettingsChips value={draft.lead} onChange={(lead) => onChange({ ...draft, lead })} />
         </div>
       </div>
-      <div className={styles.field}>
-        <span className={styles.fieldLabel}>Project · required</span>
-        <div className={styles.chips}>
-          {workspaces.length === 0 ? null : (
-            <ChoiceMenu
-              label="Project"
-              value={draft.workspaceId ?? ""}
-              choices={workspaces.map((known) => ({
-                value: known.id,
-                label: known.name,
-                description: known.folders.join(" · "),
-              }))}
-              onChange={(workspaceId) => onChange({ ...draft, workspaceId })}
-            />
-          )}
-          <Button
-            variant="ghost"
-            onClick={() => onNewWorkspace((workspaceId) => onChange({ ...draft, workspaceId }))}
-          >
-            <Plus size={14} aria-hidden />
-            New project
-          </Button>
-        </div>
-      </div>
+      <WorkspacePicker
+        value={draft.workspaceId}
+        onChange={(workspaceId) => onChange({ ...draft, workspaceId })}
+        warnShared
+      />
       <div className={styles.field}>
         <span className={styles.fieldLabel}>Without asking</span>
         <ToggleGroup.Root
@@ -179,14 +155,7 @@ function nextKey(rows: readonly PlanRow[], kept: readonly KeptPiece[]): string {
   return `piece-${number}`;
 }
 
-export function PlanRows({
-  rows,
-  onChange,
-  kept,
-  workspaces,
-  onNewWorkspace,
-  defaultLead,
-}: PlanRowsProps) {
+export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
   const departments = useApp((state) => state.departments);
   const saved = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
   const update = (key: string, change: Partial<PlanRow>) =>
@@ -294,8 +263,6 @@ export function PlanRows({
                 <NewDepartmentFields
                   draft={row.department.newDepartment}
                   onChange={(newDepartment) => update(row.key, { department: { newDepartment } })}
-                  workspaces={workspaces}
-                  onNewWorkspace={onNewWorkspace}
                 />
               ) : null}
             </li>

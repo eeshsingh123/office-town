@@ -1,4 +1,5 @@
 import {
+  FolderGit2,
   House,
   Inbox,
   LayoutPanelLeft,
@@ -22,14 +23,18 @@ import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 
 interface NavItemProps {
-  view: "home" | "office" | "needs-you" | "tasks" | "templates";
+  view: "home" | "office" | "needs-you" | "tasks" | "templates" | "workspaces";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
 }
 
 export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
-  const current = useApp((state) => state.view.name === view);
+  // A workspace's own page sits under Workspaces.
+  const current = useApp(
+    (state) =>
+      state.view.name === view || (view === "workspaces" && state.view.name === "workspace"),
+  );
   return (
     <button
       type="button"
@@ -110,6 +115,7 @@ export function Sidebar() {
       <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
       <NavItem view="tasks" icon={List} label="Tasks" />
       <NavItem view="templates" icon={SwatchBook} label="Templates" />
+      <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
       <Departments />
       <RunningAgents />
       <div className={styles.footer}>

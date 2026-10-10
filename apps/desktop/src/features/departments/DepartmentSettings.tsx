@@ -9,10 +9,10 @@ import { ArrowLeft } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { mainPath, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import { useModelLine } from "../profiles/model-line.ts";
 import styles from "./DepartmentSettings.module.css";
 import { type TeamRow, TeamRows, toRoles, toRows } from "./TeamRows.tsx";
@@ -36,8 +36,7 @@ function roleOf(agent: AgentRecord): TeamRole {
 function Settings({ department }: { department: DepartmentRecord }) {
   const agents = useApp((state) => state.agents);
   const harnesses = useApp((state) => state.harnesses);
-  const workspaces = useLoaded("workspaces", api.listWorkspaces);
-  const workspace = workspaces.value?.find((known) => known.id === department.workspaceId);
+  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
   const lead = agents[department.leadAgentId];
   const [name, setName] = useState(department.name);
   const [rules, setRules] = useState(department.rules ?? "");
@@ -90,10 +89,15 @@ function Settings({ department }: { department: DepartmentRecord }) {
           />
         </label>
         <div className={styles.field}>
-          <span className={styles.label}>
-            Project{workspace === undefined ? "" : ` · ${workspace.name}`}
-          </span>
-          <span className={styles.path}>{workspace?.folders.join(" · ") ?? ""}</span>
+          <span className={styles.label}>Workspace</span>
+          <button
+            type="button"
+            className={styles.link}
+            onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
+          >
+            {workspace?.name ?? "Open workspace"}
+          </button>
+          <span className={styles.path}>{workspace === undefined ? "" : mainPath(workspace)}</span>
         </div>
       </div>
 
@@ -143,7 +147,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
             <strong>One branch per worker</strong>
             <br />
             <span className={styles.hint}>
-              When the project is a git repository, each worker gets its own worktree and branch;
+              When the workspace is a git repository, each worker gets its own worktree and branch;
               the lead merges them.
             </span>
           </span>

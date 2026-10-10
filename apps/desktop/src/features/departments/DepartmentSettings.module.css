@@ -50,6 +50,20 @@
   background: var(--surface);
 }
 
+.link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
 .path {
   min-height: 32px;
   display: flex;

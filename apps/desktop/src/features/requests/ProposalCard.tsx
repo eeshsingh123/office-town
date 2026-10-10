@@ -64,7 +64,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
             />
           </label>
           <div className={styles.field}>
-            <span className={styles.label}>Project · {place.workspaceName}</span>
+            <span className={styles.label}>Workspace · {place.workspaceName}</span>
             <span className={styles.path}>{place.folders.join(" · ")}</span>
           </div>
           <div className={styles.field}>

@@ -52,8 +52,10 @@ import {
   type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
+  type WorkspaceUsage,
   workspaceEntrySchema,
   workspaceRecordSchema,
+  workspaceUsageSchema,
 } from "@office-town/contract";
 
 interface Schema<T> {
@@ -179,6 +181,12 @@ export const api = {
     read("/workspaces", listOf(workspaceRecordSchema)),
   createWorkspace: (workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
     write("POST", "/workspaces", workspace, workspaceRecordSchema),
+  updateWorkspace: (workspaceId: string, workspace: WorkspaceRequest): Promise<WorkspaceRecord> =>
+    write("PUT", `/workspaces/${id(workspaceId)}`, workspace, workspaceRecordSchema),
+  deleteWorkspace: (workspaceId: string): Promise<void> =>
+    send("DELETE", `/workspaces/${id(workspaceId)}`),
+  listWorkspaceUsage: (): Promise<WorkspaceUsage[]> =>
+    read("/workspaces/usage", listOf(workspaceUsageSchema)),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
   saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
     send("PUT", `/room-positions/${id(roomId)}`, position),

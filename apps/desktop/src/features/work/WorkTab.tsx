@@ -1,14 +1,13 @@
 import type { DepartmentRecord, PlanPiece } from "@office-town/contract";
 import { Lock } from "lucide-react";
 import { useEffect } from "react";
-import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { Plan } from "../task/AgentAside.tsx";
 import { DELEGATION_STATUS } from "./delegation-status.ts";
@@ -119,7 +118,9 @@ function PieceOfGoal({ piece, department }: { piece: PlanPiece; department: Depa
     state.chiefId === undefined ? undefined : state.agents[state.chiefId],
   );
   const goal = useApp((state) => state.tasks[piece.taskId]?.task);
-  const workspaces = useLoaded("workspaces", api.listWorkspaces);
+  const workspaces = useWorkspaces();
+  const pathsOf = (id: string | undefined) =>
+    workspaces?.find((known) => known.id === id)?.folders.map((folder) => folder.path) ?? [];
   const upstream = upstreamOf(piece, plan);
   const direct = plan.filter((one) => piece.waitsOn.includes(one.id) && one.result);
   const folderOf = (one: PlanPiece) => {
@@ -127,11 +128,9 @@ function PieceOfGoal({ piece, department }: { piece: PlanPiece; department: Depa
       one.departmentId === undefined
         ? one.newDepartment?.workspaceId
         : departments[one.departmentId]?.workspaceId;
-    return workspaces.value?.find((known) => known.id === id)?.folders ?? [];
+    return pathsOf(id);
   };
-  const own = new Set(
-    workspaces.value?.find((known) => known.id === department.workspaceId)?.folders,
-  );
+  const own = new Set(pathsOf(department.workspaceId));
   const readOnly = [...new Set(upstream.flatMap(folderOf))].filter((folder) => !own.has(folder));
   const index = plan.findIndex((one) => one.id === piece.id);
   return (
