@@ -36,6 +36,7 @@ import {
 import styles from "./Office.module.css";
 import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
 import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
+import { keysOwnedAt, typingIn } from "./waiting-keys.ts";
 
 export interface FloorAgent {
   agent: Agent;
@@ -279,12 +280,40 @@ function usePanTo(
   }, [key, at === undefined]);
 }
 
+// WASD walks from anywhere on the page, taking the keyboard to the floor. Arrows only when nothing
+// has focus, since lists, tabs and scroll areas use them. Typing, dialogs and menus keep their keys.
+function useWalkFromAnywhere(
+  floor: RefObject<HTMLDivElement | null>,
+  press: (key: string) => void,
+) {
+  const latest = useRef(press);
+  latest.current = press;
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (!(key in DIRECTIONS) || event.defaultPrevented) return;
+      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+      const target = event.target;
+      const element = floor.current;
+      if (element === null || (target instanceof Node && element.contains(target))) return;
+      if (key.startsWith("Arrow") && target !== document.body) return;
+      if (typingIn(target) || keysOwnedAt(target)) return;
+      event.preventDefault();
+      element.focus({ preventScroll: true });
+      latest.current(key);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [floor]);
+}
+
 export function Floor(props: FloorProps) {
   const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
   const { onSelect, onOpenRoom } = props;
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
+  useWalkFromAnywhere(floor, press);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
   const scale = useFitScale(floor, plan.width);
   const { move, handlers, wasClick } = useRoomDrag(plan, scale);

@@ -12,7 +12,7 @@ export function goToNextWaiting(): void {
   focusAgent(next);
 }
 
-function typingIn(target: EventTarget | null): boolean {
+export function typingIn(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
@@ -21,7 +21,7 @@ function typingIn(target: EventTarget | null): boolean {
 const OWNS_KEYS =
   "[role=dialog]:not([data-focus-card]), [role=alertdialog], [role=menu], [role=listbox]";
 
-function keysOwnedAt(target: EventTarget | null): boolean {
+export function keysOwnedAt(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(OWNS_KEYS) !== null;
 }
 
