@@ -36,16 +36,19 @@ const LAST_CHOICES = "~last";
 
 export function NewTaskView() {
   const harnesses = useApp((state) => state.harnesses);
+  const handed = useApp((state) => (state.view.name === "new-task" ? state.view : undefined));
   const [remembered] = useState(loadRemembered);
   const [harness, setHarness] = useState(remembered.harness);
   const [profileId, setProfileId] = useState(remembered.profileId);
-  const [who, setWho] = useState<"one" | "team" | "chief">(remembered.team ? "team" : "one");
-  const [departmentId, setDepartmentId] = useState(PROPOSE);
+  const [who, setWho] = useState<"one" | "team" | "chief">(
+    handed?.who ?? (remembered.team ? "team" : "one"),
+  );
+  const [departmentId, setDepartmentId] = useState(handed?.departmentId ?? PROPOSE);
   const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("trusted");
   const [choices, setChoices] = useState<HarnessChoices>(
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(handed?.prompt ?? "");
   const [place, setPlace] = useState<"workspace" | "folder">(
     remembered.workspaceId === undefined ? "folder" : "workspace",
   );

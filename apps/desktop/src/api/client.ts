@@ -19,6 +19,7 @@ import {
   harnessCatalogSchema,
   harnessDescriptionSchema,
   harnessLimitsSchema,
+  type NewDepartmentRequest,
   type PendingRequestList,
   type PlanPiece,
   type ProfileRecord,
@@ -157,6 +158,8 @@ export const api = {
     write("POST", `/tasks/${id(taskId)}/second-opinion`, request, sessionRecordSchema),
   listDepartments: (): Promise<DepartmentRecord[]> =>
     read("/departments", listOf(departmentRecordSchema)),
+  createDepartment: (request: NewDepartmentRequest): Promise<DepartmentRecord> =>
+    write("POST", "/departments", request, departmentRecordSchema),
   updateDepartment: (departmentId: string, settings: DepartmentSettings) =>
     write("PUT", `/departments/${id(departmentId)}`, settings, departmentRecordSchema),
   changeTeam: (departmentId: string, team: Team) =>

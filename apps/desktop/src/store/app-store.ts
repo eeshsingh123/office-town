@@ -14,8 +14,11 @@ import type { Records } from "./records.ts";
 
 // The office may open with a department's room in view.
 export type View =
+  | { name: "home" }
   | { name: "office"; room?: string }
-  | { name: "new-task" }
+  // Home's composer hands over what was typed and who it was for.
+  | { name: "new-task"; prompt?: string; who?: "one" | "team" | "chief"; departmentId?: string }
+  | { name: "new-department" }
   | { name: "needs-you" }
   | { name: "tasks" }
   | { name: "profiles" }
@@ -62,7 +65,7 @@ export const useApp = create<AppState>(() => ({
   traces: {},
   traceErrors: {},
   olderTasks: undefined,
-  view: { name: "office" },
+  view: { name: "home" },
   selection: [],
   chiefId: undefined,
   focus: undefined,

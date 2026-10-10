@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import styles from "./App.module.css";
 import { ChiefSettingsDialog } from "./features/chief/ChiefSettingsDialog.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
+import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
+import { HomeView } from "./features/home/HomeView.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
@@ -15,10 +17,14 @@ import { navigate, useApp, type View } from "./store/app-store.ts";
 
 function Main({ view }: { view: View }) {
   switch (view.name) {
+    case "home":
+      return <HomeView />;
     case "office":
       return <OfficeView />;
     case "new-task":
       return <NewTaskView />;
+    case "new-department":
+      return <NewDepartmentView />;
     case "needs-you":
       return <NeedsYouView />;
     case "tasks":

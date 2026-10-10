@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Plus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { openChiefSettings, selectAgent } from "../office/office-state.ts";
@@ -48,7 +48,18 @@ export function Departments() {
   );
   return (
     <>
-      <div className={styles.label}>Departments</div>
+      <div className={`${styles.label} ${styles.labelRow}`}>
+        Departments
+        <button
+          type="button"
+          className={styles.add}
+          onClick={() => navigate({ name: "new-department" })}
+          aria-label="New department"
+          title="New department"
+        >
+          <Plus size={13} aria-hidden />
+        </button>
+      </div>
       <ChiefEntry />
       {list.map((department) => {
         const members = Object.values(agents).filter(
