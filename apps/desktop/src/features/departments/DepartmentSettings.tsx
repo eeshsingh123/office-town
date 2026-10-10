@@ -12,28 +12,24 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
-import { profileSummary } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { useModelLine } from "../profiles/model-line.ts";
 import styles from "./DepartmentSettings.module.css";
 import { type TeamRow, TeamRows, toRoles, toRows } from "./TeamRows.tsx";
 
-// Kept by its agent, with its profile or its own settings.
+// Kept by its agent, with its own settings (D-55).
 function roleOf(agent: AgentRecord): TeamRole {
   const { harness, environment, model, effort } = agent.settings;
   return {
     role: agent.role ?? "Worker",
     purpose: agent.purpose ?? "",
     agentId: agent.id,
-    ...(agent.profileId === undefined
-      ? {
-          settings: {
-            harness,
-            environment,
-            ...(model === undefined ? {} : { model }),
-            ...(effort === undefined ? {} : { effort }),
-          },
-        }
-      : { profileId: agent.profileId }),
+    settings: {
+      harness,
+      environment,
+      ...(model === undefined ? {} : { model }),
+      ...(effort === undefined ? {} : { effort }),
+    },
   };
 }
 
@@ -44,6 +40,8 @@ function Settings({ department }: { department: DepartmentRecord }) {
   const workspace = workspaces.value?.find((known) => known.id === department.workspaceId);
   const lead = agents[department.leadAgentId];
   const [name, setName] = useState(department.name);
+  const [rules, setRules] = useState(department.rules ?? "");
+  const leadSummary = useModelLine(lead?.settings);
   const [autonomy, setAutonomy] = useState<Autonomy>(department.autonomy);
   const [branchPerWorker, setBranchPerWorker] = useState(department.branchPerWorker);
   const [codeFlow, setCodeFlow] = useState(department.codeFlow);
@@ -63,12 +61,12 @@ function Settings({ department }: { department: DepartmentRecord }) {
     setSaving(true);
     setMessage(undefined);
     try {
-      const settings = { name: name.trim(), autonomy, branchPerWorker, codeFlow };
+      const settings = { name: name.trim(), autonomy, branchPerWorker, codeFlow, rules };
       await api.updateDepartment(department.id, settings);
       await api.changeTeam(department.id, { name: settings.name, roles: toRoles(rows) });
       setMessage({
         error: false,
-        text: "Saved. A level changed while agents work applies to their next request.",
+        text: `Saved. ${settings.name} uses this from its next task; a change to what it can do without asking applies to its next request.`,
       });
     } catch (failure) {
       setMessage({
@@ -99,8 +97,23 @@ function Settings({ department }: { department: DepartmentRecord }) {
         </div>
       </div>
 
+      <label className={styles.field}>
+        <span className={styles.label}>Team rules</span>
+        <textarea
+          className={styles.input}
+          rows={3}
+          value={rules}
+          placeholder="For example: Use TypeScript. Write a test for each new page."
+          onChange={(change) => setRules(change.target.value)}
+        />
+        <span className={styles.hint}>
+          Every member of {name.trim() || "this team"} reads these before each task. Use them for
+          the way this team works, so you don't repeat it in every agent's notes.
+        </span>
+      </label>
+
       <fieldset className={styles.fieldset}>
-        <legend className={styles.label}>How much it can do without asking you</legend>
+        <legend className={styles.label}>How much the team can do without asking you</legend>
         {autonomySchema.options.map((level) => (
           <label key={level} className={styles.choice}>
             <input
@@ -164,7 +177,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
                   id: lead.id,
                   name: lead.name,
                   colour: lead.colour,
-                  summary: profileSummary(lead, harnesses),
+                  summary: leadSummary,
                 }
           }
           departmentId={department.id}
@@ -207,6 +220,10 @@ export function DepartmentSettings({ departmentId }: { departmentId: string }) {
         <h1 id="department-title" className={styles.title}>
           {department === undefined ? "Department" : `${department.name} · Settings`}
         </h1>
+        <p className={styles.hint}>
+          Settings for the whole team. What you change here applies to every member from their next
+          task.
+        </p>
         {department === undefined ? (
           <p className={styles.hint}>This department no longer exists.</p>
         ) : (

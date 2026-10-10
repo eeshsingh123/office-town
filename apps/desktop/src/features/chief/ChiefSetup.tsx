@@ -184,8 +184,9 @@ export function ChiefSetup() {
               <>
                 <h2 className={page.title}>House rules</h2>
                 <p className={page.lead}>
-                  Anything {handle} should always keep in mind when it plans. Optional; tap a
-                  suggestion or write your own.
+                  Anything {handle} should always keep in mind when it plans and hands out work.
+                  Departments don't read these; give a department its own team rules for that.
+                  Optional; tap a suggestion or write your own.
                 </p>
               </>
             ) : (

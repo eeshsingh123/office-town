@@ -117,7 +117,8 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
     }
     const member = members.find((known) => known.id === role.agentId);
     if (member === undefined) continue;
-    const linked = role.settings === undefined ? (role.profileId ?? member.profileId) : undefined;
+    // Which template it was made from stays known, so the template can count its agents.
+    const linked = role.profileId ?? member.profileId;
     const after = store.updateAgent(member.id, {
       role: role.role,
       purpose: role.purpose,
