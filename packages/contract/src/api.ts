@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { newAgentSchema } from "./agents.ts";
+import { newAgentSchema, userProfileSchema } from "./agents.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { usageLimitSchema, userRequestEventSchema } from "./events.ts";
@@ -146,6 +146,7 @@ export const settingsSchema = z.object({
   // The last one chosen is kept.
   outputFolder: absolutePathSchema.optional(),
   chiefAgentId: z.string().min(1).optional(),
+  you: userProfileSchema.optional(),
   // By department id, or "chief"; a room not listed is placed automatically.
   roomPositions: z.record(z.string(), roomPositionSchema).optional(),
 });

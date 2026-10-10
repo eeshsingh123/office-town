@@ -1,6 +1,7 @@
 import {
   agentCommandSchema,
   agentMessageRequestSchema,
+  agentProfileRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
   continueTaskRequestSchema,
@@ -17,12 +18,13 @@ import {
   startTeamTaskRequestSchema,
   taskListQuerySchema,
   teamSchema,
+  userProfileSchema,
   workspaceRequestSchema,
 } from "@office-town/contract";
 import { listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
-import { createAgent, settingsOf } from "../agents/agents.ts";
-import { soloMessage } from "../agents/briefs.ts";
+import { createAgent } from "../agents/agents.ts";
+import { instructionsFor, soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
@@ -79,7 +81,7 @@ export function apiRoutes(team: TeamContext): Route[] {
             taskId: task.id,
             agentId: agent.id,
             options: sessionOptionsFor(store, agent, folders),
-            message: soloMessage(request.prompt, settingsOf(store, agent)),
+            message: soloMessage(request.prompt, instructionsFor(store, agent)),
           }),
         );
         return { status: 201, json: session };
@@ -290,6 +292,24 @@ export function apiRoutes(team: TeamContext): Route[] {
     },
     {
       method: "PUT",
+      path: "/agents/:id",
+      reply: async ({ param, body }) => {
+        const agent = store.getAgent(param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
+        const { colour, purpose, settings } = agentProfileRequestSchema.parse(await body());
+        return {
+          status: 200,
+          json: store.updateAgent(agent.id, {
+            ...agent,
+            colour,
+            purpose: purpose === "" ? undefined : purpose,
+            settings,
+          }),
+        };
+      },
+    },
+    {
+      method: "PUT",
       path: "/agents/:id/name",
       reply: async ({ param, body }) => {
         const { name } = renameAgentRequestSchema.parse(await body());
@@ -406,6 +426,15 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "GET",
       path: "/settings",
       reply: () => ({ status: 200, json: store.readSettings() }),
+    },
+    {
+      method: "PUT",
+      path: "/you",
+      reply: async ({ body }) => {
+        const you = userProfileSchema.parse(await body());
+        store.saveSettings({ you });
+        return { status: 200, json: you };
+      },
     },
     {
       method: "PUT",

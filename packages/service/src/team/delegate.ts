@@ -1,6 +1,6 @@
 import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/contract";
 import { z } from "zod";
-import { settingsOf } from "../agents/agents.ts";
+import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { readOnlyFoldersOfTask } from "../chief/piece-folders.ts";
 import type { SessionActivity } from "../registry/activity.ts";
@@ -87,7 +87,7 @@ async function startWork(
       lead,
       folders: [folders.workspacePath ?? "", ...folders.additionalPaths],
       branch,
-      instructions: settingsOf(store, worker).instructions,
+      instructions: instructionsFor(store, worker),
       work,
     }),
   });
@@ -173,7 +173,7 @@ export function teamStatus(context: TeamContext, activity: SessionActivity) {
         store.listPendingRequests().requests.map(({ event }) => event.sessionId),
       );
       const lines = team.workers.map((worker) => {
-        const { harness, model } = settingsOf(store, worker);
+        const { harness, model } = worker.settings;
         const runs = `${harness}${model ? `, ${model}` : ""}`;
         return `- ${worker.name}, ${worker.role ?? "worker"} (${runs}): ${stateOf(context, activity, caller, worker, waiting)}`;
       });

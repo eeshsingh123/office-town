@@ -5,7 +5,8 @@ import type {
   StartTeamTaskRequest,
 } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
-import { createAgent, settingsOf } from "../agents/agents.ts";
+import { createAgent } from "../agents/agents.ts";
+import { instructionsFor } from "../agents/briefs.ts";
 import { inFolders, sessionOptionsFor } from "../agents/options.ts";
 import { pieceResult } from "../chief/briefs.ts";
 import { isChiefTask } from "../chief/chief.ts";
@@ -183,7 +184,7 @@ export async function startTeamTask(
               goal,
               teamName: department.name,
               folders,
-              instructions: settingsOf(store, lead).instructions,
+              instructions: instructionsFor(store, lead),
               roster: rosterOf(store, department),
               branches: department.branchPerWorker && isRepository(folders[0] ?? ""),
               codeFlow: department.codeFlow,
@@ -208,7 +209,7 @@ export async function startTeamTask(
       proposeTeamBrief({
         goal,
         folders,
-        instructions: settingsOf(store, lead).instructions,
+        instructions: instructionsFor(store, lead),
         choices: await harnessChoices(context, options.environment),
       }),
       piece,

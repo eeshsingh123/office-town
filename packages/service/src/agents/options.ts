@@ -1,7 +1,6 @@
 import type { AgentRecord, PermissionMode, SessionOptions } from "@office-town/contract";
 import { levelOf } from "../autonomy/policy.ts";
 import type { Store } from "../store/store.ts";
-import { settingsOf } from "./agents.ts";
 
 // Ask mode, so every request reaches the core's guardrail, unless the level is Bypass now.
 export function permissionModeOf(store: Store, agentId: string): PermissionMode {
@@ -20,7 +19,7 @@ export function sessionOptionsFor(
   agent: AgentRecord,
   folders: SessionFolders,
 ): SessionOptions {
-  const { instructions: _, autonomy: __, ...settings } = settingsOf(store, agent);
+  const { instructions: _, autonomy: __, ...settings } = agent.settings;
   const { workspacePath, readOnlyPaths = [] } = folders;
   const additionalPaths = [
     ...new Set([...(folders.additionalPaths ?? []), ...readOnlyPaths]),

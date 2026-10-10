@@ -31,7 +31,7 @@ const AGENT_SELECT = `
 
 const DEPARTMENT_SELECT = `
   SELECT d.ref, d.id, d.name, w.id AS workspaceId, d.autonomy, l.id AS leadAgentId,
-         d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow,
+         d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
          d.created_at AS createdAt
   FROM departments d
   JOIN workspaces w ON w.ref = d.workspace_ref
@@ -115,7 +115,8 @@ export const queries = {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   updateAgent: `
     UPDATE agents
-    SET role = ?, purpose = ?, department_ref = ?, autonomy = ?, profile_ref = ?, settings = ?
+    SET role = ?, purpose = ?, department_ref = ?, autonomy = ?, profile_ref = ?, settings = ?,
+        colour = coalesce(?, colour)
     WHERE ref = ?`,
   membersOf: `${AGENT_SELECT} WHERE a.department_ref = ? ORDER BY a.ref`,
   agentById: `${AGENT_SELECT} WHERE a.id = ?`,
@@ -165,7 +166,7 @@ export const queries = {
   // Reads the whole table on purpose: one row per department the user keeps.
   allDepartments: `${DEPARTMENT_SELECT} ORDER BY d.name`,
   updateDepartment: `
-    UPDATE departments SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?
+    UPDATE departments SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?
     WHERE ref = ?`,
 
   insertProfile: `

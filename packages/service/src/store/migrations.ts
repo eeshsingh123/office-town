@@ -314,4 +314,13 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX events_messages ON events (session_ref) WHERE type = 'message';
   `,
+  `
+  -- A department's rules, which every member reads before each task.
+  ALTER TABLE departments ADD COLUMN rules TEXT;
+
+  -- Agents stop following their template (D-55): each keeps the template as it is now.
+  UPDATE agents
+  SET settings = (SELECT p.settings FROM profiles p WHERE p.ref = agents.profile_ref)
+  WHERE profile_ref IS NOT NULL;
+  `,
 ];

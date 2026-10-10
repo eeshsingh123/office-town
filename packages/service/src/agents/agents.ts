@@ -1,4 +1,4 @@
-import type { AgentRecord, AgentSettings, Autonomy, NewAgent } from "@office-town/contract";
+import type { AgentRecord, Autonomy, NewAgent } from "@office-town/contract";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { type Identity, randomIdentity } from "./names.ts";
 
@@ -21,30 +21,27 @@ export interface AgentPlace {
   guest?: true;
 }
 
+// One made from a template gets a copy of it, so a later edit of the template leaves it as it is.
 export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): AgentRecord {
-  const { name, colour } = freeIdentity(store);
+  const identity = freeIdentity(store);
   const named = {
     autonomy: place.autonomy,
     ...(place.role === undefined ? {} : { role: place.role }),
     ...(place.guest ? { guest: place.guest } : {}),
   };
-  if ("settings" in agent) {
-    return store.createAgent({ name, colour, ...named, settings: agent.settings });
+  const settings = "settings" in agent ? agent.settings : undefined;
+  if (agent.profileId === undefined && settings !== undefined) {
+    return store.createAgent({ ...identity, ...named, settings });
   }
-  const profile = store.getProfile(agent.profileId);
-  if (profile === undefined) throw new RecordNotFoundError("profile", agent.profileId);
+  const profile = store.getProfile(agent.profileId ?? "");
+  if (profile === undefined) throw new RecordNotFoundError("profile", agent.profileId ?? "");
   return store.createAgent({
-    name,
+    name: identity.name,
     colour: profile.colour,
     role: profile.name,
+    ...(profile.role === "" ? {} : { purpose: profile.role }),
     ...named,
     profileId: profile.id,
-    settings: profile.settings,
+    settings: settings ?? profile.settings,
   });
-}
-
-// A profile's saved changes apply at the agent's next session.
-export function settingsOf(store: Store, agent: AgentRecord): AgentSettings {
-  if (agent.profileId === undefined) return agent.settings;
-  return store.getProfile(agent.profileId)?.settings ?? agent.settings;
 }

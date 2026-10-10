@@ -5,7 +5,7 @@ import type {
   SessionRecord,
   TaskDetail,
 } from "@office-town/contract";
-import { settingsOf } from "../agents/agents.ts";
+import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { startFirstAgent } from "../task-start.ts";
@@ -15,7 +15,7 @@ import { chiefBrief, type DepartmentView } from "./briefs.ts";
 import { chiefFolder, chiefOf, NoChiefError } from "./chief.ts";
 
 function memberLine(store: Store, department: DepartmentRecord, member: AgentRecord): string {
-  const { harness, model } = settingsOf(store, member);
+  const { harness, model } = member.settings;
   const role = member.id === department.leadAgentId ? "lead" : (member.role ?? "worker");
   const what = member.purpose ? `: ${member.purpose}` : "";
   return `${member.name}, ${role}${what} (${harness}${model ? `, ${model}` : ""})`;
@@ -64,7 +64,7 @@ async function startChief(
       message: chiefBrief({
         goal: task.prompt,
         folder,
-        instructions: settingsOf(store, chief).instructions,
+        instructions: instructionsFor(store, chief),
         departments: departmentViews(store),
         choices: await harnessChoices(context, options.environment),
       }),

@@ -17,7 +17,7 @@ export interface UpstreamResult {
 
 function instructionsOf(instructions: string | undefined): string {
   const text = instructions?.trim() ?? "";
-  return text === "" ? "" : `Your own instructions:\n${text}\n\n`;
+  return text === "" ? "" : `${text}\n\n`;
 }
 
 function describeDepartments(departments: DepartmentView[]): string {

@@ -128,6 +128,7 @@ interface DepartmentRow {
   leadAgentId: string;
   branchPerWorker: number;
   codeFlow: number;
+  rules: string | null;
   createdAt: number;
 }
 
@@ -250,6 +251,7 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     leadAgentId: row.leadAgentId,
     branchPerWorker: row.branchPerWorker === 1,
     codeFlow: row.codeFlow === 1,
+    ...(row.rules === null ? {} : { rules: row.rules }),
     createdAt: iso(row.createdAt),
   };
 }
@@ -787,7 +789,7 @@ class SqliteStore implements Store {
 
   updateAgent(id: string, change: AgentChange): AgentRecord {
     const row = this.#agentRow(id);
-    const { role, purpose, departmentId, autonomy, profileId, settings } = change;
+    const { colour, role, purpose, departmentId, autonomy, profileId, settings } = change;
     this.#statements.updateAgent.run(
       role ?? null,
       purpose ?? null,
@@ -795,6 +797,7 @@ class SqliteStore implements Store {
       autonomy ?? null,
       profileId === undefined ? null : this.#profileRow(profileId).ref,
       JSON.stringify(settings),
+      colour ?? null,
       row.ref,
     );
     return this.#publishAgent(id);
@@ -827,12 +830,14 @@ class SqliteStore implements Store {
 
   updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord {
     const row = this.#departmentRow(id);
-    const { name, autonomy, branchPerWorker, codeFlow } = settings;
+    const { name, autonomy, branchPerWorker, codeFlow, rules } = settings;
+    const text = rules?.trim() ?? "";
     this.#statements.updateDepartment.run(
       name,
       autonomy,
       branchPerWorker ? 1 : 0,
       codeFlow ? 1 : 0,
+      text === "" ? null : text,
       row.ref,
     );
     return this.#publishDepartment(id);
