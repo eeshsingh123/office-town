@@ -109,3 +109,10 @@
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}

@@ -1,5 +1,6 @@
 import {
   CircleUser,
+  House,
   Inbox,
   LayoutPanelLeft,
   List,
@@ -19,7 +20,7 @@ import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 
 interface NavItemProps {
-  view: "office" | "needs-you" | "tasks" | "profiles";
+  view: "home" | "office" | "needs-you" | "tasks" | "profiles";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
@@ -77,6 +78,7 @@ export function Sidebar() {
         New task
         <Kbd>Ctrl N</Kbd>
       </Button>
+      <NavItem view="home" icon={House} label="Home" />
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
       <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
       <NavItem view="tasks" icon={List} label="Tasks" />
