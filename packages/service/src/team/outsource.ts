@@ -104,7 +104,7 @@ async function startReview(context: TeamContext, asked: Asked): Promise<SessionR
   let guest: AgentRecord;
   try {
     copied = copyWork(foldersOf(session), asked.paths, folder);
-    guest = createAgent(store, asked.reviewer, { role: "Second opinion", autonomy, guest: true });
+    guest = createAgent(store, asked.reviewer, { role: "Reviewer", autonomy, guest: true });
   } catch (error) {
     rmSync(folder, { recursive: true, force: true });
     throw error;

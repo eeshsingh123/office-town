@@ -160,6 +160,14 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 - Look "Dusk": warm greys in both themes, a muted slate blue for actions, soft amber only for what needs the user, Plus Jakarta Sans. Agent colours stay as stored and are drawn softened into the surface.
 Why: the owner found the old form vague, full of jargon and generic-looking; the same calls are used, so no contract changed.
 
+### D-54 A review is the next step in the chat — accepted (2026-10-10)
+
+- "Second opinion" is now "Send for review" (D-18 unchanged underneath). Once a team task, or a solo task with a plan of three or more steps, has finished, a card at the end of the chat asks "Do you want this work reviewed?" with Send for review, See the files and No thanks (remembered per task in the browser). While a review runs the card says so; after it, Read the review and Review again.
+- "Send for review" also sits under the message box at any time. The dialog comes with a ready brief, so one click sends it. Reviewers are listed as Reviewers in the team view.
+- Open folder moved into the header's facts as the folder's name; in the app a click opens it.
+- The offer comes from the app, not the agent: it shows the same way on every harness, costs no tokens, and only appears when the lead really finished (not interrupted, stopped or failed).
+Why: the header buttons were out of place and unclear (owner feedback); a review should feel like part of the work.
+
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
 Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M6.

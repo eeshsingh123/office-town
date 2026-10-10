@@ -1,6 +1,5 @@
-import { ArrowLeft, ExternalLink, Eye } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
-import { shell } from "../../shell.ts";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
@@ -13,9 +12,11 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
-import { SecondOpinionDialog } from "./SecondOpinionDialog.tsx";
+import { ReviewDialog } from "./ReviewDialog.tsx";
+import { ReviewOffer } from "./ReviewOffer.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
+import { FolderChip, ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
 
@@ -129,18 +130,9 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               {working} working{waitingCount === 0 ? "" : ` · ${waitingCount} waiting for you`}
             </span>
             <span className={styles.chip}>Started {clockTime(task.createdAt)}</span>
+            <FolderChip folder={folder} />
           </div>
         </div>
-        {shell !== undefined && folder !== undefined ? (
-          <Button variant="ghost" onClick={() => void shell?.openFolder(folder)}>
-            <ExternalLink size={14} aria-hidden />
-            Open folder
-          </Button>
-        ) : null}
-        <Button variant="ghost" onClick={() => setAsking(true)}>
-          <Eye size={14} aria-hidden />
-          Second opinion
-        </Button>
         {open ? (
           <StopTeamButton
             taskId={taskId}
@@ -172,7 +164,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           )}
           {visitors.length === 0 ? null : (
             <>
-              <span className={`${team.label} ${team.visiting}`}>Visiting</span>
+              <span className={`${team.label} ${team.visiting}`}>Reviewers</span>
               {visitors.map((visitor) => (
                 <MemberRow
                   key={visitor.id}
@@ -200,15 +192,35 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                     <SessionTrace session={session} />
                   </Fragment>
                 ))}
+                {shown.id === lead.id ? (
+                  <ReviewOffer
+                    agent={lead}
+                    members={members}
+                    suggest
+                    onReview={() => setAsking(true)}
+                    onShow={setChosenId}
+                  />
+                ) : null}
               </div>
             </div>
             <div className={styles.traceWidth}>
-              <MessageBox agent={shown} />
+              <MessageBox
+                agent={shown}
+                actions={
+                  shown.record.guest ? undefined : <ReviewAction onClick={() => setAsking(true)} />
+                }
+              />
             </div>
           </div>
         </MemberLinks.Provider>
       </div>
-      <SecondOpinionDialog agent={shown} open={asking} onOpenChange={setAsking} />
+      <ReviewDialog
+        key={shown.id}
+        agent={shown}
+        open={asking}
+        onOpenChange={setAsking}
+        onStarted={setChosenId}
+      />
     </section>
   );
 }

@@ -145,7 +145,7 @@ function layOut(layout: Layout) {
 
   const signs: Record<string, RoomSign> = {
     [OPEN]: { title: "Open floor", note: "agents working alone", lines: [] },
-    [GUESTS]: { title: "Guest desk", note: "second opinions", lines: [] },
+    [GUESTS]: { title: "Review desk", note: "fresh eyes on finished work", lines: [] },
   };
   for (const department of departments) {
     const goal = goalOf(department, state);

@@ -1,5 +1,5 @@
 import { ArrowUp } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type ReactNode, useId, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -11,10 +11,12 @@ import styles from "./TaskView.module.css";
 interface MessageBoxProps {
   agent: Agent;
   className?: string | undefined;
+  // Small actions under the box, such as Send for review.
+  actions?: ReactNode;
 }
 
 // A team's lead cut off by a restart continues the team, so it hears which work was cut off.
-export function MessageBox({ agent, className }: MessageBoxProps) {
+export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const id = useId();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -89,6 +91,7 @@ export function MessageBox({ agent, className }: MessageBoxProps) {
           <ArrowUp size={16} aria-hidden />
         </Button>
       </div>
+      {actions === undefined ? null : <div className={styles.composerActions}>{actions}</div>}
     </form>
   );
 }

@@ -195,6 +195,43 @@
   field-sizing: content;
 }
 
+.composerActions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.composerAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.composerAction:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.chipButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chipButton:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
 .error {
   margin: 0 0 8px;
   color: var(--bad);

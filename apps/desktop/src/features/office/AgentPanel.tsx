@@ -14,7 +14,7 @@ import { Usage } from "../departments/Usage.tsx";
 import { tracedUsage } from "../departments/usage.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { MessageBox } from "../task/MessageBox.tsx";
-import { SecondOpinionDialog } from "../task/SecondOpinionDialog.tsx";
+import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
@@ -111,7 +111,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
         </Button>
         {agent.record.guest ? null : (
           <Button variant="ghost" onClick={() => setAsking(true)}>
-            Get a second opinion
+            Send for review
           </Button>
         )}
         {live ? (
@@ -121,7 +121,7 @@ export function AgentPanel({ member }: { member: FloorAgent }) {
         ) : null}
       </div>
       <MessageBox agent={agent} className={styles.message} />
-      <SecondOpinionDialog agent={agent} open={asking} onOpenChange={setAsking} />
+      <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </>
   );
 }

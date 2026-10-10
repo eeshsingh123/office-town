@@ -1,7 +1,6 @@
-import { ArrowLeft, ExternalLink, Eye, LoaderCircle, Square } from "lucide-react";
+import { ArrowLeft, LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
-import { shell } from "../../shell.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
@@ -15,10 +14,15 @@ import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AgentAside } from "./AgentAside.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
-import { SecondOpinionDialog } from "./SecondOpinionDialog.tsx";
+import { ReviewDialog } from "./ReviewDialog.tsx";
+import { ReviewOffer } from "./ReviewOffer.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
+import { FolderChip, ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
+
+// A solo task with a plan this long is offered a review once it is done.
+const LONG_TASK_STEPS = 3;
 
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
@@ -90,18 +94,9 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             </span>
             <span className={styles.chip}>{environmentName(latest.options.environment)}</span>
             <span className={styles.chip}>Started {clockTime(agent.task.createdAt)}</span>
+            <FolderChip folder={folder} />
           </div>
         </div>
-        {shell !== undefined && folder !== undefined ? (
-          <Button variant="ghost" onClick={() => void shell?.openFolder(folder)}>
-            <ExternalLink size={14} aria-hidden />
-            Open folder
-          </Button>
-        ) : null}
-        <Button variant="ghost" onClick={() => setAsking(true)}>
-          <Eye size={14} aria-hidden />
-          Second opinion
-        </Button>
         {live ? (
           <Button onClick={() => void api.stop(latest.id)}>
             <Square size={12} aria-hidden />
@@ -162,10 +157,16 @@ function SoloTaskView({ taskId }: { taskId: string }) {
                   <SessionTrace session={session} />
                 </Fragment>
               ))}
+              <ReviewOffer
+                agent={agent}
+                members={[agent]}
+                suggest={(progress?.stepCount ?? 0) >= LONG_TASK_STEPS}
+                onReview={() => setAsking(true)}
+              />
             </div>
           </div>
           <div className={styles.traceWidth}>
-            <MessageBox agent={agent} />
+            <MessageBox agent={agent} actions={<ReviewAction onClick={() => setAsking(true)} />} />
           </div>
         </div>
         <AgentAside
@@ -175,7 +176,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
           traces={agent.sessions.flatMap((session) => traces[session.id] ?? [])}
         />
       </div>
-      <SecondOpinionDialog agent={agent} open={asking} onOpenChange={setAsking} />
+      <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </section>
   );
 }
