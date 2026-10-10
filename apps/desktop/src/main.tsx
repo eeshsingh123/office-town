@@ -1,4 +1,4 @@
-import "@fontsource-variable/geist";
+import "@fontsource-variable/plus-jakarta-sans";
 import "@fontsource-variable/geist-mono";
 import "./styles/tokens.css";
 import "./styles/global.css";

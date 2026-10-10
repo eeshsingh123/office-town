@@ -1,8 +1,16 @@
+/* The agent's colour, softened into the surface so faces stay calm in both themes. */
 .avatar {
   display: inline-grid;
   flex: none;
   place-items: center;
   border-radius: 50%;
-  color: #ffffff;
-  font-weight: 600;
+  background: light-dark(
+    color-mix(in srgb, var(--colour) 20%, #ffffff),
+    color-mix(in srgb, var(--colour) 38%, #242321)
+  );
+  color: light-dark(
+    color-mix(in srgb, var(--colour) 75%, #26241f),
+    color-mix(in srgb, var(--colour) 35%, #ebe8e3)
+  );
+  font-weight: 700;
 }

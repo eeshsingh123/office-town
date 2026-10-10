@@ -73,7 +73,11 @@ export function Sidebar() {
         </span>
         Office Town
       </div>
-      <Button className={styles.newTask} onClick={() => navigate({ name: "new-task" })}>
+      <Button
+        variant="primary"
+        className={styles.newTask}
+        onClick={() => navigate({ name: "new-task" })}
+      >
         <Plus size={16} aria-hidden />
         New task
         <Kbd>Ctrl N</Kbd>
@@ -85,7 +89,7 @@ export function Sidebar() {
       <Departments />
       <RunningAgents />
       <div className={styles.footer}>
-        <NavItem view="profiles" icon={CircleUser} label="Profiles" />
+        <NavItem view="profiles" icon={CircleUser} label="Saved assistants" />
         <ThemeToggle />
         <ConnectionStatus />
       </div>

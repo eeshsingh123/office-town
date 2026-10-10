@@ -1,42 +1,45 @@
-/* Every colour, size and timing the app uses (D-37). Light and dark follow the system unless the user picks one (theme.ts). */
+/* Every colour, size and timing the app uses (D-37). Light and dark follow the system unless the user picks one (theme.ts). The palette is "Dusk": warm greys, a muted slate blue for actions, soft amber only for what needs the user (D-53). */
 :root {
   color-scheme: light dark;
 
-  --bg: light-dark(#f7f7f5, #121211);
-  --surface: light-dark(#ffffff, #181817);
-  --side: light-dark(#f1f1ee, #141413);
-  --hover: light-dark(#e8e8e4, #232320);
-  --border: light-dark(#e4e3df, #282826);
-  --border-strong: light-dark(#d3d2cd, #383835);
-  --text: light-dark(#1b1b19, #ecebe7);
-  --text-2: light-dark(#57564f, #aaa9a3);
-  --text-3: light-dark(#6b6a64, #908f89);
-  --accent: light-dark(#3a5bd9, #7d98f2);
-  --accent-soft: light-dark(#ecf0fc, #1d2440);
-  --accent-text: light-dark(#2f4bb8, #afc0f8);
-  --on-accent: light-dark(#ffffff, #0f1530);
-  --warn: light-dark(#8f5400, #e9b866);
-  --warn-soft: light-dark(#fdf4e3, #2a2214);
-  --warn-border: light-dark(#eed7a8, #4b3b1d);
-  --ok: light-dark(#2e7a4c, #6cc08f);
-  --bad: light-dark(#b93a2b, #ee8576);
-  --code: light-dark(#f3f3f0, #1e1e1c);
-  --floor: light-dark(#f1efea, #1c1c1a);
-  --desk: light-dark(#e2ded5, #2a2926);
-  --desk-line: light-dark(#cfcac0, #3a3935);
-  --shadow: 0 2px 8px light-dark(rgb(0 0 0 / 6%), rgb(0 0 0 / 30%));
-  --shadow-raised: 0 12px 32px light-dark(rgb(0 0 0 / 14%), rgb(0 0 0 / 45%));
+  --bg: light-dark(#f6f4f1, #1c1b1a);
+  --surface: light-dark(#fdfcfa, #242321);
+  --side: light-dark(#efece7, #181716);
+  --hover: light-dark(#ebe7e1, #2c2b28);
+  --border: light-dark(#e2ddd6, #353330);
+  --border-strong: light-dark(#cec7bd, #48453f);
+  --text: light-dark(#26241f, #ebe8e3);
+  --text-2: light-dark(#5c564e, #b3aea6);
+  --text-3: light-dark(#736d64, #8f897f);
+  --accent: light-dark(#4b6488, #93a6c4);
+  --accent-soft: light-dark(#e3e9f1, #272d37);
+  --accent-text: light-dark(#3e5677, #afc0da);
+  --on-accent: light-dark(#ffffff, #141a24);
+  --warn: light-dark(#87582a, #e3c19c);
+  --warn-soft: light-dark(#f5e8da, #372c21);
+  --warn-border: light-dark(#e6cdb2, #5a4532);
+  --attention: light-dark(#b07a45, #d2a677);
+  --on-attention: light-dark(#ffffff, #2a1a0a);
+  --ok: light-dark(#4f7a46, #9dbb93);
+  --bad: light-dark(#a5473a, #df9286);
+  --code: light-dark(#f1eee9, #211f1e);
+  --floor: light-dark(#efece6, #201f1d);
+  --desk: light-dark(#e2ddd4, #2e2c29);
+  --desk-line: light-dark(#cfc8bc, #3d3a36);
+  --shadow: 0 1px 3px light-dark(rgb(60 45 30 / 6%), rgb(0 0 0 / 25%));
+  --shadow-raised: 0 12px 32px light-dark(rgb(60 45 30 / 14%), rgb(0 0 0 / 45%));
+  --ring: 0 0 0 3px var(--accent-soft);
 
-  --font-ui: "Geist Variable", system-ui, sans-serif;
+  --font-ui: "Plus Jakarta Sans Variable", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, monospace;
-  --size-ui: 13px;
-  --size-agent: 14px;
-  --size-meta: 12px;
-  --size-small: 11px;
-  --size-title: 15px;
-  --size-page: 22px;
+  --size-ui: 14px;
+  --size-agent: 14.5px;
+  --size-meta: 12.5px;
+  --size-small: 11.5px;
+  --size-title: 16px;
+  --size-page: 28px;
 
-  --radius-control: 7px;
+  --radius-control: 8px;
   --radius-card: 12px;
   --motion: 150ms ease-out;
 }

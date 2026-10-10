@@ -10,8 +10,8 @@
     "start": "electron ."
   },
   "dependencies": {
-    "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@office-town/contract": "workspace:*",
     "cmdk": "^1.1.1",
     "lucide-react": "~1.50.0",
