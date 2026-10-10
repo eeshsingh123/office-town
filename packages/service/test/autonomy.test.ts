@@ -127,6 +127,48 @@ describe("the guardrail", () => {
     expect(agent?.sent.at(-1)).toMatchObject({ requestId: "command", answeredBy: "user" });
   });
 
+  it("answers many approvals at once with their one-time option and skips what no longer waits", async () => {
+    const started = await core.call("POST", "/tasks", {
+      prompt: "Look things up",
+      agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+      autonomy: "supervised",
+      workspaceId: core.store.createWorkspace({
+        name: "Scratch",
+        kind: "scratch",
+        folders: [{ path: directory, access: "edit" }],
+      }).id,
+    });
+    const agent = core.sessions[0];
+    const options = [
+      { optionId: "always", label: "Always", kind: "allow_always" as const },
+      { optionId: "once", label: "Once", kind: "allow_once" as const },
+      { optionId: "no", label: "No", kind: "reject_once" as const },
+    ];
+    for (const requestId of ["a", "b"]) {
+      agent?.emit({
+        type: "permission.requested",
+        payload: { requestId, title: "Web search", input: {}, options, kind: "fetch" },
+      });
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+    const sessionId = started.json.id;
+
+    const answer = await core.call("POST", "/pending-requests/answer", {
+      decision: "allow",
+      requests: ["a", "b", "gone"].map((requestId) => ({ sessionId, requestId })),
+    });
+
+    expect(answer.json).toEqual({ answered: 2, skipped: 1 });
+    expect(agent?.sent.slice(-2)).toEqual(
+      ["a", "b"].map((requestId) => ({
+        type: "answerPermission",
+        requestId,
+        optionId: "once",
+        answeredBy: "user",
+      })),
+    );
+  });
+
   it("resumes an agent in the mode its level has now, not the one it started in", async () => {
     const started = await core.call("POST", "/tasks", {
       prompt: "Tidy up",
