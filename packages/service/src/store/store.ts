@@ -57,6 +57,13 @@ export interface AgentChange {
   settings: AgentSettings;
 }
 
+export interface WorkspaceActivity {
+  taskCount: number;
+  // Newest first, at most five.
+  recentTasks: TaskRecord[];
+  openTaskIds: string[];
+}
+
 // Where a team the lead has yet to propose would work.
 export interface TeamSetup {
   workspaceId: string;
@@ -72,6 +79,7 @@ export type TaskTeam =
 // A piece of a chief's plan names the chief's task.
 export interface TaskPlacement {
   parentTaskId?: string;
+  workspaceId?: string;
   queued?: true;
 }
 
@@ -203,6 +211,7 @@ export interface Store {
   listWorkspaces(): WorkspaceRecord[];
   updateWorkspace(id: string, workspace: WorkspaceRequest): WorkspaceRecord;
   deleteWorkspace(id: string): void;
+  workspaceActivity(id: string): WorkspaceActivity;
   // Moves it to the top of the list.
   useWorkspace(id: string): WorkspaceRecord;
   readSettings(): Settings;

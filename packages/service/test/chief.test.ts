@@ -15,7 +15,13 @@ let core: Core;
 async function departmentIn(name: string) {
   const folder = join(directory, name);
   mkdirSync(folder);
-  const workspace = (await core.call("POST", "/workspaces", { name, folders: [folder] })).json;
+  const workspace = (
+    await core.call("POST", "/workspaces", {
+      name,
+      kind: "folders",
+      folders: [{ path: folder, access: "edit" }],
+    })
+  ).json;
   const department = (
     await core.call("POST", "/departments", {
       team: { name, roles: [] },
@@ -85,8 +91,13 @@ describe("the chief", () => {
     const web = await departmentIn("web");
     const docsFolder = join(directory, "docs");
     mkdirSync(docsFolder);
-    const docs = (await core.call("POST", "/workspaces", { name: "Docs", folders: [docsFolder] }))
-      .json;
+    const docs = (
+      await core.call("POST", "/workspaces", {
+        name: "Docs",
+        kind: "folders",
+        folders: [{ path: docsFolder, access: "edit" }],
+      })
+    ).json;
     await core.call("PUT", "/chief", { settings: claude });
     const goal = (await core.call("POST", "/tasks/chief", { goal: "Launch the bakery" })).json;
     const chief = leadOf(goal.task.id);

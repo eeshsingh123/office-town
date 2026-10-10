@@ -1,4 +1,4 @@
-import type { AgentCommand, UserRequestEvent, WorkspaceRecord } from "@office-town/contract";
+import type { AgentCommand, UserRequestEvent } from "@office-town/contract";
 import { Network, TriangleAlert } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -7,8 +7,6 @@ import { useApp } from "../../store/app-store.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
-import { useLoaded } from "../../ui/use-loaded.ts";
-import { WorkspaceDialog } from "../new-task/WorkspaceDialog.tsx";
 import card from "../requests/RequestCard.module.css";
 import { useMinutesSince } from "../requests/RequestCard.tsx";
 import { departmentName, usePlan } from "../work/use-plan.ts";
@@ -26,31 +24,6 @@ import {
 
 type PlanEvent = Extract<UserRequestEvent, { type: "plan.requested" }>;
 type PlanAnswer = Extract<AgentCommand, { type: "answerPlan" }>["answer"];
-
-// Any made from this card first.
-function useWorkspaces() {
-  const listed = useLoaded("workspaces", api.listWorkspaces);
-  const [created, setCreated] = useState<WorkspaceRecord[]>([]);
-  const [adding, setAdding] = useState<(workspaceId: string) => void>();
-  const dialog = (
-    <WorkspaceDialog
-      open={adding !== undefined}
-      onOpenChange={(open) => {
-        if (!open) setAdding(undefined);
-      }}
-      onCreated={(workspace) => {
-        setCreated([workspace, ...created]);
-        adding?.(workspace.id);
-      }}
-    />
-  );
-  return {
-    workspaces: [...created, ...(listed.value ?? [])],
-    // A function in state is called when set, so the callback is wrapped once more.
-    add: (onCreated: (workspaceId: string) => void) => setAdding(() => onCreated),
-    dialog,
-  };
-}
 
 function ChangeList({ event, rows }: { event: PlanEvent; rows: PlanRow[] }) {
   const taskId = useApp((state) => state.sessions[event.sessionId]?.taskId);
@@ -116,7 +89,6 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
-  const { workspaces, add, dialog } = useWorkspaces();
 
   const kept: KeptPiece[] = plan.filter(
     (piece) => piece.status === "done" || piece.status === "working",
@@ -163,8 +135,6 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
             rows={rows}
             onChange={setRows}
             kept={kept}
-            workspaces={workspaces}
-            onNewWorkspace={add}
             defaultLead={{
               harness: lead?.harness ?? "claude",
               environment: lead?.environment ?? { kind: "native" },
@@ -218,7 +188,6 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
           </p>
         )}
       </div>
-      {dialog}
     </article>
   );
 }

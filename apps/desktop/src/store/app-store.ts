@@ -8,6 +8,7 @@ import type {
   ProfileRecord,
   RoomPosition,
   UserProfile,
+  WorkspaceRecord,
 } from "@office-town/contract";
 import { create } from "zustand";
 import type { StreamStatus } from "../api/event-stream.ts";
@@ -33,6 +34,8 @@ export type View =
   | { name: "needs-you" }
   | { name: "tasks" }
   | { name: "templates" }
+  | { name: "workspaces" }
+  | { name: "workspace"; workspaceId: string }
   | { name: "you" }
   | { name: "department"; departmentId: string }
   | { name: "task"; taskId: string };
@@ -65,6 +68,8 @@ export interface AppState extends Records {
   you: UserProfile | undefined;
   // Saved templates, by name; undefined until loaded.
   templates: ProfileRecord[] | undefined;
+  // Most recently used first; undefined until loaded.
+  workspaces: WorkspaceRecord[] | undefined;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -88,6 +93,7 @@ export const useApp = create<AppState>(() => ({
   roomPositions: {},
   you: undefined,
   templates: undefined,
+  workspaces: undefined,
 }));
 
 export function focusAgent(agentId: string | undefined): void {

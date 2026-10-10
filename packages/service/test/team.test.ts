@@ -53,8 +53,13 @@ describe("teams", () => {
   it("lets a new lead propose its team, which the user edits and approves into a department", async () => {
     const project = join(directory, "bakery");
     mkdirSync(project);
-    const workspace = (await call("POST", "/workspaces", { name: "Bakery", folders: [project] }))
-      .json;
+    const workspace = (
+      await call("POST", "/workspaces", {
+        name: "Bakery",
+        kind: "folders",
+        folders: [{ path: project, access: "edit" }],
+      })
+    ).json;
     const started = await call("POST", "/tasks/team", {
       goal: "Build a bakery site",
       team: {
@@ -186,8 +191,13 @@ describe("teams", () => {
   it("leaves no task behind when its first agent cannot start, so the department stays free", async () => {
     const project = join(directory, "bakery");
     mkdirSync(project);
-    const workspace = (await call("POST", "/workspaces", { name: "Bakery", folders: [project] }))
-      .json;
+    const workspace = (
+      await call("POST", "/workspaces", {
+        name: "Bakery",
+        kind: "folders",
+        folders: [{ path: project, access: "edit" }],
+      })
+    ).json;
     const department = (
       await call("POST", "/departments", {
         team: { name: "Web team", roles: [] },

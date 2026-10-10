@@ -1,15 +1,11 @@
-import type {
-  Autonomy,
-  ProfileRecord,
-  StartTaskRequest,
-  WorkspaceRecord,
-} from "@office-town/contract";
+import type { Autonomy, ProfileRecord, StartTaskRequest } from "@office-town/contract";
 import { Network, User, Users } from "lucide-react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { useTemplates } from "../../store/templates.ts";
+import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
@@ -17,18 +13,16 @@ import { type CardOption, OptionCards } from "../../ui/Choice.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { NextSteps } from "../../ui/NextSteps.tsx";
 import page from "../../ui/Page.module.css";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import { selectAgent } from "../office/office-state.ts";
 import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
+import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { ChiefChoice, useChief } from "./ChiefChoice.tsx";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
 import styles from "./NewTaskView.module.css";
 import { nextSteps, type Who } from "./next-steps.ts";
-import { PlaceChoice } from "./PlaceChoice.tsx";
 import { PROPOSE, TeamChoice } from "./TeamChoice.tsx";
-import { WorkspaceDialog } from "./WorkspaceDialog.tsx";
 
 const WHO: CardOption<Who>[] = [
   {
@@ -41,7 +35,7 @@ const WHO: CardOption<Who>[] = [
   {
     value: "team",
     title: "A department",
-    best: "Best for bigger work in one project",
+    best: "Best for bigger work in one workspace",
     detail: "A lead splits the work between its team and puts it together.",
     icon: <Users size={22} />,
   },
@@ -68,28 +62,15 @@ export function NewTaskView() {
     (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
   );
   const [prompt, setPrompt] = useState(handed?.prompt ?? "");
-  const [place, setPlace] = useState<"workspace" | "folder">(
-    remembered.workspaceId === undefined ? "folder" : "workspace",
-  );
   const [workspaceId, setWorkspaceId] = useState(remembered.workspaceId);
-  const [chosenFolder, setChosenFolder] = useState<string>();
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
 
   const description = harnesses.find((known) => known.harness === harness) ?? harnesses[0];
-  const listed = useLoaded("workspaces", api.listWorkspaces);
-  const [created, setCreated] = useState<WorkspaceRecord[]>([]);
-  const workspaces = [...created, ...(listed.value ?? [])];
-  const settings = useLoaded("settings", api.readSettings);
+  const workspaces = useWorkspaces() ?? [];
   const templates = useTemplates();
   const profile = templates?.find((known) => known.id === profileId);
-  const outputFolder = chosenFolder ?? settings.value?.outputFolder;
-  const workspace = workspaces.find((known) => known.id === workspaceId) ?? workspaces[0];
-  const where =
-    place === "workspace"
-      ? workspace && { workspaceId: workspace.id }
-      : outputFolder && { outputFolder };
+  const workspace = defaultWorkspace(workspaces, workspaceId);
   const soloAutonomy = choices.autonomy ?? "supervised";
   const soloGate = useBypassGate(
     soloAutonomy,
@@ -122,15 +103,9 @@ export function NewTaskView() {
           : undefined
         : description === undefined
           ? "No AI app is installed yet."
-          : team
-            ? proposing && workspace === undefined
-              ? "Choose the project the team works in."
-              : undefined
-            : where
-              ? undefined
-              : place === "workspace"
-                ? "Choose a project."
-                : "Choose a folder.";
+          : (!team || proposing) && workspace === undefined
+            ? "Choose a workspace."
+            : undefined;
   const ready = missing === undefined;
 
   const steps = nextSteps({
@@ -139,8 +114,7 @@ export function NewTaskView() {
     departmentName: department?.name,
     chiefName: chief?.record.name,
     chiefBusy: chief?.busy ?? false,
-    folder:
-      place === "workspace" ? workspace?.name : outputFolder?.split(/[\\/]/).filter(Boolean).at(-1),
+    folder: workspace?.name,
   });
 
   const start = async () => {
@@ -175,14 +149,16 @@ export function NewTaskView() {
                 ? { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy }
                 : { departmentId },
           })
-        : await api.startTask({ prompt: goal, agent, autonomy: soloAutonomy, ...(where || {}) });
-      remember(
-        description.harness,
-        choices,
-        place === "workspace" || team ? workspace?.id : undefined,
-        profile?.id,
-        team,
-      );
+        : workspace === undefined
+          ? undefined
+          : await api.startTask({
+              prompt: goal,
+              agent,
+              autonomy: soloAutonomy,
+              workspaceId: workspace.id,
+            });
+      if (session === undefined) return;
+      remember(description.harness, choices, workspace?.id, profile?.id, team);
       await track(session.taskId);
       navigate({ name: "task", taskId: session.taskId });
     } catch (failure) {
@@ -306,10 +282,8 @@ export function NewTaskView() {
             <TeamChoice
               departmentId={departmentId}
               onDepartment={setDepartmentId}
-              workspaces={workspaces}
               workspaceId={workspace?.id}
               onWorkspace={setWorkspaceId}
-              onNewWorkspace={() => setCreatingWorkspace(true)}
               autonomy={teamAutonomy}
               onAutonomy={teamGate.choose}
             />
@@ -319,16 +293,10 @@ export function NewTaskView() {
                 <h2 className={page.sectionTitle}>How much can it do without asking you?</h2>
                 <AutonomyChoice name="solo-level" value={soloAutonomy} onChoose={soloGate.choose} />
               </section>
-              <PlaceChoice
-                place={place}
-                onPlace={setPlace}
-                workspaces={workspaces}
-                workspaceId={workspace?.id}
-                onWorkspace={setWorkspaceId}
-                onNewWorkspace={() => setCreatingWorkspace(true)}
-                folder={outputFolder}
-                onFolder={setChosenFolder}
-              />
+              <section className={page.section}>
+                <h2 className={page.sectionTitle}>Where should it work?</h2>
+                <WorkspacePicker value={workspace?.id} onChange={setWorkspaceId} />
+              </section>
             </>
           )}
         </div>
@@ -359,14 +327,6 @@ export function NewTaskView() {
       </div>
       {soloGate.confirm}
       {teamGate.confirm}
-      <WorkspaceDialog
-        open={creatingWorkspace}
-        onOpenChange={setCreatingWorkspace}
-        onCreated={(added) => {
-          setCreated([added, ...created]);
-          setWorkspaceId(added.id);
-        }}
-      />
     </section>
   );
 }

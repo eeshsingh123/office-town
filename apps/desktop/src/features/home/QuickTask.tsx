@@ -2,10 +2,10 @@ import { type KeyboardEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import { loadRemembered } from "../new-task/choices.ts";
 import { selectAgent } from "../office/office-state.ts";
 import styles from "./Home.module.css";
@@ -20,7 +20,7 @@ export function QuickTask() {
   const chiefId = useApp((state) => state.chiefId);
   const departments = useApp((state) => state.departments);
   const harnesses = useApp((state) => state.harnesses);
-  const settings = useLoaded("settings", api.readSettings);
+  const workspaces = useWorkspaces() ?? [];
   const [remembered] = useState(loadRemembered);
   const [prompt, setPrompt] = useState("");
   const [chosen, setChosen] = useState<string>();
@@ -31,7 +31,8 @@ export function QuickTask() {
   // A team by default, since that is what the app is for.
   const target = chosen ?? (chiefId === undefined ? (sorted[0]?.id ?? SOLO) : CHIEF);
   const goal = prompt.trim();
-  const solo = soloRequest(goal, remembered, harnesses, settings.value?.outputFolder);
+  const workspaceId = defaultWorkspace(workspaces, remembered.workspaceId)?.id;
+  const solo = soloRequest(goal, remembered, harnesses, workspaceId);
   const handOver = target === SOLO && solo === undefined;
   const soloHarness = harnesses.find(
     (known) => known.harness === (remembered.harness ?? harnesses[0]?.harness),

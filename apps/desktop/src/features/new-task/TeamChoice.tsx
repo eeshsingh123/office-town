@@ -1,14 +1,15 @@
-import type { Autonomy, WorkspaceRecord } from "@office-town/contract";
+import type { Autonomy } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
-import { ProjectPicker } from "./PlaceChoice.tsx";
+import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 
 // No department yet: the lead proposes one.
 export const PROPOSE = "~propose";
@@ -16,10 +17,8 @@ export const PROPOSE = "~propose";
 interface TeamChoiceProps {
   departmentId: string;
   onDepartment: (departmentId: string) => void;
-  workspaces: WorkspaceRecord[];
   workspaceId: string | undefined;
   onWorkspace: (workspaceId: string) => void;
-  onNewWorkspace: () => void;
   autonomy: Autonomy;
   onAutonomy: (autonomy: Autonomy) => void;
 }
@@ -48,6 +47,7 @@ export function TeamChoice(props: TeamChoiceProps) {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const busy = useBusy();
+  const workspaces = useWorkspaces() ?? [];
   const proposing = props.departmentId === PROPOSE;
   const sorted = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
   // The lead is one of the department's agents.
@@ -71,9 +71,7 @@ export function TeamChoice(props: TeamChoiceProps) {
           options={[
             ...sorted.map((department) => {
               const busyWith = busy.get(department.id);
-              const workspace = props.workspaces.find(
-                (known) => known.id === department.workspaceId,
-              );
+              const workspace = workspaces.find((known) => known.id === department.workspaceId);
               return {
                 value: department.id,
                 title: department.name,
@@ -104,13 +102,8 @@ export function TeamChoice(props: TeamChoiceProps) {
       {proposing ? (
         <>
           <section className={page.section}>
-            <h2 className={page.sectionTitle}>Which project does the team work in?</h2>
-            <ProjectPicker
-              workspaces={props.workspaces}
-              workspaceId={props.workspaceId}
-              onWorkspace={props.onWorkspace}
-              onNewWorkspace={props.onNewWorkspace}
-            />
+            <h2 className={page.sectionTitle}>Where does the team work?</h2>
+            <WorkspacePicker value={props.workspaceId} onChange={props.onWorkspace} warnShared />
           </section>
           <section className={page.section}>
             <h2 className={page.sectionTitle}>How much can the team do without asking you?</h2>

@@ -2,7 +2,6 @@ import type { AgentRecord, DepartmentRecord, Team, TeamRole } from "@office-town
 import { freeIdentity } from "../agents/agents.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
-import { requireFolders } from "../task-folders.ts";
 import type { ReadCatalog } from "./catalogs.ts";
 
 export interface TeamContext {
@@ -25,13 +24,6 @@ export class TeamError extends Error {
     super(message);
     this.name = "TeamError";
   }
-}
-
-// All must still exist; the first is where the team works.
-export function workspaceFolders(store: Store, workspaceId: string): string[] {
-  const { folders } = store.useWorkspace(workspaceId);
-  requireFolders(folders);
-  return folders;
 }
 
 export interface TeamChange {

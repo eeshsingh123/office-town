@@ -9,6 +9,7 @@ import type {
 import { z } from "zod";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
+import { pathsOf } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { leadsTeam } from "./lead.ts";
 import { applyTeam, checkTeam, rosterOf, type TeamContext, TeamError } from "./members.ts";
@@ -87,7 +88,7 @@ function placeOf(
     throw new ToolError("This task has no team to propose for.");
   }
   return {
-    place: { workspaceName: workspace.name, folders: workspace.folders, autonomy },
+    place: { workspaceName: workspace.name, folders: pathsOf(workspace), autonomy },
     department,
   };
 }

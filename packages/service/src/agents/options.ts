@@ -32,9 +32,3 @@ export function sessionOptionsFor(
     ...(readOnlyPaths.length === 0 ? {} : { readOnlyPaths }),
   };
 }
-
-// The first is where the agent works.
-export function inFolders(folders: string[]) {
-  const [workspacePath, ...additionalPaths] = folders;
-  return { workspacePath, additionalPaths };
-}

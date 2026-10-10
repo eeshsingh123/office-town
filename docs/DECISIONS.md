@@ -154,7 +154,7 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
 - New task asks "What do you need done?", then "Who should handle it?" as three cards (one assistant, a department, your chief). The AI app and model fold into one "Thinks with … · Change" line. A side panel says what starting will do.
-- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Project for a workspace, AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
+- Words the user reads: "How much can it do without asking you?" (Ask me first, Ask for risky things, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
 - The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
 - New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
 - Look "Dusk": warm greys in both themes, a muted slate blue for actions, soft amber only for what needs the user, Plus Jakarta Sans. Agent colours stay as stored and are drawn softened into the surface.
@@ -177,6 +177,19 @@ Why: the header buttons were out of place and unclear (owner feedback); a review
 - An agent can be more careful than its team, not less; the screen says to change the team's setting instead.
 - Words: plain and human, no internal terms (session, level, handle, harness) in what the user reads; models by their full names.
 Why: the Saved assistants page had no clear purpose, mixed one agent's settings into a top-level page, used jargon, and the person using the app had no profile (owner feedback). Copies are easier to understand than settings that change under a running team.
+
+### D-56 Workspaces, end to end — accepted (2026-10-10)
+
+- One idea, "Workspace" in every word the user reads, with a hover tip saying what it is (owner). "A fresh folder" and the output folder go away.
+- Two kinds: Your folders (existing folders, git noticed) and Scratch (a new folder per task inside a parent folder, owner). A default Scratch workspace exists from the start; a migration moves `settings.outputFolder` into it.
+- Extra folders carry access: Can edit or Read only (reuses D-51's read-only check).
+- Workspaces page in the main nav: search, filters, cards with who uses it; a detail page with folders, departments, live agents, recent tasks and worktrees. Creating one is a side sheet with two choice cards, reachable from one shared picker in New task, New department and the plan card.
+- Two departments may edit the same workspace at once, with a clear warning (owner).
+- Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner).
+- Contract: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a task names its workspace, `GET /workspaces/usage` (departments, task count, recent tasks, missing folders, git branch, worktrees). D-33's resume rule holds.
+- Workers work where their lead does (its first session's folders), so a Scratch team shares one task folder. "Working now" is read from the app's live agent states, not the usage read, so an agent that finished its turn does not count.
+- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.
+Why: two answers to one question, one saved and one not, three words for one idea, and no place to see, edit or share workspaces (owner feedback).
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 

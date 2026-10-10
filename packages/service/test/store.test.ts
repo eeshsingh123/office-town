@@ -194,6 +194,45 @@ describe("store", () => {
     });
   });
 
+  it("moves the output folder into a Scratch workspace and gives each earlier task its workspace", () => {
+    store.close();
+    const file = join(directory, "d55", "store.db");
+    mkdirSync(dirname(file));
+    const d55 = new DatabaseSync(file);
+    for (const sql of migrations.slice(0, -1)) {
+      if (typeof sql === "string") d55.exec(sql);
+      else sql(d55);
+    }
+    const output = join(directory, "out");
+    const project = join(directory, "project");
+    const workingIn = (folder: string) =>
+      JSON.stringify({ harness: "claude", environment: { kind: "native" }, workspacePath: folder });
+    d55.exec(`
+      PRAGMA application_id = ${0x4f54_4f57};
+      PRAGMA user_version = ${migrations.length - 1};
+      INSERT INTO settings (key, value) VALUES ('outputFolder', '${JSON.stringify(output)}');
+      INSERT INTO workspaces (ref, id, name, folders, created_at, used_at)
+        VALUES (1, 'report', 'Report', '${JSON.stringify([project])}', 0, 0);
+      INSERT INTO tasks (ref, id, prompt, created_at, state) VALUES
+        (1, 'in-project', 'Fix it', 0, 'ended'), (2, 'in-scratch', 'Write it', 0, 'ended');
+      INSERT INTO sessions (ref, id, task_ref, options, status, created_at) VALUES
+        (1, 's1', 1, '${workingIn(project)}', 'exited', 0),
+        (2, 's2', 2, '${workingIn(join(output, "2026-10-10 Write it"))}', 'exited', 0);
+    `);
+    d55.close();
+
+    store = openStore(dirname(file));
+    const scratch = store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
+    expect(scratch?.folders).toEqual([{ path: output, access: "edit" }]);
+    expect(store.getWorkspace("report")).toMatchObject({
+      kind: "folders",
+      folders: [{ path: project, access: "edit" }],
+    });
+    expect(store.getTask("in-project")?.workspaceId).toBe("report");
+    expect(store.getTask("in-scratch")?.workspaceId).toBe(scratch?.id);
+    expect(store.readSettings()).toEqual({});
+  });
+
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
     const task = store.createTask("Delete me");
     const session = startSession(task.id);
@@ -432,6 +471,8 @@ describe("store", () => {
       [queries.lastAgentMessage, "events_messages"],
       [queries.openPieces, "plan_pieces_open"],
       [queries.childTasks, "tasks_by_parent"],
+      [queries.recentTasksOfWorkspace, "tasks_by_workspace"],
+      ["DELETE FROM workspaces WHERE ref = ?", "tasks_by_workspace"],
       // The foreign-key checks SQLite runs when a chief's task, or a piece's, is deleted.
       ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_task"],
       ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_piece_task"],

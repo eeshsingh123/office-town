@@ -30,6 +30,8 @@ import {
   type TaskUsage,
   type UsageLimit,
   type UserRequestEvent,
+  type WorkspaceFolder,
+  type WorkspaceKind,
   type WorkspaceRecord,
   type WorkspaceRequest,
 } from "@office-town/contract";
@@ -61,6 +63,7 @@ import {
   type TaskTeam,
   type TeamSetup,
   type TurnOutcome,
+  type WorkspaceActivity,
 } from "./store.ts";
 
 // Deleting in chunks lets live updates through; one statement blocks for most of a second.
@@ -76,6 +79,7 @@ interface TaskRow {
   leadAgentId: string | null;
   departmentId: string | null;
   parentTaskId: string | null;
+  workspaceId: string | null;
   setup: string | null;
   state: TaskState;
   reviewedAt: number | null;
@@ -176,6 +180,7 @@ interface WorkspaceRow {
   ref: number;
   id: string;
   name: string;
+  kind: WorkspaceKind;
   folders: string;
   createdAt: number;
   usedAt: number;
@@ -206,6 +211,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.leadAgentId === null ? {} : { leadAgentId: row.leadAgentId }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
     ...(row.parentTaskId === null ? {} : { parentTaskId: row.parentTaskId }),
+    ...(row.workspaceId === null ? {} : { workspaceId: row.workspaceId }),
     state: row.state,
     ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
     usage,
@@ -314,7 +320,8 @@ function toWorkspace(row: WorkspaceRow): WorkspaceRecord {
   return {
     id: row.id,
     name: row.name,
-    folders: JSON.parse(row.folders) as string[],
+    kind: row.kind,
+    folders: JSON.parse(row.folders) as WorkspaceFolder[],
     createdAt: iso(row.createdAt),
     usedAt: iso(row.usedAt),
   };
@@ -374,6 +381,8 @@ class SqliteStore implements Store {
     const setup = team !== undefined && "setup" in team ? JSON.stringify(team.setup) : null;
     const parent =
       placement.parentTaskId === undefined ? undefined : this.#taskRow(placement.parentTaskId);
+    const workspace =
+      placement.workspaceId === undefined ? undefined : this.#workspaceRow(placement.workspaceId);
     this.#statements.insertTask.run(
       id,
       prompt,
@@ -383,6 +392,7 @@ class SqliteStore implements Store {
       setup,
       placement.queued ? "queued" : "working",
       parent?.ref ?? null,
+      workspace?.ref ?? null,
     );
     return this.#publishTask(id);
   }
@@ -874,11 +884,11 @@ class SqliteStore implements Store {
     this.#statements.deleteProfile.run(this.#profileRow(id).ref);
   }
 
-  createWorkspace({ name, folders }: WorkspaceRequest): WorkspaceRecord {
+  createWorkspace({ name, kind, folders }: WorkspaceRequest): WorkspaceRecord {
     const id = randomUUID();
     const now = Date.now();
-    this.#statements.insertWorkspace.run(id, name, JSON.stringify(folders), now, now);
-    return { id, name, folders, createdAt: iso(now), usedAt: iso(now) };
+    this.#statements.insertWorkspace.run(id, name, kind, JSON.stringify(folders), now, now);
+    return { id, name, kind, folders, createdAt: iso(now), usedAt: iso(now) };
   }
 
   getWorkspace(id: string): WorkspaceRecord | undefined {
@@ -890,10 +900,23 @@ class SqliteStore implements Store {
     return all<WorkspaceRow>(this.#statements.workspacesByUse).map(toWorkspace);
   }
 
-  updateWorkspace(id: string, { name, folders }: WorkspaceRequest): WorkspaceRecord {
+  updateWorkspace(id: string, { name, kind, folders }: WorkspaceRequest): WorkspaceRecord {
     const row = this.#workspaceRow(id);
-    this.#statements.updateWorkspace.run(name, JSON.stringify(folders), row.ref);
-    return { ...toWorkspace(row), name, folders };
+    this.#statements.updateWorkspace.run(name, kind, JSON.stringify(folders), row.ref);
+    return { ...toWorkspace(row), name, kind, folders };
+  }
+
+  workspaceActivity(id: string): WorkspaceActivity {
+    const { ref } = this.#workspaceRow(id);
+    return {
+      taskCount: one<{ count: number }>(this.#statements.taskCountOfWorkspace, ref)?.count ?? 0,
+      recentTasks: all<TaskRow>(this.#statements.recentTasksOfWorkspace, ref).map((row) =>
+        this.#toTask(row),
+      ),
+      openTaskIds: all<{ id: string }>(this.#statements.openTasksOfWorkspace, ref).map(
+        (row) => row.id,
+      ),
+    };
   }
 
   deleteWorkspace(id: string): void {

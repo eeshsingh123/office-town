@@ -1,5 +1,6 @@
 import type { HarnessDescription, HarnessModel } from "@office-town/contract";
 import type { Message } from "../registry/session-registry.ts";
+import type { TaskFolders } from "../task-folders.ts";
 
 // Enough for the lead to choose from; propose_team names the valid ones if it picks another.
 const MODELS_LISTED = 12;
@@ -28,10 +29,14 @@ export function describeChoices(choices: HarnessChoices[]): string {
     .join("\n");
 }
 
-function where(folders: string[]): string {
-  const [first, ...others] = folders;
-  if (others.length === 0) return `You work in ${first}.`;
-  return `You work in ${first}, and may use ${others.join(", ")} as freely.`;
+function where({ workspacePath, additionalPaths, readOnlyPaths }: TaskFolders): string {
+  const also =
+    additionalPaths.length === 0 ? "" : `, and may use ${additionalPaths.join(", ")} as freely`;
+  const read =
+    readOnlyPaths.length === 0
+      ? ""
+      : ` You may read ${readOnlyPaths.join(", ")}, but never change them.`;
+  return `You work in ${workspacePath}${also}.${read}`;
 }
 
 function instructionsOf(instructions: string | undefined): string {
@@ -41,7 +46,7 @@ function instructionsOf(instructions: string | undefined): string {
 
 export function proposeTeamBrief(input: {
   goal: string;
-  folders: string[];
+  folders: TaskFolders;
   instructions: string | undefined;
   choices: HarnessChoices[];
 }): Message {
@@ -69,7 +74,7 @@ export function workerBrief(input: {
   teamName: string;
   role: string;
   lead: { id: string; name: string };
-  folders: string[];
+  folders: TaskFolders;
   branch: string | undefined;
   instructions: string | undefined;
   work: string;
@@ -109,7 +114,7 @@ If you work on a branch of your own, commit your work there. End with a short ac
 export function leadBrief(input: {
   goal: string;
   teamName: string;
-  folders: string[];
+  folders: TaskFolders;
   instructions: string | undefined;
   roster: string;
   // Whether the lead also commits, pushes and opens a pull request.

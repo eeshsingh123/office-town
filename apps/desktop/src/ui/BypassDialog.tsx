@@ -52,7 +52,7 @@ export function BypassDialog({
               </p>
               <ul>
                 <li>run any command on this computer</li>
-                <li>change or delete files in any folder, not only the project</li>
+                <li>change or delete files in any folder, not only the workspace</li>
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>

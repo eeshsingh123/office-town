@@ -91,7 +91,13 @@ describe("the guardrail", () => {
   it("answers what the level allows, records that it did, and leaves the rest to the user", async () => {
     const project = join(directory, "project");
     mkdirSync(project);
-    const ws = (await core.call("POST", "/workspaces", { name: "P", folders: [project] })).json;
+    const ws = (
+      await core.call("POST", "/workspaces", {
+        name: "P",
+        kind: "folders",
+        folders: [{ path: project, access: "edit" }],
+      })
+    ).json;
     const started = await core.call("POST", "/tasks", {
       prompt: "Edit the page",
       agent: { settings: { harness: "claude", environment: { kind: "native" } } },
@@ -131,7 +137,11 @@ describe("the guardrail", () => {
       prompt: "Tidy up",
       agent: { settings: { harness: "claude", environment: { kind: "native" } } },
       autonomy: "bypass",
-      outputFolder: directory,
+      workspaceId: core.store.createWorkspace({
+        name: "Scratch",
+        kind: "scratch",
+        folders: [{ path: directory, access: "edit" }],
+      }).id,
     });
     expect(started.json.options.permissionMode).toBe("bypass");
     await core.call("POST", `/sessions/${started.json.id}/stop`);
