@@ -192,8 +192,7 @@ describe("store", () => {
       reviewedAt: expect.any(String),
       usage: [{ harness: "opencode", inputTokens: 15, outputTokens: 3, cachedInputTokens: 3 }],
     });
-    // Runs every migration on a new database, which a busy CI machine can take seconds over.
-  }, 30_000);
+  });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
     const task = store.createTask("Delete me");
