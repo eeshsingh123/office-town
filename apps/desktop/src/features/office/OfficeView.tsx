@@ -9,6 +9,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
 import { usageByHarness, usageSummary } from "../departments/usage.ts";
+import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type Point, type RoomSpec } from "./floor-plan.ts";
 import styles from "./Office.module.css";
@@ -21,24 +22,11 @@ const BUBBLE_LENGTH = 42;
 const OPEN = "open";
 const GUESTS = "guest";
 
-function requestBubble(request: WaitingRequest): string {
-  switch (request.event.type) {
-    case "permission.requested":
-      return "Needs your approval";
-    case "question.requested":
-      return "Has a question";
-    case "proposal.requested":
-      return "Proposes a team";
-    case "plan.requested":
-      return "Proposes a plan";
-  }
-}
-
 // What it asks, or what it does now. Others stay quiet.
 function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progress) {
   let text: string | undefined;
   if (request !== undefined) {
-    text = requestBubble(request);
+    text = requestLabel(request);
   } else if (state === "working" && progress?.step !== undefined) {
     text = `Step ${progress.step.number} of ${progress.stepCount} · ${progress.step.title}`;
   } else if (state === "working") {

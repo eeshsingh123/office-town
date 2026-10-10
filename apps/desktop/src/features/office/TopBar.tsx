@@ -2,14 +2,12 @@ import type { HarnessDescription, HarnessLimits, TaskRecord } from "@office-town
 import { MapIcon, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { useMemo } from "react";
-import { stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
-import type { TaskEntry } from "../../store/records.ts";
 import { compactCount, whenNext } from "../../ui/format.ts";
 import { newTokens } from "../departments/usage.ts";
-import { waitingOrder } from "./next-waiting.ts";
 import { showMode, useOffice } from "./office-state.ts";
 import styles from "./TopBar.module.css";
+import { useCounts } from "./use-counts.ts";
 import { goToNextWaiting } from "./waiting-keys.ts";
 
 interface PlanWindow {
@@ -53,37 +51,13 @@ function planWindows(
   });
 }
 
-function useCounts(entries: Record<string, TaskEntry>) {
-  const agents = useAgents();
-  const traces = useApp((state) => state.traces);
-  const waiting = useApp((state) => state.waiting);
-  const sessions = useApp((state) => state.sessions);
-  const pieces = useApp((state) => state.pieces);
-  const waitingSessions = useWaitingSessions();
-  return useMemo(() => {
-    const tasks = Object.values(entries).map((entry) => entry.task);
-    const working = agents.filter((agent) => {
-      const state = stateOf(agent, traces, waitingSessions.has(agent.latest.id));
-      return state === "working" || state === "starting";
-    }).length;
-    const queued =
-      tasks.filter((task) => task.state === "queued").length +
-      Object.values(pieces).filter((piece) => piece.status === "queued").length;
-    const toReview = tasks.filter(
-      (task) =>
-        task.state === "ended" && task.reviewedAt === undefined && task.parentTaskId === undefined,
-    ).length;
-    return { working, queued, toReview, order: waitingOrder(waiting, sessions) };
-  }, [agents, traces, waitingSessions, waiting, sessions, pieces, entries]);
-}
-
 export function TopBar() {
   const entries = useApp((state) => state.tasks);
   const harnesses = useApp((state) => state.harnesses);
   const limits = useApp((state) => state.limits);
   const focus = useApp((state) => state.focus);
   const mode = useOffice((state) => state.mode);
-  const { working, queued, toReview, order } = useCounts(entries);
+  const { working, queued, toReview, order } = useCounts();
   const windows = useMemo(
     () =>
       planWindows(
