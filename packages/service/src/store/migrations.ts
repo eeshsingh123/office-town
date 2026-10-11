@@ -446,4 +446,30 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX IF NOT EXISTS task_workers_by_agent ON task_workers (agent_ref);
   `,
+  `
+  -- Files and images the user gave agents, copied into the data folder, and folders they linked
+  -- (D-64). A task lists the ones sent in it, so they go when it does.
+  CREATE TABLE IF NOT EXISTS attachments (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    kind       TEXT NOT NULL CHECK (kind IN ('file', 'image', 'folder')),
+    name       TEXT NOT NULL,
+    path       TEXT NOT NULL,
+    bytes      INTEGER,
+    mime_type  TEXT,
+    sha256     TEXT,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS attachments_by_path ON attachments (path);
+  CREATE INDEX IF NOT EXISTS attachments_by_created ON attachments (created_at);
+
+  CREATE TABLE IF NOT EXISTS task_attachments (
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    attachment_ref INTEGER NOT NULL REFERENCES attachments (ref) ON DELETE CASCADE,
+    PRIMARY KEY (task_ref, attachment_ref)
+  ) STRICT, WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS task_attachments_by_attachment ON task_attachments (attachment_ref);
+  `,
 ];
