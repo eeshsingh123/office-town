@@ -12,6 +12,7 @@ import { OfficeView } from "./features/office/OfficeView.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
+import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
 import { UsageView } from "./features/usage/UsageView.tsx";
@@ -63,6 +64,10 @@ export function App() {
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
         event.preventDefault();
         navigate({ name: "new-task" });
+      }
+      if (event.key === "b" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
+        event.preventDefault();
+        toggleSidebar();
       }
     };
     window.addEventListener("keydown", onKeyDown);

@@ -1,0 +1,38 @@
+.handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.right {
+  right: -5px;
+}
+
+.left {
+  left: -5px;
+}
+
+.handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background: transparent;
+  transition: background var(--motion);
+}
+
+.handle:hover::after,
+.handle:active::after,
+.handle:focus-visible::after {
+  background: var(--accent);
+}
+
+.handle:focus-visible {
+  outline: none;
+}

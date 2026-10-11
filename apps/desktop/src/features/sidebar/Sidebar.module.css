@@ -1,12 +1,58 @@
+.frame {
+  position: relative;
+  display: flex;
+  flex: none;
+  min-height: 0;
+  transition: width 180ms ease-out;
+}
+
+.dragging {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+  }
+}
+
 .sidebar {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
   min-height: 0;
   padding: 14px 10px;
-  overflow-y: auto;
+  overflow: hidden auto;
   border-right: 1px solid var(--border);
   background: var(--side);
+  white-space: nowrap;
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collapse {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.collapse:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 .brand {
@@ -231,4 +277,53 @@
 .youHint {
   font-size: var(--size-small);
   color: var(--text-3);
+}
+
+/* Collapsed: icons only, each label in its tooltip. */
+.rail {
+  padding-inline: 8px;
+}
+
+.rail .text,
+.rail .shortcut,
+.rail .youText,
+.rail .newTask kbd,
+.rail .logo {
+  display: none;
+}
+
+.rail .brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.rail .collapse {
+  margin: 0;
+}
+
+.rail .nav,
+.rail .newTask {
+  position: relative;
+  justify-content: center;
+  padding: 0;
+}
+
+.rail .count {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  margin: 0;
+  padding: 0 5px;
+  font-size: 10.5px;
+}
+
+.rail .usageDot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  margin: 0;
+}
+
+.rail .you {
+  padding: 8px 0;
 }
