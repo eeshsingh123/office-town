@@ -219,51 +219,9 @@
   color: var(--text);
 }
 
-.chipButton {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
-.chipButton:hover {
-  color: var(--accent-text);
-  text-decoration: underline;
-}
-
 .error {
   margin: 0 0 8px;
   color: var(--bad);
-}
-
-.aside {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 22px;
-  width: clamp(240px, 26vw, 300px);
-  padding: 20px;
-  overflow-y: auto;
-  border-left: 1px solid var(--border);
-}
-
-.aside h2,
-.asideTitle {
-  margin: 0 0 10px;
-  font-size: var(--size-ui);
-  font-weight: 600;
-}
-
-.asideHeading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.asideHeading span {
-  font-size: var(--size-meta);
-  color: var(--text-3);
 }
 
 .bar {
@@ -306,42 +264,6 @@
   font-weight: 500;
 }
 
-.limit {
-  margin-bottom: 12px;
-}
-
-.limitLine {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
-  font-size: var(--size-meta);
-  color: var(--text-2);
-}
-
-.faint {
-  font-size: 11.5px;
-  color: var(--text-3);
-}
-
-.details {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  gap: 7px 10px;
-  margin: 0;
-  font-size: var(--size-meta);
-}
-
-.details dt {
-  color: var(--text-3);
-}
-
-.details dd {
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .ok {
   color: var(--ok);
 }
@@ -352,4 +274,58 @@
 
 .quiet {
   color: var(--text-3);
+}
+
+.steps {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stepsHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 18px 16px 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stepsHead h2 {
+  margin: 0;
+  font-size: var(--size-ui);
+  font-weight: 600;
+}
+
+.stepsClose {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  align-self: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.stepsClose:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.stepsBody {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.stepsBody .bar {
+  margin-bottom: 16px;
 }

@@ -2,24 +2,22 @@ import { ArrowLeft, LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
-import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { clockTime, environmentName, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
-import { useModelName } from "../profiles/model-line.ts";
-import { effortName } from "../profiles/model-name.ts";
-import { AgentAside } from "./AgentAside.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
+import { RunBar } from "./RunBar.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
-import { FolderChip, ReviewAction } from "./TaskTools.tsx";
+import { StepsButton, StepsColumn } from "./StepsColumn.tsx";
+import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
 
@@ -54,9 +52,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const waiting = useApp((state) =>
     Object.values(state.waiting).find(({ event }) => event.sessionId === agent?.latest.id),
   );
-  const harness = useHarnessName(agent?.latest.options.harness ?? "");
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
-  const model = useModelName(agent?.latest.options, trace?.model ?? agent?.latest.options.model);
   const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
   const [asking, setAsking] = useState(false);
 
@@ -68,8 +64,11 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const { latest } = agent;
   const state = stateOf(agent, traces, waitingSessions.has(latest.id));
   const progress = trace === undefined ? undefined : progressOf(trace);
-  const folder = latest.options.workspacePath;
   const live = isOpen(latest);
+  // A resumed session reports no plan until it changes, so the latest known one shows.
+  const plan = agent.sessions
+    .map((session) => traces[session.id]?.plan ?? [])
+    .findLast((steps) => steps.length > 0);
 
   return (
     <section className={styles.view} aria-labelledby="task-title">
@@ -85,21 +84,8 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               {state === "waiting" ? "Waiting for you" : STATE_LABELS[state]}
             </span>
           </div>
-          <div className={styles.chips}>
-            <span className={styles.chip}>
-              <Avatar name={agent.name} colour={agent.colour} size={16} />
-              {agent.name}
-            </span>
-            <span className={styles.chip}>{harness}</span>
-            <span className={styles.chip}>
-              {model}
-              {latest.options.effort === undefined ? "" : ` · ${effortName(latest.options.effort)}`}
-            </span>
-            <span className={styles.chip}>{environmentName(latest.options.environment)}</span>
-            <span className={styles.chip}>Started {clockTime(agent.task.createdAt)}</span>
-            <FolderChip folder={folder} />
-          </div>
         </div>
+        {plan === undefined ? null : <StepsButton plan={plan} />}
         {live ? (
           <Button onClick={() => void api.stop(latest.id)}>
             <Square size={12} aria-hidden />
@@ -169,15 +155,11 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             </div>
           </div>
           <div className={styles.traceWidth}>
+            <RunBar agent={agent} />
             <MessageBox agent={agent} actions={<ReviewAction onClick={() => setAsking(true)} />} />
           </div>
         </div>
-        <AgentAside
-          agent={agent.record}
-          first={agent.sessions[0] ?? latest}
-          latest={latest}
-          traces={agent.sessions.flatMap((session) => traces[session.id] ?? [])}
-        />
+        {plan === undefined ? null : <StepsColumn plan={plan} />}
       </div>
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </section>
