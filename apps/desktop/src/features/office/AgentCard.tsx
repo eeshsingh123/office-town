@@ -30,7 +30,9 @@ export function isBusy(agent: Agent): boolean {
   return isOpen(agent.latest) && (agent.task.state === "working" || agent.task.state === "waiting");
 }
 
-export const toReview = (agent: Agent) =>
+// Finished on its own and not reviewed yet; a stopped or failed task is not offered for review.
+export const toReview = (agent: Agent, state: AgentState) =>
+  state === "done" &&
   agent.task.state === "ended" &&
   agent.task.reviewedAt === undefined &&
   agent.task.parentTaskId === undefined;
@@ -88,7 +90,7 @@ function MainAction({ status }: { status: AgentStatus }) {
       </Button>
     );
   }
-  if (toReview(agent)) {
+  if (toReview(agent, state)) {
     return <Button onClick={() => navigate({ name: "task", taskId: agent.taskId })}>Review</Button>;
   }
   return <StatusIcon state={state} />;

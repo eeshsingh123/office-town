@@ -18,7 +18,8 @@ const SUMMARY: { label: string; states: AgentState[]; tone: string }[] = [
   { label: "working", states: ["working", "starting"], tone: "" },
   { label: "failed", states: ["failed"], tone: "chipFailed" },
   { label: "done", states: ["done"], tone: "chipDone" },
-  { label: "idle", states: ["idle", "interrupted", "stopped"], tone: "chipQuiet" },
+  { label: "stopped", states: ["interrupted", "stopped"], tone: "chipQuiet" },
+  { label: "idle", states: ["idle"], tone: "chipQuiet" },
 ];
 
 function Summary({ members }: { members: FloorAgent[] }) {
@@ -56,7 +57,7 @@ export function GroupPanel({ members }: { members: FloorAgent[] }) {
   const sorted = members.toSorted(
     (a, b) =>
       STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) ||
-      Number(toReview(b.agent)) - Number(toReview(a.agent)),
+      Number(toReview(b.agent, b.state)) - Number(toReview(a.agent, a.state)),
   );
 
   const report = (results: PromiseSettledResult<unknown>[], verb: string) => {
