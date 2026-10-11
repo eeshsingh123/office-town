@@ -12,6 +12,8 @@ export const harnessModelSchema = z.object({
   access: z.enum(["free", "plan", "paid"]).optional(),
   // In the harness's own words; empty when it has none.
   efforts: z.array(z.string().min(1)),
+  // What it takes besides text; unset when the harness does not say.
+  inputs: z.array(z.enum(["image", "pdf"])).optional(),
 });
 export type HarnessModel = z.infer<typeof harnessModelSchema>;
 

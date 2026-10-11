@@ -101,6 +101,8 @@ const catalog: CatalogQuery = {
         ...(model.description === undefined ? {} : { description: model.description }),
         ...(model.resolvedModel === undefined ? {} : { resolvedId: model.resolvedModel }),
         efforts: model.supportedEffortLevels ?? [],
+        // Every Claude model reads images and PDFs.
+        inputs: ["image", "pdf"],
       })),
     };
   },
@@ -135,6 +137,7 @@ export const claudeAdapter: Adapter = {
     modelList: true,
     resume: true,
     usageLimits: true,
+    images: true,
     isolation: "full",
   },
   catalog,

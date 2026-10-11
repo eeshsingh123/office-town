@@ -3,6 +3,7 @@ import {
   type AdapterEvent,
   type AttachedToolServer,
   attachedTool,
+  type InlineImage,
   type LaunchOptions,
   type Translation,
   type Translator,
@@ -72,7 +73,7 @@ function stepsOf(
 export class AcpTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #cwd: string;
-  readonly #queuedPrompts: string[] = [];
+  readonly #queuedPrompts: object[][] = [];
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
@@ -133,8 +134,11 @@ export class AcpTranslator implements Translator {
   }
 
   // ACP allows one prompt at a time, so later prompts wait for the turn in progress to end.
-  prompt(text: string): Translation {
-    this.#queuedPrompts.push(text);
+  prompt(text: string, images: InlineImage[]): Translation {
+    this.#queuedPrompts.push([
+      ...images.map(({ mimeType, data }) => ({ type: "image", mimeType, data })),
+      { type: "text", text },
+    ]);
     return this.#nextPrompt();
   }
 
@@ -275,10 +279,10 @@ export class AcpTranslator implements Translator {
 
   #nextPrompt(): Translation {
     if (this.#sessionId === undefined || this.#configuring || this.#turnActive) return NOTHING;
-    const text = this.#queuedPrompts.shift();
-    if (text === undefined) return NOTHING;
+    const prompt = this.#queuedPrompts.shift();
+    if (prompt === undefined) return NOTHING;
     this.#turnActive = true;
-    const params = { sessionId: this.#sessionId, prompt: [{ type: "text", text }] };
+    const params = { sessionId: this.#sessionId, prompt };
     return {
       events: [{ type: "turn.started" }],
       outgoing: [this.#peer.request("session/prompt", params)],

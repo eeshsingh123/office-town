@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { newAgentSchema, userProfileSchema } from "./agents.ts";
+import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { userRequestEventSchema } from "./events.ts";
@@ -195,10 +196,14 @@ export const startTaskRequestSchema = z.object({
   agent: newAgentSchema,
   autonomy: autonomySchema,
   workspaceId: z.string().min(1),
+  attachments: attachmentIdsSchema.optional(),
 });
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
-export const resumeSessionRequestSchema = z.object({ prompt: z.string().min(1) });
+export const resumeSessionRequestSchema = z.object({
+  prompt: z.string().min(1),
+  attachments: attachmentIdsSchema.optional(),
+});
 export type ResumeSessionRequest = z.infer<typeof resumeSessionRequestSchema>;
 
 // `active=true` lists every running task on one page; a resumed old task can be far down the list.

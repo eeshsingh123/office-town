@@ -7,6 +7,8 @@ export const adapterCapabilitiesSchema = z.object({
   modelList: z.boolean(),
   resume: z.boolean(),
   usageLimits: z.boolean(),
+  // Its protocol can carry an image inside a prompt.
+  images: z.boolean(),
   // How far an isolated session keeps out instruction files, memory, MCP servers and plugins.
   isolation: z.enum(["full", "partial", "none"]),
 });

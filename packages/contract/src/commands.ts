@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { attachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
 import { messageOriginSchema, questionAnswerSchema } from "./events.ts";
 import { approvedPieceSchema } from "./plans.ts";
@@ -56,6 +57,10 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("prompt"),
     text: z.string().min(1),
     origin: messageOriginSchema.optional(),
+    // With `inline` set, an image also goes into the prompt itself.
+    attachments: z
+      .array(attachmentSchema.extend({ inline: z.literal(true).optional() }))
+      .optional(),
   }),
   answerPermissionSchema.extend({ answeredBy: answeredBySchema.optional() }),
   answerQuestionSchema,
