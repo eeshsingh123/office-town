@@ -221,12 +221,12 @@ export function OfficeView() {
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const openRoom = room === undefined ? undefined : departmentRecords[room];
   const onSelect = (agentIds: string[]) => {
-    select(agentIds);
     if (agentIds.length === 0 && room !== undefined) navigate({ name: "office" });
+    select(agentIds);
   };
   const onOpenRoom = (departmentId: string) => {
-    select([]);
     navigate({ name: "office", room: departmentId });
+    select([]);
   };
 
   return (

@@ -5,6 +5,7 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { useWorkingNow, useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Crumbs } from "../../ui/Crumbs.tsx";
 import form from "../../ui/Form.module.css";
 import { ago, taskTitle } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
@@ -46,13 +47,9 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
   return (
     <section className={page.page} aria-labelledby="workspace-title">
       <div className={styles.page}>
-        <button
-          type="button"
-          className={page.back}
-          onClick={() => navigate({ name: "workspaces" })}
-        >
-          Workspaces / {workspace.name}
-        </button>
+        <Crumbs
+          items={[{ label: "Workspaces", view: { name: "workspaces" } }, { label: workspace.name }]}
+        />
         <header className={styles.head}>
           <div className={page.header}>
             <h1 id="workspace-title" className={`${page.title} ${styles.titleRow}`}>

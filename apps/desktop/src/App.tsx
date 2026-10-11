@@ -11,6 +11,7 @@ import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
+import { useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { TaskView } from "./features/task/TaskView.tsx";
@@ -59,6 +60,7 @@ function Main({ view }: { view: View }) {
 export function App() {
   const view = useApp((state) => state.view);
   useWaitingKeys();
+  useHistoryKeys();
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {

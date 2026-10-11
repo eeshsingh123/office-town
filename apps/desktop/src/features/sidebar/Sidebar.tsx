@@ -27,6 +27,7 @@ import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
+import { HistoryButtons } from "./HistoryButtons.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 import { toggleSidebar, useSidebar } from "./sidebar-state.ts";
@@ -143,6 +144,7 @@ export function Sidebar() {
             O
           </span>
           <span className={styles.text}>Office Town</span>
+          <HistoryButtons />
           <button
             type="button"
             className={styles.collapse}

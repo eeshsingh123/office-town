@@ -5,7 +5,6 @@ import {
   type DepartmentRecord,
   type TeamRole,
 } from "@office-town/contract";
-import { ArrowLeft } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -13,6 +12,7 @@ import { mainPath, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
+import { Crumbs } from "../../ui/Crumbs.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import styles from "./DepartmentSettings.module.css";
 import { type TeamRow, TeamRows, toRoles, toRows } from "./TeamRows.tsx";
@@ -211,10 +211,20 @@ export function DepartmentSettings({ departmentId }: { departmentId: string }) {
   return (
     <section className={styles.page} aria-labelledby="department-title">
       <div className={styles.column}>
-        <Button variant="ghost" onClick={() => navigate({ name: "office", room: departmentId })}>
-          <ArrowLeft size={14} aria-hidden />
-          Office
-        </Button>
+        <Crumbs
+          items={[
+            { label: "Office", view: { name: "office" } },
+            ...(department === undefined
+              ? []
+              : [
+                  {
+                    label: department.name,
+                    view: { name: "office", room: department.id } as const,
+                  },
+                ]),
+            { label: "Settings" },
+          ]}
+        />
         <h1 id="department-title" className={styles.title}>
           {department === undefined ? "Department" : `${department.name} · Settings`}
         </h1>

@@ -50,6 +50,16 @@
   cursor: pointer;
 }
 
+.history + .collapse,
+.history + .collapse + .collapse {
+  margin-left: 0;
+}
+
+.collapse:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .collapse:hover {
   background: var(--hover);
   color: var(--text);
@@ -293,7 +303,9 @@
 }
 
 .rail .brand {
+  flex-direction: column;
   justify-content: center;
+  gap: 4px;
   padding-inline: 0;
 }
 
