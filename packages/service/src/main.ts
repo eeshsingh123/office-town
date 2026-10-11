@@ -9,6 +9,9 @@ import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
 import { Scheduler } from "./chief/scheduler.ts";
 import { defaultDataFolder } from "./data-folder.ts";
+import { referenceOf } from "./library/library.ts";
+import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
+import { followLibraryUses } from "./library/library-uses.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
@@ -51,8 +54,10 @@ const registry = new SessionRegistry(store, {
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   seesImages: imageSight(readCatalog),
+  referenceOf: referenceOf(store),
 });
 taskStates.follow(registry);
+followLibraryUses(registry, store);
 const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);
 const stopIdle = stopIdleAgents(registry, store, activity);
@@ -68,6 +73,8 @@ toolServer.offer([
   outsource(team),
   proposePlan(team, scheduler),
   messageLead(team),
+  addToLibrary(team),
+  changeLibrary(team),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

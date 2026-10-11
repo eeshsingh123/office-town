@@ -33,6 +33,7 @@ import { sessionOptionsFor } from "../agents/options.ts";
 import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
 import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
+import { libraryRoutes } from "../library/routes.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
@@ -78,6 +79,7 @@ export function apiRoutes(team: TeamContext): Route[] {
   const { registry, store, readCatalog } = team;
   return [
     ...accountRoutes(team),
+    ...libraryRoutes(store),
     {
       method: "POST",
       path: "/tasks",

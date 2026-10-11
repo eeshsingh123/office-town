@@ -80,6 +80,11 @@ export function environmentPath(spec: EnvironmentSpec, hostPath: string): string
   return environmentFor(spec).toEnvironmentPath(hostPath);
 }
 
+// Such as C:\work for /mnt/c/work in WSL.
+export function hostPath(spec: EnvironmentSpec, environmentPath: string): string {
+  return environmentFor(spec).toHostPath(environmentPath);
+}
+
 // An account's sign-in, run where its agents run; `code` passes on the code a sign-in page shows.
 export interface AccountSignIn {
   exited: Promise<number | null>;
