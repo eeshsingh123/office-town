@@ -301,7 +301,7 @@ Why: the owner had no way back from any screen, double-click did nothing, and a 
 - Every item reaches the session the same way: read-only access to its path (`--add-dir`, OpenCode `external_directory`), and a list in the prompt with name, type, size and exact path, telling the agent to open a file before relying on it and to say so if it cannot. Images also go inline (Claude stream-json `image` block; ACP `image`) when the model can see them. Claude Code 2.1.296 on Windows was probed and works; OpenCode reports image and PDF input per model (`opencode models --verbose`, `capabilities.input`).
 - An image for a model that cannot see images: warn on the chip and send the path only; never block (owner).
 - The app marks each item Opened or Not opened from the agent's read and list tool calls on its path. Not opened is amber only for items attached to that message; Library items are available, not required.
-- Agents can add to the Library through a team tool (owner); to be reworked with agent memory if needed.
+- Agents can write to the Library through a team tool (owner): adding a new item needs no approval and shows "Added by <agent>"; replacing, editing, removing or changing who an item is given to goes to Needs you first. To be reworked with agent memory if needed.
 - Limits: 20 MB per file, 5 MB per inline image (larger images go as a path only), none on linked folders (owner).
 - Built in two PRs, attachments then Library, each end to end. It comes before connectors (now M7) (owner).
 Why: the app had no way to give an agent a file, and a file the agent never opened must not be described as if it had.
