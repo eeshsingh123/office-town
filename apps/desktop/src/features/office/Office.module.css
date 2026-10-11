@@ -389,53 +389,62 @@
   font-size: var(--size-agent);
 }
 
-.group {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.groupHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 8px 12px;
-  background: var(--bg);
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.member {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 12px;
-  border: 0;
-  border-top: 1px solid var(--border);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.member:hover {
-  background: var(--hover);
-}
-
-.memberText {
+.groupHeader {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  gap: 10px;
 }
 
-.memberText span {
-  overflow: hidden;
-  font-size: var(--size-meta);
-  color: var(--text-2);
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summaryChip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chipNeedsYou {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.chipFailed {
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  color: var(--bad);
+}
+
+.chipDone {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+
+.chipQuiet {
+  background: var(--hover);
+  color: var(--text-3);
+}
+
+.groupCards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .messageAll {

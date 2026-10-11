@@ -22,7 +22,7 @@ function EmptyPanel({ count }: { count: number }) {
       <p className={styles.empty}>
         {count === 0
           ? "No agents at work yet."
-          : "Select an agent or a room, or drag to select several."}
+          : "Select an agent or a room, double-click to chat, or drag to select several."}
       </p>
       {count === 0 ? (
         <div>

@@ -135,7 +135,10 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
 }
 
 export function rosterOf(store: Store, department: DepartmentRecord): string {
-  const workers = workersOf(store, department);
+  return describeWorkers(workersOf(store, department));
+}
+
+export function describeWorkers(workers: AgentRecord[]): string {
   if (workers.length === 0) return "You have no workers yet.";
   return workers
     .map((member) => {

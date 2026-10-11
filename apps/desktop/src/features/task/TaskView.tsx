@@ -1,4 +1,4 @@
-import { ArrowLeft, LoaderCircle, Square } from "lucide-react";
+import { LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
@@ -8,6 +8,7 @@ import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
+import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { useFollow } from "./follow.ts";
@@ -73,11 +74,13 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
-        <Button variant="ghost" onClick={() => navigate({ name: "office" })}>
-          <ArrowLeft size={14} aria-hidden />
-          Office
-        </Button>
         <div className={styles.heading}>
+          <Crumbs
+            items={[
+              { label: "Tasks", view: { name: "tasks" } },
+              { label: taskTitle(agent.task.prompt) },
+            ]}
+          />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(agent.task.prompt)}</h1>
             <span className={`${styles.pill} ${pillStyle(state) ?? ""}`}>

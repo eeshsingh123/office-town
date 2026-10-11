@@ -86,6 +86,8 @@ interface TaskRow {
   setup: string | null;
   state: TaskState;
   reviewedAt: number | null;
+  // A JSON list of agent ids.
+  workerAgentIds: string;
 }
 
 interface SessionRow {
@@ -215,6 +217,11 @@ function iso(milliseconds: number): string {
   return new Date(milliseconds).toISOString();
 }
 
+function workersOf(row: TaskRow): Pick<TaskRecord, "workerAgentIds"> {
+  const workerAgentIds = JSON.parse(row.workerAgentIds) as string[];
+  return workerAgentIds.length === 0 ? {} : { workerAgentIds };
+}
+
 function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
   return {
     id: row.id,
@@ -222,6 +229,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     createdAt: iso(row.createdAt),
     ...(row.leadAgentId === null ? {} : { leadAgentId: row.leadAgentId }),
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    ...workersOf(row),
     ...(row.parentTaskId === null ? {} : { parentTaskId: row.parentTaskId }),
     ...(row.workspaceId === null ? {} : { workspaceId: row.workspaceId }),
     state: row.state,
@@ -406,17 +414,26 @@ class SqliteStore implements Store {
       placement.parentTaskId === undefined ? undefined : this.#taskRow(placement.parentTaskId);
     const workspace =
       placement.workspaceId === undefined ? undefined : this.#workspaceRow(placement.workspaceId);
-    this.#statements.insertTask.run(
-      id,
-      prompt,
-      createdAt,
-      lead?.ref ?? null,
-      department?.ref ?? null,
-      setup,
-      placement.queued ? "queued" : "working",
-      parent?.ref ?? null,
-      workspace?.ref ?? null,
-    );
+    const workers =
+      team !== undefined && "workerAgentIds" in team
+        ? team.workerAgentIds.map((agentId) => this.#agentRow(agentId))
+        : [];
+    transaction(this.#db, () => {
+      const { lastInsertRowid } = this.#statements.insertTask.run(
+        id,
+        prompt,
+        createdAt,
+        lead?.ref ?? null,
+        department?.ref ?? null,
+        setup,
+        placement.queued ? "queued" : "working",
+        parent?.ref ?? null,
+        workspace?.ref ?? null,
+      );
+      for (const worker of workers) {
+        this.#statements.insertTaskWorker.run(lastInsertRowid, worker.ref);
+      }
+    });
     return this.#publishTask(id);
   }
 

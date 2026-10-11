@@ -99,6 +99,18 @@ describe("task list", () => {
     ]);
   });
 
+  it("lists a group task with its lead's department", () => {
+    const state = known();
+    state.departments = { web: { id: "web" } } as unknown as typeof state.departments;
+    state.agents.rui = { ...agent("rui"), departmentId: "web" };
+    state.tasks.group = {
+      task: task("group", { leadAgentId: "rui", workerAgentIds: ["solo"] }),
+      sessionIds: [],
+    };
+    const group = buildItems(state, NOW).find((item) => item.id === "group");
+    expect(group?.team).toBe("web");
+  });
+
   it("counts a goal that needs you through a part once, by the part", () => {
     const counts = tabCounts(buildItems(known(), NOW), NO_FILTERS, haystack, NOW);
     expect(counts.needs).toBe(1);

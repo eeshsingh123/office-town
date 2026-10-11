@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
@@ -6,6 +5,7 @@ import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useFollow } from "./follow.ts";
@@ -78,6 +78,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
   const departments = useApp((state) => state.departments);
+  const chiefId = useApp((state) => state.chiefId);
   const traces = useApp((state) => state.traces);
   const waitingSessions = useWaitingSessions();
   const task = tasks[taskId]?.task;
@@ -107,11 +108,23 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
-        <Button variant="ghost" onClick={() => navigate({ name: "office" })}>
-          <ArrowLeft size={14} aria-hidden />
-          Office
-        </Button>
         <div className={styles.heading}>
+          <Crumbs
+            items={[
+              { label: "Tasks", view: { name: "tasks" } },
+              ...(department !== undefined
+                ? [
+                    {
+                      label: department.name,
+                      view: { name: "office", room: department.id } as const,
+                    },
+                  ]
+                : task.leadAgentId !== undefined && task.leadAgentId === chiefId
+                  ? [{ label: "Chief", view: { name: "chief" } as const }]
+                  : []),
+              { label: taskTitle(task.prompt) },
+            ]}
+          />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(task.prompt)}</h1>
           </div>
@@ -119,7 +132,9 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             {task.leadAgentId === undefined ? null : (
               <span className={styles.chip}>
                 <span className={team.dot} aria-hidden />
-                {department?.name ?? "Proposing a team"}
+                {task.workerAgentIds !== undefined
+                  ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
+                  : (department?.name ?? "Proposing a team")}
               </span>
             )}
             <span className={styles.chip}>

@@ -70,7 +70,8 @@ function leadFolders(store: Store, taskId: string): TaskFolders | undefined {
 // Windows and WSL git cannot read each other's (D-41).
 export async function workerFolders(
   context: TeamContext,
-  department: DepartmentRecord,
+  // A group task's workers share the lead's folders.
+  department: DepartmentRecord | undefined,
   worker: AgentRecord,
   taskId: string,
 ): Promise<TaskFolders & { branch: string | undefined }> {
@@ -78,7 +79,7 @@ export async function workerFolders(
   if (folders === undefined) throw new TeamError("The lead has no folder to share.");
   requireFolders([folders.workspacePath, ...folders.additionalPaths]);
   const main = folders.workspacePath;
-  if (!department.branchPerWorker || !isRepository(main)) return { ...folders, branch: undefined };
+  if (!department?.branchPerWorker || !isRepository(main)) return { ...folders, branch: undefined };
   const task = context.store.getTask(taskId);
   const name = slug(worker.name, 40);
   const base = `office-town/${slug(task?.prompt ?? "", 24)}-${taskId.slice(0, 4)}/${name}`;

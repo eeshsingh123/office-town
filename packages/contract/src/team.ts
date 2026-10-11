@@ -63,12 +63,18 @@ export const newDepartmentRequestSchema = z.object({
 });
 export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
 
-// A saved department, or a new lead who first proposes its team.
+// A saved department, a new lead who first proposes its team, or agents picked together for
+// this one task: a lead and the workers it hands work to.
 export const startTeamTaskRequestSchema = z.object({
   goal: z.string().min(1),
   team: z.union([
     z.object({ departmentId: z.string().min(1) }),
     z.object({ lead: newAgentSchema, workspaceId: z.string().min(1), autonomy: autonomySchema }),
+    z.object({
+      leadAgentId: z.string().min(1),
+      workerAgentIds: z.array(z.string().min(1)).min(1),
+      workspaceId: z.string().min(1),
+    }),
   ]),
 });
 export type StartTeamTaskRequest = z.infer<typeof startTeamTaskRequestSchema>;

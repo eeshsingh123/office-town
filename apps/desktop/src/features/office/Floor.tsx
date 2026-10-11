@@ -34,6 +34,7 @@ import {
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
+import type { PanelKind } from "./office-state.ts";
 import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
 import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
 import { keysOwnedAt, typingIn } from "./waiting-keys.ts";
@@ -83,6 +84,8 @@ interface FloorProps {
   room: string | undefined;
   onSelect: (agentIds: string[]) => void;
   onOpenRoom: (departmentId: string) => void;
+  // An agent's or the chief's id, or a department's.
+  onOpenChat: (id: string, kind: PanelKind) => void;
 }
 
 const SPEED = 260;
@@ -309,7 +312,7 @@ function useWalkFromAnywhere(
 
 export function Floor(props: FloorProps) {
   const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
-  const { onSelect, onOpenRoom } = props;
+  const { onSelect, onOpenRoom, onOpenChat } = props;
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
   const you = useRef<HTMLDivElement>(null);
@@ -373,6 +376,9 @@ export function Floor(props: FloorProps) {
       press(key);
     } else if (key === "e" && near !== undefined) {
       onSelect([near.id]);
+    } else if (key === "Enter" && event.target === event.currentTarget && selection.length === 1) {
+      const [only = ""] = selection;
+      onOpenChat(only, only === chief?.id ? "chief" : "agent");
     } else if (key === "Escape") {
       onSelect([]);
       focusAgent(undefined);
@@ -493,6 +499,10 @@ export function Floor(props: FloorProps) {
                   if (kind === "chief" && chief !== undefined) onSelect([chief.id]);
                   else onOpenRoom(id);
                 }}
+                onDoubleClick={() => {
+                  if (kind === "chief" && chief !== undefined) onOpenChat(chief.id, "chief");
+                  else onOpenChat(id, "department");
+                }}
               >
                 <GripVertical size={13} className={styles.grip} aria-hidden />
                 {label}
@@ -578,6 +588,16 @@ export function Floor(props: FloorProps) {
                     if (!adding) onSelect([id]);
                     else if (selected) onSelect(selection.filter((one) => one !== id));
                     else onSelect([...selection, id]);
+                  }}
+                  onDoubleClick={(event) => {
+                    if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+                    onOpenChat(id, id === chief?.id ? "chief" : "agent");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" || !selected || selection.length > 1) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onOpenChat(id, id === chief?.id ? "chief" : "agent");
                   }}
                 >
                   <Character

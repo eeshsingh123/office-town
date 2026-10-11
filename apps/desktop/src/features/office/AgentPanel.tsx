@@ -15,6 +15,7 @@ import { tokenLine, useRunFacts } from "../task/run-facts.ts";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
+import { pin, unpin, usePins } from "./pins.ts";
 import { Facts, PanelHeader, PanelSection, StateChip } from "./SidePanel.tsx";
 
 function DoneLine({ action }: { action: TraceAction }) {
@@ -128,6 +129,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
 export function AgentFooter({ member }: { member: FloorAgent }) {
   const { agent } = member;
   const [asking, setAsking] = useState(false);
+  const pinned = usePins((state) => state.pinned.includes(agent.id));
   return (
     <>
       <Button variant="primary" onClick={() => navigate({ name: "task", taskId: agent.taskId })}>
@@ -138,6 +140,9 @@ export function AgentFooter({ member }: { member: FloorAgent }) {
           Send for review
         </Button>
       )}
+      <Button variant="ghost" onClick={() => (pinned ? unpin([agent.id]) : pin([agent.id]))}>
+        {pinned ? "Unpin" : "Pin"}
+      </Button>
       {isOpen(agent.latest) ? (
         <Button variant="ghost" onClick={() => void api.stop(agent.latest.id)}>
           Stop

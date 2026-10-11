@@ -38,14 +38,21 @@ export function composeIn(kind: PanelKind, taskId?: string): void {
   useOffice.setState({ compose: { at: Date.now(), ...(taskId === undefined ? {} : { taskId }) } });
 }
 
+// Navigates first, so the screen left behind keeps its own selection for Back.
 export function selectRoom(departmentId: string): void {
+  navigate({ name: "office", room: departmentId });
   select([]);
   showMode("floor");
-  navigate({ name: "office", room: departmentId });
 }
 
 export function selectAgent(agentId: string): void {
+  navigate({ name: "office" });
   select([agentId]);
   showMode("floor");
-  navigate({ name: "office" });
+}
+
+// Double-click or Enter: the chat of the one picked, ready to type in.
+export function openChat(kind: PanelKind): void {
+  composeIn(kind);
+  setPanelOpen(true);
 }

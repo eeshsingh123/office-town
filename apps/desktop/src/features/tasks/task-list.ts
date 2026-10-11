@@ -97,9 +97,20 @@ function lastActivity(trace: Trace): string {
   return latest;
 }
 
-export function teamOf(task: TaskRecord, chiefId: string | undefined): TeamKey {
+// A group task sits with its lead's department (D-63).
+export function teamOf(
+  task: TaskRecord,
+  known: Pick<Known, "chiefId" | "agents" | "departments">,
+): TeamKey {
+  const { chiefId } = known;
   if (task.parentTaskId === undefined && chiefId !== undefined && task.leadAgentId === chiefId) {
     return "chief";
+  }
+  if (task.workerAgentIds !== undefined) {
+    const departmentId = known.agents[task.leadAgentId ?? ""]?.departmentId;
+    return departmentId !== undefined && known.departments[departmentId] !== undefined
+      ? departmentId
+      : "solo";
   }
   return task.departmentId ?? "solo";
 }
@@ -192,7 +203,7 @@ function taskItem(task: TaskRecord, known: Known, waiting: Set<string>, now: num
     task,
     title: taskTitle(task.prompt),
     status,
-    team: teamOf(task, known.chiefId),
+    team: teamOf(task, known),
     agents,
     line,
     progress: status === "working" || status === "needs" ? stepsOf(agents, known) : undefined,

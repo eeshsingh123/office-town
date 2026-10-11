@@ -2,7 +2,9 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt
+         t.reviewed_at AS reviewedAt,
+         (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
+          WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
   LEFT JOIN departments d ON d.ref = t.department_ref
@@ -75,6 +77,7 @@ export const queries = {
     INSERT INTO tasks
       (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  insertTaskWorker: "INSERT INTO task_workers (task_ref, agent_ref) VALUES (?, ?)",
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
@@ -144,6 +147,7 @@ export const queries = {
     DELETE FROM agents
     WHERE ref = ?1 AND department_ref IS NULL
       AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?1)
+      AND NOT EXISTS (SELECT 1 FROM task_workers WHERE agent_ref = ?1)
       AND NOT EXISTS
         (SELECT 1 FROM settings WHERE key = 'chiefAgentId' AND value = json_quote(agents.id))`,
 

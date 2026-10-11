@@ -42,6 +42,12 @@ export type View =
   | { name: "department"; departmentId: string }
   | { name: "task"; taskId: string };
 
+// A screen to go back to, with the office selection it had.
+export interface Visit {
+  view: View;
+  selection: string[];
+}
+
 export interface AppState extends Records {
   connection: StreamStatus;
   harnesses: HarnessDescription[];
@@ -63,6 +69,9 @@ export interface AppState extends Records {
   view: View;
   // Kept while the user looks at a trace.
   selection: string[];
+  // Memory only: a restart starts on Home.
+  back: Visit[];
+  forward: Visit[];
   chiefId: string | undefined;
   // `at` makes a repeat count.
   focus: { agentId: string; at: number } | undefined;
@@ -93,6 +102,8 @@ export const useApp = create<AppState>(() => ({
   olderTasks: undefined,
   view: { name: "home" },
   selection: [],
+  back: [],
+  forward: [],
   chiefId: undefined,
   focus: undefined,
   roomPositions: {},
@@ -105,8 +116,37 @@ export function focusAgent(agentId: string | undefined): void {
   useApp.setState({ focus: agentId === undefined ? undefined : { agentId, at: Date.now() } });
 }
 
+const HISTORY_LIMIT = 50;
+
+const sameView = (a: View, b: View) => JSON.stringify(a) === JSON.stringify(b);
+
+// Like a browser: each new screen can be gone back to; going somewhere new drops what was ahead.
 export function navigate(view: View): void {
-  useApp.setState({ view });
+  const { view: current, selection, back } = useApp.getState();
+  if (sameView(current, view)) return;
+  useApp.setState({
+    view,
+    back: [...back, { view: current, selection }].slice(-HISTORY_LIMIT),
+    forward: [],
+  });
+}
+
+export function goBack(): void {
+  const { view, selection, back, forward } = useApp.getState();
+  const to = back.at(-1);
+  if (to === undefined) return;
+  useApp.setState({
+    ...to,
+    back: back.slice(0, -1),
+    forward: [{ view, selection }, ...forward],
+  });
+}
+
+export function goForward(): void {
+  const { view, selection, back, forward } = useApp.getState();
+  const [to, ...rest] = forward;
+  if (to === undefined) return;
+  useApp.setState({ ...to, back: [...back, { view, selection }], forward: rest });
 }
 
 export function select(selection: string[]): void {
