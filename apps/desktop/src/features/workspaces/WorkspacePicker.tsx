@@ -50,7 +50,7 @@ function useUsageLine() {
       parts.length > 0
         ? parts.join(" · ")
         : workspace.kind === "scratch"
-          ? "A new empty folder for each task"
+          ? "New folder for each task"
           : mainPath(workspace);
     // Only a folder's path is drawn as code.
     const path = parts.length === 0 && workspace.kind === "folders";
@@ -211,8 +211,8 @@ export function WorkspacePicker({
       {warnShared && sharedWith.length > 0 ? (
         <p className={styles.warnLine}>
           <TriangleAlert size={14} aria-hidden />
-          {sharedWith.join(" and ")} already {sharedWith.length === 1 ? "works" : "work"} here.
-          Their agents and this team can change the same files at the same time.
+          {sharedWith.join(" and ")} also {sharedWith.length === 1 ? "works" : "work"} here and can
+          change the same files.
         </p>
       ) : null}
       {sheet}

@@ -83,7 +83,7 @@ export function TopBar() {
         <ToggleGroup.Item
           value="floor"
           className={styles.segment}
-          title="Walk with WASD or the arrow keys, click an agent or a room's sign, drag to select several"
+          title="Move with WASD or the arrow keys"
         >
           <MapIcon size={14} aria-hidden />
           Floor

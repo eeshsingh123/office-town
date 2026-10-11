@@ -144,8 +144,8 @@ function layOut(layout: Layout) {
   });
 
   const signs: Record<string, RoomSign> = {
-    [OPEN]: { title: "Open floor", note: "agents working alone", lines: [] },
-    [GUESTS]: { title: "Review desk", note: "fresh eyes on finished work", lines: [] },
+    [OPEN]: { title: "Open floor", note: "Assistants", lines: [] },
+    [GUESTS]: { title: "Review desk", note: "Reviewers", lines: [] },
   };
   for (const department of departments) {
     const goal = goalOf(department, state);
@@ -155,7 +155,7 @@ function layOut(layout: Layout) {
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
     signs[department.id] = {
       title: department.name,
-      note: AUTONOMY[department.autonomy].label,
+      note: AUTONOMY[department.autonomy].short,
       lines: [
         working && goal.task !== undefined ? taskTitle(goal.task.prompt) : "No goal in progress",
         ...(usage === "" ? [] : [`${working ? "This goal" : "Last goal"} · ${usage}`]),

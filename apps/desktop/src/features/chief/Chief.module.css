@@ -1,15 +1,4 @@
 /* The office panel's overview. */
-.note {
-  display: flex;
-  gap: 8px;
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-control);
-  background: var(--bg);
-  font-size: var(--size-meta);
-  color: var(--text-2);
-}
-
 .head {
   display: flex;
   align-items: center;
@@ -152,12 +141,6 @@
 .stepDone {
   background: var(--accent-soft);
   color: var(--accent-text);
-}
-
-.stepText {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
 }
 
 .stepTitle {

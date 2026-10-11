@@ -43,7 +43,7 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
         settings: source.settings,
       });
       onOpenChange(false);
-      showToast(`Saved “${saved.name}” as a template. You'll see it whenever you add an agent.`, {
+      showToast(`Saved “${saved.name}” as a template.`, {
         label: "See templates",
         run: () => navigate({ name: "templates" }),
       });
@@ -60,9 +60,6 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
         <Dialog.Overlay className={dialog.overlay} />
         <Dialog.Content className={dialog.content}>
           <Dialog.Title className={dialog.title}>Save {who} as a template</Dialog.Title>
-          <Dialog.Description className={dialog.description}>
-            Reuse this setup whenever you add an agent.
-          </Dialog.Description>
           <form className={form.form} onSubmit={save}>
             <label className={form.field} htmlFor="save-template-name">
               <span className={form.label}>Template name</span>
@@ -74,7 +71,6 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
                 placeholder="For example: Frontend builder"
                 onChange={(event) => setName(event.target.value)}
               />
-              <span className={form.hint}>Name it after the job, so it's easy to pick later.</span>
             </label>
             <div className={form.field}>
               <span className={form.label}>What the template keeps</span>

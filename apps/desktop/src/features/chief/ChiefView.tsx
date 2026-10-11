@@ -8,7 +8,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
-import { useAiSummary } from "../profiles/AiLine.tsx";
+import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import styles from "./Chief.module.css";
 import { ChiefSetup } from "./ChiefSetup.tsx";
@@ -68,7 +68,7 @@ function GoalBox({ name }: { name: string }) {
 
 function ChiefHome() {
   const chief = useChief();
-  const summary = useAiSummary(chief?.record.settings);
+  const summary = useModelLine(chief?.record.settings);
   const waiting = useApp((state) =>
     Object.values(state.waiting).find(
       ({ event }) => state.sessions[event.sessionId]?.agentId === chief?.record.id,
@@ -97,9 +97,7 @@ function ChiefHome() {
                 {status}
               </span>
             </div>
-            <span className={page.hint}>
-              Your chief. Turns big goals into a plan for your departments.
-            </span>
+            <span className={page.hint}>Chief</span>
           </div>
           <Button onClick={() => navigate({ name: "chief", edit: true })}>
             <Settings size={14} aria-hidden />
@@ -119,9 +117,7 @@ function ChiefHome() {
                 {busy ? "Working on now" : current === undefined ? "Goals" : "Last goal"}
               </span>
               {current === undefined ? (
-                <span className={page.hint}>
-                  No goals yet. Give {record.name} one above, or from New task.
-                </span>
+                <span className={page.hint}>No goals yet.</span>
               ) : (
                 <>
                   <div className={styles.goalHead}>
@@ -166,7 +162,7 @@ function ChiefHome() {
             <section className={page.panel} aria-labelledby="rules-title">
               <div className={page.sectionHead}>
                 <span id="rules-title" className={page.eyebrow}>
-                  How it plans
+                  Planning rules
                 </span>
                 <button
                   type="button"
@@ -177,7 +173,7 @@ function ChiefHome() {
                 </button>
               </div>
               {rules.length === 0 ? (
-                <span className={page.hint}>No house rules.</span>
+                <span className={page.hint}>None yet.</span>
               ) : (
                 <ul className={styles.rulesList}>
                   {rules.map((rule) => (
@@ -185,7 +181,7 @@ function ChiefHome() {
                   ))}
                 </ul>
               )}
-              <span className={page.hint}>Thinks with {summary}</span>
+              <span className={page.hint}>{summary}</span>
             </section>
           </aside>
         </div>

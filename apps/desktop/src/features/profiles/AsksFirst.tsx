@@ -20,7 +20,7 @@ export function AsksFirst({ name, base, baseName, value, onChange }: AsksFirstPr
   const limit = base === undefined ? ORDER.indexOf("full") : ORDER.indexOf(base);
   const stricter = ORDER.slice(0, limit).toReversed();
   return (
-    <div className={form.field} role="radiogroup" aria-label="When it asks you first">
+    <div className={form.field} role="radiogroup" aria-label="Permissions">
       <label className={form.choice}>
         <input
           type="radio"
@@ -31,7 +31,7 @@ export function AsksFirst({ name, base, baseName, value, onChange }: AsksFirstPr
         <span className={form.choiceText}>
           <strong>Same as {baseName}</strong>
           <span className={form.hint}>
-            {base === undefined ? "Follows the team it joins." : AUTONOMY[base].description}
+            {base === undefined ? "Uses the team's permissions." : AUTONOMY[base].description}
           </span>
         </span>
       </label>

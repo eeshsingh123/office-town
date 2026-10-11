@@ -144,7 +144,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
           <ChangeList event={event} rows={rows} />
         )}
         <label className={styles.field}>
-          <span className={styles.fieldLabel}>Note (sent with Send back or Decline)</span>
+          <span className={styles.fieldLabel}>Note for the chief (optional)</span>
           <textarea
             className={styles.input}
             rows={2}

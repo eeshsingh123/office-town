@@ -82,9 +82,7 @@ export function BulkConfirm({ answer, send, onCancel, onDone }: BulkConfirmProps
           </AlertDialog.Title>
           <AlertDialog.Description className={dialog.description}>
             {where}{" "}
-            {decision === "allow"
-              ? "Each agent carries on as soon as its request is approved."
-              : "Each agent is told no and decides what to do next."}
+            {decision === "allow" ? "Each agent continues right away." : "Each agent is told no."}
           </AlertDialog.Description>
           <ul className={styles.breakdown}>
             {breakdown(asks).map(([name, number]) => (

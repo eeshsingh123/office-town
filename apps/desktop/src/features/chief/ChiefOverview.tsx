@@ -1,15 +1,16 @@
 import { Settings } from "lucide-react";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
+import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { useChiefGoals } from "../work/use-chief-goals.ts";
 import styles from "./Chief.module.css";
 
 export function ChiefOverview({ chiefId }: { chiefId: string }) {
   const chief = useApp((state) => state.agents[chiefId]);
-  const harness = useHarnessName(chief?.settings.harness ?? "");
+  const summary = useModelLine(chief?.settings);
   const { current, queue } = useChiefGoals(chiefId);
   const waiting = useApp((state) =>
     Object.values(state.waiting).find(
@@ -17,7 +18,6 @@ export function ChiefOverview({ chiefId }: { chiefId: string }) {
     ),
   );
   if (chief === undefined) return null;
-  const { model, effort } = chief.settings;
   const working = current !== undefined && current.state !== "ended";
   return (
     <>
@@ -33,8 +33,8 @@ export function ChiefOverview({ chiefId }: { chiefId: string }) {
         </Button>
       </div>
       <dl className={styles.facts}>
-        <dt>Thinks with</dt>
-        <dd>{[harness, model, effort].filter((part) => part !== undefined).join(" · ")}</dd>
+        <dt>Model</dt>
+        <dd>{summary}</dd>
         <dt>Working on</dt>
         <dd>
           {working ? (
@@ -57,9 +57,6 @@ export function ChiefOverview({ chiefId }: { chiefId: string }) {
         </dd>
       </dl>
       {waiting === undefined ? null : <RequestCard key={waiting.event.id} event={waiting.event} />}
-      <p className={styles.note}>
-        The chief plans and messages leads. It does not change departments' files.
-      </p>
     </>
   );
 }

@@ -25,13 +25,13 @@ const KINDS: { value: WorkspaceKind; title: string; text: string; icon: typeof F
   {
     value: "folders",
     title: "Use folders I have",
-    text: "A code repository or any folder of files you want changed.",
+    text: "A code repository or any folder.",
     icon: FolderGit2,
   },
   {
     value: "scratch",
     title: "Start empty",
-    text: "Each task gets a new, empty folder. Good for writing and research.",
+    text: "A new empty folder for each task.",
     icon: Sparkles,
   },
 ];
@@ -119,7 +119,7 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
               </Button>
             </Dialog.Close>
           </div>
-          <Dialog.Description className={form.hint}>
+          <Dialog.Description className="visually-hidden">
             Choose where your agents will work.
           </Dialog.Description>
           <form onSubmit={submit} className={styles.sheetForm}>
@@ -154,8 +154,8 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
                 onChange={setMain}
                 hint={
                   kind === "scratch"
-                    ? "Each task gets its own new folder inside this one."
-                    : "Agents start here and can always change it. In a git repository, each worker gets its own copy."
+                    ? "Each task gets a new folder in here."
+                    : "Agents start here. In a git repository, each worker gets its own copy."
                 }
               />
             </div>
@@ -164,8 +164,7 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
               <span className={styles.fieldLabel}>Extra folders</span>
               {extras.length === 0 ? (
                 <span className={form.hint}>
-                  Add folders the work also needs, such as shared notes. Choose for each one whether
-                  agents may change it.
+                  Other folders the agents need, read-only or editable.
                 </span>
               ) : null}
               {extras.map((extra, index) => (

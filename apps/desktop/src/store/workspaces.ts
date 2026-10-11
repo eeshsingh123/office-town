@@ -7,7 +7,7 @@ import { useApp } from "./app-store.ts";
 import { isOpen } from "./records.ts";
 
 export const WORKSPACE_TIP =
-  "A workspace is where your agents work: the folders they can open, read and change. Departments and tasks can share one.";
+  "The folders your agents can read and change. Departments and tasks can share a workspace.";
 
 const byUse = (workspaces: WorkspaceRecord[]) =>
   workspaces.toSorted((a, b) => b.usedAt.localeCompare(a.usedAt));

@@ -150,7 +150,7 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
             </button>
           )}
         </dd>
-        <dt>Without asking</dt>
+        <dt>Permissions</dt>
         <dd title={AUTONOMY[department.autonomy].description}>
           {AUTONOMY[department.autonomy].label}
         </dd>

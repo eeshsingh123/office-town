@@ -77,22 +77,18 @@ function LevelNote({ event }: { event: UserRequestEvent }) {
   const departmentId = agent?.record.departmentId;
   if (event.type !== "permission.requested") return null;
   if (level !== "supervised") {
-    return (
-      <p className={styles.levelNote}>
-        It touches a folder marked read-only, which asks you at every level.
-      </p>
-    );
+    return <p className={styles.levelNote}>It wants to change a read-only folder.</p>;
   }
   return (
     <p className={styles.levelNote}>
-      Asked because the setting is "{AUTONOMY[level].label}".{" "}
+      Permissions are set to "{AUTONOMY[level].label}".{" "}
       {departmentId === undefined ? null : (
         <button
           type="button"
           className={styles.link}
           onClick={() => navigate({ name: "department", departmentId })}
         >
-          Change it in the department's settings
+          Change
         </button>
       )}
     </p>
@@ -354,7 +350,7 @@ export function NeedsYouView() {
                   `${asks.length} waiting across ${plural(taskCount, "task", "tasks")}`,
                   decisions === 0
                     ? undefined
-                    : `${plural(decisions, "team", "teams")} paused at a plan or team`,
+                    : `${plural(decisions, "plan or team", "plans or teams")} to approve`,
                   `oldest waiting ${waitedFor(oldest, now)}`,
                 ]
                   .filter(Boolean)

@@ -277,7 +277,7 @@ function Result({ item }: { item: TraceMessage }) {
             </button>
           )}{" "}
           {how}
-          <span className={styles.meta}> · sent to the lead by Office Town</span>
+          <span className={styles.meta}> · sent to the lead</span>
         </div>
         {/* The head already says who finished; the text's first line says so for the lead. */}
         <Markdown text={origin.outcome === "done" ? item.text.replace(/^.*\n/, "") : item.text} />
@@ -369,7 +369,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         return <FromOffice summary={item.origin.summary} text={item.text} />;
       }
       if (item.origin?.kind === "answer") {
-        return <FromOffice summary="Your answer, passed on to the agent" text={item.text} />;
+        return <FromOffice summary="Your answer" text={item.text} />;
       }
       if (item.role === "user") {
         return (

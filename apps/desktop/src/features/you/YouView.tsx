@@ -18,7 +18,7 @@ function Switch({
   onChange,
 }: {
   label: string;
-  hint: string;
+  hint?: string;
   on: boolean;
   onChange: (on: boolean) => void;
 }) {
@@ -34,7 +34,7 @@ function Switch({
       />
       <div>
         <strong>{label}</strong>
-        <p className={form.hint}>{hint}</p>
+        {hint === undefined ? null : <p className={form.hint}>{hint}</p>}
       </div>
     </div>
   );
@@ -70,10 +70,7 @@ export function YouView() {
             <h1 id="you-title" className={page.title}>
               Your profile
             </h1>
-            <p className={page.lead}>
-              Tell your agents who you are and how you like to work. Every agent reads this before
-              it starts a task, so you don't have to repeat yourself.
-            </p>
+            <p className={page.lead}>Every agent reads this before it starts a task.</p>
           </header>
 
           <div className={form.form}>
@@ -88,9 +85,6 @@ export function YouView() {
                   maxLength={60}
                   onChange={(event) => set({ name: event.target.value })}
                 />
-                <span className={form.hint}>
-                  Agents use this name when they talk to you or ask you something.
-                </span>
               </label>
             </div>
             <div className={form.field}>
@@ -100,7 +94,6 @@ export function YouView() {
                 value={draft.colour}
                 onChange={(colour) => set({ colour })}
               />
-              <p className={form.hint}>Shown next to your name.</p>
             </div>
             <label className={form.field} htmlFor="you-about">
               <span className={form.label}>About you</span>
@@ -113,8 +106,7 @@ export function YouView() {
                 onChange={(event) => set({ about: event.target.value })}
               />
               <span className={form.hint}>
-                Your work, what you know well and what you're new to. Agents use it to pitch their
-                explanations at the right level.
+                Your work, what you know well and what you're new to.
               </span>
             </label>
             <fieldset className={`${form.field} ${form.group}`}>
@@ -149,21 +141,18 @@ export function YouView() {
                 placeholder="Anything else, in your own words"
                 onChange={(event) => set({ answerNotes: event.target.value })}
               />
-              <p className={form.hint}>
-                Pick any that fit, or write your own. Agents follow this when they write to you.
-              </p>
+              <p className={form.hint}>Pick any that fit, or write your own.</p>
             </fieldset>
             <div className={`${page.panel} ${styles.notifications}`}>
               <span className={page.eyebrow}>Notifications</span>
+              <p className={form.hint}>Shown while the app is in the background.</p>
               <Switch
                 label="When an agent needs you"
-                hint="A Windows pop-up when an agent is waiting for your answer and the app is in the background."
                 on={draft.notifyNeedsYou}
                 onChange={(notifyNeedsYou) => set({ notifyNeedsYou })}
               />
               <Switch
                 label="When a task is finished"
-                hint="A Windows pop-up when a task is done and ready for you to look at."
                 on={draft.notifyFinished}
                 onChange={(notifyFinished) => set({ notifyFinished })}
               />
@@ -184,13 +173,7 @@ export function YouView() {
         <aside className={page.aside}>
           <div className={page.panel}>
             <span className={page.eyebrow}>What your agents will read</span>
-            <p className={form.hint}>
-              This goes at the top of every agent's instructions, before its team's rules, its own
-              notes and the task.
-            </p>
-            <p className={styles.preview}>
-              {preview === "" ? "Nothing yet. Fill in About you to get started." : preview}
-            </p>
+            <p className={styles.preview}>{preview === "" ? "Nothing yet." : preview}</p>
           </div>
         </aside>
       </div>

@@ -15,78 +15,6 @@
   gap: 16px;
 }
 
-/* Three equal boxes joined by short pipes, so the steps read as one flow. */
-.how {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.how h2 {
-  margin: 0;
-}
-
-.steps {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr) 40px minmax(0, 1fr);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.step {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-
-.number {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin-bottom: 6px;
-  border-radius: 50%;
-  background: var(--hover);
-  color: var(--text-2);
-  font-size: var(--size-small);
-  font-weight: 600;
-}
-
-.pipe {
-  position: relative;
-}
-
-.pipe::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 0;
-  left: 0;
-  height: 6px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--hover);
-  transform: translateY(-50%);
-}
-
-.pipe::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 7px;
-  height: 7px;
-  border-top: 1.5px solid var(--text-3);
-  border-right: 1.5px solid var(--text-3);
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
 .tools {
   display: flex;
   flex-wrap: wrap;
@@ -415,31 +343,6 @@
 }
 
 @media (max-width: 900px) {
-  .steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .pipe {
-    height: 20px;
-  }
-
-  .pipe::before {
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    right: auto;
-    width: 6px;
-    height: auto;
-    border: 0;
-    border-right: 1px solid var(--border);
-    border-left: 1px solid var(--border);
-    transform: translateX(-50%);
-  }
-
-  .pipe::after {
-    transform: translate(-50%, -50%) rotate(135deg);
-  }
-
   .toolsEnd {
     margin-left: 0;
   }

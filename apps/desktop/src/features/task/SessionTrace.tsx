@@ -42,9 +42,7 @@ function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }
       return (
         <p className={styles.ended}>
           <Check size={14} className={styles.ok} aria-hidden />
-          {trace.ended?.idle && !guest
-            ? "Finished · stopped when idle, continues when needed"
-            : "Finished"}
+          {trace.ended?.idle && !guest ? "Finished · send a message to continue" : "Finished"}
         </p>
       );
     case "stopped":

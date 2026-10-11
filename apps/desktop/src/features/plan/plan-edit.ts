@@ -151,9 +151,9 @@ export function guardWarnings(
     if (upstream.length === 0) return [];
     const folders = `${[...new Set(upstream)].join(" or ")} folder`;
     return placed.autonomy === "bypass"
-      ? [`${placed.name} runs in Bypass, so nothing guards it: it could change ${folders}.`]
+      ? [`${placed.name} has no safety checks, so it could change ${folders}.`]
       : [
-          `${placed.name} runs in Full: read-only is enforced for file edits only; its commands could still change ${folders}.`,
+          `${placed.name} doesn't ask first. It cannot edit ${folders} directly, but its commands could still change it.`,
         ];
   });
 }

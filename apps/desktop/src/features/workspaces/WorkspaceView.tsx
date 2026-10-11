@@ -182,8 +182,8 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
                         {index > 0
                           ? "Extra folder"
                           : workspace.kind === "scratch"
-                            ? "Each task gets a new folder in here"
-                            : "Main folder · agents start here"}
+                            ? "New task folders go here"
+                            : "Main folder"}
                         {missing.has(folder.path) ? " · not found" : ""}
                       </span>
                     </span>
