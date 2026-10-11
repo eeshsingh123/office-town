@@ -6,6 +6,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { clockTime, compactCount, elapsed, environmentName, whenNext } from "../../ui/format.ts";
 import { sumUsage } from "../departments/usage.ts";
+import { useModelName } from "../profiles/model-line.ts";
 import styles from "./TaskView.module.css";
 
 function StepIcon({ step }: { step: PlanStep }) {
@@ -83,7 +84,10 @@ export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
   const ended = latest.endedAt ?? new Date().toISOString();
   const plan = traces.findLast((trace) => trace.plan.length > 0)?.plan;
   const limits = useApp((state) => state.limits[latest.options.harness]?.limits);
-  const model = traces.findLast((trace) => trace.model !== undefined)?.model;
+  const model = useModelName(
+    options,
+    traces.findLast((trace) => trace.model !== undefined)?.model ?? options.model,
+  );
   const usage = sumUsage(traces);
   return (
     <aside className={styles.aside} aria-label="Agent">
@@ -99,10 +103,14 @@ export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
           <dt>AI app</dt>
           <dd>{harness}</dd>
           <dt>Model</dt>
-          <dd>{model ?? options.model ?? "Default"}</dd>
-          <dt>Effort</dt>
-          <dd>{options.effort ?? "Default"}</dd>
-          <dt>Without asking</dt>
+          <dd>{model}</dd>
+          {options.effort === undefined ? null : (
+            <>
+              <dt>Effort</dt>
+              <dd>{`${options.effort[0]?.toUpperCase() ?? ""}${options.effort.slice(1)}`}</dd>
+            </>
+          )}
+          <dt>Permissions</dt>
           <dd title={AUTONOMY[level].description}>{AUTONOMY[level].label}</dd>
           <dt>Runs on</dt>
           <dd>{environmentName(options.environment)}</dd>

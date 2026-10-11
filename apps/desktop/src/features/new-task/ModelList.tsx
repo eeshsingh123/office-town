@@ -1,25 +1,11 @@
-import type { EnvironmentSpec, HarnessDescription, HarnessModel } from "@office-town/contract";
+import type { HarnessModel } from "@office-town/contract";
 import { Command } from "cmdk";
 import { Check, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import menu from "../../ui/Menu.module.css";
-import { useLoaded } from "../../ui/use-loaded.ts";
+import { modelName } from "../profiles/model-name.ts";
 import styles from "./ModelPicker.module.css";
-import { groupModels, modelName } from "./model-groups.ts";
-
-// The models of a harness that can list them; read once per harness and environment.
-export function useCatalog(
-  description: HarnessDescription | undefined,
-  environment: EnvironmentSpec,
-) {
-  const key =
-    description === undefined || !description.capabilities.modelList
-      ? undefined
-      : `${description.harness}|${environmentKey(environment)}`;
-  const catalog = useLoaded(key, () => readCatalog(description?.harness ?? "", environment));
-  return { models: catalog.value?.models, error: catalog.error };
-}
+import { groupModels } from "./model-groups.ts";
 
 interface ModelListProps {
   models: readonly HarnessModel[];
@@ -68,8 +54,7 @@ export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
             onSelect={() => onChoose(undefined)}
           >
             <span className={menu.itemText}>
-              {defaultName === undefined ? "The app's default model" : `Default · ${defaultName}`}
-              <span className={menu.itemDescription}>Whatever the AI app picks</span>
+              {defaultName === undefined ? "Default model" : `Default · ${defaultName}`}
             </span>
             {value === undefined ? <Check size={14} className={menu.check} /> : null}
           </Command.Item>
@@ -80,14 +65,14 @@ export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
               <Command.Item
                 key={model.id}
                 value={model.id}
-                keywords={[model.name, group.heading]}
+                keywords={[model.name, model.id, group.heading]}
                 className={menu.item}
                 onSelect={() => onChoose(model.id)}
               >
                 <span className={menu.itemText}>
                   {model.name}
-                  {model.name === model.id ? null : (
-                    <span className={menu.itemDescription}>{model.id}</span>
+                  {model.description === undefined ? null : (
+                    <span className={menu.itemDescription}>{model.description}</span>
                   )}
                 </span>
                 {model.access === "free" ? <span className={styles.free}>Free</span> : null}

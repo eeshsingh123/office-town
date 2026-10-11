@@ -94,6 +94,7 @@ const catalog: CatalogQuery = {
         id: model.value,
         name: model.displayName,
         ...(model.description === undefined ? {} : { description: model.description }),
+        ...(model.resolvedModel === undefined ? {} : { resolvedId: model.resolvedModel }),
         efforts: model.supportedEffortLevels ?? [],
       })),
     };

@@ -1,5 +1,6 @@
 import type {
   AgentSettings,
+  EnvironmentSpec,
   HarnessCatalog,
   HarnessDescription,
   HarnessModel,
@@ -8,55 +9,48 @@ import { useEffect, useState } from "react";
 import { environmentKey, readCatalog } from "../../api/catalogs.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { modelLine, modelName } from "./model-name.ts";
 
 type Settings = Pick<AgentSettings, "harness" | "environment" | "model" | "effort">;
 
-const catalogKey = (settings: Settings) =>
+const catalogKey = (settings: Pick<Settings, "harness" | "environment">) =>
   `${settings.harness}|${environmentKey(settings.environment)}`;
 
-// Such as "Sonnet 5.5 · Claude Code · Medium effort": the model's full name from the AI app's
-// own list, then the app, then the effort if one is set.
-export function modelLine(
-  settings: Settings,
-  harnesses: readonly HarnessDescription[],
-  model: HarnessModel | undefined,
-): string {
-  const app = harnesses.find((known) => known.harness === settings.harness)?.name;
-  const effort = settings.effort;
-  return [
-    model?.name ?? settings.model ?? "Default model",
-    app ?? settings.harness,
-    effort === undefined ? undefined : `${effort[0]?.toUpperCase()}${effort.slice(1)} effort`,
-  ]
-    .filter((part) => part !== undefined)
-    .join(" · ");
+export function useCatalog(
+  description: HarnessDescription | undefined,
+  environment: EnvironmentSpec,
+): { models: readonly HarnessModel[] | undefined; error: string | undefined } {
+  const key =
+    description === undefined || !description.capabilities.modelList
+      ? undefined
+      : catalogKey({ harness: description.harness, environment });
+  const catalog = useLoaded(key, () => readCatalog(description?.harness ?? "", environment));
+  return { models: catalog.value?.models, error: catalog.error };
 }
 
-export function modelName(settings: Settings, model: HarnessModel | undefined): string {
-  return model?.name ?? settings.model ?? "Default model";
+function useModelsOf(settings: Pick<Settings, "harness" | "environment"> | undefined) {
+  const harnesses = useApp((state) => state.harnesses);
+  const description = harnesses.find((known) => known.harness === settings?.harness);
+  return useCatalog(description, settings?.environment ?? { kind: "native" }).models;
+}
+
+export function useModelName(
+  settings: Pick<Settings, "harness" | "environment"> | undefined,
+  id: string | undefined,
+): string {
+  return modelName(useModelsOf(settings), id) ?? "Default model";
 }
 
 export function useModelLine(settings: Settings | undefined): string {
   const harnesses = useApp((state) => state.harnesses);
-  const description = harnesses.find((known) => known.harness === settings?.harness);
-  const catalog = useLoaded(
-    settings !== undefined && description?.capabilities.modelList
-      ? catalogKey(settings)
-      : undefined,
-    () => readCatalog(settings?.harness ?? "", settings?.environment ?? { kind: "native" }),
-  );
-  if (settings === undefined) return "";
-  return modelLine(
-    settings,
-    harnesses,
-    catalog.value?.models.find((known) => known.id === settings.model),
-  );
+  const models = useModelsOf(settings);
+  return settings === undefined ? "" : modelLine(settings, harnesses, models);
 }
 
-// The model of each one, for a list of many, reading each AI app's model list once.
+// The models of each one, for a list of many, reading each AI app's model list once.
 export function useModels(
   list: readonly Settings[],
-): (settings: Settings) => HarnessModel | undefined {
+): (settings: Settings) => readonly HarnessModel[] | undefined {
   const harnesses = useApp((state) => state.harnesses);
   const [catalogs, setCatalogs] = useState<Record<string, HarnessCatalog>>({});
   const wanted = [
@@ -86,6 +80,5 @@ export function useModels(
       current = false;
     };
   }, [wanted]);
-  return (settings) =>
-    catalogs[catalogKey(settings)]?.models.find((known) => known.id === settings.model);
+  return (settings) => catalogs[catalogKey(settings)]?.models;
 }

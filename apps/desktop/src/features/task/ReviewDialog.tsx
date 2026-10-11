@@ -12,7 +12,8 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import { taskTitle } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { modelLine, useModels } from "../profiles/model-line.ts";
+import { useModels } from "../profiles/model-line.ts";
+import { modelLine } from "../profiles/model-name.ts";
 import styles from "./ReviewDialog.module.css";
 
 const SAME = "same";
@@ -21,11 +22,11 @@ const SAME = "same";
 function isolationLine(harness: HarnessDescription | undefined): string {
   switch (harness?.capabilities.isolation) {
     case "full":
-      return "Fully isolated: none of your instruction files, memory, plugins or connectors are loaded.";
+      return "Your instruction files, memory, plugins and connectors are not loaded.";
     case "partial":
-      return `Isolated in part. ${harness.isolationNote ?? "Some of your own settings still load."}`;
+      return harness.isolationNote ?? "Some of your own settings still load.";
     default:
-      return "This AI app cannot isolate itself, so your own settings load. Instruction files in the workspace are still left out of the copy.";
+      return "This AI app loads your own settings.";
   }
 }
 
@@ -57,7 +58,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
 
   const { instructions: _, autonomy: __, ...settings } = agent.record.settings;
   const profile = templates.find((known) => known.id === reviewer);
-  const modelOf = useModels([settings, ...templates.map((known) => known.settings)]);
+  const modelsOf = useModels([settings, ...templates.map((known) => known.settings)]);
   const chosenHarness = profile?.settings.harness ?? settings.harness;
   const isolation = harnesses.find((known) => known.harness === chosenHarness);
   const paths = (files.value ?? [])
@@ -67,12 +68,12 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
     {
       value: SAME,
       label: `Like ${agent.name}`,
-      description: modelLine(settings, harnesses, modelOf(settings)),
+      description: modelLine(settings, harnesses, modelsOf(settings)),
     },
     ...templates.map((known) => ({
       value: known.id,
       label: known.name,
-      description: modelLine(known.settings, harnesses, modelOf(known.settings)),
+      description: modelLine(known.settings, harnesses, modelsOf(known.settings)),
     })),
   ];
 
@@ -114,8 +115,8 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
         <Dialog.Content className={`${dialog.content} ${styles.content}`}>
           <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            A fresh agent that has never seen this work checks {agent.name}'s files and tells you
-            what it finds. It works on a copy, so nothing in your workspace changes.
+            A new agent checks {agent.name}'s work on a copy of the files. Your workspace is not
+            changed.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             <label className={dialog.label}>
@@ -152,7 +153,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
                 ))
               )}
               <p className={styles.note}>
-                Copied into a new folder, without instruction files such as CLAUDE.md or AGENTS.md.
+                Instruction files such as CLAUDE.md and AGENTS.md are left out.
               </p>
             </fieldset>
             <div className={styles.reviewer}>
@@ -171,9 +172,6 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
                 {isolationLine(isolation)}
               </span>
             </div>
-            <p className={styles.note}>
-              The review shows up in this task under Reviewers, beside the team.
-            </p>
             {error === undefined ? null : (
               <p className={dialog.error} role="alert">
                 {error}

@@ -4,7 +4,8 @@ import { useTemplates } from "../../store/templates.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
-import { modelLine, useModels } from "./model-line.ts";
+import { useModels } from "./model-line.ts";
+import { modelLine } from "./model-name.ts";
 import styles from "./Templates.module.css";
 
 interface TemplatePickerProps {
@@ -25,7 +26,7 @@ export function TemplatePicker({
 }: TemplatePickerProps) {
   const harnesses = useApp((state) => state.harnesses);
   const templates = useTemplates() ?? [];
-  const modelOf = useModels(templates.map((template) => template.settings));
+  const modelsOf = useModels(templates.map((template) => template.settings));
   const picked = templates.find((template) => template.id === chosen);
 
   return (
@@ -43,10 +44,7 @@ export function TemplatePicker({
       {templates.length === 0 ? (
         <div className={styles.empty}>
           <strong>No templates yet</strong>
-          <p className={form.hint}>
-            Save time next time: open any agent's profile and choose Save as template. It will show
-            up here.
-          </p>
+          <p className={form.hint}>Use Save as template on any agent's profile.</p>
         </div>
       ) : (
         <>
@@ -65,7 +63,7 @@ export function TemplatePicker({
                 </span>
                 <span className={styles.job}>{template.role}</span>
                 <span className={styles.overview}>
-                  {modelLine(template.settings, harnesses, modelOf(template.settings))}
+                  {modelLine(template.settings, harnesses, modelsOf(template.settings))}
                 </span>
               </button>
             ))}
@@ -76,7 +74,6 @@ export function TemplatePicker({
               onClick={() => onPick(undefined)}
             >
               <strong>Start blank</strong>
-              <span className={form.hint}>Fill in everything yourself.</span>
             </button>
           </div>
           {picked === undefined ? null : (

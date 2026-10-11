@@ -5,8 +5,8 @@ import { useApp } from "../../store/app-store.ts";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { environmentName } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { useCatalog } from "../new-task/ModelList.tsx";
 import { ModelPicker } from "../new-task/ModelPicker.tsx";
+import { useCatalog } from "./model-line.ts";
 
 export type ChipSettings = RoleSettings;
 

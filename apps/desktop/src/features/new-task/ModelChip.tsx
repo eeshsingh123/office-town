@@ -8,9 +8,10 @@ import { useApp } from "../../store/app-store.ts";
 import { environmentName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { useCatalog } from "../profiles/model-line.ts";
+import { DEFAULT_MODEL, modelName } from "../profiles/model-name.ts";
 import styles from "./Composer.module.css";
-import { ModelList, useCatalog } from "./ModelList.tsx";
-import { DEFAULT_MODEL, modelName } from "./model-groups.ts";
+import { ModelList } from "./ModelList.tsx";
 
 const EFFORT_NAMES: Record<string, string> = {
   low: "Low",
@@ -42,7 +43,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
   const current = models?.find((known) => known.id === (value.model ?? DEFAULT_MODEL));
   const efforts = description?.capabilities.effort ? (current?.efforts ?? []) : [];
   const name = listsModels
-    ? (modelName(models ?? [], value.model) ?? value.model ?? "Default model")
+    ? (modelName(models, value.model) ?? "Default model")
     : (description?.name ?? value.harness);
 
   const chooseModel = (model: string | undefined) => {

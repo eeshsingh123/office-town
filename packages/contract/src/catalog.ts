@@ -4,6 +4,8 @@ export const harnessModelSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),
+  // The full id a running session reports when `id` is an alias, such as "haiku".
+  resolvedId: z.string().min(1).optional(),
   // Who serves the model, for a harness that offers models from several providers.
   provider: z.string().min(1).optional(),
   // Nothing, nothing beyond the user's plan, or a price per use.
