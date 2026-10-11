@@ -267,7 +267,7 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
                 />
               </label>
               <p className={styles.muted}>
-                Saved only in this account's own folder, for OpenCode to read.{" "}
+                OpenCode keeps it in this account's own folder.{" "}
                 <a href="https://opencode.ai/auth" target="_blank" rel="noreferrer">
                   Get a key
                 </a>

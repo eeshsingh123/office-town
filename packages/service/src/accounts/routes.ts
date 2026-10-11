@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   type Account,
   type AccountLogin,
-  type AccountStatus,
   accountKeyRequestSchema,
   accountProviders,
   accountUsageQuerySchema,
@@ -16,6 +15,7 @@ import {
   type AccountSignIn,
   listHarnesses,
   readAccountStatus,
+  saveAccountKey,
   startAccountSignIn,
 } from "@office-town/harness";
 import { z } from "zod";
@@ -24,7 +24,7 @@ import type { Route } from "../api/routes.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
-import { allAccounts } from "./accounts.ts";
+import { allAccounts, hasSignIn } from "./accounts.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 // A sign-in left open in a closed browser tab ends on its own.
@@ -37,20 +37,7 @@ interface SignIn {
   process?: AccountSignIn;
 }
 
-// OpenCode reads keys from <data folder>/opencode/auth.json.
-const openCodeKeys = (folder: string) => join(folder, "opencode", "auth.json");
-
-async function openCodeStatus(folder: string): Promise<AccountStatus> {
-  try {
-    const keys = Object.keys(JSON.parse(await readFile(openCodeKeys(folder), "utf8")));
-    const provider = accountProviders.find((one) => keys.includes(one.id));
-    return { signedIn: keys.length > 0, ...(provider && { plan: provider.label }) };
-  } catch {
-    return { signedIn: false };
-  }
-}
-
-// Routes for the accounts on the Usage page (D-60).
+// Routes for the accounts on the Usage page (D-61).
 export function accountRoutes(team: TeamContext): Route[] {
   const { store, dataFolder } = team;
   const accountsFolder = join(dataFolder, "accounts");
@@ -137,8 +124,9 @@ export function accountRoutes(team: TeamContext): Route[] {
       path: "/accounts/:id/status",
       reply: async ({ param }) => {
         const account = anyAccount(param("id"));
+        // Without a status command, an added account is signed in once its sign-in file exists.
         if (account.harness === "opencode" && account.folder !== undefined) {
-          return { status: 200, json: await openCodeStatus(account.folder) };
+          return { status: 200, json: { signedIn: hasSignIn(account) } };
         }
         const status = await readAccountStatus(
           account.harness,
@@ -157,12 +145,22 @@ export function accountRoutes(team: TeamContext): Route[] {
           throw new RequestError(400, "invalid_request", "This account signs in another way.");
         }
         const { provider, key } = accountKeyRequestSchema.parse(await body());
-        const file = openCodeKeys(account.folder);
-        await mkdir(join(account.folder, "opencode"), { recursive: true });
-        await writeFile(file, JSON.stringify({ [provider]: { type: "api", key } }, null, 2), {
-          mode: 0o600,
-        });
-        return { status: 200, json: await openCodeStatus(account.folder) };
+        const saved = await saveAccountKey(
+          account.harness,
+          account.environment,
+          account.folder,
+          provider,
+          key,
+        );
+        if (!saved || !hasSignIn(account)) {
+          throw new RequestError(
+            400,
+            "invalid_request",
+            "OpenCode did not take the key. Try again.",
+          );
+        }
+        const plan = accountProviders.find((one) => one.id === provider)?.label;
+        return { status: 200, json: { signedIn: true, ...(plan && { plan }) } };
       },
     },
     {

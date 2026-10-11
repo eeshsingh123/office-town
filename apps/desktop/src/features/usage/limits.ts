@@ -66,7 +66,7 @@ export function paceOf(limit: UsageLimit, now = Date.now()): Pace | undefined {
   return runsOutAt < resetsAt ? { elapsed, runsOutAt } : { elapsed };
 }
 
-// A session from before accounts ran on its harness's default login (D-60).
+// A session from before accounts ran on its harness's default login (D-61).
 export function sessionAccountId(options: SessionOptions): string {
   return options.accountId ?? defaultAccountId(options.harness, options.environment);
 }
@@ -86,10 +86,12 @@ export function roomiest(
   limits: Record<string, AccountLimits>,
 ): Account | undefined {
   const room = (account: Account) => fullest(limits[account.id])?.usedFraction ?? 0;
-  return accounts.reduce<Account | undefined>(
-    (best, account) => (best === undefined || room(account) < room(best) ? account : best),
-    undefined,
-  );
+  return accounts
+    .filter((account) => account.signedIn !== false)
+    .reduce<Account | undefined>(
+      (best, account) => (best === undefined || room(account) < room(best) ? account : best),
+      undefined,
+    );
 }
 
 export function sameEnvironment(a: Account["environment"], b: Account["environment"]): boolean {

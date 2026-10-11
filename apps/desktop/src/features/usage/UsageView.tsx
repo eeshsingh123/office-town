@@ -124,7 +124,7 @@ type Open =
   | { kind: "rename"; account: Account }
   | { kind: "remove"; account: Account };
 
-// Each account's plan limits, who uses it, and where the tokens went (D-60).
+// Each account's plan limits, who uses it, and where the tokens went (D-61).
 export function UsageView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
@@ -275,10 +275,10 @@ export function UsageView() {
               <span className={styles.tileLabel}>with room</span>
             </div>
             <div className={styles.tile}>
-              <span className={styles.tileName}>
-                {best === undefined ? "None" : `${nameOf(best.harness)} · ${best.name}`}
+              <span className={styles.tileName}>{best?.name ?? "None"}</span>
+              <span className={styles.tileLabel}>
+                {best === undefined ? "most room now" : `${nameOf(best.harness)} · most room now`}
               </span>
-              <span className={styles.tileLabel}>most room now</span>
             </div>
           </div>
         )}

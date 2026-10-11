@@ -53,7 +53,7 @@ export interface AppState extends Records {
   pieces: Record<string, PlanPiece>;
   // By account id.
   limits: Record<string, AccountLimits>;
-  // The default logins first, then the ones the user added (D-60).
+  // The default logins first, then the ones the user added (D-61).
   accounts: Account[];
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;

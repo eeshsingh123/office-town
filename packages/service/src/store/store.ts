@@ -189,7 +189,7 @@ export interface Store {
   listLimits(): AccountLimits[];
   // Tokens per account and agent, over the turns that ended since then.
   accountUsageSince(since: string): AccountUsage[];
-  // Only the logins the user added; the default ones are no record (D-60).
+  // Only the logins the user added; the default ones are no record (D-61).
   createAccount(account: Account): Account;
   getAccount(id: string): Account | undefined;
   listAccounts(): Account[];

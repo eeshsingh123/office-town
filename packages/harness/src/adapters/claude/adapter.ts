@@ -106,9 +106,10 @@ const catalog: CatalogQuery = {
   },
 };
 
-// Each account is a config folder of its own, which holds its login (D-60).
+// Each account is a config folder of its own, which holds its login (D-61).
 const accounts: AccountSupport = {
   env: (folder) => ({ CLAUDE_CONFIG_DIR: folder }),
+  credentials: ".credentials.json",
   login: { binary: "claude", args: ["auth", "login", "--claudeai"] },
   status: {
     command: { binary: "claude", args: ["auth", "status", "--json"] },

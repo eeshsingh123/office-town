@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -103,6 +103,8 @@ describe("session registry", () => {
       folder: join(directory, "work"),
       createdAt: new Date().toISOString(),
     });
+    mkdirSync(join(directory, "work"));
+    writeFileSync(join(directory, "work", ".credentials.json"), "{}");
     const registry = openRegistry();
     const first = await start(registry, "Write a report");
     const resetsAt = new Date(Date.now() + 3600_000).toISOString();

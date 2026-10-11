@@ -61,10 +61,11 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
   };
 }
 
-// Its keys and its sessions live in its data folder, so an account moves that folder (D-60).
-// The core writes the account's key there, since `opencode auth login` needs a terminal.
+// Its keys and its sessions live in its data folder, so an account moves that folder (D-61).
 const accounts: AccountSupport = {
   env: (folder) => ({ XDG_DATA_HOME: folder }),
+  credentials: "opencode/auth.json",
+  keyLogin: (provider) => ({ binary: "opencode", args: ["auth", "login", "--provider", provider] }),
 };
 
 // Its global config and global instructions still load (D-41).

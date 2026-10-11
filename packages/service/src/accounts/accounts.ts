@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   type Account,
   type AccountLimits,
@@ -7,7 +9,15 @@ import {
   type HarnessDescription,
   type SessionOptions,
 } from "@office-town/contract";
+import { accountCredentials } from "@office-town/harness";
 import type { Store } from "../store/store.ts";
+
+// An added account counts once its sign-in is saved in its folder; a default login always does.
+export function hasSignIn(account: Account): boolean {
+  if (account.folder === undefined) return true;
+  const file = accountCredentials(account.harness);
+  return file !== undefined && existsSync(join(account.folder, file));
+}
 
 const sameEnvironment = (a: EnvironmentSpec, b: EnvironmentSpec) =>
   a.kind === b.kind && (a.kind === "native" || (b.kind === "wsl" && a.distro === b.distro));
@@ -34,7 +44,10 @@ export function defaultAccounts(
 // Every account: the default logins first, then the ones the user added.
 export function allAccounts(store: Store, harnesses: readonly HarnessDescription[]): Account[] {
   const used = store.listAgents().map(({ settings }) => settings);
-  return [...defaultAccounts(harnesses, used), ...store.listAccounts()];
+  const added = store
+    .listAccounts()
+    .map((account) => ({ ...account, signedIn: hasSignIn(account) }));
+  return [...defaultAccounts(harnesses, used), ...added];
 }
 
 // The fullest window that has not reset yet, from 0 to 1; 0 where nothing was reported.
@@ -55,9 +68,13 @@ const chosen = (account: Account): ChosenAccount => ({
   ...(account.folder === undefined ? {} : { accountFolder: account.folder }),
 });
 
-// The agent's own pick while it exists; else the account on its harness with the most room,
-// the default login first on a tie (D-60).
-export function chooseAccount(store: Store, settings: AgentSettings): ChosenAccount {
+// The agent's own pick while it exists; else the signed-in account on its harness with the most
+// room, the default login first on a tie (D-61).
+export function chooseAccount(
+  store: Store,
+  settings: AgentSettings,
+  signedIn: (account: Account) => boolean = hasSignIn,
+): ChosenAccount {
   const { harness, environment } = settings;
   const fallback = { id: defaultAccountId(harness, environment), harness, environment };
   const candidates = [
@@ -72,9 +89,11 @@ export function chooseAccount(store: Store, settings: AgentSettings): ChosenAcco
   const picked = candidates.find((account) => account.id === settings.accountId);
   if (picked !== undefined) return chosen(picked);
   const limits = new Map(store.listLimits().map((entry) => [entry.accountId, entry]));
-  const roomiest = candidates.reduce((best, account) =>
-    fullness(limits.get(account.id)) < fullness(limits.get(best.id)) ? account : best,
-  );
+  const roomiest = candidates
+    .filter(signedIn)
+    .reduce((best, account) =>
+      fullness(limits.get(account.id)) < fullness(limits.get(best.id)) ? account : best,
+    );
   return chosen(roomiest);
 }
 

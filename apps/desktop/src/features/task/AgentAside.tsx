@@ -45,7 +45,7 @@ export function Plan({ plan }: { plan: PlanStep[] }) {
   );
 }
 
-// The provider's own usage limit is the only budget the app shows (D-29), per account (D-60).
+// The provider's own usage limit is the only budget the app shows (D-29), per account (D-61).
 function Limits({ limits, name }: { limits: UsageLimit[]; name: string }) {
   return (
     <section aria-labelledby="limits-title">

@@ -89,12 +89,16 @@ export interface CatalogQuery {
   parse(output: string[]): HarnessCatalog;
 }
 
-// How a harness keeps several logins apart, each in a folder of its own (D-60).
+// How a harness keeps several logins apart, each in a folder of its own (D-61).
 export interface AccountSupport {
   // Variables that point the CLI at an account's folder, as the harness's environment sees it.
   env(folder: string): Record<string, string>;
+  // The file in the folder that holds the sign-in, once there is one.
+  credentials: string;
   // Signs in, printing a page to open and reading a code from stdin if the page shows one.
   login?: HarnessCommand;
+  // Signs in with a key from the provider's console, read from stdin; the CLI saves it.
+  keyLogin?: (provider: string) => HarnessCommand;
   status?: { command: HarnessCommand; parse(output: string): AccountStatus };
 }
 

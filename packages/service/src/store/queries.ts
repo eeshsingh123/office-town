@@ -55,7 +55,7 @@ const PIECE_SELECT = `
   LEFT JOIN departments d ON d.ref = pp.department_ref
   LEFT JOIN tasks pt ON pt.ref = pp.piece_task_ref`;
 
-// A session's account; one from before accounts ran on its harness's default login (D-60).
+// A session's account; one from before accounts ran on its harness's default login (D-61).
 const SESSION_ACCOUNT = `coalesce(
   s.options ->> '$.accountId',
   CASE WHEN s.options ->> '$.environment.kind' = 'wsl'

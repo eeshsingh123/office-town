@@ -2,7 +2,7 @@ import { z } from "zod";
 import { usageLimitSchema } from "./events.ts";
 import { type EnvironmentSpec, environmentSpecSchema } from "./options.ts";
 
-// One login on one harness. Without a folder it is the login the CLI already has (D-60).
+// One login on one harness. Without a folder it is the login the CLI already has (D-61).
 export const accountSchema = z.object({
   id: z.string().min(1),
   harness: z.string().min(1),
@@ -10,6 +10,8 @@ export const accountSchema = z.object({
   name: z.string().trim().min(1).max(40),
   // Its own login folder in the data folder, kept apart from the user's other logins.
   folder: z.string().min(1).optional(),
+  // False while an added account has not finished signing in; Automatic skips it.
+  signedIn: z.boolean().optional(),
   createdAt: z.iso.datetime(),
 });
 export type Account = z.infer<typeof accountSchema>;

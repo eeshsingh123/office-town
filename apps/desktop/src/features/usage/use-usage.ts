@@ -20,7 +20,7 @@ export interface LimitStop {
   next?: Account;
 }
 
-// An agent whose last turn failed on an account that is used up (D-60).
+// An agent whose last turn failed on an account that is used up (D-61).
 export function limitStops(
   agents: readonly Agent[],
   isFailed: (agent: Agent) => boolean,

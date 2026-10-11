@@ -125,7 +125,7 @@ function giveWorkspacesKinds(db: DatabaseSync): void {
   }
 }
 
-// Logins of their own, each in a folder (D-60). The CLI's default login has no row.
+// Logins of their own, each in a folder (D-61). The CLI's default login has no row.
 function addAccounts(db: DatabaseSync): void {
   db.exec(`
   CREATE TABLE IF NOT EXISTS accounts (

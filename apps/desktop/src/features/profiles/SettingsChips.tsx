@@ -24,7 +24,7 @@ interface SettingsChipsProps {
 const DEFAULT_EFFORT = "~default";
 const AUTOMATIC = "~automatic";
 
-// Shown once there is more than one account to pick from (D-60).
+// Shown once there is more than one account to pick from (D-61).
 function AccountChip({
   value,
   onChange,

@@ -200,7 +200,7 @@ export class SessionRegistry {
       this.#permissionModeOf?.(earlier.agentId) ?? earlier.options.permissionMode;
     const moved = this.#movedAccount(earlier);
     if (moved !== undefined) {
-      // A conversation stays with its login, so another account starts a new one (D-60).
+      // A conversation stays with its login, so another account starts a new one (D-61).
       const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
       const options = { ...rest, ...moved, permissionMode };
       const session = this.#launch(options);

@@ -113,6 +113,37 @@ export async function startAccountSignIn(
   };
 }
 
+// Hands a key to the harness's own sign-in, which saves it (D-6); true once it says it is done.
+export async function saveAccountKey(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string,
+  provider: string,
+  key: string,
+): Promise<boolean> {
+  const { accounts } = findAdapter(harness);
+  if (accounts?.keyLogin === undefined) return false;
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const command = accounts.keyLogin(provider);
+  const exited = Promise.withResolvers<number | null>();
+  const running = await runProcess(
+    environment,
+    { ...command, env: { ...command.env, ...accounts.env(environment.toEnvironmentPath(folder)) } },
+    { onLine: () => {}, onExit: (exit) => exited.resolve(exit.code) },
+  );
+  // Its prompt takes Enter as a carriage return, as a terminal sends it.
+  running.writeLine(`${key}\r`);
+  const timer = setTimeout(() => void running.killTree(), 30_000);
+  const code = await exited.promise;
+  clearTimeout(timer);
+  return code === 0;
+}
+
+// Where an account's sign-in is saved inside its folder, for a harness that keeps accounts apart.
+export function accountCredentials(harness: string): string | undefined {
+  return findAdapter(harness).accounts?.credentials;
+}
+
 // Who is signed in on an account; undefined where the harness cannot say.
 export async function readAccountStatus(
   harness: string,
