@@ -153,7 +153,7 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
-- New task asks "What do you need done?", then "Who should handle it?" as three cards (one assistant, a department, your chief). The AI app and model fold into one "Thinks with … · Change" line. A side panel says what starting will do.
+- New task: replaced by D-58.
 - Words the user reads: "How much can it do without asking you?" (Ask me first, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
 - The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
 - New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
@@ -242,3 +242,11 @@ All accepted and built.
 - Approve all and Reject all, per group and per filtered view, with a confirm; approvals only, since questions and plans need real answers. One batch call answers them.
 - Out: undo (an action already run cannot be taken back) and "always allow this" rules (parked, owner wants them later).
 Why: the owner hit repeated web-search asks under Trusted and needs a queue that stays readable at 500 asks (research: squad.so My Tickets).
+
+### D-58 One composer starts every task — accepted (2026-10-11)
+
+- New task and Home share one box (`new-task/Composer.tsx`). Its chips, each filled with the last choice: Goes to (an assistant, a department, a new team, the chief), Workspace, Model (AI app, model, Thinking and Runs on in one menu) and Asks first / Goes ahead (Bypass last, behind its warning). A department's workspace and level show as fixed chips. Enter starts, Shift+Enter adds a line.
+- In the text, "@" picks who takes it and "/" (at the start) a template, shown as a removable tag. Under the box one plain sentence says what starting will do; New task adds Suggested tasks before the first task, then Use again.
+- A model is always shown by name: Claude Code's `default` is named after the model it stands for, and older models fold behind "N more". Gone: the three cards, the autonomy cards, the template row and the "What happens next" panel.
+- Out for now: telling the user a CLI is out of date (needs the CLI's version in the catalog and a latest-version check, a contract change).
+Why: the owner found the form vague, slow and generic-looking; Devin, Jules, Codex and Cursor all start from one input with remembered choices beside it. Same API calls, no contract change. Mockup https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9.

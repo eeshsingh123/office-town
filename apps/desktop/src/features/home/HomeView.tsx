@@ -18,10 +18,10 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
+import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
 import styles from "./Home.module.css";
-import { QuickTask } from "./QuickTask.tsx";
 
 const SHOWN_REQUESTS = 3;
 const SHOWN_TASKS = 6;
@@ -55,19 +55,24 @@ function Tiles() {
     { label: "to review", count: toReview, open: openBoard },
   ];
   return (
-    <div className={styles.tiles}>
-      {tiles.map((tile) => (
-        <button
-          key={tile.label}
-          type="button"
-          className={`${styles.tile} ${tile.label === "need you" && tile.count > 0 ? styles.tileWarn : ""}`}
-          onClick={tile.open}
-        >
-          <span className={styles.tileCount}>{tile.count}</span>
-          {tile.label}
-        </button>
-      ))}
-    </div>
+    <section className={styles.section} aria-labelledby="now-title">
+      <h2 id="now-title" className={styles.sectionTitle}>
+        Right now
+      </h2>
+      <div className={styles.tiles}>
+        {tiles.map((tile) => (
+          <button
+            key={tile.label}
+            type="button"
+            className={`${styles.tile} ${tile.label === "need you" && tile.count > 0 ? styles.tileWarn : ""}`}
+            onClick={tile.open}
+          >
+            <span className={styles.tileCount}>{tile.count}</span>
+            {tile.label}
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -354,7 +359,7 @@ export function HomeView() {
           {greeting()}
         </h1>
         <p className={styles.summary}>{summary}</p>
-        <QuickTask />
+        <Composer home />
         <Waiting />
         <Tiles />
         <div className={styles.columns}>

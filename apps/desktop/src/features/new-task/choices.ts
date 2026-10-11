@@ -14,7 +14,8 @@ export interface HarnessChoices {
 export interface Remembered {
   harness?: string;
   profileId?: string;
-  team?: boolean;
+  // Who the last task went to (`targets.ts`).
+  target?: string;
   workspaceId?: string;
   byHarness: Record<string, HarnessChoices>;
 }
@@ -53,13 +54,15 @@ export function loadRemembered(): Remembered {
   }
 }
 
-export function remember(
-  harness: string,
-  choices: HarnessChoices,
-  workspaceId?: string,
-  profileId?: string,
-  team = false,
-): void {
+interface Started {
+  harness: string;
+  choices: HarnessChoices;
+  target: string;
+  workspaceId?: string | undefined;
+  profileId?: string | undefined;
+}
+
+export function remember({ harness, choices, target, workspaceId, profileId }: Started): void {
   const remembered = loadRemembered();
   const recentModels =
     choices.model === undefined
@@ -68,6 +71,7 @@ export function remember(
   const next: Remembered = {
     ...remembered,
     harness,
+    target,
     byHarness: {
       ...remembered.byHarness,
       [harness]: { ...choices, recentModels: recentModels.slice(0, RECENT_LIMIT) },
@@ -77,7 +81,6 @@ export function remember(
   else next.workspaceId = workspaceId;
   if (profileId === undefined) delete next.profileId;
   else next.profileId = profileId;
-  next.team = team;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch (error) {

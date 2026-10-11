@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-10-10
+Last updated: 2026-10-11
 
 ## State
 
@@ -9,7 +9,8 @@ Last updated: 2026-10-10
 - D-54 (Send for review in the chat) merged as PR #34.
 - D-55 (profiles, templates) merged as PR #35: Your profile, agent Profile tab, Templates page, team rules, pop-up switches; agents copy templates. Checked in browser mode on a copy of old smoke data (migration ran; profile saved and shown first in the preview; team rules saved; lead profile edited and saved as a template; Templates cards and list; Use fills New task; Add someone opens template cards). Not checked: the Profile tab inside the office side panel (same component as the dialog), the finished-task pop-up, a live run reading About you (covered by `api.test.ts`).
 - D-56 (workspaces) merged as PR #36.
-- Active: `feat/needs-you` (D-57), PR open, waiting for the owner: Trusted removed (stored Trusted became Full), Full is the default for new tasks, departments, the chief and reviewers; Needs you rebuilt (group by, filters, search, 25 per group, Approve all / Reject all through `POST /pending-requests/answer`). Checked in browser mode on a copy of old smoke data (3 Trusted agents migrated to Full) with live haiku runs: under Ask me first, three web searches answered by a row's selection, a group's Approve all and the filtered Reject; under Full, a web search and page fetch went through with nothing asked. Not checked: hundreds of asks at once (paging covered by reading the code, grouping and filters by `needs-you-queue.test.ts`), dark mode, phone width, Group by other than Task in the UI. Mockup https://claude.ai/artifact/UyCacxP3cCoxpmPP3neQ1K.
+- D-57 (Needs you, Trusted removed) merged as PR #37.
+- Active: `feat/new-task-composer` (D-58), PR open, waiting for the owner: one composer on New task and Home with chips, "@" and "/", real model names. Checked in browser mode on a copy of old smoke data: "@te" picked Text Writer Team and showed its fixed chips, the model menu listed Haiku 5.5 with older models folded, a live haiku task started with Enter in Scratch and wrote its file, Home showed the same box with the last choices. Not checked: dark mode and phone width by eye (the pane does not draw while covered), "/" with templates, the chief and new-team starts (same calls as before), the bypass warning from the chip.
 - D-56 notes: Checked in browser mode on a copy of old smoke data (migration made Scratch, converted folders, linked old tasks); Workspaces list, detail with the shared-edit banner, the side sheet (repo + read-only extra folder, branch read from git), the picker in New task. Live run: a haiku task in Scratch made its own task folder and wrote its file. Not checked: the picker in New department and the plan card, a team in Scratch live, Remove from list in the UI, dark mode. Mockup https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb.
 - M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.

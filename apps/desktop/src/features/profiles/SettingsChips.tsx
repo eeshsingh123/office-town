@@ -1,10 +1,11 @@
 import type { RoleSettings } from "@office-town/contract";
-import { environmentKey, readCatalog } from "../../api/catalogs.ts";
+import { environmentKey } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { environmentName } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { useCatalog } from "../new-task/ModelList.tsx";
 import { ModelPicker } from "../new-task/ModelPicker.tsx";
 
 export type ChipSettings = RoleSettings;
@@ -30,14 +31,8 @@ export function SettingsChips({
   const harnesses = useApp((state) => state.harnesses);
   const description = harnesses.find((known) => known.harness === value.harness) ?? harnesses[0];
   const environments = useLoaded("environments", api.listEnvironments);
-  const catalogKey =
-    description === undefined || !description.capabilities.modelList
-      ? undefined
-      : `${description.harness}|${environmentKey(value.environment)}`;
-  const catalog = useLoaded(catalogKey, () =>
-    readCatalog(description?.harness ?? "", value.environment),
-  );
-  const models = catalog.value?.models;
+  const catalog = useCatalog(description, value.environment);
+  const models = catalog.models;
   const model = models?.find((known) => known.id === value.model);
   const efforts = description?.capabilities.effort ? (model?.efforts ?? []) : [];
   const environmentChoices = (environments.value ?? [value.environment]).map((environment) => ({
