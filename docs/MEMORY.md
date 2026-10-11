@@ -15,7 +15,8 @@ Last updated: 2026-10-11
 - D-60 (Tasks grouped by team) merged as PR #40.
 - D-61 (accounts, Usage page) merged as PR #41.
 - D-62 (side panel) merged as PR #42.
-- Active: M6 step 1, attachments (`feat/files-library`), PR open, waiting for the owner. Live run (Haiku 5.5, low) from New task with a pasted image and a markdown file: the image went inline and was described, the file was read by path, the task page showed Seen and Opened. Checked in browser mode: paste upload, chips, the no-vision warning (Big Pickle) and the Office warning. Not checked: drag and drop and the folder picker (app only), a folder or a lead passing files live (`api.test.ts` covers access and mid-task files), the chat composer and dark mode on screen (the pane did not draw). Next: step 2, Library, on a new branch once this is merged.
+- M6 step 1, attachments, merged as PR #45.
+- Active: M6 step 2, Library (`feat/library`), PR open, waiting for the owner. Live run (Haiku 5.5, low) in Scratch: a style guide given to Everyone reached the agent as reference, it was counted opened from the agent's read, and the agent added notes.md with `add_to_library`. Checked in browser mode on a copy of old data (migration ran): Library tab, Given to menu (multi-give updated live), Web team's Files section, `#` in New task and the paperclip's "From the Library". Not checked: `change_library` live and its Needs you card (covered by `library.test.ts`), the agent profile's Files section and `#` in the chat composer on screen, Add folder and drop (app only), dark mode. Earlier attachments notes: Live run (Haiku 5.5, low) from New task with a pasted image and a markdown file: the image went inline and was described, the file was read by path, the task page showed Seen and Opened. Checked in browser mode: paste upload, chips, the no-vision warning (Big Pickle) and the Office warning. Not checked: drag and drop and the folder picker (app only), a folder or a lead passing files live (`api.test.ts` covers access and mid-task files), the chat composer and dark mode on screen (the pane did not draw).
 - D-63 (office nav) merged as PR #43.
 - D-56 notes: Checked in browser mode on a copy of old smoke data (migration made Scratch, converted folders, linked old tasks); Workspaces list, detail with the shared-edit banner, the side sheet (repo + read-only extra folder, branch read from git), the picker in New task. Live run: a haiku task in Scratch made its own task folder and wrote its file. Not checked: the picker in New department and the plan card, a team in Scratch live, Remove from list in the UI, dark mode. Mockup https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb.
 - M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
@@ -41,7 +42,7 @@ Last updated: 2026-10-11
 
 ## Owner requirements not yet built
 
-- M6 step 2, Library (D-64): workspace Library page, Files in agent and department settings, @ in the composer, the agents' add tool (changes go to Needs you). Agent writes may be reworked with agent memory.
+- Library agent writes may be reworked with agent memory (D-64).
 - Agent memory: its own module after a design discussion (see MODULES.md).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.

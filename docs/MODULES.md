@@ -70,12 +70,12 @@ Known limits: under Full a shell command, and under Bypass anything, could still
 
 ## Next module
 
-### M6 Files and Library (D-64; attachments built, Library next)
+### M6 Files and Library (D-64; built)
 
 The user gives agents files, images and folders explicitly, and every one reaches the agent for real. Built in two steps, each its own PR, each end to end (core, both adapters, UI, one live run):
 
 1. **Attachments.** The composer (D-58), New task and the chat take files, images and folders: paperclip, drag and drop, paste an image. Files and images are copied read-only into the data folder; folders are linked read-only, live. The session gets read-only access, images also go inline when the model can see them, and the prompt lists every item with its exact path. A lead handing work on passes attachments with it (team tool), and a chief piece carries them. The app marks each attachment Opened or Not opened from the agent's own read and list tool calls.
-2. **Library.** Each workspace keeps reference files and folders, each given to Everyone, a department or one agent; those items are listed in every matching task's prompt as reference. A Library page inside the workspace (search, filters, "Given to", how often each item was opened), a Files section in agent and department settings, and @ in the composer to attach a Library item. Agents add new items through a team tool without approval; their edits, replacements and removals go to Needs you.
+2. **Library.** Each workspace keeps reference files and folders, each given to Everyone, a department or one agent; those items are listed in every matching task's prompt as reference. A Library page inside the workspace (search, filters, "Given to", how often each item was opened), a Files section in agent and department settings, and # in the composer to attach a Library item. Agents add new items through a team tool without approval; their edits, replacements and removals go to Needs you.
 
 Out of scope: indexing and search over file contents (later, on top of this), reading Office files for the agent, editing Library files in the app. Mockup: https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm.
 
