@@ -132,7 +132,9 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             {task.leadAgentId === undefined ? null : (
               <span className={styles.chip}>
                 <span className={team.dot} aria-hidden />
-                {department?.name ?? "Proposing a team"}
+                {task.workerAgentIds !== undefined
+                  ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
+                  : (department?.name ?? "Proposing a team")}
               </span>
             )}
             <span className={styles.chip}>

@@ -43,6 +43,19 @@ function RowIcon({ status }: { status: RowStatus }) {
 // Handles stay in the office (D-59): a team's row shows faces and how many help the lead.
 function Who({ item, team, byTeam }: { item: Item; team: Team; byTeam: boolean }) {
   const [first, ...others] = item.agents;
+  const group = item.task?.workerAgentIds;
+  if (group !== undefined) {
+    return (
+      <span className={styles.who}>
+        <span className={styles.faces}>
+          {item.agents.slice(0, 3).map((agent) => (
+            <Avatar key={agent.id} name={agent.name} colour={agent.colour} size={20} />
+          ))}
+        </span>
+        <span className={styles.whoName}>{group.length + 1} agents</span>
+      </span>
+    );
+  }
   if (team.key === "solo" && first !== undefined) {
     return (
       <span className={styles.who}>
