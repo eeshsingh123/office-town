@@ -9,6 +9,8 @@ import fileStyles from "../attachments/Attachments.module.css";
 import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
+import { useLibrary } from "../library/library.ts";
+import { useLibraryPicker } from "../library/use-library-picker.tsx";
 import { useOffice } from "../office/office-state.ts";
 import styles from "./Chat.module.css";
 
@@ -19,6 +21,17 @@ function useLead(agent: AgentRecord) {
       agent.departmentId === undefined ? undefined : state.departments[agent.departmentId];
     if (department === undefined || department.leadAgentId === agent.id) return undefined;
     return state.agents[department.leadAgentId];
+  });
+}
+
+// Its department's, else that of the task it worked on last.
+function useWorkspaceOf(agent: AgentRecord): string | undefined {
+  return useApp((state) => {
+    if (agent.departmentId !== undefined) return state.departments[agent.departmentId]?.workspaceId;
+    const latest = Object.values(state.sessions)
+      .filter((session) => session.agentId === agent.id)
+      .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    return latest === undefined ? undefined : state.tasks[latest.taskId]?.task.workspaceId;
   });
 }
 
@@ -48,6 +61,14 @@ export function Composer({
   const attached = useAttachments();
   const { harness, environment, model } = agent.settings;
   const seesImages = useSeesImages({ harness, environment, ...(model ? { model } : {}) });
+  const library = useLibrary(useWorkspaceOf(agent));
+  const picker = useLibraryPicker({
+    items: library,
+    text,
+    setText,
+    field,
+    onPick: attached.addFromLibrary,
+  });
 
   useEffect(() => {
     if (compose === undefined) return;
@@ -76,6 +97,7 @@ export function Composer({
     }
   };
   const onKeyDown = (event: KeyboardEvent) => {
+    if (picker.onKeyDown(event)) return;
     // Enter while an input method composes picks a word; it does not send.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       void send(event);
@@ -95,7 +117,8 @@ export function Composer({
       )}
       <PickedFiles files={attached} seesImages={seesImages} />
       <div className={styles.box}>
-        <AttachButton files={attached} className={fileStyles.attach} />
+        {picker.list}
+        <AttachButton files={attached} library={library} className={fileStyles.attach} />
         <label htmlFor={id} className="visually-hidden">
           Message {agent.name}
         </label>
@@ -105,7 +128,12 @@ export function Composer({
           rows={1}
           value={text}
           placeholder={`Message ${agent.name}`}
-          onChange={(change) => setText(change.target.value)}
+          {...picker.comboboxProps}
+          onChange={(change) => {
+            setText(change.target.value);
+            picker.onInput(change.target.value, change.target.selectionStart);
+          }}
+          onBlur={picker.close}
           onKeyDown={onKeyDown}
           onPaste={attached.onPaste}
         />

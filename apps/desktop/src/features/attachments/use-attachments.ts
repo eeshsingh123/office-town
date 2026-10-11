@@ -1,6 +1,7 @@
 import {
   type Attachment,
   type AttachmentKind,
+  type LibraryItem,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
 } from "@office-town/contract";
@@ -17,6 +18,7 @@ export interface Picked {
   bytes?: number;
   attachment?: Attachment;
   error?: string;
+  fromLibrary?: true;
 }
 
 const errorText = (failure: unknown) =>
@@ -65,6 +67,19 @@ export function useAttachments() {
     add({ key: crypto.randomUUID(), name, kind: "folder" }, () => api.linkFolder(path));
   };
 
+  // Already kept by the core, so it is ready at once; picking it twice adds it once.
+  const addFromLibrary = ({ file }: LibraryItem) => {
+    if (picked.some((one) => one.attachment?.id === file.id)) return;
+    add({
+      key: crypto.randomUUID(),
+      name: file.name,
+      kind: file.kind,
+      ...(file.bytes === undefined ? {} : { bytes: file.bytes }),
+      attachment: file,
+      fromLibrary: true,
+    });
+  };
+
   const onPaste = (event: ClipboardEvent) => {
     const files = [...event.clipboardData.files];
     if (files.length === 0) return;
@@ -109,6 +124,7 @@ export function useAttachments() {
     dragging,
     addFiles,
     addFolder,
+    addFromLibrary,
     remove: (key: string) => setPicked((list) => list.filter((one) => one.key !== key)),
     clear: () => setPicked([]),
     onPaste,
