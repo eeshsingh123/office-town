@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { agentSettingsSchema, newAgentSchema } from "./agents.ts";
+import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { absolutePathSchema } from "./options.ts";
 
@@ -67,6 +68,7 @@ export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
 // this one task: a lead and the workers it hands work to.
 export const startTeamTaskRequestSchema = z.object({
   goal: z.string().min(1),
+  attachments: attachmentIdsSchema.optional(),
   team: z.union([
     z.object({ departmentId: z.string().min(1) }),
     z.object({ lead: newAgentSchema, workspaceId: z.string().min(1), autonomy: autonomySchema }),
@@ -92,7 +94,10 @@ export const delegationRecordSchema = z.object({
 });
 export type DelegationRecord = z.infer<typeof delegationRecordSchema>;
 
-export const continueTaskRequestSchema = z.object({ prompt: z.string().trim().optional() });
+export const continueTaskRequestSchema = z.object({
+  prompt: z.string().trim().optional(),
+  attachments: attachmentIdsSchema.optional(),
+});
 export type ContinueTaskRequest = z.infer<typeof continueTaskRequestSchema>;
 
 // A fresh, isolated agent examining a copy of some of the task's files (D-18).

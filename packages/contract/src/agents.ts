@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { environmentSpecSchema, harnessSettingSchema } from "./options.ts";
 
@@ -61,6 +62,7 @@ export type AgentRecord = z.infer<typeof agentRecordSchema>;
 export const agentMessageRequestSchema = z.object({
   text: z.string().trim().min(1),
   taskId: z.string().min(1).optional(),
+  attachments: attachmentIdsSchema.optional(),
 });
 export type AgentMessageRequest = z.infer<typeof agentMessageRequestSchema>;
 

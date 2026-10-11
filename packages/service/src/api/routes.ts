@@ -8,6 +8,8 @@ import {
   continueTaskRequestSchema,
   departmentSettingsSchema,
   environmentSpecSchema,
+  linkFolderRequestSchema,
+  MAX_ATTACHMENT_BYTES,
   newDepartmentRequestSchema,
   profileRequestSchema,
   renameAgentRequestSchema,
@@ -28,11 +30,12 @@ import { accountRoutes } from "../accounts/routes.ts";
 import { createAgent } from "../agents/agents.ts";
 import { instructionsFor, soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
 import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
-import { foldersForTask, requireWorkspaceFolders } from "../task-folders.ts";
+import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
 import { messageAgent } from "../team/direct-message.ts";
@@ -51,6 +54,8 @@ export interface RouteRequest {
   param(name: string): string;
   query: URLSearchParams;
   body(): Promise<unknown>;
+  // The raw body, refused past `limit` bytes.
+  bytes(limit: number): Promise<Buffer>;
 }
 
 export type Reply =
@@ -78,6 +83,7 @@ export function apiRoutes(team: TeamContext): Route[] {
       path: "/tasks",
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
+        const attachments = resolveAttachments(store, request.attachments);
         const folders = foldersForTask(store, request.workspaceId, request.prompt);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt, undefined, {
@@ -88,7 +94,10 @@ export function apiRoutes(team: TeamContext): Route[] {
             taskId: task.id,
             agentId: agent.id,
             options: sessionOptionsFor(store, agent, folders),
-            message: soloMessage(request.prompt, instructionsFor(store, agent)),
+            message: {
+              ...soloMessage(request.prompt, instructionsFor(store, agent)),
+              attachments,
+            },
           }),
         );
         return { status: 201, json: session };
@@ -105,10 +114,13 @@ export function apiRoutes(team: TeamContext): Route[] {
     {
       method: "POST",
       path: "/tasks/chief",
-      reply: async ({ body }) => ({
-        status: 201,
-        json: await startChiefGoal(team, chiefTaskRequestSchema.parse(await body()).goal),
-      }),
+      reply: async ({ body }) => {
+        const { goal, attachments } = chiefTaskRequestSchema.parse(await body());
+        return {
+          status: 201,
+          json: await startChiefGoal(team, goal, resolveAttachments(store, attachments)),
+        };
+      },
     },
     {
       method: "GET",
@@ -204,8 +216,28 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/tasks/:id/continue",
       reply: async ({ param, body }) => {
-        const { prompt } = continueTaskRequestSchema.parse(await body());
-        return { status: 201, json: await continueTeam(team, param("id"), prompt) };
+        const { prompt, attachments } = continueTaskRequestSchema.parse(await body());
+        const given = resolveAttachments(store, attachments);
+        return { status: 201, json: await continueTeam(team, param("id"), prompt, given) };
+      },
+    },
+    {
+      method: "POST",
+      path: "/attachments",
+      reply: async ({ query, bytes }) => {
+        const name = query.get("name")?.trim() ?? "";
+        if (name === "") throw new RequestError(400, "invalid_request", "A file needs a name.");
+        const content = await bytes(MAX_ATTACHMENT_BYTES);
+        return { status: 201, json: store.saveFile({ ...fileKindOf(name), name, content }) };
+      },
+    },
+    {
+      method: "POST",
+      path: "/attachments/folder",
+      reply: async ({ body }) => {
+        const { path } = linkFolderRequestSchema.parse(await body());
+        requireFolders([path]);
+        return { status: 201, json: store.linkFolder(path) };
       },
     },
     {
@@ -221,9 +253,10 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/sessions/:id/resume",
       reply: async ({ param, body }) => {
-        const { prompt } = resumeSessionRequestSchema.parse(await body());
+        const { prompt, attachments } = resumeSessionRequestSchema.parse(await body());
+        const given = resolveAttachments(store, attachments);
         const taskId = store.getSession(param("id"))?.taskId;
-        const resume = () => registry.resume(param("id"), { text: prompt });
+        const resume = () => registry.resume(param("id"), { text: prompt, attachments: given });
         const json =
           taskId === undefined
             ? await resume()
@@ -300,8 +333,9 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/agents/:id/messages",
       reply: async ({ param, body }) => {
-        const { text, taskId } = agentMessageRequestSchema.parse(await body());
-        await messageAgent(team, param("id"), text, taskId);
+        const { text, taskId, attachments } = agentMessageRequestSchema.parse(await body());
+        const given = resolveAttachments(store, attachments);
+        await messageAgent(team, param("id"), text, taskId, given);
         return NO_CONTENT;
       },
     },

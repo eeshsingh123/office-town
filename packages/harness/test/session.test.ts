@@ -16,6 +16,7 @@ const passthroughAdapter: Adapter = {
     modelList: false,
     resume: false,
     usageLimits: false,
+    images: false,
     isolation: "none",
   },
   buildCommand: () => ({ binary: "replayed", args: [] }),
@@ -103,6 +104,41 @@ describe("session", () => {
 
     expect(environment.request?.cwd).toBe("inside:/workspace");
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
+  });
+
+  it("lists a message's files by the paths the agent sees, inline only where the harness carries images", async () => {
+    const environment = new ScriptedEnvironment();
+    environment.toEnvironmentPath = (hostPath) => `inside:${hostPath}`;
+    const { session, events } = await startSession(environment);
+    const shot = {
+      id: "shot",
+      kind: "image" as const,
+      name: "shot.png",
+      path: "/files/shot.png",
+      bytes: 2048,
+      mimeType: "image/png",
+      createdAt: new Date(0).toISOString(),
+      inline: true as const,
+    };
+
+    await session.send({ type: "prompt", text: "Match this", attachments: [shot] });
+
+    expect(environment.written).toContain("- shot.png (image, 2 KB)");
+    expect(environment.written).toContain("  inside:/files/shot.png");
+    expect(events.at(-1)?.payload).toEqual({
+      role: "user",
+      text: "Match this",
+      attachments: [
+        {
+          id: "shot",
+          kind: "image",
+          name: "shot.png",
+          path: "/files/shot.png",
+          bytes: 2048,
+          mimeType: "image/png",
+        },
+      ],
+    });
   });
 
   it("gives a permission request the kind and host paths of the action it asks for", async () => {

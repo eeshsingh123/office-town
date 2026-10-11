@@ -2,6 +2,7 @@ import type { SessionEvent, SessionEventBody, SessionRecord } from "@office-town
 import { describe, expect, it } from "vitest";
 import type { StreamedEvent } from "../src/api/event-stream.ts";
 import { describeActions, toBlocks } from "../src/trace/blocks.ts";
+import { fileUses } from "../src/trace/file-uses.ts";
 import { agentState, progressOf } from "../src/trace/progress.ts";
 import { applyEvents, emptyTrace, requestKey, type TraceAction } from "../src/trace/trace.ts";
 
@@ -162,5 +163,42 @@ describe("trace", () => {
     expect(agentState({ status: "interrupted" } as SessionRecord, closed, false)).toBe(
       "interrupted",
     );
+  });
+
+  it("marks a sent file opened only by the agent's own reads on its path, a folder by the files read inside", () => {
+    const given = (id: string, kind: "file" | "folder", path: string) => ({
+      id,
+      kind,
+      name: id,
+      path,
+    });
+    const trace = applyEvents(
+      emptyTrace(SESSION),
+      stream(
+        {
+          type: "message",
+          payload: {
+            role: "user",
+            text: "Use these",
+            attachments: [
+              given("brief", "file", "C:\\Files\\brief.md"),
+              given("kit", "folder", "C:\\Kit"),
+              given("unread", "file", "C:\\Files\\unread.md"),
+            ],
+          },
+        },
+        started("a", { locations: ["c:/files/BRIEF.md"] }),
+        started("b", { kind: "search", locations: ["C:\\Kit\\Button.tsx", "C:\\Kit\\Card.tsx"] }),
+        started("c", { kind: "edit", locations: ["C:\\Files\\unread.md"] }),
+      ),
+    );
+    const [uses] = fileUses(trace).values();
+    expect(
+      uses?.map((use) => [use.attachment.id, use.openedAt !== undefined, use.filesOpened]),
+    ).toEqual([
+      ["brief", true, 0],
+      ["kit", true, 2],
+      ["unread", false, 0],
+    ]);
   });
 });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sentAttachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
 import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
@@ -130,6 +131,7 @@ const payloadSchemas = {
     parentActionId: z.string().optional(),
     // Set on a message the core sent in the user's place.
     origin: messageOriginSchema.optional(),
+    attachments: z.array(sentAttachmentSchema).optional(),
   }),
   reasoning: z.object({
     text: z.string(),

@@ -1,4 +1,10 @@
-import type { AgentRecord, DepartmentRecord, SessionRecord } from "@office-town/contract";
+import type {
+  AgentRecord,
+  Attachment,
+  DepartmentRecord,
+  SessionRecord,
+} from "@office-town/contract";
+import { environmentPath } from "@office-town/harness";
 import { z } from "zod";
 import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
@@ -53,13 +59,16 @@ async function startWork(
   caller: Caller,
   worker: AgentRecord,
   work: string,
+  attachments: Attachment[],
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const lead = { id: team.lead.id, name: team.lead.name };
+  const given = attachments.length === 0 ? {} : { attachments };
+  const next = { ...nextWork(lead, work), ...given };
   const earlier = latestSession(context, caller.taskId, worker.id);
   if (earlier !== undefined && isOpen(earlier)) {
     try {
-      await registry.tell(earlier.id, nextWork(lead, work));
+      await registry.tell(earlier.id, next);
       return earlier;
     } catch (error) {
       // It was being stopped for being idle: it is resumed instead.
@@ -68,7 +77,7 @@ async function startWork(
   }
   if (earlier?.harnessSessionId !== undefined) {
     try {
-      return await registry.resume(earlier.id, nextWork(lead, work));
+      return await registry.resume(earlier.id, next);
     } catch (error) {
       // A folder removed since, such as a merged worktree: the worker starts afresh.
       if (!(error instanceof FolderNotFoundError)) throw error;
@@ -89,16 +98,39 @@ async function startWork(
         ...new Set([...folders.readOnlyPaths, ...readOnlyFoldersOfTask(store, caller.taskId)]),
       ],
     }),
-    message: workerBrief({
-      goal: team.goal,
-      teamName: team.name,
-      role: worker.role ?? "worker",
-      lead,
-      folders,
-      branch,
-      instructions: instructionsFor(store, worker),
-      work,
-    }),
+    message: {
+      ...workerBrief({
+        goal: team.goal,
+        teamName: team.name,
+        role: worker.role ?? "worker",
+        lead,
+        folders,
+        branch,
+        instructions: instructionsFor(store, worker),
+        work,
+      }),
+      ...given,
+    },
+  });
+}
+
+// The lead names files from its own list, by path as it sees them or by name.
+function filesToPass(context: TeamContext, caller: Caller, wanted: string[]): Attachment[] {
+  const { store } = context;
+  const environment = store.getSession(caller.sessionId)?.options.environment;
+  const known = store.taskAttachments(caller.taskId);
+  return wanted.map((name) => {
+    const found = known.find(
+      (attachment) =>
+        attachment.name === name ||
+        attachment.path === name ||
+        (environment !== undefined && environmentPath(environment, attachment.path) === name),
+    );
+    if (found === undefined) {
+      const names = known.map((attachment) => attachment.name).join(", ") || "none";
+      throw new ToolError(`"${name}" is not one of the files you were given. Yours: ${names}.`);
+    }
+    return found;
   });
 }
 
@@ -110,15 +142,21 @@ export function delegate(context: TeamContext) {
     description:
       "Hand one of your workers a piece of work. The brief must stand alone: the worker knows " +
       "the team's goal but nothing of your conversation. It returns at once; the worker's " +
-      "result reaches you later as a message. Workers run at the same time.",
+      "result reaches you later as a message. Workers run at the same time. To pass on files " +
+      "the user gave you, list them in files; the worker gets them read-only.",
     input: z.object({
       agent: z.string().min(1).describe("The worker's name, such as @ben-1042."),
       brief: z.string().min(1).describe("What to do, what to hand back, and any constraints."),
+      files: z
+        .array(z.string().min(1))
+        .optional()
+        .describe("Files from your list to pass on, each by its exact path or name."),
     }),
     offeredTo: isLead(context),
-    async call({ agent, brief }, caller) {
+    async call({ agent, brief, files = [] }, caller) {
       const team = teamOf(context, caller);
       if (team === undefined) throw new ToolError(NOT_YET);
+      const attachments = filesToPass(context, caller, files);
       const worker = team.workers.find((member) => member.name === agent);
       if (worker === undefined) {
         const names = team.workers.map((member) => member.name).join(", ") || "none yet";
@@ -134,7 +172,7 @@ export function delegate(context: TeamContext) {
           `${worker.name} is still working on its last piece. Its result will reach you as a message.`,
         );
       }
-      const session = await startWork(context, team, caller, worker, brief);
+      const session = await startWork(context, team, caller, worker, brief, attachments);
       if (!isOpen(session)) {
         throw new ToolError(`${worker.name} could not start. Its trace says why.`);
       }

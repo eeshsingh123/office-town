@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
   ActionKind,
@@ -8,6 +9,7 @@ import type {
   PlanStep,
   Question,
   QuestionAnswer,
+  SentAttachment,
   SessionCommand,
   SessionEvent,
   SessionEventBody,
@@ -16,16 +18,20 @@ import type {
 import type {
   Adapter,
   AdapterEvent,
+  InlineImage,
   LaunchExtras,
   LaunchOptions,
   Translation,
   Translator,
 } from "./adapter.ts";
+import { attachmentNote } from "./attachments.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 
 const STOP_GRACE_MS = 3000;
 const UNREADABLE_LINE_CHARS = 500;
+
+type PromptCommand = Extract<SessionCommand, { type: "prompt" }>;
 
 type SessionState = "created" | "starting" | "active" | "stopping" | "failing" | "ended";
 
@@ -146,17 +152,7 @@ export class HarnessSession implements Session {
       case "start":
         return this.#start();
       case "prompt":
-        this.#requireActive("prompt");
-        this.#emit({
-          type: "message",
-          payload: {
-            role: "user",
-            text: command.text,
-            ...(command.origin === undefined ? {} : { origin: command.origin }),
-          },
-        });
-        this.#apply(this.#translator.prompt(command.text));
-        return;
+        return this.#prompt(command);
       case "answerPermission":
         this.#requireActive("answer a permission");
         this.#answerPermission(command.requestId, command.optionId, command.answeredBy);
@@ -172,6 +168,43 @@ export class HarnessSession implements Session {
       case "stop":
         return this.#stop(command.idle === true);
     }
+  }
+
+  // The agent is told the paths it sees where it runs; the stream keeps host paths, as for actions.
+  // An image goes inline only if the harness can carry it.
+  #prompt(command: PromptCommand): void {
+    this.#requireActive("prompt");
+    const images: InlineImage[] = [];
+    const sent = (command.attachments ?? []).map((attachment): SentAttachment => {
+      const inline = attachment.inline === true && this.capabilities.images;
+      if (inline) {
+        const mimeType = attachment.mimeType ?? "image/png";
+        images.push({ mimeType, data: readFileSync(attachment.path).toString("base64") });
+      }
+      return {
+        id: attachment.id,
+        kind: attachment.kind,
+        name: attachment.name,
+        path: attachment.path,
+        ...(attachment.bytes === undefined ? {} : { bytes: attachment.bytes }),
+        ...(attachment.mimeType === undefined ? {} : { mimeType: attachment.mimeType }),
+        ...(inline ? { inline } : {}),
+      };
+    });
+    this.#emit({
+      type: "message",
+      payload: {
+        role: "user",
+        text: command.text,
+        ...(command.origin === undefined ? {} : { origin: command.origin }),
+        ...(sent.length === 0 ? {} : { attachments: sent }),
+      },
+    });
+    const seen = sent.map((one) => ({
+      ...one,
+      path: this.#environment.toEnvironmentPath(one.path),
+    }));
+    this.#apply(this.#translator.prompt(command.text + attachmentNote(seen), images));
   }
 
   report(body: CoreReport): void {

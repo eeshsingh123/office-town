@@ -71,6 +71,9 @@ const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS cr
 const WORKSPACE_COLUMNS =
   "ref, id, name, kind, folders, created_at AS createdAt, used_at AS usedAt";
 
+const ATTACHMENT_COLUMNS = `
+  ref, id, kind, name, path, bytes, mime_type AS mimeType, sha256, created_at AS createdAt`;
+
 // The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
@@ -291,6 +294,33 @@ export const queries = {
   openTasksOfWorkspace: "SELECT id FROM tasks WHERE workspace_ref = ? AND state <> 'ended'",
   workspaceUsed: "UPDATE workspaces SET used_at = ? WHERE ref = ?",
   deleteWorkspace: "DELETE FROM workspaces WHERE ref = ?",
+
+  insertAttachment: `
+    INSERT INTO attachments (id, kind, name, path, bytes, mime_type, sha256, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  attachmentById: `SELECT ${ATTACHMENT_COLUMNS} FROM attachments WHERE id = ?`,
+  latestAttachmentAt: `
+    SELECT ${ATTACHMENT_COLUMNS} FROM attachments WHERE path = ? ORDER BY ref DESC LIMIT 1`,
+  linkAttachment: `
+    INSERT OR IGNORE INTO task_attachments (task_ref, attachment_ref)
+    SELECT ?, ref FROM attachments WHERE id = ?`,
+  // Those no other task was sent too.
+  attachmentsOnlyOfTask: `
+    SELECT a.ref, a.id, a.kind FROM task_attachments ta
+    JOIN attachments a ON a.ref = ta.attachment_ref
+    WHERE ta.task_ref = ? AND NOT EXISTS (
+      SELECT 1 FROM task_attachments o
+      WHERE o.attachment_ref = ta.attachment_ref AND o.task_ref <> ta.task_ref)`,
+  unsentAttachments: `
+    SELECT a.ref, a.id, a.kind FROM attachments a
+    WHERE a.created_at < ?
+      AND NOT EXISTS (SELECT 1 FROM task_attachments ta WHERE ta.attachment_ref = a.ref)`,
+  attachmentsOfTask: `
+    SELECT ${ATTACHMENT_COLUMNS} FROM attachments
+    WHERE ref IN (SELECT attachment_ref FROM task_attachments WHERE task_ref = ?)
+    ORDER BY ref`,
+  deleteAttachment: "DELETE FROM attachments WHERE ref = ?",
+  updateSessionOptions: "UPDATE sessions SET options = ? WHERE id = ?",
 
   settingByKey: "SELECT value FROM settings WHERE key = ?",
   saveSetting: `

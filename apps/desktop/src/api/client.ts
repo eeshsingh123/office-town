@@ -12,6 +12,7 @@ import {
   type AnswerPermissionsRequest,
   type AnswerPermissionsResult,
   type ApiError,
+  type Attachment,
   accountLimitsSchema,
   accountLoginSchema,
   accountSchema,
@@ -20,6 +21,7 @@ import {
   agentRecordSchema,
   answerPermissionsResultSchema,
   apiErrorSchema,
+  attachmentSchema,
   type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
@@ -101,7 +103,7 @@ export class ApiRequestError extends Error {
 async function call(method: string, path: string, body?: unknown): Promise<Response> {
   const response = await fetch(`/api${path}`, {
     method,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body === undefined ? {} : { body: body instanceof Blob ? body : JSON.stringify(body) }),
   });
   if (response.ok) return response;
   const error = apiErrorSchema.safeParse(await response.json().catch(() => undefined));
@@ -133,7 +135,14 @@ function environmentQuery(environment: EnvironmentSpec): string {
     : "environment=native";
 }
 
+// Left out when empty, so a message without files reads as before.
+const withFiles = (attachments: string[] = []) => (attachments.length === 0 ? {} : { attachments });
+
 export const api = {
+  uploadFile: (file: Blob, name: string): Promise<Attachment> =>
+    write("POST", `/attachments?name=${id(name)}`, file, attachmentSchema),
+  linkFolder: (path: string): Promise<Attachment> =>
+    write("POST", "/attachments/folder", { path }, attachmentSchema),
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),
@@ -141,8 +150,13 @@ export const api = {
   deleteTask: (taskId: string): Promise<void> => send("DELETE", `/tasks/${id(taskId)}`),
   getSession: (sessionId: string): Promise<SessionRecord> =>
     read(`/sessions/${id(sessionId)}`, sessionRecordSchema),
-  resume: (sessionId: string, prompt: string): Promise<SessionRecord> =>
-    write("POST", `/sessions/${id(sessionId)}/resume`, { prompt }, sessionRecordSchema),
+  resume: (sessionId: string, prompt: string, attachments?: string[]): Promise<SessionRecord> =>
+    write(
+      "POST",
+      `/sessions/${id(sessionId)}/resume`,
+      { prompt, ...withFiles(attachments) },
+      sessionRecordSchema,
+    ),
   command: (sessionId: string, command: AgentCommand): Promise<void> =>
     send("POST", `/sessions/${id(sessionId)}/commands`, command),
   stop: (sessionId: string): Promise<void> => send("POST", `/sessions/${id(sessionId)}/stop`),
@@ -161,15 +175,20 @@ export const api = {
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
   markReviewed: (taskId: string): Promise<TaskRecord> =>
     write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
-  startChiefTask: (goal: string): Promise<TaskDetail> =>
-    write("POST", "/tasks/chief", { goal }, taskDetailSchema),
+  startChiefTask: (goal: string, attachments?: string[]): Promise<TaskDetail> =>
+    write("POST", "/tasks/chief", { goal, ...withFiles(attachments) }, taskDetailSchema),
   getPlan: (taskId: string): Promise<PlanPiece[]> =>
     read(`/tasks/${id(taskId)}/plan`, listOf(planPieceSchema)),
   getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),
   saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
     write("PUT", "/chief", { settings }, agentRecordSchema),
-  messageAgent: (agentId: string, text: string, taskId?: string): Promise<void> =>
-    send("POST", `/agents/${id(agentId)}/messages`, { text, taskId }),
+  messageAgent: (
+    agentId: string,
+    text: string,
+    taskId?: string,
+    attachments?: string[],
+  ): Promise<void> =>
+    send("POST", `/agents/${id(agentId)}/messages`, { text, taskId, ...withFiles(attachments) }),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
   listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>

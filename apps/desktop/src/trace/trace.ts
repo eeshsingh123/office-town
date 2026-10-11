@@ -3,6 +3,7 @@ import type {
   MessageOrigin,
   Overflow,
   PlanStep,
+  SentAttachment,
   SessionEvent,
   UserRequestEvent,
 } from "@office-town/contract";
@@ -39,6 +40,7 @@ export interface TraceMessage {
   at: string;
   // Set when the core sent it in the user's place.
   origin?: MessageOrigin;
+  attachments?: SentAttachment[];
 }
 
 export interface TraceReasoning {
@@ -172,7 +174,7 @@ function apply(trace: Trace, event: SessionEvent): void {
       return;
     }
     case "message": {
-      const { role, text, parentActionId, origin } = event.payload;
+      const { role, text, parentActionId, origin, attachments } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
       if (text.trim() === "") return;
       trace.items.set(event.id, {
@@ -182,6 +184,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         text,
         at: event.timestamp,
         ...(origin === undefined ? {} : { origin }),
+        ...(attachments === undefined ? {} : { attachments }),
       });
       place(trace, event.id, parentActionId);
       return;

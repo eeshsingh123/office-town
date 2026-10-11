@@ -48,6 +48,7 @@ const adapter: Adapter = {
     modelList: true,
     resume: false,
     usageLimits: false,
+    images: false,
     isolation: "none",
   },
   catalog: {

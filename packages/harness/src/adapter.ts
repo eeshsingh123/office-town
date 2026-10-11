@@ -73,10 +73,16 @@ export interface Translation {
   partial?: boolean;
 }
 
+// Base64, for a harness whose protocol carries images (`capabilities.images`).
+export interface InlineImage {
+  mimeType: string;
+  data: string;
+}
+
 export interface Translator {
   open(): string[];
   receive(line: string): Translation;
-  prompt(text: string): Translation;
+  prompt(text: string, images: InlineImage[]): Translation;
   answerPermission(requestId: string, option: PermissionOption): Translation;
   answerQuestion(requestId: string, answers: AnsweredQuestion[]): Translation;
   interrupt(): Translation;

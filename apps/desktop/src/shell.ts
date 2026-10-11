@@ -4,6 +4,8 @@ interface ShellBridge {
   openFolder(path: string): Promise<void>;
   showWindow(): Promise<void>;
   setTheme(theme: "light" | "dark" | "system"): Promise<void>;
+  // Where a dropped file or folder is on disk.
+  pathOf(file: File): string;
 }
 
 declare global {

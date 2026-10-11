@@ -127,6 +127,7 @@ describe("claude adapter", () => {
         description: "Opus 5.5 · Best for everyday, complex tasks",
         resolvedId: "claude-opus-5-5",
         efforts: ["low", "medium", "high", "xhigh", "max"],
+        inputs: ["image", "pdf"],
       },
       {
         id: "sonnet",
@@ -134,6 +135,7 @@ describe("claude adapter", () => {
         description: "Efficient for routine tasks",
         resolvedId: "claude-sonnet-5-5",
         efforts: ["low", "medium", "high", "xhigh", "max"],
+        inputs: ["image", "pdf"],
       },
       {
         id: "haiku",
@@ -141,6 +143,7 @@ describe("claude adapter", () => {
         description: "Fastest for quick answers",
         resolvedId: "claude-haiku-4-5-20251001",
         efforts: [],
+        inputs: ["image", "pdf"],
       },
     ]);
   });

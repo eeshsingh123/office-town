@@ -7,13 +7,24 @@ const modelSchema = z.looseObject({
   name: z.string(),
   providerID: z.string().min(1).optional(),
   cost: z.looseObject({ input: z.number(), output: z.number() }).optional(),
-  capabilities: z.looseObject({ toolcall: z.boolean() }).optional(),
+  capabilities: z
+    .looseObject({
+      toolcall: z.boolean(),
+      input: z.looseObject({ image: z.boolean(), pdf: z.boolean() }).optional(),
+    })
+    .optional(),
   variants: z.record(z.string(), z.unknown()).optional(),
 });
 type Model = z.infer<typeof modelSchema>;
 
 // OpenCode Go is OpenCode's own subscription; its models list a price but cost nothing beyond it.
 const PLAN_PROVIDER = "opencode-go";
+
+function inputsOf({ capabilities }: Model): HarnessModel["inputs"] {
+  const input = capabilities?.input;
+  if (input === undefined) return undefined;
+  return [...(input.image ? ["image" as const] : []), ...(input.pdf ? ["pdf" as const] : [])];
+}
 
 function accessOf({ cost, providerID }: Model): HarnessModel["access"] {
   if (cost === undefined) return undefined;
@@ -93,6 +104,7 @@ const catalog: CatalogQuery = {
       if (line !== "}") continue;
       const model = modelSchema.parse(JSON.parse(description.join("")));
       const access = accessOf(model);
+      const inputs = inputsOf(model);
       // A model that cannot call tools, such as one for images or speech, is useless to an agent.
       if (model.capabilities?.toolcall !== false) {
         models.push({
@@ -101,6 +113,7 @@ const catalog: CatalogQuery = {
           ...(model.providerID === undefined ? {} : { provider: model.providerID }),
           ...(access === undefined ? {} : { access }),
           efforts: Object.keys(model.variants ?? {}),
+          ...(inputs === undefined ? {} : { inputs }),
         });
       }
       id = undefined;
@@ -120,6 +133,7 @@ export const opencodeAdapter = createAcpAdapter({
     modelList: true,
     resume: true,
     usageLimits: false,
+    images: true,
     isolation: "partial",
   },
   isolationNote: "OpenCode's global settings and instructions still load.",

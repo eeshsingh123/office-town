@@ -15,7 +15,8 @@ Last updated: 2026-10-11
 - D-60 (Tasks grouped by team) merged as PR #40.
 - D-61 (accounts, Usage page) merged as PR #41.
 - D-62 (side panel) merged as PR #42.
-- Active: `feat/office-nav` (D-63), PR open, waiting for the owner: Back/Forward with history, breadcrumbs, double-click to chat, the reworked group selection, group tasks, pinned strip. Checked in browser mode on a copy of the panel smoke data: double-click opened Chat with the box focused, Ctrl+click made a group, Pin showed the strip on Tasks, "Back to Office · 2 agents" and Alt+← restored the selection. Live run (haiku): a group task led by one agent delegated to the other, the result reached the lead and the task ended. Not checked: mouse side buttons, the icon rail's arrows, a busy agent in the group dialog, Stop N at work, dark mode. Mockup https://claude.ai/artifact/X8bKVJSAfW9ucLBHXWWvVB.
+- Active: M6 step 1, attachments (`feat/files-library`), PR open, waiting for the owner. Live run (Haiku 5.5, low) from New task with a pasted image and a markdown file: the image went inline and was described, the file was read by path, the task page showed Seen and Opened. Checked in browser mode: paste upload, chips, the no-vision warning (Big Pickle) and the Office warning. Not checked: drag and drop and the folder picker (app only), a folder or a lead passing files live (`api.test.ts` covers access and mid-task files), the chat composer and dark mode on screen (the pane did not draw). Next: step 2, Library, on a new branch once this is merged.
+- D-63 (office nav) merged as PR #43.
 - D-56 notes: Checked in browser mode on a copy of old smoke data (migration made Scratch, converted folders, linked old tasks); Workspaces list, detail with the shared-edit banner, the side sheet (repo + read-only extra folder, branch read from git), the picker in New task. Live run: a haiku task in Scratch made its own task folder and wrote its file. Not checked: the picker in New department and the plan card, a team in Scratch live, Remove from list in the UI, dark mode. Mockup https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb.
 - M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
@@ -40,7 +41,7 @@ Last updated: 2026-10-11
 
 ## Owner requirements not yet built
 
-- M6 Files and Library (D-64): next to build, in a new session; attachments first, then Library. Agent writes to the Library may be reworked with agent memory.
+- M6 step 2, Library (D-64): workspace Library page, Files in agent and department settings, @ in the composer, the agents' add tool (changes go to Needs you). Agent writes may be reworked with agent memory.
 - Agent memory: its own module after a design discussion (see MODULES.md).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.

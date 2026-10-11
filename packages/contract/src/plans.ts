@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { agentSettingsSchema } from "./agents.ts";
+import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { roleSettingsSchema } from "./team.ts";
 
@@ -80,5 +81,8 @@ export type PlanPiece = z.infer<typeof planPieceSchema>;
 export const chiefRequestSchema = z.object({ settings: agentSettingsSchema });
 export type ChiefRequest = z.infer<typeof chiefRequestSchema>;
 
-export const chiefTaskRequestSchema = z.object({ goal: z.string().min(1) });
+export const chiefTaskRequestSchema = z.object({
+  goal: z.string().min(1),
+  attachments: attachmentIdsSchema.optional(),
+});
 export type ChiefTaskRequest = z.infer<typeof chiefTaskRequestSchema>;

@@ -5,6 +5,7 @@ import type {
   AgentColour,
   AgentRecord,
   AgentSettings,
+  Attachment,
   Autonomy,
   Change,
   DelegationRecord,
@@ -34,6 +35,13 @@ export interface NewSession {
   agentId: string;
   options: SessionOptions;
   resumedFrom?: string;
+}
+
+export interface NewFile {
+  kind: "file" | "image";
+  name: string;
+  mimeType?: string;
+  content: Buffer;
 }
 
 export interface NewAgentRecord {
@@ -168,6 +176,8 @@ export interface Store {
   owesTurn(sessionId: string): boolean;
   // A subagent's messages do not count.
   lastMessage(sessionId: string): string | undefined;
+  // Grows when files reach a running session, so the policy and a resume see them.
+  updateSessionOptions(id: string, options: SessionOptions): SessionRecord;
   // Run at startup; the sessions' delegations are cut off too.
   markInterrupted(): SessionRecord[];
   createDelegation(delegation: NewDelegation): DelegationRecord;
@@ -225,6 +235,18 @@ export interface Store {
   workspaceActivity(id: string): WorkspaceActivity;
   // Moves it to the top of the list.
   useWorkspace(id: string): WorkspaceRecord;
+  // Copied into the data folder, read-only.
+  saveFile(file: NewFile): Attachment;
+  linkFolder(path: string): Attachment;
+  getAttachment(id: string): Attachment | undefined;
+  // The newest one at that path.
+  attachmentAt(path: string): Attachment | undefined;
+  // Oldest first.
+  taskAttachments(taskId: string): Attachment[];
+  // Deleted with the task, unless another task was sent them too.
+  linkAttachments(taskId: string, attachmentIds: string[]): void;
+  // Uploaded before then and never sent.
+  deleteUnsentAttachments(before: Date): Promise<void>;
   readSettings(): Settings;
   // Only the settings given change.
   saveSettings(settings: Settings): void;
@@ -240,6 +262,7 @@ export class RecordNotFoundError extends Error {
       | "result"
       | "workspace"
       | "agent"
+      | "attachment"
       | "profile"
       | "department"
       | "account"

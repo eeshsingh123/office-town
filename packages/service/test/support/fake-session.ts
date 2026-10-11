@@ -18,6 +18,7 @@ export class FakeSession implements Session {
     modelList: false,
     resume: true,
     usageLimits: false,
+    images: false,
     isolation: "none" as const,
   };
   readonly sent: SessionCommand[] = [];

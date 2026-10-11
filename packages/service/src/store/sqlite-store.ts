@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
@@ -9,6 +9,7 @@ import {
   type AccountUsage,
   type AgentRecord,
   type AgentSettings,
+  type Attachment,
   type Change,
   type DelegationRecord,
   type DepartmentRecord,
@@ -38,6 +39,7 @@ import {
   type WorkspaceRecord,
   type WorkspaceRequest,
 } from "@office-town/contract";
+import { AttachmentFiles } from "./attachment-files.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { queries } from "./queries.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
@@ -54,6 +56,7 @@ import {
   type NewAgentRecord,
   type NewDelegation,
   type NewDepartment,
+  type NewFile,
   type NewPiece,
   type NewSession,
   type PieceChange,
@@ -199,6 +202,20 @@ interface WorkspaceRow {
   createdAt: number;
   usedAt: number;
 }
+
+interface AttachmentRow {
+  ref: number;
+  id: string;
+  kind: Attachment["kind"];
+  name: string;
+  path: string;
+  bytes: number | null;
+  mimeType: string | null;
+  sha256: string | null;
+  createdAt: number;
+}
+
+type AttachmentRef = Pick<AttachmentRow, "ref" | "id" | "kind">;
 
 type Statements = Record<keyof typeof queries, StatementSync>;
 
@@ -347,6 +364,19 @@ function isUniqueViolation(error: unknown): boolean {
   return (error as { errcode?: number }).errcode === SQLITE_CONSTRAINT_UNIQUE;
 }
 
+function toAttachment(row: AttachmentRow): Attachment {
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    path: row.path,
+    ...(row.bytes === null ? {} : { bytes: row.bytes }),
+    ...(row.mimeType === null ? {} : { mimeType: row.mimeType }),
+    ...(row.sha256 === null ? {} : { sha256: row.sha256 }),
+    createdAt: iso(row.createdAt),
+  };
+}
+
 function toWorkspace(row: WorkspaceRow): WorkspaceRecord {
   return {
     id: row.id,
@@ -373,13 +403,19 @@ function toStoredEvent(row: EventRow): StoredEvent {
 export function openStore(directory: string): Store {
   mkdirSync(directory, { recursive: true });
   const file = join(directory, "store.db");
-  return new SqliteStore(openDatabase(file), file, new ResultFiles(join(directory, "results")));
+  return new SqliteStore(
+    openDatabase(file),
+    file,
+    new ResultFiles(join(directory, "results")),
+    new AttachmentFiles(join(directory, "files")),
+  );
 }
 
 class SqliteStore implements Store {
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
+  readonly #files: AttachmentFiles;
   readonly #statements: Statements;
   // While a task's rows are deleted in chunks, no new session may join it.
   readonly #deleting = new Set<string>();
@@ -387,10 +423,11 @@ class SqliteStore implements Store {
   readonly #outbox: Change[] = [];
   #publishing = false;
 
-  constructor(db: DatabaseSync, file: string, results: ResultFiles) {
+  constructor(db: DatabaseSync, file: string, results: ResultFiles, files: AttachmentFiles) {
     this.#db = db;
     this.#file = file;
     this.#results = results;
+    this.#files = files;
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -511,8 +548,12 @@ class SqliteStore implements Store {
       }
       // Deleting a chief's goal clears its pieces' link to it, so they are published again.
       const children = all<{ id: string }>(this.#statements.childTasks, task.ref);
+      const attachments = all<AttachmentRef>(this.#statements.attachmentsOnlyOfTask, task.ref);
       transaction(this.#db, () => {
         this.#statements.deleteTask.run(task.ref);
+        for (const attachment of attachments) {
+          this.#statements.deleteAttachment.run(attachment.ref);
+        }
         for (const ref of new Set(agents.map((agent) => agent.ref))) {
           this.#statements.deleteAgentIfUnused.run(ref);
         }
@@ -521,6 +562,7 @@ class SqliteStore implements Store {
       this.#publish({ type: "task.deleted", taskId: id });
       for (const child of children) this.#publishTask(child.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
+      await this.#removeCopies(attachments);
       await this.#returnFreeSpace();
     } finally {
       this.#deleting.delete(id);
@@ -550,6 +592,13 @@ class SqliteStore implements Store {
       createdAt: iso(createdAt),
       ...(resumedFrom === undefined ? {} : { resumedFrom }),
     };
+  }
+
+  updateSessionOptions(id: string, options: SessionOptions): SessionRecord {
+    this.#statements.updateSessionOptions.run(JSON.stringify(options), id);
+    const session = this.getSession(id);
+    if (session === undefined) throw new RecordNotFoundError("session", id);
+    return session;
   }
 
   getSession(id: string): SessionRecord | undefined {
@@ -1011,6 +1060,76 @@ class SqliteStore implements Store {
     const now = Date.now();
     this.#statements.workspaceUsed.run(now, row.ref);
     return toWorkspace({ ...row, usedAt: now });
+  }
+
+  saveFile({ kind, name, mimeType, content }: NewFile): Attachment {
+    const id = randomUUID();
+    const saved = this.#files.save(id, name, content);
+    const createdAt = Date.now();
+    this.#statements.insertAttachment.run(
+      id,
+      kind,
+      name,
+      saved.path,
+      saved.bytes,
+      mimeType ?? null,
+      saved.sha256,
+      createdAt,
+    );
+    return {
+      id,
+      kind,
+      name,
+      path: saved.path,
+      bytes: saved.bytes,
+      ...(mimeType === undefined ? {} : { mimeType }),
+      sha256: saved.sha256,
+      createdAt: iso(createdAt),
+    };
+  }
+
+  linkFolder(path: string): Attachment {
+    const id = randomUUID();
+    const name = basename(path) || path;
+    const createdAt = Date.now();
+    this.#statements.insertAttachment.run(id, "folder", name, path, null, null, null, createdAt);
+    return { id, kind: "folder", name, path, createdAt: iso(createdAt) };
+  }
+
+  getAttachment(id: string): Attachment | undefined {
+    const row = one<AttachmentRow>(this.#statements.attachmentById, id);
+    return row === undefined ? undefined : toAttachment(row);
+  }
+
+  attachmentAt(path: string): Attachment | undefined {
+    const row = one<AttachmentRow>(this.#statements.latestAttachmentAt, path);
+    return row === undefined ? undefined : toAttachment(row);
+  }
+
+  taskAttachments(taskId: string): Attachment[] {
+    const { ref } = this.#taskRow(taskId);
+    return all<AttachmentRow>(this.#statements.attachmentsOfTask, ref).map(toAttachment);
+  }
+
+  linkAttachments(taskId: string, attachmentIds: string[]): void {
+    const { ref } = this.#taskRow(taskId);
+    transaction(this.#db, () => {
+      for (const id of attachmentIds) this.#statements.linkAttachment.run(ref, id);
+    });
+  }
+
+  async deleteUnsentAttachments(before: Date): Promise<void> {
+    const unsent = all<AttachmentRef>(this.#statements.unsentAttachments, before.getTime());
+    transaction(this.#db, () => {
+      for (const attachment of unsent) this.#statements.deleteAttachment.run(attachment.ref);
+    });
+    await this.#removeCopies(unsent);
+  }
+
+  // A linked folder is the user's own, so only copies are removed.
+  async #removeCopies(attachments: AttachmentRef[]): Promise<void> {
+    const copies = attachments.filter((attachment) => attachment.kind !== "folder");
+    await Promise.all(copies.map((attachment) => this.#files.remove(attachment.id)));
   }
 
   readSettings(): Settings {

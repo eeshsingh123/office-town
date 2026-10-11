@@ -5,6 +5,10 @@ import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
+import fileStyles from "../attachments/Attachments.module.css";
+import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
+import { useAttachments } from "../attachments/use-attachments.ts";
+import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useOffice } from "../office/office-state.ts";
 import styles from "./Chat.module.css";
 
@@ -41,6 +45,9 @@ export function Composer({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
+  const attached = useAttachments();
+  const { harness, environment, model } = agent.settings;
+  const seesImages = useSeesImages({ harness, environment, ...(model ? { model } : {}) });
 
   useEffect(() => {
     if (compose === undefined) return;
@@ -52,14 +59,15 @@ export function Composer({
   const send = async (event?: FormEvent) => {
     event?.preventDefault();
     const message = text.trim();
-    if (message === "" || sending) return;
+    if (message === "" || sending || attached.adding) return;
     setSending(true);
     setError(undefined);
     const noted = lead !== undefined && leadAtWork(lead.id);
     try {
-      await api.messageAgent(agent.id, message, followUp);
+      await api.messageAgent(agent.id, message, followUp, attached.ids);
       if (noted) onNoted(message);
       setText("");
+      attached.clear();
       setFollowUp(undefined);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -75,13 +83,19 @@ export function Composer({
   };
 
   return (
-    <form className={styles.composer} onSubmit={send}>
+    <form
+      className={`${styles.composer} ${attached.dragging ? fileStyles.dropping : ""}`}
+      onSubmit={send}
+      {...attached.dropHandlers}
+    >
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
           {error}
         </p>
       )}
+      <PickedFiles files={attached} seesImages={seesImages} />
       <div className={styles.box}>
+        <AttachButton files={attached} className={fileStyles.attach} />
         <label htmlFor={id} className="visually-hidden">
           Message {agent.name}
         </label>
@@ -93,13 +107,14 @@ export function Composer({
           placeholder={`Message ${agent.name}`}
           onChange={(change) => setText(change.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={attached.onPaste}
         />
         <Button
           type="submit"
           variant="primary"
           icon
           aria-label="Send"
-          disabled={text.trim() === "" || sending}
+          disabled={text.trim() === "" || sending || attached.adding}
         >
           <ArrowUp size={16} aria-hidden />
         </Button>

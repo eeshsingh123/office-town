@@ -3,6 +3,7 @@ import {
   type AdapterEvent,
   type AnsweredQuestion,
   attachedTool,
+  type InlineImage,
   type Translation,
   type Translator,
 } from "../../adapter.ts";
@@ -187,13 +188,23 @@ export class ClaudeTranslator implements Translator {
     return handler === undefined ? translated([]) : handler(message);
   }
 
-  prompt(text: string): Translation {
+  prompt(text: string, images: InlineImage[]): Translation {
+    const content =
+      images.length === 0
+        ? text
+        : [
+            ...images.map(({ mimeType, data }) => ({
+              type: "image",
+              source: { type: "base64", media_type: mimeType, data },
+            })),
+            { type: "text", text },
+          ];
     return translated(
       [],
       [
         JSON.stringify({
           type: "user",
-          message: { role: "user", content: text },
+          message: { role: "user", content },
           parent_tool_use_id: null,
           session_id: "",
         }),

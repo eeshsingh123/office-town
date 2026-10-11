@@ -1,5 +1,6 @@
 import type { DelegationRecord } from "@office-town/contract";
 import { describeActions } from "../../trace/blocks.ts";
+import { type FileUse, fileUses } from "../../trace/file-uses.ts";
 import type { Trace, TraceAction, TraceMessage } from "../../trace/trace.ts";
 
 export type ThreadState = "working" | "done" | "failed" | "stopped";
@@ -17,10 +18,18 @@ export interface DelegationThread {
 }
 
 export type ChatItem =
-  | { kind: "user"; id: string; text: string; at: string }
+  | { kind: "user"; id: string; text: string; at: string; files?: FileUse[] }
   | { kind: "agent"; id: string; text: string; at: string }
   // A brief, or another agent's message.
-  | { kind: "passed"; id: string; text: string; at: string; from?: string; brief: boolean }
+  | {
+      kind: "passed";
+      id: string;
+      text: string;
+      at: string;
+      from?: string;
+      brief: boolean;
+      files?: FileUse[];
+    }
   | { kind: "notice"; id: string; text: string }
   // A run of tool calls between messages, in one line.
   | { kind: "work"; id: string; text: string }
@@ -44,10 +53,14 @@ function delegationOf(
   };
 }
 
-function itemOf(message: TraceMessage): ChatItem | undefined {
+function itemOf(message: TraceMessage, files: FileUse[] | undefined): ChatItem | undefined {
   const { id, text, at, origin } = message;
-  if (origin === undefined)
-    return { kind: message.role === "user" ? "user" : "agent", id, text, at };
+  const given = files === undefined ? {} : { files };
+  if (origin === undefined) {
+    return message.role === "user"
+      ? { kind: "user", id, text, at, ...given }
+      : { kind: "agent", id, text, at };
+  }
   switch (origin.kind) {
     case "brief":
       return {
@@ -57,9 +70,10 @@ function itemOf(message: TraceMessage): ChatItem | undefined {
         at,
         brief: true,
         ...(origin.from ? { from: origin.from } : {}),
+        ...given,
       };
     case "message":
-      return { kind: "passed", id, text, at, brief: false, from: origin.from };
+      return { kind: "passed", id, text, at, brief: false, from: origin.from, ...given };
     case "notice":
       return { kind: "notice", id, text: origin.summary };
     case "piece":
@@ -90,6 +104,7 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
     run = [];
   };
   for (const trace of traces) {
+    const uses = fileUses(trace);
     for (const id of trace.order) {
       const entry = trace.items.get(id);
       if (entry?.kind === "action") {
@@ -140,7 +155,7 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
         thread.result = entry.text;
         continue;
       }
-      const item = itemOf(entry);
+      const item = itemOf(entry, uses.get(id));
       if (item !== undefined) items.push(item);
     }
   }
