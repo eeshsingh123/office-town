@@ -75,7 +75,7 @@ A catalog model may carry `access`: `free`, `plan` or `paid`, set by the adapter
 ### D-39 Team tools come from the core's own MCP server — accepted (2026-10-05)
 
 The core serves MCP over HTTP on its own port and attaches it to each session with one token per session. Tools return at once; outcomes reach the agent later as a message from the core.
-Why: both CLIs call MCP tools, so delegation works the same on every harness and M6 connectors attach through the same seam; tools that wait on people would hit harness timeouts.
+Why: both CLIs call MCP tools, so delegation works the same on every harness and M7 connectors attach through the same seam; tools that wait on people would hit harness timeouts.
 
 ### D-41 Harness facts from the M4.1 spike — accepted (2026-10-05)
 
@@ -103,7 +103,7 @@ Why: names and roles survive resumes and goals, and agent memory will hang off t
 - Team tools are offered to a lead from its first session, since a harness reads its tool list once.
 - A request a tool makes is stored and answered like a harness's own.
 - Trace title and kind for our tools come from one rule (`trace/team-tools.ts`), never per adapter.
-Why: M6 connectors attach through the same seam, so it stays harness-neutral.
+Why: M7 connectors attach through the same seam, so it stays harness-neutral.
 
 ### D-44 Delegation and results — accepted (2026-10-05)
 
@@ -193,7 +193,7 @@ Why: two answers to one question, one saved and one not, three words for one ide
 
 ### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
 
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M6.
+Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M7.
 
 ### D-23 macOS is a target, parked — accepted
 
@@ -293,3 +293,15 @@ Why: the owner found the panel cramped (hidden tabs still took space), the Work 
 - Group task (owner): the user picks a lead among free selected agents; the others are its workers for that task only (`task.workerAgentIds`, table `task_workers`). Each agent keeps its own settings, permissions and its department's rules; work happens in one workspace, by default the lead's; no branch per worker; the lead cannot propose a different team. Busy agents (an open session on a working or waiting task) cannot be picked, and a lead cannot hand work to a worker that became busy elsewhere. The chief and reviewers stay out. Tasks lists a group task under its lead's department, as "N agents".
 - Pinned agents show in a strip at the bottom of every screen, kept in the browser across restarts, until unpinned.
 Why: the owner had no way back from any screen, double-click did nothing, and a drag selection only offered messages that could not reach finished agents.
+
+### D-64 Files and Library — accepted (2026-10-11)
+
+- Attachments go with a message or task; a workspace Library holds reference items given to Everyone, a department or one agent (owner chose this over attachments only, and over an indexed knowledge base: search hands agents fragments, which is where made-up answers start; it can come later on top).
+- Files and images are copied read-only into the data folder with size and checksum, so what the user picked is what the agent gets; a Library file changes only through Replace. Folders are linked read-only and live, like workspace extra folders (D-56) (owner).
+- Every item reaches the session the same way: read-only access to its path (`--add-dir`, OpenCode `external_directory`), and a list in the prompt with name, type, size and exact path, telling the agent to open a file before relying on it and to say so if it cannot. Images also go inline (Claude stream-json `image` block; ACP `image`) when the model can see them. Claude Code 2.1.296 on Windows was probed and works; OpenCode reports image and PDF input per model (`opencode models --verbose`, `capabilities.input`).
+- An image for a model that cannot see images: warn on the chip and send the path only; never block (owner).
+- The app marks each item Opened or Not opened from the agent's read and list tool calls on its path. Not opened is amber only for items attached to that message; Library items are available, not required.
+- Agents can write to the Library through a team tool (owner): adding a new item needs no approval and shows "Added by <agent>"; replacing, editing, removing or changing who an item is given to goes to Needs you first. To be reworked with agent memory if needed.
+- Limits: 20 MB per file, 5 MB per inline image (larger images go as a path only), none on linked folders (owner).
+- Built in two PRs, attachments then Library, each end to end. It comes before connectors (now M7) (owner).
+Why: the app had no way to give an agent a file, and a file the agent never opened must not be described as if it had.

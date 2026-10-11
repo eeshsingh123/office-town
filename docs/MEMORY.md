@@ -40,6 +40,7 @@ Last updated: 2026-10-11
 
 ## Owner requirements not yet built
 
+- M6 Files and Library (D-64): next to build, in a new session; attachments first, then Library. Agent writes to the Library may be reworked with agent memory.
 - Agent memory: its own module after a design discussion (see MODULES.md).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
@@ -47,7 +48,7 @@ Last updated: 2026-10-11
 
 ## Open questions for the owner
 
-- Where agent memory sits in the order; connector deep dive (D-11); final name.
+- Where agent memory sits in the order; connector deep dive (D-11, now M7); final name.
 
 ## What the harnesses do
 
