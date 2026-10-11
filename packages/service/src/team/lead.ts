@@ -16,6 +16,24 @@ export function leadsTeam(store: Store, caller: Caller): boolean {
   );
 }
 
+export const groupName = (lead: { name: string }) => `${lead.name}'s group`;
+
+// Agents picked together for one task, with no department behind them.
+export function isGroupTask(store: Store, taskId: string): boolean {
+  return store.getTask(taskId)?.workerAgentIds !== undefined;
+}
+
+// At work on a task that has not ended, so it cannot be picked for another.
+export function busyAgents(store: Store, agentIds: string[]): string[] {
+  const busy = new Set(
+    store
+      .listActiveTasks()
+      .filter((task) => task.state === "working" || task.state === "waiting")
+      .flatMap((task) => task.sessions.filter(isOpen).map((session) => session.agentId)),
+  );
+  return agentIds.filter((id) => busy.has(id));
+}
+
 export function latestSession(
   { store }: TeamContext,
   taskId: string,

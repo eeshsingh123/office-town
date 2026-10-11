@@ -374,6 +374,31 @@ Tests pass.`,
     ).toBe(409);
     expect((await core.call("POST", "/agents/nobody/messages", { text: "Hi" })).status).toBe(404);
   });
+
+  it("starts a group of picked agents under one of them, refusing busy ones on both sides", async () => {
+    const { department, writer, tester } = await teamAtWork();
+    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
+    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id ?? "";
+    const group = (leadAgentId: string, workerAgentIds: string[]) =>
+      core.call("POST", "/tasks/team", {
+        goal: "Write the opening hours",
+        team: { leadAgentId, workerAgentIds, workspaceId: department.workspaceId },
+      });
+
+    const busy = await group(department.leadAgentId, [idOf(writer)]);
+    expect(busy).toMatchObject({ status: 400, json: { message: expect.stringContaining("Busy") } });
+
+    const started = await group(idOf(writer), [idOf(tester)]);
+    expect(started.status).toBe(201);
+    const task = core.store.getTask(core.store.getSession(started.json.id)?.taskId ?? "");
+    expect(task).toMatchObject({ leadAgentId: idOf(writer), workerAgentIds: [idOf(tester)] });
+    expect(lastSent(1)).toMatchObject({ text: expect.stringContaining(`- ${tester}, Tester`) });
+    expect(
+      (await core.callTool(core.sessions[1], "delegate", { agent: tester, brief: "Check" })).text,
+    ).toContain(`Delegated to ${tester}`);
+    const taken = await core.callTool(core.sessions[0], "delegate", { agent: tester, brief: "x" });
+    expect(taken).toMatchObject({ isError: true, text: expect.stringContaining("busy") });
+  });
 });
 
 async function teamMembers(): Promise<string[]> {

@@ -25,6 +25,8 @@ export const taskRecordSchema = z.object({
   // Set on a team's task; `departmentId` once the team is approved.
   leadAgentId: z.string().min(1).optional(),
   departmentId: z.string().min(1).optional(),
+  // Set on a group task: the agents picked to work under its lead.
+  workerAgentIds: z.array(z.string().min(1)).optional(),
   // Set on a piece of a chief's plan.
   parentTaskId: z.string().min(1).optional(),
   // Where its agents work; a chief's goal has none.

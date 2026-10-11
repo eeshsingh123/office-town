@@ -8,14 +8,16 @@ import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, workerBrief } from "./briefs.ts";
-import { isOpen, latestSession, leadsTeam } from "./lead.ts";
+import { busyAgents, groupName, isOpen, latestSession, leadsTeam } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
 import { workerFolders } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 80;
 
 interface LedTeam {
-  department: DepartmentRecord;
+  name: string;
+  // None for a group task.
+  department: DepartmentRecord | undefined;
   lead: AgentRecord;
   goal: string;
   workers: AgentRecord[];
@@ -23,12 +25,17 @@ interface LedTeam {
 
 function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
   const task = store.getTask(caller.taskId);
-  if (task?.leadAgentId !== caller.agentId || task.departmentId === undefined) return undefined;
-  const department = store.getDepartment(task.departmentId);
   const lead = store.getAgent(caller.agentId);
-  if (department === undefined || lead === undefined) return undefined;
+  if (task?.leadAgentId !== caller.agentId || lead === undefined) return undefined;
+  if (task.workerAgentIds !== undefined) {
+    const workers = task.workerAgentIds.flatMap((id) => store.getAgent(id) ?? []);
+    return { name: groupName(lead), department: undefined, lead, goal: task.prompt, workers };
+  }
+  if (task.departmentId === undefined) return undefined;
+  const department = store.getDepartment(task.departmentId);
+  if (department === undefined) return undefined;
   const workers = store.listMembers(department.id).filter((member) => member.id !== lead.id);
-  return { department, lead, goal: task.prompt, workers };
+  return { name: department.name, department, lead, goal: task.prompt, workers };
 }
 
 // A harness reads its tools once, at start, so a lead has them from its first session.
@@ -84,7 +91,7 @@ async function startWork(
     }),
     message: workerBrief({
       goal: team.goal,
-      teamName: team.department.name,
+      teamName: team.name,
       role: worker.role ?? "worker",
       lead,
       folders,
@@ -118,6 +125,10 @@ export function delegate(context: TeamContext) {
         throw new ToolError(`${agent} is not on your team. Your workers: ${names}.`);
       }
       const earlier = latestSession(context, caller.taskId, worker.id);
+      const here = earlier !== undefined && isOpen(earlier);
+      if (!here && busyAgents(store, [worker.id]).length > 0) {
+        throw new ToolError(`${worker.name} is busy on another task. Try again once it is free.`);
+      }
       if (earlier !== undefined && store.workingDelegation(earlier.id) !== undefined) {
         throw new ToolError(
           `${worker.name} is still working on its last piece. Its result will reach you as a message.`,
@@ -180,7 +191,7 @@ export function teamStatus(context: TeamContext, activity: SessionActivity) {
         return `- ${worker.name}, ${worker.role ?? "worker"} (${runs}): ${stateOf(context, activity, caller, worker, waiting)}`;
       });
       const open = store.listDelegations(caller.taskId).filter((one) => one.status === "working");
-      return `${team.department.name}:\n${lines.join("\n") || "No workers yet."}\n\nWork still out: ${open.length}.`;
+      return `${team.name}:\n${lines.join("\n") || "No workers yet."}\n\nWork still out: ${open.length}.`;
     },
   });
 }

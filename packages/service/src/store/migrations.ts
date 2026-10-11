@@ -436,4 +436,14 @@ export const migrations: readonly Migration[] = [
   WHERE instr(payload, '"autonomy":"trusted"') > 0;
   `,
   addAccounts,
+  `
+  -- The agents picked together for one task, who work under its lead.
+  CREATE TABLE IF NOT EXISTS task_workers (
+    task_ref  INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    agent_ref INTEGER NOT NULL REFERENCES agents (ref),
+    PRIMARY KEY (task_ref, agent_ref)
+  ) STRICT, WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS task_workers_by_agent ON task_workers (agent_ref);
+  `,
 ];

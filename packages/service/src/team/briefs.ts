@@ -120,6 +120,8 @@ export function leadBrief(input: {
   // Whether the lead also commits, pushes and opens a pull request.
   branches: boolean;
   codeFlow: boolean;
+  // A group the user picked cannot be changed by its lead.
+  fixedTeam?: boolean;
 }): Message {
   const branches = input.branches
     ? "\n\nThis workspace is a git repository, and each worker works on a branch of its own, made from your branch's last commit: commit what a worker needs before you hand out its piece. When a worker's result says its work is committed, merge its branch into yours."
@@ -127,6 +129,9 @@ export function leadBrief(input: {
   const codeFlow = input.codeFlow
     ? "\n\nWhen the goal is done, commit your work, push your branch and open a pull request with the gh command; they use the user's own git and GitHub logins."
     : "";
+  const change = input.fixedTeam
+    ? "The user picked this team for this task, so it cannot change."
+    : "If the team needs to change, propose the whole new team with propose_team.";
   const text = `You lead ${input.teamName} in Office Town, an app where a team of AI agents works on a goal for the user. Each worker runs in its own harness and session; you hand them work and put their results together.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -139,6 +144,6 @@ ${input.roster}
 
 Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Do the rest yourself, then put the results together.${branches}${codeFlow}
 
-If the team needs to change, propose the whole new team with propose_team. If you cannot go on without the user's decision, ask with the ask_user tool.`;
+${change} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return { text, origin: { kind: "brief", summary: "The goal and your team" } };
 }

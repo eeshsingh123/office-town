@@ -16,8 +16,14 @@ import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { foldersForTask, type TaskFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
-import { isOpen, latestSession } from "./lead.ts";
-import { DepartmentBusyError, rosterOf, type TeamContext, TeamError } from "./members.ts";
+import { busyAgents, groupName, isOpen, latestSession } from "./lead.ts";
+import {
+  DepartmentBusyError,
+  describeWorkers,
+  rosterOf,
+  type TeamContext,
+  TeamError,
+} from "./members.ts";
 import { isRepository } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
@@ -159,6 +165,11 @@ export async function startTeamTask(
     ...folders,
     readOnlyPaths: [...new Set([...folders.readOnlyPaths, ...(piece?.readOnlyPaths ?? [])])],
   });
+  if ("workerAgentIds" in team) {
+    if (piece !== undefined)
+      throw new TeamError("A part of the chief's plan goes to a department.");
+    return startGroupTask(context, goal, team);
+  }
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
@@ -216,6 +227,69 @@ export async function startTeamTask(
     requireWanted(piece);
     return registry.start({ taskId: task.id, agentId: lead.id, options, message });
   });
+}
+
+type GroupTeam = Extract<StartTeamTaskRequest["team"], { workerAgentIds: string[] }>;
+
+function groupOf(store: Store, { leadAgentId, workerAgentIds }: GroupTeam) {
+  const ids = [leadAgentId, ...workerAgentIds];
+  if (new Set(ids).size !== ids.length) throw new TeamError("Each agent can be picked once.");
+  const agents = ids.map((id) => {
+    const agent = store.getAgent(id);
+    if (agent === undefined) throw new RecordNotFoundError("agent", id);
+    return agent;
+  });
+  const chiefId = store.readSettings().chiefAgentId;
+  if (agents.some((agent) => agent.guest === true || agent.id === chiefId)) {
+    throw new TeamError("The chief and reviewers cannot join a group task.");
+  }
+  const [lead, ...workers] = agents;
+  if (lead === undefined) throw new RecordNotFoundError("agent", leadAgentId);
+  return { lead, workers };
+}
+
+// Agents the user picked on the floor, each on its own settings, in one workspace (D-63).
+async function startGroupTask(
+  context: TeamContext,
+  goal: string,
+  team: GroupTeam,
+): Promise<SessionRecord> {
+  const { store, registry } = context;
+  const { lead, workers } = groupOf(store, team);
+  const ids = [lead.id, ...workers.map((worker) => worker.id)];
+  const busy = [...busyAgents(store, ids), ...ids.filter((id) => isClaimed(id))];
+  if (busy.length > 0) {
+    const names = [...new Set(busy)].map((id) => store.getAgent(id)?.name ?? id);
+    throw new TeamError(`Busy on another task: ${names.join(", ")}.`);
+  }
+  const release = hold(ids, undefined);
+  try {
+    const folders = foldersForTask(store, team.workspaceId, goal);
+    const task = store.createTask(
+      goal,
+      { leadAgentId: lead.id, workerAgentIds: team.workerAgentIds },
+      { workspaceId: team.workspaceId },
+    );
+    return await startFirstAgent(store, task.id, () =>
+      registry.start({
+        taskId: task.id,
+        agentId: lead.id,
+        options: sessionOptionsFor(store, lead, folders),
+        message: leadBrief({
+          goal,
+          teamName: groupName(lead),
+          folders,
+          instructions: instructionsFor(store, lead),
+          roster: describeWorkers(workers),
+          branches: false,
+          codeFlow: false,
+          fixedTeam: true,
+        }),
+      }),
+    );
+  } finally {
+    release();
+  }
 }
 
 // Delegations close first, so no "stopped" result wakes the lead being stopped too.

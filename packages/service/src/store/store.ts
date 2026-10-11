@@ -76,6 +76,7 @@ export interface TeamSetup {
 export type TaskTeam =
   | { leadAgentId: string; departmentId: string }
   | { leadAgentId: string; setup: TeamSetup }
+  | { leadAgentId: string; workerAgentIds: string[] }
   | { leadAgentId: string };
 
 // A piece of a chief's plan names the chief's task.
