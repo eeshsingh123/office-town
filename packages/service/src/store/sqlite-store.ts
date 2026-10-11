@@ -15,6 +15,9 @@ import {
   type DepartmentRecord,
   type DepartmentSettings,
   type EnvironmentSpec,
+  type LibraryAudience,
+  type LibraryItem,
+  type LibraryItemChange,
   type PendingRequestList,
   type PlanPiece,
   type ProfileRecord,
@@ -57,6 +60,7 @@ import {
   type NewDelegation,
   type NewDepartment,
   type NewFile,
+  type NewLibraryItem,
   type NewPiece,
   type NewSession,
   type PieceChange,
@@ -69,6 +73,7 @@ import {
   type TaskTeam,
   type TeamSetup,
   type TurnOutcome,
+  type UnopenedItem,
   type WorkspaceActivity,
 } from "./store.ts";
 
@@ -216,6 +221,26 @@ interface AttachmentRow {
 }
 
 type AttachmentRef = Pick<AttachmentRow, "ref" | "id" | "kind">;
+
+interface LibraryRow {
+  ref: number;
+  id: string;
+  workspaceId: string;
+  givenTo: string;
+  addedByAgentId: string | null;
+  createdAt: number;
+  fileRef: number;
+  fileId: string;
+  kind: Attachment["kind"];
+  name: string;
+  path: string;
+  bytes: number | null;
+  mimeType: string | null;
+  sha256: string | null;
+  fileCreatedAt: number;
+  givenIn: number;
+  openedIn: number;
+}
 
 type Statements = Record<keyof typeof queries, StatementSync>;
 
@@ -374,6 +399,19 @@ function toAttachment(row: AttachmentRow): Attachment {
     ...(row.mimeType === null ? {} : { mimeType: row.mimeType }),
     ...(row.sha256 === null ? {} : { sha256: row.sha256 }),
     createdAt: iso(row.createdAt),
+  };
+}
+
+function toLibraryItem(row: LibraryRow): LibraryItem {
+  return {
+    id: row.id,
+    workspaceId: row.workspaceId,
+    file: toAttachment({ ...row, ref: row.fileRef, id: row.fileId, createdAt: row.fileCreatedAt }),
+    givenTo: JSON.parse(row.givenTo) as LibraryAudience,
+    ...(row.addedByAgentId === null ? {} : { addedByAgentId: row.addedByAgentId }),
+    createdAt: iso(row.createdAt),
+    givenIn: row.givenIn,
+    openedIn: row.openedIn,
   };
 }
 
@@ -1124,6 +1162,120 @@ class SqliteStore implements Store {
       for (const attachment of unsent) this.#statements.deleteAttachment.run(attachment.ref);
     });
     await this.#removeCopies(unsent);
+  }
+
+  listLibrary(): LibraryItem[] {
+    return all<LibraryRow>(this.#statements.allLibraryItems).map(toLibraryItem);
+  }
+
+  getLibraryItem(id: string): LibraryItem | undefined {
+    const row = one<LibraryRow>(this.#statements.libraryItemById, id);
+    return row === undefined ? undefined : toLibraryItem(row);
+  }
+
+  libraryItemOf(attachmentId: string): LibraryItem | undefined {
+    const file = one<AttachmentRow>(this.#statements.attachmentById, attachmentId);
+    if (file === undefined) return undefined;
+    const row = one<LibraryRow>(this.#statements.libraryItemOfFile, file.ref);
+    return row === undefined ? undefined : toLibraryItem(row);
+  }
+
+  libraryOfWorkspace(workspaceId: string): LibraryItem[] {
+    const { ref } = this.#workspaceRow(workspaceId);
+    return all<LibraryRow>(this.#statements.libraryOfWorkspace, ref).map(toLibraryItem);
+  }
+
+  addLibraryItem({ workspaceId, attachmentId, givenTo, addedByAgentId }: NewLibraryItem) {
+    const workspace = this.#workspaceRow(workspaceId);
+    const file = this.#freeFile(attachmentId);
+    const addedBy = addedByAgentId === undefined ? null : this.#agentRow(addedByAgentId).ref;
+    const id = randomUUID();
+    this.#statements.insertLibraryItem.run(
+      id,
+      workspace.ref,
+      file.ref,
+      JSON.stringify(givenTo),
+      addedBy,
+      Date.now(),
+    );
+    return this.#publishLibraryItem(id);
+  }
+
+  async changeLibraryItem(id: string, { attachmentId, givenTo }: LibraryItemChange) {
+    const row = this.#libraryRow(id);
+    const file = attachmentId === undefined ? undefined : this.#freeFile(attachmentId);
+    transaction(this.#db, () => {
+      if (givenTo !== undefined) {
+        this.#statements.libraryGivenTo.run(JSON.stringify(givenTo), row.ref);
+      }
+      if (file !== undefined) this.#statements.libraryFile.run(file.ref, row.ref);
+    });
+    const item = this.#publishLibraryItem(id);
+    if (file !== undefined)
+      await this.#dropUnsent({ ref: row.fileRef, id: row.fileId, kind: row.kind });
+    return item;
+  }
+
+  async removeLibraryItem(id: string): Promise<void> {
+    const row = this.#libraryRow(id);
+    this.#statements.deleteLibraryItem.run(row.ref);
+    this.#publish({ type: "library.removed", itemId: id });
+    await this.#dropUnsent({ ref: row.fileRef, id: row.fileId, kind: row.kind });
+  }
+
+  noteLibraryGiven(itemId: string, taskId: string): void {
+    const added = this.#statements.noteLibraryGiven.run(
+      this.#libraryRow(itemId).ref,
+      this.#taskRow(taskId).ref,
+    );
+    if (added.changes > 0) this.#publishLibraryItem(itemId);
+  }
+
+  libraryUnopenedIn(taskId: string): UnopenedItem[] {
+    const { ref } = this.#taskRow(taskId);
+    return all<{ id: string; kind: Attachment["kind"]; path: string }>(
+      this.#statements.libraryUnopenedIn,
+      ref,
+    ).map(({ id, kind, path }) => ({ itemId: id, kind, path }));
+  }
+
+  noteLibraryOpened(itemId: string, taskId: string, at: Date): void {
+    const opened = this.#statements.noteLibraryOpened.run(
+      at.getTime(),
+      this.#libraryRow(itemId).ref,
+      this.#taskRow(taskId).ref,
+    );
+    if (opened.changes > 0) this.#publishLibraryItem(itemId);
+  }
+
+  // An uploaded file not yet in the Library; one item per file, so Replace never moves another's.
+  #freeFile(attachmentId: string): AttachmentRow {
+    const file = one<AttachmentRow>(this.#statements.attachmentById, attachmentId);
+    if (file === undefined) throw new RecordNotFoundError("attachment", attachmentId);
+    if (one(this.#statements.libraryItemOfFile, file.ref) !== undefined) {
+      throw new InUseError("That file is already in the Library.");
+    }
+    return file;
+  }
+
+  // A file the Library no longer holds goes now, unless a task was sent it; it then goes with
+  // the last such task.
+  async #dropUnsent(file: AttachmentRef): Promise<void> {
+    if (one(this.#statements.attachmentSent, file.ref) !== undefined) return;
+    this.#statements.deleteAttachment.run(file.ref);
+    await this.#removeCopies([file]);
+  }
+
+  #libraryRow(id: string): LibraryRow {
+    const row = one<LibraryRow>(this.#statements.libraryItemById, id);
+    if (row === undefined) throw new RecordNotFoundError("library item", id);
+    return row;
+  }
+
+  #publishLibraryItem(id: string): LibraryItem {
+    const item = toLibraryItem(this.#libraryRow(id));
+    this.#publish({ type: "library", item });
+    return item;
   }
 
   // A linked folder is the user's own, so only copies are removed.

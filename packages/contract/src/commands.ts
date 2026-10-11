@@ -57,9 +57,14 @@ export const sessionCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("prompt"),
     text: z.string().min(1),
     origin: messageOriginSchema.optional(),
-    // With `inline` set, an image also goes into the prompt itself.
+    // With `inline` set, an image also goes into the prompt itself; `reference` marks a Library item.
     attachments: z
-      .array(attachmentSchema.extend({ inline: z.literal(true).optional() }))
+      .array(
+        attachmentSchema.extend({
+          inline: z.literal(true).optional(),
+          reference: z.literal(true).optional(),
+        }),
+      )
       .optional(),
   }),
   answerPermissionSchema.extend({ answeredBy: answeredBySchema.optional() }),

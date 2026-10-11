@@ -199,7 +199,7 @@ describe("store", () => {
     const file = join(directory, "d55", "store.db");
     mkdirSync(dirname(file));
     const d55 = new DatabaseSync(file);
-    for (const sql of migrations.slice(0, -5)) {
+    for (const sql of migrations.slice(0, 10)) {
       if (typeof sql === "string") d55.exec(sql);
       else sql(d55);
     }
@@ -209,7 +209,7 @@ describe("store", () => {
       JSON.stringify({ harness: "claude", environment: { kind: "native" }, workspacePath: folder });
     d55.exec(`
       PRAGMA application_id = ${0x4f54_4f57};
-      PRAGMA user_version = ${migrations.length - 5};
+      PRAGMA user_version = 10;
       INSERT INTO settings (key, value) VALUES ('outputFolder', '${JSON.stringify(output)}');
       INSERT INTO workspaces (ref, id, name, folders, created_at, used_at)
         VALUES (1, 'report', 'Report', '${JSON.stringify([project])}', 0, 0);
@@ -247,7 +247,7 @@ describe("store", () => {
       UPDATE agents SET autonomy = 'trusted',
         settings = json_set(settings, '$.autonomy', 'trusted');
       UPDATE events SET payload = replace(payload, '"full"', '"trusted"');
-      PRAGMA user_version = ${migrations.length - 4};
+      PRAGMA user_version = 11;
     `);
     old.close();
 
@@ -477,6 +477,7 @@ describe("store", () => {
       "allDepartments",
       "allLimits",
       "allAccounts",
+      "allLibraryItems",
     ]);
     // These group a period's rows after finding them through an index.
     const groupedReads = new Set(["accountUsageSince"]);

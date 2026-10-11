@@ -23,10 +23,14 @@ export const attachmentSchema = z.object({
 export type Attachment = z.infer<typeof attachmentSchema>;
 
 // As sent with a message, by host path like an action's locations; `inline` says an image also
-// went into the prompt itself.
+// went into the prompt itself, `reference` that it came from the Library, available, not required.
 export const sentAttachmentSchema = attachmentSchema
   .pick({ id: true, kind: true, name: true, bytes: true, mimeType: true })
-  .extend({ path: z.string().min(1), inline: z.literal(true).optional() });
+  .extend({
+    path: z.string().min(1),
+    inline: z.literal(true).optional(),
+    reference: z.literal(true).optional(),
+  });
 export type SentAttachment = z.infer<typeof sentAttachmentSchema>;
 
 export const attachmentIdsSchema = z.array(z.string().min(1)).max(MAX_ATTACHMENTS);

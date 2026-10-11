@@ -11,6 +11,9 @@ import type {
   DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
+  LibraryAudience,
+  LibraryItem,
+  LibraryItemChange,
   PendingRequestList,
   PlanPiece,
   ProfileRecord,
@@ -42,6 +45,20 @@ export interface NewFile {
   name: string;
   mimeType?: string;
   content: Buffer;
+}
+
+export interface NewLibraryItem {
+  workspaceId: string;
+  attachmentId: string;
+  givenTo: LibraryAudience;
+  addedByAgentId?: string;
+}
+
+// An item given in a task that no agent there has opened yet.
+export interface UnopenedItem {
+  itemId: string;
+  kind: Attachment["kind"];
+  path: string;
 }
 
 export interface NewAgentRecord {
@@ -245,8 +262,21 @@ export interface Store {
   taskAttachments(taskId: string): Attachment[];
   // Deleted with the task, unless another task was sent them too.
   linkAttachments(taskId: string, attachmentIds: string[]): void;
-  // Uploaded before then and never sent.
+  // Uploaded before then, never sent and not in the Library.
   deleteUnsentAttachments(before: Date): Promise<void>;
+  // Every workspace's, oldest first.
+  listLibrary(): LibraryItem[];
+  getLibraryItem(id: string): LibraryItem | undefined;
+  libraryItemOf(attachmentId: string): LibraryItem | undefined;
+  // Oldest first.
+  libraryOfWorkspace(workspaceId: string): LibraryItem[];
+  addLibraryItem(item: NewLibraryItem): LibraryItem;
+  // A file replaced or removed stays while a task it was sent in does.
+  changeLibraryItem(id: string, change: LibraryItemChange): Promise<LibraryItem>;
+  removeLibraryItem(id: string): Promise<void>;
+  noteLibraryGiven(itemId: string, taskId: string): void;
+  libraryUnopenedIn(taskId: string): UnopenedItem[];
+  noteLibraryOpened(itemId: string, taskId: string, at: Date): void;
   readSettings(): Settings;
   // Only the settings given change.
   saveSettings(settings: Settings): void;
@@ -263,6 +293,7 @@ export class RecordNotFoundError extends Error {
       | "workspace"
       | "agent"
       | "attachment"
+      | "library item"
       | "profile"
       | "department"
       | "account"

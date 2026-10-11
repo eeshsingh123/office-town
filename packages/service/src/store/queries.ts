@@ -74,6 +74,17 @@ const WORKSPACE_COLUMNS =
 const ATTACHMENT_COLUMNS = `
   ref, id, kind, name, path, bytes, mime_type AS mimeType, sha256, created_at AS createdAt`;
 
+const LIBRARY_SELECT = `
+  SELECT li.ref, li.id,
+    (SELECT id FROM workspaces WHERE ref = li.workspace_ref) AS workspaceId, li.given_to AS givenTo, ag.id AS addedByAgentId,
+    li.created_at AS createdAt, a.ref AS fileRef, a.id AS fileId, a.kind, a.name, a.path, a.bytes,
+    a.mime_type AS mimeType, a.sha256, a.created_at AS fileCreatedAt,
+    (SELECT count(*) FROM library_uses u WHERE u.item_ref = li.ref) AS givenIn,
+    (SELECT count(u.opened_at) FROM library_uses u WHERE u.item_ref = li.ref) AS openedIn
+  FROM library_items li
+  JOIN attachments a ON a.ref = li.attachment_ref
+  LEFT JOIN agents ag ON ag.ref = li.added_by_ref`;
+
 // The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
@@ -304,23 +315,46 @@ export const queries = {
   linkAttachment: `
     INSERT OR IGNORE INTO task_attachments (task_ref, attachment_ref)
     SELECT ?, ref FROM attachments WHERE id = ?`,
-  // Those no other task was sent too.
+  // Those no other task was sent too and the Library does not hold.
   attachmentsOnlyOfTask: `
     SELECT a.ref, a.id, a.kind FROM task_attachments ta
     JOIN attachments a ON a.ref = ta.attachment_ref
     WHERE ta.task_ref = ? AND NOT EXISTS (
       SELECT 1 FROM task_attachments o
-      WHERE o.attachment_ref = ta.attachment_ref AND o.task_ref <> ta.task_ref)`,
+      WHERE o.attachment_ref = ta.attachment_ref AND o.task_ref <> ta.task_ref)
+      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)`,
   unsentAttachments: `
     SELECT a.ref, a.id, a.kind FROM attachments a
     WHERE a.created_at < ?
-      AND NOT EXISTS (SELECT 1 FROM task_attachments ta WHERE ta.attachment_ref = a.ref)`,
+      AND NOT EXISTS (SELECT 1 FROM task_attachments ta WHERE ta.attachment_ref = a.ref)
+      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)`,
+  attachmentSent: "SELECT 1 AS sent FROM task_attachments WHERE attachment_ref = ? LIMIT 1",
   attachmentsOfTask: `
     SELECT ${ATTACHMENT_COLUMNS} FROM attachments
     WHERE ref IN (SELECT attachment_ref FROM task_attachments WHERE task_ref = ?)
     ORDER BY ref`,
   deleteAttachment: "DELETE FROM attachments WHERE ref = ?",
   updateSessionOptions: "UPDATE sessions SET options = ? WHERE id = ?",
+
+  insertLibraryItem: `
+    INSERT INTO library_items (id, workspace_ref, attachment_ref, given_to, added_by_ref, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+  allLibraryItems: `${LIBRARY_SELECT} ORDER BY li.ref`,
+  libraryItemById: `${LIBRARY_SELECT} WHERE li.id = ?`,
+  libraryItemOfFile: `${LIBRARY_SELECT} WHERE li.attachment_ref = ?`,
+  libraryOfWorkspace: `${LIBRARY_SELECT} WHERE li.workspace_ref = ? ORDER BY li.ref`,
+  libraryGivenTo: "UPDATE library_items SET given_to = ? WHERE ref = ?",
+  libraryFile: "UPDATE library_items SET attachment_ref = ? WHERE ref = ?",
+  deleteLibraryItem: "DELETE FROM library_items WHERE ref = ?",
+  noteLibraryGiven: "INSERT OR IGNORE INTO library_uses (item_ref, task_ref) VALUES (?, ?)",
+  libraryUnopenedIn: `
+    SELECT li.id, a.kind, a.path FROM library_uses u
+    JOIN library_items li ON li.ref = u.item_ref
+    JOIN attachments a ON a.ref = li.attachment_ref
+    WHERE u.task_ref = ? AND u.opened_at IS NULL`,
+  noteLibraryOpened: `
+    UPDATE library_uses SET opened_at = ?
+    WHERE item_ref = ? AND task_ref = ? AND opened_at IS NULL`,
 
   settingByKey: "SELECT value FROM settings WHERE key = ?",
   saveSetting: `
