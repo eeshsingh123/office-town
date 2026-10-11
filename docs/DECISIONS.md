@@ -304,4 +304,8 @@ Why: the owner had no way back from any screen, double-click did nothing, and a 
 - Agents can write to the Library through a team tool (owner): adding a new item needs no approval and shows "Added by <agent>"; replacing, editing, removing or changing who an item is given to goes to Needs you first. To be reworked with agent memory if needed.
 - Limits: 20 MB per file, 5 MB per inline image (larger images go as a path only), none on linked folders (owner).
 - Built in two PRs, attachments then Library, each end to end. It comes before connectors (now M7) (owner).
+- Built (attachments): `POST /attachments?name=` takes the raw bytes, `POST /attachments/folder` links a folder; every send request takes `attachments` (ids). Copies live in `<data>/files/<id>/<name>`, go with the last task they were sent in, and unsent ones after a day.
+- Harness-neutral (owner): an adapter only declares `capabilities.images`, fills catalog `inputs` per model and takes `prompt(text, images)`; the session writes the file list with the agent's own paths and the stream keeps host paths, like action locations. A new harness needs nothing else.
+- A file's folder joins the session's read-only folders, also mid-task (the stored options grow, so the policy and a resume see it); a read inside a read-only folder now goes through at every level, Supervised too.
+- A lead passes files with `delegate`'s `files` (from its own list, by path or name); every piece of a chief's goal gets the goal's files. Folders are dropped or picked in the app only; browser mode takes files and images.
 Why: the app had no way to give an agent a file, and a file the agent never opened must not be described as if it had.

@@ -70,7 +70,7 @@ Known limits: under Full a shell command, and under Bypass anything, could still
 
 ## Next module
 
-### M6 Files and Library (D-64)
+### M6 Files and Library (D-64; attachments built, Library next)
 
 The user gives agents files, images and folders explicitly, and every one reaches the agent for real. Built in two steps, each its own PR, each end to end (core, both adapters, UI, one live run):
 
