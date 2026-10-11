@@ -5,7 +5,6 @@ import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
@@ -14,9 +13,10 @@ import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
+import { RunBar } from "./RunBar.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
-import { FolderChip, ReviewAction } from "./TaskTools.tsx";
+import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
 
@@ -104,7 +104,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const working = states.filter((state) => state === "working" || state === "starting").length;
   const waitingCount = states.filter((state) => state === "waiting").length;
   const open = members.some((member) => isOpen(member.latest));
-  const folder = lead.latest.options.workspacePath;
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
@@ -123,14 +122,9 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 {department?.name ?? "Proposing a team"}
               </span>
             )}
-            {department === undefined ? null : (
-              <span className={styles.chip}>{AUTONOMY[department.autonomy].label}</span>
-            )}
             <span className={styles.chip}>
               {working} working{waitingCount === 0 ? "" : ` · ${waitingCount} waiting for you`}
             </span>
-            <span className={styles.chip}>Started {clockTime(task.createdAt)}</span>
-            <FolderChip folder={folder} />
           </div>
         </div>
         {open ? (
@@ -204,6 +198,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </div>
             </div>
             <div className={styles.traceWidth}>
+              <RunBar agent={shown} />
               <MessageBox
                 agent={shown}
                 actions={

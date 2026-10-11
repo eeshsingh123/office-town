@@ -2,15 +2,19 @@ import type { DepartmentRecord } from "@office-town/contract";
 import { stateOf, useAgent, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import { ChiefOverview } from "../chief/ChiefOverview.tsx";
-import { DepartmentPanel } from "../departments/DepartmentPanel.tsx";
-import { AgentWork, ChiefWork, DepartmentWork } from "../work/WorkTab.tsx";
-import { AgentPanel } from "./AgentPanel.tsx";
+import { ChiefFooter, ChiefHeader, ChiefNow } from "../chief/ChiefOverview.tsx";
+import {
+  DepartmentFooter,
+  DepartmentHeader,
+  DepartmentNow,
+} from "../departments/DepartmentPanel.tsx";
+import { AgentActivity, ChiefWork, DepartmentWork } from "../work/WorkTab.tsx";
+import { AgentFooter, AgentHeader, AgentNow } from "./AgentPanel.tsx";
 import { AgentProfile } from "./AgentProfile.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import { GroupPanel } from "./GroupPanel.tsx";
 import styles from "./Office.module.css";
-import { SidePanel } from "./SidePanel.tsx";
+import { PanelFrame, SidePanel } from "./SidePanel.tsx";
 
 function EmptyPanel({ count }: { count: number }) {
   return (
@@ -49,9 +53,11 @@ function AgentSide({ agentId, onFloor }: { agentId: string; onFloor: FloorAgent 
     <SidePanel
       kind="agent"
       label={`${member.agent.name}, selected agent`}
+      header={<AgentHeader member={member} />}
       chatAgentId={agentId}
-      overview={<AgentPanel member={member} />}
-      work={<AgentWork agent={member.agent} />}
+      now={<AgentNow member={member} />}
+      activity={<AgentActivity agent={member.agent} />}
+      footer={<AgentFooter member={member} />}
       profile={
         member.agent.record.guest ? undefined : (
           <AgentProfile key={member.agent.id} agent={member.agent.record} />
@@ -68,7 +74,15 @@ interface OfficePanelProps {
   floorCount: number;
 }
 
-export function OfficePanel({ selection, chosen, room, floorCount }: OfficePanelProps) {
+export function OfficePanel(props: OfficePanelProps) {
+  return (
+    <PanelFrame>
+      <PanelContent {...props} />
+    </PanelFrame>
+  );
+}
+
+function PanelContent({ selection, chosen, room, floorCount }: OfficePanelProps) {
   const chiefId = useApp((state) => state.chiefId);
   const [single] = selection;
   if (selection.length > 1) return <GroupPanel members={chosen} />;
@@ -78,9 +92,11 @@ export function OfficePanel({ selection, chosen, room, floorCount }: OfficePanel
         key={single}
         kind="chief"
         label="Chief"
+        header={<ChiefHeader chiefId={single} />}
         chatAgentId={single}
-        overview={<ChiefOverview chiefId={single} />}
-        work={<ChiefWork chiefId={single} />}
+        now={<ChiefNow chiefId={single} />}
+        activity={<ChiefWork chiefId={single} />}
+        footer={<ChiefFooter chiefId={single} />}
       />
     );
   }
@@ -91,9 +107,11 @@ export function OfficePanel({ selection, chosen, room, floorCount }: OfficePanel
         key={room.id}
         kind="department"
         label={`${room.name}, department`}
+        header={<DepartmentHeader department={room} />}
         chatAgentId={room.leadAgentId}
-        overview={<DepartmentPanel department={room} />}
-        work={<DepartmentWork department={room} />}
+        now={<DepartmentNow department={room} />}
+        activity={<DepartmentWork department={room} />}
+        footer={<DepartmentFooter department={room} />}
       />
     );
   }

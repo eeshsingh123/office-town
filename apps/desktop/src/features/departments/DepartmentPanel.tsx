@@ -1,5 +1,5 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
-import { Settings } from "lucide-react";
+import { ArrowUpRight, Users } from "lucide-react";
 import { useMemo } from "react";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
@@ -12,10 +12,17 @@ import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import office from "../office/Office.module.css";
-import { MessageBox } from "../task/MessageBox.tsx";
+import {
+  Facts,
+  PanelHeader,
+  PanelSection,
+  PanelSettings,
+  StateChip,
+} from "../office/SidePanel.tsx";
+import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
-import { Usage } from "./Usage.tsx";
+import { totalOf } from "./usage.ts";
 
 interface Member {
   record: AgentRecord;
@@ -72,10 +79,7 @@ function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[
   if (open.length === 0) return null;
   const names = new Map(members.map(({ record }) => [record.id, record.name]));
   return (
-    <section aria-labelledby="delegations-title">
-      <h3 id="delegations-title" className={styles.title}>
-        Open delegations
-      </h3>
+    <PanelSection title="Open delegations">
       <ul className={styles.delegations}>
         {open.map((delegation) => (
           <li key={delegation.id}>
@@ -84,17 +88,15 @@ function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[
           </li>
         ))}
       </ul>
-    </section>
+    </PanelSection>
   );
 }
 
-export function DepartmentPanel({ department }: { department: DepartmentRecord }) {
+function useDepartmentGoal(department: DepartmentRecord) {
   const agents = useApp((state) => state.agents);
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
-
-  const { task, members, goalSessions } = useMemo(() => {
+  return useMemo(() => {
     const task = Object.values(tasks)
       .map((entry) => entry.task)
       .filter((one) => one.departmentId === department.id)
@@ -115,88 +117,108 @@ export function DepartmentPanel({ department }: { department: DepartmentRecord }
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);
-    return { task, members, goalSessions };
+    return { task, members, goalSessions, working: goalSessions.some(isOpen) };
   }, [agents, tasks, sessions, department]);
+}
 
-  const lead = members.find(({ record }) => record.id === department.leadAgentId)?.work;
-  const working = goalSessions.some(isOpen);
+export function DepartmentHeader({ department }: { department: DepartmentRecord }) {
+  const { members, working } = useDepartmentGoal(department);
+  return (
+    <PanelHeader
+      picture={
+        <span className={styles.picture} aria-hidden>
+          <Users size={18} />
+        </span>
+      }
+      title={department.name}
+      subtitle={`Department · ${members.length === 1 ? "1 member" : `${members.length} members`}`}
+      status={working ? <StateChip state="working" /> : undefined}
+      actions={
+        <PanelSettings
+          label="Department settings"
+          onClick={() => navigate({ name: "department", departmentId: department.id })}
+        />
+      }
+    />
+  );
+}
+
+export function DepartmentNow({ department }: { department: DepartmentRecord }) {
+  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
+  const { task, members, goalSessions } = useDepartmentGoal(department);
+  const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
 
   return (
     <>
-      <div className={styles.head}>
-        <span className={`${styles.dot} ${working ? styles.dotWorking : ""}`} aria-hidden />
-        <h2 className={styles.name}>{department.name}</h2>
-        <Button
-          variant="ghost"
-          onClick={() => navigate({ name: "department", departmentId: department.id })}
-        >
-          <Settings size={14} aria-hidden />
-          Settings
-        </Button>
-      </div>
-
-      <dl className={styles.facts}>
-        <dt>Working on</dt>
-        <dd>
-          {task === undefined ? (
-            "No goal yet"
-          ) : (
-            <button
-              type="button"
-              className={office.taskLink}
-              onClick={() => navigate({ name: "task", taskId: task.id })}
-            >
-              {taskTitle(task.prompt)}
-            </button>
-          )}
-        </dd>
-        <dt>Permissions</dt>
-        <dd title={AUTONOMY[department.autonomy].description}>
-          {AUTONOMY[department.autonomy].label}
-        </dd>
-        <dt>Workspace</dt>
-        <dd title={workspace === undefined ? undefined : mainPath(workspace)}>
+      <PanelSection title="Working on">
+        {task === undefined ? (
+          <p className={styles.faint}>No goal yet</p>
+        ) : (
           <button
             type="button"
             className={office.taskLink}
-            onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
+            onClick={() => navigate({ name: "task", taskId: task.id })}
           >
-            {workspace?.name ?? "Open"}
+            {taskTitle(task.prompt)}
+            <ArrowUpRight size={14} aria-hidden />
           </button>
-        </dd>
-      </dl>
+        )}
+      </PanelSection>
 
-      <section aria-labelledby="members-title">
-        <h3 id="members-title" className={styles.title}>
-          Members
-        </h3>
-        {members.map((member) => (
-          <MemberLine
-            key={member.record.id}
-            member={member}
-            lead={member.record.id === department.leadAgentId}
-          />
-        ))}
-      </section>
+      <PanelSection title="Members">
+        <div className={styles.memberList}>
+          {members.map((member) => (
+            <MemberLine
+              key={member.record.id}
+              member={member}
+              lead={member.record.id === department.leadAgentId}
+            />
+          ))}
+        </div>
+      </PanelSection>
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
-      <Usage
-        sessions={goalSessions}
-        usage={task?.usage ?? []}
-        title={working ? "This goal's usage" : "Last goal's usage"}
-      />
 
-      <div className={office.panelActions}>
-        {task === undefined ? (
-          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
-            Give it a goal
-          </Button>
-        ) : null}
-        {working && task !== undefined ? (
-          <StopTeamButton taskId={task.id} label="Stop team" />
-        ) : null}
-      </div>
-      {lead === undefined ? null : <MessageBox agent={lead} className={office.message} />}
+      <PanelSection title="Runs on">
+        <Facts
+          facts={[
+            <span key="permissions" title={AUTONOMY[department.autonomy].description}>
+              {AUTONOMY[department.autonomy].label}
+            </span>,
+            workspace === undefined ? undefined : (
+              <button
+                key="workspace"
+                type="button"
+                className={styles.factLink}
+                title={mainPath(workspace)}
+                onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
+              >
+                {workspace.name}
+              </button>
+            ),
+            goalSessions.length === 0 ? undefined : tokenLine(usage),
+          ]}
+        />
+      </PanelSection>
+    </>
+  );
+}
+
+export function DepartmentFooter({ department }: { department: DepartmentRecord }) {
+  const { task, working } = useDepartmentGoal(department);
+  if (task === undefined) {
+    return (
+      <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+        Give it a goal
+      </Button>
+    );
+  }
+  return (
+    <>
+      <Button variant="primary" onClick={() => navigate({ name: "task", taskId: task.id })}>
+        Open goal
+      </Button>
+      {working ? <StopTeamButton taskId={task.id} label="Stop team" /> : null}
     </>
   );
 }

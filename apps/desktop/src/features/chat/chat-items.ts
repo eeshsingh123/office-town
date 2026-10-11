@@ -1,4 +1,5 @@
 import type { DelegationRecord } from "@office-town/contract";
+import { describeActions } from "../../trace/blocks.ts";
 import type { Trace, TraceAction, TraceMessage } from "../../trace/trace.ts";
 
 export type ThreadState = "working" | "done" | "failed" | "stopped";
@@ -21,6 +22,8 @@ export type ChatItem =
   // A brief, or another agent's message.
   | { kind: "passed"; id: string; text: string; at: string; from?: string; brief: boolean }
   | { kind: "notice"; id: string; text: string }
+  // A run of tool calls between messages, in one line.
+  | { kind: "work"; id: string; text: string }
   | DelegationThread
   | { kind: "handoff"; id: string; pieceId: string; state: ThreadState; result: string };
 
@@ -80,12 +83,22 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
   const threads: DelegationThread[] = [];
   const unlinked = [...context.delegations];
   const known = new Set(context.delegations.map((record) => record.id));
+  let run: TraceAction[] = [];
+  const flush = () => {
+    const [first] = run;
+    if (first !== undefined) items.push({ kind: "work", id: first.id, text: describeActions(run) });
+    run = [];
+  };
   for (const trace of traces) {
     for (const id of trace.order) {
       const entry = trace.items.get(id);
       if (entry?.kind === "action") {
         const thread = delegationOf(entry, context.idOfName);
-        if (thread === undefined) continue;
+        if (thread === undefined) {
+          run.push(entry);
+          continue;
+        }
+        flush();
         items.push(thread);
         if (thread.state === "failed") continue;
         const index = unlinked.findIndex(
@@ -97,6 +110,7 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
         continue;
       }
       if (entry?.kind !== "message") continue;
+      flush();
       if (entry.origin?.kind === "result") {
         const { delegationId, agentId, outcome } = entry.origin;
         const matched =
@@ -130,6 +144,7 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
       if (item !== undefined) items.push(item);
     }
   }
+  flush();
   if (context.ended) {
     for (const thread of threads) {
       const open = thread.state === "working" && thread.result === undefined;

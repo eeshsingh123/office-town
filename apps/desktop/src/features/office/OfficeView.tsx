@@ -1,5 +1,5 @@
 import type { AccountLimits, AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
@@ -14,7 +14,7 @@ import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type Point, type RoomSpec } from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
-import { useOffice } from "./office-state.ts";
+import { setPanelOpen, useOffice } from "./office-state.ts";
 import { TopBar } from "./TopBar.tsx";
 import { CHIEF_ROOM, useCommandFloor } from "./use-command-floor.ts";
 
@@ -231,6 +231,7 @@ export function OfficeView() {
 
   return (
     <section aria-label="Office" className={styles.office}>
+      <OpenOnSelect selection={selection} room={openRoom?.id} />
       <TopBar />
       {mode === "board" ? (
         <BoardView />
@@ -261,4 +262,13 @@ export function OfficeView() {
       )}
     </section>
   );
+}
+
+// Picking someone or a room brings a hidden side panel back.
+function OpenOnSelect({ selection, room }: { selection: string[]; room: string | undefined }) {
+  const key = `${selection.join(",")}|${room ?? ""}`;
+  useEffect(() => {
+    if (key !== "|") setPanelOpen(true);
+  }, [key]);
+  return null;
 }

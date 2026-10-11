@@ -92,3 +92,20 @@
   border-radius: 50%;
   background: var(--warn);
 }
+
+.panelToggle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.panelToggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}

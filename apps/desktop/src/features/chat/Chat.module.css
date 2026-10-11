@@ -17,6 +17,11 @@
   overflow-y: auto;
 }
 
+/* A short conversation sits at the bottom, by the message box. */
+.scroll > :first-child {
+  margin-top: auto;
+}
+
 .scroll > section {
   display: flex;
   flex-direction: column;
@@ -99,6 +104,13 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+.work {
+  margin: 0;
+  padding-left: 34px;
   font-size: var(--size-small);
   color: var(--text-3);
 }

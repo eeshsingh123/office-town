@@ -1,5 +1,5 @@
-import { Check, CircleMinus, LoaderCircle, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, Check, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
@@ -8,119 +8,141 @@ import { progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
-import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
-import { Usage } from "../departments/Usage.tsx";
-import { tracedUsage } from "../departments/usage.ts";
+import { clockTime, taskTitle } from "../../ui/format.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
-import { MessageBox } from "../task/MessageBox.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
+import { tokenLine, useRunFacts } from "../task/run-facts.ts";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
+import { Facts, PanelHeader, PanelSection, StateChip } from "./SidePanel.tsx";
 
-function ActionLine({ action, live }: { action: TraceAction; live: boolean }) {
-  const icon =
-    action.status === "completed" ? (
-      <Check size={14} className={styles.ok} aria-label="Done" />
-    ) : action.status === "failed" ? (
-      <X size={14} className={styles.bad} aria-label="Failed" />
-    ) : live ? (
-      <LoaderCircle size={14} className={`${styles.running} spin`} aria-label="Running" />
-    ) : (
-      <CircleMinus size={14} className={styles.quiet} aria-label="Interrupted" />
-    );
+function DoneLine({ action }: { action: TraceAction }) {
   return (
     <li className={styles.action}>
+      {action.status === "failed" ? (
+        <X size={14} className={styles.bad} aria-label="Failed" />
+      ) : (
+        <Check size={14} className={styles.ok} aria-label="Done" />
+      )}
       <span className={styles.actionTitle}>{action.title}</span>
-      {icon}
+      <time className={styles.actionTime}>{clockTime(action.endedAt ?? action.startedAt)}</time>
     </li>
   );
 }
 
-export function AgentPanel({ member }: { member: FloorAgent }) {
-  const { agent, state, harness } = member;
+export function AgentHeader({ member }: { member: FloorAgent }) {
+  const { agent, state } = member;
+  const department = useApp((app) =>
+    agent.record.departmentId === undefined
+      ? undefined
+      : app.departments[agent.record.departmentId],
+  );
+  const role = agent.record.guest
+    ? "Reviewer"
+    : department === undefined
+      ? (agent.record.role ?? "Agent")
+      : `${department.leadAgentId === agent.id ? "Lead" : (agent.record.role ?? "Member")} · ${department.name}`;
+  return (
+    <PanelHeader
+      picture={<Avatar name={agent.name} colour={agent.colour} size={36} />}
+      title={<AgentName agentId={agent.id} name={agent.name} />}
+      subtitle={role}
+      status={<StateChip state={state} />}
+    />
+  );
+}
+
+export function AgentNow({ member }: { member: FloorAgent }) {
+  const { agent, state } = member;
   const { latest } = agent;
-  const traces = useApp((app) => app.traces);
-  const trace = traces[latest.id];
+  const trace = useApp((app) => app.traces[latest.id]);
   const waiting = useApp((app) =>
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
-  const [asking, setAsking] = useState(false);
-  // Every session of its task, since the core does not sum usage per agent; the latest also for its step.
+  // Every session of its task, for its tokens; the latest also for its step.
   useEffect(() => {
     for (const session of agent.sessions) loadTrace(session.id);
   }, [agent.sessions]);
-  const usage = useMemo(() => tracedUsage(agent.sessions, traces), [agent.sessions, traces]);
+  const facts = useRunFacts(agent);
   const progress = trace === undefined ? undefined : progressOf(trace);
-  const live = isOpen(latest);
-  const open = () => navigate({ name: "task", taskId: agent.taskId });
+  const done = progress?.recent.filter((action) => action.status !== "running") ?? [];
+  const busy = state === "working" || state === "starting";
 
   return (
     <>
-      <div className={styles.who}>
-        <Avatar name={agent.name} colour={agent.colour} size={40} />
-        <div className={styles.whoText}>
-          <AgentName agentId={agent.id} name={agent.name} />
-          <span>
-            {harness}
-            {latest.options.model === undefined ? "" : ` · ${latest.options.model}`}
-            {latest.options.effort === undefined ? "" : ` · ${latest.options.effort}`}
-          </span>
-        </div>
-        <span className={`${styles.pill} ${state === "waiting" ? styles.pillWaiting : ""}`}>
-          {state === "waiting" ? "Waiting" : STATE_LABELS[state]}
-        </span>
-      </div>
+      {waiting === undefined ? null : <RequestCard event={waiting.event} />}
 
-      <div>
-        <div className={styles.label}>Working on</div>
-        <button type="button" className={styles.taskLink} onClick={open}>
+      <PanelSection title="Working on">
+        <button
+          type="button"
+          className={styles.taskLink}
+          onClick={() => navigate({ name: "task", taskId: agent.taskId })}
+        >
           {taskTitle(agent.task.prompt)}
+          <ArrowUpRight size={14} aria-hidden />
         </button>
-        {progress?.step === undefined ? null : (
-          <>
+        {busy ? (
+          <div className={styles.live}>
+            <span className={styles.pulse} aria-hidden />
+            <span className={styles.liveText}>{progress?.current?.title ?? "Thinking"}</span>
+          </div>
+        ) : null}
+        {progress?.step === undefined || !busy ? null : (
+          <div>
             <div className={styles.step}>
               Step {progress.step.number} of {progress.stepCount} · {progress.step.title}
             </div>
             <div className={styles.bar}>
               <i style={{ width: `${(progress.stepsDone / progress.stepCount) * 100}%` }} />
             </div>
-          </>
+          </div>
         )}
-      </div>
+      </PanelSection>
 
-      {waiting === undefined ? null : <RequestCard event={waiting.event} />}
-
-      {progress === undefined || progress.recent.length === 0 ? null : (
-        <div>
-          <div className={styles.label}>Latest</div>
+      {done.length === 0 ? null : (
+        <PanelSection title="Last done">
           <ul className={styles.actions}>
-            {progress.recent.map((action) => (
-              <ActionLine key={action.id} action={action} live={live} />
+            {done.map((action) => (
+              <DoneLine key={action.id} action={action} />
             ))}
           </ul>
-        </div>
+        </PanelSection>
       )}
 
-      <Usage sessions={agent.sessions} usage={usage} />
+      <PanelSection title="Runs on">
+        <Facts
+          facts={[
+            facts.harness,
+            facts.model,
+            facts.effort,
+            facts.permissions.label,
+            `${facts.duration} · ${tokenLine(facts.tokens)}`,
+          ]}
+        />
+      </PanelSection>
+    </>
+  );
+}
 
-      <div className={styles.panelActions}>
-        <Button variant="primary" onClick={open}>
-          Open full trace
+export function AgentFooter({ member }: { member: FloorAgent }) {
+  const { agent } = member;
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <Button variant="primary" onClick={() => navigate({ name: "task", taskId: agent.taskId })}>
+        Open task
+      </Button>
+      {agent.record.guest ? null : (
+        <Button variant="ghost" onClick={() => setAsking(true)}>
+          Send for review
         </Button>
-        {agent.record.guest ? null : (
-          <Button variant="ghost" onClick={() => setAsking(true)}>
-            Send for review
-          </Button>
-        )}
-        {live ? (
-          <Button variant="ghost" onClick={() => void api.stop(latest.id)}>
-            Stop
-          </Button>
-        ) : null}
-      </div>
-      <MessageBox agent={agent} className={styles.message} />
+      )}
+      {isOpen(agent.latest) ? (
+        <Button variant="ghost" onClick={() => void api.stop(agent.latest.id)}>
+          Stop
+        </Button>
+      ) : null}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </>
   );

@@ -1,11 +1,78 @@
-.panel {
+.frame {
+  position: relative;
   display: flex;
   flex: none;
-  flex-direction: column;
-  width: clamp(280px, 32vw, 380px);
   min-height: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);
+  transition: margin-right 180ms ease-out;
+}
+
+.dragging {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
+  }
+}
+
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 16px 14px 20px;
+}
+
+.headerText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.headerText strong {
+  overflow: hidden;
+  font-size: var(--size-title);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.headerText span {
+  overflow: hidden;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.iconButton {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 .tabs {
@@ -40,10 +107,23 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 22px;
+  gap: 28px;
   min-height: 0;
-  padding: 24px;
+  padding: 24px 20px;
   overflow-y: auto;
+}
+
+.chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* `display: flex` above would otherwise show the tabs that are not chosen. */
+.content[hidden],
+.chat[hidden] {
+  display: none;
 }
 
 .content:focus-visible,
@@ -52,9 +132,68 @@
   outline-offset: -2px;
 }
 
-.chat {
+.footer {
   display: flex;
-  flex: 1;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--hover);
+  color: var(--text-3);
+}
+
+.chipWorking {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.chipWaiting {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.chipFailed {
+  color: var(--bad);
+}
+
+.section {
+  display: flex;
   flex-direction: column;
-  min-height: 0;
+  gap: 10px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--size-small);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fact {
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--hover);
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  white-space: nowrap;
 }
