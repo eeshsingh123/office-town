@@ -12,6 +12,7 @@ import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
+import { LimitStops } from "../usage/LimitStops.tsx";
 import { type BulkAnswer, BulkConfirm } from "./BulkConfirm.tsx";
 import styles from "./NeedsYouView.module.css";
 import {
@@ -357,6 +358,8 @@ export function NeedsYouView() {
                   .join(" · ")}
           </p>
         </header>
+
+        <LimitStops title="Stopped at a plan limit" />
 
         {notice === undefined ? null : (
           <p className={styles.notice} role="status">

@@ -1,4 +1,4 @@
-import type { AgentRecord, DepartmentRecord, HarnessLimits } from "@office-town/contract";
+import type { AccountLimits, AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
@@ -75,7 +75,7 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
-  limits: Record<string, HarnessLimits>;
+  limits: Record<string, AccountLimits>;
   state: Known;
   chiefId: string | undefined;
   positions: Record<string, Point>;

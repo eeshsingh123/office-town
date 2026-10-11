@@ -14,6 +14,7 @@ import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
+import { UsageView } from "./features/usage/UsageView.tsx";
 import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
 import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
 import { YouView } from "./features/you/YouView.tsx";
@@ -41,6 +42,8 @@ function Main({ view }: { view: View }) {
       return <TemplatesView />;
     case "workspaces":
       return <WorkspacesView />;
+    case "usage":
+      return <UsageView />;
     case "workspace":
       return <WorkspaceView key={view.workspaceId} workspaceId={view.workspaceId} />;
     case "you":

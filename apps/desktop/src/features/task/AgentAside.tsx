@@ -7,6 +7,8 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { clockTime, compactCount, elapsed, environmentName, whenNext } from "../../ui/format.ts";
 import { sumUsage } from "../departments/usage.ts";
 import { useModelName } from "../profiles/model-line.ts";
+import { Meter } from "../usage/AccountCard.tsx";
+import { percent, sessionAccountId, windowLabel } from "../usage/limits.ts";
 import styles from "./TaskView.module.css";
 
 function StepIcon({ step }: { step: PlanStep }) {
@@ -43,22 +45,20 @@ export function Plan({ plan }: { plan: PlanStep[] }) {
   );
 }
 
-// The provider's own usage limit is the only budget the app shows (D-29).
-function Limits({ limits, harness }: { limits: UsageLimit[]; harness: string }) {
+// The provider's own usage limit is the only budget the app shows (D-29), per account (D-60).
+function Limits({ limits, name }: { limits: UsageLimit[]; name: string }) {
   return (
     <section aria-labelledby="limits-title">
       <h2 id="limits-title" className={styles.asideTitle}>
-        {harness} plan usage
+        {name} plan usage
       </h2>
       {limits.map((limit) => (
         <div key={limit.id} className={styles.limit}>
           <div className={styles.limitLine}>
-            <span>{limit.label.charAt(0).toUpperCase() + limit.label.slice(1)}</span>
-            <span>{Math.round(limit.usedFraction * 100)}%</span>
+            <span>{windowLabel(limit)}</span>
+            <span>{percent(limit.usedFraction)}</span>
           </div>
-          <div className={styles.bar}>
-            <i style={{ width: `${Math.min(100, limit.usedFraction * 100)}%` }} />
-          </div>
+          <Meter usedFraction={limit.usedFraction} thin />
           {limit.resetsAt === undefined ? null : (
             <div className={styles.faint}>Resets {whenNext(limit.resetsAt)}</div>
           )}
@@ -83,7 +83,11 @@ export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
   const { options } = latest;
   const ended = latest.endedAt ?? new Date().toISOString();
   const plan = traces.findLast((trace) => trace.plan.length > 0)?.plan;
-  const limits = useApp((state) => state.limits[latest.options.harness]?.limits);
+  const accountId = sessionAccountId(latest.options);
+  const limits = useApp((state) => state.limits[accountId]?.limits);
+  const accountName = useApp(
+    (state) => state.accounts.find((account) => account.id === accountId)?.name ?? "Default",
+  );
   const model = useModelName(
     options,
     traces.findLast((trace) => trace.model !== undefined)?.model ?? options.model,
@@ -93,7 +97,7 @@ export function AgentAside({ agent, first, latest, traces }: AgentAsideProps) {
     <aside className={styles.aside} aria-label="Agent">
       {plan === undefined ? null : <Plan plan={plan} />}
       {limits === undefined || limits.length === 0 ? null : (
-        <Limits limits={limits} harness={harness} />
+        <Limits limits={limits} name={`${harness} · ${accountName}`} />
       )}
       <section aria-labelledby="details-title">
         <h2 id="details-title" className={styles.asideTitle}>

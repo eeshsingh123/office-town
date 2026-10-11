@@ -1,5 +1,6 @@
 import {
   FolderGit2,
+  Gauge,
   House,
   Inbox,
   LayoutPanelLeft,
@@ -18,6 +19,7 @@ import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { openCommandMenu } from "../command/command-menu.ts";
+import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
@@ -25,7 +27,7 @@ import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 
 interface NavItemProps {
-  view: "home" | "office" | "needs-you" | "tasks" | "templates" | "workspaces";
+  view: "home" | "office" | "needs-you" | "tasks" | "templates" | "workspaces" | "usage";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
@@ -58,6 +60,16 @@ function WaitingCount() {
     <span className={styles.count}>
       {count}
       <span className="visually-hidden"> waiting</span>
+    </span>
+  );
+}
+
+// Red once an account is over 90% of a window.
+function UsageDot() {
+  if (!useAnyAccountHigh()) return null;
+  return (
+    <span className={styles.usageDot}>
+      <span className="visually-hidden"> An account is near its limit</span>
     </span>
   );
 }
@@ -125,6 +137,7 @@ export function Sidebar() {
       <NavItem view="tasks" icon={List} label="Tasks" />
       <NavItem view="templates" icon={SwatchBook} label="Templates" />
       <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
+      <NavItem view="usage" icon={Gauge} label="Usage" badge={<UsageDot />} />
       <Departments />
       <RunningAgents />
       <div className={styles.footer}>

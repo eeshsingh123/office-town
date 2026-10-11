@@ -1,4 +1,10 @@
 import {
+  type Account,
+  type AccountKeyRequest,
+  type AccountLimits,
+  type AccountLogin,
+  type AccountStatus,
+  type AccountUsage,
   type AgentCommand,
   type AgentProfileRequest,
   type AgentRecord,
@@ -6,6 +12,11 @@ import {
   type AnswerPermissionsRequest,
   type AnswerPermissionsResult,
   type ApiError,
+  accountLimitsSchema,
+  accountLoginSchema,
+  accountSchema,
+  accountStatusSchema,
+  accountUsageSchema,
   agentRecordSchema,
   answerPermissionsResultSchema,
   apiErrorSchema,
@@ -19,10 +30,9 @@ import {
   environmentListSchema,
   type HarnessCatalog,
   type HarnessDescription,
-  type HarnessLimits,
   harnessCatalogSchema,
   harnessDescriptionSchema,
-  harnessLimitsSchema,
+  type NewAccountRequest,
   type NewDepartmentRequest,
   type PendingRequestList,
   type PlanPiece,
@@ -214,6 +224,29 @@ export const api = {
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>
     write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
   deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
-  listLimits: (): Promise<HarnessLimits[]> => read("/limits", listOf(harnessLimitsSchema)),
+  listLimits: (): Promise<AccountLimits[]> => read("/limits", listOf(accountLimitsSchema)),
+  listAccounts: (): Promise<Account[]> => read("/accounts", listOf(accountSchema)),
+  createAccount: (account: NewAccountRequest): Promise<Account> =>
+    write("POST", "/accounts", account, accountSchema),
+  renameAccount: (accountId: string, name: string): Promise<Account> =>
+    write("PUT", `/accounts/${id(accountId)}`, { name }, accountSchema),
+  deleteAccount: (accountId: string): Promise<void> => send("DELETE", `/accounts/${id(accountId)}`),
+  // Null where the harness cannot say who is signed in.
+  readAccountStatus: (accountId: string): Promise<AccountStatus | null> =>
+    read(`/accounts/${id(accountId)}/status`, accountStatusSchema.nullable()),
+  saveAccountKey: (accountId: string, key: AccountKeyRequest): Promise<AccountStatus> =>
+    write("POST", `/accounts/${id(accountId)}/key`, key, accountStatusSchema),
+  startSignIn: (accountId: string): Promise<AccountLogin> =>
+    write("POST", `/accounts/${id(accountId)}/sign-in`, {}, accountLoginSchema),
+  readSignIn: (accountId: string): Promise<AccountLogin> =>
+    read(`/accounts/${id(accountId)}/sign-in`, accountLoginSchema),
+  sendSignInCode: (accountId: string, code: string): Promise<void> =>
+    send("POST", `/accounts/${id(accountId)}/sign-in/code`, { code }),
+  cancelSignIn: (accountId: string): Promise<void> =>
+    send("DELETE", `/accounts/${id(accountId)}/sign-in`),
+  listAccountUsage: (since: string): Promise<AccountUsage[]> =>
+    read(`/usage?since=${id(since)}`, listOf(accountUsageSchema)),
+  resumeAgentAt: (agentId: string, at: string): Promise<void> =>
+    send("POST", `/agents/${id(agentId)}/resume-at`, { at }),
   readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };

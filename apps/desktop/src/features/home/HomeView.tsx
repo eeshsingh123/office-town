@@ -22,6 +22,8 @@ import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
+import { LimitStops } from "../usage/LimitStops.tsx";
+import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
 import styles from "./Home.module.css";
 
 const SHOWN_REQUESTS = 3;
@@ -365,7 +367,9 @@ export function HomeView() {
         <p className={styles.summary}>{summary}</p>
         <Composer home />
         <Waiting />
+        <LimitStops />
         <Tiles />
+        <PlanUsageCard className={styles.card} />
         <div className={styles.columns}>
           <Team />
           {anyTask ? <Recent /> : <GetStarted />}
