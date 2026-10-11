@@ -9,6 +9,7 @@ import { HomeView } from "./features/home/HomeView.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
+import { PinnedStrip } from "./features/office/PinnedStrip.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
@@ -80,7 +81,10 @@ export function App() {
       <div className={styles.app}>
         <Sidebar />
         <main className={styles.main}>
-          <Main view={view} />
+          <div className={styles.view}>
+            <Main view={view} />
+          </div>
+          <PinnedStrip />
         </main>
         <Toaster />
         <CommandMenu />

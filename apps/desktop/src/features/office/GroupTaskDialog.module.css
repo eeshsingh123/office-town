@@ -1,0 +1,65 @@
+.dialog {
+  width: min(620px, calc(100vw - 32px));
+}
+
+.picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.pick:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.lead {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.pickText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pickText span {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.goal {
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+  resize: none;
+  field-sizing: content;
+}

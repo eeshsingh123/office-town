@@ -1,119 +1,156 @@
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Pin, PinOff, Users } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
-import { select } from "../../store/app-store.ts";
+import { select, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import type { AgentState } from "../../trace/progress.ts";
-import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
-import { StatusIcon } from "../../ui/StatusIcon.tsx";
+import { AgentCard, STATE_ORDER, toReview } from "./AgentCard.tsx";
 import type { FloorAgent } from "./Floor.tsx";
+import { GroupTaskDialog } from "./GroupTaskDialog.tsx";
 import styles from "./Office.module.css";
+import { pin, unpin, usePins } from "./pins.ts";
 
-// Within a group, those that need the user come first.
-const ORDER: AgentState[] = [
-  "waiting",
-  "working",
-  "starting",
-  "failed",
-  "idle",
-  "done",
-  "interrupted",
-  "stopped",
+const AT_WORK: AgentState[] = ["working", "starting", "waiting"];
+
+const SUMMARY: { label: string; states: AgentState[]; tone: string }[] = [
+  { label: "needs you", states: ["waiting"], tone: "chipNeedsYou" },
+  { label: "working", states: ["working", "starting"], tone: "" },
+  { label: "failed", states: ["failed"], tone: "chipFailed" },
+  { label: "done", states: ["done"], tone: "chipDone" },
+  { label: "idle", states: ["idle", "interrupted", "stopped"], tone: "chipQuiet" },
 ];
 
-// No "approve all": each request is read before it is answered.
+function Summary({ members }: { members: FloorAgent[] }) {
+  return (
+    <div className={styles.summary}>
+      {SUMMARY.map(({ label, states, tone }) => {
+        const count = members.filter((member) => states.includes(member.state)).length;
+        if (count === 0) return null;
+        return (
+          <span key={label} className={`${styles.summaryChip} ${tone ? styles[tone] : ""}`}>
+            {count} {label}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// No "approve all": each ask is read and answered on its own.
 export function GroupPanel({ members }: { members: FloorAgent[] }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string>();
-  const open = members.filter((member) => isOpen(member.agent.latest));
-  // A group that needs the user comes first, since its first member does.
-  const groups = Map.groupBy(
-    members.toSorted((a, b) => ORDER.indexOf(a.state) - ORDER.indexOf(b.state)),
-    (member) => member.group,
+  const [giving, setGiving] = useState(false);
+  const chiefId = useApp((state) => state.chiefId);
+  const pinned = usePins((state) => state.pinned);
+  const ids = members.map(({ agent }) => agent.id);
+  const allPinned = ids.every((id) => pinned.includes(id));
+  const atWork = members.filter(
+    ({ agent, state }) => isOpen(agent.latest) && AT_WORK.includes(state),
+  );
+  // The chief and reviewers stay out of a group task.
+  const pickable = members.filter(
+    ({ agent }) => agent.id !== chiefId && agent.record.guest !== true,
+  );
+  const sorted = members.toSorted(
+    (a, b) =>
+      STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) ||
+      Number(toReview(b.agent)) - Number(toReview(a.agent)),
   );
 
-  const toAll = async (send: (sessionId: string) => Promise<void>) => {
-    setError(undefined);
-    const results = await Promise.allSettled(open.map((member) => send(member.agent.latest.id)));
+  const report = (results: PromiseSettledResult<unknown>[], verb: string) => {
     const failed = results.filter((result) => result.status === "rejected").length;
-    if (failed > 0) setError(`${failed} of ${open.length} agents could not be reached.`);
+    setError(
+      failed === 0 ? undefined : `${failed} of ${results.length} agents could not be ${verb}.`,
+    );
   };
+  // Busy ones get it now; finished ones take it up in their last task.
   const messageAll = async (event: FormEvent) => {
     event.preventDefault();
-    const prompt = text.trim();
-    if (prompt === "") return;
-    await toAll((sessionId) => api.command(sessionId, { type: "prompt", text: prompt }));
+    const message = text.trim();
+    if (message === "") return;
     setText("");
+    report(
+      await Promise.allSettled(members.map(({ agent }) => api.messageAgent(agent.id, message))),
+      "reached",
+    );
   };
+  const stopAll = async () =>
+    report(
+      await Promise.allSettled(atWork.map(({ agent }) => api.stop(agent.latest.id))),
+      "stopped",
+    );
 
   return (
     <aside className={styles.panel} aria-label={`${members.length} selected agents`}>
-      <div className={styles.groupTitle}>
-        <strong>{members.length} agents</strong>
-        <Button variant="ghost" onClick={() => select([])}>
-          Clear
-        </Button>
+      <div className={styles.groupHeader}>
+        <div className={styles.groupTitle}>
+          <strong>{members.length} agents</strong>
+          <Button variant="ghost" onClick={() => select([])}>
+            Clear
+          </Button>
+        </div>
+        <Summary members={members} />
       </div>
-      {[...groups].map(([label, group]) => (
-        <section key={label} className={styles.group} aria-label={label}>
-          <h3 className={styles.groupHead}>
-            {label} · {group.length}
-          </h3>
-          {group.map(({ agent, state }) => (
-            <button
-              key={agent.id}
-              type="button"
-              className={styles.member}
-              onClick={() => select([agent.id])}
-            >
-              <Avatar name={agent.name} colour={agent.colour} size={26} />
-              <span className={styles.memberText}>
-                <strong>{agent.name}</strong>
-                <span>{taskTitle(agent.task.prompt)}</span>
-              </span>
-              <StatusIcon state={state} />
-            </button>
-          ))}
-        </section>
-      ))}
-      <form className={styles.messageAll} onSubmit={messageAll}>
-        <label htmlFor="message-all" className="visually-hidden">
-          Message every open agent
-        </label>
-        <textarea
-          id="message-all"
-          rows={1}
-          value={text}
-          placeholder={
-            open.length === 0
-              ? "None of these agents is open"
-              : `Message ${open.length} open agents`
-          }
-          disabled={open.length === 0}
-          onChange={(event) => setText(event.target.value)}
-        />
-        <Button
-          type="submit"
-          variant="primary"
-          icon
-          aria-label="Message all"
-          disabled={open.length === 0 || text.trim() === ""}
-        >
-          <ArrowUp size={16} aria-hidden />
-        </Button>
-      </form>
-      <div className={styles.panelActions}>
-        <Button disabled={open.length === 0} onClick={() => void toAll(api.stop)}>
-          Stop all ({open.length})
-        </Button>
+      <div className={styles.groupCards}>
+        {sorted.map(({ agent, group }) => (
+          <AgentCard key={agent.id} agentId={agent.id} where={group || undefined} />
+        ))}
       </div>
-      {error === undefined ? null : (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      <div className={styles.groupFooter}>
+        <form className={styles.messageAll} onSubmit={messageAll}>
+          <label htmlFor="message-all" className="visually-hidden">
+            Message every selected agent
+          </label>
+          <textarea
+            id="message-all"
+            rows={1}
+            value={text}
+            placeholder={`Message all ${members.length}`}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                void messageAll(event);
+              }
+            }}
+          />
+          <Button
+            type="submit"
+            variant="primary"
+            icon
+            aria-label="Message all"
+            disabled={text.trim() === ""}
+          >
+            <ArrowUp size={16} aria-hidden />
+          </Button>
+        </form>
+        <div className={styles.panelActions}>
+          {pickable.length >= 2 ? (
+            <Button onClick={() => setGiving(true)}>
+              <Users size={14} aria-hidden />
+              Give them a task
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={() => (allPinned ? unpin(ids) : pin(ids))}>
+            {allPinned ? <PinOff size={14} aria-hidden /> : <Pin size={14} aria-hidden />}
+            {allPinned ? "Unpin" : "Pin"}
+          </Button>
+          {atWork.length === 0 ? null : (
+            <Button variant="ghost" onClick={() => void stopAll()}>
+              Stop {atWork.length} at work
+            </Button>
+          )}
+        </div>
+        {error === undefined ? null : (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+      {giving ? (
+        <GroupTaskDialog members={pickable.map(({ agent }) => agent)} onOpenChange={setGiving} />
+      ) : null}
     </aside>
   );
 }

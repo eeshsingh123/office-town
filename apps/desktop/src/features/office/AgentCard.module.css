@@ -1,0 +1,78 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.needsYou {
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+
+.open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.text strong {
+  font-size: var(--size-ui);
+}
+
+.text span {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.answer {
+  border-color: var(--attention);
+  background: var(--attention);
+  color: var(--on-attention);
+}
+
+.answer:hover:not(:disabled) {
+  background: var(--attention);
+  filter: brightness(1.05);
+}
+
+.unpin {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.unpin:hover {
+  background: var(--hover);
+  color: var(--text);
+}
