@@ -5,6 +5,7 @@ import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { SentFiles } from "../attachments/SentFiles.tsx";
 import { DELEGATION_STATUS } from "../work/delegation-status.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
 import { usePlan } from "../work/use-plan.ts";
@@ -176,6 +177,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
           <div className={styles.bubble}>
             <Markdown text={item.text} />
           </div>
+          <SentFiles uses={item.files} />
           <span className={styles.meta}>You · {clockTime(item.at)}</span>
           {noted.has(item.text.trim()) && lead !== undefined ? (
             <span className={styles.noted}>
@@ -198,6 +200,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
           meta={`${from === undefined ? "" : " · "}${item.brief ? "brief" : "message"} · ${clockTime(item.at)}`}
         >
           {item.brief ? <Brief text={item.text} /> : <Markdown text={item.text} />}
+          <SentFiles uses={item.files} />
         </Said>
       );
     case "notice":

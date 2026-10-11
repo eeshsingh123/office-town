@@ -28,6 +28,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useMemberLinks } from "./members.ts";
@@ -251,6 +252,24 @@ function LeadLink({ agentId }: { agentId: string }) {
   );
 }
 
+function MessageFiles({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+  return <SentFiles uses={useFileUses(sessionId, item.id)} />;
+}
+
+function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+  return (
+    <div className={styles.user}>
+      <span className={styles.you} aria-hidden>
+        Y
+      </span>
+      <div className={styles.userSaid}>
+        <div className={styles.userBubble}>{item.text}</div>
+        <MessageFiles item={item} sessionId={sessionId} />
+      </div>
+    </div>
+  );
+}
+
 function Result({ item }: { item: TraceMessage }) {
   const show = useMemberLinks();
   const origin = item.origin?.kind === "result" ? item.origin : undefined;
@@ -360,6 +379,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         return (
           <>
             <FromOffice summary={`Brief · ${summary}`} text={item.text} />
+            <MessageFiles item={item} sessionId={place.sessionId} />
             {from === undefined ? null : <LeadLink agentId={from} />}
           </>
         );
@@ -371,16 +391,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       if (item.origin?.kind === "answer") {
         return <FromOffice summary="Your answer" text={item.text} />;
       }
-      if (item.role === "user") {
-        return (
-          <div className={styles.user}>
-            <span className={styles.you} aria-hidden>
-              Y
-            </span>
-            <div className={styles.userBubble}>{item.text}</div>
-          </div>
-        );
-      }
+      if (item.role === "user") return <UserMessage item={item} sessionId={place.sessionId} />;
       return (
         <div className={styles.text}>
           <Markdown text={item.text} />

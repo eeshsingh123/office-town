@@ -24,6 +24,10 @@ import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
+import fileStyles from "../attachments/Attachments.module.css";
+import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
+import { useAttachments } from "../attachments/use-attachments.ts";
+import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useChief } from "../chief/use-chief.ts";
 import { selectAgent } from "../office/office-state.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
@@ -80,6 +84,8 @@ export function Composer({ home = false }: ComposerProps) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
   const box = useRef<HTMLTextAreaElement>(null);
+  const attached = useAttachments();
+  const agents = useApp((state) => state.agents);
 
   const chief = useChief();
   const busy = useBusyDepartments();
@@ -119,6 +125,23 @@ export function Composer({ home = false }: ComposerProps) {
           ...(choices.effort === undefined ? {} : { effort: choices.effort }),
         };
   const goal = prompt.trim();
+  // Whoever reads the task first: the chosen AI, a department's lead, or the chief.
+  const reader =
+    target === CHIEF
+      ? chief?.record.settings
+      : department !== undefined
+        ? agents[department.leadAgentId]?.settings
+        : settings;
+  const seesImages = useSeesImages(
+    reader === undefined
+      ? undefined
+      : {
+          harness: reader.harness,
+          environment: reader.environment,
+          ...(reader.model === undefined ? {} : { model: reader.model }),
+        },
+  );
+  const files = attached.ids.length === 0 ? {} : { attachments: attached.ids };
 
   const missing =
     target === CHIEF
@@ -134,7 +157,7 @@ export function Composer({ home = false }: ComposerProps) {
           : workspace === undefined
             ? "Choose a workspace."
             : undefined;
-  const ready = goal !== "" && missing === undefined && !starting;
+  const ready = goal !== "" && missing === undefined && !starting && !attached.adding;
 
   // The box grows with the text instead of showing a resize handle.
   // biome-ignore lint/correctness/useExhaustiveDependencies: measured again whenever the text changes
@@ -162,7 +185,7 @@ export function Composer({ home = false }: ComposerProps) {
       };
       if (target === CHIEF) {
         if (chief === undefined) return;
-        const { task } = await api.startChiefTask(goal);
+        const { task } = await api.startChiefTask(goal, attached.ids);
         keep();
         await track(task.id);
         selectAgent(chief.record.id);
@@ -182,19 +205,21 @@ export function Composer({ home = false }: ComposerProps) {
       };
       const session =
         department !== undefined
-          ? await api.startTeamTask({ goal, team: { departmentId: department.id } })
+          ? await api.startTeamTask({ goal, team: { departmentId: department.id }, ...files })
           : workspace === undefined
             ? undefined
             : proposing
               ? await api.startTeamTask({
                   goal,
                   team: { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy },
+                  ...files,
                 })
               : await api.startTask({
                   prompt: goal,
                   agent,
                   autonomy: soloAutonomy,
                   workspaceId: workspace.id,
+                  ...files,
                 });
       if (session === undefined) return;
       keep();
@@ -362,7 +387,10 @@ export function Composer({ home = false }: ComposerProps) {
 
   return (
     <div className={styles.composerArea}>
-      <div className={styles.composer}>
+      <div
+        className={`${styles.composer} ${attached.dragging ? fileStyles.dropping : ""}`}
+        {...attached.dropHandlers}
+      >
         <div className={styles.writing}>
           <label htmlFor="task-prompt" className="visually-hidden">
             Your task
@@ -387,6 +415,7 @@ export function Composer({ home = false }: ComposerProps) {
             }}
             onKeyDown={onKeyDown}
             onBlur={() => setMention(undefined)}
+            onPaste={attached.onPaste}
             placeholder="Describe the task. Type @ to choose who does it, / to use a template."
             // biome-ignore lint/a11y/noAutofocus: New task exists to take this text
             autoFocus={!home}
@@ -449,6 +478,7 @@ export function Composer({ home = false }: ComposerProps) {
             </div>
           ) : null}
         </div>
+        <PickedFiles files={attached} seesImages={seesImages} className={styles.files} />
         {profile !== undefined && picksAgent ? (
           <div className={styles.tokens}>
             <span className={styles.token}>
@@ -466,6 +496,7 @@ export function Composer({ home = false }: ComposerProps) {
         ) : null}
         <div className={styles.bar}>
           <div className={styles.chips}>
+            <AttachButton files={attached} className={fileStyles.attach} />
             <GoesToChip
               value={target}
               label={targetLabel}

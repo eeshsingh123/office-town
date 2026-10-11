@@ -10,6 +10,13 @@
   margin: 6px 0 14px;
 }
 
+.userSaid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
 .userBubble {
   padding: 9px 13px;
   border: 1px solid var(--border);

@@ -116,6 +116,10 @@
   white-space: nowrap;
 }
 
+.files {
+  padding: 4px 14px 2px;
+}
+
 .tokens {
   display: flex;
   flex-wrap: wrap;
