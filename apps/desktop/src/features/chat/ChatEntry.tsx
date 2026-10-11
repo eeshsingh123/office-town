@@ -202,6 +202,8 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
       );
     case "notice":
       return <p className={styles.notice}>{item.text}</p>;
+    case "work":
+      return <p className={styles.work}>{item.text}</p>;
     case "delegation":
       return <DelegationEntry thread={item} />;
     case "handoff":
