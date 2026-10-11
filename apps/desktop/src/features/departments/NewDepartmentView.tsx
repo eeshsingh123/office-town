@@ -12,13 +12,13 @@ import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import page from "../../ui/Page.module.css";
-import { teamLine } from "../new-task/TeamChoice.tsx";
 import { selectRoom } from "../office/office-state.ts";
 import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
 import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./NewDepartment.module.css";
 import { type TeamRow, TeamRows, toRoles } from "./TeamRows.tsx";
+import { teamLine } from "./team-line.ts";
 
 // No template id can take this, since an id starts with a letter or digit.
 const BLANK = "~blank";

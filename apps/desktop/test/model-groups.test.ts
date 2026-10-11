@@ -1,6 +1,6 @@
 import type { HarnessModel } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
-import { groupModels } from "../src/features/new-task/model-groups.ts";
+import { groupModels, modelName } from "../src/features/new-task/model-groups.ts";
 
 const model = (id: string, provider?: string, access?: HarnessModel["access"]): HarnessModel => ({
   id,
@@ -43,5 +43,19 @@ describe("model groups", () => {
       first: [["Models", ["haiku", "sonnet"]]],
       more: [],
     });
+  });
+
+  it("names the default after the model it stands for and lists it once", () => {
+    const models = [
+      {
+        ...model("default"),
+        name: "Default (recommended)",
+        description: "Opus 5.5 · Best for everyday, complex tasks",
+      },
+      { ...model("haiku"), name: "Haiku 5.5" },
+    ];
+    expect(modelName(models, undefined)).toBe("Opus 5.5");
+    expect(modelName(models, "haiku")).toBe("Haiku 5.5");
+    expect(headings(groupModels(models, [])).first).toEqual([["Models", ["haiku"]]]);
   });
 });

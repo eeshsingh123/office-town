@@ -1,71 +1,8 @@
-.composer {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  transition:
-    border-color var(--motion),
-    box-shadow var(--motion);
-}
-
-.composer:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.prompt {
-  display: block;
-  width: 100%;
-  min-height: 96px;
-  padding: 16px 18px 10px;
-  border: 0;
-  outline: 0;
-  resize: vertical;
-  background: transparent;
-  font-size: 16px;
-  line-height: 1.55;
-}
-
-.composerFoot {
-  padding: 10px 14px 12px;
-  border-top: 1px solid var(--border);
-}
-
-.callout {
+.column {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-
-.callout > div:first-child {
-  flex: 1;
-}
-
-.callout p {
-  margin: 4px 0 0;
-}
-
-.calloutText {
-  display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.queueNote {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: var(--size-meta);
-  color: var(--text-2);
-}
-
-.queueNote svg {
-  flex: none;
-  margin-top: 2px;
+  gap: 24px;
+  width: 100%;
+  max-width: 780px;
+  margin: 24px auto 0;
 }

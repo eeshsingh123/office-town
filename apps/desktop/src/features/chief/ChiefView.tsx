@@ -8,12 +8,12 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
-import { useChief } from "../new-task/ChiefChoice.tsx";
 import { useAiSummary } from "../profiles/AiLine.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import styles from "./Chief.module.css";
 import { ChiefSetup } from "./ChiefSetup.tsx";
 import { DepartmentList } from "./DepartmentList.tsx";
+import { useChief } from "./use-chief.ts";
 
 const GOAL_STATE: Record<TaskState, string> = {
   queued: "Waiting its turn",

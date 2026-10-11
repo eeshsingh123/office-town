@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -152,9 +152,15 @@ export function TasksView() {
   return (
     <section className={styles.page} aria-labelledby="tasks-title">
       <div className={styles.column}>
-        <h1 id="tasks-title" className={styles.heading}>
-          Tasks
-        </h1>
+        <div className={styles.top}>
+          <h1 id="tasks-title" className={styles.heading}>
+            Tasks
+          </h1>
+          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+            <Plus size={14} aria-hidden />
+            New task
+          </Button>
+        </div>
         <StoreSize />
         {tasks.length === 0 ? <p className={styles.size}>No tasks yet.</p> : null}
         {[...days].map(([day, dayTasks]) => (
