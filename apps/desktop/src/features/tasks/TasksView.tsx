@@ -8,7 +8,7 @@ import {
   useTasksWithAgents,
   useWaitingSessions,
 } from "../../store/agents.ts";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { deleteTask, loadOlderTasks } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -17,6 +17,7 @@ import { byteSize, clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import styles from "./TasksView.module.css";
+import { WorkerName } from "./WorkerName.tsx";
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
@@ -66,8 +67,7 @@ function DeleteTask({ entry }: { entry: TaskWithAgents }) {
         <AlertDialog.Content className={dialog.content}>
           <AlertDialog.Title className={dialog.title}>Delete this task?</AlertDialog.Title>
           <AlertDialog.Description className={dialog.description}>
-            Its whole trace is removed from the history. Files the agent made in its folder stay
-            where they are.
+            Its history is deleted. Files the agent made stay in the folder.
           </AlertDialog.Description>
           {error === undefined ? null : (
             <p className={dialog.error} role="alert">
@@ -91,7 +91,6 @@ function DeleteTask({ entry }: { entry: TaskWithAgents }) {
 function TaskRow({ entry, waiting }: { entry: TaskWithAgents; waiting: Set<string> }) {
   const traces = useApp((state) => state.traces);
   const [first] = entry.agents;
-  const harness = useHarnessName(first?.latest.options.harness ?? "");
   const state = taskStateOf(entry.agents, traces, waiting);
   if (first === undefined || state === undefined) return null;
   const continued = first.sessions.length - 1;
@@ -106,7 +105,7 @@ function TaskRow({ entry, waiting }: { entry: TaskWithAgents; waiting: Set<strin
         <span className={styles.text}>
           <span className={styles.title}>{taskTitle(entry.task.prompt)}</span>
           <span className={styles.meta}>
-            {entry.agents.map((agent) => agent.name).join(", ")} · {harness} ·{" "}
+            <WorkerName agent={first} others={entry.agents.length - 1} /> ·{" "}
             {clockTime(entry.task.createdAt)} · {STATE_LABELS[state]}
             {continued === 0
               ? ""

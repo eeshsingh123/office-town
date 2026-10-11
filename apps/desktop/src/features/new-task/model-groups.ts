@@ -1,4 +1,5 @@
 import type { HarnessModel } from "@office-town/contract";
+import { DEFAULT_MODEL } from "../profiles/model-name.ts";
 
 export interface ModelGroup {
   heading: string;
@@ -13,20 +14,6 @@ export interface GroupedModels {
 }
 
 const RECENT = 5;
-
-// Claude Code lists its default as a model of its own; the picker offers it once, by name.
-export const DEFAULT_MODEL = "default";
-
-// The name to show for a choice, never a bare alias. The default is named after the model it
-// stands for when the harness says so, as Claude Code does ("Opus 5.5 · Best for …").
-export function modelName(
-  models: readonly HarnessModel[],
-  id: string | undefined,
-): string | undefined {
-  if (id !== undefined) return models.find((model) => model.id === id)?.name ?? id;
-  const named = models.find((model) => model.id === DEFAULT_MODEL)?.description?.split(" · ")[0];
-  return named === undefined || named.trim() === "" ? undefined : named.trim();
-}
 
 // No hand-made list of popular models. Each model is listed once.
 export function groupModels(

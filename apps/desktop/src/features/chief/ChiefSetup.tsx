@@ -8,17 +8,12 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import page from "../../ui/Page.module.css";
-import { useAiSummary } from "../profiles/AiLine.tsx";
+import { useModelLine } from "../profiles/model-line.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import styles from "./Chief.module.css";
 import { DepartmentList } from "./DepartmentList.tsx";
 
-const STEPS = [
-  { title: "Meet your chief", hint: "What it does and its name" },
-  { title: "Choose its AI", hint: "Which app and model it thinks with" },
-  { title: "House rules", hint: "How it should plan" },
-  { title: "Its departments", hint: "Who it can hand work to" },
-] as const;
+const STEPS = ["Name", "Model", "Planning rules", "Departments"] as const;
 
 const SUGGESTED_RULES = [
   "Prefer free models when you set up a new department.",
@@ -73,7 +68,7 @@ export function ChiefSetup() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const summary = useAiSummary(draft);
+  const summary = useModelLine(draft);
   const handle = toHandle(name);
   const validName = agentNameSchema.safeParse(handle).success;
   const rules = draft.instructions ?? "";
@@ -122,17 +117,13 @@ export function ChiefSetup() {
           <h1 id="chief-setup-title" className={styles.railTitle}>
             {editing ? "Chief settings" : "Set up your chief"}
           </h1>
-          <span className={page.hint}>
-            {editing
-              ? "Changes apply to its next goal. A goal in progress keeps its settings."
-              : "About two minutes. You can change all of it later."}
-          </span>
+          {editing ? <span className={page.hint}>Changes apply from its next goal.</span> : null}
         </div>
         <ol className={styles.stepList}>
           {STEPS.map((item, index) => {
             const done = index < step || (editing && index !== step);
             return (
-              <li key={item.title}>
+              <li key={item}>
                 <button
                   type="button"
                   className={styles.stepItem}
@@ -143,10 +134,7 @@ export function ChiefSetup() {
                   <span className={`${styles.stepDot} ${done ? styles.stepDone : ""}`}>
                     {done ? <Check size={13} aria-label="Done" /> : index + 1}
                   </span>
-                  <span className={styles.stepText}>
-                    <span className={styles.stepTitle}>{item.title}</span>
-                    <span className={page.hint}>{item.hint}</span>
-                  </span>
+                  <span className={styles.stepTitle}>{item}</span>
                 </button>
               </li>
             );
@@ -165,36 +153,31 @@ export function ChiefSetup() {
             </span>
             {step === 0 ? (
               <>
-                <h2 className={page.title}>Meet your chief</h2>
+                <h2 className={page.title}>Name your chief</h2>
                 <p className={page.lead}>
-                  Your chief takes a big goal, splits it into pieces and gives each piece to the
-                  right department, in the right order. It shows you the plan first, and nothing
-                  starts until you approve it.
+                  The chief splits a big goal into parts and gives each part to a department. You
+                  approve the plan before any work starts.
                 </p>
               </>
             ) : step === 1 ? (
               <>
-                <h2 className={page.title}>Which AI should {handle} think with?</h2>
+                <h2 className={page.title}>Choose a model for {handle}</h2>
                 <p className={page.lead}>
-                  The chief plans and coordinates; your departments do the actual work. A small,
-                  low-cost model is usually enough here.
+                  The chief only plans, so a small or free model is usually enough.
                 </p>
               </>
             ) : step === 2 ? (
               <>
-                <h2 className={page.title}>House rules</h2>
+                <h2 className={page.title}>Planning rules</h2>
                 <p className={page.lead}>
-                  Anything {handle} should always keep in mind when it plans and hands out work.
-                  Departments don't read these; give a department its own team rules for that.
-                  Optional; tap a suggestion or write your own.
+                  Optional rules {handle} follows when it plans. Departments don't see them.
                 </p>
               </>
             ) : (
               <>
-                <h2 className={page.title}>Who can {handle} hand work to?</h2>
+                <h2 className={page.title}>Departments</h2>
                 <p className={page.lead}>
-                  The chief gives work to your departments. It can also suggest a new department
-                  when a goal needs one, which you approve with the plan.
+                  {handle} gives work to these departments. A plan can also add a new department.
                 </p>
               </>
             )}
@@ -205,7 +188,7 @@ export function ChiefSetup() {
               <Diagram />
               <section className={page.section}>
                 <label htmlFor="chief-name" className={page.sectionTitle}>
-                  Give it a name
+                  Name
                 </label>
                 <input
                   id="chief-name"
@@ -217,9 +200,7 @@ export function ChiefSetup() {
                   autoFocus
                 />
                 <span className={page.hint}>
-                  {validName
-                    ? `It appears as ${handle} in the office and in its messages.`
-                    : "Use letters and numbers, starting with a letter or a number."}
+                  {validName ? `Shown as ${handle}.` : "Use letters and numbers."}
                 </span>
               </section>
             </>
@@ -237,7 +218,6 @@ export function ChiefSetup() {
                   options={harnesses.map((known) => ({
                     value: known.harness,
                     title: known.name,
-                    description: "Installed on this computer",
                   }))}
                   onChange={(harness) => {
                     const { model: _, effort: __, ...rest } = draft;
@@ -262,10 +242,6 @@ export function ChiefSetup() {
                     }}
                   />
                 </div>
-                <span className={page.hint}>
-                  A fast model such as Haiku, or a free one, keeps the chief from using much of your
-                  plan.
-                </span>
               </section>
             </>
           ) : null}
@@ -289,7 +265,7 @@ export function ChiefSetup() {
                 })}
               </div>
               <label htmlFor="chief-rules" className="visually-hidden">
-                House rules
+                Planning rules
               </label>
               <textarea
                 id="chief-rules"
@@ -307,7 +283,7 @@ export function ChiefSetup() {
               <DepartmentList />
               {departments === 0 ? (
                 <span className={page.hint}>
-                  You have no departments yet. Finish here, then build one from your chief's page.
+                  No departments yet. You can build one after setup.
                 </span>
               ) : null}
             </section>
@@ -350,9 +326,9 @@ export function ChiefSetup() {
               <span className={page.hint}>Your chief</span>
             </div>
             <dl className={styles.previewFacts}>
-              <dt>Thinks with</dt>
+              <dt>Model</dt>
               <dd>{summary}</dd>
-              <dt>House rules</dt>
+              <dt>Planning rules</dt>
               <dd>
                 {rules.trim() === ""
                   ? "None yet"
@@ -363,8 +339,8 @@ export function ChiefSetup() {
             </dl>
           </div>
           <p className={page.hint}>
-            The chief can read every department's files but changes none. Anything else it tries
-            comes to you first.
+            The chief can read department files but not change them. It asks you before anything
+            else.
           </p>
         </aside>
       </div>

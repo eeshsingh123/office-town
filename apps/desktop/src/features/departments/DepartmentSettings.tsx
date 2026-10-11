@@ -65,7 +65,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
       await api.changeTeam(department.id, { name: settings.name, roles: toRoles(rows) });
       setMessage({
         error: false,
-        text: `Saved. ${settings.name} uses this from its next task; a change to what it can do without asking applies to its next request.`,
+        text: "Saved. Changes apply from the next task.",
       });
     } catch (failure) {
       setMessage({
@@ -110,14 +110,11 @@ function Settings({ department }: { department: DepartmentRecord }) {
           placeholder="For example: Use TypeScript. Write a test for each new page."
           onChange={(change) => setRules(change.target.value)}
         />
-        <span className={styles.hint}>
-          Every member of {name.trim() || "this team"} reads these before each task. Use them for
-          the way this team works, so you don't repeat it in every agent's notes.
-        </span>
+        <span className={styles.hint}>Every member follows these rules.</span>
       </label>
 
       <fieldset className={styles.fieldset}>
-        <legend className={styles.label}>How much the team can do without asking you</legend>
+        <legend className={styles.label}>Permissions</legend>
         {autonomySchema.options.map((level) => (
           <label key={level} className={styles.choice}>
             <input
@@ -147,8 +144,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
             <strong>One branch per worker</strong>
             <br />
             <span className={styles.hint}>
-              When the workspace is a git repository, each worker gets its own worktree and branch;
-              the lead merges them.
+              In a git repository, each worker gets its own branch and the lead merges them.
             </span>
           </span>
         </label>
@@ -162,8 +158,7 @@ function Settings({ department }: { department: DepartmentRecord }) {
             <strong>Commit, push and open pull requests</strong>
             <br />
             <span className={styles.hint}>
-              Uses your own git and GitHub CLI logins. Pushing and pull requests follow what the
-              team may do without asking.
+              Uses your git and GitHub CLI logins. Follows the team's permissions.
             </span>
           </span>
         </label>
@@ -187,7 +182,6 @@ function Settings({ department }: { department: DepartmentRecord }) {
           departmentId={department.id}
           defaults={{ harness: harnesses[0]?.harness ?? "claude", environment: { kind: "native" } }}
         />
-        <span className={styles.hint}>The lead hears of each change while it is at work.</span>
       </div>
 
       {message === undefined ? null : (
@@ -224,10 +218,6 @@ export function DepartmentSettings({ departmentId }: { departmentId: string }) {
         <h1 id="department-title" className={styles.title}>
           {department === undefined ? "Department" : `${department.name} · Settings`}
         </h1>
-        <p className={styles.hint}>
-          Settings for the whole team. What you change here applies to every member from their next
-          task.
-        </p>
         {department === undefined ? (
           <p className={styles.hint}>This department no longer exists.</p>
         ) : (

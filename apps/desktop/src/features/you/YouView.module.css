@@ -1,21 +1,27 @@
 .identity {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: flex-end;
+  gap: 20px;
 }
 
 .identity > label {
   flex: 1;
 }
 
-.notifications {
-  gap: 16px;
+.card {
+  gap: 24px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .switchRow {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
 }
 
 .switch {
@@ -54,9 +60,10 @@
 
 .preview {
   margin: 0;
-  padding: 10px 12px;
+  padding: 14px 16px;
   border-radius: var(--radius-control);
   background: var(--bg);
+  line-height: 1.6;
   color: var(--text-2);
   font-size: var(--size-meta);
   white-space: pre-wrap;

@@ -21,6 +21,7 @@ import { requestLabel } from "../needs-you/request-label.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
+import { WorkerName } from "../tasks/WorkerName.tsx";
 import styles from "./Home.module.css";
 
 const SHOWN_REQUESTS = 3;
@@ -124,7 +125,7 @@ function Waiting() {
 
 function TeamRow(props: {
   icon: ReactNode;
-  name: string;
+  name: ReactNode;
   line: string;
   state?: string | undefined;
   onOpen: () => void;
@@ -194,7 +195,7 @@ function Team() {
           <TeamRow
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name="Chief"
-            line="Not set up. The chief splits big goals across departments."
+            line="Plans big goals across departments"
             state="Set up"
             onOpen={() => navigate({ name: "chief" })}
           />
@@ -202,7 +203,7 @@ function Team() {
           <TeamRow
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name={records[chiefId]?.name ?? "Chief"}
-            line={chiefGoal === undefined ? "Ready for a big goal" : taskTitle(chiefGoal.prompt)}
+            line={chiefGoal === undefined ? "No goal in progress" : taskTitle(chiefGoal.prompt)}
             state={chiefGoal === undefined ? undefined : GOAL_STATE[chiefGoal.state]}
             onOpen={() => navigate({ name: "chief" })}
           />
@@ -233,7 +234,7 @@ function Team() {
             <TeamRow
               key={agent.id}
               icon={<Avatar name={agent.name} colour={agent.colour} size={20} />}
-              name={agent.name}
+              name={<WorkerName agent={agent} />}
               line={nowLine(agent, waiting, traces)}
               state={STATE_LABELS[stateOf(agent, traces, waiting)]}
               onOpen={() => selectAgent(agent.id)}
@@ -279,7 +280,8 @@ function Recent() {
                 <span className={styles.rowText}>
                   <span className={styles.rowName}>{taskTitle(entry.task.prompt)}</span>
                   <span className={styles.rowLine}>
-                    {entry.agents[0]?.name} · {clockTime(entry.task.createdAt)}
+                    {entry.agents[0] === undefined ? null : <WorkerName agent={entry.agents[0]} />}
+                    {` · ${clockTime(entry.task.createdAt)}`}
                     {state === undefined ? "" : ` · ${STATE_LABELS[state]}`}
                   </span>
                 </span>
@@ -323,16 +325,18 @@ function GetStarted() {
         Get started
       </h2>
       <ol className={styles.list}>
-        <Step number={1} done={false} title="Sign in to your AI apps">
-          Your agents use your own {harnesses.map((one) => one.name).join(" and ") || "AI app"}{" "}
-          accounts. Sign in once in each app; there is nothing to set up here.
+        <Step
+          number={1}
+          done={false}
+          title={`Sign in to ${harnesses.map((one) => one.name).join(" and ") || "your AI app"}`}
+        >
+          Your agents run on these accounts.
         </Step>
-        <Step number={2} done={hasTeam} title="Build your team (optional)">
-          Set up your chief for big goals, or build a department: a lead and a few people, each on
-          the AI app you choose.
+        <Step number={2} done={hasTeam} title="Build a team (optional)">
+          Set up a chief or a department.
         </Step>
-        <Step number={3} done={false} title="Give your first task">
-          Type it above. One assistant is the quickest start, and it asks before risky steps.
+        <Step number={3} done={false} title="Start your first task">
+          Type it in the box above.
         </Step>
       </ol>
     </section>

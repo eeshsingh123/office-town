@@ -81,7 +81,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         purpose: draft.job,
         settings: settingsOf(draft),
       });
-      showToast(`Saved. ${draft.name} will work this way from its next task.`);
+      showToast("Saved. Changes apply from the next task.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -159,8 +159,8 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         />
         <span className={form.hint}>
           {department === undefined || leads
-            ? "One line, so you can tell your agents apart."
-            : "One line. The team lead uses it to decide what to give them."}
+            ? "One line to tell your agents apart."
+            : "One line. The lead uses it to hand out work."}
         </span>
       </label>
       <label className={form.field} htmlFor={`agent-notes-${id}`}>
@@ -172,29 +172,27 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           value={draft.notes}
           onChange={(event) => set({ notes: event.target.value })}
         />
-        <span className={form.hint}>
-          {who} reads these before every task. Only {who} sees them.
-        </span>
+        <span className={form.hint}>Only {who} reads these.</span>
       </label>
       <div className={form.field}>
-        <span className={form.label}>Which AI {who} uses</span>
+        <span className={form.label}>Model</span>
         <div className={form.row}>
           <SettingsChips value={draft.settings} onChange={(settings) => set({ settings })} />
         </div>
       </div>
       <div className={form.field}>
-        <span className={form.label}>When {who} asks you first</span>
+        <span className={form.label}>Permissions</span>
         <AsksFirst
           name={`agent-asks-${id}`}
           base={department?.autonomy ?? agent.autonomy ?? "supervised"}
-          baseName={department === undefined ? "when you started its task" : department.name}
+          baseName={department === undefined ? "the task" : department.name}
           value={draft.autonomy}
           onChange={(autonomy) => set({ autonomy })}
         />
         <p className={form.hint}>
           {department === undefined
-            ? `To let ${who} do more without asking, choose a higher setting when you start its next task.`
-            : `To let ${who} do more without asking, change ${department.name}'s setting. That keeps everyone on one team working within the same limits.`}
+            ? "To allow more, pick a different setting when you start the next task."
+            : `To allow more, change ${department.name}'s permissions.`}
         </p>
       </div>
       <details className={styles.reads} open>

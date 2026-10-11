@@ -3,8 +3,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
@@ -47,6 +47,6 @@
 }
 
 .icon {
-  width: 34px;
+  width: 36px;
   padding: 0;
 }

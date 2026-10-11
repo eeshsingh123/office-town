@@ -59,8 +59,8 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const placeholder = live
     ? "Message the agent"
     : resumable
-      ? "Continue this task with a message"
-      : "This agent cannot be continued";
+      ? "Send a message to continue"
+      : "This task can't be continued";
   return (
     <form className={className ?? styles.composer} onSubmit={send}>
       {error === undefined ? null : (

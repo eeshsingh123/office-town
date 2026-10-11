@@ -60,7 +60,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
         <Avatar name={reviewing.name} colour={reviewing.colour} size={22} />
         <p className={styles.text}>
           <strong>{reviewing.name} is reviewing the work.</strong>
-          <span>You will see what it finds here when it is done.</span>
+          <span>Its findings will appear here.</span>
         </p>
         {onShow === undefined ? null : (
           <Button variant="ghost" onClick={() => onShow(reviewing.id)}>
@@ -77,7 +77,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
         <Avatar name={reviewed.name} colour={reviewed.colour} size={22} />
         <p className={styles.text}>
           <strong>{reviewed.name} reviewed this work.</strong>
-          <span>Read what it found, then reply here to have anything fixed.</span>
+          <span>Reply here to get anything fixed.</span>
         </p>
         <div className={styles.actions}>
           {onShow === undefined ? null : (
@@ -99,11 +99,8 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
     <div className={styles.card}>
       <Eye size={18} className={styles.icon} aria-hidden />
       <p className={styles.text}>
-        <strong>Done. Do you want this work reviewed?</strong>
-        <span>
-          A fresh agent from outside the team checks it and tells you what it finds. It works on a
-          copy, so nothing changes.
-        </span>
+        <strong>Done. Get this work reviewed?</strong>
+        <span>A new agent checks it on a copy of the files.</span>
       </p>
       <div className={styles.actions}>
         <Button variant="primary" onClick={onReview}>

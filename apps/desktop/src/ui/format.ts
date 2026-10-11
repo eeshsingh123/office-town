@@ -1,6 +1,6 @@
-import type { EnvironmentSpec, HarnessDescription, ProfileRecord } from "@office-town/contract";
+import type { EnvironmentSpec } from "@office-town/contract";
 
-const TITLE_LENGTH = 90;
+const TITLE_LENGTH = 60;
 // The UI always runs on the same machine as the core, so its own system is the native one.
 const NATIVE_NAME = navigator.userAgent.includes("Windows")
   ? "Windows"
@@ -12,21 +12,20 @@ export function environmentName(environment: EnvironmentSpec): string {
   return environment.kind === "wsl" ? `WSL · ${environment.distro}` : NATIVE_NAME;
 }
 
-// How a profile's agents work, such as "Claude Code · haiku · low".
-export function profileSummary(
-  { settings }: Pick<ProfileRecord, "settings">,
-  harnesses: readonly HarnessDescription[],
-): string {
-  const harness = harnesses.find((known) => known.harness === settings.harness)?.name;
-  return [harness ?? settings.harness, settings.model, settings.effort]
-    .filter((part) => part !== undefined)
-    .join(" · ");
-}
+const POLITE_START =
+  /^(?:(?:hey|hi|hello|ok|okay)[,!.]?\s+)?(?:(?:please|pls|kindly)\s+)?(?:(?:can|could|would|will) you\s+(?:please\s+)?|i (?:want|need|would like) you to\s+|help me\s+)?/i;
 
-// A task's title is the first line of its prompt.
+// A short title from the prompt's first sentence, without the polite opening: "Hi, can you
+// please write a haiku about the sea. Keep it short" reads "Write a haiku about the sea".
 export function taskTitle(prompt: string): string {
   const line = prompt.trim().split("\n")[0] ?? "";
-  return line.length > TITLE_LENGTH ? `${line.slice(0, TITLE_LENGTH - 1)}…` : line;
+  const sentence = (line.split(/(?<=[.!?])\s+/)[0] ?? line).replace(/[.!?]+$/, "");
+  const rest = sentence.replace(POLITE_START, "");
+  const title = rest === "" ? sentence : `${rest[0]?.toUpperCase() ?? ""}${rest.slice(1)}`;
+  if (title.length <= TITLE_LENGTH) return title;
+  const cut = title.slice(0, TITLE_LENGTH - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${space > TITLE_LENGTH / 2 ? cut.slice(0, space) : cut}…`;
 }
 
 export function elapsed(from: string, to: string): string {

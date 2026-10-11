@@ -1,5 +1,5 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { LayoutGrid, List, MoreHorizontal, Plus, Search } from "lucide-react";
+import { CircleHelp, LayoutGrid, List, MoreHorizontal, Plus, Search } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -10,9 +10,11 @@ import form from "../../ui/Form.module.css";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
-import { modelLine, modelName, useModels } from "./model-line.ts";
+import { useModels } from "./model-line.ts";
+import { modelLine, modelName } from "./model-name.ts";
 import { draftOf, TemplateDialog, type TemplateDraft } from "./TemplateDialog.tsx";
 import styles from "./Templates.module.css";
+import { TemplatesGuide } from "./TemplatesGuide.tsx";
 
 type Sort = "used" | "name" | "new";
 type Layout = "cards" | "list";
@@ -20,6 +22,15 @@ type Layout = "cards" | "list";
 type Filter = string;
 
 const LAYOUT_KEY = "office-town.templates.layout";
+const GUIDE_KEY = "office-town.templates.guide-hidden";
+
+function loadGuideHidden(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 function loadLayout(): Layout {
   try {
@@ -27,40 +38,6 @@ function loadLayout(): Layout {
   } catch {
     return "cards";
   }
-}
-
-const STEPS = [
-  { title: "Save an agent", text: "On any agent's profile, choose Save as template." },
-  {
-    title: "Pick it later",
-    text: "Starting a task or adding someone to a team? Your templates are at the top.",
-  },
-  {
-    title: "Make it your own",
-    text: "The new agent gets its own copy. Change it freely; the template stays the same.",
-  },
-];
-
-function HowItWorks() {
-  return (
-    <section className={styles.how} aria-labelledby="how-title">
-      <h2 id="how-title" className={page.eyebrow}>
-        How templates work
-      </h2>
-      <ol className={styles.steps}>
-        {STEPS.flatMap((step, index) => [
-          ...(index === 0
-            ? []
-            : [<li key={`pipe-${step.title}`} className={styles.pipe} aria-hidden />]),
-          <li key={step.title} className={styles.step}>
-            <span className={styles.number}>{index + 1}</span>
-            <strong>{step.title}</strong>
-            <p className={form.hint}>{step.text}</p>
-          </li>,
-        ])}
-      </ol>
-    </section>
-  );
 }
 
 interface Editing {
@@ -138,12 +115,23 @@ export function TemplatesView() {
   const templates = useTemplates();
   const uses = useTemplateUses();
   const all = templates ?? [];
-  const modelOf = useModels(all.map((template) => template.settings));
+  const modelsOf = useModels(all.map((template) => template.settings));
+  const free = (settings: ProfileRecord["settings"]) =>
+    modelsOf(settings)?.find((model) => model.id === settings.model)?.access === "free";
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("");
   const [sort, setSort] = useState<Sort>("used");
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [editing, setEditing] = useState<Editing>();
+  const [guideHidden, setGuideHidden] = useState(loadGuideHidden);
+  const showGuide = (show: boolean) => {
+    setGuideHidden(!show);
+    try {
+      localStorage.setItem(GUIDE_KEY, String(!show));
+    } catch {
+      // Remembering this is a convenience only.
+    }
+  };
   const open = (template: ProfileRecord | undefined, start?: TemplateDraft) =>
     setEditing({ template, start, key: (editing?.key ?? 0) + 1 });
   const chooseLayout = (next: Layout) => {
@@ -158,14 +146,14 @@ export function TemplatesView() {
   const apps = harnesses.filter((known) =>
     all.some((template) => template.settings.harness === known.harness),
   );
-  const anyFree = all.some((template) => modelOf(template.settings)?.access === "free");
+  const anyFree = all.some((template) => free(template.settings));
   const words = query.trim().toLowerCase();
   const shown = all
     .filter((template) => {
-      const line = modelLine(template.settings, harnesses, modelOf(template.settings));
+      const line = modelLine(template.settings, harnesses, modelsOf(template.settings));
       const text = `${template.name} ${template.role} ${line}`.toLowerCase();
       if (words !== "" && !text.includes(words)) return false;
-      if (filter === "free") return modelOf(template.settings)?.access === "free";
+      if (filter === "free") return free(template.settings);
       return filter === "" || template.settings.harness === filter;
     })
     .toSorted((a, b) =>
@@ -197,18 +185,30 @@ export function TemplatesView() {
             <h1 id="templates-title" className={page.title}>
               Templates
             </h1>
-            <p className={page.lead}>
-              Ready-made agents you can reuse. Each one keeps a job, notes and which AI to use, so
-              adding the same kind of agent again takes one click.
-            </p>
+            <p className={page.lead}>Saved agent setups you can reuse.</p>
           </div>
-          <Button variant="primary" onClick={() => open(undefined)}>
-            <Plus size={14} aria-hidden />
-            New template
-          </Button>
+          <div className={styles.headActions}>
+            {guideHidden ? (
+              <Button variant="ghost" onClick={() => showGuide(true)}>
+                <CircleHelp size={14} aria-hidden />
+                How templates work
+              </Button>
+            ) : null}
+            <Button variant="primary" onClick={() => open(undefined)}>
+              <Plus size={14} aria-hidden />
+              New template
+            </Button>
+          </div>
         </header>
 
-        <HowItWorks />
+        {guideHidden ? null : (
+          <TemplatesGuide
+            onHide={() => showGuide(false)}
+            {...(templates !== undefined && all.length === 0
+              ? { onNew: () => open(undefined) }
+              : {})}
+          />
+        )}
 
         <div className={styles.tools}>
           <label className={styles.search}>
@@ -272,11 +272,11 @@ export function TemplatesView() {
           <div className={styles.empty}>
             <strong>No templates yet</strong>
             <p className={form.hint}>
-              Open any agent's profile and choose Save as template, or make one with New template.
+              Use New template, or Save as template on any agent's profile.
             </p>
           </div>
         ) : (
-          <>
+          <div className={styles.results}>
             <p className={form.hint}>
               {shown.length === all.length
                 ? `${all.length} template${all.length === 1 ? "" : "s"}`
@@ -307,7 +307,7 @@ export function TemplatesView() {
                         </span>
                       </span>
                       <span className={styles.overview}>
-                        {modelLine(template.settings, harnesses, modelOf(template.settings))}
+                        {modelLine(template.settings, harnesses, modelsOf(template.settings))}
                       </span>
                     </button>
                     <div className={styles.cardFoot}>
@@ -343,7 +343,10 @@ export function TemplatesView() {
                             </span>
                           </span>
                         </td>
-                        <td>{modelName(template.settings, modelOf(template.settings))}</td>
+                        <td>
+                          {modelName(modelsOf(template.settings), template.settings.model) ??
+                            "Default model"}
+                        </td>
                         <td>
                           {harnesses.find((known) => known.harness === template.settings.harness)
                             ?.name ?? template.settings.harness}
@@ -356,12 +359,8 @@ export function TemplatesView() {
                 </table>
               </div>
             )}
-          </>
+          </div>
         )}
-        <p className={form.hint}>
-          Editing a template changes only agents you make from it later. Agents already made from it
-          keep their own settings.
-        </p>
       </div>
       {editing === undefined ? null : (
         <TemplateDialog

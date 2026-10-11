@@ -7,6 +7,7 @@ import {
   type LucideIcon,
   Moon,
   Plus,
+  Search,
   Sun,
   SwatchBook,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
+import { openCommandMenu } from "../command/command-menu.ts";
 import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
@@ -110,6 +112,13 @@ export function Sidebar() {
         New task
         <Kbd>Ctrl N</Kbd>
       </Button>
+      <button type="button" className={styles.nav} onClick={openCommandMenu}>
+        <Search size={16} aria-hidden />
+        Search
+        <span className={styles.shortcut}>
+          <Kbd>Ctrl K</Kbd>
+        </span>
+      </button>
       <NavItem view="home" icon={House} label="Home" />
       <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
       <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />

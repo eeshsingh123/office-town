@@ -1,6 +1,6 @@
 .page {
   height: 100%;
-  padding: 48px 28px 40px;
+  padding: 48px 48px 64px;
   overflow-y: auto;
   background: var(--bg);
 }
@@ -8,9 +8,9 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 44px;
   width: 100%;
-  max-width: 980px;
+  max-width: 1020px;
   margin: 0 auto;
 }
 
@@ -22,7 +22,7 @@
 }
 
 .summary {
-  margin: -26px 0 0;
+  margin: -36px 0 0;
   font-size: 13.5px;
   color: var(--text-2);
 }
@@ -30,7 +30,7 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .sectionTitle {
@@ -41,7 +41,7 @@
 }
 
 .waiting {
-  padding: 12px 14px;
+  padding: 16px 20px;
   border: 1px solid var(--warn-border);
   border-radius: var(--radius-card);
   background: var(--warn-soft);
@@ -65,15 +65,15 @@
 .tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
 }
 
 .tile {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 12px 14px;
+  gap: 4px;
+  padding: 18px 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -102,19 +102,19 @@
 .columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 24px;
   align-items: start;
 }
 
 .card {
-  padding: 16px 18px;
+  padding: 22px 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
 }
 
 .cardTitle {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   font-size: var(--size-title);
   font-weight: 600;
 }
@@ -122,8 +122,8 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 0 0 8px;
+  gap: 4px;
+  margin: 0 0 12px;
   padding: 0;
   list-style: none;
 }
@@ -131,9 +131,9 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -194,8 +194,8 @@
 .create {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding-top: 8px;
+  gap: 8px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 

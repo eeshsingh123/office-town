@@ -20,7 +20,7 @@ export function AutonomyChoice({ name, value, onChoose }: AutonomyChoiceProps) {
     <>
       <OptionRows
         name={name}
-        label="How much it can do without asking you"
+        label="Permissions"
         value={value}
         options={levels.map((level) => ({
           value: level,

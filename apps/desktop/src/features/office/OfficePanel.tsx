@@ -17,8 +17,8 @@ function EmptyPanel({ count }: { count: number }) {
     <aside className={styles.panel} aria-label="Office">
       <p className={styles.empty}>
         {count === 0
-          ? "No agent is at work today. Start a task and its agent takes a desk here."
-          : "Click an agent or a room's sign, walk up to one and press E, or drag a box around several."}
+          ? "No agents at work yet."
+          : "Select an agent or a room, or drag to select several."}
       </p>
       {count === 0 ? (
         <div>

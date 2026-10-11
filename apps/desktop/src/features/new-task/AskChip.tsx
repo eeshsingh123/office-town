@@ -28,7 +28,7 @@ export function AskChip({ value, onChoose }: AskChipProps) {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         className={styles.chip}
-        aria-label={`Without asking: ${AUTONOMY[value].short}`}
+        aria-label={`Permissions: ${AUTONOMY[value].short}`}
       >
         <ShieldCheck size={14} aria-hidden />
         <span className={styles.chipText}>{AUTONOMY[value].short}</span>

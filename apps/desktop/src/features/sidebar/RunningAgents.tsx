@@ -4,6 +4,7 @@ import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { WorkerName } from "../tasks/WorkerName.tsx";
 import styles from "./Sidebar.module.css";
 
 // A team's task shows once, by its lead.
@@ -43,8 +44,7 @@ export function RunningAgents() {
               <span>{taskTitle(task.prompt)}</span>
             </span>
             <span className={styles.taskMeta}>
-              {first.name}
-              {others.length === 0 ? "" : ` and ${others.length} more`} · {detail}
+              <WorkerName agent={first} others={others.length} /> · {detail}
             </span>
           </button>
         );

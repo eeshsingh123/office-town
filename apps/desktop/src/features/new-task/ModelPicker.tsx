@@ -3,9 +3,9 @@ import { ChevronDown } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import menu from "../../ui/Menu.module.css";
+import { modelName } from "../profiles/model-name.ts";
 import { ModelList } from "./ModelList.tsx";
 import styles from "./ModelPicker.module.css";
-import { modelName } from "./model-groups.ts";
 
 interface ModelPickerProps {
   models: readonly HarnessModel[] | undefined;

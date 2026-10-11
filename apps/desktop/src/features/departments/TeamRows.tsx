@@ -145,10 +145,10 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
                 <span className={styles.hint}>{lead.name}</span>
               </span>
             </div>
-            <span className={styles.hint}>Plans, hands out the work, and puts it together</span>
+            <span className={styles.hint}>Splits each task among the team</span>
             <span className={styles.locked}>
               {lead.summary}
-              <Lock size={13} aria-label="The lead stays the lead" />
+              <Lock size={13} aria-label="The lead can't be removed" />
               {leadAgent === undefined ? null : (
                 <RowMenu
                   label={lead.name}
@@ -234,11 +234,6 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
           <Plus size={14} aria-hidden />
           Add someone
         </Button>
-        <span className={styles.hint}>
-          {templates.length === 0
-            ? "Save time next time: save any agent as a template from its profile."
-            : "Each person can use a different AI app and model."}
-        </span>
       </div>
       <Dialog.Root open={adding} onOpenChange={setAdding}>
         <Dialog.Portal>
@@ -246,8 +241,7 @@ export function TeamRows({ rows, onChange, lead, departmentId, defaults }: TeamR
           <Dialog.Content className={`${dialog.content} ${styles.addDialog}`}>
             <Dialog.Title className={dialog.title}>Add someone to the team</Dialog.Title>
             <Dialog.Description className={dialog.description}>
-              Start from a template to fill in their job and AI, or start blank. You can change
-              everything after.
+              Pick a template or start blank.
             </Dialog.Description>
             <TemplatePicker chosen={undefined} onPick={add} title="Start from a template" />
           </Dialog.Content>

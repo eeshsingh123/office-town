@@ -67,7 +67,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
           sideOffset={6}
         >
           <DropdownMenu.RadioGroup value={value} onValueChange={onChange}>
-            <Item value={SOLO} title="An assistant" note="One agent, for quick single jobs" />
+            <Item value={SOLO} title="An assistant" note="One agent" />
             <DropdownMenu.Label className={styles.menuHeading}>Departments</DropdownMenu.Label>
             {sorted.map((department) => {
               const busyWith = busy.get(department.id);
@@ -88,7 +88,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             <Item
               value={PROPOSE}
               title="A new team for this task"
-              note="A lead suggests who to bring in. You approve the team first."
+              note="A lead picks a team for you to approve"
             />
             <DropdownMenu.Label className={styles.menuHeading}>
               Across departments
@@ -96,11 +96,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             <Item
               value={CHIEF}
               title="Chief"
-              note={
-                hasChief
-                  ? "Plans big goals across departments. You approve the plan first."
-                  : "Not set up yet"
-              }
+              note={hasChief ? "Plans across departments for you to approve" : "Not set up yet"}
             />
           </DropdownMenu.RadioGroup>
           <DropdownMenu.Separator className={styles.separator} />

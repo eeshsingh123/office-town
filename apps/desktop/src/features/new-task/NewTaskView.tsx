@@ -10,7 +10,6 @@ export function NewTaskView() {
           <h1 id="new-task-title" className={page.title}>
             What do you need done?
           </h1>
-          <p className={page.lead}>Write it the way you would ask a colleague.</p>
         </header>
         <Composer />
       </div>

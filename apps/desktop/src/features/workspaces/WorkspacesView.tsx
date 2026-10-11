@@ -181,7 +181,6 @@ export function WorkspacesView() {
               Workspaces
               <WorkspaceTip />
             </h1>
-            <p className={page.lead}>The folders your agents work in, and who is using each one.</p>
           </div>
           <Button variant="primary" onClick={() => edit()}>
             <Plus size={14} aria-hidden />

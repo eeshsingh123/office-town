@@ -37,9 +37,7 @@ function NewDepartmentFields({
   );
   return (
     <div className={styles.newDepartment}>
-      <p className={styles.hint}>
-        A new department: its lead proposes the workers once the plan is approved.
-      </p>
+      <p className={styles.hint}>Its lead proposes the team after you approve the plan.</p>
       <label className={styles.field}>
         <span className={styles.fieldLabel}>Name</span>
         <input
@@ -60,7 +58,7 @@ function NewDepartmentFields({
         warnShared
       />
       <div className={styles.field}>
-        <span className={styles.fieldLabel}>Without asking</span>
+        <span className={styles.fieldLabel}>Permissions</span>
         <ToggleGroup.Root
           type="single"
           className={styles.segments}
@@ -69,7 +67,7 @@ function NewDepartmentFields({
             const level = autonomySchema.options.find((known) => known === next);
             if (level !== undefined) gate.choose(level);
           }}
-          aria-label="How much it can do without asking"
+          aria-label="Permissions"
         >
           {autonomySchema.options.map((level) => (
             <ToggleGroup.Item key={level} value={level} className={styles.segment}>

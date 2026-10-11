@@ -2,6 +2,7 @@ import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
 import { ChiefView } from "./features/chief/ChiefView.tsx";
+import { CommandMenu } from "./features/command/CommandMenu.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
 import { HomeView } from "./features/home/HomeView.tsx";
@@ -26,7 +27,8 @@ function Main({ view }: { view: View }) {
     case "office":
       return <OfficeView />;
     case "new-task":
-      return <NewTaskView />;
+      // A prompt handed over again, as from Ctrl+K, fills a fresh form.
+      return <NewTaskView key={view.prompt ?? ""} />;
     case "new-department":
       return <NewDepartmentView />;
     case "chief":
@@ -71,6 +73,7 @@ export function App() {
           <Main view={view} />
         </main>
         <Toaster />
+        <CommandMenu />
       </div>
     </Tooltip.Provider>
   );

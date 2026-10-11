@@ -76,7 +76,7 @@ export function ChiefWork({ chiefId }: { chiefId: string }) {
   return (
     <>
       {current === undefined ? (
-        <p className={styles.quiet}>The chief has no goal yet. Give it one from New task.</p>
+        <p className={styles.quiet}>The chief has no goal yet.</p>
       ) : (
         <section aria-label="Plan">
           <h3 className={styles.goal}>{taskTitle(current.prompt)}</h3>
@@ -217,7 +217,7 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
       )}
       {queued.length === 0 ? null : (
         <section aria-label="Queue">
-          <h3 className={styles.title}>Queue · pieces that start when they can</h3>
+          <h3 className={styles.title}>Up next</h3>
           <ul className={styles.list}>
             {queued.map((one) => {
               const goal = tasks[one.taskId]?.task;
@@ -249,7 +249,7 @@ export function AgentWork({ agent }: { agent: Agent }) {
     <>
       <p className={styles.goal}>{taskTitle(agent.task.prompt)}</p>
       {trace === undefined || trace.plan.length === 0 ? (
-        <p className={styles.quiet}>No steps yet: the agent has not made a plan for this task.</p>
+        <p className={styles.quiet}>No plan yet.</p>
       ) : (
         <Plan plan={trace.plan} />
       )}

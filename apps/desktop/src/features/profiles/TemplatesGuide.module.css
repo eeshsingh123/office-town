@@ -1,0 +1,233 @@
+/* How templates work: a soft band with three equal steps joined like a pipe. */
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--side);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 700;
+}
+
+.intro {
+  margin: 0;
+  max-width: 620px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+/* The joint between two steps. */
+.step + .step::before {
+  content: "";
+  position: absolute;
+  top: 66px;
+  left: -29px;
+  width: 28px;
+  height: 2px;
+  background: var(--border-strong);
+}
+
+.step + .step::after {
+  content: "";
+  position: absolute;
+  top: 62px;
+  left: -9px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--border-strong);
+}
+
+.picture {
+  display: grid;
+  place-items: center;
+  height: 96px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.number {
+  font-size: var(--size-small);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.stepTitle {
+  font-size: 15px;
+}
+
+.stepText {
+  font-size: var(--size-meta);
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+/* The small pictures: simplified copies of the real screens. */
+.miniCard,
+.miniComposer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 172px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: var(--size-small);
+}
+
+.miniTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.miniText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--text-3);
+}
+
+.miniText strong {
+  color: var(--text);
+}
+
+.miniLine {
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.miniComposer {
+  gap: 6px;
+  padding: 8px;
+}
+
+.miniInput {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.caret {
+  width: 1px;
+  height: 12px;
+  margin-left: 1px;
+  background: var(--accent);
+}
+
+.miniOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.miniCopy {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--text-3);
+}
+
+.miniFace {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.miniTemplate > span:first-child {
+  outline: 1.5px dashed var(--border-strong);
+  outline-offset: 3px;
+}
+
+.miniAgent {
+  position: relative;
+}
+
+.copyBadge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--surface);
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--surface);
+}
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .step + .step::before {
+    top: -21px;
+    left: 50%;
+    width: 2px;
+    height: 20px;
+  }
+
+  .step + .step::after {
+    display: none;
+  }
+}

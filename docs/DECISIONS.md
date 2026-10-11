@@ -250,3 +250,11 @@ Why: the owner hit repeated web-search asks under Trusted and needs a queue that
 - A model is always shown by name: Claude Code's `default` is named after the model it stands for, and older models fold behind "N more". Gone: the three cards, the autonomy cards, the template row and the "What happens next" panel.
 - Out for now: telling the user a CLI is out of date (needs the CLI's version in the catalog and a latest-version check, a contract change).
 Why: the owner found the form vague, slow and generic-looking; Devin, Jules, Codex and Cursor all start from one input with remembered choices beside it. Same API calls, no contract change. Mockup https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9.
+
+### D-59 One name per thing, no explainer text — accepted (2026-10-11)
+
+- A model goes by its AI app's display name everywhere ("Haiku 5.5"), for the picked alias and for the full id a running session reports: the catalog carries `resolvedId` (Claude Code's `resolvedModel`) and `features/profiles/model-name.ts` is the only place that names a model. Effort reads "Medium effort"; an unset effort is not shown.
+- A task row names who works on it: the department, the chief, or "Assistant · Haiku 5.5"; agent handles stay inside the office and the task page. Titles come from the prompt's first sentence without the polite opening, cut at 60 characters. No model call.
+- UI copy is labels and short hints only (owner): no how-it-works panels, no hints that restate the label, no narrated or clever phrasing. The levels sit under "Permissions" (Ask me first / Don't ask / No safety checks). The line under the composer shows only for an approval (chief, new team) or a busy chief.
+- Ctrl+K opens a search over pages, departments and recent tasks, with "Start a task" for the typed text last.
+Why: the owner found raw model ids, handles and AI-sounding explanations throughout the app.

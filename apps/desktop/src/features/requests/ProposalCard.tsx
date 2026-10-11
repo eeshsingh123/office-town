@@ -7,8 +7,8 @@ import { useApp } from "../../store/app-store.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
-import { profileSummary } from "../../ui/format.ts";
 import { type TeamRow, TeamRows, toRoles, toRows } from "../departments/TeamRows.tsx";
+import { useModelLine } from "../profiles/model-line.ts";
 import styles from "./ProposalCard.module.css";
 import card from "./RequestCard.module.css";
 import { useMinutesSince } from "./RequestCard.tsx";
@@ -19,6 +19,7 @@ type ProposalEvent = Extract<UserRequestEvent, { type: "proposal.requested" }>;
 export function ProposalCard({ event, context }: { event: ProposalEvent; context?: ReactNode }) {
   const { requestId, team, reason, place, departmentId } = event.payload;
   const lead = useSessionAgent(event.sessionId);
+  const leadSummary = useModelLine(lead?.latest.options);
   const harnesses = useApp((state) => state.harnesses);
   const minutes = useMinutesSince(event.timestamp);
   const [name, setName] = useState(team.name);
@@ -68,7 +69,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
             <span className={styles.path}>{place.folders.join(" · ")}</span>
           </div>
           <div className={styles.field}>
-            <span className={styles.label}>Without asking</span>
+            <span className={styles.label}>Permissions</span>
             <span>{AUTONOMY[place.autonomy].label}</span>
           </div>
         </div>
@@ -83,7 +84,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
                   id: lead.id,
                   name: lead.name,
                   colour: lead.colour,
-                  summary: profileSummary({ settings: lead.latest.options }, harnesses),
+                  summary: leadSummary,
                 }
           }
           departmentId={departmentId}

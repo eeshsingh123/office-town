@@ -93,9 +93,7 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
       });
       onOpenChange(false);
       showToast(
-        template === undefined
-          ? `Saved “${saved.name}” as a template. You'll see it whenever you add an agent.`
-          : `Saved “${saved.name}”. Agents you make from it from now on use these settings.`,
+        template === undefined ? `Saved “${saved.name}” as a template.` : `Saved “${saved.name}”.`,
       );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -114,8 +112,8 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
           </Dialog.Title>
           <Dialog.Description className={dialog.description}>
             {template === undefined
-              ? "A ready-made agent you can reuse whenever you add an agent."
-              : "Changes apply to agents you make from it from now on. Agents already made from it keep their own settings."}
+              ? "A saved agent setup you can reuse."
+              : "Agents already made from it keep their settings."}
           </Dialog.Description>
           <form className={form.form} onSubmit={save}>
             <div className={styles.identity}>
@@ -130,9 +128,6 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
                   placeholder="For example: Frontend builder"
                   onChange={(event) => set({ name: event.target.value })}
                 />
-                <span className={form.hint}>
-                  Name it after the job, so it's easy to pick later.
-                </span>
               </label>
             </div>
             <div className={form.field}>
@@ -162,18 +157,16 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
                 value={draft.notes}
                 onChange={(event) => set({ notes: event.target.value })}
               />
-              <span className={form.hint}>
-                Every agent made from this template reads these before each task.
-              </span>
+              <span className={form.hint}>Agents made from it follow these notes.</span>
             </label>
             <div className={form.field}>
-              <span className={form.label}>Which AI it uses</span>
+              <span className={form.label}>Model</span>
               <div className={form.row}>
                 <SettingsChips value={draft.settings} onChange={(settings) => set({ settings })} />
               </div>
             </div>
             <div className={form.field}>
-              <span className={form.label}>When it asks you first</span>
+              <span className={form.label}>Permissions</span>
               <AsksFirst
                 name="template-asks"
                 base={undefined}

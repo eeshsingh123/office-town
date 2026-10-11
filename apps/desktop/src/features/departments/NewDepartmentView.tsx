@@ -13,7 +13,8 @@ import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import page from "../../ui/Page.module.css";
 import { selectRoom } from "../office/office-state.ts";
-import { AiLine, useAiSummary } from "../profiles/AiLine.tsx";
+import { AiLine } from "../profiles/AiLine.tsx";
+import { useModelLine } from "../profiles/model-line.ts";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
 import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./NewDepartment.module.css";
@@ -57,7 +58,7 @@ export function NewDepartmentView() {
 
   const workspace = workspaces.find((known) => known.id === (workspaceId ?? workspaces[0]?.id));
   const template = templates.find((known) => known.id === leadTemplate);
-  const leadSummary = useAiSummary(leadSettings ?? defaults);
+  const leadSummary = useModelLine(leadSettings ?? defaults);
   const title = name.trim() || "Your new department";
   const missing =
     name.trim() === ""
@@ -113,10 +114,6 @@ export function NewDepartmentView() {
             <h1 id="new-department-title" className={page.title}>
               Build a department
             </h1>
-            <p className={page.lead}>
-              A department is a small team with a lead. You give the lead a goal; the lead hands out
-              the work and puts the result together.
-            </p>
           </header>
 
           <div className={styles.pair}>
@@ -142,13 +139,13 @@ export function NewDepartmentView() {
           <section className={page.section}>
             <div className={page.sectionHead}>
               <h2 className={page.sectionTitle}>Team</h2>
-              <span className={page.hint}>The lead can also work alone</span>
+              <span className={page.hint}>Members are optional</span>
             </div>
             <div className={styles.lead}>
               <Avatar name="Lead" colour={LEAD_COLOUR} size={36} />
               <div className={styles.leadText}>
                 <strong>Lead</strong>
-                <span className={page.hint}>Takes each goal and hands out the work</span>
+                <span className={page.hint}>Splits each task among the team</span>
                 <AiLine
                   summary={
                     template === undefined ? leadSummary : `${template.name} · ${leadSummary}`
@@ -187,7 +184,7 @@ export function NewDepartmentView() {
               defaults={leadSettings ?? defaults}
             />
             <div className={styles.templates}>
-              <span className={page.hint}>Quick add:</span>
+              <span className={page.hint}>Add a role:</span>
               {ROLE_TEMPLATES.map((template) => (
                 <button
                   key={template.role}
@@ -203,7 +200,7 @@ export function NewDepartmentView() {
           </section>
 
           <section className={page.section}>
-            <h2 className={page.sectionTitle}>How much can the team do without asking you?</h2>
+            <h2 className={page.sectionTitle}>Permissions</h2>
             <AutonomyChoice name="department-level" value={autonomy} onChoose={gate.choose} />
           </section>
         </div>
@@ -229,7 +226,7 @@ export function NewDepartmentView() {
                 ))}
               </ul>
             )}
-            <p className={styles.cardNote}>{AUTONOMY[autonomy].description}</p>
+            <p className={styles.cardNote}>{AUTONOMY[autonomy].label}</p>
           </section>
           <Button
             type="submit"
@@ -239,9 +236,9 @@ export function NewDepartmentView() {
           >
             {saving ? "Creating…" : `Create ${name.trim() || "department"}`}
           </Button>
-          <span className={`${page.hint} ${page.center}`}>
-            {missing ?? "It moves into a room in the office, ready for its first goal."}
-          </span>
+          {missing === undefined ? null : (
+            <span className={`${page.hint} ${page.center}`}>{missing}</span>
+          )}
           {error === undefined ? null : (
             <p className={page.error} role="alert">
               {error}

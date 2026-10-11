@@ -1,24 +1,21 @@
 import type { Autonomy } from "@office-town/contract";
 
-// The levels as the user reads them (D-40, MODULES M4.6), worded as how much it may do without asking.
-// `short` names the level on its own, as on a chip where the question is not asked.
+// The levels as the user reads them (D-40, MODULES M4.6). `short` names the level on a chip.
 export const AUTONOMY: Record<Autonomy, { label: string; short: string; description: string }> = {
   supervised: {
     label: "Ask me first",
     short: "Asks first",
-    description:
-      "Checks with you before every change, command and web search. Each one waits in Needs you.",
+    description: "Asks before it edits a file, runs a command or searches the web.",
   },
   full: {
     label: "Don't ask",
-    short: "Goes ahead",
+    short: "Doesn't ask",
     description:
-      "Goes ahead with everything and records every action. Folders you marked read-only still ask before any change.",
+      "Edits files, runs commands and searches the web without asking. Still asks before changing a read-only folder.",
   },
   bypass: {
     label: "No safety checks",
     short: "No safety checks",
-    description:
-      "Uses the AI app's own bypass mode. Nothing is checked, read-only folders included.",
+    description: "Turns off every check, read-only folders included.",
   },
 };

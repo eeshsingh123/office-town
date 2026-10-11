@@ -42,23 +42,20 @@ export function BypassDialog({
         <AlertDialog.Overlay className={dialog.overlay} />
         <AlertDialog.Content className={dialog.content}>
           <AlertDialog.Title className={dialog.title}>
-            Turn off every guard for {who}?
+            Turn off all safety checks for {who}?
           </AlertDialog.Title>
           <AlertDialog.Description asChild>
             <div className={dialog.description}>
-              <p>
-                With Bypass, the agents run in their AI app's bypass mode. They will not ask before
-                they:
-              </p>
+              <p>The agents will not ask before they:</p>
               <ul>
                 <li>run any command on this computer</li>
                 <li>change or delete files in any folder, not only the workspace</li>
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>
-                Office Town cannot see these actions before they happen, so nothing is held for you
-                in Needs you. Full also lets agents do everything, but every action passes through
-                Office Town, so it is recorded and you can lower the level at any time.
+                Office Town cannot see these actions before they happen, so none of them reach Needs
+                you. With "Don't ask", agents can also do all of this, but Office Town records each
+                action and you can change the setting at any time.
               </p>
             </div>
           </AlertDialog.Description>
@@ -68,15 +65,15 @@ export function BypassDialog({
               checked={understood}
               onChange={(change) => setUnderstood(change.target.checked)}
             />
-            I understand that nothing will be guarded or asked
+            I understand that nothing will be checked
           </label>
           <div className={dialog.actions}>
-            <Button onClick={settle(onFull)}>Use Full instead</Button>
+            <Button onClick={settle(onFull)}>Use "Don't ask" instead</Button>
             <AlertDialog.Cancel asChild>
               <Button variant="ghost">Keep {keepLabel}</Button>
             </AlertDialog.Cancel>
             <Button variant="primary" disabled={!understood} onClick={settle(onBypass)}>
-              Turn on Bypass
+              Turn off safety checks
             </Button>
           </div>
         </AlertDialog.Content>

@@ -11,6 +11,8 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, environmentName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { useModelName } from "../profiles/model-line.ts";
+import { effortName } from "../profiles/model-name.ts";
 import { AgentAside } from "./AgentAside.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
@@ -54,6 +56,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   );
   const harness = useHarnessName(agent?.latest.options.harness ?? "");
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
+  const model = useModelName(agent?.latest.options, trace?.model ?? agent?.latest.options.model);
   const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
   const [asking, setAsking] = useState(false);
 
@@ -89,8 +92,8 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             </span>
             <span className={styles.chip}>{harness}</span>
             <span className={styles.chip}>
-              {latest.options.model ?? trace?.model ?? "Default model"}
-              {latest.options.effort === undefined ? "" : ` · ${latest.options.effort}`}
+              {model}
+              {latest.options.effort === undefined ? "" : ` · ${effortName(latest.options.effort)}`}
             </span>
             <span className={styles.chip}>{environmentName(latest.options.environment)}</span>
             <span className={styles.chip}>Started {clockTime(agent.task.createdAt)}</span>

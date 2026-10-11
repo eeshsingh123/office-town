@@ -190,11 +190,7 @@ export function ChatTab({ agentId }: { agentId: string }) {
             {error}
           </p>
         )}
-        {!loading && goals.length === 0 ? (
-          <p className={styles.quiet}>
-            No conversation yet. It starts with this agent's first goal.
-          </p>
-        ) : null}
+        {!loading && goals.length === 0 ? <p className={styles.quiet}>No messages yet.</p> : null}
         {goals.map((goal) => (
           <GoalChat
             key={goal.taskId}

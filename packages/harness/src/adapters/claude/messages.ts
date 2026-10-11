@@ -43,6 +43,7 @@ export const initializeResponseSchema = z.looseObject({
         z.looseObject({
           value: z.string(),
           displayName: z.string(),
+          resolvedModel: z.string().optional(),
           description: z.string().optional(),
           supportedEffortLevels: z.array(z.string()).optional(),
         }),
