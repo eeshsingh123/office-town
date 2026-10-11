@@ -52,6 +52,8 @@ export type CoreReport = Extract<
   SessionEventBody,
   {
     type:
+      | "permission.requested"
+      | "permission.resolved"
       | "question.requested"
       | "question.resolved"
       | "proposal.requested"

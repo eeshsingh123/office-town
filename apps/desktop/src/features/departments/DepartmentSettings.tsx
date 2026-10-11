@@ -13,6 +13,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
+import { FilesSection } from "../library/FilesSection.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import styles from "./DepartmentSettings.module.css";
 import { type TeamRow, TeamRows, toRoles, toRows } from "./TeamRows.tsx";
@@ -112,6 +113,12 @@ function Settings({ department }: { department: DepartmentRecord }) {
         />
         <span className={styles.hint}>Every member follows these rules.</span>
       </label>
+
+      <FilesSection
+        workspaceId={department.workspaceId}
+        holder={{ departmentId: department.id }}
+        name={department.name}
+      />
 
       <fieldset className={styles.fieldset}>
         <legend className={styles.label}>Permissions</legend>

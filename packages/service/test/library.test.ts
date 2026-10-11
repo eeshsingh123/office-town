@@ -78,7 +78,13 @@ describe("library", () => {
 
     lead?.emit({
       type: "action.started",
-      payload: { actionId: "a1", kind: "read", title: "Read", locations: [voice.file.path] },
+      payload: {
+        actionId: "a1",
+        kind: "read",
+        title: "Read",
+        input: {},
+        locations: [voice.file.path],
+      },
     });
     const counts = (await core.call("GET", "/library")).json as LibraryItem[];
     const countOf = (id: string) => counts.find((item) => item.id === id);

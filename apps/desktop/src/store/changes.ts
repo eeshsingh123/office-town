@@ -43,6 +43,12 @@ function applyChange(state: AppState, change: Change): AppState {
       return { ...state, limits: { ...state.limits, [change.limits.accountId]: change.limits } };
     case "piece":
       return { ...state, pieces: { ...state.pieces, [change.piece.id]: change.piece } };
+    case "library":
+      return { ...state, library: { ...state.library, [change.item.id]: change.item } };
+    case "library.removed": {
+      const { [change.itemId]: _, ...library } = state.library;
+      return { ...state, library };
+    }
   }
 }
 
