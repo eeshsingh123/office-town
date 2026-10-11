@@ -14,7 +14,7 @@ import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import { floorPlan, onTheFloor, type Point, type RoomSpec } from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
-import { setPanelOpen, useOffice } from "./office-state.ts";
+import { openChat, type PanelKind, setPanelOpen, useOffice } from "./office-state.ts";
 import { TopBar } from "./TopBar.tsx";
 import { CHIEF_ROOM, useCommandFloor } from "./use-command-floor.ts";
 
@@ -228,6 +228,11 @@ export function OfficeView() {
     navigate({ name: "office", room: departmentId });
     select([]);
   };
+  const onOpenChat = (id: string, kind: PanelKind) => {
+    if (kind === "department") onOpenRoom(id);
+    else select([id]);
+    openChat(kind);
+  };
 
   return (
     <section aria-label="Office" className={styles.office}>
@@ -250,6 +255,7 @@ export function OfficeView() {
               room={chosen.length === 0 ? openRoom?.id : undefined}
               onSelect={onSelect}
               onOpenRoom={onOpenRoom}
+              onOpenChat={onOpenChat}
             />
           </div>
           <OfficePanel

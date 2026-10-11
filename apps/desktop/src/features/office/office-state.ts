@@ -50,3 +50,9 @@ export function selectAgent(agentId: string): void {
   select([agentId]);
   showMode("floor");
 }
+
+// Double-click or Enter: the chat of the one picked, ready to type in.
+export function openChat(kind: PanelKind): void {
+  composeIn(kind);
+  setPanelOpen(true);
+}
