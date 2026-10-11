@@ -10,7 +10,7 @@ export interface CommandResult {
 // Runs one command to its end where a harness would run, such as git for a worker in WSL.
 export async function runIn(
   environment: Environment,
-  command: { binary: string; args: string[]; cwd?: string },
+  command: { binary: string; args: string[]; cwd?: string; env?: Record<string, string> },
 ): Promise<CommandResult> {
   const lines: string[] = [];
   const exited = Promise.withResolvers<{ exit: ProcessExit; stderr: string }>();

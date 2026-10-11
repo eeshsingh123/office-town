@@ -1,4 +1,5 @@
 import type {
+  AccountStatus,
   AdapterCapabilities,
   HarnessCatalog,
   PermissionOption,
@@ -88,6 +89,15 @@ export interface CatalogQuery {
   parse(output: string[]): HarnessCatalog;
 }
 
+// How a harness keeps several logins apart, each in a folder of its own (D-60).
+export interface AccountSupport {
+  // Variables that point the CLI at an account's folder, as the harness's environment sees it.
+  env(folder: string): Record<string, string>;
+  // Signs in, printing a page to open and reading a code from stdin if the page shows one.
+  login?: HarnessCommand;
+  status?: { command: HarnessCommand; parse(output: string): AccountStatus };
+}
+
 export interface Adapter {
   readonly harness: string;
   readonly name: string;
@@ -95,6 +105,7 @@ export interface Adapter {
   // What still loads in an isolated session, when isolation is partial.
   readonly isolationNote?: string;
   readonly catalog?: CatalogQuery;
+  readonly accounts?: AccountSupport;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

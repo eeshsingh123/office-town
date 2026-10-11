@@ -1,12 +1,13 @@
 import type { PermissionMode } from "@office-town/contract";
 import type {
+  AccountSupport,
   Adapter,
   AttachedToolServer,
   CatalogQuery,
   HarnessCommand,
   LaunchOptions,
 } from "../../adapter.ts";
-import { headerSchema, initializeResponseSchema } from "./messages.ts";
+import { authStatusSchema, headerSchema, initializeResponseSchema } from "./messages.ts";
 import { ClaudeTranslator } from "./translator.ts";
 
 const STREAM_ARGS = [
@@ -67,11 +68,15 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     args.push("--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands");
   }
   for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
-  if (options.toolServers.length === 0) return { binary: "claude", args };
-  const env = Object.fromEntries(
-    options.toolServers.map((server, index) => [tokenVariable(index), server.token]),
-  );
-  return { binary: "claude", args, env };
+  const env = {
+    ...(options.accountFolder === undefined ? {} : accounts.env(options.accountFolder)),
+    ...Object.fromEntries(
+      options.toolServers.map((server, index) => [tokenVariable(index), server.token]),
+    ),
+  };
+  return Object.keys(env).length === 0
+    ? { binary: "claude", args }
+    : { binary: "claude", args, env };
 }
 
 // The CLI describes itself in its answer to an initialize request, without starting a turn.
@@ -101,6 +106,23 @@ const catalog: CatalogQuery = {
   },
 };
 
+// Each account is a config folder of its own, which holds its login (D-60).
+const accounts: AccountSupport = {
+  env: (folder) => ({ CLAUDE_CONFIG_DIR: folder }),
+  login: { binary: "claude", args: ["auth", "login", "--claudeai"] },
+  status: {
+    command: { binary: "claude", args: ["auth", "status", "--json"] },
+    parse(output) {
+      const status = authStatusSchema.parse(JSON.parse(output));
+      return {
+        signedIn: status.loggedIn,
+        ...(status.email === undefined ? {} : { email: status.email }),
+        ...(status.subscriptionType === undefined ? {} : { plan: status.subscriptionType }),
+      };
+    },
+  },
+};
+
 export const claudeAdapter: Adapter = {
   harness: "claude",
   name: "Claude Code",
@@ -115,6 +137,7 @@ export const claudeAdapter: Adapter = {
     isolation: "full",
   },
   catalog,
+  accounts,
   buildCommand,
   createTranslator: (options) => new ClaudeTranslator(options.toolServers),
 };

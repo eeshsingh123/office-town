@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { accountLimitsSchema } from "./accounts.ts";
 import { agentRecordSchema } from "./agents.ts";
-import { harnessLimitsSchema, taskRecordSchema } from "./api.ts";
+import { taskRecordSchema } from "./api.ts";
 import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
 
@@ -11,7 +12,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("agent"), agent: agentRecordSchema }),
   z.object({ type: z.literal("department"), department: departmentRecordSchema }),
   z.object({ type: z.literal("delegation"), delegation: delegationRecordSchema }),
-  z.object({ type: z.literal("limits"), limits: harnessLimitsSchema }),
+  z.object({ type: z.literal("limits"), limits: accountLimitsSchema }),
   z.object({ type: z.literal("piece"), piece: planPieceSchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

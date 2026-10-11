@@ -1,3 +1,4 @@
+export * from "./accounts.ts";
 export * from "./agents.ts";
 export * from "./api.ts";
 export * from "./autonomy.ts";

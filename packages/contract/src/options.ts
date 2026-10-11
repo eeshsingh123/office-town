@@ -34,6 +34,9 @@ export const sessionOptionsSchema = z.object({
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   permissionMode: permissionModeSchema,
+  // The login it runs on; a folder of its own unless it is the CLI's default login (D-60).
+  accountId: z.string().min(1).optional(),
+  accountFolder: absolutePathSchema.optional(),
   // As reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
   // For a clean-slate second opinion, as far as the harness allows.

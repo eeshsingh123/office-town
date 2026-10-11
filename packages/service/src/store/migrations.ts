@@ -125,6 +125,41 @@ function giveWorkspacesKinds(db: DatabaseSync): void {
   }
 }
 
+// Logins of their own, each in a folder (D-60). The CLI's default login has no row.
+function addAccounts(db: DatabaseSync): void {
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS accounts (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    harness     TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    folder      TEXT NOT NULL,
+    created_at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE IF NOT EXISTS account_limits (
+    account_id  TEXT PRIMARY KEY,
+    harness     TEXT NOT NULL,
+    limits      TEXT NOT NULL,
+    reported_at INTEGER NOT NULL
+  ) STRICT, WITHOUT ROWID;
+
+  -- "Where it went" sums the turns of a recent period.
+  CREATE INDEX IF NOT EXISTS events_turns_by_time ON events (timestamp) WHERE type = 'turn.ended';
+  `);
+  const old = db
+    .prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'harness_limits'")
+    .get();
+  if (old === undefined) return;
+  // A limit belongs to an account. Each old row was its harness's default login, whose id is
+  // the harness.
+  db.exec(`
+  INSERT INTO account_limits SELECT harness, harness, limits, reported_at FROM harness_limits;
+  DROP TABLE harness_limits;
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -400,4 +435,5 @@ export const migrations: readonly Migration[] = [
   UPDATE events SET payload = replace(payload, '"autonomy":"trusted"', '"autonomy":"full"')
   WHERE instr(payload, '"autonomy":"trusted"') > 0;
   `,
+  addAccounts,
 ];

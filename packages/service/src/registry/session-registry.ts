@@ -17,6 +17,13 @@ import {
   type ToolServer,
 } from "@office-town/harness";
 import {
+  atLimit,
+  type ChosenAccount,
+  chooseAccount,
+  handover,
+  sessionAccountId,
+} from "../accounts/accounts.ts";
+import {
   type NewSession,
   RecordNotFoundError,
   type Store,
@@ -191,6 +198,16 @@ export class SessionRegistry {
     requireSessionFolders(earlier.options);
     const permissionMode =
       this.#permissionModeOf?.(earlier.agentId) ?? earlier.options.permissionMode;
+    const moved = this.#movedAccount(earlier);
+    if (moved !== undefined) {
+      // A conversation stays with its login, so another account starts a new one (D-60).
+      const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
+      const options = { ...rest, ...moved, permissionMode };
+      const session = this.#launch(options);
+      const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
+      const text = handover(this.#store.lastMessage(sessionId), message.text);
+      return this.#run(session, record, { ...message, text });
+    }
     const options = { ...earlier.options, permissionMode, resumeSessionId: conversation };
     const session = this.#launch(options);
     const record = {
@@ -201,6 +218,15 @@ export class SessionRegistry {
       resumedFrom: sessionId,
     };
     return this.#run(session, record, message);
+  }
+
+  // Another account for the agent, once the one its conversation is on has run out.
+  #movedAccount(earlier: SessionRecord): ChosenAccount | undefined {
+    const from = sessionAccountId(earlier.options);
+    const agent = this.#store.getAgent(earlier.agentId);
+    if (agent === undefined || !atLimit(this.#store, from)) return undefined;
+    const next = chooseAccount(this.#store, agent.settings);
+    return next.accountId === from ? undefined : next;
   }
 
   async send(sessionId: string, command: AgentCommand): Promise<void> {

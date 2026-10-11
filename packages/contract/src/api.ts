@@ -2,7 +2,7 @@ import { z } from "zod";
 import { newAgentSchema, userProfileSchema } from "./agents.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
-import { usageLimitSchema, userRequestEventSchema } from "./events.ts";
+import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
 // idle: none of the others, such as a team cut off by a restart. queued: a chief's goal behind another.
@@ -75,14 +75,6 @@ export const sessionPageQuerySchema = z.object({
     .optional(),
 });
 export type SessionPageQuery = z.input<typeof sessionPageQuerySchema>;
-
-// The latest any session reported; a limit belongs to the account.
-export const harnessLimitsSchema = z.object({
-  harness: z.string().min(1),
-  limits: z.array(usageLimitSchema),
-  reportedAt: z.iso.datetime(),
-});
-export type HarnessLimits = z.infer<typeof harnessLimitsSchema>;
 
 export const taskSummarySchema = taskRecordSchema.extend({
   sessions: z.array(sessionRecordSchema),

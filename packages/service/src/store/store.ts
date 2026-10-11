@@ -1,4 +1,7 @@
 import type {
+  Account,
+  AccountLimits,
+  AccountUsage,
   AgentColour,
   AgentRecord,
   AgentSettings,
@@ -7,7 +10,6 @@ import type {
   DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
-  HarnessLimits,
   PendingRequestList,
   PlanPiece,
   ProfileRecord,
@@ -184,7 +186,15 @@ export interface Store {
   // Lines over 64 KiB are cut: the events already hold the text.
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
-  listLimits(): HarnessLimits[];
+  listLimits(): AccountLimits[];
+  // Tokens per account and agent, over the turns that ended since then.
+  accountUsageSince(since: string): AccountUsage[];
+  // Only the logins the user added; the default ones are no record (D-60).
+  createAccount(account: Account): Account;
+  getAccount(id: string): Account | undefined;
+  listAccounts(): Account[];
+  renameAccount(id: string, name: string): Account;
+  deleteAccount(id: string): void;
   readOverflow(sessionId: string, sequence: number): string;
   listPendingRequests(): PendingRequestList;
   createAgent(agent: NewAgentRecord): AgentRecord;
@@ -231,6 +241,7 @@ export class RecordNotFoundError extends Error {
       | "agent"
       | "profile"
       | "department"
+      | "account"
       | "delegation"
       | "piece",
     id: string,
