@@ -212,6 +212,35 @@ describe("claude adapter", () => {
     ]);
   });
 
+  it("signs in through an account's own folder, and counts a refused turn as a full window", () => {
+    const { env } = claudeAdapter.buildCommand({ ...replayOptions, accountFolder: "/data/work" });
+    expect(env?.CLAUDE_CONFIG_DIR).toBe("/data/work");
+    expect(claudeAdapter.buildCommand(replayOptions).env?.CLAUDE_CONFIG_DIR).toBeUndefined();
+
+    const refused = {
+      type: "rate_limit_event",
+      rate_limit_info: {
+        status: "rejected",
+        rateLimitType: "five_hour",
+        unifiedWindows: { five_hour: { utilization: 0.97 }, seven_day: { utilization: 0.4 } },
+      },
+    };
+    const { events } = claudeAdapter
+      .createTranslator(replayOptions)
+      .receive(JSON.stringify(refused));
+    expect(events).toEqual([
+      {
+        type: "limits.updated",
+        payload: {
+          limits: [
+            { id: "five_hour", label: "five hour", usedFraction: 1 },
+            { id: "seven_day", label: "seven day", usedFraction: 0.4 },
+          ],
+        },
+      },
+    ]);
+  });
+
   it("offers only changes that end with the session, says what each changes, and returns it", async () => {
     const allowAlways = recordings["write-allowed"].map(
       (entry): RecordingEntry =>

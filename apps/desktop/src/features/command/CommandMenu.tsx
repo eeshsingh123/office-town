@@ -2,6 +2,7 @@ import { Command, defaultFilter } from "cmdk";
 import {
   CornerDownLeft,
   FolderGit2,
+  Gauge,
   House,
   Inbox,
   LayoutPanelLeft,
@@ -139,6 +140,7 @@ export function CommandMenu() {
                   label="Workspaces"
                   onSelect={() => go({ name: "workspaces" })}
                 />
+                <Row icon={Gauge} label="Usage" onSelect={() => go({ name: "usage" })} />
                 <Row
                   icon={Network}
                   label={chief === undefined ? "Set up your chief" : `Chief · ${chief.name}`}

@@ -169,6 +169,14 @@
   font-weight: 600;
 }
 
+.usageDot {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--bad);
+}
+
 .dot {
   width: 7px;
   height: 7px;

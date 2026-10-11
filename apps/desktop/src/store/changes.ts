@@ -40,7 +40,7 @@ function applyChange(state: AppState, change: Change): AppState {
       return { ...state, delegations: { ...state.delegations, [delegation.id]: delegation } };
     }
     case "limits":
-      return { ...state, limits: { ...state.limits, [change.limits.harness]: change.limits } };
+      return { ...state, limits: { ...state.limits, [change.limits.accountId]: change.limits } };
     case "piece":
       return { ...state, pieces: { ...state.pieces, [change.piece.id]: change.piece } };
   }

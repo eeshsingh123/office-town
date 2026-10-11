@@ -199,7 +199,7 @@ describe("store", () => {
     const file = join(directory, "d55", "store.db");
     mkdirSync(dirname(file));
     const d55 = new DatabaseSync(file);
-    for (const sql of migrations.slice(0, -2)) {
+    for (const sql of migrations.slice(0, -3)) {
       if (typeof sql === "string") d55.exec(sql);
       else sql(d55);
     }
@@ -209,7 +209,7 @@ describe("store", () => {
       JSON.stringify({ harness: "claude", environment: { kind: "native" }, workspacePath: folder });
     d55.exec(`
       PRAGMA application_id = ${0x4f54_4f57};
-      PRAGMA user_version = ${migrations.length - 2};
+      PRAGMA user_version = ${migrations.length - 3};
       INSERT INTO settings (key, value) VALUES ('outputFolder', '${JSON.stringify(output)}');
       INSERT INTO workspaces (ref, id, name, folders, created_at, used_at)
         VALUES (1, 'report', 'Report', '${JSON.stringify([project])}', 0, 0);
@@ -247,7 +247,7 @@ describe("store", () => {
       UPDATE agents SET autonomy = 'trusted',
         settings = json_set(settings, '$.autonomy', 'trusted');
       UPDATE events SET payload = replace(payload, '"full"', '"trusted"');
-      PRAGMA user_version = ${migrations.length - 1};
+      PRAGMA user_version = ${migrations.length - 2};
     `);
     old.close();
 
@@ -391,6 +391,7 @@ describe("store", () => {
     expect(store.getTask(task.id)?.usage).toEqual(usage);
     expect(store.listLimits()).toEqual([
       {
+        accountId: "claude",
         harness: "claude",
         limits: [{ id: "five_hour", label: "5 hours", usedFraction: 0.3 }],
         reportedAt: expect.any(String),
@@ -475,9 +476,14 @@ describe("store", () => {
       "allProfiles",
       "allDepartments",
       "allLimits",
+      "allAccounts",
     ]);
+    // These group a period's rows after finding them through an index.
+    const groupedReads = new Set(["accountUsageSince"]);
     for (const [name, sql] of Object.entries(queries)) {
-      if (!wholeTableReads.has(name)) expect(plan(sql), name).not.toMatch(/SCAN |TEMP B-TREE/);
+      if (wholeTableReads.has(name)) continue;
+      const pattern = groupedReads.has(name) ? /SCAN / : /SCAN |TEMP B-TREE/;
+      expect(plan(sql), name).not.toMatch(pattern);
     }
     // A range over the primary key is still a search, so these must name the index they rely on.
     const required: [string, string][] = [

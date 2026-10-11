@@ -1,6 +1,6 @@
 import type { HarnessModel, PermissionMode } from "@office-town/contract";
 import { z } from "zod";
-import type { CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
+import type { AccountSupport, CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
 
 const modelSchema = z.looseObject({
@@ -56,9 +56,17 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     env: {
       OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
       ...(options.isolated ? ISOLATED : {}),
+      ...(options.accountFolder === undefined ? {} : accounts.env(options.accountFolder)),
     },
   };
 }
+
+// Its keys and its sessions live in its data folder, so an account moves that folder (D-61).
+const accounts: AccountSupport = {
+  env: (folder) => ({ XDG_DATA_HOME: folder }),
+  credentials: "opencode/auth.json",
+  keyLogin: (provider) => ({ binary: "opencode", args: ["auth", "login", "--provider", provider] }),
+};
 
 // Its global config and global instructions still load (D-41).
 const ISOLATED = {
@@ -116,5 +124,6 @@ export const opencodeAdapter = createAcpAdapter({
   },
   isolationNote: "OpenCode's global settings and instructions still load.",
   catalog,
+  accounts,
   buildCommand,
 });

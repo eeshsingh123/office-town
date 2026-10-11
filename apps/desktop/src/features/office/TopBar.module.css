@@ -41,20 +41,30 @@
 }
 
 .count {
+  color: var(--text-3);
+}
+
+.end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.limit {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-3);
-}
-
-.dotWorking {
-  background: var(--accent);
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bad) 10%, var(--surface));
+  color: var(--bad);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .needYou {
@@ -81,60 +91,4 @@
   height: 7px;
   border-radius: 50%;
   background: var(--warn);
-}
-
-.link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 4px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--size-meta);
-  cursor: pointer;
-}
-
-.link:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.unread {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.windows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-left: auto;
-}
-
-.window {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-3);
-  white-space: nowrap;
-}
-
-.meter {
-  display: inline-block;
-  width: 44px;
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--hover);
-}
-
-.meter i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--text-3);
 }

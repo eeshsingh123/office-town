@@ -31,6 +31,8 @@ export const agentSettingsSchema = z.object({
   model: harnessSettingSchema.optional(),
   effort: harnessSettingSchema.optional(),
   instructions: z.string().optional(),
+  // Absent: the account with the most room on its harness when a session starts (D-61).
+  accountId: z.string().min(1).optional(),
   // Lowers the level the agent works at, never raises it.
   autonomy: autonomySchema.optional(),
 });

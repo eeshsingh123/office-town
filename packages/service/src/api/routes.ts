@@ -24,6 +24,7 @@ import {
 } from "@office-town/contract";
 import { listEnvironments, listHarnesses } from "@office-town/harness";
 import { z } from "zod";
+import { accountRoutes } from "../accounts/routes.ts";
 import { createAgent } from "../agents/agents.ts";
 import { instructionsFor, soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
@@ -71,6 +72,7 @@ const sequenceSchema = z.coerce.number().int().positive();
 export function apiRoutes(team: TeamContext): Route[] {
   const { registry, store, readCatalog } = team;
   return [
+    ...accountRoutes(team),
     {
       method: "POST",
       path: "/tasks",

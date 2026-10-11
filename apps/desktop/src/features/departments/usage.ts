@@ -1,6 +1,7 @@
-import type { HarnessLimits, SessionRecord, TaskUsage, UsageLimit } from "@office-town/contract";
+import type { AccountLimits, SessionRecord, TaskUsage, UsageLimit } from "@office-town/contract";
 import type { TokenTotals, Trace } from "../../trace/trace.ts";
 import { compactCount } from "../../ui/format.ts";
+import { sessionAccountId } from "../usage/limits.ts";
 
 export interface HarnessUsage {
   harness: string;
@@ -35,19 +36,23 @@ export function tracedUsage(
   );
 }
 
-// With the newest plan limits the core keeps, since a limit belongs to the account.
+// With the limits of the account its latest session ran on, since a limit belongs to the account.
 export function usageByHarness(
   sessions: readonly SessionRecord[],
   usage: readonly TaskUsage[],
-  limits: Record<string, HarnessLimits>,
+  limits: Record<string, AccountLimits>,
 ): HarnessUsage[] {
   return [...new Set(sessions.map((session) => session.options.harness))]
     .sort((a, b) => a.localeCompare(b))
-    .map((harness) => ({
-      harness,
-      limits: limits[harness]?.limits ?? [],
-      tokens: usage.find((one) => one.harness === harness) ?? NO_TOKENS,
-    }));
+    .map((harness) => {
+      const latest = sessions.findLast((session) => session.options.harness === harness);
+      const accountId = latest === undefined ? harness : sessionAccountId(latest.options);
+      return {
+        harness,
+        limits: limits[accountId]?.limits ?? [],
+        tokens: usage.find((one) => one.harness === harness) ?? NO_TOKENS,
+      };
+    });
 }
 
 // Cached input is shown apart, so the figure is not inflated (D-29).

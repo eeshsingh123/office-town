@@ -55,6 +55,15 @@ const PIECE_SELECT = `
   LEFT JOIN departments d ON d.ref = pp.department_ref
   LEFT JOIN tasks pt ON pt.ref = pp.piece_task_ref`;
 
+// A session's account; one from before accounts ran on its harness's default login (D-61).
+const SESSION_ACCOUNT = `coalesce(
+  s.options ->> '$.accountId',
+  CASE WHEN s.options ->> '$.environment.kind' = 'wsl'
+    THEN (s.options ->> '$.harness') || '@' || (s.options ->> '$.environment.distro')
+    ELSE s.options ->> '$.harness' END)`;
+
+const ACCOUNT_COLUMNS = "id, harness, environment, name, folder, created_at AS createdAt";
+
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
 const WORKSPACE_COLUMNS =
@@ -99,7 +108,9 @@ export const queries = {
     VALUES (?, ?, ?, ?, ?, 'starting', ?)`,
   sessionRef: "SELECT ref FROM sessions WHERE id = ?",
   sessionTaskAndHarness: `
-    SELECT task_ref AS taskRef, options ->> '$.harness' AS harness FROM sessions WHERE ref = ?`,
+    SELECT s.task_ref AS taskRef, s.options ->> '$.harness' AS harness,
+           ${SESSION_ACCOUNT} AS accountId
+    FROM sessions s WHERE s.ref = ?`,
   sessionById: `${SESSION_SELECT} WHERE s.id = ?`,
   sessionsOfTask: `${SESSION_SELECT} WHERE s.task_ref = ? ORDER BY s.ref`,
   agentSessionsBefore: `
@@ -237,11 +248,32 @@ export const queries = {
       AND payload ->> '$.parentActionId' IS NULL
     ORDER BY position DESC LIMIT 1`,
   saveLimits: `
-    INSERT INTO harness_limits (harness, limits, reported_at) VALUES (?, ?, ?)
-    ON CONFLICT (harness) DO UPDATE SET limits = excluded.limits, reported_at = excluded.reported_at`,
-  // Reads the whole table on purpose: one row per harness.
-  allLimits:
-    "SELECT harness, limits, reported_at AS reportedAt FROM harness_limits ORDER BY harness",
+    INSERT INTO account_limits (account_id, harness, limits, reported_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT (account_id) DO UPDATE
+    SET limits = excluded.limits, reported_at = excluded.reported_at`,
+  // Reads the whole table on purpose: one row per account.
+  allLimits: `
+    SELECT account_id AS accountId, harness, limits, reported_at AS reportedAt
+    FROM account_limits ORDER BY account_id`,
+  accountUsageSince: `
+    SELECT ${SESSION_ACCOUNT} AS accountId, a.id AS agentId, count(DISTINCT s.task_ref) AS tasks,
+           sum(e.payload ->> '$.usage.inputTokens') AS inputTokens,
+           sum(e.payload ->> '$.usage.outputTokens') AS outputTokens,
+           coalesce(sum(e.payload ->> '$.usage.cachedInputTokens'), 0) AS cachedInputTokens
+    FROM events e
+    JOIN sessions s ON s.ref = e.session_ref
+    JOIN agents a ON a.ref = s.agent_ref
+    WHERE e.type = 'turn.ended' AND e.timestamp >= ? AND e.payload ->> '$.usage' IS NOT NULL
+    GROUP BY 1, a.id
+    ORDER BY outputTokens DESC`,
+  insertAccount: `
+    INSERT INTO accounts (id, harness, environment, name, folder, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+  // Reads the whole table on purpose: one row per login the user added.
+  allAccounts: `SELECT ${ACCOUNT_COLUMNS} FROM accounts ORDER BY harness, created_at`,
+  accountById: `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = ?`,
+  renameAccount: "UPDATE accounts SET name = ? WHERE id = ?",
+  deleteAccount: "DELETE FROM accounts WHERE id = ?",
   lastPosition: "SELECT max(position) AS position FROM events",
 
   insertWorkspace: `

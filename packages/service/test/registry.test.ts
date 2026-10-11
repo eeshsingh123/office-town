@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -92,6 +92,39 @@ describe("session registry", () => {
     ]);
     audit.close();
     store = openStore(directory);
+  });
+
+  it("carries on in a new conversation on another account once the first is used up", async () => {
+    const work = store.createAccount({
+      id: "work",
+      harness: "claude",
+      environment: { kind: "native" },
+      name: "Work",
+      folder: join(directory, "work"),
+      createdAt: new Date().toISOString(),
+    });
+    mkdirSync(join(directory, "work"));
+    writeFileSync(join(directory, "work", ".credentials.json"), "{}");
+    const registry = openRegistry();
+    const first = await start(registry, "Write a report");
+    const resetsAt = new Date(Date.now() + 3600_000).toISOString();
+    sessions[0]?.emit({
+      type: "limits.updated",
+      payload: { limits: [{ id: "five_hour", label: "five hour", usedFraction: 1, resetsAt }] },
+    });
+    sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Half done." } });
+    sessions[0]?.emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
+
+    const next = await registry.resume(first.id, { text: "Carry on" });
+    expect(next.options).toMatchObject({ accountId: work.id, accountFolder: work.folder });
+    expect(next.options.resumeSessionId).toBeUndefined();
+    const prompt = sessions[1]?.sent.at(-1);
+    expect(prompt).toMatchObject({ type: "prompt" });
+    const text = prompt?.type === "prompt" ? prompt.text : "";
+    expect(text).toContain("ran out of plan usage");
+    expect(text).toContain("Half done.");
+    expect(text.endsWith("Carry on")).toBe(true);
+    await registry.close();
   });
 
   it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {

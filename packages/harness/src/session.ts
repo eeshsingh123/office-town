@@ -112,6 +112,10 @@ export class HarnessSession implements Session {
     const additionalPaths = options.additionalPaths?.map((path) =>
       environment.toEnvironmentPath(path),
     );
+    const accountFolder =
+      options.accountFolder === undefined
+        ? undefined
+        : environment.toEnvironmentPath(options.accountFolder);
     const toolServers = (extras.toolServers ?? []).map((server) => environment.reach(server));
     this.#tokens = toolServers.map((server) => server.token);
     this.#options = {
@@ -119,6 +123,7 @@ export class HarnessSession implements Session {
       workspacePath,
       toolServers,
       ...(additionalPaths && { additionalPaths }),
+      ...(accountFolder && { accountFolder }),
     };
     this.#adapter = adapter;
     this.#environment = environment;

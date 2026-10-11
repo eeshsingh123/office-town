@@ -144,8 +144,21 @@ export const resultSchema = z.looseObject({
     .optional(),
 });
 
+// `claude auth status --json`; the rest of its fields are not needed.
+export const authStatusSchema = z.looseObject({
+  loggedIn: z.boolean(),
+  email: z.string().optional(),
+  subscriptionType: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+});
+
 export const rateLimitSchema = z.looseObject({
   rate_limit_info: z.looseObject({
+    // "rejected" once a window is used up; `rateLimitType` names that window.
+    status: z.string().optional(),
+    rateLimitType: z.string().optional(),
     unifiedWindows: z
       .record(
         z.string(),

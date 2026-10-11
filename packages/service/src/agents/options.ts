@@ -1,4 +1,5 @@
 import type { AgentRecord, PermissionMode, SessionOptions } from "@office-town/contract";
+import { chooseAccount } from "../accounts/accounts.ts";
 import { levelOf } from "../autonomy/policy.ts";
 import type { Store } from "../store/store.ts";
 
@@ -26,6 +27,7 @@ export function sessionOptionsFor(
   ].filter((path) => path !== workspacePath);
   return {
     ...settings,
+    ...chooseAccount(store, agent.settings),
     permissionMode: permissionModeOf(store, agent.id),
     ...(workspacePath === undefined ? {} : { workspacePath }),
     ...(additionalPaths.length === 0 ? {} : { additionalPaths }),

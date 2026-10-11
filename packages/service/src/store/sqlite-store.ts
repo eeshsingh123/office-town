@@ -4,13 +4,16 @@ import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
+  type Account,
+  type AccountLimits,
+  type AccountUsage,
   type AgentRecord,
   type AgentSettings,
   type Change,
   type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
-  type HarnessLimits,
+  type EnvironmentSpec,
   type PendingRequestList,
   type PlanPiece,
   type ProfileRecord,
@@ -166,6 +169,15 @@ interface PieceRow {
   endedAt: number | null;
 }
 
+interface AccountRow {
+  id: string;
+  harness: string;
+  environment: string;
+  name: string;
+  folder: string;
+  createdAt: number;
+}
+
 interface ProfileRow {
   ref: number;
   id: string;
@@ -297,6 +309,17 @@ function toPiece(row: PieceRow): PlanPiece {
 }
 
 const OPEN_PIECE = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
+
+function toAccount(row: AccountRow): Account {
+  return {
+    id: row.id,
+    harness: row.harness,
+    environment: JSON.parse(row.environment) as EnvironmentSpec,
+    name: row.name,
+    folder: row.folder,
+    createdAt: iso(row.createdAt),
+  };
+}
 
 function toProfile(row: ProfileRow): ProfileRecord {
   return {
@@ -714,10 +737,11 @@ class SqliteStore implements Store {
     return rows.map(toStoredEvent);
   }
 
-  listLimits(): HarnessLimits[] {
-    return all<{ harness: string; limits: string; reportedAt: number }>(
+  listLimits(): AccountLimits[] {
+    return all<{ accountId: string; harness: string; limits: string; reportedAt: number }>(
       this.#statements.allLimits,
     ).map((row) => ({
+      accountId: row.accountId,
       harness: row.harness,
       limits: JSON.parse(row.limits) as UsageLimit[],
       reportedAt: iso(row.reportedAt),
@@ -856,6 +880,43 @@ class SqliteStore implements Store {
   listMembers(departmentId: string): AgentRecord[] {
     const ref = this.#departmentRow(departmentId).ref;
     return all<AgentRow>(this.#statements.membersOf, ref).map(toAgent);
+  }
+
+  accountUsageSince(since: string): AccountUsage[] {
+    return all<AccountUsage>(this.#statements.accountUsageSince, Date.parse(since));
+  }
+
+  createAccount(account: Account): Account {
+    const { id, harness, environment, name, folder = "", createdAt } = account;
+    this.#statements.insertAccount.run(
+      id,
+      harness,
+      JSON.stringify(environment),
+      name,
+      folder,
+      Date.parse(createdAt),
+    );
+    return account;
+  }
+
+  getAccount(id: string): Account | undefined {
+    const row = one<AccountRow>(this.#statements.accountById, id);
+    return row === undefined ? undefined : toAccount(row);
+  }
+
+  listAccounts(): Account[] {
+    return all<AccountRow>(this.#statements.allAccounts).map(toAccount);
+  }
+
+  renameAccount(id: string, name: string): Account {
+    const account = this.getAccount(id);
+    if (account === undefined) throw new RecordNotFoundError("account", id);
+    this.#statements.renameAccount.run(name, id);
+    return { ...account, name };
+  }
+
+  deleteAccount(id: string): void {
+    this.#statements.deleteAccount.run(id);
   }
 
   createProfile({ name, role, colour, settings }: ProfileRequest): ProfileRecord {
@@ -1107,10 +1168,14 @@ class SqliteStore implements Store {
   // In the event's own transaction; returns what to publish once it commits.
   #updateUsage(sessionRef: number, event: SessionEvent): Change | undefined {
     if (event.type === "limits.updated") {
-      const { harness } = this.#sessionTask(sessionRef);
+      const { harness, accountId } = this.#sessionTask(sessionRef);
       const { limits } = event.payload;
-      this.#statements.saveLimits.run(harness, JSON.stringify(limits), Date.parse(event.timestamp));
-      return { type: "limits", limits: { harness, limits, reportedAt: event.timestamp } };
+      const reportedAt = Date.parse(event.timestamp);
+      this.#statements.saveLimits.run(accountId, harness, JSON.stringify(limits), reportedAt);
+      return {
+        type: "limits",
+        limits: { accountId, harness, limits, reportedAt: event.timestamp },
+      };
     }
     if (event.type !== "turn.ended" || event.payload.usage === undefined) return undefined;
     const { usage } = event.payload;
@@ -1126,8 +1191,8 @@ class SqliteStore implements Store {
     return task === undefined ? undefined : { type: "task", task: this.#toTask(task) };
   }
 
-  #sessionTask(sessionRef: number): { taskRef: number; harness: string } {
-    const row = one<{ taskRef: number; harness: string }>(
+  #sessionTask(sessionRef: number): { taskRef: number; harness: string; accountId: string } {
+    const row = one<{ taskRef: number; harness: string; accountId: string }>(
       this.#statements.sessionTaskAndHarness,
       sessionRef,
     );

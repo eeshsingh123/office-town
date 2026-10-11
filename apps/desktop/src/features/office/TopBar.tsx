@@ -1,72 +1,33 @@
-import type { HarnessDescription, HarnessLimits, TaskRecord } from "@office-town/contract";
-import { MapIcon, SquareKanban } from "lucide-react";
+import { Gauge, MapIcon, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
-import { useMemo } from "react";
-import { useApp } from "../../store/app-store.ts";
-import { compactCount, whenNext } from "../../ui/format.ts";
-import { newTokens } from "../departments/usage.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
+import { fullest } from "../usage/limits.ts";
+import { useMinute } from "../usage/use-usage.ts";
 import { showMode, useOffice } from "./office-state.ts";
 import styles from "./TopBar.module.css";
 import { useCounts } from "./use-counts.ts";
 import { goToNextWaiting } from "./waiting-keys.ts";
 
-interface PlanWindow {
-  harness: string;
-  text: string;
-  fraction?: number;
-  detail?: string;
-}
-
-const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
-
-// Or else the new tokens of today's goals on it (D-29).
-function planWindows(
-  harnesses: readonly HarnessDescription[],
-  limits: Record<string, HarnessLimits>,
-  tasks: readonly TaskRecord[],
-): PlanWindow[] {
-  return harnesses.flatMap(({ harness, name }): PlanWindow[] => {
-    const fullest = (limits[harness]?.limits ?? []).toSorted(
-      (a, b) => b.usedFraction - a.usedFraction,
-    )[0];
-    if (fullest !== undefined) {
-      const percent = Math.round(fullest.usedFraction * 100);
-      return [
-        {
-          harness,
-          text: `${name} ${fullest.label} ${percent}%`,
-          fraction: Math.min(1, fullest.usedFraction),
-          ...(fullest.resetsAt === undefined
-            ? {}
-            : { detail: `Resets ${whenNext(fullest.resetsAt)}` }),
-        },
-      ];
-    }
-    const tokens = tasks
-      .filter((task) => isToday(task.createdAt))
-      .flatMap((task) => task.usage.filter((usage) => usage.harness === harness))
-      .reduce((sum, usage) => sum + newTokens(usage), 0);
-    if (tokens === 0) return [];
-    return [{ harness, text: `${name} ${compactCount(tokens)} tokens`, detail: "Today's goals" }];
-  });
-}
-
-export function TopBar() {
-  const entries = useApp((state) => state.tasks);
+// Accounts used up right now; the bar names one, Usage has the rest.
+function useFullAccounts(): string[] {
   const harnesses = useApp((state) => state.harnesses);
+  const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
+  const now = useMinute();
+  return accounts
+    .filter((account) => (fullest(limits[account.id], now)?.usedFraction ?? 0) >= 1)
+    .map((account) => {
+      const harness = harnesses.find((known) => known.harness === account.harness)?.name;
+      return `${harness ?? account.harness} · ${account.name}`;
+    });
+}
+
+// Only what can be acted on: counts live on Home, usage on its own page.
+export function TopBar() {
   const focus = useApp((state) => state.focus);
   const mode = useOffice((state) => state.mode);
-  const { working, queued, toReview, order } = useCounts();
-  const windows = useMemo(
-    () =>
-      planWindows(
-        harnesses,
-        limits,
-        Object.values(entries).map((entry) => entry.task),
-      ),
-    [harnesses, limits, entries],
-  );
+  const { working, order } = useCounts();
+  const full = useFullAccounts();
   const at = focus === undefined ? -1 : order.indexOf(focus.agentId);
 
   return (
@@ -94,42 +55,33 @@ export function TopBar() {
         </ToggleGroup.Item>
       </ToggleGroup.Root>
 
-      <span className={styles.count}>
-        <span className={`${styles.dot} ${working > 0 ? styles.dotWorking : ""}`} aria-hidden />
-        {working} working
-      </span>
-      {order.length === 0 ? (
-        <span className={styles.count}>0 need you</span>
-      ) : (
-        <button
-          type="button"
-          className={styles.needYou}
-          onClick={goToNextWaiting}
-          title="Go to the next waiting agent (N)"
-        >
-          <span className={styles.waitDot} aria-hidden />
-          {at === -1 ? `${order.length} need you` : `${at + 1} of ${order.length}`}
-        </button>
-      )}
-      <button type="button" className={styles.link} onClick={() => showMode("board")}>
-        {queued} queued
-      </button>
-      <button type="button" className={styles.link} onClick={() => showMode("board")}>
-        {toReview > 0 ? <span className={styles.unread} aria-hidden /> : null}
-        {toReview} to review
-      </button>
+      {working === 0 ? null : <span className={styles.count}>{working} working</span>}
 
-      <div className={styles.windows}>
-        {windows.map((window) => (
-          <span key={window.harness} className={styles.window} title={window.detail}>
-            {window.text}
-            {window.fraction === undefined ? null : (
-              <span className={styles.meter} aria-hidden>
-                <i style={{ width: `${window.fraction * 100}%` }} />
-              </span>
-            )}
-          </span>
-        ))}
+      <div className={styles.end}>
+        {full.length === 0 ? null : (
+          <button
+            type="button"
+            className={styles.limit}
+            onClick={() => navigate({ name: "usage" })}
+            title="Open Usage"
+          >
+            <Gauge size={13} aria-hidden />
+            {full.length === 1
+              ? `${full[0]} is at its limit`
+              : `${full.length} accounts at their limit`}
+          </button>
+        )}
+        {order.length === 0 ? null : (
+          <button
+            type="button"
+            className={styles.needYou}
+            onClick={goToNextWaiting}
+            title="Go to the next waiting agent (N)"
+          >
+            <span className={styles.waitDot} aria-hidden />
+            {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
+          </button>
+        )}
       </div>
     </header>
   );

@@ -1,9 +1,10 @@
 import type {
+  Account,
+  AccountLimits,
   AgentRecord,
   DelegationRecord,
   DepartmentRecord,
   HarnessDescription,
-  HarnessLimits,
   PlanPiece,
   ProfileRecord,
   RoomPosition,
@@ -35,6 +36,7 @@ export type View =
   | { name: "tasks" }
   | { name: "templates" }
   | { name: "workspaces" }
+  | { name: "usage" }
   | { name: "workspace"; workspaceId: string }
   | { name: "you" }
   | { name: "department"; departmentId: string }
@@ -49,8 +51,10 @@ export interface AppState extends Records {
   delegations: Record<string, DelegationRecord>;
   // Of every chief goal that has not ended, and each piece made since.
   pieces: Record<string, PlanPiece>;
-  // By harness.
-  limits: Record<string, HarnessLimits>;
+  // By account id.
+  limits: Record<string, AccountLimits>;
+  // The default logins first, then the ones the user added (D-61).
+  accounts: Account[];
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
   traceErrors: Record<string, string>;
@@ -80,6 +84,7 @@ export const useApp = create<AppState>(() => ({
   delegations: {},
   pieces: {},
   limits: {},
+  accounts: [],
   tasks: {},
   sessions: {},
   waiting: {},

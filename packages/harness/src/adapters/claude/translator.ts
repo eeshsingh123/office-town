@@ -485,11 +485,14 @@ export class ClaudeTranslator implements Translator {
 
   // Reported for subscriptions only: the share of each usage window spent, and when it resets.
   #rateLimit(message: unknown): Translation {
-    const windows = rateLimitSchema.parse(message).rate_limit_info.unifiedWindows ?? {};
+    const info = rateLimitSchema.parse(message).rate_limit_info;
+    const windows = info.unifiedWindows ?? {};
+    // A refused turn means the window is full, whatever share it last reported.
+    const full = info.status === "rejected" ? info.rateLimitType : undefined;
     const limits = Object.entries(windows).map(([id, { utilization, resetsAt }]) => ({
       id,
       label: id.replaceAll("_", " "),
-      usedFraction: utilization,
+      usedFraction: id === full ? Math.max(1, utilization) : utilization,
       ...(resetsAt === undefined ? {} : { resetsAt: new Date(resetsAt * 1000).toISOString() }),
     }));
     return translated(limits.length === 0 ? [] : [{ type: "limits.updated", payload: { limits } }]);
