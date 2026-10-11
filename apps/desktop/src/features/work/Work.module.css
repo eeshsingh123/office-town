@@ -126,3 +126,110 @@
 .delegation:last-child {
   border-bottom: 0;
 }
+
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline > li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 18px;
+}
+
+/* The line joining one step to the next. */
+.timeline > li::before {
+  content: "";
+  position: absolute;
+  top: 22px;
+  bottom: 2px;
+  left: 7.5px;
+  width: 1px;
+  background: var(--border);
+}
+
+.timeline > li:last-child {
+  padding-bottom: 0;
+}
+
+.timeline > li:last-child::before {
+  display: none;
+}
+
+.node {
+  display: grid;
+  height: 20px;
+  place-items: center;
+}
+
+.groupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.groupTitle span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.groupTitle time {
+  flex: none;
+  font-size: var(--size-small);
+  font-weight: 400;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.groupLine {
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.runningLine {
+  color: var(--accent-text);
+}
+
+.iconDone {
+  color: var(--ok);
+}
+
+.iconNow {
+  color: var(--accent);
+}
+
+.iconNext {
+  color: var(--text-3);
+}
+
+.stateNext .groupTitle {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.stateNow .groupTitle {
+  color: var(--accent-text);
+}

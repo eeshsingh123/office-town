@@ -1,15 +1,16 @@
 import type { DepartmentRecord, PlanPiece } from "@office-town/contract";
-import { Lock } from "lucide-react";
-import { useEffect } from "react";
+import { CircleCheck, CircleDashed, LoaderCircle, Lock } from "lucide-react";
+import { type ReactNode, useEffect, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
+import { isOpen } from "../../store/records.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { type ActivityGroup, activityOf } from "../../trace/activity.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
-import { Plan } from "../task/AgentAside.tsx";
 import { DELEGATION_STATUS } from "./delegation-status.ts";
 import { PieceIcon } from "./PieceIcon.tsx";
 import { useChiefGoals } from "./use-chief-goals.ts";
@@ -241,21 +242,53 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
   );
 }
 
-export function AgentWork({ agent }: { agent: Agent }) {
-  const trace = useApp((state) => state.traces[agent.latest.id]);
-  useEffect(() => loadTrace(agent.latest.id), [agent.latest.id]);
-  const progress = trace === undefined ? undefined : progressOf(trace);
+const GROUP_ICONS: Record<ActivityGroup["state"], ReactNode> = {
+  done: <CircleCheck size={16} className={styles.iconDone} aria-label="Done" />,
+  now: <LoaderCircle size={16} className={`${styles.iconNow} spin`} aria-label="In progress" />,
+  next: <CircleDashed size={16} className={styles.iconNext} aria-label="Not started" />,
+};
+
+const GROUP_STYLES: Record<ActivityGroup["state"], string | undefined> = {
+  done: undefined,
+  now: styles.stateNow,
+  next: styles.stateNext,
+};
+
+export function AgentActivity({ agent }: { agent: Agent }) {
+  const traces = useApp(
+    useShallow((state) => agent.sessions.flatMap((session) => state.traces[session.id] ?? [])),
+  );
+  useEffect(() => {
+    for (const session of agent.sessions) loadTrace(session.id);
+  }, [agent.sessions]);
+  const groups = useMemo(() => activityOf(traces, isOpen(agent.latest)), [traces, agent.latest]);
+  const planned = traces.some((trace) => trace.plan.length > 0);
+  if (groups.length === 0) return <p className={styles.quiet}>Nothing done yet.</p>;
+  const done = groups.filter((group) => group.state === "done").length;
   return (
-    <>
-      <p className={styles.goal}>{taskTitle(agent.task.prompt)}</p>
-      {trace === undefined || trace.plan.length === 0 ? (
-        <p className={styles.quiet}>No plan yet.</p>
-      ) : (
-        <Plan plan={trace.plan} />
-      )}
-      {progress?.current === undefined ? null : (
-        <p className={styles.meta}>Now: {progress.current.title}</p>
-      )}
-    </>
+    <section aria-label="Activity" className={styles.activity}>
+      {planned ? (
+        <p className={styles.meta}>
+          {done} of {groups.length} steps done
+        </p>
+      ) : null}
+      <ol className={styles.timeline}>
+        {groups.map((group) => (
+          <li key={group.id} className={GROUP_STYLES[group.state]}>
+            <span className={styles.node}>{GROUP_ICONS[group.state]}</span>
+            <div className={styles.groupBody}>
+              <div className={styles.groupTitle}>
+                <span>{group.title}</span>
+                {group.at === undefined ? null : <time>{clockTime(group.at)}</time>}
+              </div>
+              {group.done === undefined ? null : <p className={styles.groupLine}>{group.done}</p>}
+              {group.running === undefined ? null : (
+                <p className={`${styles.groupLine} ${styles.runningLine}`}>{group.running}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

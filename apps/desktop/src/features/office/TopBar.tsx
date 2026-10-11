@@ -1,9 +1,9 @@
-import { Gauge, MapIcon, SquareKanban } from "lucide-react";
+import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { fullest } from "../usage/limits.ts";
 import { useMinute } from "../usage/use-usage.ts";
-import { showMode, useOffice } from "./office-state.ts";
+import { setPanelOpen, showMode, useOffice } from "./office-state.ts";
 import styles from "./TopBar.module.css";
 import { useCounts } from "./use-counts.ts";
 import { goToNextWaiting } from "./waiting-keys.ts";
@@ -26,6 +26,7 @@ function useFullAccounts(): string[] {
 export function TopBar() {
   const focus = useApp((state) => state.focus);
   const mode = useOffice((state) => state.mode);
+  const panelOpen = useOffice((state) => state.panelOpen);
   const { working, order } = useCounts();
   const full = useFullAccounts();
   const at = focus === undefined ? -1 : order.indexOf(focus.agentId);
@@ -82,6 +83,21 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
+        {mode === "floor" ? (
+          <button
+            type="button"
+            className={styles.panelToggle}
+            onClick={() => setPanelOpen(!panelOpen)}
+            aria-label={panelOpen ? "Hide side panel" : "Show side panel"}
+            title={panelOpen ? "Hide side panel" : "Show side panel"}
+          >
+            {panelOpen ? (
+              <PanelRightClose size={16} aria-hidden />
+            ) : (
+              <PanelRightOpen size={16} aria-hidden />
+            )}
+          </button>
+        ) : null}
       </div>
     </header>
   );

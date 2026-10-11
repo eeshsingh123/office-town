@@ -151,7 +151,8 @@ function GoalChat({
 }
 
 // A divider at each goal (D-49).
-export function ChatTab({ agentId }: { agentId: string }) {
+// `named` shows who the chat goes to, where the panel is about someone else, such as a department.
+export function ChatTab({ agentId, named }: { agentId: string; named: boolean }) {
   const agent = useApp((state) => state.agents[agentId]);
   const department = useApp((state) =>
     agent?.departmentId === undefined ? undefined : state.departments[agent.departmentId],
@@ -172,11 +173,13 @@ export function ChatTab({ agentId }: { agentId: string }) {
 
   return (
     <>
-      <div className={styles.who}>
-        <Avatar name={agent.name} colour={agent.colour} size={22} />
-        <strong>{agent.name}</strong>
-        {role === undefined ? null : <span className={styles.quiet}>{role}</span>}
-      </div>
+      {named ? (
+        <div className={styles.who}>
+          <Avatar name={agent.name} colour={agent.colour} size={22} />
+          <strong>{agent.name}</strong>
+          {role === undefined ? null : <span className={styles.quiet}>{role}</span>}
+        </div>
+      ) : null}
       <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
         {more ? (
           <div className={styles.earlier}>

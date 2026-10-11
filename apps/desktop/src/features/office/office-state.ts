@@ -3,24 +3,30 @@ import { navigate, select } from "../../store/app-store.ts";
 
 export type OfficeMode = "floor" | "board";
 export type PanelKind = "chief" | "department" | "agent";
-export type PanelTab = "overview" | "chat" | "work" | "profile";
+export type PanelTab = "now" | "activity" | "chat" | "profile";
 
 interface OfficeState {
   mode: OfficeMode;
   // Kept for the session.
   tabs: Record<PanelKind, PanelTab>;
+  panelOpen: boolean;
   // Set when the composer should take focus; a follow-up names the goal it answers.
   compose: { at: number; taskId?: string } | undefined;
 }
 
 export const useOffice = create<OfficeState>(() => ({
   mode: "floor",
-  tabs: { chief: "overview", department: "overview", agent: "overview" },
+  tabs: { chief: "now", department: "now", agent: "now" },
+  panelOpen: true,
   compose: undefined,
 }));
 
 export function showMode(mode: OfficeMode): void {
   useOffice.setState({ mode });
+}
+
+export function setPanelOpen(panelOpen: boolean): void {
+  useOffice.setState({ panelOpen });
 }
 
 export function chooseTab(kind: PanelKind, tab: PanelTab): void {
