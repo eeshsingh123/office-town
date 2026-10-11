@@ -174,6 +174,7 @@ export class Scheduler {
         { goal: piece.brief, team: teamOf(piece) },
         {
           parentTaskId: goal.id,
+          attachments: store.taskAttachments(goal.id),
           handOff: text,
           readOnlyPaths,
           onTaskCreated: (taskId) => store.updatePiece(piece.id, { pieceTaskId: taskId }),

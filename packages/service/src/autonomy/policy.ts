@@ -47,6 +47,18 @@ function touchesReadOnly(request: PermissionRequest, folders: string[], readOnly
   return touched && (kind === undefined || !READS.has(kind));
 }
 
+// Files the user gave the agent are read-only folders, so reading them never asks (D-64).
+function readsOnlyFrom(request: PermissionRequest, folders: string[], readOnly: string[]) {
+  const { kind, locations = [] } = request;
+  if (kind === undefined || !READS.has(kind) || locations.length === 0) return false;
+  const guarded = readOnly.map(canonicalPath);
+  const base = folders[0] ?? "";
+  return locations.every((location) => {
+    const path = canonicalPath(resolve(base, location));
+    return guarded.some((folder) => inside(folder, path));
+  });
+}
+
 // Only reads go through inside a read-only folder, at any level (D-57).
 export function allows(
   level: Autonomy,
@@ -55,6 +67,7 @@ export function allows(
   readOnly: string[] = [],
 ): boolean {
   if (touchesReadOnly(request, folders, readOnly)) return false;
+  if (readsOnlyFrom(request, folders, readOnly)) return true;
   return level !== "supervised";
 }
 

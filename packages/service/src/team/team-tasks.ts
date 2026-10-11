@@ -1,4 +1,5 @@
 import type {
+  Attachment,
   DelegationRecord,
   EnvironmentSpec,
   SessionRecord,
@@ -8,6 +9,7 @@ import { listHarnesses } from "@office-town/harness";
 import { createAgent } from "../agents/agents.ts";
 import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
+import { resolveAttachments } from "../attachments/attachments.ts";
 import { pieceResult } from "../chief/briefs.ts";
 import { isChiefTask } from "../chief/chief.ts";
 import { departmentNameOf } from "../chief/piece-folders.ts";
@@ -126,6 +128,8 @@ function throwUnlessStopped(stops: PromiseSettledResult<void>[], message: string
 
 export interface PieceStart {
   parentTaskId: string;
+  // The files given with the chief's goal.
+  attachments: Attachment[];
   // The chief's goal and the results this piece builds on.
   handOff: string;
   readOnlyPaths: string[];
@@ -135,11 +139,16 @@ export interface PieceStart {
   stillWanted(): boolean;
 }
 
-function withHandOff(message: Message, piece: PieceStart | undefined): Message {
+function withHandOff(
+  message: Message,
+  piece: PieceStart | undefined,
+  attachments: Attachment[],
+): Message {
+  const given = attachments.length === 0 ? message : { ...message, attachments };
   return piece === undefined
-    ? message
+    ? given
     : {
-        ...message,
+        ...given,
         text: `${message.text}
 
 ${piece.handOff}`,
@@ -155,10 +164,11 @@ function requireWanted(piece: PieceStart | undefined): void {
 // A new lead first proposes its team; only the lead starts, as it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
-  { goal, team }: StartTeamTaskRequest,
+  { goal, team, attachments: attachmentIds }: StartTeamTaskRequest,
   piece?: PieceStart,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
+  const attachments = [...resolveAttachments(store, attachmentIds), ...(piece?.attachments ?? [])];
   const parent = piece === undefined ? {} : { parentTaskId: piece.parentTaskId };
   // The upstream departments' folders a piece of a chief's plan may read.
   const withUpstream = (folders: TaskFolders) => ({
@@ -168,7 +178,7 @@ export async function startTeamTask(
   if ("workerAgentIds" in team) {
     if (piece !== undefined)
       throw new TeamError("A part of the chief's plan goes to a department.");
-    return startGroupTask(context, goal, team);
+    return startGroupTask(context, goal, team, attachments);
   }
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
@@ -200,6 +210,7 @@ export async function startTeamTask(
               codeFlow: department.codeFlow,
             }),
             piece,
+            attachments,
           ),
         });
       });
@@ -223,6 +234,7 @@ export async function startTeamTask(
         choices: await harnessChoices(context, options.environment),
       }),
       piece,
+      attachments,
     );
     requireWanted(piece);
     return registry.start({ taskId: task.id, agentId: lead.id, options, message });
@@ -253,6 +265,7 @@ async function startGroupTask(
   context: TeamContext,
   goal: string,
   team: GroupTeam,
+  attachments: Attachment[],
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const { lead, workers } = groupOf(store, team);
@@ -275,16 +288,20 @@ async function startGroupTask(
         taskId: task.id,
         agentId: lead.id,
         options: sessionOptionsFor(store, lead, folders),
-        message: leadBrief({
-          goal,
-          teamName: groupName(lead),
-          folders,
-          instructions: instructionsFor(store, lead),
-          roster: describeWorkers(workers),
-          branches: false,
-          codeFlow: false,
-          fixedTeam: true,
-        }),
+        message: withHandOff(
+          leadBrief({
+            goal,
+            teamName: groupName(lead),
+            folders,
+            instructions: instructionsFor(store, lead),
+            roster: describeWorkers(workers),
+            branches: false,
+            codeFlow: false,
+            fixedTeam: true,
+          }),
+          undefined,
+          attachments,
+        ),
       }),
     );
   } finally {
@@ -335,6 +352,7 @@ export async function continueTeam(
   context: TeamContext,
   taskId: string,
   prompt: string | undefined,
+  attachments: Attachment[] = [],
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const task = store.getTask(taskId);
@@ -359,10 +377,12 @@ export async function continueTeam(
       cut.length > 0
         ? `Work cut off by a restart: ${cut.length}`
         : `Results that came while you were not running: ${missed.length}`;
-    const message: Message =
-      notices.length === 0
+    const message: Message = {
+      ...(notices.length === 0
         ? { text: prompt || "Continue where you left off." }
-        : { text: `${notices.join("\n\n")}${added}`, origin: { kind: "notice", summary } };
+        : { text: `${notices.join("\n\n")}${added}`, origin: { kind: "notice", summary } }),
+      ...(attachments.length === 0 ? {} : { attachments }),
+    };
     // Resumed first, so the goal is at work again before the cut-off work stops counting as out.
     const resumed = registry.resume(lead.id, message);
     for (const delegation of cut) store.endDelegation(delegation.id, "stopped");

@@ -1,4 +1,5 @@
-import type { AgentRecord, SessionRecord } from "@office-town/contract";
+import type { AgentRecord, Attachment, SessionRecord } from "@office-town/contract";
+import type { Message } from "../registry/session-registry.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { isOpen, latestSession } from "./lead.ts";
@@ -13,11 +14,15 @@ export class NeverStartedError extends Error {
 }
 
 // A finished agent is resumed in its latest task, once that department is free.
-async function deliver(context: TeamContext, session: SessionRecord, text: string): Promise<void> {
+async function deliver(
+  context: TeamContext,
+  session: SessionRecord,
+  message: Message,
+): Promise<void> {
   const { store, registry } = context;
   if (isOpen(session)) {
     try {
-      await registry.tell(session.id, { text });
+      await registry.tell(session.id, message);
       return;
     } catch (error) {
       // It was being stopped for being idle: it is resumed instead.
@@ -26,7 +31,7 @@ async function deliver(context: TeamContext, session: SessionRecord, text: strin
   }
   const departmentId = store.getTask(session.taskId)?.departmentId;
   await claimDepartment(context, departmentId, session.taskId, () =>
-    registry.resume(session.id, { text }),
+    registry.resume(session.id, message),
   );
 }
 
@@ -57,6 +62,7 @@ export async function messageAgent(
   agentId: string,
   text: string,
   taskId?: string,
+  attachments: Attachment[] = [],
 ): Promise<void> {
   const agent = context.store.getAgent(agentId);
   if (agent === undefined) throw new RecordNotFoundError("agent", agentId);
@@ -65,6 +71,6 @@ export async function messageAgent(
       ? context.store.listAgentSessions(agentId, { limit: 1 }).sessions
       : [latestSession(context, taskId, agentId)];
   if (latest === undefined) throw new NeverStartedError(agent.name);
-  await deliver(context, latest, text);
+  await deliver(context, latest, attachments.length === 0 ? { text } : { text, attachments });
   await noteLead(context, agent, latest.taskId, text);
 }

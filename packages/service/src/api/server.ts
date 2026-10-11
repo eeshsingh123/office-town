@@ -45,18 +45,24 @@ function matchRoute(routes: Route[], method: string, path: string): MatchedRoute
   return undefined;
 }
 
-async function readJson(request: IncomingMessage): Promise<unknown> {
+async function readBytes(request: IncomingMessage, limit: number): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of request) {
     size += (chunk as Buffer).length;
-    if (size > BODY_LIMIT_BYTES) {
-      throw new RequestError(413, "too_large", "The request body is larger than 1 MiB.");
+    if (size > limit) {
+      const mebibytes = limit / (1024 * 1024);
+      throw new RequestError(413, "too_large", `The request body is larger than ${mebibytes} MiB.`);
     }
     chunks.push(chunk as Buffer);
   }
+  return Buffer.concat(chunks);
+}
+
+async function readJson(request: IncomingMessage): Promise<unknown> {
+  const body = await readBytes(request, BODY_LIMIT_BYTES);
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(body.toString("utf8"));
   } catch {
     throw new RequestError(400, "invalid_request", "The request body is not valid JSON.");
   }
@@ -108,6 +114,7 @@ export async function startApiServer({ team, token, port }: ApiOptions): Promise
       param: (name) => matched.params.get(name) ?? "",
       query: url.searchParams,
       body: () => readJson(request),
+      bytes: (limit) => readBytes(request, limit),
     });
     send(response, reply);
   };

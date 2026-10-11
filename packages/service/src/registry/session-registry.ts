@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type {
   AgentCommand,
+  Attachment,
   Autonomy,
   MessageOrigin,
   PermissionMode,
+  SessionCommand,
   SessionEvent,
   SessionEventBody,
   SessionOptions,
@@ -23,6 +25,7 @@ import {
   handover,
   sessionAccountId,
 } from "../accounts/accounts.ts";
+import { forPrompt, hasAccess, withAccess } from "../attachments/attachments.ts";
 import {
   type NewSession,
   RecordNotFoundError,
@@ -77,6 +80,8 @@ export type RegistryListener = (published: PublishedEvent) => void;
 export interface Message {
   text: string;
   origin?: MessageOrigin;
+  // Given read-only to the session before the message reaches it (D-64).
+  attachments?: Attachment[];
 }
 
 export interface Launch {
@@ -129,6 +134,10 @@ function errorMessage(error: unknown): string {
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>;
 
+// The model is asked about only for an image, so a plain message reaches the agent at once.
+const hasImage = (attachments: readonly Attachment[] = []) =>
+  attachments.some((attachment) => attachment.kind === "image");
+
 // "Always allow" an edit opens every folder for the rest of the session, a read-only one too.
 function withoutAllowAlways(event: SessionEvent): SessionEvent {
   if (event.type !== "permission.requested") return event;
@@ -148,6 +157,8 @@ export interface RegistryOptions {
   guard?: Guard;
   // Read at each start, so a resume follows a level changed since.
   permissionModeOf?: (agentId: string) => PermissionMode;
+  // Whether the session's model can see an image sent inline.
+  seesImages?: (options: SessionOptions) => Promise<boolean>;
 }
 
 export class SessionRegistry {
@@ -156,6 +167,7 @@ export class SessionRegistry {
   readonly #tools: ToolAccess | undefined;
   readonly #guard: Guard | undefined;
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
+  readonly #seesImages: (options: SessionOptions) => Promise<boolean>;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // By session and request id.
@@ -165,13 +177,20 @@ export class SessionRegistry {
 
   constructor(
     store: Store,
-    { createSession = createHarnessSession, tools, guard, permissionModeOf }: RegistryOptions = {},
+    {
+      createSession = createHarnessSession,
+      tools,
+      guard,
+      permissionModeOf,
+      seesImages = async () => false,
+    }: RegistryOptions = {},
   ) {
     this.#store = store;
     this.#createSession = createSession;
     this.#tools = tools;
     this.#guard = guard;
     this.#permissionModeOf = permissionModeOf;
+    this.#seesImages = seesImages;
     store.markInterrupted();
   }
 
@@ -180,7 +199,8 @@ export class SessionRegistry {
     return () => this.#listeners.delete(listener);
   }
 
-  async start({ taskId, agentId, options, message }: Launch): Promise<SessionRecord> {
+  async start({ taskId, agentId, options: given, message }: Launch): Promise<SessionRecord> {
+    const options = withAccess(given, message.attachments ?? []);
     const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
@@ -202,13 +222,16 @@ export class SessionRegistry {
     if (moved !== undefined) {
       // A conversation stays with its login, so another account starts a new one (D-61).
       const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
-      const options = { ...rest, ...moved, permissionMode };
+      const options = withAccess({ ...rest, ...moved, permissionMode }, message.attachments ?? []);
       const session = this.#launch(options);
       const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
       const text = handover(this.#store.lastMessage(sessionId), message.text);
       return this.#run(session, record, { ...message, text });
     }
-    const options = { ...earlier.options, permissionMode, resumeSessionId: conversation };
+    const options = withAccess(
+      { ...earlier.options, permissionMode, resumeSessionId: conversation },
+      message.attachments ?? [],
+    );
     const session = this.#launch(options);
     const record = {
       id: session.id,
@@ -276,7 +299,16 @@ export class SessionRegistry {
       await live.ended.promise;
       throw new SessionNotRunningError(sessionId);
     }
-    await this.#running(sessionId).session.send({ type: "prompt", ...message });
+    const stored = this.#store.getSession(sessionId);
+    if (stored === undefined) throw new RecordNotFoundError("session", sessionId);
+    const attachments = message.attachments ?? [];
+    // The harness was started without these folders; the policy and a later resume read them here.
+    const record = hasAccess(stored.options, attachments)
+      ? stored
+      : this.#store.updateSessionOptions(sessionId, withAccess(stored.options, attachments));
+    if (attachments.length > 0) live.readOnly = true;
+    const sees = hasImage(attachments) ? await this.#seesImages(record.options) : false;
+    await this.#running(sessionId).session.send(this.#prompt(record, message, sees));
   }
 
   // The answer goes to `onAnswer` instead of the harness; it lasts as long as the session.
@@ -335,7 +367,10 @@ export class SessionRegistry {
     try {
       await session.send({ type: "start" });
       // A start that failed has already ended the session.
-      if (this.#live.has(session.id)) await session.send({ type: "prompt", ...message });
+      if (this.#live.has(session.id)) {
+        const sees = hasImage(message.attachments) ? await this.#seesImages(record.options) : false;
+        await session.send(this.#prompt(record, message, sees));
+      }
     } finally {
       live.firstMessage = undefined;
       ready.resolve();
@@ -343,6 +378,27 @@ export class SessionRegistry {
     const stored = this.#store.getSession(session.id);
     if (stored === undefined) throw new RecordNotFoundError("session", session.id);
     return stored;
+  }
+
+  // Sent in the task, so the files go with it when it is deleted.
+  #prompt(
+    session: Pick<SessionRecord, "taskId" | "options">,
+    { text, origin, attachments = [] }: Message,
+    seesImages: boolean,
+  ): SessionCommand {
+    if (attachments.length === 0) {
+      return { type: "prompt", text, ...(origin === undefined ? {} : { origin }) };
+    }
+    this.#store.linkAttachments(
+      session.taskId,
+      attachments.map((attachment) => attachment.id),
+    );
+    return {
+      type: "prompt",
+      text,
+      ...(origin === undefined ? {} : { origin }),
+      attachments: forPrompt(attachments, seesImages),
+    };
   }
 
   #launch(options: SessionOptions): Session {

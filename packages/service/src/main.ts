@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
+import { imageSight } from "./attachments/attachments.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
 import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
@@ -41,14 +42,17 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
 const dataFolder = values["data-folder"] ?? defaultDataFolder();
 const store = openStore(dataFolder);
 const taskStates = new TaskStates(store);
+// Files picked but never sent are kept a day, in case the message is still being written.
+await store.deleteUnsentAttachments(new Date(Date.now() - 24 * 60 * 60 * 1000));
 const toolServer = await startToolServer(store);
+const readCatalog = cachedCatalogs();
 const registry = new SessionRegistry(store, {
   tools: toolServer,
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
+  seesImages: imageSight(readCatalog),
 });
 taskStates.follow(registry);
-const readCatalog = cachedCatalogs();
 const team = { store, registry, readCatalog, dataFolder };
 const activity = new SessionActivity(registry);
 const stopIdle = stopIdleAgents(registry, store, activity);

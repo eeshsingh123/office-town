@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import type {
   AgentRecord,
+  Attachment,
   DepartmentRecord,
   SessionRecord,
   TaskDetail,
@@ -60,19 +61,27 @@ async function startChief(
       taskId,
       agentId: chief.id,
       options,
-      message: chiefBrief({
-        goal: task.prompt,
-        folder,
-        instructions: instructionsFor(store, chief),
-        departments: departmentViews(store),
-        choices: await harnessChoices(context, options.environment),
-      }),
+      message: {
+        ...chiefBrief({
+          goal: task.prompt,
+          folder,
+          instructions: instructionsFor(store, chief),
+          departments: departmentViews(store),
+          choices: await harnessChoices(context, options.environment),
+        }),
+        attachments: store.taskAttachments(taskId),
+      },
     });
   });
 }
 
 // A goal given while another is running or queued is queued.
-export async function startChiefGoal(context: TeamContext, goal: string): Promise<TaskDetail> {
+// Its files are kept with it, as a queued goal starts later.
+export async function startChiefGoal(
+  context: TeamContext,
+  goal: string,
+  attachments: Attachment[] = [],
+): Promise<TaskDetail> {
   const { store } = context;
   const chief = chiefOf(store);
   if (chief === undefined) throw new NoChiefError();
@@ -81,6 +90,10 @@ export async function startChiefGoal(context: TeamContext, goal: string): Promis
     isClaimed(chief.id) ||
     store.oldestQueuedTask() !== undefined;
   const task = store.createTask(goal, { leadAgentId: chief.id }, waits ? { queued: true } : {});
+  store.linkAttachments(
+    task.id,
+    attachments.map((attachment) => attachment.id),
+  );
   if (!waits) await startChief(context, chief, task.id);
   const started = store.getTask(task.id);
   if (started === undefined) throw new RecordNotFoundError("task", task.id);
