@@ -172,3 +172,13 @@
   background: var(--warn-soft);
   color: var(--warn);
 }
+
+.libraryMenu {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.idle {
+  background: var(--hover);
+  color: var(--text-3);
+}

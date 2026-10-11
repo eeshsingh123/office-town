@@ -48,7 +48,13 @@ function Main({ view }: { view: View }) {
     case "usage":
       return <UsageView />;
     case "workspace":
-      return <WorkspaceView key={view.workspaceId} workspaceId={view.workspaceId} />;
+      return (
+        <WorkspaceView
+          key={view.workspaceId}
+          workspaceId={view.workspaceId}
+          tab={view.tab ?? "overview"}
+        />
+      );
     case "you":
       return <YouView />;
     case "department":

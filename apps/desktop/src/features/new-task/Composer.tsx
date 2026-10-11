@@ -25,10 +25,12 @@ import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { taskTitle } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import fileStyles from "../attachments/Attachments.module.css";
+import { sizeText, typeLabel } from "../attachments/kinds.ts";
 import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useChief } from "../chief/use-chief.ts";
+import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { AskChip } from "./AskChip.tsx";
@@ -57,6 +59,12 @@ interface Option {
   name: string;
   note: string;
 }
+
+const LIST_NAMES: Record<Mention["kind"], string> = {
+  "@": "Who does it",
+  "#": "From the Library",
+  "/": "Use a template",
+};
 
 interface ComposerProps {
   // Home lists its own recent tasks, so the box comes alone there.
@@ -142,6 +150,8 @@ export function Composer({ home = false }: ComposerProps) {
         },
   );
   const files = attached.ids.length === 0 ? {} : { attachments: attached.ids };
+  // A chief's goal has no workspace of its own.
+  const library = useLibrary(target === CHIEF ? undefined : workspace?.id);
 
   const missing =
     target === CHIEF
@@ -287,17 +297,20 @@ export function Composer({ home = false }: ComposerProps) {
           },
         ]),
   ];
-  const listed: Option[] =
-    mention === undefined
-      ? []
-      : (mention.kind === "@"
-          ? people
-          : (templates ?? []).map((known) => ({
-              id: known.id,
-              name: known.name,
-              note: known.role,
-            }))
-        ).filter((option) => option.name.toLowerCase().includes(mention.query));
+  const libraryOptions: Option[] = library.map(({ id, file }) => ({
+    id,
+    name: file.name,
+    note: file.kind === "folder" ? "Linked folder" : sizeText(file.bytes ?? 0),
+  }));
+  const optionsOf = (kind: Mention["kind"]): Option[] =>
+    kind === "@"
+      ? people
+      : kind === "#"
+        ? libraryOptions
+        : (templates ?? []).map((known) => ({ id: known.id, name: known.name, note: known.role }));
+  const matching = (found: Mention) =>
+    optionsOf(found.kind).filter((option) => option.name.toLowerCase().includes(found.query));
+  const listed: Option[] = mention === undefined ? [] : matching(mention);
   const active = Math.min(highlight, listed.length - 1);
   const listId = useId();
   const noTemplates = mention?.kind === "/" && (templates ?? []).length === 0;
@@ -307,7 +320,10 @@ export function Composer({ home = false }: ComposerProps) {
     if (mention === undefined || element === null) return;
     setPrompt(withoutMention(prompt, mention, element.selectionStart));
     if (mention.kind === "@") setChosen(id);
-    else {
+    else if (mention.kind === "#") {
+      const item = library.find((known) => known.id === id);
+      if (item !== undefined) attached.addFromLibrary(item);
+    } else {
       pickTemplate(templates?.find((known) => known.id === id));
       if (!picksAgent) setChosen(SOLO);
     }
@@ -410,7 +426,9 @@ export function Composer({ home = false }: ComposerProps) {
             value={prompt}
             onChange={(event) => {
               setPrompt(event.target.value);
-              setMention(mentionAt(event.target.value, event.target.selectionStart));
+              const found = mentionAt(event.target.value, event.target.selectionStart);
+              // "#" with no Library file to match is plain text, such as "issue #12".
+              setMention(found?.kind === "#" && matching(found).length === 0 ? undefined : found);
               setHighlight(0);
             }}
             onKeyDown={onKeyDown}
@@ -425,10 +443,10 @@ export function Composer({ home = false }: ComposerProps) {
               id={listId}
               className={styles.mentions}
               role="listbox"
-              aria-label={mention.kind === "@" ? "Who does it" : "Templates"}
+              aria-label={LIST_NAMES[mention.kind]}
             >
               <div className={styles.menuHeading} role="presentation">
-                {mention.kind === "@" ? "Who does it" : "Use a template"}
+                {LIST_NAMES[mention.kind]}
               </div>
               {listed.length === 0 ? (
                 <div className={styles.mentionEmpty} role="status">
@@ -465,6 +483,13 @@ export function Composer({ home = false }: ComposerProps) {
                   <span className={styles.itemIcon}>
                     {mention.kind === "@" ? (
                       targetIcon(option.id)
+                    ) : mention.kind === "#" ? (
+                      <span className={styles.fileIcon}>
+                        {typeLabel(
+                          option.name,
+                          library.find((known) => known.id === option.id)?.file.kind ?? "file",
+                        )}
+                      </span>
                     ) : (
                       <LayoutTemplate size={14} aria-hidden />
                     )}
@@ -496,7 +521,7 @@ export function Composer({ home = false }: ComposerProps) {
         ) : null}
         <div className={styles.bar}>
           <div className={styles.chips}>
-            <AttachButton files={attached} className={fileStyles.attach} />
+            <AttachButton files={attached} library={library} className={fileStyles.attach} />
             <GoesToChip
               value={target}
               label={targetLabel}
@@ -551,8 +576,8 @@ export function Composer({ home = false }: ComposerProps) {
           </span>
         )}
         <span className={styles.keys}>
-          <Kbd>@</Kbd> who · <Kbd>/</Kbd> template · <Kbd>Enter</Kbd> start · <Kbd>Shift</Kbd>{" "}
-          <Kbd>Enter</Kbd> new line
+          <Kbd>@</Kbd> who · <Kbd>#</Kbd> Library file · <Kbd>/</Kbd> template · <Kbd>Enter</Kbd>{" "}
+          start · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> new line
         </span>
       </div>
       {error === undefined ? null : (

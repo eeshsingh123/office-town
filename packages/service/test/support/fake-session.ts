@@ -43,10 +43,22 @@ export class FakeSession implements Session {
     }
     // The harness's session stores every prompt it sends as a user message.
     if (command.type === "prompt") {
-      const { text, origin } = command;
+      const { text, origin, attachments = [] } = command;
+      const sent = attachments.map(({ id, kind, name, path, reference }) => ({
+        id,
+        kind,
+        name,
+        path,
+        ...(reference ? { reference } : {}),
+      }));
       this.emit({
         type: "message",
-        payload: { role: "user", text, ...(origin ? { origin } : {}) },
+        payload: {
+          role: "user",
+          text,
+          ...(origin ? { origin } : {}),
+          ...(sent.length > 0 ? { attachments: sent } : {}),
+        },
       });
     }
     if (command.type === "answerPermission") {

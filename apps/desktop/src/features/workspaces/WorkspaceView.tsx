@@ -1,4 +1,5 @@
 import { FolderOpen, TriangleAlert } from "lucide-react";
+import { Tabs } from "radix-ui";
 import { useState } from "react";
 import { shell } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -10,6 +11,8 @@ import form from "../../ui/Form.module.css";
 import { ago, taskTitle } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { LibraryTab } from "../library/LibraryTab.tsx";
+import { useLibrary } from "../library/library.ts";
 import { KIND_LABEL, WorkspaceIcon } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
@@ -23,8 +26,15 @@ const TASK_STATE: Record<string, string> = {
   ended: "Done",
 };
 
-export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
+export function WorkspaceView({
+  workspaceId,
+  tab = "overview",
+}: {
+  workspaceId: string;
+  tab?: "overview" | "library";
+}) {
   const workspaces = useWorkspaces();
+  const libraryCount = useLibrary(workspaceId).length;
   const usage = useWorkspaceUsage()?.[workspaceId];
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
@@ -81,161 +91,187 @@ export function WorkspaceView({ workspaceId }: { workspaceId: string }) {
           </span>
         </header>
 
-        {used.length > 1 ? (
-          <p className={styles.banner}>
-            <TriangleAlert size={16} aria-hidden />
-            <span>
-              <b>{used.map((department) => department.name).join(" and ")}</b>{" "}
-              {used.length === 2 ? "both" : "all"} edit this workspace. Their agents can change the
-              same files at the same time. Give one of them its own workspace if that is a problem.
-            </span>
-          </p>
-        ) : null}
+        <Tabs.Root
+          value={tab}
+          onValueChange={(next) =>
+            navigate({
+              name: "workspace",
+              workspaceId,
+              ...(next === "library" ? { tab: "library" as const } : {}),
+            })
+          }
+        >
+          <Tabs.List className={styles.tabs} aria-label="Show">
+            <Tabs.Trigger value="overview" className={styles.tab}>
+              Overview
+            </Tabs.Trigger>
+            <Tabs.Trigger value="library" className={styles.tab}>
+              Library
+              {libraryCount > 0 ? <span className={styles.tabCount}>{libraryCount}</span> : null}
+            </Tabs.Trigger>
+          </Tabs.List>
+          <Tabs.Content value="library" className={styles.tabPanel}>
+            <LibraryTab workspaceId={workspaceId} />
+          </Tabs.Content>
+          <Tabs.Content value="overview" className={styles.tabPanel}>
+            {used.length > 1 ? (
+              <p className={styles.banner}>
+                <TriangleAlert size={16} aria-hidden />
+                <span>
+                  <b>{used.map((department) => department.name).join(" and ")}</b>{" "}
+                  {used.length === 2 ? "both" : "all"} edit this workspace. Their agents can change
+                  the same files at the same time. Give one of them its own workspace if that is a
+                  problem.
+                </span>
+              </p>
+            ) : null}
 
-        <div className={styles.cols}>
-          <div className={styles.col}>
-            <section className={styles.block}>
-              <h2 className={page.eyebrow}>Working here now</h2>
-              {working.length === 0 ? (
-                <p className={form.hint}>No one is working here now.</p>
-              ) : (
-                <ul className={styles.list}>
-                  {working.map(({ agent, state }) => (
-                    <li key={`${agent.taskId}/${agent.id}`}>
-                      <button
-                        type="button"
-                        className={styles.row}
-                        onClick={() => navigate({ name: "task", taskId: agent.taskId })}
-                      >
-                        <Avatar name={agent.name} colour={agent.colour} size={26} />
-                        <span className={styles.optionText}>
-                          <strong>
-                            {agent.name}
-                            {agent.record.role === undefined ? "" : ` · ${agent.record.role}`}
-                          </strong>
-                          <span className={styles.path}>{taskTitle(agent.task.prompt)}</span>
-                        </span>
-                        <span className={styles.state}>
-                          <StatusIcon state={state} />
-                          {STATE_LABELS[state]}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <div className={styles.cols}>
+              <div className={styles.col}>
+                <section className={styles.block}>
+                  <h2 className={page.eyebrow}>Working here now</h2>
+                  {working.length === 0 ? (
+                    <p className={form.hint}>No one is working here now.</p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {working.map(({ agent, state }) => (
+                        <li key={`${agent.taskId}/${agent.id}`}>
+                          <button
+                            type="button"
+                            className={styles.row}
+                            onClick={() => navigate({ name: "task", taskId: agent.taskId })}
+                          >
+                            <Avatar name={agent.name} colour={agent.colour} size={26} />
+                            <span className={styles.optionText}>
+                              <strong>
+                                {agent.name}
+                                {agent.record.role === undefined ? "" : ` · ${agent.record.role}`}
+                              </strong>
+                              <span className={styles.path}>{taskTitle(agent.task.prompt)}</span>
+                            </span>
+                            <span className={styles.state}>
+                              <StatusIcon state={state} />
+                              {STATE_LABELS[state]}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
 
-            <section className={styles.block}>
-              <h2 className={page.eyebrow}>Recent tasks</h2>
-              {(usage?.recentTasks.length ?? 0) === 0 ? (
-                <p className={form.hint}>No tasks here yet.</p>
-              ) : (
-                <ul className={styles.list}>
-                  {usage?.recentTasks.map((task) => (
-                    <li key={task.id}>
-                      <button
-                        type="button"
-                        className={styles.row}
-                        onClick={() => navigate({ name: "task", taskId: task.id })}
-                      >
+                <section className={styles.block}>
+                  <h2 className={page.eyebrow}>Recent tasks</h2>
+                  {(usage?.recentTasks.length ?? 0) === 0 ? (
+                    <p className={form.hint}>No tasks here yet.</p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {usage?.recentTasks.map((task) => (
+                        <li key={task.id}>
+                          <button
+                            type="button"
+                            className={styles.row}
+                            onClick={() => navigate({ name: "task", taskId: task.id })}
+                          >
+                            <span className={styles.optionText}>
+                              <strong>{taskTitle(task.prompt)}</strong>
+                              <span className={form.hint}>
+                                {[
+                                  task.departmentId === undefined
+                                    ? "One assistant"
+                                    : departments[task.departmentId]?.name,
+                                  ago(task.createdAt),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            </span>
+                            <span className={styles.pill}>
+                              {task.state === "ended" && task.reviewedAt === undefined
+                                ? "To review"
+                                : TASK_STATE[task.state]}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
+
+              <div className={styles.col}>
+                <section className={styles.block}>
+                  <h2 className={page.eyebrow}>Folders</h2>
+                  <ul className={styles.list}>
+                    {workspace.folders.map((folder, index) => (
+                      <li key={folder.path} className={styles.row}>
                         <span className={styles.optionText}>
-                          <strong>{taskTitle(task.prompt)}</strong>
+                          <span className={styles.path} title={folder.path}>
+                            {folder.path}
+                          </span>
                           <span className={form.hint}>
-                            {[
-                              task.departmentId === undefined
-                                ? "One assistant"
-                                : departments[task.departmentId]?.name,
-                              ago(task.createdAt),
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
+                            {index > 0
+                              ? "Extra folder"
+                              : workspace.kind === "scratch"
+                                ? "New task folders go here"
+                                : "Main folder"}
+                            {missing.has(folder.path) ? " · not found" : ""}
                           </span>
                         </span>
-                        <span className={styles.pill}>
-                          {task.state === "ended" && task.reviewedAt === undefined
-                            ? "To review"
-                            : TASK_STATE[task.state]}
+                        <span className={folder.access === "edit" ? styles.pillEdit : styles.pill}>
+                          {folder.access === "edit" ? "Can edit" : "Read only"}
                         </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </div>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
 
-          <div className={styles.col}>
-            <section className={styles.block}>
-              <h2 className={page.eyebrow}>Folders</h2>
-              <ul className={styles.list}>
-                {workspace.folders.map((folder, index) => (
-                  <li key={folder.path} className={styles.row}>
-                    <span className={styles.optionText}>
-                      <span className={styles.path} title={folder.path}>
-                        {folder.path}
-                      </span>
-                      <span className={form.hint}>
-                        {index > 0
-                          ? "Extra folder"
-                          : workspace.kind === "scratch"
-                            ? "New task folders go here"
-                            : "Main folder"}
-                        {missing.has(folder.path) ? " · not found" : ""}
-                      </span>
-                    </span>
-                    <span className={folder.access === "edit" ? styles.pillEdit : styles.pill}>
-                      {folder.access === "edit" ? "Can edit" : "Read only"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+                <section className={styles.block}>
+                  <h2 className={page.eyebrow}>Used by</h2>
+                  {used.length === 0 ? (
+                    <p className={form.hint}>
+                      No department. {workspace.kind === "scratch" ? "Solo tasks start here." : ""}
+                    </p>
+                  ) : (
+                    <ul className={styles.list}>
+                      {used.map((department) => (
+                        <li key={department.id}>
+                          <button
+                            type="button"
+                            className={styles.row}
+                            onClick={() =>
+                              navigate({ name: "department", departmentId: department.id })
+                            }
+                          >
+                            <strong>{department.name}</strong>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
 
-            <section className={styles.block}>
-              <h2 className={page.eyebrow}>Used by</h2>
-              {used.length === 0 ? (
-                <p className={form.hint}>
-                  No department. {workspace.kind === "scratch" ? "Solo tasks start here." : ""}
-                </p>
-              ) : (
-                <ul className={styles.list}>
-                  {used.map((department) => (
-                    <li key={department.id}>
-                      <button
-                        type="button"
-                        className={styles.row}
-                        onClick={() =>
-                          navigate({ name: "department", departmentId: department.id })
-                        }
-                      >
-                        <strong>{department.name}</strong>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {(usage?.worktrees.length ?? 0) === 0 ? null : (
-              <section className={styles.block}>
-                <h2 className={page.eyebrow}>Agents' own copies</h2>
-                <ul className={styles.list}>
-                  {usage?.worktrees.map((copy) => (
-                    <li key={`${copy.taskId}/${copy.agentId}`} className={styles.row}>
-                      <span className={styles.optionText}>
-                        <span className={styles.path}>{copy.branch ?? "Own copy"}</span>
-                        <span className={form.hint}>
-                          {agents[copy.agentId]?.name ?? "A worker"} · merged by its lead
-                        </span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-          </div>
-        </div>
+                {(usage?.worktrees.length ?? 0) === 0 ? null : (
+                  <section className={styles.block}>
+                    <h2 className={page.eyebrow}>Agents' own copies</h2>
+                    <ul className={styles.list}>
+                      {usage?.worktrees.map((copy) => (
+                        <li key={`${copy.taskId}/${copy.agentId}`} className={styles.row}>
+                          <span className={styles.optionText}>
+                            <span className={styles.path}>{copy.branch ?? "Own copy"}</span>
+                            <span className={form.hint}>
+                              {agents[copy.agentId]?.name ?? "A worker"} · merged by its lead
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </div>
+            </div>
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
       {editing ? <WorkspaceSheet workspace={workspace} open onOpenChange={setEditing} /> : null}
     </section>

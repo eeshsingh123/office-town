@@ -52,6 +52,8 @@ export type CoreReport = Extract<
   SessionEventBody,
   {
     type:
+      | "permission.requested"
+      | "permission.resolved"
       | "question.requested"
       | "question.resolved"
       | "proposal.requested"
@@ -189,6 +191,7 @@ export class HarnessSession implements Session {
         ...(attachment.bytes === undefined ? {} : { bytes: attachment.bytes }),
         ...(attachment.mimeType === undefined ? {} : { mimeType: attachment.mimeType }),
         ...(inline ? { inline } : {}),
+        ...(attachment.reference ? { reference: attachment.reference } : {}),
       };
     });
     this.#emit({

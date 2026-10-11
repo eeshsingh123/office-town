@@ -8,6 +8,7 @@ import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
 import { showToast } from "../../ui/Toast.tsx";
+import { FilesSection } from "../library/FilesSection.tsx";
 import { AsksFirst } from "../profiles/AsksFirst.tsx";
 import { SaveTemplateDialog } from "../profiles/SaveTemplateDialog.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
@@ -195,6 +196,13 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
             : `To allow more, change ${department.name}'s permissions.`}
         </p>
       </div>
+      {department === undefined ? null : (
+        <FilesSection
+          workspaceId={department.workspaceId}
+          holder={{ departmentId: department.id, agentId: agent.id }}
+          name={who}
+        />
+      )}
       <details className={styles.reads} open>
         <summary>What {who} reads before each task</summary>
         <ol>

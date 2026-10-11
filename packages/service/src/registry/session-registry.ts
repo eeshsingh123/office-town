@@ -45,7 +45,9 @@ export interface ToolAccess {
 
 export type CoreRequest = Extract<
   SessionEventBody,
-  { type: "question.requested" | "proposal.requested" | "plan.requested" }
+  {
+    type: "permission.requested" | "question.requested" | "proposal.requested" | "plan.requested";
+  }
 >;
 export type AnswerCommand = Extract<AgentCommand, { requestId: string }>;
 
@@ -53,7 +55,9 @@ export type AnswerCommand = Extract<AgentCommand, { requestId: string }>;
 export interface CoreAnswer {
   resolution: Extract<
     SessionEventBody,
-    { type: "question.resolved" | "proposal.resolved" | "plan.resolved" }
+    {
+      type: "permission.resolved" | "question.resolved" | "proposal.resolved" | "plan.resolved";
+    }
   >;
   // Runs once the resolution is recorded.
   afterwards?: () => Promise<void>;
@@ -82,7 +86,11 @@ export interface Message {
   origin?: MessageOrigin;
   // Given read-only to the session before the message reaches it (D-64).
   attachments?: Attachment[];
+  // Library items, listed as reference at the start of a conversation.
+  reference?: Attachment[];
 }
+
+const filesOf = ({ attachments = [], reference = [] }: Message) => [...attachments, ...reference];
 
 export interface Launch {
   taskId: string;
@@ -159,6 +167,8 @@ export interface RegistryOptions {
   permissionModeOf?: (agentId: string) => PermissionMode;
   // Whether the session's model can see an image sent inline.
   seesImages?: (options: SessionOptions) => Promise<boolean>;
+  // The Library items an agent gets in a task (D-64).
+  referenceOf?: (taskId: string, agentId: string) => Attachment[];
 }
 
 export class SessionRegistry {
@@ -168,6 +178,7 @@ export class SessionRegistry {
   readonly #guard: Guard | undefined;
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #seesImages: (options: SessionOptions) => Promise<boolean>;
+  readonly #referenceOf: (taskId: string, agentId: string) => Attachment[];
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // By session and request id.
@@ -183,6 +194,7 @@ export class SessionRegistry {
       guard,
       permissionModeOf,
       seesImages = async () => false,
+      referenceOf = () => [],
     }: RegistryOptions = {},
   ) {
     this.#store = store;
@@ -191,6 +203,7 @@ export class SessionRegistry {
     this.#guard = guard;
     this.#permissionModeOf = permissionModeOf;
     this.#seesImages = seesImages;
+    this.#referenceOf = referenceOf;
     store.markInterrupted();
   }
 
@@ -199,10 +212,20 @@ export class SessionRegistry {
     return () => this.#listeners.delete(listener);
   }
 
-  async start({ taskId, agentId, options: given, message }: Launch): Promise<SessionRecord> {
-    const options = withAccess(given, message.attachments ?? []);
+  async start({ taskId, agentId, options: given, message: sent }: Launch): Promise<SessionRecord> {
+    const message = this.#withReference(taskId, agentId, sent);
+    const options = withAccess(given, filesOf(message));
     const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
+  }
+
+  // A new conversation starts with the Library items, except those the user attached anyway.
+  #withReference(taskId: string, agentId: string, message: Message): Message {
+    const attached = new Set(message.attachments?.map((attachment) => attachment.id));
+    const reference = this.#referenceOf(taskId, agentId).filter(
+      (attachment) => !attached.has(attachment.id),
+    );
+    return reference.length === 0 ? message : { ...message, reference };
   }
 
   async resume(sessionId: string, message: Message): Promise<SessionRecord> {
@@ -222,11 +245,12 @@ export class SessionRegistry {
     if (moved !== undefined) {
       // A conversation stays with its login, so another account starts a new one (D-61).
       const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
-      const options = withAccess({ ...rest, ...moved, permissionMode }, message.attachments ?? []);
+      const fresh = this.#withReference(earlier.taskId, earlier.agentId, message);
+      const options = withAccess({ ...rest, ...moved, permissionMode }, filesOf(fresh));
       const session = this.#launch(options);
       const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
       const text = handover(this.#store.lastMessage(sessionId), message.text);
-      return this.#run(session, record, { ...message, text });
+      return this.#run(session, record, { ...fresh, text });
     }
     const options = withAccess(
       { ...earlier.options, permissionMode, resumeSessionId: conversation },
@@ -383,21 +407,26 @@ export class SessionRegistry {
   // Sent in the task, so the files go with it when it is deleted.
   #prompt(
     session: Pick<SessionRecord, "taskId" | "options">,
-    { text, origin, attachments = [] }: Message,
+    message: Message,
     seesImages: boolean,
   ): SessionCommand {
-    if (attachments.length === 0) {
+    const { text, origin, attachments = [], reference = [] } = message;
+    const files = filesOf(message);
+    if (files.length === 0) {
       return { type: "prompt", text, ...(origin === undefined ? {} : { origin }) };
     }
     this.#store.linkAttachments(
       session.taskId,
-      attachments.map((attachment) => attachment.id),
+      files.map((attachment) => attachment.id),
     );
     return {
       type: "prompt",
       text,
       ...(origin === undefined ? {} : { origin }),
-      attachments: forPrompt(attachments, seesImages),
+      attachments: [
+        ...forPrompt(attachments, seesImages),
+        ...reference.map((attachment) => ({ ...attachment, reference: true as const })),
+      ],
     };
   }
 
@@ -443,6 +472,8 @@ export class SessionRegistry {
 
   // The request stays in the trace, answered by the level that allowed it.
   #letThrough(live: LiveSession, request: PermissionRequest): void {
+    // The core's own asks, such as a Library change, always wait for the user.
+    if (this.#asked.has(askedKey(request.sessionId, request.payload.requestId))) return;
     const session = this.#store.getSession(request.sessionId);
     const level = session === undefined ? undefined : this.#guard?.(session, request.payload);
     const allow = request.payload.options.find((option) => option.kind === "allow_once");

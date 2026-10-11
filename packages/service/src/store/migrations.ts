@@ -472,4 +472,30 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX IF NOT EXISTS task_attachments_by_attachment ON task_attachments (attachment_ref);
   `,
+  `
+  -- A workspace's reference files and folders (D-64). An item points at the attachment holding
+  -- its file, so Replace moves it to a new one; who it is given to is JSON of public ids.
+  CREATE TABLE IF NOT EXISTS library_items (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    workspace_ref  INTEGER NOT NULL REFERENCES workspaces (ref) ON DELETE CASCADE,
+    attachment_ref INTEGER NOT NULL UNIQUE REFERENCES attachments (ref),
+    given_to       TEXT NOT NULL,
+    added_by_ref   INTEGER REFERENCES agents (ref) ON DELETE SET NULL,
+    created_at     INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS library_items_by_workspace ON library_items (workspace_ref);
+  CREATE INDEX IF NOT EXISTS library_items_by_adder ON library_items (added_by_ref);
+
+  -- The tasks an item was given in, and when an agent there first opened it.
+  CREATE TABLE IF NOT EXISTS library_uses (
+    item_ref  INTEGER NOT NULL REFERENCES library_items (ref) ON DELETE CASCADE,
+    task_ref  INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    opened_at INTEGER,
+    PRIMARY KEY (item_ref, task_ref)
+  ) STRICT, WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS library_uses_by_task ON library_uses (task_ref);
+  `,
 ];

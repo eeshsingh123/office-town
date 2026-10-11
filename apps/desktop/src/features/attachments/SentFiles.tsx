@@ -5,12 +5,17 @@ import { clockTime } from "../../ui/format.ts";
 import styles from "./Attachments.module.css";
 import { sizeText, typeLabel } from "./kinds.ts";
 
-function statusOf({ attachment, openedAt, filesOpened }: FileUse): { text: string; ok: boolean } {
-  if (attachment.inline) return { text: "Seen", ok: true };
-  if (openedAt === undefined) return { text: "Not opened", ok: false };
-  if (attachment.kind !== "folder") return { text: `Opened ${clockTime(openedAt)}`, ok: true };
-  if (filesOpened === 0) return { text: "Opened", ok: true };
-  return { text: `Opened ${filesOpened} ${filesOpened === 1 ? "file" : "files"}`, ok: true };
+type Status = "ok" | "no" | "idle";
+
+// A Library item is there if needed, so not opening it is no warning (D-64).
+function statusOf({ attachment, openedAt, filesOpened }: FileUse): { text: string; ok: Status } {
+  if (attachment.inline) return { text: "Seen", ok: "ok" };
+  if (openedAt === undefined) {
+    return { text: "Not opened", ok: attachment.reference ? "idle" : "no" };
+  }
+  if (attachment.kind !== "folder") return { text: `Opened ${clockTime(openedAt)}`, ok: "ok" };
+  if (filesOpened === 0) return { text: "Opened", ok: "ok" };
+  return { text: `Opened ${filesOpened} ${filesOpened === 1 ? "file" : "files"}`, ok: "ok" };
 }
 
 // For a view that shows one trace item at a time.
@@ -30,12 +35,13 @@ export function SentFiles({ uses }: { uses: readonly FileUse[] | undefined }) {
       {uses.map((use) => {
         const { attachment } = use;
         const status = statusOf(use);
-        const detail =
+        const size =
           attachment.kind === "folder"
             ? "folder"
             : attachment.bytes === undefined
               ? ""
               : sizeText(attachment.bytes);
+        const detail = attachment.reference ? `${size} · from the Library` : size;
         return (
           <li key={attachment.id} className={styles.sentRow} title={attachment.path}>
             <span className={styles.tile} aria-hidden>
@@ -45,9 +51,7 @@ export function SentFiles({ uses }: { uses: readonly FileUse[] | undefined }) {
               {attachment.name}
               <small>{detail}</small>
             </span>
-            <span className={`${styles.status} ${status.ok ? styles.ok : styles.no}`}>
-              {status.text}
-            </span>
+            <span className={`${styles.status} ${styles[status.ok]}`}>{status.text}</span>
           </li>
         );
       })}

@@ -6,6 +6,9 @@ import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { messageLead } from "../../src/chief/message-lead.ts";
 import { proposePlan } from "../../src/chief/propose-plan.ts";
 import { Scheduler } from "../../src/chief/scheduler.ts";
+import { referenceOf } from "../../src/library/library.ts";
+import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
+import { followLibraryUses } from "../../src/library/library-uses.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import { SessionRegistry } from "../../src/registry/session-registry.ts";
 import { openStore } from "../../src/store/sqlite-store.ts";
@@ -66,8 +69,10 @@ export async function startCore(dataFolder: string): Promise<Core> {
     tools,
     guard: autonomyGuard(store),
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
+    referenceOf: referenceOf(store),
   });
   taskStates.follow(registry);
+  followLibraryUses(registry, store);
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];
     if (catalog === undefined) throw new Error("not installed");
@@ -87,6 +92,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
     outsource(team),
     proposePlan(team, scheduler),
     messageLead(team),
+    addToLibrary(team),
+    changeLibrary(team),
   ]);
   const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
 

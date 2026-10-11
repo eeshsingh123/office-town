@@ -6,17 +6,17 @@ export const CHIEF = "~chief";
 export const PROPOSE = "~propose";
 
 export interface Mention {
-  // "@" names who takes the task; "/" picks a template.
-  kind: "@" | "/";
+  // "@" names who takes the task, "#" adds a Library file, "/" picks a template.
+  kind: "@" | "#" | "/";
   query: string;
-  // Where the "@" or "/" is in the text.
+  // Where the mark is in the text.
   start: number;
 }
 
-// The word being typed at the caret, when it starts with "@" anywhere or "/" at the very start.
-// A path such as src/app never matches, since "@" and "/" must follow a space.
+// The word being typed at the caret, when it starts with "@" or "#" anywhere or "/" at the very
+// start. A path such as src/app never matches, since each must follow a space.
 export function mentionAt(text: string, caret: number): Mention | undefined {
-  const found = /(^|\s)([@/])([^\s@/]*)$/.exec(text.slice(0, caret));
+  const found = /(^|\s)([@#/])([^\s@#/]*)$/.exec(text.slice(0, caret));
   if (found === null) return undefined;
   const kind = found[2] as Mention["kind"];
   const query = found[3] ?? "";

@@ -678,3 +678,48 @@ button.row:hover {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[data-state="active"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.tabCount {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--hover);
+  font-size: var(--size-small);
+  color: var(--text-2);
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 28px;
+  outline: 0;
+}

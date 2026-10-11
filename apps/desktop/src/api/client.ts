@@ -34,8 +34,12 @@ import {
   type HarnessDescription,
   harnessCatalogSchema,
   harnessDescriptionSchema,
+  type LibraryItem,
+  type LibraryItemChange,
+  libraryItemSchema,
   type NewAccountRequest,
   type NewDepartmentRequest,
+  type NewLibraryItemRequest,
   type PendingRequestList,
   type PlanPiece,
   type ProfileRecord,
@@ -143,6 +147,12 @@ export const api = {
     write("POST", `/attachments?name=${id(name)}`, file, attachmentSchema),
   linkFolder: (path: string): Promise<Attachment> =>
     write("POST", "/attachments/folder", { path }, attachmentSchema),
+  listLibrary: (): Promise<LibraryItem[]> => read("/library", listOf(libraryItemSchema)),
+  addLibraryItem: (workspaceId: string, request: NewLibraryItemRequest): Promise<LibraryItem> =>
+    write("POST", `/workspaces/${id(workspaceId)}/library`, request, libraryItemSchema),
+  changeLibraryItem: (itemId: string, change: LibraryItemChange): Promise<LibraryItem> =>
+    write("PUT", `/library/${id(itemId)}`, change, libraryItemSchema),
+  removeLibraryItem: (itemId: string): Promise<void> => send("DELETE", `/library/${id(itemId)}`),
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),

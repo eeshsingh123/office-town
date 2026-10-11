@@ -5,6 +5,7 @@ import type {
   DelegationRecord,
   DepartmentRecord,
   HarnessDescription,
+  LibraryItem,
   PlanPiece,
   ProfileRecord,
   RoomPosition,
@@ -37,7 +38,7 @@ export type View =
   | { name: "templates" }
   | { name: "workspaces" }
   | { name: "usage" }
-  | { name: "workspace"; workspaceId: string }
+  | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
   | { name: "department"; departmentId: string }
   | { name: "task"; taskId: string };
@@ -83,6 +84,8 @@ export interface AppState extends Records {
   templates: ProfileRecord[] | undefined;
   // Most recently used first; undefined until loaded.
   workspaces: WorkspaceRecord[] | undefined;
+  // Every workspace's reference files, by id.
+  library: Record<string, LibraryItem>;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -110,6 +113,7 @@ export const useApp = create<AppState>(() => ({
   you: undefined,
   templates: undefined,
   workspaces: undefined,
+  library: {},
 }));
 
 export function focusAgent(agentId: string | undefined): void {
