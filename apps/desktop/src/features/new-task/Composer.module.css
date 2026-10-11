@@ -339,6 +339,12 @@
   background: var(--hover);
 }
 
+.mentionEmpty {
+  padding: 6px 8px 8px;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
 .mentionText {
   display: flex;
   flex-direction: column;

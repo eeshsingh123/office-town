@@ -1,0 +1,28 @@
+.content {
+  position: fixed;
+  top: 18vh;
+  left: 50%;
+  z-index: 21;
+  width: min(560px, calc(100vw - 32px));
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-raised);
+  transform: translateX(-50%);
+}
+
+.list {
+  max-height: min(420px, 60vh);
+}
+
+.icon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.typed {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

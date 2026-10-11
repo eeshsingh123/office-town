@@ -60,6 +60,10 @@
   cursor: pointer;
 }
 
+.shortcut {
+  margin-left: auto;
+}
+
 .nav:hover {
   background: var(--hover);
   color: var(--text);

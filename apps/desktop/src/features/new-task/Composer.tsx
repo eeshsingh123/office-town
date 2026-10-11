@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -245,15 +246,21 @@ export function Composer({ home = false }: ComposerProps) {
 
   // "@" lists who can take the task, "/" the templates.
   const people: Option[] = [
-    { id: SOLO, name: "An assistant", note: "One agent, for quick single jobs" },
+    { id: SOLO, name: "An assistant", note: "One agent" },
     ...Object.values(departments)
       .filter((known) => !busy.has(known.id))
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((known) => ({ id: known.id, name: known.name, note: "Department" })),
-    { id: PROPOSE, name: "A new team", note: "A lead suggests who to bring in" },
+    { id: PROPOSE, name: "A new team", note: "A lead picks a team for you to approve" },
     ...(chief === undefined
       ? []
-      : [{ id: CHIEF, name: chief.record.name, note: "Plans across departments" }]),
+      : [
+          {
+            id: CHIEF,
+            name: chief.record.name,
+            note: "Plans across departments for you to approve",
+          },
+        ]),
   ];
   const listed: Option[] =
     mention === undefined
@@ -267,6 +274,8 @@ export function Composer({ home = false }: ComposerProps) {
             }))
         ).filter((option) => option.name.toLowerCase().includes(mention.query));
   const active = Math.min(highlight, listed.length - 1);
+  const listId = useId();
+  const noTemplates = mention?.kind === "/" && (templates ?? []).length === 0;
 
   const pickMention = (id: string) => {
     const element = box.current;
@@ -282,6 +291,14 @@ export function Composer({ home = false }: ComposerProps) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // An open list with nothing to pick only closes, so Enter never starts "/" as a task.
+    if (mention !== undefined && listed.length === 0) {
+      if (event.key === "Enter" || event.key === "Tab" || event.key === "Escape") {
+        event.preventDefault();
+        setMention(undefined);
+        return;
+      }
+    }
     if (listed.length > 0) {
       const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0;
       if (step !== 0) {
@@ -321,45 +338,26 @@ export function Composer({ home = false }: ComposerProps) {
         : proposing
           ? "New team"
           : (department?.name ?? "");
-  const where = <b>{workspace?.name}</b>;
-  let plan: ReactNode;
+  let plan: ReactNode = null;
   if (target === CHIEF) {
     plan =
       chief === undefined ? null : chief.busy && chief.current !== undefined ? (
         <>
-          <b>{chief.record.name}</b> is working on "{taskTitle(chief.current.prompt)}". This goal
-          waits its turn.
+          <b>{chief.record.name}</b> is busy with "{taskTitle(chief.current.prompt)}". This goal
+          starts after it.
         </>
       ) : (
-        <>
-          <b>{chief.record.name}</b> drafts a plan across your departments. Nothing starts until you
-          approve it.
-        </>
+        <>You approve the plan before any work starts.</>
       );
-  } else if (department !== undefined) {
-    plan = (
-      <>
-        <b>{department.name}</b>'s lead splits the work in {where}. You review the result.
-      </>
-    );
   } else if (proposing) {
     plan = (
       <>
-        A lead suggests a team for this task in {where}. You approve it before anyone starts.
+        You approve the team before any work starts.
         {sharedWith.length > 0
-          ? ` ${sharedWith.join(" and ")} already ${sharedWith.length === 1 ? "works" : "work"} there.`
+          ? ` ${sharedWith.join(" and ")} also ${sharedWith.length === 1 ? "works" : "work"} in ${workspace?.name}.`
           : ""}
       </>
     );
-  } else {
-    plan =
-      level === "supervised" ? (
-        <>Works in {where} and checks with you before each action.</>
-      ) : level === "bypass" ? (
-        <>Works in {where} with no safety checks.</>
-      ) : (
-        <>Works in {where} without asking. You review the result.</>
-      );
   }
 
   return (
@@ -372,6 +370,13 @@ export function Composer({ home = false }: ComposerProps) {
           <textarea
             ref={box}
             id="task-prompt"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mention !== undefined}
+            aria-controls={mention === undefined ? undefined : listId}
+            aria-activedescendant={
+              mention === undefined || listed.length === 0 ? undefined : `${listId}-${active}`
+            }
             className={styles.prompt}
             rows={home ? 2 : 3}
             value={prompt}
@@ -382,27 +387,45 @@ export function Composer({ home = false }: ComposerProps) {
             }}
             onKeyDown={onKeyDown}
             onBlur={() => setMention(undefined)}
-            placeholder={
-              home
-                ? "What should your team do? Type @ to hand it to a department."
-                : "Describe the task. Type @ to hand it to a department, / for a template."
-            }
+            placeholder="Describe the task. Type @ to choose who does it, / to use a template."
             // biome-ignore lint/a11y/noAutofocus: New task exists to take this text
             autoFocus={!home}
           />
-          {listed.length > 0 && mention !== undefined ? (
+          {mention !== undefined ? (
             <div
+              id={listId}
               className={styles.mentions}
               role="listbox"
-              aria-label={mention.kind === "@" ? "Hand it to" : "Templates"}
+              aria-label={mention.kind === "@" ? "Who does it" : "Templates"}
             >
-              <div className={styles.menuHeading}>
-                {mention.kind === "@" ? "Hand it to" : "Start from a template"}
+              <div className={styles.menuHeading} role="presentation">
+                {mention.kind === "@" ? "Who does it" : "Use a template"}
               </div>
+              {listed.length === 0 ? (
+                <div className={styles.mentionEmpty} role="status">
+                  {noTemplates
+                    ? "No templates yet."
+                    : mention.kind === "/"
+                      ? "No template matches."
+                      : "No match."}
+                  {noTemplates ? (
+                    <button
+                      type="button"
+                      className={styles.link}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => navigate({ name: "templates" })}
+                    >
+                      Go to Templates
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
               {listed.map((option, index) => (
                 <button
                   key={option.id}
+                  id={`${listId}-${index}`}
                   type="button"
+                  tabIndex={-1}
                   role="option"
                   aria-selected={index === active}
                   className={styles.mention}
@@ -497,7 +520,8 @@ export function Composer({ home = false }: ComposerProps) {
           </span>
         )}
         <span className={styles.keys}>
-          <Kbd>Enter</Kbd> to start · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> new line
+          <Kbd>@</Kbd> who · <Kbd>/</Kbd> template · <Kbd>Enter</Kbd> start · <Kbd>Shift</Kbd>{" "}
+          <Kbd>Enter</Kbd> new line
         </span>
       </div>
       {error === undefined ? null : (
