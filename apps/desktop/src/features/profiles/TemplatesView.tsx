@@ -1,5 +1,5 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { LayoutGrid, List, MoreHorizontal, Plus, Search } from "lucide-react";
+import { CircleHelp, LayoutGrid, List, MoreHorizontal, Plus, Search } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -14,6 +14,7 @@ import { useModels } from "./model-line.ts";
 import { modelLine, modelName } from "./model-name.ts";
 import { draftOf, TemplateDialog, type TemplateDraft } from "./TemplateDialog.tsx";
 import styles from "./Templates.module.css";
+import { TemplatesGuide } from "./TemplatesGuide.tsx";
 
 type Sort = "used" | "name" | "new";
 type Layout = "cards" | "list";
@@ -21,6 +22,15 @@ type Layout = "cards" | "list";
 type Filter = string;
 
 const LAYOUT_KEY = "office-town.templates.layout";
+const GUIDE_KEY = "office-town.templates.guide-hidden";
+
+function loadGuideHidden(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 function loadLayout(): Layout {
   try {
@@ -113,6 +123,15 @@ export function TemplatesView() {
   const [sort, setSort] = useState<Sort>("used");
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [editing, setEditing] = useState<Editing>();
+  const [guideHidden, setGuideHidden] = useState(loadGuideHidden);
+  const showGuide = (show: boolean) => {
+    setGuideHidden(!show);
+    try {
+      localStorage.setItem(GUIDE_KEY, String(!show));
+    } catch {
+      // Remembering this is a convenience only.
+    }
+  };
   const open = (template: ProfileRecord | undefined, start?: TemplateDraft) =>
     setEditing({ template, start, key: (editing?.key ?? 0) + 1 });
   const chooseLayout = (next: Layout) => {
@@ -168,11 +187,28 @@ export function TemplatesView() {
             </h1>
             <p className={page.lead}>Saved agent setups you can reuse.</p>
           </div>
-          <Button variant="primary" onClick={() => open(undefined)}>
-            <Plus size={14} aria-hidden />
-            New template
-          </Button>
+          <div className={styles.headActions}>
+            {guideHidden ? (
+              <Button variant="ghost" onClick={() => showGuide(true)}>
+                <CircleHelp size={14} aria-hidden />
+                How templates work
+              </Button>
+            ) : null}
+            <Button variant="primary" onClick={() => open(undefined)}>
+              <Plus size={14} aria-hidden />
+              New template
+            </Button>
+          </div>
         </header>
+
+        {guideHidden ? null : (
+          <TemplatesGuide
+            onHide={() => showGuide(false)}
+            {...(templates !== undefined && all.length === 0
+              ? { onNew: () => open(undefined) }
+              : {})}
+          />
+        )}
 
         <div className={styles.tools}>
           <label className={styles.search}>
@@ -240,7 +276,7 @@ export function TemplatesView() {
             </p>
           </div>
         ) : (
-          <>
+          <div className={styles.results}>
             <p className={form.hint}>
               {shown.length === all.length
                 ? `${all.length} template${all.length === 1 ? "" : "s"}`
@@ -323,7 +359,7 @@ export function TemplatesView() {
                 </table>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
       {editing === undefined ? null : (

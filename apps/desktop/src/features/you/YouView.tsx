@@ -74,78 +74,94 @@ export function YouView() {
           </header>
 
           <div className={form.form}>
-            <div className={styles.identity}>
-              <Avatar name={draft.name.trim() || "?"} colour={draft.colour} size={52} />
-              <label className={form.field} htmlFor="you-name">
-                <span className={form.label}>Your name</span>
-                <input
-                  id="you-name"
-                  className={form.input}
-                  value={draft.name}
-                  maxLength={60}
-                  onChange={(event) => set({ name: event.target.value })}
-                />
-              </label>
-            </div>
-            <div className={form.field}>
-              <span className={form.label}>Your colour</span>
-              <ColourPicker
-                label="Your colour"
-                value={draft.colour}
-                onChange={(colour) => set({ colour })}
-              />
-            </div>
-            <label className={form.field} htmlFor="you-about">
-              <span className={form.label}>About you</span>
-              <textarea
-                id="you-about"
-                className={form.input}
-                rows={4}
-                value={draft.about}
-                placeholder="For example: I'm a backend developer. I know Python well and I'm new to TypeScript."
-                onChange={(event) => set({ about: event.target.value })}
-              />
-              <span className={form.hint}>
-                Your work, what you know well and what you're new to.
-              </span>
-            </label>
-            <fieldset className={`${form.field} ${form.group}`}>
-              <legend className={form.label}>How you like answers</legend>
-              <div className={form.row}>
-                {ANSWER_PICKS.map((pick) => {
-                  const on = draft.answerStyle.includes(pick);
-                  return (
-                    <button
-                      key={pick}
-                      type="button"
-                      className={form.chip}
-                      aria-pressed={on}
-                      onClick={() =>
-                        set({
-                          answerStyle: on
-                            ? draft.answerStyle.filter((known) => known !== pick)
-                            : [...draft.answerStyle, pick],
-                        })
-                      }
-                    >
-                      {pick}
-                    </button>
-                  );
-                })}
+            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-who">
+              <h2 id="you-who" className={page.sectionTitle}>
+                You
+              </h2>
+              <div className={styles.identity}>
+                <Avatar name={draft.name.trim() || "?"} colour={draft.colour} size={56} />
+                <label className={form.field} htmlFor="you-name">
+                  <span className={form.label}>Your name</span>
+                  <input
+                    id="you-name"
+                    className={form.input}
+                    value={draft.name}
+                    maxLength={60}
+                    onChange={(event) => set({ name: event.target.value })}
+                  />
+                </label>
               </div>
-              <textarea
-                className={form.input}
-                rows={2}
-                aria-label="Anything else about how you like answers"
-                value={draft.answerNotes}
-                placeholder="Anything else, in your own words"
-                onChange={(event) => set({ answerNotes: event.target.value })}
-              />
-              <p className={form.hint}>Pick any that fit, or write your own.</p>
-            </fieldset>
-            <div className={`${page.panel} ${styles.notifications}`}>
-              <span className={page.eyebrow}>Notifications</span>
-              <p className={form.hint}>Shown while the app is in the background.</p>
+              <div className={form.field}>
+                <span className={form.label}>Your colour</span>
+                <ColourPicker
+                  label="Your colour"
+                  value={draft.colour}
+                  onChange={(colour) => set({ colour })}
+                />
+              </div>
+            </section>
+
+            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-work">
+              <h2 id="you-work" className={page.sectionTitle}>
+                How agents work with you
+              </h2>
+              <label className={form.field} htmlFor="you-about">
+                <span className={form.label}>About you</span>
+                <textarea
+                  id="you-about"
+                  className={form.input}
+                  rows={4}
+                  value={draft.about}
+                  placeholder="For example: I'm a backend developer. I know Python well and I'm new to TypeScript."
+                  onChange={(event) => set({ about: event.target.value })}
+                />
+                <span className={form.hint}>
+                  Your work, what you know well and what you're new to.
+                </span>
+              </label>
+              <fieldset className={`${form.field} ${form.group}`}>
+                <legend className={form.label}>How you like answers</legend>
+                <div className={form.row}>
+                  {ANSWER_PICKS.map((pick) => {
+                    const on = draft.answerStyle.includes(pick);
+                    return (
+                      <button
+                        key={pick}
+                        type="button"
+                        className={form.chip}
+                        aria-pressed={on}
+                        onClick={() =>
+                          set({
+                            answerStyle: on
+                              ? draft.answerStyle.filter((known) => known !== pick)
+                              : [...draft.answerStyle, pick],
+                          })
+                        }
+                      >
+                        {pick}
+                      </button>
+                    );
+                  })}
+                </div>
+                <textarea
+                  className={form.input}
+                  rows={2}
+                  aria-label="Anything else about how you like answers"
+                  value={draft.answerNotes}
+                  placeholder="Anything else, in your own words"
+                  onChange={(event) => set({ answerNotes: event.target.value })}
+                />
+                <p className={form.hint}>Pick any that fit, or write your own.</p>
+              </fieldset>
+            </section>
+
+            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-notify">
+              <div className={styles.sectionHead}>
+                <h2 id="you-notify" className={page.sectionTitle}>
+                  Notifications
+                </h2>
+                <p className={form.hint}>Shown while the app is in the background.</p>
+              </div>
               <Switch
                 label="When an agent needs you"
                 on={draft.notifyNeedsYou}
@@ -156,7 +172,7 @@ export function YouView() {
                 on={draft.notifyFinished}
                 onChange={(notifyFinished) => set({ notifyFinished })}
               />
-            </div>
+            </section>
             {error === undefined ? null : (
               <p className={form.error} role="alert">
                 {error}

@@ -1,30 +1,30 @@
 .page {
   height: 100%;
-  padding: 40px 28px;
+  padding: 48px 48px 64px;
   overflow-y: auto;
-  background: var(--surface);
+  background: var(--bg);
 }
 
 .column {
-  max-width: 760px;
+  max-width: 860px;
   margin: 0 auto;
 }
 
 .heading {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 0 8px;
+  font-size: var(--size-page);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .size {
-  margin: 0 0 18px;
-  font-size: var(--size-meta);
-  color: var(--text-3);
+  margin: 0 0 32px;
+  color: var(--text-2);
 }
 
 .warning {
-  margin: 8px 0 18px;
-  padding: 10px 14px;
+  margin: 0 0 32px;
+  padding: 14px 18px;
   border: 1px solid var(--warn-border);
   border-radius: var(--radius-card);
   background: var(--warn-soft);
@@ -32,15 +32,21 @@
 }
 
 .day {
-  margin: 18px 0 6px;
-  font-size: var(--size-small);
-  font-weight: 500;
+  margin: 32px 0 10px;
+  font-size: var(--size-meta);
+  font-weight: 600;
   color: var(--text-3);
 }
 
 .list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin: 0;
-  padding: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
   list-style: none;
 }
 
@@ -48,6 +54,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  padding-right: 8px;
   border-radius: var(--radius-control);
 }
 
@@ -59,9 +66,9 @@
   display: flex;
   flex: 1;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 12px 14px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -76,6 +83,7 @@
 .text {
   display: flex;
   flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
 
@@ -86,13 +94,13 @@
 }
 
 .meta {
-  font-size: 11.5px;
+  font-size: var(--size-meta);
   color: var(--text-3);
 }
 
 .top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
