@@ -258,3 +258,12 @@ Why: the owner found the form vague, slow and generic-looking; Devin, Jules, Cod
 - UI copy is labels and short hints only (owner): no how-it-works panels, no hints that restate the label, no narrated or clever phrasing. The levels sit under "Permissions" (Ask me first / Don't ask / No safety checks). The line under the composer shows only for an approval (chief, new team) or a busy chief.
 - Ctrl+K opens a search over pages, departments and recent tasks, with "Start a task" for the typed text last.
 Why: the owner found raw model ids, handles and AI-sounding explanations throughout the app.
+
+### D-60 Tasks grouped by team, with tabs, search and filters — accepted (2026-10-11)
+
+- Tasks groups by team by default (the chief, each department by name, then Assistants); Group by also offers Status and Day, remembered in the browser. Tabs with counts: All, Needs you, Working, To review, Done, Failed or stopped. Search covers title, prompt, live line, team, agents and workspace; filters for Team, Workspace and Started.
+- A row: status icon, title, one live line (the ask, the step "Step 2 of 6 · …", or what it waits on), who, a step or part bar, last activity, one button (Answer or Review) and a ⋯ menu (Show in office, Delete). Handles stay out (D-59): a team's row reads "Lead + 2".
+- A chief's parts sit under their goal, planned ones included; a part stands alone under its department, with "Part of: …", only when its goal is filtered out. A goal that waits on a part needs you, and Answer opens that part.
+- Working with nothing new in its trace for 60 minutes shows "Stuck 1 h" (owner). No trace loaded means unknown, never stuck.
+- Done tasks fold into "Show N done" in a group that still has open work. The history size is a small muted figure beside the tabs, amber past 1 GB. No bulk delete (owner).
+- The logic is `features/tasks/task-list.ts`; the Office Board stays as the live column view.
