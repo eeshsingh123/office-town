@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { SessionEvent } from "@office-town/contract";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { claudeAdapter } from "../src/adapters/claude/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
 import {
@@ -402,5 +402,43 @@ describe("claude adapter", () => {
       type: "control_response",
       response: { subtype: "error", request_id: "r1" },
     });
+  });
+});
+
+describe("claude plan usage", () => {
+  const readLimits = claudeAdapter.accounts?.readLimits;
+  const signIn = (expiresAt: number) =>
+    JSON.stringify({ claudeAiOauth: { accessToken: "token", expiresAt } });
+
+  it("reads the windows /usage shows as fractions, and skips an expired sign-in", async () => {
+    const fetch = vi.fn(async () =>
+      Response.json({
+        five_hour: { utilization: 2, resets_at: "2026-10-12T13:39:59.575102+00:00" },
+        seven_day: { utilization: 83, resets_at: "2026-10-13T12:59:59+00:00" },
+        seven_day_opus: null,
+        extra_usage: { is_enabled: false },
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect(await readLimits?.(signIn(Date.now() - 1000))).toBeUndefined();
+      expect(fetch).not.toHaveBeenCalled();
+      expect(await readLimits?.(signIn(Date.now() + 60_000))).toEqual([
+        {
+          id: "five_hour",
+          label: "five hour",
+          usedFraction: 0.02,
+          resetsAt: "2026-10-12T13:39:59.575Z",
+        },
+        {
+          id: "seven_day",
+          label: "seven day",
+          usedFraction: 0.83,
+          resetsAt: "2026-10-13T12:59:59.000Z",
+        },
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

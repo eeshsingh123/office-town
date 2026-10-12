@@ -1,5 +1,5 @@
 import type { Account, AccountUsage } from "@office-town/contract";
-import { Plus, Search } from "lucide-react";
+import { Plus, RefreshCw, Search } from "lucide-react";
 import { AlertDialog, Dialog } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -14,7 +14,7 @@ import { AccountCard, Meter } from "./AccountCard.tsx";
 import { AddAccountDialog } from "./AddAccountDialog.tsx";
 import { clock, fullest, inTime, roomiest, sessionAccountId, windowLabel } from "./limits.ts";
 import styles from "./Usage.module.css";
-import { reloadAccounts, useLimitStops, useMinute } from "./use-usage.ts";
+import { reloadAccounts, useLimitStops, useLiveLimits, useMinute } from "./use-usage.ts";
 
 const DAY_MS = 24 * 3600_000;
 const startOfToday = () => new Date(new Date().toDateString()).toISOString();
@@ -135,6 +135,7 @@ export function UsageView() {
   const stops = useLimitStops();
   const spend = useSpend();
   const now = useMinute();
+  const live = useLiveLimits();
   const [query, setQuery] = useState("");
   const [tool, setTool] = useState("all");
   const [showLeft, setShowLeft] = useState(false);
@@ -225,10 +226,20 @@ export function UsageView() {
             </h1>
             <p className={page.lead}>Plan limits for each account your agents use.</p>
           </header>
-          <Button variant="primary" onClick={() => setOpen({ kind: "add" })}>
-            <Plus size={14} aria-hidden />
-            Add account
-          </Button>
+          <div className={styles.topActions}>
+            <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
+              <RefreshCw
+                size={14}
+                className={live.refreshing ? styles.turning : undefined}
+                aria-hidden
+              />
+              {live.refreshing ? "Refreshing" : "Refresh"}
+            </Button>
+            <Button variant="primary" onClick={() => setOpen({ kind: "add" })}>
+              <Plus size={14} aria-hidden />
+              Add account
+            </Button>
+          </div>
         </div>
 
         {atLimit.map((account) => {

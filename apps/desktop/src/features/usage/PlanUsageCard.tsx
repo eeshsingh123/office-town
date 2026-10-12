@@ -3,7 +3,7 @@ import { Button } from "../../ui/Button.tsx";
 import { Meter } from "./AccountCard.tsx";
 import { clock, fullest, percent, toneOf, windowLabel } from "./limits.ts";
 import styles from "./Usage.module.css";
-import { useMinute } from "./use-usage.ts";
+import { useLiveLimits, useMinute } from "./use-usage.ts";
 
 const SHOWN = 5;
 
@@ -13,6 +13,7 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
   const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
   const now = useMinute();
+  useLiveLimits();
   const rows = accounts
     .flatMap((account) => {
       const window = fullest(limits[account.id], now);

@@ -6,6 +6,7 @@ import type {
   Question,
   SessionEventBody,
   SessionOptions,
+  UsageLimit,
 } from "@office-town/contract";
 
 type BodyOf<T extends SessionEventBody["type"]> = Extract<SessionEventBody, { type: T }>;
@@ -106,6 +107,10 @@ export interface AccountSupport {
   // Signs in with a key from the provider's console, read from stdin; the CLI saves it.
   keyLogin?: (provider: string) => HarnessCommand;
   status?: { command: HarnessCommand; parse(output: string): AccountStatus };
+  // The default login's folder, inside the home folder.
+  home?: string;
+  // Asks the vendor for the plan usage now, with the sign-in file's text; undefined if it cannot.
+  readLimits?: (credentials: string) => Promise<UsageLimit[] | undefined>;
 }
 
 export interface Adapter {

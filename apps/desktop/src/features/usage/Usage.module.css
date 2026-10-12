@@ -15,6 +15,16 @@
   gap: 16px;
 }
 
+.topActions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.turning {
+  animation: spin 1s linear infinite;
+}
+
 /* At a glance */
 .glance {
   display: grid;

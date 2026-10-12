@@ -1,4 +1,4 @@
-import type { PermissionMode } from "@office-town/contract";
+import type { PermissionMode, UsageLimit } from "@office-town/contract";
 import type {
   AccountSupport,
   Adapter,
@@ -7,7 +7,13 @@ import type {
   HarnessCommand,
   LaunchOptions,
 } from "../../adapter.ts";
-import { authStatusSchema, headerSchema, initializeResponseSchema } from "./messages.ts";
+import {
+  authStatusSchema,
+  credentialsSchema,
+  headerSchema,
+  initializeResponseSchema,
+  planUsageSchema,
+} from "./messages.ts";
 import { ClaudeTranslator } from "./translator.ts";
 
 const STREAM_ARGS = [
@@ -108,6 +114,38 @@ const catalog: CatalogQuery = {
   },
 };
 
+// What the CLI's /usage reads; the windows it shows are the ones kept.
+const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const USAGE_WINDOWS = ["five_hour", "seven_day", "seven_day_opus", "seven_day_sonnet"];
+
+// Reads with the CLI's own token and never refreshes it: refreshing would replace the CLI's
+// sign-in under it. An expired token waits for the next agent run, which refreshes it.
+async function readLimits(credentials: string): Promise<UsageLimit[] | undefined> {
+  const oauth = credentialsSchema.parse(JSON.parse(credentials)).claudeAiOauth;
+  if (oauth === undefined || (oauth.expiresAt ?? Infinity) <= Date.now()) return undefined;
+  const response = await fetch(USAGE_URL, {
+    headers: { Authorization: `Bearer ${oauth.accessToken}`, "anthropic-beta": "oauth-2025-04-20" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) return undefined;
+  const usage = planUsageSchema.parse(await response.json());
+  return USAGE_WINDOWS.flatMap((id) => {
+    const window = usage[id];
+    if (window === undefined) return [];
+    const resetsAt = window.resets_at == null ? undefined : new Date(window.resets_at);
+    return [
+      {
+        id,
+        label: id.replaceAll("_", " "),
+        usedFraction: Math.max(0, window.utilization) / 100,
+        ...(resetsAt === undefined || Number.isNaN(resetsAt.getTime())
+          ? {}
+          : { resetsAt: resetsAt.toISOString() }),
+      },
+    ];
+  });
+}
+
 // Each account is a config folder of its own, which holds its login (D-61).
 const accounts: AccountSupport = {
   env: (folder) => ({ CLAUDE_CONFIG_DIR: folder }),
@@ -124,6 +162,8 @@ const accounts: AccountSupport = {
       };
     },
   },
+  home: ".claude",
+  readLimits,
 };
 
 export const claudeAdapter: Adapter = {

@@ -1,5 +1,5 @@
 import type { Account, AccountLimits } from "@office-town/contract";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -8,6 +8,35 @@ import { fullest, roomiest, sameEnvironment, sessionAccountId } from "./limits.t
 export async function reloadAccounts(): Promise<void> {
   const accounts = await api.listAccounts();
   useApp.setState({ accounts });
+}
+
+// Plan usage moves outside the app too, so it is read again while a page shows it.
+const LIMITS_EVERY_MS = 5 * 60_000;
+
+export async function refreshLimits(): Promise<void> {
+  const entries = await api.refreshLimits();
+  useApp.setState({ limits: Object.fromEntries(entries.map((entry) => [entry.accountId, entry])) });
+}
+
+// Reads plan usage on open, every few minutes and when the window comes back; `refresh` on demand.
+export function useLiveLimits(): { refresh: () => void; refreshing: boolean } {
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    void refreshLimits()
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }, []);
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, LIMITS_EVERY_MS);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [refresh]);
+  return { refresh, refreshing };
 }
 
 export interface LimitStop {
