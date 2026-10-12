@@ -144,7 +144,8 @@ export function Sidebar() {
             O
           </span>
           <span className={styles.text}>Office Town</span>
-          <HistoryButtons />
+          {/* Collapsed, back and forward move to the top of the main area. */}
+          {collapsed ? null : <HistoryButtons />}
           <button
             type="button"
             className={styles.collapse}

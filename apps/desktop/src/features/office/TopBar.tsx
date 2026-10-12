@@ -1,6 +1,8 @@
 import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { HistoryButtons } from "../sidebar/HistoryButtons.tsx";
+import { useSidebar } from "../sidebar/sidebar-state.ts";
 import { fullest } from "../usage/limits.ts";
 import { useMinute } from "../usage/use-usage.ts";
 import { setPanelOpen, showMode, useOffice } from "./office-state.ts";
@@ -29,10 +31,13 @@ export function TopBar() {
   const panelOpen = useOffice((state) => state.panelOpen);
   const { working, order } = useCounts();
   const full = useFullAccounts();
+  const collapsed = useSidebar((state) => state.collapsed);
   const at = focus === undefined ? -1 : order.indexOf(focus.agentId);
 
   return (
     <header className={styles.bar}>
+      {/* The sidebar is collapsed, so back and forward live here. */}
+      {collapsed ? <HistoryButtons /> : null}
       <ToggleGroup.Root
         type="single"
         className={styles.segments}

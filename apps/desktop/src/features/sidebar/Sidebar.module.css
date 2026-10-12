@@ -50,9 +50,27 @@
   cursor: pointer;
 }
 
-.history + .collapse,
-.history + .collapse + .collapse {
+.history {
+  display: flex;
+}
+
+.brand .history {
+  margin-left: auto;
+}
+
+.history .collapse {
   margin-left: 0;
+}
+
+.history + .collapse {
+  margin-left: 0;
+}
+
+/* Its own row, so it never covers a page's header. */
+.historyRow {
+  display: flex;
+  flex: none;
+  padding: 10px 12px 0;
 }
 
 .collapse:disabled {
@@ -297,20 +315,29 @@
 .rail .text,
 .rail .shortcut,
 .rail .youText,
-.rail .newTask kbd,
-.rail .logo {
+.rail .newTask kbd {
   display: none;
 }
 
+/* Logo, a line, then the expand button: two clearly separate things. */
 .rail .brand {
   flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+  gap: 0;
   padding-inline: 0;
 }
 
 .rail .collapse {
-  margin: 0;
+  position: relative;
+  margin: 21px 0 0;
+}
+
+.rail .collapse::before {
+  position: absolute;
+  top: -11px;
+  right: 2px;
+  left: 2px;
+  border-top: 1px solid var(--border);
+  content: "";
 }
 
 .rail .nav,

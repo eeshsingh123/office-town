@@ -12,7 +12,7 @@ import { OfficeView } from "./features/office/OfficeView.tsx";
 import { PinnedStrip } from "./features/office/PinnedStrip.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
-import { useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
+import { HistoryRow, useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { TaskView } from "./features/task/TaskView.tsx";
@@ -87,6 +87,7 @@ export function App() {
       <div className={styles.app}>
         <Sidebar />
         <main className={styles.main}>
+          <HistoryRow />
           <div className={styles.view}>
             <Main view={view} />
           </div>
