@@ -215,6 +215,8 @@ export interface Store {
   appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
   listLimits(): AccountLimits[];
+  // The latest an account's plan usage was read, such as when the user refreshes it.
+  saveLimits(entry: AccountLimits): void;
   // Tokens per account and agent, over the turns that ended since then.
   accountUsageSince(since: string): AccountUsage[];
   // Only the logins the user added; the default ones are no record (D-61).

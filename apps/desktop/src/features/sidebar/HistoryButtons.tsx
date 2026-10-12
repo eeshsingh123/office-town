@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { type AppState, goBack, goForward, useApp, type Visit } from "../../store/app-store.ts";
 import { taskTitle } from "../../ui/format.ts";
 import styles from "./Sidebar.module.css";
+import { useSidebar } from "./sidebar-state.ts";
 
 const PAGES: Record<string, string> = {
   home: "Home",
@@ -78,10 +79,10 @@ export function HistoryButtons() {
     return next === undefined ? undefined : visitLabel(next, state);
   });
   return (
-    <>
+    <span className={styles.history}>
       <button
         type="button"
-        className={`${styles.collapse} ${styles.history}`}
+        className={styles.collapse}
         onClick={goBack}
         disabled={back === undefined}
         aria-label={back === undefined ? "Back" : `Back to ${back}`}
@@ -99,6 +100,19 @@ export function HistoryButtons() {
       >
         <ArrowRight size={16} aria-hidden />
       </button>
-    </>
+    </span>
+  );
+}
+
+// With the sidebar collapsed, back and forward sit in a row at the top of the
+// main area. The Office has its own top bar and shows them there instead.
+export function HistoryRow() {
+  const collapsed = useSidebar((state) => state.collapsed);
+  const office = useApp((state) => state.view.name === "office");
+  if (!collapsed || office) return null;
+  return (
+    <div className={styles.historyRow}>
+      <HistoryButtons />
+    </div>
   );
 }

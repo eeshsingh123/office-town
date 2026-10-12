@@ -254,6 +254,9 @@ export const api = {
     write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
   deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
   listLimits: (): Promise<AccountLimits[]> => read("/limits", listOf(accountLimitsSchema)),
+  // Asks each account's harness for its plan usage now; the latest come back.
+  refreshLimits: (): Promise<AccountLimits[]> =>
+    write("POST", "/limits/refresh", undefined, listOf(accountLimitsSchema)),
   listAccounts: (): Promise<Account[]> => read("/accounts", listOf(accountSchema)),
   createAccount: (account: NewAccountRequest): Promise<Account> =>
     write("POST", "/accounts", account, accountSchema),

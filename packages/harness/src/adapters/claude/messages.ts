@@ -145,6 +145,24 @@ export const resultSchema = z.looseObject({
 });
 
 // `claude auth status --json`; the rest of its fields are not needed.
+// The sign-in file the CLI keeps in its config folder; only what reading usage needs.
+export const credentialsSchema = z.looseObject({
+  claudeAiOauth: z
+    .looseObject({ accessToken: z.string().min(1), expiresAt: z.number().optional() })
+    .optional(),
+});
+
+// The plan usage the CLI's own /usage shows; `utilization` is a percentage.
+export const planUsageSchema = z.record(
+  z.string(),
+  z.unknown().transform((value) => {
+    const window = z
+      .looseObject({ utilization: z.number(), resets_at: z.string().nullish() })
+      .safeParse(value);
+    return window.success ? window.data : undefined;
+  }),
+);
+
 export const authStatusSchema = z.looseObject({
   loggedIn: z.boolean(),
   email: z.string().optional(),

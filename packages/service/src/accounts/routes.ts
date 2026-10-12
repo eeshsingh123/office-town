@@ -14,6 +14,7 @@ import {
 import {
   type AccountSignIn,
   listHarnesses,
+  readAccountLimits,
   readAccountStatus,
   saveAccountKey,
   startAccountSignIn,
@@ -29,6 +30,8 @@ import { allAccounts, hasSignIn } from "./accounts.ts";
 const NO_CONTENT = { status: 204 } as const;
 // A sign-in left open in a closed browser tab ends on its own.
 const SIGN_IN_TIMEOUT_MS = 10 * 60_000;
+// Reads closer together than this reuse the last one, so opening pages cannot flood the vendor.
+const LIMITS_FLOOR_MS = 15_000;
 // Longer than a plan's weekly reset, so a typo cannot park an agent for good.
 const LONGEST_WAIT_MS = 8 * 24 * 3600_000;
 
@@ -43,6 +46,27 @@ export function accountRoutes(team: TeamContext): Route[] {
   const accountsFolder = join(dataFolder, "accounts");
   const signIns = new Map<string, SignIn>();
   const waits = new Map<string, NodeJS.Timeout>();
+  let refreshing: Promise<void> | undefined;
+  let refreshedAt = 0;
+
+  // Asks each signed-in account's harness for its plan usage now; one that cannot keeps its last.
+  const refreshLimits = async () => {
+    const accounts = allAccounts(store, listHarnesses()).filter(
+      (account) => account.signedIn !== false,
+    );
+    await Promise.all(
+      accounts.map(async (account) => {
+        const limits = await readAccountLimits(
+          account.harness,
+          account.environment,
+          account.folder,
+        ).catch(() => undefined);
+        if (limits === undefined || limits.length === 0) return;
+        const { id: accountId, harness } = account;
+        store.saveLimits({ accountId, harness, limits, reportedAt: new Date().toISOString() });
+      }),
+    );
+  };
 
   const added = (id: string): Account => {
     const account = store.getAccount(id);
@@ -228,6 +252,20 @@ export function accountRoutes(team: TeamContext): Route[] {
         await signIns.get(param("id"))?.process?.stop();
         signIns.delete(param("id"));
         return NO_CONTENT;
+      },
+    },
+    {
+      method: "POST",
+      path: "/limits/refresh",
+      reply: async () => {
+        if (refreshing === undefined && Date.now() - refreshedAt >= LIMITS_FLOOR_MS) {
+          refreshing = refreshLimits().finally(() => {
+            refreshing = undefined;
+            refreshedAt = Date.now();
+          });
+        }
+        await refreshing;
+        return { status: 200, json: store.listLimits() };
       },
     },
     {

@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   type AccountStatus,
   type EnvironmentSpec,
@@ -6,6 +9,7 @@ import {
   type HarnessDescription,
   type SessionOptions,
   sessionOptionsSchema,
+  type UsageLimit,
 } from "@office-town/contract";
 import type { LaunchExtras } from "./adapter.ts";
 import { adapters, findAdapter } from "./adapters/registry.ts";
@@ -165,4 +169,33 @@ export async function readAccountStatus(
   };
   const result = await runIn(environment, { ...command, env });
   return parse(result.stdout);
+}
+
+// The plan usage as the vendor has it now, for a harness that can say; undefined otherwise.
+export async function readAccountLimits(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string | undefined,
+): Promise<UsageLimit[] | undefined> {
+  const { accounts } = findAdapter(harness);
+  if (accounts?.readLimits === undefined) return undefined;
+  const { credentials, home } = accounts;
+  const environment = environmentSpecSchema.parse(spec);
+  let text: string | undefined;
+  if (folder !== undefined) {
+    // An added account's folder is in the data folder, on this machine.
+    text = await readFile(join(folder, credentials), "utf8").catch(() => undefined);
+  } else if (home === undefined) {
+    return undefined;
+  } else if (environment.kind === "native") {
+    text = await readFile(join(homedir(), home, credentials), "utf8").catch(() => undefined);
+  } else {
+    const path = `"$HOME"/${home}/${credentials}`;
+    const result = await runIn(environmentFor(environment), {
+      binary: "sh",
+      args: ["-c", `cat ${path}`],
+    }).catch(() => undefined);
+    text = result?.code === 0 ? result.stdout : undefined;
+  }
+  return text === undefined ? undefined : accounts.readLimits(text).catch(() => undefined);
 }

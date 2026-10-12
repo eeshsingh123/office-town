@@ -852,6 +852,17 @@ class SqliteStore implements Store {
     }));
   }
 
+  saveLimits(entry: AccountLimits): void {
+    const { accountId, harness, limits, reportedAt } = entry;
+    this.#statements.saveLimits.run(
+      accountId,
+      harness,
+      JSON.stringify(limits),
+      Date.parse(reportedAt),
+    );
+    this.#publish({ type: "limits", limits: entry });
+  }
+
   readOverflow(sessionId: string, sequence: number): string {
     // An unknown session is reported as such, not as a missing file.
     this.#sessionRef(sessionId);
