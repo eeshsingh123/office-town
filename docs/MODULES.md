@@ -81,6 +81,14 @@ Out of scope: indexing and search over file contents (later, on top of this), re
 
 ---
 
+### M6.5 Onboarding and help (D-66; built)
+
+A new user is set up and doing real work in minutes, and can find any feature again. First-run setup (AI app, where work goes, about you), tutorials that run real tasks on a free or cheap model, a self-ticking Getting started list on Home, a Help page (tutorials, Display settings for text size, contrast, motion and read-out, What's new), and tutorials in Ctrl+K. Code: `features/onboarding`, `features/help`.
+
+Out of scope: running vendor installers from the app (setup shows the official command), an in-app terminal, how-it-works bands on further pages.
+
+---
+
 ## Later modules (outline only)
 
 - **M7 Connectors.** MCP-based plugins injected per session through the tool server seam (D-43); an agent can request a connector it lacks. Needs the connector deep dive first (D-11).
