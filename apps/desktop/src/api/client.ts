@@ -22,10 +22,16 @@ import {
   answerPermissionsResultSchema,
   apiErrorSchema,
   attachmentSchema,
+  type ChiefDraftReply,
+  type ChiefDraftRequest,
+  chiefDraftReplySchema,
   type DelegationRecord,
+  type DepartmentDraftReply,
+  type DepartmentDraftRequest,
   type DepartmentRecord,
   type DepartmentSettings,
   delegationRecordSchema,
+  departmentDraftReplySchema,
   departmentRecordSchema,
   type EnvironmentList,
   type EnvironmentSpec,
@@ -193,6 +199,10 @@ export const api = {
   saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
     write("PUT", "/chief", { settings }, agentRecordSchema),
   removeChief: (): Promise<void> => send("DELETE", "/chief"),
+  draftChief: (request: ChiefDraftRequest): Promise<ChiefDraftReply> =>
+    write("POST", "/drafts/chief", request, chiefDraftReplySchema),
+  draftDepartments: (request: DepartmentDraftRequest): Promise<DepartmentDraftReply> =>
+    write("POST", "/drafts/departments", request, departmentDraftReplySchema),
   messageAgent: (
     agentId: string,
     text: string,

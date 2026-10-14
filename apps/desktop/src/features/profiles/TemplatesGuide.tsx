@@ -1,12 +1,13 @@
 import { ArrowRight, Copy, Plus } from "lucide-react";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Guide, type GuideStep } from "../../ui/Guide.tsx";
 import styles from "./TemplatesGuide.module.css";
 
 const BLUE = "#3A6EA5";
 
 // The three steps of a template, each with a small picture of the screen it happens on.
-const STEPS = [
+const STEPS: GuideStep[] = [
   {
     title: "Set it up once",
     text: "Press New template, or open any agent's profile and choose Save as template.",
@@ -66,33 +67,13 @@ const STEPS = [
 // onNew is passed only while there are no templates yet.
 export function TemplatesGuide({ onHide, onNew }: { onHide: () => void; onNew?: () => void }) {
   return (
-    <section className={styles.guide} aria-labelledby="templates-guide">
-      <div className={styles.head}>
-        <div className={styles.headText}>
-          <h2 id="templates-guide" className={styles.title}>
-            How templates work
-          </h2>
-          <p className={styles.intro}>
-            A template is an agent you set up once: its job, model and notes. Start new agents from
-            it whenever you need one.
-          </p>
-        </div>
-        <Button variant="ghost" onClick={onHide}>
-          Hide
-        </Button>
-      </div>
-      <ol className={styles.steps}>
-        {STEPS.map((step, index) => (
-          <li key={step.title} className={styles.step}>
-            <span className={styles.picture} aria-hidden>
-              {step.picture}
-            </span>
-            <span className={styles.number}>Step {index + 1}</span>
-            <strong className={styles.stepTitle}>{step.title}</strong>
-            <span className={styles.stepText}>{step.text}</span>
-          </li>
-        ))}
-      </ol>
+    <Guide
+      id="templates-guide"
+      title="How templates work"
+      intro="A template is an agent you set up once: its job, model and notes. Start new agents from it whenever you need one."
+      steps={STEPS}
+      onHide={onHide}
+    >
       {onNew === undefined ? null : (
         <div>
           <Button variant="primary" onClick={onNew}>
@@ -101,6 +82,6 @@ export function TemplatesGuide({ onHide, onNew }: { onHide: () => void; onNew?: 
           </Button>
         </div>
       )}
-    </section>
+    </Guide>
   );
 }

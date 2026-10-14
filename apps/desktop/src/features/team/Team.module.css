@@ -1,0 +1,268 @@
+/* The org chart: you, the chief, then the departments in rows of three, joined by lines. */
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text-3);
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.trunk {
+  width: 2px;
+  height: 28px;
+  background: var(--border-strong);
+}
+
+.node,
+.addNode {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  text-align: left;
+}
+
+button.node {
+  cursor: pointer;
+}
+
+button.node:hover {
+  border-color: var(--border-strong);
+}
+
+.chief {
+  border-color: var(--accent);
+}
+
+.nodeText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nodeText span,
+.addNode span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.addNode {
+  flex-direction: column;
+  gap: 4px;
+  border: 2px dashed var(--border-strong);
+  background: transparent;
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addNode:hover,
+.addDepartment:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* A rail from the first card's middle to the last one's, with a short drop to each card. */
+.branches {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+  padding-top: 24px;
+}
+
+.branches::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: calc((100% - 48px) / 6);
+  width: calc((var(--count) - 1) * ((100% - 48px) / 3 + 24px));
+  height: 2px;
+  background: var(--border-strong);
+}
+
+.branch {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.branch::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  width: 2px;
+  height: 24px;
+  background: var(--border-strong);
+}
+
+.department,
+.addDepartment {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.addDepartment {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 180px;
+  border: 2px dashed var(--border-strong);
+  background: transparent;
+  color: var(--accent-text);
+  text-align: center;
+  cursor: pointer;
+}
+
+.addDepartment span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.departmentHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.departmentText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.departmentText strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.departmentText span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.members {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: var(--size-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.member:hover {
+  background: var(--hover);
+}
+
+.memberText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memberModel {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.departmentFoot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 860px) {
+  .branches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .branches::before,
+  .branch::before {
+    display: none;
+  }
+}

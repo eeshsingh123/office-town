@@ -117,7 +117,7 @@ export function CommandMenu() {
                 />
                 <Row
                   icon={Users}
-                  label="Build a department"
+                  label="New department"
                   onSelect={() => go({ name: "new-department" })}
                 />
               </Command.Group>
@@ -128,6 +128,7 @@ export function CommandMenu() {
                   label="Office"
                   onSelect={() => go({ name: "office" })}
                 />
+                <Row icon={Users} label="Team" onSelect={() => go({ name: "team" })} />
                 <Row icon={Inbox} label="Needs you" onSelect={() => go({ name: "needs-you" })} />
                 <Row icon={List} label="Tasks" onSelect={() => go({ name: "tasks" })} />
                 <Row

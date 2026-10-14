@@ -1,15 +1,18 @@
 import type { TaskState } from "@office-town/contract";
-import { Settings } from "lucide-react";
+import { CircleHelp, Settings } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { taskTitle } from "../../ui/format.ts";
+import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
+import { CHIEF_STEPS } from "../team/guides.tsx";
 import styles from "./Chief.module.css";
 import { ChiefSetup } from "./ChiefSetup.tsx";
 import { DepartmentList } from "./DepartmentList.tsx";
@@ -66,8 +69,40 @@ function GoalBox({ name }: { name: string }) {
   );
 }
 
+function RemoveChief({ name, busy }: { name: string; busy: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className={styles.danger} aria-labelledby="remove-chief-title">
+      <div className={styles.dangerText}>
+        <strong id="remove-chief-title">Remove chief</strong>
+        <span className={page.hint}>
+          {busy
+            ? "Stop its goal first."
+            : "Departments, their agents and past goals stay. You can set up a new chief later."}
+        </span>
+      </div>
+      <Button onClick={() => setOpen(true)} disabled={busy}>
+        Remove chief…
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Remove ${name}?`}
+        description="Its past goals stay in Tasks and departments keep working. This cannot be undone."
+        confirmLabel="Remove"
+        onConfirm={async () => {
+          await api.removeChief();
+          useApp.setState({ chiefId: undefined });
+          navigate({ name: "team" });
+        }}
+      />
+    </section>
+  );
+}
+
 function ChiefHome() {
   const chief = useChief();
+  const [guideHidden, setGuideHidden] = useGuideHidden("chief");
   const summary = useModelLine(chief?.record.settings);
   const waiting = useApp((state) =>
     Object.values(state.waiting).find(
@@ -99,11 +134,27 @@ function ChiefHome() {
             </div>
             <span className={page.hint}>Chief</span>
           </div>
+          {guideHidden ? (
+            <Button variant="ghost" onClick={() => setGuideHidden(false)}>
+              <CircleHelp size={14} aria-hidden />
+              How your chief works
+            </Button>
+          ) : null}
           <Button onClick={() => navigate({ name: "chief", edit: true })}>
             <Settings size={14} aria-hidden />
             Settings
           </Button>
         </header>
+
+        {guideHidden ? null : (
+          <Guide
+            id="chief-guide"
+            title="How your chief works"
+            intro="Use the chief when a goal needs more than one department. For one department's work, give the task to that department."
+            steps={CHIEF_STEPS}
+            onHide={() => setGuideHidden(true)}
+          />
+        )}
 
         <GoalBox name={record.name} />
 
@@ -185,6 +236,7 @@ function ChiefHome() {
             </section>
           </aside>
         </div>
+        <RemoveChief name={record.name} busy={busy || queue.length > 0} />
       </div>
     </section>
   );

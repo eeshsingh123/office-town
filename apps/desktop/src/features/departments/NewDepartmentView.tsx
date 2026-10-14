@@ -1,251 +1,332 @@
-import { type Autonomy, agentColours, type NewAgent } from "@office-town/contract";
-import { Plus } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import type { Autonomy, RoleSettings } from "@office-town/contract";
+import { ArrowRight } from "lucide-react";
+import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { useTemplates } from "../../store/templates.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
-import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
-import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { StepRail } from "../../ui/StepRail.tsx";
+import steps from "../../ui/Steps.module.css";
+import { DraftBox } from "../drafts/DraftBox.tsx";
 import { selectRoom } from "../office/office-state.ts";
-import { AiLine } from "../profiles/AiLine.tsx";
-import { useModelLine } from "../profiles/model-line.ts";
-import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
 import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
+import { MemberEditor } from "./MemberEditor.tsx";
 import styles from "./NewDepartment.module.css";
-import { type TeamRow, TeamRows, toRoles } from "./TeamRows.tsx";
-import { teamLine } from "./team-line.ts";
+import { TeamCard } from "./TeamCard.tsx";
+import {
+  blankDepartment,
+  type DepartmentForm,
+  draftOfForm,
+  formOfDraft,
+  missingIn,
+  teamOf,
+} from "./team-form.ts";
 
-// No template id can take this, since an id starts with a letter or digit.
-const BLANK = "~blank";
+const STEPS = ["Describe", "Team", "Rules and permissions", "Review"] as const;
 
-// Starting points; each stays editable once added.
-const ROLE_TEMPLATES = [
-  { role: "Researcher", purpose: "Finds and reads sources, then sums up what matters" },
-  { role: "Writer", purpose: "Drafts and edits text" },
-  { role: "Developer", purpose: "Writes and fixes code" },
-  { role: "Reviewer", purpose: "Checks the work and points out problems" },
-  { role: "Tester", purpose: "Tries the result and reports what breaks" },
-];
-
-const LEAD_COLOUR = agentColours[3].value;
-const memberColour = (index: number) =>
-  agentColours[(index + 4) % agentColours.length]?.value ?? LEAD_COLOUR;
-
-// A department built by hand, the same record a lead's approved proposal makes.
-export function NewDepartmentView() {
+// Departments from the user's words or built by hand; nothing is saved until Create.
+export function NewDepartmentView({ describe }: { describe?: string }) {
   const harnesses = useApp((state) => state.harnesses);
   const workspaces = useWorkspaces() ?? [];
-  const templates = useTemplates() ?? [];
-  const [name, setName] = useState("");
-  const [workspaceId, setWorkspaceId] = useState<string>();
-  const [autonomy, setAutonomy] = useState<Autonomy>("full");
-  const [leadTemplate, setLeadTemplate] = useState(BLANK);
-  const defaults: ChipSettings = {
+  const defaults: RoleSettings = {
     harness: harnesses[0]?.harness ?? "claude",
     environment: { kind: "native" },
   };
-  const [leadSettings, setLeadSettings] = useState<ChipSettings>();
-  const [rows, setRows] = useState<TeamRow[]>([]);
+  const [forms, setForms] = useState<DepartmentForm[]>(() => [blankDepartment(defaults)]);
+  const [at, setAt] = useState(0);
+  const [selected, setSelected] = useState<Record<number, number>>({});
+  const [step, setStep] = useState(0);
+  const [reached, setReached] = useState(0);
+  const [drafted, setDrafted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const gate = useBypassGate(autonomy, setAutonomy, name.trim() || "the department");
 
-  const workspace = workspaces.find((known) => known.id === (workspaceId ?? workspaces[0]?.id));
-  const template = templates.find((known) => known.id === leadTemplate);
-  const leadSummary = useModelLine(leadSettings ?? defaults);
-  const title = name.trim() || "Your new department";
+  const current = forms[at] ?? forms[0];
+  const workspaceOf = (one: DepartmentForm) =>
+    workspaces.find((known) => known.id === (one.workspaceId ?? workspaces[0]?.id));
+  const change = (next: Partial<DepartmentForm>) =>
+    setForms(forms.map((one, index) => (index === at ? { ...one, ...next } : one)));
+  const setAutonomy = (autonomy: Autonomy) => change({ autonomy });
+  const gate = useBypassGate(
+    current?.autonomy ?? "full",
+    setAutonomy,
+    current?.name.trim() || "the department",
+  );
   const missing =
-    name.trim() === ""
-      ? "Give the department a name."
-      : workspace === undefined
-        ? "Choose the workspace it works in."
-        : rows.some((row) => row.role.trim() === "")
-          ? "Give every team member a role."
-          : undefined;
+    forms.map(missingIn).find((reason) => reason !== undefined) ??
+    (forms.some((one) => workspaceOf(one) === undefined)
+      ? "Choose the workspace each department works in."
+      : undefined);
 
-  const addTemplate = (template: (typeof ROLE_TEMPLATES)[number]) =>
-    setRows([
-      ...rows,
-      {
-        key: Math.max(-1, ...rows.map((row) => row.key)) + 1,
-        ...template,
-        settings: leadSettings ?? defaults,
-      },
-    ]);
+  const go = (next: number) => {
+    setStep(next);
+    setReached(Math.max(reached, next));
+  };
 
-  const create = async (event: FormEvent) => {
-    event.preventDefault();
-    if (missing !== undefined || workspace === undefined || saving) return;
+  const draft = async (notes: string[], drafter: RoleSettings) => {
+    const reply = await api.draftDepartments({
+      notes,
+      drafter,
+      ...(drafted ? { current: forms.map(draftOfForm) } : {}),
+    });
+    if (reply.departments.length > 0) {
+      setForms(reply.departments.map((one, index) => formOfDraft(one, forms[index])));
+      setAt(0);
+      setSelected({});
+      setDrafted(true);
+      setReached(Math.max(reached, STEPS.length - 1));
+    }
+    return reply;
+  };
+
+  const create = async () => {
+    if (missing !== undefined || saving) return;
     setSaving(true);
     setError(undefined);
-    // A template fills in the lead's choices; its notes come with it through its id.
-    const lead: NewAgent = {
-      settings: leadSettings ?? defaults,
-      ...(template === undefined ? {} : { profileId: template.id }),
-    };
+    const left = [...forms];
+    let first: string | undefined;
     try {
-      const department = await api.createDepartment({
-        team: { name: name.trim(), roles: toRoles(rows) },
-        workspaceId: workspace.id,
-        autonomy,
-        lead,
-      });
-      selectRoom(department.id);
+      while (left.length > 0) {
+        const one = left[0];
+        const workspace = one === undefined ? undefined : workspaceOf(one);
+        if (one === undefined || workspace === undefined) break;
+        const department = await api.createDepartment({
+          team: teamOf(one),
+          workspaceId: workspace.id,
+          autonomy: one.autonomy,
+          lead: {
+            settings: one.lead.settings,
+            ...(one.lead.profileId === undefined ? {} : { profileId: one.lead.profileId }),
+          },
+          purpose: one.purpose.trim(),
+          rules: one.rules,
+        });
+        first ??= department.id;
+        left.shift();
+      }
+      if (first !== undefined) selectRoom(first);
     } catch (failure) {
+      // What was created stays created; only the rest is left to try again.
+      setForms(left);
+      setAt(0);
       setError(failure instanceof Error ? failure.message : String(failure));
       setSaving(false);
     }
   };
 
+  if (current === undefined) return null;
+  const switcher =
+    forms.length < 2 ? null : (
+      <div className={styles.switcher}>
+        {forms.map((one, index) => (
+          <button
+            key={one.key}
+            type="button"
+            className={form.chip}
+            aria-pressed={index === at}
+            onClick={() => setAt(index)}
+          >
+            {one.name.trim() || `Department ${index + 1}`}
+          </button>
+        ))}
+      </div>
+    );
+
   return (
-    <section className={page.page} aria-labelledby="new-department-title">
-      <form className={page.layout} onSubmit={create}>
+    <section className={steps.setup} aria-label="New department">
+      <StepRail
+        back={{ label: "Back to Team", onClick: () => navigate({ name: "team" }) }}
+        title="New department"
+        steps={STEPS}
+        step={step}
+        reached={reached}
+        onGo={go}
+      />
+      <div className={steps.setupBody}>
         <div className={page.main}>
           <header className={page.header}>
-            <button type="button" className={page.back} onClick={() => navigate({ name: "home" })}>
-              ← Home
-            </button>
-            <h1 id="new-department-title" className={page.title}>
-              Build a department
-            </h1>
+            <span className={steps.stepCount}>
+              Step {step + 1} of {STEPS.length}
+            </span>
+            <h2 className={page.title}>
+              {step === 0
+                ? "Describe the team you need"
+                : step === 1
+                  ? "Who is on the team"
+                  : step === 2
+                    ? "Rules and permissions"
+                    : forms.length > 1
+                      ? `Review ${forms.length} departments`
+                      : "Review and create"}
+            </h2>
+            <p className={page.lead}>
+              {step === 0
+                ? "Say who leads, who else is on the team and what each person does. You review everything before it's created."
+                : step === 1
+                  ? "The lead splits each task among the members. Pick a person to set their role, instructions and model."
+                  : step === 2
+                    ? "Where the team works, the rules every member follows, and what it may do without asking you."
+                    : "Nothing is created until you press Create."}
+            </p>
           </header>
 
-          <div className={styles.pair}>
-            <section className={page.section}>
-              <label htmlFor="department-name" className={page.sectionTitle}>
-                Name
-              </label>
-              <input
-                id="department-name"
-                className={page.input}
-                value={name}
-                onChange={(change) => setName(change.target.value)}
-                placeholder="For example: Website"
-                // biome-ignore lint/a11y/noAutofocus: the view exists to take this text
-                autoFocus
+          {step === 0 ? (
+            <>
+              <DraftBox
+                label="Describe the team"
+                placeholder="For example: I need a team of 3 to build landing pages. A lead on Opus plans the work, a developer on a free model writes the code, and a reviewer checks it."
+                action="Draft team"
+                drafted={drafted}
+                {...(describe === undefined ? {} : { initial: describe })}
+                run={draft}
               />
-            </section>
-            <section className={page.section}>
-              <WorkspacePicker value={workspace?.id} onChange={setWorkspaceId} warnShared />
-            </section>
-          </div>
-
-          <section className={page.section}>
-            <div className={page.sectionHead}>
-              <h2 className={page.sectionTitle}>Team</h2>
-              <span className={page.hint}>Members are optional</span>
-            </div>
-            <div className={styles.lead}>
-              <Avatar name="Lead" colour={LEAD_COLOUR} size={36} />
-              <div className={styles.leadText}>
-                <strong>Lead</strong>
-                <span className={page.hint}>Splits each task among the team</span>
-                <AiLine
-                  summary={
-                    template === undefined ? leadSummary : `${template.name} · ${leadSummary}`
-                  }
-                >
-                  {templates.length === 0 ? null : (
-                    <ChoiceMenu
-                      label="Template"
-                      value={leadTemplate}
-                      choices={[
-                        { value: BLANK, label: "None, choose below" },
-                        ...templates.map((known) => ({
-                          value: known.id,
-                          label: known.name,
-                          description: known.role,
-                        })),
-                      ]}
-                      onChange={(next) => {
-                        setLeadTemplate(next);
-                        const picked = templates.find((known) => known.id === next);
-                        if (picked === undefined) return;
-                        const { instructions: _, autonomy: __, ...settings } = picked.settings;
-                        setLeadSettings(settings);
-                      }}
-                    />
-                  )}
-                  <SettingsChips value={leadSettings ?? defaults} onChange={setLeadSettings} />
-                </AiLine>
+              {drafted ? (
+                <div className={styles.drafts}>
+                  {forms.map((one) => (
+                    <TeamCard key={one.key} form={one} />
+                  ))}
+                </div>
+              ) : null}
+              <div className={page.row}>
+                {drafted ? (
+                  <Button variant="primary" onClick={() => go(1)}>
+                    Review and edit
+                    <ArrowRight size={15} aria-hidden />
+                  </Button>
+                ) : (
+                  <Button variant="ghost" onClick={() => go(1)}>
+                    Build it by hand instead
+                  </Button>
+                )}
               </div>
-            </div>
-            <TeamRows
-              rows={rows}
-              onChange={setRows}
-              lead={undefined}
-              departmentId={undefined}
-              defaults={leadSettings ?? defaults}
-            />
-            <div className={styles.templates}>
-              <span className={page.hint}>Add a role:</span>
-              {ROLE_TEMPLATES.map((template) => (
-                <button
-                  key={template.role}
-                  type="button"
-                  className={styles.template}
-                  onClick={() => addTemplate(template)}
-                >
-                  <Plus size={13} aria-hidden />
-                  {template.role}
-                </button>
+            </>
+          ) : null}
+
+          {step === 1 ? (
+            <>
+              {switcher}
+              <div className={styles.pair}>
+                <label className={form.field}>
+                  <span className={form.label}>Name</span>
+                  <input
+                    className={form.input}
+                    value={current.name}
+                    placeholder="For example: Website"
+                    onChange={(event) => change({ name: event.target.value })}
+                  />
+                </label>
+                <label className={form.field}>
+                  <span className={form.label}>What it's for</span>
+                  <input
+                    className={form.input}
+                    value={current.purpose}
+                    placeholder="One line; the chief reads it when it plans"
+                    onChange={(event) => change({ purpose: event.target.value })}
+                  />
+                </label>
+              </div>
+              <MemberEditor
+                team={current}
+                onChange={(team) => change(team)}
+                selected={selected[current.key] ?? current.lead.key}
+                onSelect={(key) => setSelected({ ...selected, [current.key]: key })}
+                defaults={current.lead.settings}
+              />
+            </>
+          ) : null}
+
+          {step === 2 ? (
+            <>
+              {switcher}
+              <section className={page.section}>
+                <WorkspacePicker
+                  value={workspaceOf(current)?.id}
+                  onChange={(workspaceId) => change({ workspaceId })}
+                  warnShared
+                />
+              </section>
+              <label className={form.field}>
+                <span className={form.label}>Team rules</span>
+                <span className={form.hint}>Every member follows these, on every task.</span>
+                <textarea
+                  className={form.input}
+                  value={current.rules}
+                  placeholder="For example: Use TypeScript. Write a test for each new page."
+                  onChange={(event) => change({ rules: event.target.value })}
+                />
+              </label>
+              <section className={page.section}>
+                <h3 className={page.sectionTitle}>Permissions</h3>
+                <AutonomyChoice
+                  name="department-level"
+                  value={current.autonomy}
+                  onChoose={gate.choose}
+                />
+              </section>
+            </>
+          ) : null}
+
+          {step === 3 ? (
+            <div className={styles.drafts}>
+              {forms.map((one) => (
+                <TeamCard
+                  key={one.key}
+                  form={one}
+                  footer={
+                    <p className={styles.facts}>
+                      {workspaceOf(one)?.name ?? "No workspace"} · {AUTONOMY[one.autonomy].label}
+                      {one.rules.trim() === "" ? "" : " · Team rules set"}
+                    </p>
+                  }
+                />
               ))}
             </div>
-          </section>
+          ) : null}
 
-          <section className={page.section}>
-            <h2 className={page.sectionTitle}>Permissions</h2>
-            <AutonomyChoice name="department-level" value={autonomy} onChoose={gate.choose} />
-          </section>
-        </div>
-
-        <aside className={page.aside}>
-          <section className={`${page.panel} ${styles.card}`} aria-label="Your new team">
-            <span className={page.eyebrow}>Your new team</span>
-            <div className={styles.cardLead}>
-              <Avatar name={title} colour={LEAD_COLOUR} size={56} />
-              <strong className={styles.cardName}>{title}</strong>
-              <span className={page.hint}>
-                {teamLine(rows.length)}
-                {workspace === undefined ? "" : ` · ${workspace.name}`}
-              </span>
-            </div>
-            {rows.length === 0 ? null : (
-              <ul className={styles.members}>
-                {rows.map((row, index) => (
-                  <li key={row.key}>
-                    <Avatar name={row.role || "?"} colour={memberColour(index)} size={36} />
-                    <span>{row.role || "New role"}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className={styles.cardNote}>{AUTONOMY[autonomy].label}</p>
-          </section>
-          <Button
-            type="submit"
-            variant="primary"
-            className={page.start}
-            disabled={missing !== undefined || saving}
-          >
-            {saving ? "Creating…" : `Create ${name.trim() || "department"}`}
-          </Button>
-          {missing === undefined ? null : (
-            <span className={`${page.hint} ${page.center}`}>{missing}</span>
-          )}
           {error === undefined ? null : (
             <p className={page.error} role="alert">
               {error}
             </p>
           )}
+          {step === 0 ? null : (
+            <div className={page.row}>
+              <Button variant="ghost" onClick={() => go(step - 1)}>
+                Back
+              </Button>
+              {step < STEPS.length - 1 ? (
+                <Button variant="primary" onClick={() => go(step + 1)}>
+                  Continue
+                  <ArrowRight size={15} aria-hidden />
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={create}
+                  disabled={missing !== undefined || saving}
+                >
+                  {saving
+                    ? "Creating…"
+                    : forms.length > 1
+                      ? `Create ${forms.length} departments`
+                      : `Create ${current.name.trim() || "department"}`}
+                </Button>
+              )}
+              {step === STEPS.length - 1 && missing !== undefined ? (
+                <span className={page.hint}>{missing}</span>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        <aside className={page.aside}>
+          {step === 0 || step === 3 ? null : <TeamCard form={current} />}
         </aside>
-      </form>
+      </div>
       {gate.confirm}
     </section>
   );

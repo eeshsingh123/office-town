@@ -34,7 +34,7 @@ export function DepartmentList() {
       })}
       <Button onClick={() => navigate({ name: "new-department" })}>
         <Plus size={14} aria-hidden />
-        Build a department
+        New department
       </Button>
     </div>
   );

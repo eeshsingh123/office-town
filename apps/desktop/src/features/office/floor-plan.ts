@@ -17,7 +17,11 @@ export interface Seat {
   agent: Point;
 }
 
-export type RoomKind = "department" | "chief" | "open" | "guest";
+// "add" is a dashed room that starts setting up the chief or a new department.
+export type RoomKind = "department" | "chief" | "open" | "guest" | "add";
+
+export const ADD_CHIEF = "~add-chief";
+export const ADD_DEPARTMENT = "~add-department";
 
 export interface RoomSpec {
   // A department's id, or the kind for the other rooms.

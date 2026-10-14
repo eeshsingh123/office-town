@@ -11,7 +11,14 @@ import { BoardView } from "../board/BoardView.tsx";
 import { usageByHarness, usageSummary } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
-import { floorPlan, onTheFloor, type Point, type RoomSpec } from "./floor-plan.ts";
+import {
+  ADD_CHIEF,
+  ADD_DEPARTMENT,
+  floorPlan,
+  onTheFloor,
+  type Point,
+  type RoomSpec,
+} from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
 import { openChat, type PanelKind, setPanelOpen, useOffice } from "./office-state.ts";
@@ -104,6 +111,8 @@ function layOut(layout: Layout) {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
       return { id: one.id, kind: "department", desks };
     }),
+    { id: ADD_DEPARTMENT, kind: "add", desks: 1 },
+    ...(chiefId === undefined ? [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const] : []),
     { id: OPEN, kind: "open", desks: Math.max(3, solo.length + 1) },
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];

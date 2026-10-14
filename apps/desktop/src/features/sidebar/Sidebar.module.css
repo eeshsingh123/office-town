@@ -157,27 +157,27 @@
   color: var(--text-3);
 }
 
-.labelRow {
+/* Starts setting something up; set apart from the rows that open what exists. */
+.addRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.add {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: 0;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--text-3);
+  color: var(--accent-text);
+  font-weight: 600;
+  text-align: left;
   cursor: pointer;
 }
 
-.add:hover {
-  background: var(--hover);
-  color: var(--text);
+.addRow:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .task {

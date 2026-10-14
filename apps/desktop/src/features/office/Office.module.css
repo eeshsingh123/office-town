@@ -37,6 +37,37 @@
   background: var(--floor);
 }
 
+/* Starts setting up the chief or a department; it holds no one. */
+.addRoom {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  border: 2px dashed var(--border-strong);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: 15px;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    background var(--motion);
+}
+
+.addRoom span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.addRoom:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .floor:focus-visible .room {
   border-color: var(--accent);
 }

@@ -1,4 +1,4 @@
-import { type AgentSettings, agentNameSchema } from "@office-town/contract";
+import { type AgentSettings, agentNameSchema, type RoleSettings } from "@office-town/contract";
 import { ArrowRight, Check } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -7,7 +7,11 @@ import { keepAgent } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
+import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { StepRail } from "../../ui/StepRail.tsx";
+import steps from "../../ui/Steps.module.css";
+import { DraftBox } from "../drafts/DraftBox.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import styles from "./Chief.module.css";
@@ -73,6 +77,24 @@ export function ChiefSetup() {
   const validName = agentNameSchema.safeParse(handle).success;
   const rules = draft.instructions ?? "";
   const last = step === STEPS.length - 1;
+  const [describing, setDescribing] = useState(!editing);
+  const [drafted, setDrafted] = useState(false);
+
+  const describe = async (notes: string[], drafter: RoleSettings) => {
+    const { instructions: _, autonomy: __, ...settings } = draft;
+    const reply = await api.draftChief({
+      notes,
+      drafter,
+      ...(drafted || editing ? { current: { name, rules, settings } } : {}),
+    });
+    if (reply.chief !== undefined) {
+      setName(reply.chief.name);
+      setDraft({ ...reply.chief.settings, instructions: reply.chief.rules });
+      setDrafted(true);
+      setReached(STEPS.length - 1);
+    }
+    return reply;
+  };
 
   const go = (next: number) => {
     setStep(next);
@@ -104,51 +126,27 @@ export function ChiefSetup() {
   };
 
   return (
-    <section className={styles.setup} aria-labelledby="chief-setup-title">
-      <nav className={styles.rail} aria-label="Setup steps">
-        <button
-          type="button"
-          className={page.back}
-          onClick={() => navigate(editing ? { name: "chief" } : { name: "home" })}
-        >
-          ← {editing ? "Back to your chief" : "Back to Home"}
-        </button>
-        <div className={styles.railHead}>
-          <h1 id="chief-setup-title" className={styles.railTitle}>
-            {editing ? "Chief settings" : "Set up your chief"}
-          </h1>
-          {editing ? <span className={page.hint}>Changes apply from its next goal.</span> : null}
-        </div>
-        <ol className={styles.stepList}>
-          {STEPS.map((item, index) => {
-            const done = index < step || (editing && index !== step);
-            return (
-              <li key={item}>
-                <button
-                  type="button"
-                  className={styles.stepItem}
-                  aria-current={index === step ? "step" : undefined}
-                  disabled={index > reached}
-                  onClick={() => go(index)}
-                >
-                  <span className={`${styles.stepDot} ${done ? styles.stepDone : ""}`}>
-                    {done ? <Check size={13} aria-label="Done" /> : index + 1}
-                  </span>
-                  <span className={styles.stepTitle}>{item}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-        <div className={styles.progress} aria-hidden>
-          <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
-        </div>
-      </nav>
+    <section className={steps.setup} aria-label={editing ? "Chief settings" : "Set up your chief"}>
+      <StepRail
+        back={{
+          label: editing ? "Back to your chief" : "Back to Home",
+          onClick: () => navigate(editing ? { name: "chief" } : { name: "home" }),
+        }}
+        title={editing ? "Chief settings" : "Set up your chief"}
+        note={
+          editing ? <span className={page.hint}>Changes apply from its next goal.</span> : undefined
+        }
+        steps={STEPS}
+        step={step}
+        reached={reached}
+        allDone={editing}
+        onGo={go}
+      />
 
-      <div className={styles.setupBody}>
+      <div className={steps.setupBody}>
         <div className={page.main}>
           <header className={page.header}>
-            <span className={styles.stepCount}>
+            <span className={steps.stepCount}>
               Step {step + 1} of {STEPS.length}
             </span>
             {step === 0 ? (
@@ -184,6 +182,44 @@ export function ChiefSetup() {
           </header>
 
           {step === 0 ? (
+            <div className={page.row}>
+              <button
+                type="button"
+                className={form.chip}
+                aria-pressed={describing}
+                onClick={() => setDescribing(true)}
+              >
+                Describe it
+              </button>
+              <button
+                type="button"
+                className={form.chip}
+                aria-pressed={!describing}
+                onClick={() => setDescribing(false)}
+              >
+                Answer step by step
+              </button>
+            </div>
+          ) : null}
+
+          {step === 0 && describing ? (
+            <>
+              <DraftBox
+                label="Describe your chief"
+                placeholder="For example: Call it Atlas. Use Opus 5.5. Keep plans short, prefer free models for routine work, and never create a new department without asking me."
+                action="Draft chief"
+                drafted={drafted}
+                run={describe}
+              />
+              {drafted ? (
+                <span className={page.hint}>
+                  Drafted as {handle}. Check each step, or finish setup from the last one.
+                </span>
+              ) : null}
+            </>
+          ) : null}
+
+          {step === 0 && !describing ? (
             <>
               <Diagram />
               <section className={page.section}>

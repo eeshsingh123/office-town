@@ -3,7 +3,7 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import styles from "./Sidebar.module.css";
 
-// It spins while one of its goals is at work.
+// It spins while one of its goals is at work; until it is set up, a row offers to do that.
 function ChiefEntry() {
   const chiefId = useApp((state) => state.chiefId);
   const current = useApp((state) => state.view.name === "chief");
@@ -13,6 +13,14 @@ function ChiefEntry() {
         chiefId !== undefined && task.leadAgentId === chiefId && task.state === "working",
     ),
   );
+  if (chiefId === undefined) {
+    return (
+      <button type="button" className={styles.addRow} onClick={() => navigate({ name: "chief" })}>
+        <Plus size={14} aria-hidden />
+        Set up a chief
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -26,7 +34,6 @@ function ChiefEntry() {
         <span className={styles.chiefMark} aria-hidden />
       )}
       Chief
-      {chiefId === undefined ? <span className={styles.members}>Set up</span> : null}
     </button>
   );
 }
@@ -49,18 +56,7 @@ export function Departments() {
   );
   return (
     <>
-      <div className={`${styles.label} ${styles.labelRow}`}>
-        Your team
-        <button
-          type="button"
-          className={styles.add}
-          onClick={() => navigate({ name: "new-department" })}
-          aria-label="Build a department"
-          title="Build a department"
-        >
-          <Plus size={13} aria-hidden />
-        </button>
-      </div>
+      <div className={styles.label}>Your team</div>
       <ChiefEntry />
       {list.map((department) => {
         const members = Object.values(agents).filter(
@@ -85,6 +81,14 @@ export function Departments() {
           </button>
         );
       })}
+      <button
+        type="button"
+        className={styles.addRow}
+        onClick={() => navigate({ name: "new-department" })}
+      >
+        <Plus size={14} aria-hidden />
+        New department
+      </button>
     </>
   );
 }

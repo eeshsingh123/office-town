@@ -1,6 +1,7 @@
-import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, SquareKanban } from "lucide-react";
+import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, Plus, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { Button } from "../../ui/Button.tsx";
 import { HistoryButtons } from "../sidebar/HistoryButtons.tsx";
 import { useSidebar } from "../sidebar/sidebar-state.ts";
 import { fullest } from "../usage/limits.ts";
@@ -88,6 +89,10 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
+        <Button variant="ghost" onClick={() => navigate({ name: "new-department" })}>
+          <Plus size={14} aria-hidden />
+          Department
+        </Button>
         {mode === "floor" ? (
           <button
             type="button"
