@@ -1,6 +1,12 @@
 import type { HarnessModel, PermissionMode } from "@office-town/contract";
 import { z } from "zod";
-import type { AccountSupport, CatalogQuery, HarnessCommand, LaunchOptions } from "../../adapter.ts";
+import type {
+  AccountSupport,
+  CatalogQuery,
+  HarnessCommand,
+  InstallSupport,
+  LaunchOptions,
+} from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
 
 const modelSchema = z.looseObject({
@@ -79,6 +85,14 @@ const accounts: AccountSupport = {
   keyLogin: (provider) => ({ binary: "opencode", args: ["auth", "login", "--provider", provider] }),
 };
 
+// Its free models run without a sign-in, so being installed is enough to start.
+const install: InstallSupport = {
+  version: { binary: "opencode", args: ["--version"] },
+  windows: "npm install -g opencode-ai",
+  unix: "curl -fsSL https://opencode.ai/install | bash",
+  page: "https://opencode.ai/download",
+};
+
 // Its global config and global instructions still load (D-41).
 const ISOLATED = {
   OPENCODE_PURE: "1",
@@ -139,5 +153,6 @@ export const opencodeAdapter = createAcpAdapter({
   isolationNote: "OpenCode's global settings and instructions still load.",
   catalog,
   accounts,
+  install,
   buildCommand,
 });

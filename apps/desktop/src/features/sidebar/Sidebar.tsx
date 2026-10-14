@@ -1,4 +1,5 @@
 import {
+  CircleHelp,
   FolderGit2,
   Gauge,
   House,
@@ -43,7 +44,16 @@ function useRailLabel(label: string) {
 }
 
 interface NavItemProps {
-  view: "home" | "office" | "team" | "needs-you" | "tasks" | "templates" | "workspaces" | "usage";
+  view:
+    | "home"
+    | "office"
+    | "team"
+    | "needs-you"
+    | "tasks"
+    | "templates"
+    | "workspaces"
+    | "usage"
+    | "help";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
@@ -195,6 +205,7 @@ export function Sidebar() {
           </>
         )}
         <div className={styles.footer}>
+          <NavItem view="help" icon={CircleHelp} label="Help" />
           <ThemeToggle />
           <ConnectionStatus />
           <YouItem />

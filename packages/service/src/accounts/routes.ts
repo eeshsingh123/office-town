@@ -191,7 +191,8 @@ export function accountRoutes(team: TeamContext): Route[] {
       method: "POST",
       path: "/accounts/:id/sign-in",
       reply: async ({ param }) => {
-        const account = added(param("id"));
+        // A default login signs in too, as setup does for a CLI that is not signed in yet.
+        const account = anyAccount(param("id"));
         const running = signIns.get(account.id);
         if (running?.login.state === "waiting") return { status: 200, json: running.login };
         const signIn: SignIn = { login: { state: "waiting" } };
@@ -199,7 +200,7 @@ export function accountRoutes(team: TeamContext): Route[] {
         const process = await startAccountSignIn(
           account.harness,
           account.environment,
-          account.folder as string,
+          account.folder,
           (line) => {
             const url = line.match(/https:\/\/\S+/)?.[0];
             if (url !== undefined && signIn.login.url === undefined) {

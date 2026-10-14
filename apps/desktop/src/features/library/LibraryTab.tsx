@@ -279,7 +279,7 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
             </button>
           ))}
         </fieldset>
-        <span className={styles.add}>
+        <span className={styles.add} data-tour="library-add">
           {shell === undefined ? null : (
             <Button onClick={() => void pickFolder()}>
               <FolderOpen size={14} aria-hidden />

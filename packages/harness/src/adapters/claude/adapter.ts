@@ -5,6 +5,7 @@ import type {
   AttachedToolServer,
   CatalogQuery,
   HarnessCommand,
+  InstallSupport,
   LaunchOptions,
 } from "../../adapter.ts";
 import {
@@ -166,6 +167,13 @@ const accounts: AccountSupport = {
   readLimits,
 };
 
+const install: InstallSupport = {
+  version: { binary: "claude", args: ["--version"] },
+  windows: "irm https://claude.ai/install.ps1 | iex",
+  unix: "curl -fsSL https://claude.ai/install.sh | bash",
+  page: "https://claude.com/claude-code",
+};
+
 export const claudeAdapter: Adapter = {
   harness: "claude",
   name: "Claude Code",
@@ -182,6 +190,7 @@ export const claudeAdapter: Adapter = {
   },
   catalog,
   accounts,
+  install,
   buildCommand,
   createTranslator: (options) => new ClaudeTranslator(options.toolServers),
 };

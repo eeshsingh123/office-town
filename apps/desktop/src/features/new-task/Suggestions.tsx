@@ -7,20 +7,36 @@ import { CHIEF, SOLO } from "./targets.ts";
 
 const SHOWN = 4;
 
-const EXAMPLES = [
-  {
-    title: "List the top problems in a file of support tickets",
-    text: "Go through tickets.csv and list the five problems customers mention most, with an example of each.",
-  },
-  {
-    title: "Fix the failing tests in a project",
-    text: "Find out why the tests fail in this project, fix them and tell me what was wrong.",
-  },
-  {
-    title: "Compare three tools and write a one-page summary",
-    text: "Compare three note-taking apps for a small team and write a one-page summary with a recommendation.",
-  },
-];
+const EXAMPLES = {
+  software: [
+    {
+      title: "Fix the failing tests in a project",
+      text: "Find out why the tests fail in this project, fix them and tell me what was wrong.",
+    },
+    {
+      title: "Write a README for a project",
+      text: "Read this project and write a README that says what it does, how to install it and how to run it.",
+    },
+    {
+      title: "List the top problems in a file of support tickets",
+      text: "Go through tickets.csv and list the five problems customers mention most, with an example of each.",
+    },
+  ],
+  business: [
+    {
+      title: "List the top problems in a file of support tickets",
+      text: "Go through tickets.csv and list the five problems customers mention most, with an example of each.",
+    },
+    {
+      title: "Compare three tools and write a one-page summary",
+      text: "Compare three note-taking apps for a small team and write a one-page summary with a recommendation.",
+    },
+    {
+      title: "Draft a project brief",
+      text: "Write a one-page brief for a new customer survey: goal, audience, questions to ask and a timeline.",
+    },
+  ],
+};
 
 interface SuggestionsProps {
   // Fills the box with the text and who it goes to.
@@ -30,6 +46,7 @@ interface SuggestionsProps {
 // Examples until the first task; then the latest tasks, to send again.
 export function Suggestions({ onUse }: SuggestionsProps) {
   const chiefId = useApp((state) => state.chiefId);
+  const purpose = useApp((state) => state.onboarding?.purpose);
   const departments = useApp((state) => state.departments);
   const traces = useApp((state) => state.traces);
   const waiting = useWaitingSessions();
@@ -49,7 +66,7 @@ export function Suggestions({ onUse }: SuggestionsProps) {
           </button>
         </div>
         <div className={styles.examples}>
-          {EXAMPLES.map((example) => (
+          {EXAMPLES[purpose === "software" ? "software" : "business"].map((example) => (
             <button
               key={example.title}
               type="button"

@@ -5,12 +5,18 @@ import { ChiefView } from "./features/chief/ChiefView.tsx";
 import { CommandMenu } from "./features/command/CommandMenu.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
+import { RequestAnnouncer, useDisplay } from "./features/help/display.tsx";
+import { HelpView } from "./features/help/HelpView.tsx";
+import { WhatsNewDialog } from "./features/help/WhatsNewDialog.tsx";
 import { HomeView } from "./features/home/HomeView.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
 import { OfficeView } from "./features/office/OfficeView.tsx";
 import { PinnedStrip } from "./features/office/PinnedStrip.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
+import { SetupView } from "./features/onboarding/SetupView.tsx";
+import { TutorialCard } from "./features/onboarding/TutorialCard.tsx";
+import { useTutorial } from "./features/onboarding/tutorial-state.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { HistoryRow, useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
@@ -65,6 +71,8 @@ function Main({ view }: { view: View }) {
       );
     case "you":
       return <YouView />;
+    case "help":
+      return <HelpView />;
     case "department":
       return (
         <DepartmentSettings
@@ -80,6 +88,13 @@ function Main({ view }: { view: View }) {
 
 export function App() {
   const view = useApp((state) => state.view);
+  const setupDone = useApp((state) => state.onboarding?.setupDone !== false);
+  // Nothing until the first read says whether to show setup; an unreachable core shows the app.
+  const loading = useApp(
+    (state) => state.onboarding === undefined && state.connection !== "offline",
+  );
+  const tutorial = useTutorial((state) => state.run !== undefined);
+  useDisplay();
   useWaitingKeys();
   useHistoryKeys();
   useEffect(() => {
@@ -92,10 +107,16 @@ export function App() {
         event.preventDefault();
         toggleSidebar();
       }
+      if (event.key === "F1") {
+        event.preventDefault();
+        navigate({ name: "help" });
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+  if (loading) return <div className={styles.app} aria-busy="true" />;
+  if (!setupDone) return <SetupView />;
   return (
     <Tooltip.Provider delayDuration={300}>
       <div className={styles.app}>
@@ -109,6 +130,9 @@ export function App() {
         </main>
         <Toaster />
         <CommandMenu />
+        <TutorialCard />
+        {tutorial ? null : <WhatsNewDialog />}
+        <RequestAnnouncer />
       </div>
     </Tooltip.Provider>
   );

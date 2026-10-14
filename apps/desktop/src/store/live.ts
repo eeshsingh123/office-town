@@ -6,6 +6,7 @@ import type {
   RoomPosition,
   TaskSummary,
 } from "@office-town/contract";
+import { readCatalog } from "../api/catalogs.ts";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
 import { applyEvents, emptyTrace } from "../trace/trace.ts";
@@ -105,6 +106,9 @@ async function readAll(
     chiefId: settings.chiefAgentId,
     roomPositions: settings.roomPositions ?? {},
     you: settings.you,
+    // Someone who used the app before setup existed has nothing to set up.
+    onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
+    display: settings.display ?? {},
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),
@@ -116,6 +120,13 @@ async function readAll(
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),
   }));
+  // Listing models runs each AI app's CLI, which takes seconds the first time; doing it now
+  // means no model picker or tutorial waits for it later.
+  if (first) {
+    for (const { harness } of harnesses) {
+      readCatalog(harness, { kind: "native" }).catch(() => {});
+    }
+  }
   for (const { event } of waiting.requests) {
     if (useApp.getState().sessions[event.sessionId] === undefined) discover(event.sessionId);
   }

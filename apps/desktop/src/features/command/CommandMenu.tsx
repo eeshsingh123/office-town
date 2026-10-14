@@ -1,8 +1,10 @@
 import { Command, defaultFilter } from "cmdk";
 import {
+  CircleHelp,
   CornerDownLeft,
   FolderGit2,
   Gauge,
+  GraduationCap,
   House,
   Inbox,
   LayoutPanelLeft,
@@ -24,6 +26,8 @@ import { taskTitle } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
 import picker from "../new-task/ModelPicker.module.css";
+import { startTutorial } from "../onboarding/tutorial-state.ts";
+import { TUTORIALS } from "../onboarding/tutorials.ts";
 import styles from "./CommandMenu.module.css";
 import { setCommandMenuOpen, useCommandMenu } from "./command-menu.ts";
 
@@ -148,6 +152,26 @@ export function CommandMenu() {
                   onSelect={() => go({ name: "chief" })}
                 />
                 <Row icon={UserRound} label="Your profile" onSelect={() => go({ name: "you" })} />
+              </Command.Group>
+              <Command.Group heading="Learn">
+                {TUTORIALS.map((tutorial) => (
+                  <Row
+                    key={tutorial.id}
+                    icon={GraduationCap}
+                    label={`Tutorial: ${tutorial.title}`}
+                    onSelect={() => {
+                      setCommandMenuOpen(false);
+                      setSearch("");
+                      void startTutorial(tutorial.id);
+                    }}
+                  />
+                ))}
+                <Row
+                  icon={CircleHelp}
+                  label="Help"
+                  shortcut="F1"
+                  onSelect={() => go({ name: "help" })}
+                />
               </Command.Group>
               {Object.keys(departments).length === 0 ? null : (
                 <Command.Group heading="Departments">

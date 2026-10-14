@@ -46,7 +46,7 @@ function GoalBox({ name }: { name: string }) {
     setSending(false);
   };
   return (
-    <form className={styles.goalBox} onSubmit={give}>
+    <form className={styles.goalBox} onSubmit={give} data-tour="chief-goal">
       <label htmlFor="chief-goal" className="visually-hidden">
         Give {name} a goal
       </label>

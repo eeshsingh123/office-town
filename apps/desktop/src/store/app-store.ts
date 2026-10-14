@@ -4,8 +4,10 @@ import type {
   AgentRecord,
   DelegationRecord,
   DepartmentRecord,
+  Display,
   HarnessDescription,
   LibraryItem,
+  Onboarding,
   PlanPiece,
   ProfileRecord,
   RoomPosition,
@@ -42,6 +44,7 @@ export type View =
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
+  | { name: "help" }
   // `member` opens that agent in the team editor, or "new" adds one.
   | { name: "department"; departmentId: string; member?: string }
   | { name: "task"; taskId: string };
@@ -89,6 +92,9 @@ export interface AppState extends Records {
   workspaces: WorkspaceRecord[] | undefined;
   // Every workspace's reference files, by id.
   library: Record<string, LibraryItem>;
+  // Undefined until loaded, so setup never flashes for someone who finished it.
+  onboarding: Onboarding | undefined;
+  display: Display;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -117,6 +123,8 @@ export const useApp = create<AppState>(() => ({
   templates: undefined,
   workspaces: undefined,
   library: {},
+  onboarding: undefined,
+  display: {},
 }));
 
 export function focusAgent(agentId: string | undefined): void {

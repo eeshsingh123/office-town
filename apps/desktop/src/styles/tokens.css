@@ -50,3 +50,29 @@
     --motion: 0ms;
   }
 }
+
+/* Help's Display settings (D-66). Some motion is set in place rather than through --motion, so
+   "Less motion" has to win over it. */
+:root[data-less-motion] {
+  --motion: 0ms;
+}
+
+:root[data-less-motion] *,
+:root[data-less-motion] *::before,
+:root[data-less-motion] *::after {
+  /* biome-ignore lint/complexity/noImportantStyles: must beat motion set in each component */
+  animation-duration: 0.01ms !important;
+  /* biome-ignore lint/complexity/noImportantStyles: must beat motion set in each component */
+  animation-iteration-count: 1 !important;
+  /* biome-ignore lint/complexity/noImportantStyles: must beat motion set in each component */
+  transition-duration: 0.01ms !important;
+}
+
+:root[data-more-contrast] {
+  --border: light-dark(#a39a8d, #6b665e);
+  --border-strong: light-dark(#7d7467, #8a847a);
+  --text: light-dark(#0f0e0c, #ffffff);
+  --text-2: light-dark(#2f2c27, #e2ded8);
+  --text-3: light-dark(#45413a, #c9c4bc);
+  --accent-text: light-dark(#2a3f5c, #cbd8ec);
+}

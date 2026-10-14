@@ -78,7 +78,7 @@ export function DraftBox({ label, placeholder, action, drafted, initial, run }: 
   });
 
   return (
-    <div className={styles.box}>
+    <div className={styles.box} data-tour="draft">
       <form className={composer.composer} onSubmit={submit}>
         <label className="visually-hidden" htmlFor="draft-text">
           {label}
