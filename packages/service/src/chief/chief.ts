@@ -24,6 +24,22 @@ export function isChiefTask(store: Store, taskId: string): boolean {
   return id !== undefined && store.getTask(taskId)?.leadAgentId === id;
 }
 
+export class ChiefBusyError extends Error {
+  constructor() {
+    super("The chief is working on a goal. Stop the goal before removing the chief.");
+    this.name = "ChiefBusyError";
+  }
+}
+
+// Its goals stay in the history, so its record goes only if nothing names it.
+export function removeChief(store: Store): void {
+  const chief = chiefOf(store);
+  if (chief === undefined) throw new NoChiefError();
+  if (store.unendedTaskOfLead(chief.id) !== undefined) throw new ChiefBusyError();
+  store.clearSetting("chiefAgentId");
+  store.deleteAgentIfUnused(chief.id);
+}
+
 // Made once; later settings apply at its next session.
 export function saveChief(store: Store, settings: AgentSettings): AgentRecord {
   const chief = chiefOf(store);

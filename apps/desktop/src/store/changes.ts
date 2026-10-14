@@ -35,6 +35,10 @@ function applyChange(state: AppState, change: Change): AppState {
       const { department } = change;
       return { ...state, departments: { ...state.departments, [department.id]: department } };
     }
+    case "department.removed": {
+      const { [change.departmentId]: _, ...departments } = state.departments;
+      return { ...state, departments };
+    }
     case "delegation": {
       const { delegation } = change;
       return { ...state, delegations: { ...state.delegations, [delegation.id]: delegation } };

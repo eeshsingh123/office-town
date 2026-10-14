@@ -26,7 +26,8 @@ import {
   type TeamContext,
   TeamError,
 } from "./members.ts";
-import { isRepository } from "./worktrees.ts";
+import { removeCopies } from "./outsource.ts";
+import { isRepository, removeWorktrees } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
 
@@ -310,6 +311,13 @@ async function startGroupTask(
 }
 
 // Delegations close first, so no "stopped" result wakes the lead being stopped too.
+// With the worktrees and review copies made for it.
+export async function deleteTask(context: TeamContext, taskId: string): Promise<void> {
+  await removeWorktrees(context, taskId);
+  removeCopies(context, taskId);
+  await context.store.deleteTask(taskId);
+}
+
 export async function stopTeam({ store, registry }: TeamContext, taskId: string): Promise<void> {
   for (const delegation of store.listDelegations(taskId)) {
     if (delegation.status === "working") store.endDelegation(delegation.id, "stopped");

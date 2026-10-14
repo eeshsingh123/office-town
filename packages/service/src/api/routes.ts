@@ -31,19 +31,29 @@ import { createAgent } from "../agents/agents.ts";
 import { instructionsFor, soloMessage } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
-import { chiefOf, isChiefTask, saveChief } from "../chief/chief.ts";
+import { chiefOf, isChiefTask, removeChief, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
-import { changeTeam, createDepartment, updateDepartment } from "../team/departments.ts";
+import {
+  changeTeam,
+  createDepartment,
+  removeDepartment,
+  updateDepartment,
+} from "../team/departments.ts";
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
-import { removeCopies, secondOpinion, workspaceEntries } from "../team/outsource.ts";
-import { claimDepartment, continueTeam, startTeamTask, stopTeam } from "../team/team-tasks.ts";
-import { removeWorktrees } from "../team/worktrees.ts";
+import { secondOpinion, workspaceEntries } from "../team/outsource.ts";
+import {
+  claimDepartment,
+  continueTeam,
+  deleteTask,
+  startTeamTask,
+  stopTeam,
+} from "../team/team-tasks.ts";
 import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
 
@@ -157,9 +167,7 @@ export function apiRoutes(team: TeamContext): Route[] {
         if ([param("id"), ...pieceTasks].some((id) => store.listSessions(id).some(isRunning))) {
           throw new TaskActiveError(param("id"));
         }
-        await removeWorktrees(team, param("id"));
-        removeCopies(team, param("id"));
-        await store.deleteTask(param("id"));
+        await deleteTask(team, param("id"));
         return NO_CONTENT;
       },
     },
@@ -385,6 +393,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       }),
     },
     {
+      method: "DELETE",
+      path: "/chief",
+      reply: () => {
+        removeChief(store);
+        return NO_CONTENT;
+      },
+    },
+    {
       method: "GET",
       path: "/departments",
       reply: () => ({ status: 200, json: store.listDepartments() }),
@@ -404,6 +420,15 @@ export function apiRoutes(team: TeamContext): Route[] {
         status: 200,
         json: updateDepartment(team, param("id"), departmentSettingsSchema.parse(await body())),
       }),
+    },
+    {
+      method: "DELETE",
+      path: "/departments/:id",
+      // ?history=delete also deletes its tasks and the agents that worked on nothing else.
+      reply: async ({ param, query }) => {
+        await removeDepartment(team, param("id"), query.get("history") === "delete");
+        return NO_CONTENT;
+      },
     },
     {
       method: "PUT",

@@ -174,6 +174,8 @@ export interface Store {
   // The chief runs one goal at a time.
   openTaskOfLead(agentId: string): string | undefined;
   oldestQueuedTask(): string | undefined;
+  // Queued ones too.
+  unendedTaskOfLead(agentId: string): string | undefined;
   // Leaving "ended" clears the review.
   setTaskState(taskId: string, state: TaskState): void;
   markReviewed(taskId: string): TaskRecord;
@@ -237,6 +239,13 @@ export interface Store {
   getDepartment(id: string): DepartmentRecord | undefined;
   listDepartments(): DepartmentRecord[];
   updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord;
+  // Its members leave it; its tasks keep its name.
+  removeDepartment(id: string): void;
+  tasksOfDepartment(id: string): string[];
+  // A removed one that no task or plan names any more.
+  deleteDepartmentIfUnused(id: string): void;
+  // Only an agent outside any department, chief and task.
+  deleteAgentIfUnused(id: string): void;
   // Lead first, then workers in join order.
   listMembers(departmentId: string): AgentRecord[];
   createProfile(profile: ProfileRequest): ProfileRecord;
@@ -282,6 +291,7 @@ export interface Store {
   readSettings(): Settings;
   // Only the settings given change.
   saveSettings(settings: Settings): void;
+  clearSetting(key: keyof Settings): void;
   size(): Promise<StoreSize>;
   close(): void;
 }

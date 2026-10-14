@@ -192,6 +192,7 @@ export const api = {
   getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),
   saveChief: (settings: AgentSettings): Promise<AgentRecord> =>
     write("PUT", "/chief", { settings }, agentRecordSchema),
+  removeChief: (): Promise<void> => send("DELETE", "/chief"),
   messageAgent: (
     agentId: string,
     text: string,
@@ -213,6 +214,8 @@ export const api = {
     write("PUT", `/departments/${id(departmentId)}`, settings, departmentRecordSchema),
   changeTeam: (departmentId: string, team: Team) =>
     write("PUT", `/departments/${id(departmentId)}/team`, team, departmentRecordSchema),
+  removeDepartment: (departmentId: string, withHistory: boolean): Promise<void> =>
+    send("DELETE", `/departments/${id(departmentId)}${withHistory ? "?history=delete" : ""}`),
   listHarnesses: (): Promise<HarnessDescription[]> =>
     read("/harnesses", listOf(harnessDescriptionSchema)),
   readCatalog: (harness: string, environment: EnvironmentSpec): Promise<HarnessCatalog> =>

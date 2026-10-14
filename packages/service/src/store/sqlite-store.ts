@@ -538,6 +538,11 @@ class SqliteStore implements Store {
     return one<{ id: string }>(this.#statements.openTaskOfLead, ref)?.id;
   }
 
+  unendedTaskOfLead(agentId: string): string | undefined {
+    const ref = this.#agentRow(agentId).ref;
+    return one<{ id: string }>(this.#statements.unendedTaskOfLead, ref)?.id;
+  }
+
   oldestQueuedTask(): string | undefined {
     return one<{ id: string }>(this.#statements.oldestQueuedTask)?.id;
   }
@@ -1000,6 +1005,29 @@ class SqliteStore implements Store {
     return this.#publishDepartment(id);
   }
 
+  removeDepartment(id: string): void {
+    const row = this.#departmentRow(id);
+    const members = all<AgentRow>(this.#statements.membersOf, row.ref).map(toAgent);
+    transaction(this.#db, () => {
+      this.#statements.removeDepartment.run(Date.now(), row.ref);
+      for (const { departmentId: _, ...member } of members) this.updateAgent(member.id, member);
+    });
+    this.#publish({ type: "department.removed", departmentId: id });
+  }
+
+  tasksOfDepartment(id: string): string[] {
+    const ref = this.#departmentRow(id).ref;
+    return all<{ id: string }>(this.#statements.tasksOfDepartment, ref).map((task) => task.id);
+  }
+
+  deleteDepartmentIfUnused(id: string): void {
+    this.#statements.deleteDepartmentIfUnused.run(this.#departmentRow(id).ref);
+  }
+
+  deleteAgentIfUnused(id: string): void {
+    this.#statements.deleteAgentIfUnused.run(this.#agentRow(id).ref);
+  }
+
   listMembers(departmentId: string): AgentRecord[] {
     const ref = this.#departmentRow(departmentId).ref;
     return all<AgentRow>(this.#statements.membersOf, ref).map(toAgent);
@@ -1318,6 +1346,10 @@ class SqliteStore implements Store {
         if (value !== undefined) this.#statements.saveSetting.run(key, JSON.stringify(value));
       }
     });
+  }
+
+  clearSetting(key: keyof Settings): void {
+    this.#statements.deleteSetting.run(key);
   }
 
   async size(): Promise<StoreSize> {
