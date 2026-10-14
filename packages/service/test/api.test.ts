@@ -461,4 +461,15 @@ describe("api", () => {
       roomPositions: { chief: { x: 120, y: 40 } },
     });
   });
+
+  it("keeps setup progress and display choices, and refuses a text size it does not offer", async () => {
+    const onboarding = { setupDone: true, purpose: "business", tutorialsDone: ["first-task"] };
+    expect((await call("PUT", "/onboarding", onboarding)).status).toBe(200);
+    expect((await call("PUT", "/display", { textSize: 120 })).status).toBe(400);
+    expect((await call("PUT", "/display", { textSize: 130, lessMotion: true })).status).toBe(200);
+    expect(await (await call("GET", "/settings")).json()).toEqual({
+      onboarding,
+      display: { textSize: 130, lessMotion: true },
+    });
+  });
 });

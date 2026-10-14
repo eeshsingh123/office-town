@@ -113,6 +113,15 @@ export interface AccountSupport {
   readLimits?: (credentials: string) => Promise<UsageLimit[] | undefined>;
 }
 
+// How a user gets the CLI, in the vendor's own words, for setup.
+export interface InstallSupport {
+  // Exits 0 when the CLI is installed.
+  version: HarnessCommand;
+  windows: string;
+  unix: string;
+  page: string;
+}
+
 export interface Adapter {
   readonly harness: string;
   readonly name: string;
@@ -121,6 +130,7 @@ export interface Adapter {
   readonly isolationNote?: string;
   readonly catalog?: CatalogQuery;
   readonly accounts?: AccountSupport;
+  readonly install?: InstallSupport;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

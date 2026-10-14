@@ -112,6 +112,18 @@ export const harnessDescriptionSchema = z.object({
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
+// Whether a harness can run on this computer, for setup. Native only.
+export const harnessStatusSchema = z.object({
+  harness: z.string().min(1),
+  installed: z.boolean(),
+  // Unset when the harness needs no sign-in to run, or cannot say.
+  signedIn: z.boolean().optional(),
+  // The vendor's own install command for this computer, and its page.
+  installCommand: z.string().optional(),
+  installPage: z.string().optional(),
+});
+export type HarnessStatus = z.infer<typeof harnessStatusSchema>;
+
 export const environmentListSchema = z.array(environmentSpecSchema);
 export type EnvironmentList = z.infer<typeof environmentListSchema>;
 
@@ -182,11 +194,34 @@ export const roomPositionSchema = z.object({
 });
 export type RoomPosition = z.infer<typeof roomPositionSchema>;
 
+export const onboardingSchema = z.object({
+  setupDone: z.boolean().optional(),
+  purpose: z.enum(["software", "business", "exploring"]).optional(),
+  // Ids of the tutorials the user finished; kept, never shown.
+  tutorialsDone: z.array(z.string().min(1)).optional(),
+  // The date of the newest What's new entry the user has seen, as YYYY-MM-DD.
+  whatsNewSeen: z.string().optional(),
+  checklistHidden: z.boolean().optional(),
+});
+export type Onboarding = z.infer<typeof onboardingSchema>;
+
+export const displaySchema = z.object({
+  // Percent of the normal size.
+  textSize: z.union([z.literal(100), z.literal(115), z.literal(130)]).optional(),
+  moreContrast: z.boolean().optional(),
+  lessMotion: z.boolean().optional(),
+  // A screen reader reads out each new request.
+  announceRequests: z.boolean().optional(),
+});
+export type Display = z.infer<typeof displaySchema>;
+
 export const settingsSchema = z.object({
   chiefAgentId: z.string().min(1).optional(),
   you: userProfileSchema.optional(),
   // By department id, or "chief"; a room not listed is placed automatically.
   roomPositions: z.record(z.string(), roomPositionSchema).optional(),
+  onboarding: onboardingSchema.optional(),
+  display: displaySchema.optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 

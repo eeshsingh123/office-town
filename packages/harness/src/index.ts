@@ -7,6 +7,7 @@ import {
   environmentSpecSchema,
   type HarnessCatalog,
   type HarnessDescription,
+  type HarnessStatus,
   type SessionOptions,
   sessionOptionsSchema,
   type UsageLimit,
@@ -100,7 +101,8 @@ export interface AccountSignIn {
 export async function startAccountSignIn(
   harness: string,
   spec: EnvironmentSpec,
-  folder: string,
+  // Unset signs in the CLI's own default login.
+  folder: string | undefined,
   onLine: (line: string) => void,
 ): Promise<AccountSignIn | undefined> {
   const { accounts } = findAdapter(harness);
@@ -111,7 +113,10 @@ export async function startAccountSignIn(
     environment,
     {
       ...accounts.login,
-      env: { ...accounts.login.env, ...accounts.env(environment.toEnvironmentPath(folder)) },
+      env: {
+        ...accounts.login.env,
+        ...(folder === undefined ? {} : accounts.env(environment.toEnvironmentPath(folder))),
+      },
     },
     { onLine, onExit: (exit) => exited.resolve(exit.code) },
   );
@@ -151,6 +156,32 @@ export async function saveAccountKey(
 // Where an account's sign-in is saved inside its folder, for a harness that keeps accounts apart.
 export function accountCredentials(harness: string): string | undefined {
   return findAdapter(harness).accounts?.credentials;
+}
+
+// Whether the CLI is on this computer and signed in, with how to install it if not.
+export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
+  const { install } = findAdapter(harness);
+  const environment = environmentFor({ kind: "native" });
+  const installed =
+    install === undefined ||
+    (await runIn(environment, install.version).then(
+      (result) => result.code === 0,
+      () => false,
+    ));
+  const status = installed
+    ? await readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined)
+    : undefined;
+  return {
+    harness,
+    installed,
+    ...(status === undefined ? {} : { signedIn: status.signedIn }),
+    ...(install === undefined
+      ? {}
+      : {
+          installCommand: process.platform === "win32" ? install.windows : install.unix,
+          installPage: install.page,
+        }),
+  };
 }
 
 // Who is signed in on an account; undefined where the harness cannot say.

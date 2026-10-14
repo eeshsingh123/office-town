@@ -9,10 +9,12 @@ import {
   continueTaskRequestSchema,
   departmentDraftRequestSchema,
   departmentSettingsSchema,
+  displaySchema,
   environmentSpecSchema,
   linkFolderRequestSchema,
   MAX_ATTACHMENT_BYTES,
   newDepartmentRequestSchema,
+  onboardingSchema,
   profileRequestSchema,
   renameAgentRequestSchema,
   resumeSessionRequestSchema,
@@ -26,7 +28,7 @@ import {
   userProfileSchema,
   workspaceRequestSchema,
 } from "@office-town/contract";
-import { listEnvironments, listHarnesses } from "@office-town/harness";
+import { listEnvironments, listHarnesses, readHarnessStatus } from "@office-town/harness";
 import { z } from "zod";
 import { accountRoutes } from "../accounts/routes.ts";
 import { createAgent } from "../agents/agents.ts";
@@ -542,6 +544,24 @@ export function apiRoutes(team: TeamContext): Route[] {
     },
     {
       method: "PUT",
+      path: "/onboarding",
+      reply: async ({ body }) => {
+        const onboarding = onboardingSchema.parse(await body());
+        store.saveSettings({ onboarding });
+        return { status: 200, json: onboarding };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/display",
+      reply: async ({ body }) => {
+        const display = displaySchema.parse(await body());
+        store.saveSettings({ display });
+        return { status: 200, json: display };
+      },
+    },
+    {
+      method: "PUT",
       path: "/room-positions/:roomId",
       reply: async ({ param, body }) => {
         const roomId = param("roomId");
@@ -568,6 +588,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       method: "GET",
       path: "/harnesses",
       reply: () => ({ status: 200, json: listHarnesses() }),
+    },
+    {
+      method: "GET",
+      path: "/harnesses/status",
+      reply: async () => ({
+        status: 200,
+        json: await Promise.all(listHarnesses().map(({ harness }) => readHarnessStatus(harness))),
+      }),
     },
     {
       method: "GET",
