@@ -405,6 +405,7 @@ export function Composer({ home = false }: ComposerProps) {
     <div className={styles.composerArea}>
       <div
         className={`${styles.composer} ${attached.dragging ? fileStyles.dropping : ""}`}
+        data-tour="composer"
         {...attached.dropHandlers}
       >
         <div className={styles.writing}>

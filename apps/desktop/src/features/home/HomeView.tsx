@@ -22,6 +22,9 @@ import { requestLabel } from "../needs-you/request-label.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
+import { saveOnboarding } from "../onboarding/onboarding.ts";
+import { startTutorial } from "../onboarding/tutorial-state.ts";
+import { TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
@@ -306,7 +309,13 @@ function Recent() {
   );
 }
 
-function Step(props: { number: number; done: boolean; title: string; children: ReactNode }) {
+function Step(props: {
+  number: number;
+  done: boolean;
+  title: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <li className={styles.step}>
       <span className={`${styles.stepMark} ${props.done ? styles.stepDone : ""}`}>
@@ -316,6 +325,7 @@ function Step(props: { number: number; done: boolean; title: string; children: R
         <span className={styles.rowName}>{props.title}</span>
         <span className={styles.rowLine}>{props.children}</span>
       </span>
+      {props.done ? null : props.action}
     </li>
   );
 }
@@ -391,30 +401,52 @@ function BuildTeam() {
 }
 
 // Shown until the first task, so a new user always sees the next thing to do.
-function GetStarted() {
-  const harnesses = useApp((state) => state.harnesses);
-  const hasTeam = useApp(
-    (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
-  );
+// Each step ticks itself off from what the user really did, and opens its tutorial.
+function GettingStarted() {
+  const state = useApp();
+  const hidden = state.onboarding?.checklistHidden === true;
+  const done: Record<TutorialId, boolean> = {
+    "first-task": Object.values(state.tasks).some(
+      ({ task }) => task.state === "idle" || task.state === "ended",
+    ),
+    department: Object.keys(state.departments).length > 0,
+    chief: Object.keys(state.pieces).length > 0,
+    library: Object.keys(state.library).length > 0,
+  };
+  const count = TUTORIALS.filter((tutorial) => done[tutorial.id]).length;
+  if (hidden || count === TUTORIALS.length) return null;
   return (
     <section className={styles.card} aria-labelledby="start-title">
-      <h2 id="start-title" className={styles.cardTitle}>
-        Get started
-      </h2>
+      <div className={styles.cardHead}>
+        <h2 id="start-title" className={styles.cardTitle}>
+          Getting started · {count} of {TUTORIALS.length}
+        </h2>
+        <Button variant="ghost" onClick={() => void saveOnboarding({ checklistHidden: true })}>
+          Hide
+        </Button>
+      </div>
       <ol className={styles.list}>
-        <Step
-          number={1}
-          done={false}
-          title={`Sign in to ${harnesses.map((one) => one.name).join(" and ") || "your AI app"}`}
-        >
-          Your agents run on these accounts.
-        </Step>
-        <Step number={2} done={hasTeam} title="Build a team (optional)">
-          Set up a chief or a department.
-        </Step>
-        <Step number={3} done={false} title="Start your first task">
-          Type it in the box above.
-        </Step>
+        {TUTORIALS.map((tutorial, index) => {
+          const blocked = tutorial.blocked?.(state);
+          return (
+            <Step
+              key={tutorial.id}
+              number={index + 1}
+              done={done[tutorial.id]}
+              title={tutorial.title}
+              action={
+                <Button
+                  disabled={blocked !== undefined}
+                  onClick={() => void startTutorial(tutorial.id)}
+                >
+                  Start
+                </Button>
+              }
+            >
+              {blocked ?? tutorial.summary}
+            </Step>
+          );
+        })}
       </ol>
     </section>
   );
@@ -447,11 +479,12 @@ export function HomeView() {
         <Waiting />
         <LimitStops />
         <Tiles />
+        <GettingStarted />
         {hasTeam ? null : <BuildTeam />}
         <PlanUsageCard className={styles.card} />
         <div className={styles.columns}>
           <Team />
-          {anyTask ? <Recent /> : <GetStarted />}
+          {anyTask ? <Recent /> : null}
         </div>
       </div>
     </section>

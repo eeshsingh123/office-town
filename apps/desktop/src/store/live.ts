@@ -105,6 +105,9 @@ async function readAll(
     chiefId: settings.chiefAgentId,
     roomPositions: settings.roomPositions ?? {},
     you: settings.you,
+    // Someone who used the app before setup existed has nothing to set up.
+    onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
+    display: settings.display ?? {},
     agents: byId(agents),
     departments: byId(departments),
     delegations: byId(delegations),
