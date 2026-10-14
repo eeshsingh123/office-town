@@ -1,4 +1,11 @@
-import type { AgentRecord, DepartmentRecord, Team, TeamRole } from "@office-town/contract";
+import type {
+  AgentRecord,
+  AgentSettings,
+  DepartmentRecord,
+  LeadRole,
+  Team,
+  TeamRole,
+} from "@office-town/contract";
 import { freeIdentity } from "../agents/agents.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
@@ -49,6 +56,16 @@ function ownOf({ settings: { instructions, autonomy } }: Pick<AgentRecord, "sett
   };
 }
 
+// Given instructions replace the agent's own notes; an empty text clears them.
+function withInstructions(
+  settings: AgentSettings,
+  instructions: string | undefined,
+): AgentSettings {
+  if (instructions === undefined) return settings;
+  const { instructions: _, ...rest } = settings;
+  return instructions.trim() === "" ? rest : { ...rest, instructions: instructions.trim() };
+}
+
 function workersOf(store: Store, department: DepartmentRecord): AgentRecord[] {
   return store.listMembers(department.id).filter((member) => member.id !== department.leadAgentId);
 }
@@ -92,7 +109,7 @@ function addMember(store: Store, departmentId: string, role: TeamRole): AgentRec
     purpose: role.purpose,
     departmentId,
     ...(profile === undefined ? {} : { profileId: profile.id }),
-    settings,
+    settings: withInstructions(settings, role.instructions),
   });
 }
 
@@ -115,8 +132,10 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
       role: role.role,
       purpose: role.purpose,
       departmentId: department.id,
-      settings:
+      settings: withInstructions(
         role.settings === undefined ? member.settings : { ...ownOf(member), ...role.settings },
+        role.instructions,
+      ),
       ...(linked === undefined ? {} : { profileId: linked }),
     });
     const same =
@@ -132,6 +151,21 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
     store.updateAgent(member.id, rest);
   }
   return { added, removed, updated };
+}
+
+// The lead's own row: its name in the team, what it does, its notes and its AI.
+export function applyLead(store: Store, department: DepartmentRecord, lead: LeadRole): void {
+  const agent = store.getAgent(department.leadAgentId);
+  if (agent === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
+  store.updateAgent(agent.id, {
+    ...agent,
+    role: lead.role,
+    purpose: lead.purpose,
+    settings: withInstructions(
+      lead.settings === undefined ? agent.settings : { ...ownOf(agent), ...lead.settings },
+      lead.instructions,
+    ),
+  });
 }
 
 export function rosterOf(store: Store, department: DepartmentRecord): string {

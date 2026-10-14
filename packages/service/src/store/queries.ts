@@ -37,7 +37,7 @@ const DEPARTMENT_SELECT = `
   SELECT d.ref, d.id, d.name, (SELECT id FROM workspaces WHERE ref = d.workspace_ref) AS workspaceId,
          d.autonomy, l.id AS leadAgentId,
          d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
-         d.created_at AS createdAt
+         d.purpose, d.removed_at AS removedAt, d.created_at AS createdAt
   FROM departments d
   JOIN agents l ON l.ref = d.lead_ref`;
 
@@ -193,14 +193,18 @@ export const queries = {
 
   insertDepartment: `
     INSERT INTO departments
-      (id, name, workspace_ref, autonomy, lead_ref, branch_per_worker, code_flow, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, name, workspace_ref, autonomy, lead_ref, branch_per_worker, code_flow, rules, purpose,
+       created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   departmentById: `${DEPARTMENT_SELECT} WHERE d.id = ?`,
   // Reads the whole table on purpose: one row per department the user keeps.
-  allDepartments: `${DEPARTMENT_SELECT} ORDER BY d.name`,
+  allDepartments: `${DEPARTMENT_SELECT} WHERE d.removed_at IS NULL ORDER BY d.name`,
   updateDepartment: `
-    UPDATE departments SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?
+    UPDATE departments
+    SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?, purpose = ?
     WHERE ref = ?`,
+  removeDepartment: "UPDATE departments SET removed_at = ? WHERE ref = ?",
+  tasksOfDepartment: "SELECT id FROM tasks WHERE department_ref = ?",
 
   insertProfile: `
     INSERT INTO profiles (id, name, role, colour, settings, created_at) VALUES (?, ?, ?, ?, ?, ?)`,

@@ -3,6 +3,7 @@ import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
 
 export interface DepartmentView {
   name: string;
+  purpose: string | undefined;
   // The lead first.
   members: string[];
   folders: string[];
@@ -26,7 +27,8 @@ function describeDepartments(departments: DepartmentView[]): string {
     .map((department) => {
       const state =
         department.busyWith === undefined ? "free" : `busy with "${department.busyWith}"`;
-      return `- ${department.name} (${state}), working in ${department.folders.join(", ")}:\n${department.members.map((member) => `  ${member}`).join("\n")}`;
+      const purpose = department.purpose === undefined ? "" : `, for: ${department.purpose}`;
+      return `- ${department.name} (${state}${purpose}), working in ${department.folders.join(", ")}:\n${department.members.map((member) => `  ${member}`).join("\n")}`;
     })
     .join("\n");
 }

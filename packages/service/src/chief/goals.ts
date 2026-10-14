@@ -28,6 +28,7 @@ function departmentViews(store: Store): DepartmentView[] {
     const busy = store.activeTaskOf(department.id);
     return {
       name: department.name,
+      purpose: department.purpose,
       members: store.listMembers(department.id).map((member) => memberLine(department, member)),
       folders: workspacePaths(store, department.workspaceId),
       busyWith: busy === undefined ? undefined : store.getTask(busy)?.prompt,

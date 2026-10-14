@@ -8,7 +8,7 @@ import { createAgent } from "../agents/agents.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { requireWorkspaceFolders } from "../task-folders.ts";
-import { applyTeam, checkTeam, rosterOf, type TeamContext } from "./members.ts";
+import { applyLead, applyTeam, checkTeam, rosterOf, type TeamContext } from "./members.ts";
 
 function departmentOf({ store }: TeamContext, id: string): DepartmentRecord {
   const department = store.getDepartment(id);
@@ -43,7 +43,7 @@ async function tellLead(
 
 export function createDepartment(
   context: TeamContext,
-  { team, workspaceId, autonomy, lead: newLead }: NewDepartmentRequest,
+  { team, workspaceId, autonomy, lead: newLead, purpose, rules }: NewDepartmentRequest,
 ): DepartmentRecord {
   const { store } = context;
   requireWorkspaceFolders(store.useWorkspace(workspaceId));
@@ -56,8 +56,11 @@ export function createDepartment(
     leadAgentId: lead.id,
     branchPerWorker: true,
     codeFlow: false,
+    ...(purpose === undefined ? {} : { purpose }),
+    ...(rules === undefined ? {} : { rules }),
   });
   store.updateAgent(lead.id, { ...lead, departmentId: department.id });
+  if (team.lead !== undefined) applyLead(store, department, team.lead);
   applyTeam(store, department, team);
   return department;
 }
@@ -71,6 +74,7 @@ export async function changeTeam(
   const current = departmentOf(context, departmentId);
   checkTeam(store, current, team);
   const department = store.updateDepartment(departmentId, { ...current, name: team.name });
+  if (team.lead !== undefined) applyLead(store, department, team.lead);
   const { added, removed, updated } = applyTeam(store, department, team);
   const changes = [
     ...added.map((agent) => `${agent.name} joined as ${agent.role}`),

@@ -498,4 +498,10 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX IF NOT EXISTS library_uses_by_task ON library_uses (task_ref);
   `,
+  `
+  -- What a department is for, read by the chief. A removed department keeps its row, so the tasks
+  -- it ran still show under its name.
+  ALTER TABLE departments ADD COLUMN purpose TEXT;
+  ALTER TABLE departments ADD COLUMN removed_at INTEGER;
+  `,
 ];

@@ -146,6 +146,8 @@ interface DepartmentRow {
   branchPerWorker: number;
   codeFlow: number;
   rules: string | null;
+  purpose: string | null;
+  removedAt: number | null;
   createdAt: number;
 }
 
@@ -320,9 +322,12 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     branchPerWorker: row.branchPerWorker === 1,
     codeFlow: row.codeFlow === 1,
     ...(row.rules === null ? {} : { rules: row.rules }),
+    ...(row.purpose === null ? {} : { purpose: row.purpose }),
     createdAt: iso(row.createdAt),
   };
 }
+
+const textOrNull = (text: string | undefined) => (text?.trim() ? text.trim() : null);
 
 function toDelegation(row: DelegationRow): DelegationRecord {
   return {
@@ -963,14 +968,17 @@ class SqliteStore implements Store {
       this.#agentRow(department.leadAgentId).ref,
       department.branchPerWorker ? 1 : 0,
       department.codeFlow ? 1 : 0,
+      textOrNull(department.rules),
+      textOrNull(department.purpose),
       createdAt,
     );
     return this.#publishDepartment(id);
   }
 
+  // A removed department is gone for everything but the history that names it.
   getDepartment(id: string): DepartmentRecord | undefined {
     const row = one<DepartmentRow>(this.#statements.departmentById, id);
-    return row === undefined ? undefined : toDepartment(row);
+    return row === undefined || row.removedAt !== null ? undefined : toDepartment(row);
   }
 
   listDepartments(): DepartmentRecord[] {
@@ -979,14 +987,14 @@ class SqliteStore implements Store {
 
   updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord {
     const row = this.#departmentRow(id);
-    const { name, autonomy, branchPerWorker, codeFlow, rules } = settings;
-    const text = rules?.trim() ?? "";
+    const { name, autonomy, branchPerWorker, codeFlow, rules, purpose } = settings;
     this.#statements.updateDepartment.run(
       name,
       autonomy,
       branchPerWorker ? 1 : 0,
       codeFlow ? 1 : 0,
-      text === "" ? null : text,
+      textOrNull(rules),
+      textOrNull(purpose),
       row.ref,
     );
     return this.#publishDepartment(id);

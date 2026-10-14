@@ -16,6 +16,8 @@ export const teamRoleSchema = z
     agentId: z.string().min(1).optional(),
     profileId: z.string().min(1).optional(),
     settings: roleSettingsSchema.optional(),
+    // Given: replaces the member's own notes. Absent: a kept member keeps them.
+    instructions: z.string().optional(),
   })
   .refine(
     (role) =>
@@ -24,10 +26,20 @@ export const teamRoleSchema = z
   );
 export type TeamRole = z.infer<typeof teamRoleSchema>;
 
+// How the lead is named and briefed; how it is made comes with the department request.
+export const leadRoleSchema = z.object({
+  role: z.string().trim().min(1),
+  purpose: z.string().trim(),
+  instructions: z.string().optional(),
+  settings: roleSettingsSchema.optional(),
+});
+export type LeadRole = z.infer<typeof leadRoleSchema>;
+
 // The lead is fixed and never one of the roles.
 export const teamSchema = z.object({
   name: z.string().trim().min(1),
   roles: z.array(teamRoleSchema),
+  lead: leadRoleSchema.optional(),
 });
 export type Team = z.infer<typeof teamSchema>;
 
@@ -43,6 +55,8 @@ export const departmentRecordSchema = z.object({
   codeFlow: z.boolean(),
   // Every member reads these before each task.
   rules: z.string().optional(),
+  // What it is for, in one line; the chief reads it when it plans.
+  purpose: z.string().optional(),
   createdAt: z.iso.datetime(),
 });
 export type DepartmentRecord = z.infer<typeof departmentRecordSchema>;
@@ -53,6 +67,7 @@ export const departmentSettingsSchema = departmentRecordSchema.pick({
   branchPerWorker: true,
   codeFlow: true,
   rules: true,
+  purpose: true,
 });
 export type DepartmentSettings = z.infer<typeof departmentSettingsSchema>;
 
@@ -61,6 +76,8 @@ export const newDepartmentRequestSchema = z.object({
   workspaceId: z.string().min(1),
   autonomy: autonomySchema,
   lead: newAgentSchema,
+  purpose: z.string().trim().optional(),
+  rules: z.string().optional(),
 });
 export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
 
