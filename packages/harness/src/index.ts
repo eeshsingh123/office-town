@@ -162,15 +162,16 @@ export function accountCredentials(harness: string): string | undefined {
 export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
   const { install } = findAdapter(harness);
   const environment = environmentFor({ kind: "native" });
-  const installed =
+  // Both at once: each starts the CLI, which takes most of a second.
+  const [installed, signIn] = await Promise.all([
     install === undefined ||
-    (await runIn(environment, install.version).then(
-      (result) => result.code === 0,
-      () => false,
-    ));
-  const status = installed
-    ? await readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined)
-    : undefined;
+      runIn(environment, install.version).then(
+        (result) => result.code === 0,
+        () => false,
+      ),
+    readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined),
+  ]);
+  const status = installed ? signIn : undefined;
   return {
     harness,
     installed,

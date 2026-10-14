@@ -13,7 +13,11 @@ const FREE_MODEL = "opencode/big-pickle";
 
 // Tutorials run on the cheapest model at hand: OpenCode's free one, else Haiku on low effort.
 export async function findTutorialModel(): Promise<TutorialModel | undefined> {
-  const opencode = await readCatalog("opencode", NATIVE).catch(() => undefined);
+  // Read together, and usually already loaded when the app opened (store/live.ts).
+  const [opencode, claude] = await Promise.all([
+    readCatalog("opencode", NATIVE).catch(() => undefined),
+    readCatalog("claude", NATIVE).catch(() => undefined),
+  ]);
   const free =
     opencode?.models.find((model) => model.id === FREE_MODEL) ??
     opencode?.models.find((model) => model.access === "free");
@@ -24,7 +28,6 @@ export async function findTutorialModel(): Promise<TutorialModel | undefined> {
       free: true,
     };
   }
-  const claude = await readCatalog("claude", NATIVE).catch(() => undefined);
   const haiku = claude?.models.find((model) => /haiku/i.test(`${model.id} ${model.name}`));
   if (claude === undefined || haiku === undefined) return undefined;
   return {
