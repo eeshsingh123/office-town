@@ -1,4 +1,4 @@
-import { FileText, GripVertical } from "lucide-react";
+import { FileText, GripVertical, Plus } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import {
   type KeyboardEvent,
@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import type { Agent } from "../../store/agents.ts";
-import { focusAgent, useApp } from "../../store/app-store.ts";
+import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
@@ -20,6 +20,7 @@ import { DoorChips } from "./DoorChips.tsx";
 import type { DoorChip } from "./doors.ts";
 import { FocusCard } from "./FocusCard.tsx";
 import {
+  ADD_CHIEF,
   clampToFloor,
   contains,
   DESK,
@@ -28,6 +29,7 @@ import {
   movable,
   type Point,
   REACH,
+  type Rect,
   type Room,
   rectFrom,
   roomAt,
@@ -470,6 +472,7 @@ export function Floor(props: FloorProps) {
         </>
       )}
       {rooms.map(({ id, kind, rect }) => {
+        if (kind === "add") return <AddRoom key={id} id={id} rect={rect} />;
         const sign = signs[id];
         const label = signLabel(id, kind);
         const open = kind === "chief" ? chiefSelected : room === id;
@@ -521,6 +524,7 @@ export function Floor(props: FloorProps) {
         );
       })}
       {rooms
+        .filter((one) => one.kind !== "add")
         .flatMap((one) => one.seats)
         .map(({ desk }) => (
           <div
@@ -645,5 +649,21 @@ export function Floor(props: FloorProps) {
         />
       )}
     </div>
+  );
+}
+
+function AddRoom({ id, rect }: { id: string; rect: Rect }) {
+  const chief = id === ADD_CHIEF;
+  return (
+    <button
+      type="button"
+      className={styles.addRoom}
+      style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
+      onClick={() => navigate(chief ? { name: "chief" } : { name: "new-department" })}
+    >
+      <Plus size={18} aria-hidden />
+      <strong>{chief ? "Chief's office" : "New department"}</strong>
+      <span>{chief ? "Set up a chief" : "Describe it or build it by hand"}</span>
+    </button>
   );
 }

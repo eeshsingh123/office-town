@@ -1,0 +1,79 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.text {
+  field-sizing: content;
+}
+
+.busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.error {
+  color: var(--bad);
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.questionActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent-text);
+}

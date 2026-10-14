@@ -30,7 +30,9 @@ export type View =
       // Fills the form in from this template.
       templateId?: string;
     }
-  | { name: "new-department" }
+  // Home's box hands over a description to draft at once.
+  | { name: "new-department"; describe?: string }
+  | { name: "team" }
   // Set up or edit the chief; once it exists, its page.
   | { name: "chief"; edit?: boolean }
   | { name: "needs-you" }
@@ -40,7 +42,8 @@ export type View =
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
-  | { name: "department"; departmentId: string }
+  // `member` opens that agent in the team editor, or "new" adds one.
+  | { name: "department"; departmentId: string; member?: string }
   | { name: "task"; taskId: string };
 
 // A screen to go back to, with the office selection it had.

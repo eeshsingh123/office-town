@@ -1,0 +1,89 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.text span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.name {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lead,
+.member {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* Members hang off the lead. */
+.member {
+  margin-left: 20px;
+}
+
+.member::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  bottom: 50%;
+  left: -13px;
+  width: 9px;
+  border-bottom: 1.5px solid var(--border-strong);
+  border-left: 1.5px solid var(--border-strong);
+  border-bottom-left-radius: 6px;
+}
+
+.model {
+  flex: none;
+  max-width: 45%;
+  padding: 2px 9px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: var(--size-small);
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The draft picked it; the user did not say. */
+.guessed {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}

@@ -13,6 +13,7 @@ import {
   Search,
   Sun,
   SwatchBook,
+  Users,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -42,17 +43,19 @@ function useRailLabel(label: string) {
 }
 
 interface NavItemProps {
-  view: "home" | "office" | "needs-you" | "tasks" | "templates" | "workspaces" | "usage";
+  view: "home" | "office" | "team" | "needs-you" | "tasks" | "templates" | "workspaces" | "usage";
   icon: LucideIcon;
   label: string;
   badge?: ReactNode;
 }
 
 export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
-  // A workspace's own page sits under Workspaces.
+  // A workspace's own page sits under Workspaces; a department's and the new one under Team.
   const current = useApp(
     (state) =>
-      state.view.name === view || (view === "workspaces" && state.view.name === "workspace"),
+      state.view.name === view ||
+      (view === "workspaces" && state.view.name === "workspace") ||
+      (view === "team" && ["department", "new-department"].includes(state.view.name)),
   );
   const rail = useRailLabel(label);
   return (
@@ -179,6 +182,7 @@ export function Sidebar() {
         </button>
         <NavItem view="home" icon={House} label="Home" />
         <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
+        <NavItem view="team" icon={Users} label="Team" />
         <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
         <NavItem view="tasks" icon={List} label="Tasks" />
         <NavItem view="templates" icon={SwatchBook} label="Templates" />

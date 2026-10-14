@@ -7,6 +7,7 @@ import { deleteTemplate, usedText, useTemplates, useTemplateUses } from "../../s
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
+import { useGuideHidden } from "../../ui/Guide.tsx";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
@@ -22,16 +23,6 @@ type Layout = "cards" | "list";
 type Filter = string;
 
 const LAYOUT_KEY = "office-town.templates.layout";
-const GUIDE_KEY = "office-town.templates.guide-hidden";
-
-function loadGuideHidden(): boolean {
-  try {
-    return localStorage.getItem(GUIDE_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
 function loadLayout(): Layout {
   try {
     return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards";
@@ -123,15 +114,8 @@ export function TemplatesView() {
   const [sort, setSort] = useState<Sort>("used");
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [editing, setEditing] = useState<Editing>();
-  const [guideHidden, setGuideHidden] = useState(loadGuideHidden);
-  const showGuide = (show: boolean) => {
-    setGuideHidden(!show);
-    try {
-      localStorage.setItem(GUIDE_KEY, String(!show));
-    } catch {
-      // Remembering this is a convenience only.
-    }
-  };
+  const [guideHidden, setGuideHidden] = useGuideHidden("templates");
+  const showGuide = (show: boolean) => setGuideHidden(!show);
   const open = (template: ProfileRecord | undefined, start?: TemplateDraft) =>
     setEditing({ template, start, key: (editing?.key ?? 0) + 1 });
   const chooseLayout = (next: Layout) => {

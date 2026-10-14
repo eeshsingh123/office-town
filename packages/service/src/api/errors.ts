@@ -6,7 +6,8 @@ import {
   UnknownHarnessError,
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
-import { NoChiefError } from "../chief/chief.ts";
+import { ChiefBusyError, NoChiefError } from "../chief/chief.ts";
+import { DraftError } from "../drafts/run.ts";
 import {
   AnswerError,
   SessionNotResumableError,
@@ -47,6 +48,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [InUseError, 409, "conflict"],
   [DepartmentBusyError, 409, "conflict"],
   [NoChiefError, 409, "conflict"],
+  [ChiefBusyError, 409, "conflict"],
   [NeverStartedError, 409, "conflict"],
   [TeamError, 400, "invalid_request"],
   [UnknownHarnessError, 400, "invalid_request"],
@@ -55,6 +57,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [URIError, 400, "invalid_request"],
   [BinaryNotFoundError, 502, "harness_failed"],
   [CatalogError, 502, "harness_failed"],
+  [DraftError, 502, "harness_failed"],
 ];
 
 export interface ErrorReply {

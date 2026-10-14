@@ -1,0 +1,149 @@
+/* A setup in steps: the step list on the left, the step and a preview on the right. */
+.setup {
+  display: grid;
+  grid-template-columns: 290px minmax(0, 1fr);
+  height: 100%;
+  background: var(--bg);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 32px 18px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  background: var(--side);
+}
+
+.railHead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px 14px;
+}
+
+.railTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepItem:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.stepItem:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.stepItem[aria-current="step"] {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.stepDot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--hover);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stepItem[aria-current="step"] .stepDot {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.stepDone {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.stepTitle {
+  font-weight: 600;
+}
+
+.progress {
+  height: 5px;
+  margin: auto 10px 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--hover);
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--motion);
+}
+
+.setupBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  align-items: start;
+  gap: 40px;
+  max-width: 1040px;
+  padding: 44px 44px 56px;
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stepList {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .progress {
+    display: none;
+  }
+
+  .setupBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stepCount {
+  font-size: var(--size-meta);
+  font-weight: 700;
+  color: var(--accent-text);
+}

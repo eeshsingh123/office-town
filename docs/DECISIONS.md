@@ -312,3 +312,15 @@ Why: the owner had no way back from any screen, double-click did nothing, and a 
 - `#` attaches a Library file in both composers, and the paperclip has "From the Library"; `@` stays for who does the task (owner, 2026-10-11).
 - An agent's change asks through a core permission request with Approve and Decline; the autonomy level never answers it.
 Why: the app had no way to give an agent a file, and a file the agent never opened must not be described as if it had.
+
+### D-65 Building teams from words or step by step — accepted (2026-10-14)
+
+- Team in the main nav is the org chart: you, the chief, then each department with its members, and search. Sidebar ("+ Set up a chief", "+ New department"), Home ("Build your team" until one exists), the office floor (dashed rooms) and its top bar all lead there.
+- New department runs in four steps (Describe, Team, Rules and permissions, Review); nothing is saved before Create. Every person, the lead included, has a role, a one-line "what they do", instructions and a model in one editor (`MemberEditor`), also used by department settings.
+- Contract: a team role takes `instructions` (given replaces the member's notes, "" clears them, absent keeps them); a team takes `lead` (role, purpose, instructions, and settings for a department that exists); a department keeps a one-line `purpose`, which the chief reads.
+- Drafts (`POST /drafts/departments`, `/drafts/chief`): one short run on a model the user picks (Opus by default, kept in the browser), outside any task and the registry: nothing stored, no tools, isolated, in `<data>/drafts`. The reply is JSON; questions only when they would change the draft, up to 3 suggestions for what was missed (owner), several departments at once. Models, harnesses and kept members are checked against what exists; an unusable reply gets one retry. Each call sends what the user said so far and the current draft, so it holds no state.
+- Department settings can be changed in words: the draft fills the form and the user saves.
+- Removing: the chief (`DELETE /chief`) and a department (`DELETE /departments/:id`) are refused while they work or a plan counts on them. A removed department keeps its row so its tasks still show its name; the user chooses to keep its agents and tasks (they become assistants) or delete them (`?history=delete`) (owner).
+- The chief and department pages explain how they work in a hideable band (`ui/Guide`, shared with Templates).
+- The lead's team proposal in Needs you uses the same editor; the lead, already at work, is shown but not edited.
+Why: the owner could not find where to build departments or the chief, the department form had no room for instructions, and there was no way to describe a team in words or remove a chief (references: CrewAI Studio and Copilot Studio draft from a description, then show everything for review).

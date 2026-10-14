@@ -17,6 +17,7 @@ import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
+import { TeamView } from "./features/team/TeamView.tsx";
 import { UsageView } from "./features/usage/UsageView.tsx";
 import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
 import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
@@ -34,7 +35,14 @@ function Main({ view }: { view: View }) {
       // A prompt handed over again, as from Ctrl+K, fills a fresh form.
       return <NewTaskView key={view.prompt ?? ""} />;
     case "new-department":
-      return <NewDepartmentView />;
+      return (
+        <NewDepartmentView
+          key={view.describe ?? ""}
+          {...(view.describe === undefined ? {} : { describe: view.describe })}
+        />
+      );
+    case "team":
+      return <TeamView />;
     case "chief":
       return <ChiefView key={view.edit ? "edit" : "page"} edit={view.edit ?? false} />;
     case "needs-you":
@@ -58,7 +66,13 @@ function Main({ view }: { view: View }) {
     case "you":
       return <YouView />;
     case "department":
-      return <DepartmentSettings key={view.departmentId} departmentId={view.departmentId} />;
+      return (
+        <DepartmentSettings
+          key={`${view.departmentId}|${view.member ?? ""}`}
+          departmentId={view.departmentId}
+          {...(view.member === undefined ? {} : { member: view.member })}
+        />
+      );
     case "task":
       return <TaskView key={view.taskId} taskId={view.taskId} />;
   }

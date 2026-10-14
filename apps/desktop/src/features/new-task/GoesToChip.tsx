@@ -107,7 +107,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             <span className={styles.itemIcon}>
               <Plus size={14} aria-hidden />
             </span>
-            Build a department
+            New department
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

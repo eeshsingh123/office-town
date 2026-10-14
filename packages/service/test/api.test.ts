@@ -98,17 +98,18 @@ beforeEach(async () => {
   }).id;
   const taskStates = new TaskStates(store);
   sessions = [];
+  const createSession = () => {
+    const session = new FakeSession();
+    sessions.push(session);
+    return session;
+  };
   registry = new SessionRegistry(store, {
-    createSession: () => {
-      const session = new FakeSession();
-      sessions.push(session);
-      return session;
-    },
+    createSession,
     seesImages: async (options) => options.model === "sees-images",
   });
   taskStates.follow(registry);
   const readCatalog = cachedCatalogs(async () => ({ models: [] }));
-  const team = { registry, store, readCatalog, dataFolder: directory };
+  const team = { registry, store, readCatalog, dataFolder: directory, createSession };
   server = await startApiServer({ team, token: TOKEN, port: 0 });
 });
 

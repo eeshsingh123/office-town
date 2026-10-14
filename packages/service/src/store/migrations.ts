@@ -160,6 +160,21 @@ function addAccounts(db: DatabaseSync): void {
   `);
 }
 
+// What a department is for, read by the chief. A removed department keeps its row, so the tasks it
+// ran still show under its name. Checked first, as later migrations must run twice safely.
+function addDepartmentPurpose(db: DatabaseSync): void {
+  db.exec(`
+  CREATE INDEX IF NOT EXISTS plan_pieces_by_department ON plan_pieces (department_ref)
+    WHERE department_ref IS NOT NULL;
+  `);
+  const has = db.prepare("SELECT 1 FROM pragma_table_info('departments') WHERE name = 'purpose'");
+  if (has.get() !== undefined) return;
+  db.exec(`
+  ALTER TABLE departments ADD COLUMN purpose TEXT;
+  ALTER TABLE departments ADD COLUMN removed_at INTEGER;
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -498,4 +513,5 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX IF NOT EXISTS library_uses_by_task ON library_uses (task_ref);
   `,
+  addDepartmentPurpose,
 ];

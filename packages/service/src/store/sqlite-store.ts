@@ -146,6 +146,8 @@ interface DepartmentRow {
   branchPerWorker: number;
   codeFlow: number;
   rules: string | null;
+  purpose: string | null;
+  removedAt: number | null;
   createdAt: number;
 }
 
@@ -320,9 +322,12 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     branchPerWorker: row.branchPerWorker === 1,
     codeFlow: row.codeFlow === 1,
     ...(row.rules === null ? {} : { rules: row.rules }),
+    ...(row.purpose === null ? {} : { purpose: row.purpose }),
     createdAt: iso(row.createdAt),
   };
 }
+
+const textOrNull = (text: string | undefined) => (text?.trim() ? text.trim() : null);
 
 function toDelegation(row: DelegationRow): DelegationRecord {
   return {
@@ -531,6 +536,11 @@ class SqliteStore implements Store {
   openTaskOfLead(agentId: string): string | undefined {
     const ref = this.#agentRow(agentId).ref;
     return one<{ id: string }>(this.#statements.openTaskOfLead, ref)?.id;
+  }
+
+  unendedTaskOfLead(agentId: string): string | undefined {
+    const ref = this.#agentRow(agentId).ref;
+    return one<{ id: string }>(this.#statements.unendedTaskOfLead, ref)?.id;
   }
 
   oldestQueuedTask(): string | undefined {
@@ -963,14 +973,17 @@ class SqliteStore implements Store {
       this.#agentRow(department.leadAgentId).ref,
       department.branchPerWorker ? 1 : 0,
       department.codeFlow ? 1 : 0,
+      textOrNull(department.rules),
+      textOrNull(department.purpose),
       createdAt,
     );
     return this.#publishDepartment(id);
   }
 
+  // A removed department is gone for everything but the history that names it.
   getDepartment(id: string): DepartmentRecord | undefined {
     const row = one<DepartmentRow>(this.#statements.departmentById, id);
-    return row === undefined ? undefined : toDepartment(row);
+    return row === undefined || row.removedAt !== null ? undefined : toDepartment(row);
   }
 
   listDepartments(): DepartmentRecord[] {
@@ -979,17 +992,40 @@ class SqliteStore implements Store {
 
   updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord {
     const row = this.#departmentRow(id);
-    const { name, autonomy, branchPerWorker, codeFlow, rules } = settings;
-    const text = rules?.trim() ?? "";
+    const { name, autonomy, branchPerWorker, codeFlow, rules, purpose } = settings;
     this.#statements.updateDepartment.run(
       name,
       autonomy,
       branchPerWorker ? 1 : 0,
       codeFlow ? 1 : 0,
-      text === "" ? null : text,
+      textOrNull(rules),
+      textOrNull(purpose),
       row.ref,
     );
     return this.#publishDepartment(id);
+  }
+
+  removeDepartment(id: string): void {
+    const row = this.#departmentRow(id);
+    const members = all<AgentRow>(this.#statements.membersOf, row.ref).map(toAgent);
+    transaction(this.#db, () => {
+      this.#statements.removeDepartment.run(Date.now(), row.ref);
+      for (const { departmentId: _, ...member } of members) this.updateAgent(member.id, member);
+    });
+    this.#publish({ type: "department.removed", departmentId: id });
+  }
+
+  tasksOfDepartment(id: string): string[] {
+    const ref = this.#departmentRow(id).ref;
+    return all<{ id: string }>(this.#statements.tasksOfDepartment, ref).map((task) => task.id);
+  }
+
+  deleteDepartmentIfUnused(id: string): void {
+    this.#statements.deleteDepartmentIfUnused.run(this.#departmentRow(id).ref);
+  }
+
+  deleteAgentIfUnused(id: string): void {
+    this.#statements.deleteAgentIfUnused.run(this.#agentRow(id).ref);
   }
 
   listMembers(departmentId: string): AgentRecord[] {
@@ -1310,6 +1346,10 @@ class SqliteStore implements Store {
         if (value !== undefined) this.#statements.saveSetting.run(key, JSON.stringify(value));
       }
     });
+  }
+
+  clearSetting(key: keyof Settings): void {
+    this.#statements.deleteSetting.run(key);
   }
 
   async size(): Promise<StoreSize> {

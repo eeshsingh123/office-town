@@ -12,6 +12,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("task.deleted"), taskId: z.string().min(1) }),
   z.object({ type: z.literal("agent"), agent: agentRecordSchema }),
   z.object({ type: z.literal("department"), department: departmentRecordSchema }),
+  z.object({ type: z.literal("department.removed"), departmentId: z.string().min(1) }),
   z.object({ type: z.literal("delegation"), delegation: delegationRecordSchema }),
   z.object({ type: z.literal("limits"), limits: accountLimitsSchema }),
   z.object({ type: z.literal("piece"), piece: planPieceSchema }),

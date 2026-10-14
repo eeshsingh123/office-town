@@ -37,7 +37,7 @@ const DEPARTMENT_SELECT = `
   SELECT d.ref, d.id, d.name, (SELECT id FROM workspaces WHERE ref = d.workspace_ref) AS workspaceId,
          d.autonomy, l.id AS leadAgentId,
          d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
-         d.created_at AS createdAt
+         d.purpose, d.removed_at AS removedAt, d.created_at AS createdAt
   FROM departments d
   JOIN agents l ON l.ref = d.lead_ref`;
 
@@ -100,6 +100,7 @@ export const queries = {
     "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
   openTaskOfLead: `
     SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' AND state <> 'queued' LIMIT 1`,
+  unendedTaskOfLead: "SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' LIMIT 1",
   oldestQueuedTask: "SELECT id FROM tasks WHERE state = 'queued' ORDER BY ref LIMIT 1",
   // Leaving "ended" clears the review.
   setTaskState: `
@@ -162,6 +163,7 @@ export const queries = {
     WHERE ref = ?1 AND department_ref IS NULL
       AND NOT EXISTS (SELECT 1 FROM sessions WHERE agent_ref = ?1)
       AND NOT EXISTS (SELECT 1 FROM task_workers WHERE agent_ref = ?1)
+      AND NOT EXISTS (SELECT 1 FROM departments WHERE lead_ref = ?1)
       AND NOT EXISTS
         (SELECT 1 FROM settings WHERE key = 'chiefAgentId' AND value = json_quote(agents.id))`,
 
@@ -193,14 +195,23 @@ export const queries = {
 
   insertDepartment: `
     INSERT INTO departments
-      (id, name, workspace_ref, autonomy, lead_ref, branch_per_worker, code_flow, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, name, workspace_ref, autonomy, lead_ref, branch_per_worker, code_flow, rules, purpose,
+       created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   departmentById: `${DEPARTMENT_SELECT} WHERE d.id = ?`,
   // Reads the whole table on purpose: one row per department the user keeps.
-  allDepartments: `${DEPARTMENT_SELECT} ORDER BY d.name`,
+  allDepartments: `${DEPARTMENT_SELECT} WHERE d.removed_at IS NULL ORDER BY d.name`,
   updateDepartment: `
-    UPDATE departments SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?
+    UPDATE departments
+    SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?, purpose = ?
     WHERE ref = ?`,
+  removeDepartment: "UPDATE departments SET removed_at = ? WHERE ref = ?",
+  tasksOfDepartment: "SELECT id FROM tasks WHERE department_ref = ?",
+  deleteDepartmentIfUnused: `
+    DELETE FROM departments
+    WHERE ref = ?1 AND removed_at IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM tasks WHERE department_ref = ?1)
+      AND NOT EXISTS (SELECT 1 FROM plan_pieces WHERE department_ref = ?1)`,
 
   insertProfile: `
     INSERT INTO profiles (id, name, role, colour, settings, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -357,6 +368,7 @@ export const queries = {
     WHERE item_ref = ? AND task_ref = ? AND opened_at IS NULL`,
 
   settingByKey: "SELECT value FROM settings WHERE key = ?",
+  deleteSetting: "DELETE FROM settings WHERE key = ?",
   saveSetting: `
     INSERT INTO settings (key, value) VALUES (?, ?)
     ON CONFLICT (key) DO UPDATE SET value = excluded.value`,

@@ -1,6 +1,6 @@
 import type { TaskState } from "@office-town/contract";
-import { Check, Network, Plus, SwatchBook, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArrowRight, Check, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import {
   type Agent,
   stateOf,
@@ -15,6 +15,7 @@ import { progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import form from "../../ui/Form.module.css";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
@@ -247,7 +248,11 @@ function Team() {
       <div className={styles.create}>
         <Button onClick={() => navigate({ name: "new-department" })}>
           <Plus size={14} aria-hidden />
-          Build a department
+          New department
+        </Button>
+        <Button onClick={() => navigate({ name: "team" })}>
+          <Users size={14} aria-hidden />
+          Open Team
         </Button>
         <Button onClick={() => navigate({ name: "templates" })}>
           <SwatchBook size={14} aria-hidden />
@@ -315,6 +320,76 @@ function Step(props: { number: number; done: boolean; title: string; children: R
   );
 }
 
+// Until there is a chief or a department: say what you need, or set one up step by step.
+function BuildTeam() {
+  const [text, setText] = useState("");
+  const draft = () => {
+    if (text.trim() !== "") navigate({ name: "new-department", describe: text.trim() });
+  };
+  return (
+    <section className={`${styles.card} ${styles.build}`} aria-labelledby="build-title">
+      <div>
+        <h2 id="build-title" className={styles.cardTitle}>
+          Build your team
+        </h2>
+        <p className={styles.buildLead}>Describe the team you want, or set it up step by step.</p>
+      </div>
+      <div className={styles.buildBox}>
+        <label htmlFor="build-text" className="visually-hidden">
+          Describe the team you want
+        </label>
+        <textarea
+          id="build-text"
+          className={form.input}
+          value={text}
+          placeholder="For example: I need a team of 3 to build landing pages. A lead on Opus plans the work, a developer on a free model writes the code, and a reviewer checks it."
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.shiftKey) return;
+            event.preventDefault();
+            draft();
+          }}
+        />
+        <Button variant="primary" disabled={text.trim() === ""} onClick={draft}>
+          <Sparkles size={15} aria-hidden />
+          Draft my team
+        </Button>
+      </div>
+      <div className={styles.buildChoices}>
+        <button
+          type="button"
+          className={styles.buildChoice}
+          onClick={() => navigate({ name: "chief" })}
+        >
+          <Network size={18} aria-hidden />
+          <strong>Set up a chief</strong>
+          <span>
+            One assistant that takes a big goal, splits it into parts and gives each part to the
+            right department.
+          </span>
+          <span className={styles.buildGo}>
+            Start <ArrowRight size={13} aria-hidden />
+          </span>
+        </button>
+        <button
+          type="button"
+          className={styles.buildChoice}
+          onClick={() => navigate({ name: "new-department" })}
+        >
+          <Users size={18} aria-hidden />
+          <strong>New department</strong>
+          <span>
+            A lead and the people it hands work to, with one workspace and one set of rules.
+          </span>
+          <span className={styles.buildGo}>
+            Start <ArrowRight size={13} aria-hidden />
+          </span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // Shown until the first task, so a new user always sees the next thing to do.
 function GetStarted() {
   const harnesses = useApp((state) => state.harnesses);
@@ -349,6 +424,9 @@ function GetStarted() {
 export function HomeView() {
   const { working, order } = useCounts();
   const anyTask = useApp((state) => Object.keys(state.tasks).length > 0);
+  const hasTeam = useApp(
+    (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
+  );
   const summary =
     working === 0 && order.length === 0
       ? "Your office is quiet."
@@ -369,6 +447,7 @@ export function HomeView() {
         <Waiting />
         <LimitStops />
         <Tiles />
+        {hasTeam ? null : <BuildTeam />}
         <PlanUsageCard className={styles.card} />
         <div className={styles.columns}>
           <Team />

@@ -10,7 +10,10 @@ import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
-import { SessionRegistry } from "../../src/registry/session-registry.ts";
+import {
+  type HarnessSessionFactory,
+  SessionRegistry,
+} from "../../src/registry/session-registry.ts";
 import { openStore } from "../../src/store/sqlite-store.ts";
 import type { Store } from "../../src/store/store.ts";
 import { cachedCatalogs } from "../../src/team/catalogs.ts";
@@ -58,14 +61,15 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const taskStates = new TaskStates(store);
   const tools = await startToolServer(store);
   const sessions: FakeSession[] = [];
+  // Model "broken" fails to start; a harness with no catalog is refused, as the real factory does.
+  const createSession: HarnessSessionFactory = (options, extras) => {
+    if (catalogs[options.harness] === undefined) throw new UnknownHarnessError(options.harness);
+    const session = new FakeSession(extras, options.model === "broken");
+    sessions.push(session);
+    return session;
+  };
   const registry = new SessionRegistry(store, {
-    // Model "broken" fails to start; a harness with no catalog is refused, as the real factory does.
-    createSession: (options, extras) => {
-      if (catalogs[options.harness] === undefined) throw new UnknownHarnessError(options.harness);
-      const session = new FakeSession(extras, options.model === "broken");
-      sessions.push(session);
-      return session;
-    },
+    createSession,
     tools,
     guard: autonomyGuard(store),
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
@@ -78,7 +82,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     if (catalog === undefined) throw new Error("not installed");
     return catalog;
   });
-  const team = { store, registry, readCatalog, dataFolder };
+  const team = { store, registry, readCatalog, dataFolder, createSession };
   const activity = new SessionActivity(registry);
   reportResults(team, activity);
   cleanUpWorktrees(team);

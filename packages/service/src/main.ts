@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
+import { createSession } from "@office-town/harness";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
@@ -50,6 +51,7 @@ await store.deleteUnsentAttachments(new Date(Date.now() - 24 * 60 * 60 * 1000));
 const toolServer = await startToolServer(store);
 const readCatalog = cachedCatalogs();
 const registry = new SessionRegistry(store, {
+  createSession,
   tools: toolServer,
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
@@ -58,7 +60,7 @@ const registry = new SessionRegistry(store, {
 });
 taskStates.follow(registry);
 followLibraryUses(registry, store);
-const team = { store, registry, readCatalog, dataFolder };
+const team = { store, registry, readCatalog, dataFolder, createSession };
 const activity = new SessionActivity(registry);
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);

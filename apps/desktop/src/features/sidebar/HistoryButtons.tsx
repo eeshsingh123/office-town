@@ -9,6 +9,7 @@ const PAGES: Record<string, string> = {
   home: "Home",
   "new-task": "New task",
   "new-department": "New department",
+  team: "Team",
   chief: "Chief",
   "needs-you": "Needs you",
   tasks: "Tasks",
