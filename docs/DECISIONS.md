@@ -322,5 +322,5 @@ Why: the app had no way to give an agent a file, and a file the agent never open
 - Department settings can be changed in words: the draft fills the form and the user saves.
 - Removing: the chief (`DELETE /chief`) and a department (`DELETE /departments/:id`) are refused while they work or a plan counts on them. A removed department keeps its row so its tasks still show its name; the user chooses to keep its agents and tasks (they become assistants) or delete them (`?history=delete`) (owner).
 - The chief and department pages explain how they work in a hideable band (`ui/Guide`, shared with Templates).
-- The lead's own team proposal in Needs you still uses the older team rows.
+- The lead's team proposal in Needs you uses the same editor; the lead, already at work, is shown but not edited.
 Why: the owner could not find where to build departments or the chief, the department form had no room for instructions, and there was no way to describe a team in words or remove a chief (references: CrewAI Studio and Copilot Studio draft from a description, then show everything for review).

@@ -7,6 +7,7 @@ import {
   type DraftPerson,
   type RoleSettings,
   type Team,
+  type TeamRole,
 } from "@office-town/contract";
 
 // One person on the team while it is edited; the lead is one too.
@@ -149,6 +150,34 @@ export function formOfDepartment(
   };
 }
 
+// A role as proposed by a lead; a kept member shows its own notes, which it keeps either way.
+export function personOfRole(
+  role: TeamRole,
+  agents: Record<string, AgentRecord>,
+  defaults: RoleSettings,
+): PersonForm {
+  const agent = role.agentId === undefined ? undefined : agents[role.agentId];
+  return {
+    key: nextKey(),
+    role: role.role,
+    purpose: role.purpose,
+    instructions: role.instructions ?? agent?.settings.instructions ?? "",
+    settings: role.settings ?? (agent === undefined ? defaults : settingsOfAgent(agent)),
+    ...(role.agentId === undefined ? {} : { agentId: role.agentId }),
+    ...(role.profileId === undefined ? {} : { profileId: role.profileId }),
+  };
+}
+
+export const rolesOf = (members: readonly PersonForm[]): TeamRole[] =>
+  members.map((member) => ({
+    role: member.role.trim(),
+    purpose: member.purpose.trim(),
+    instructions: member.instructions,
+    settings: member.settings,
+    ...(member.agentId === undefined ? {} : { agentId: member.agentId }),
+    ...(member.profileId === undefined ? {} : { profileId: member.profileId }),
+  }));
+
 // The lead's AI goes in only for a department that exists; a new one makes its lead apart.
 export function teamOf(form: DepartmentForm): Team {
   const { lead } = form;
@@ -160,14 +189,7 @@ export function teamOf(form: DepartmentForm): Team {
       instructions: lead.instructions,
       ...(form.departmentId === undefined ? {} : { settings: lead.settings }),
     },
-    roles: form.members.map((member) => ({
-      role: member.role.trim(),
-      purpose: member.purpose.trim(),
-      instructions: member.instructions,
-      settings: member.settings,
-      ...(member.agentId === undefined ? {} : { agentId: member.agentId }),
-      ...(member.profileId === undefined ? {} : { profileId: member.profileId }),
-    })),
+    roles: rolesOf(form.members),
   };
 }
 

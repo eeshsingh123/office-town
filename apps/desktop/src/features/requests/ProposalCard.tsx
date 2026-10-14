@@ -1,4 +1,4 @@
-import type { Team, UserRequestEvent } from "@office-town/contract";
+import type { RoleSettings, Team, UserRequestEvent } from "@office-town/contract";
 import { Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -7,23 +7,39 @@ import { useApp } from "../../store/app-store.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
-import { type TeamRow, TeamRows, toRoles, toRows } from "../departments/TeamRows.tsx";
-import { useModelLine } from "../profiles/model-line.ts";
+import { MemberEditor } from "../departments/MemberEditor.tsx";
+import { blankPerson, personOfRole, rolesOf, type TeamForm } from "../departments/team-form.ts";
 import styles from "./ProposalCard.module.css";
 import card from "./RequestCard.module.css";
 import { useMinutesSince } from "./RequestCard.tsx";
 
 type ProposalEvent = Extract<UserRequestEvent, { type: "proposal.requested" }>;
 
-// A worker the team already has keeps its name. The lead's own row cannot change.
+// A worker the team already has keeps its name. The lead is at work, so its own row cannot change.
 export function ProposalCard({ event, context }: { event: ProposalEvent; context?: ReactNode }) {
   const { requestId, team, reason, place, departmentId } = event.payload;
   const lead = useSessionAgent(event.sessionId);
-  const leadSummary = useModelLine(lead?.latest.options);
+  const agents = useApp((state) => state.agents);
   const harnesses = useApp((state) => state.harnesses);
   const minutes = useMinutesSince(event.timestamp);
   const [name, setName] = useState(team.name);
-  const [rows, setRows] = useState<TeamRow[]>(() => toRows(team.roles));
+  const [people, setPeople] = useState<TeamForm>(() => {
+    const options = lead?.latest.options;
+    const settings: RoleSettings = {
+      harness: options?.harness ?? harnesses[0]?.harness ?? "claude",
+      environment: options?.environment ?? { kind: "native" },
+      ...(options?.model === undefined ? {} : { model: options.model }),
+      ...(options?.effort === undefined ? {} : { effort: options.effort }),
+    };
+    return {
+      lead: {
+        ...blankPerson(settings, lead?.record.role ?? "Lead", lead?.record.purpose ?? ""),
+        ...(lead === undefined ? {} : { agentId: lead.id }),
+      },
+      members: team.roles.map((role) => personOfRole(role, agents, settings)),
+    };
+  });
+  const [selected, setSelected] = useState(people.members[0]?.key ?? people.lead.key);
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -42,8 +58,9 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
   };
   const answer = (decision: Parameters<typeof api.command>[1]) =>
     run(() => api.command(event.sessionId, decision));
-  const approved: Team = { name: name.trim(), roles: toRoles(rows) };
-  const complete = approved.name !== "" && rows.every((row) => row.role.trim() !== "");
+  const approved: Team = { name: name.trim(), roles: rolesOf(people.members) };
+  const complete =
+    approved.name !== "" && people.members.every((member) => member.role.trim() !== "");
 
   return (
     <article id={requestKey(requestId)} className={card.card} aria-label="Team proposal">
@@ -74,24 +91,14 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
           </div>
         </div>
 
-        <TeamRows
-          rows={rows}
-          onChange={setRows}
-          lead={
-            lead === undefined
-              ? undefined
-              : {
-                  id: lead.id,
-                  name: lead.name,
-                  colour: lead.colour,
-                  summary: leadSummary,
-                }
-          }
-          departmentId={departmentId}
-          defaults={{
-            harness: lead?.latest.options.harness ?? harnesses[0]?.harness ?? "claude",
-            environment: lead?.latest.options.environment ?? { kind: "native" },
-          }}
+        <MemberEditor
+          team={people}
+          onChange={setPeople}
+          selected={selected}
+          onSelect={setSelected}
+          defaults={people.lead.settings}
+          leadLocked="The lead is at work on this task. Change it later in the department's settings."
+          {...(departmentId === undefined ? {} : { departmentId })}
         />
 
         <label className={styles.field}>

@@ -1,4 +1,9 @@
-/* The team as a small org chart on the left, the picked person's details on the right. */
+/* The team as a small org chart on the left, the picked person's details on the right;
+   stacked when its own space is narrow, as inside a request card. */
+.frame {
+  container-type: inline-size;
+}
+
 .editor {
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
@@ -6,7 +11,7 @@
   gap: 24px;
 }
 
-@media (max-width: 860px) {
+@container (max-width: 640px) {
   .editor {
     grid-template-columns: minmax(0, 1fr);
   }

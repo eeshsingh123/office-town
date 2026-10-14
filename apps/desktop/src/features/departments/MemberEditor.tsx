@@ -63,6 +63,19 @@ interface MemberEditorProps {
   // Set for a department that exists, so its members' files show.
   departmentId?: string;
   workspaceId?: string;
+  // Set while the lead is at work: its row is shown, not edited, with this note.
+  leadLocked?: string;
+}
+
+function LockedLead({ person, note }: { person: PersonForm; note: string }) {
+  const model = useModelLine(person.settings);
+  return (
+    <div className={form.field}>
+      <span className={form.label}>Model</span>
+      <span>{model}</span>
+      <p className={form.hint}>{note}</p>
+    </div>
+  );
 }
 
 function ListRow({
@@ -102,10 +115,12 @@ export function MemberEditor({
   defaults,
   departmentId,
   workspaceId,
+  leadLocked,
 }: MemberEditorProps) {
   const agents = useApp((state) => state.agents);
   const [opened, setOpened] = useState<Opened>();
   const isLead = selected === team.lead.key;
+  const locked = isLead && leadLocked !== undefined;
   const person = isLead ? team.lead : team.members.find((member) => member.key === selected);
   const index = team.members.findIndex((member) => member.key === selected);
   const agent = person?.agentId === undefined ? undefined : agents[person.agentId];
@@ -144,238 +159,254 @@ export function MemberEditor({
   };
 
   return (
-    <div className={styles.editor}>
-      <div className={styles.list}>
-        <span className={styles.eyebrow}>Team</span>
-        <ul className={styles.people} aria-label="Team">
-          <ListRow
-            person={team.lead}
-            colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
-            lead
-            selected={isLead}
-            onSelect={() => onSelect(team.lead.key)}
-          />
-          {team.members.map((member, at) => (
+    <div className={styles.frame}>
+      <div className={styles.editor}>
+        <div className={styles.list}>
+          <span className={styles.eyebrow}>Team</span>
+          <ul className={styles.people} aria-label="Team">
             <ListRow
-              key={member.key}
-              person={member}
-              colour={(member.agentId && agents[member.agentId]?.colour) || memberColour(at)}
-              lead={false}
-              selected={member.key === selected}
-              onSelect={() => onSelect(member.key)}
+              person={team.lead}
+              colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
+              lead
+              selected={isLead}
+              onSelect={() => onSelect(team.lead.key)}
             />
-          ))}
-        </ul>
-        <Button onClick={() => setOpened({ kind: "add" })}>
-          <Plus size={14} aria-hidden />
-          Add a member
-        </Button>
-        {leaving.length === 0 ? null : (
-          <p className={form.hint}>Leaves the team: {leaving.map((one) => one.name).join(", ")}</p>
-        )}
-      </div>
+            {team.members.map((member, at) => (
+              <ListRow
+                key={member.key}
+                person={member}
+                colour={(member.agentId && agents[member.agentId]?.colour) || memberColour(at)}
+                lead={false}
+                selected={member.key === selected}
+                onSelect={() => onSelect(member.key)}
+              />
+            ))}
+          </ul>
+          <Button onClick={() => setOpened({ kind: "add" })}>
+            <Plus size={14} aria-hidden />
+            Add a member
+          </Button>
+          {leaving.length === 0 ? null : (
+            <p className={form.hint}>
+              Leaves the team: {leaving.map((one) => one.name).join(", ")}
+            </p>
+          )}
+        </div>
 
-      {person === undefined ? null : (
-        <section className={styles.card} aria-label={person.role || "Team member"}>
-          <header className={styles.head}>
-            <Avatar name={person.role || "?"} colour={colour} size={44} />
-            <div className={styles.headText}>
-              <strong>{person.role.trim() || (isLead ? "Lead" : "New member")}</strong>
-              <span>
-                {isLead ? "Leads the team" : "Reports to the lead"}
-                {agent === undefined ? "" : ` · ${agent.name}`}
-              </span>
-            </div>
-            <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
-              <SwatchBook size={14} aria-hidden />
-              Start from template
-            </Button>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button
-                  variant="ghost"
-                  icon
-                  aria-label={`More for ${person.role || "this member"}`}
-                >
-                  <MoreHorizontal size={14} aria-hidden />
+        {person === undefined ? null : (
+          <section className={styles.card} aria-label={person.role || "Team member"}>
+            <header className={styles.head}>
+              <Avatar name={person.role || "?"} colour={colour} size={44} />
+              <div className={styles.headText}>
+                <strong>{person.role.trim() || (isLead ? "Lead" : "New member")}</strong>
+                <span>
+                  {isLead ? "Leads the team" : "Reports to the lead"}
+                  {agent === undefined ? "" : ` · ${agent.name}`}
+                </span>
+              </div>
+              {locked ? null : (
+                <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
+                  <SwatchBook size={14} aria-hidden />
+                  Start from template
                 </Button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                  {agent === undefined ? null : (
+              )}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    variant="ghost"
+                    icon
+                    aria-label={`More for ${person.role || "this member"}`}
+                  >
+                    <MoreHorizontal size={14} aria-hidden />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
+                    {agent === undefined ? null : (
+                      <DropdownMenu.Item
+                        className={menu.item}
+                        onSelect={() => setOpened({ kind: "profile", agent })}
+                      >
+                        Open profile
+                      </DropdownMenu.Item>
+                    )}
                     <DropdownMenu.Item
                       className={menu.item}
-                      onSelect={() => setOpened({ kind: "profile", agent })}
-                    >
-                      Open profile
-                    </DropdownMenu.Item>
-                  )}
-                  <DropdownMenu.Item
-                    className={menu.item}
-                    onSelect={() =>
-                      setOpened({
-                        kind: "save",
-                        source: {
-                          who: agent?.name ?? (person.role || "this team member"),
-                          name: person.role,
-                          job: person.purpose,
-                          colour,
-                          settings: {
-                            ...person.settings,
-                            ...(person.instructions.trim() === ""
-                              ? {}
-                              : { instructions: person.instructions.trim() }),
+                      onSelect={() =>
+                        setOpened({
+                          kind: "save",
+                          source: {
+                            who: agent?.name ?? (person.role || "this team member"),
+                            name: person.role,
+                            job: person.purpose,
+                            colour,
+                            settings: {
+                              ...person.settings,
+                              ...(person.instructions.trim() === ""
+                                ? {}
+                                : { instructions: person.instructions.trim() }),
+                            },
                           },
-                        },
-                      })
-                    }
-                  >
-                    Save as template
-                  </DropdownMenu.Item>
-                  {isLead ? null : (
-                    <DropdownMenu.Item className={menu.item} onSelect={remove}>
-                      Remove from team
+                        })
+                      }
+                    >
+                      Save as template
                     </DropdownMenu.Item>
-                  )}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </header>
+                    {isLead ? null : (
+                      <DropdownMenu.Item className={menu.item} onSelect={remove}>
+                        Remove from team
+                      </DropdownMenu.Item>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </header>
 
-          <div className={styles.pair}>
-            <label className={form.field}>
-              <span className={form.label}>Role name</span>
-              <input
-                className={form.input}
-                value={person.role}
-                placeholder={isLead ? "Lead" : "For example: Copywriter"}
-                onChange={(change) => update({ role: change.target.value })}
+            {leadLocked !== undefined && locked ? (
+              <LockedLead person={person} note={leadLocked} />
+            ) : (
+              <>
+                <div className={styles.pair}>
+                  <label className={form.field}>
+                    <span className={form.label}>Role name</span>
+                    <input
+                      className={form.input}
+                      value={person.role}
+                      placeholder={isLead ? "Lead" : "For example: Copywriter"}
+                      onChange={(change) => update({ role: change.target.value })}
+                    />
+                  </label>
+                  <label className={form.field}>
+                    <span className={form.label}>What they do</span>
+                    <input
+                      className={form.input}
+                      value={person.purpose}
+                      placeholder="One line, shown on cards and to the lead"
+                      onChange={(change) => update({ purpose: change.target.value })}
+                    />
+                  </label>
+                </div>
+
+                <label className={form.field}>
+                  <span className={form.label}>Instructions</span>
+                  <span className={form.hint}>
+                    {isLead
+                      ? "How to split the work, and what to check before handing it back. Read before every task."
+                      : "How they work, what to avoid, what to hand back. Read before every task."}
+                  </span>
+                  <textarea
+                    className={`${form.input} ${styles.instructions}`}
+                    value={person.instructions}
+                    placeholder={
+                      isLead
+                        ? "For example: Give each page to one developer. Check the reviewer's notes before you hand the work back."
+                        : "For example: Write for small business owners. Short sentences, no jargon."
+                    }
+                    onChange={(change) => update({ instructions: change.target.value })}
+                  />
+                </label>
+
+                <div className={form.field}>
+                  <span className={form.label}>Model</span>
+                  <div className={styles.chips}>
+                    <SettingsChips
+                      value={person.settings}
+                      onChange={(settings) => update({ settings, modelGuessed: false })}
+                    />
+                  </div>
+                  {person.modelGuessed ? (
+                    <span className={styles.guessed}>
+                      Picked by the draft. Check it suits the job.
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            )}
+
+            {agent === undefined ||
+            workspaceId === undefined ||
+            departmentId === undefined ? null : (
+              <FilesSection
+                workspaceId={workspaceId}
+                holder={{ departmentId, agentId: agent.id }}
+                name={agent.name}
               />
-            </label>
-            <label className={form.field}>
-              <span className={form.label}>What they do</span>
-              <input
-                className={form.input}
-                value={person.purpose}
-                placeholder="One line, shown on cards and to the lead"
-                onChange={(change) => update({ purpose: change.target.value })}
-              />
-            </label>
-          </div>
+            )}
+          </section>
+        )}
 
-          <label className={form.field}>
-            <span className={form.label}>Instructions</span>
-            <span className={form.hint}>
-              {isLead
-                ? "How to split the work, and what to check before handing it back. Read before every task."
-                : "How they work, what to avoid, what to hand back. Read before every task."}
-            </span>
-            <textarea
-              className={`${form.input} ${styles.instructions}`}
-              value={person.instructions}
-              placeholder={
-                isLead
-                  ? "For example: Give each page to one developer. Check the reviewer's notes before you hand the work back."
-                  : "For example: Write for small business owners. Short sentences, no jargon."
-              }
-              onChange={(change) => update({ instructions: change.target.value })}
-            />
-          </label>
-
-          <div className={form.field}>
-            <span className={form.label}>Model</span>
-            <div className={styles.chips}>
-              <SettingsChips
-                value={person.settings}
-                onChange={(settings) => update({ settings, modelGuessed: false })}
-              />
-            </div>
-            {person.modelGuessed ? (
-              <span className={styles.guessed}>Picked by the draft. Check it suits the job.</span>
-            ) : null}
-          </div>
-
-          {agent === undefined || workspaceId === undefined || departmentId === undefined ? null : (
-            <FilesSection
-              workspaceId={workspaceId}
-              holder={{ departmentId, agentId: agent.id }}
-              name={agent.name}
-            />
-          )}
-        </section>
-      )}
-
-      <Dialog.Root open={opened?.kind === "add"} onOpenChange={closeDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialog.overlay} />
-          <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
-            <Dialog.Title className={dialog.title}>Add a member</Dialog.Title>
-            <Dialog.Description className={dialog.description}>
-              Start blank, from a common role, or from a template.
-            </Dialog.Description>
-            <div className={styles.starters}>
-              <button
-                type="button"
-                className={styles.starter}
-                onClick={() => add(blankPerson(defaults))}
-              >
-                <Plus size={13} aria-hidden />
-                Blank
-              </button>
-              {ROLE_STARTERS.map((starter) => (
+        <Dialog.Root open={opened?.kind === "add"} onOpenChange={closeDialog}>
+          <Dialog.Portal>
+            <Dialog.Overlay className={dialog.overlay} />
+            <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
+              <Dialog.Title className={dialog.title}>Add a member</Dialog.Title>
+              <Dialog.Description className={dialog.description}>
+                Start blank, from a common role, or from a template.
+              </Dialog.Description>
+              <div className={styles.starters}>
                 <button
-                  key={starter.role}
                   type="button"
                   className={styles.starter}
-                  onClick={() => add(blankPerson(defaults, starter.role, starter.purpose))}
+                  onClick={() => add(blankPerson(defaults))}
                 >
                   <Plus size={13} aria-hidden />
-                  {starter.role}
+                  Blank
                 </button>
-              ))}
-            </div>
-            <TemplatePicker
-              chosen={undefined}
-              onPick={(template) =>
-                add(
-                  template === undefined
-                    ? blankPerson(defaults)
-                    : fromTemplate(blankPerson(defaults), template),
-                )
-              }
-            />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <Dialog.Root open={opened?.kind === "template"} onOpenChange={closeDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className={dialog.overlay} />
-          <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
-            <Dialog.Title className={dialog.title}>Start from a template</Dialog.Title>
-            <Dialog.Description className={dialog.description}>
-              Fills in the role, instructions and model. Changes here won't change the template.
-            </Dialog.Description>
-            <TemplatePicker
-              chosen={person?.profileId}
-              who={isLead ? "the lead" : "this member"}
-              onPick={(template) => {
-                setOpened(undefined);
-                if (template !== undefined && person !== undefined) {
-                  update(fromTemplate(person, template));
+                {ROLE_STARTERS.map((starter) => (
+                  <button
+                    key={starter.role}
+                    type="button"
+                    className={styles.starter}
+                    onClick={() => add(blankPerson(defaults, starter.role, starter.purpose))}
+                  >
+                    <Plus size={13} aria-hidden />
+                    {starter.role}
+                  </button>
+                ))}
+              </div>
+              <TemplatePicker
+                chosen={undefined}
+                onPick={(template) =>
+                  add(
+                    template === undefined
+                      ? blankPerson(defaults)
+                      : fromTemplate(blankPerson(defaults), template),
+                  )
                 }
-              }}
-            />
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+              />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
 
-      {opened?.kind === "save" ? (
-        <SaveTemplateDialog source={opened.source} open onOpenChange={closeDialog} />
-      ) : null}
-      {opened?.kind === "profile" ? (
-        <AgentProfileDialog agent={opened.agent} open onOpenChange={closeDialog} />
-      ) : null}
+        <Dialog.Root open={opened?.kind === "template"} onOpenChange={closeDialog}>
+          <Dialog.Portal>
+            <Dialog.Overlay className={dialog.overlay} />
+            <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
+              <Dialog.Title className={dialog.title}>Start from a template</Dialog.Title>
+              <Dialog.Description className={dialog.description}>
+                Fills in the role, instructions and model. Changes here won't change the template.
+              </Dialog.Description>
+              <TemplatePicker
+                chosen={person?.profileId}
+                who={isLead ? "the lead" : "this member"}
+                onPick={(template) => {
+                  setOpened(undefined);
+                  if (template !== undefined && person !== undefined) {
+                    update(fromTemplate(person, template));
+                  }
+                }}
+              />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+
+        {opened?.kind === "save" ? (
+          <SaveTemplateDialog source={opened.source} open onOpenChange={closeDialog} />
+        ) : null}
+        {opened?.kind === "profile" ? (
+          <AgentProfileDialog agent={opened.agent} open onOpenChange={closeDialog} />
+        ) : null}
+      </div>
     </div>
   );
 }
