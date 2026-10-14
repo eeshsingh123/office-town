@@ -7,7 +7,7 @@ import type {
   TeamRole,
 } from "@office-town/contract";
 import { freeIdentity } from "../agents/agents.ts";
-import type { SessionRegistry } from "../registry/session-registry.ts";
+import type { HarnessSessionFactory, SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import type { ReadCatalog } from "./catalogs.ts";
 
@@ -17,6 +17,8 @@ export interface TeamContext {
   readCatalog: ReadCatalog;
   // Where workers' worktrees live, apart from the user's folders.
   dataFolder: string;
+  // For a one-off run that is no agent's work, such as a draft.
+  createSession: HarnessSessionFactory;
 }
 
 export class DepartmentBusyError extends Error {

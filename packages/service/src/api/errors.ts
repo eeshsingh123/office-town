@@ -7,6 +7,7 @@ import {
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
 import { ChiefBusyError, NoChiefError } from "../chief/chief.ts";
+import { DraftError } from "../drafts/run.ts";
 import {
   AnswerError,
   SessionNotResumableError,
@@ -56,6 +57,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [URIError, 400, "invalid_request"],
   [BinaryNotFoundError, 502, "harness_failed"],
   [CatalogError, 502, "harness_failed"],
+  [DraftError, 502, "harness_failed"],
 ];
 
 export interface ErrorReply {

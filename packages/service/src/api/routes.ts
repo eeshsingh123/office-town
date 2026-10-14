@@ -3,9 +3,11 @@ import {
   agentMessageRequestSchema,
   agentProfileRequestSchema,
   answerPermissionsRequestSchema,
+  chiefDraftRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
   continueTaskRequestSchema,
+  departmentDraftRequestSchema,
   departmentSettingsSchema,
   environmentSpecSchema,
   linkFolderRequestSchema,
@@ -33,6 +35,8 @@ import { sessionOptionsFor } from "../agents/options.ts";
 import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
 import { chiefOf, isChiefTask, removeChief, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
+import { draftChief } from "../drafts/chief.ts";
+import { draftDepartments } from "../drafts/departments.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
@@ -399,6 +403,22 @@ export function apiRoutes(team: TeamContext): Route[] {
         removeChief(store);
         return NO_CONTENT;
       },
+    },
+    {
+      method: "POST",
+      path: "/drafts/departments",
+      reply: async ({ body }) => ({
+        status: 200,
+        json: await draftDepartments(team, departmentDraftRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "POST",
+      path: "/drafts/chief",
+      reply: async ({ body }) => ({
+        status: 200,
+        json: await draftChief(team, chiefDraftRequestSchema.parse(await body())),
+      }),
     },
     {
       method: "GET",

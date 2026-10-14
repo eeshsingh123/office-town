@@ -7,6 +7,7 @@ export * from "./capabilities.ts";
 export * from "./catalog.ts";
 export * from "./changes.ts";
 export * from "./commands.ts";
+export * from "./drafts.ts";
 export * from "./events.ts";
 export * from "./library.ts";
 export * from "./options.ts";
