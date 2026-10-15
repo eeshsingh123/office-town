@@ -342,7 +342,9 @@ function BuildTeam() {
         <h2 id="build-title" className={styles.cardTitle}>
           Build your team
         </h2>
-        <p className={styles.buildLead}>Describe the team you want, or set it up step by step.</p>
+        <p className={styles.buildLead}>
+          Describe the team you want, or set up a chief or department below.
+        </p>
       </div>
       <div className={styles.buildBox}>
         <label htmlFor="build-text" className="visually-hidden">
