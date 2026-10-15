@@ -42,8 +42,9 @@
   color: var(--text);
 }
 
-/* Each level hangs off the row above: a line down from its avatar, then an elbow into each child.
-   A row sets --elbow to the distance from its top to its middle. */
+/* Each level hangs off the row above. A row draws its own elbow (a line down from its parent,
+   then across to its middle), so the line meets it whatever its height; the line on to later
+   siblings is the item's own. */
 .tree,
 .tree ul {
   margin: 0;
@@ -51,54 +52,79 @@
   list-style: none;
 }
 
+.tree {
+  --indent: 34px;
+  --gap: 16px;
+  --line: 2px solid var(--border-strong);
+}
+
 .tree ul {
   margin-left: 31px;
 }
 
 .tree li {
-  --elbow: 28px;
   position: relative;
-  padding: 16px 0 0 34px;
+  padding: var(--gap) 0 0 var(--indent);
 }
 
-.tree li::before,
-.tree li::after {
+.tree li:not(:last-child)::before {
   content: "";
   position: absolute;
-  left: 0;
-  border-color: var(--border-strong);
-}
-
-.tree li::before {
   top: 0;
   bottom: 0;
-  border-left: 2px solid var(--border-strong);
+  left: 0;
+  border-left: var(--line);
 }
 
-.tree li::after {
-  top: calc(16px + var(--elbow));
-  width: 26px;
-  border-top: 2px solid var(--border-strong);
+.tree li > :first-child {
+  position: relative;
 }
 
-.tree li:last-child::before {
-  bottom: auto;
-  height: calc(16px + var(--elbow));
+.tree li > :first-child::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--gap));
+  bottom: 50%;
+  left: calc(-1 * var(--indent));
+  width: calc(var(--indent) - 8px);
+  border-bottom: var(--line);
+  border-left: var(--line);
+  pointer-events: none;
+}
+
+/* A department's line meets its first row (14px padding + a 40px name block), not the middle
+   of its open list of people or of a header wrapped onto two rows. */
+.tree li > .department::before {
+  display: none;
+}
+
+.tree li > .department .departmentHead::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--gap) - 1px);
+  height: calc(var(--gap) + 1px + 34px);
+  left: calc(-1 * var(--indent) - 1px);
+  width: calc(var(--indent) - 8px);
+  border-bottom: var(--line);
+  border-left: var(--line);
+  pointer-events: none;
 }
 
 .tree > li {
   padding: 0;
 }
 
-.tree > li::before,
-.tree > li::after {
+.tree > li > :first-child::before {
   display: none;
 }
 
-/* Not there yet. */
-.tree li.future::before,
-.tree li.future::after {
-  border-style: dashed;
+/* Not there yet; what hangs below it is drawn as usual. */
+.future {
+  --line: 2px dashed var(--border-strong);
+}
+
+.future ul {
+  --line: 2px solid var(--border-strong);
 }
 
 .node {
@@ -214,14 +240,31 @@ button.chief:hover {
 }
 
 .departmentHead {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px 12px 14px 10px;
 }
 
+.departmentHead .text {
+  flex: 1 1 160px;
+}
+
+.departmentHead .text strong,
+.departmentHead .text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .departmentHead .text strong {
   font-size: 15px;
+  line-height: 22px;
+}
+
+.departmentHead .text span {
+  line-height: 18px;
 }
 
 .fold {
@@ -259,36 +302,16 @@ button.chief:hover {
   border-top: 1px solid var(--border);
 }
 
-.people .peopleTree {
+/* A lighter, tighter tree inside a department. */
+.peopleTree {
   align-self: stretch;
+  --indent: 28px;
+  --gap: 4px;
+  --line: 1.5px solid var(--border);
 }
 
-/* A lighter, tighter tree inside a department. */
 .peopleTree ul {
   margin-left: 18px;
-}
-
-.peopleTree li {
-  --elbow: 15px;
-  padding: 4px 0 0 28px;
-}
-
-.peopleTree li::before {
-  border-left: 1.5px solid var(--border);
-}
-
-.peopleTree li::after {
-  top: calc(4px + var(--elbow));
-  width: 22px;
-  border-top: 1.5px solid var(--border);
-}
-
-.peopleTree li:last-child::before {
-  height: calc(4px + var(--elbow));
-}
-
-.peopleTree > li {
-  padding: 4px 0 0;
 }
 
 .person {
@@ -433,7 +456,23 @@ button.chief:hover {
 }
 
 @media (max-width: 720px) {
+  .tree {
+    --indent: 22px;
+  }
+
+  .tree ul {
+    margin-left: 15px;
+  }
+
   .departmentHead {
     flex-wrap: wrap;
+  }
+
+  .people {
+    padding-left: 16px;
+  }
+
+  .starter {
+    padding: 20px;
   }
 }

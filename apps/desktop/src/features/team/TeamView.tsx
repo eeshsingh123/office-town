@@ -1,6 +1,6 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { ChevronDown, Lock, Network, Plus, Search, Settings, UserPlus } from "lucide-react";
-import { type CSSProperties, useState } from "react";
+import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -25,9 +25,6 @@ const EXAMPLES = [
     text: "A developer who builds features in our app and a reviewer who checks the code and tests before it merges.",
   },
 ];
-
-// Where each tree row's elbow line meets it, so the line lands on the row's middle.
-const elbow = (px: number) => ({ "--elbow": `${px}px` }) as CSSProperties;
 
 // "Newsletter and Research", "A, B and C", or "your 5 departments".
 function listNames(names: string[]): string {
@@ -362,16 +359,16 @@ export function TeamView() {
               </span>
             </div>
             <ul>
-              <li className={!hasChief && empty ? styles.future : undefined} style={elbow(28)}>
+              <li className={!hasChief && empty ? styles.future : undefined}>
                 <ChiefSlot departmentNames={all.map((department) => department.name)} />
                 <ul>
                   {empty ? (
-                    <li style={elbow(36)}>
+                    <li>
                       <Starter />
                     </li>
                   ) : (
                     shown.map((department) => (
-                      <li key={department.id} style={elbow(30)}>
+                      <li key={department.id}>
                         <DepartmentCard
                           department={department}
                           members={membersOf(department)}
