@@ -38,6 +38,31 @@ function ChiefEntry() {
   );
 }
 
+// Until there is a chief, its place in the list offers one; it needs a department to plan for.
+function ChiefCard() {
+  const show = useApp(
+    (state) => state.chiefId === undefined && Object.keys(state.departments).length > 0,
+  );
+  if (!show) return null;
+  return (
+    <div className={styles.teamCard}>
+      <div className={styles.teamCardHead}>
+        <span className={styles.teamCardIcon} aria-hidden>
+          <Network size={13} />
+        </span>
+        <strong>Add a chief</strong>
+      </div>
+      <span className={styles.teamHint}>
+        Give it one goal and it splits the work across your departments.
+      </span>
+      <button type="button" onClick={() => navigate({ name: "chief" })}>
+        Set up a chief
+        <ArrowRight size={14} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 // Adds a department, or the chief while there is none.
 function AddMenu() {
   const hasChief = useApp((state) => state.chiefId !== undefined);
@@ -101,6 +126,7 @@ export function Departments() {
         {list.length === 0 ? null : <AddMenu />}
       </div>
       <ChiefEntry />
+      <ChiefCard />
       {list.length === 0 ? (
         <div className={styles.teamCard}>
           <strong>Build your team</strong>
