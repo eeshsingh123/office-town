@@ -1,5 +1,5 @@
 import type { TaskState } from "@office-town/contract";
-import { CircleHelp, Settings } from "lucide-react";
+import { CircleHelp, Settings, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -69,26 +69,25 @@ function GoalBox({ name }: { name: string }) {
   );
 }
 
+// Removing is blocked while a goal runs or waits its turn.
 function RemoveChief({ name, busy }: { name: string; busy: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <section className={styles.danger} aria-labelledby="remove-chief-title">
-      <div className={styles.dangerText}>
-        <strong id="remove-chief-title">Remove chief</strong>
-        <span className={page.hint}>
-          {busy
-            ? "Stop its goal first."
-            : "Departments, their agents and past goals stay. You can set up a new chief later."}
-        </span>
-      </div>
-      <Button onClick={() => setOpen(true)} disabled={busy}>
-        Remove chief…
+    <>
+      <Button
+        variant="danger"
+        onClick={() => setOpen(true)}
+        disabled={busy}
+        title={busy ? "Stop its goal first" : undefined}
+      >
+        <Trash2 size={14} aria-hidden />
+        Remove
       </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
         title={`Remove ${name}?`}
-        description="Its past goals stay in Tasks and departments keep working. This cannot be undone."
+        description="Its past goals stay in Tasks and departments keep working. You can set up a new chief later. This cannot be undone."
         confirmLabel="Remove"
         onConfirm={async () => {
           await api.removeChief();
@@ -96,7 +95,7 @@ function RemoveChief({ name, busy }: { name: string; busy: boolean }) {
           navigate({ name: "team" });
         }}
       />
-    </section>
+    </>
   );
 }
 
@@ -144,6 +143,7 @@ function ChiefHome() {
             <Settings size={14} aria-hidden />
             Settings
           </Button>
+          <RemoveChief name={record.name} busy={busy || queue.length > 0} />
         </header>
 
         {guideHidden ? null : (
@@ -236,7 +236,6 @@ function ChiefHome() {
             </section>
           </aside>
         </div>
-        <RemoveChief name={record.name} busy={busy || queue.length > 0} />
       </div>
     </section>
   );

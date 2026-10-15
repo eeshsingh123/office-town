@@ -7,12 +7,10 @@ import {
   LayoutPanelLeft,
   List,
   type LucideIcon,
-  Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
   Search,
-  Sun,
   SwatchBook,
   Users,
 } from "lucide-react";
@@ -23,7 +21,6 @@ import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
-import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { openCommandMenu } from "../command/command-menu.ts";
 import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
@@ -101,19 +98,6 @@ function UsageDot() {
     <span className={styles.usageDot}>
       <span className="visually-hidden"> An account is near its limit</span>
     </span>
-  );
-}
-
-function ThemeToggle() {
-  const dark = useTheme() === "dark";
-  const Icon = dark ? Sun : Moon;
-  const label = dark ? "Light mode" : "Dark mode";
-  const rail = useRailLabel(label);
-  return (
-    <button type="button" className={styles.nav} onClick={toggleTheme} {...rail}>
-      <Icon size={16} aria-hidden />
-      <span className={styles.text}>{label}</span>
-    </button>
   );
 }
 
@@ -206,7 +190,6 @@ export function Sidebar() {
         )}
         <div className={styles.footer}>
           <NavItem view="help" icon={CircleHelp} label="Help" />
-          <ThemeToggle />
           <ConnectionStatus />
           <YouItem />
         </div>

@@ -290,22 +290,3 @@
   font-weight: 600;
   cursor: pointer;
 }
-
-.danger {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-  margin-top: 18px;
-  padding: 20px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-}
-
-.dangerText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 240px;
-}

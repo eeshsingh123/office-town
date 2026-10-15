@@ -1,4 +1,5 @@
 import type { UserProfile } from "@office-town/contract";
+import { Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -8,6 +9,7 @@ import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
+import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import styles from "./YouView.module.css";
 import { ANSWER_PICKS, useYou, youPreview } from "./you.ts";
 
@@ -36,6 +38,33 @@ function Switch({
         <strong>{label}</strong>
         {hint === undefined ? null : <p className={form.hint}>{hint}</p>}
       </div>
+    </div>
+  );
+}
+
+// Applies at once, apart from the profile's Save.
+function Appearance() {
+  const theme = useTheme();
+  return (
+    <div className={page.panel}>
+      <span className={page.eyebrow}>Appearance</span>
+      <fieldset className={`${form.row} ${form.group}`}>
+        <legend className="visually-hidden">Theme</legend>
+        {(["light", "dark"] as const).map((pick) => (
+          <button
+            key={pick}
+            type="button"
+            className={`${form.chip} ${styles.themeChip}`}
+            aria-pressed={theme === pick}
+            onClick={() => {
+              if (theme !== pick) toggleTheme();
+            }}
+          >
+            {pick === "light" ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
+            {pick === "light" ? "Light" : "Dark"}
+          </button>
+        ))}
+      </fieldset>
     </div>
   );
 }
@@ -187,6 +216,7 @@ export function YouView() {
         </div>
 
         <aside className={page.aside}>
+          <Appearance />
           <div className={page.panel}>
             <span className={page.eyebrow}>What your agents will read</span>
             <p className={styles.preview}>{preview === "" ? "Nothing yet." : preview}</p>
