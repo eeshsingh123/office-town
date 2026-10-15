@@ -12,7 +12,10 @@
   overflow: hidden;
 }
 
+/* Positioned so hidden labels (`.visually-hidden`, absolute) are placed inside the view and
+   clipped by it; otherwise one below the fold stretches the window and adds a second scrollbar. */
 .view {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
