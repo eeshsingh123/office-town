@@ -87,8 +87,8 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             })}
             <Item
               value={PROPOSE}
-              title="A new team for this task"
-              note="A lead picks a team for you to approve"
+              title="A new department"
+              note="Propose a new department for this task"
             />
             <DropdownMenu.Label className={styles.menuHeading}>
               Across departments

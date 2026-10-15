@@ -286,7 +286,7 @@ export function Composer({ home = false }: ComposerProps) {
       .filter((known) => !busy.has(known.id))
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((known) => ({ id: known.id, name: known.name, note: "Department" })),
-    { id: PROPOSE, name: "A new team", note: "A lead picks a team for you to approve" },
+    { id: PROPOSE, name: "A new department", note: "Propose a new department for this task" },
     ...(chief === undefined
       ? []
       : [
@@ -377,7 +377,7 @@ export function Composer({ home = false }: ComposerProps) {
       : target === CHIEF
         ? (chief?.record.name ?? "Chief")
         : proposing
-          ? "New team"
+          ? "New department"
           : (department?.name ?? "");
   let plan: ReactNode = null;
   if (target === CHIEF) {
