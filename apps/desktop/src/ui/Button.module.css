@@ -46,6 +46,17 @@
   color: var(--text);
 }
 
+/* Removes or deletes something. */
+.danger {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--bad);
+  color: var(--on-accent);
+}
+
 .icon {
   width: 36px;
   padding: 0;

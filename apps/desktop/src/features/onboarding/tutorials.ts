@@ -129,8 +129,8 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     id: "chief",
-    title: "Give the chief a goal",
-    summary: "The chief splits one goal across your departments.",
+    title: "Create a chief and give it a goal",
+    summary: "Set up a chief, then hand it one goal to split across your departments.",
     blocked: (state) =>
       Object.keys(state.departments).length === 0 ? "Build a department first." : undefined,
     start() {

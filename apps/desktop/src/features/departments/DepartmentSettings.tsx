@@ -53,7 +53,9 @@ function RemoveDepartment({ department }: { department: DepartmentRecord }) {
           Not while it works on a task. You choose what happens to its agents and tasks.
         </span>
       </div>
-      <Button onClick={() => setOpen(true)}>Remove department…</Button>
+      <Button variant="danger" onClick={() => setOpen(true)}>
+        Remove department
+      </Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}

@@ -186,7 +186,7 @@ export function WorkspacePicker({
             }}
           >
             <Plus size={14} aria-hidden />
-            New workspace…
+            New workspace
           </button>
         </Popover.Content>
       </Popover.Portal>

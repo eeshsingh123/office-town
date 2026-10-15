@@ -68,3 +68,10 @@
   font-size: var(--size-meta);
   white-space: pre-wrap;
 }
+
+/* Theme picks carry an icon beside the word. */
+.themeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
