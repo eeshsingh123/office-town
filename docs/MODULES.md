@@ -1,6 +1,6 @@
 # Modules
 
-The roadmap. Modules are built in order; each module is one branch and one PR, with one commit series per sub-module so it can be reviewed commit by commit. The next module is detailed; later ones stay an outline until their design session, and finished ones shrink to what later work builds on. A sub-module handed to another agent gets its own self-contained story brief (see AGENTS.md), written when it is assigned.
+The roadmap. Modules are built in order; each module is one branch and one PR, with one commit series per sub-module so it can be reviewed commit by commit. The next module is detailed once chosen; later ones stay an outline until their design session, and finished ones shrink to what later work builds on. A sub-module handed to another agent gets its own self-contained story brief (see AGENTS.md), written when it is assigned.
 
 ## Package layout
 
@@ -8,7 +8,7 @@ The roadmap. Modules are built in order; each module is one branch and one PR, w
 packages/contract   shared types and schemas: events, commands, API messages. No runtime dependencies except the schema library.
 packages/harness    M1. Runs one agent session on one harness and emits contract events.
 packages/service    M2. Long-running core: session registry, storage, HTTP and SSE API. M4 added teams, the tool server and autonomy.
-apps/desktop        M3. Electron shell and React UI.
+apps/desktop        M3. Electron shell and React UI; later modules add pages under src/features.
 ```
 
 Dependencies point one way: `desktop -> contract`, `service -> harness -> contract`. The UI never imports `harness` or `service`; it only speaks the API defined in `contract`.
@@ -54,40 +54,37 @@ Every adapter passes the same conformance tests, run against recordings of the r
 
 ### M3 Desktop shell, office and agent panels (done)
 
-`apps/desktop` is the app. The Electron shell starts the core, keeps agents running in the tray (D-34) and forwards `/api` with the token (D-36). The UI has one API client, one Zustand store fed by a single live stream, and pure functions that turn events into a trace (D-37). The office is the home screen (D-35): one open floor, an agent per task, walk-up, click and drag-select, and a side panel. Around it: New task, the trace view, the request card used in the trace and in Needs you, Tasks (history, replay, delete), light and dark themes. M4 builds on all of it: agent identity in `src/store/agents.ts`, the floor plan in `features/office/floor-plan.ts`, the request card in `features/requests`.
+`apps/desktop` is the app. The Electron shell starts the core, keeps agents running in the tray (D-34) and forwards `/api` with the token (D-36). The UI has one API client, one Zustand store fed by a single live stream, and pure functions that turn events into a trace (D-37). The office (D-35; Home became the first screen in D-52): one open floor, an agent per task, walk-up, click and drag-select, and a side panel. Around it: New task, the trace view, the request card used in the trace and in Needs you, Tasks (history, replay, delete), light and dark themes. M4 builds on all of it: agent identity in `src/store/agents.ts`, the floor plan in `features/office/floor-plan.ts`, the request card in `features/requests`.
 
 ### M4 Orchestration (done)
 
 Describe a goal and a team does it. A lead agent proposes a department (roles, and a harness, model and effort for each); the user edits and approves it in Needs you, and can change the team at any time from the department's settings. The lead hands work to workers on any harness through the core's own MCP tool server (D-39, D-43) and gets their results back as messages (D-44). Agents and profiles are stored records (D-42). One autonomy policy in the core guards every agent (D-45). In a git workspace each worker gets its own worktree and branch, which the lead merges (D-46). A guest agent can be called in, by the lead or the user, for a second opinion on a copy of the work, isolated as far as its harness allows (D-47). In the office each department is a room with its own panel (D-48). Team code lives in `packages/service/src/team`, `src/tools` and `src/autonomy` and starts agents only through `SessionRegistry`; the UI adds `features/departments`, `features/profiles` and the team task view. M5 grows the rooms into the command center; M7 attaches connectors through the tool server.
 
-### M5 Command center (built; live run pending)
+### M5 Command center (done)
 
-The office runs several goals across departments at once. A standing chief (`packages/service/src/chief`) splits a goal into a plan of pieces per department; the user edits and approves it, and any re-plan, in Needs you. A scheduler starts a piece once what it waits on is done and its department is free, passes upstream results into the brief, and gives read-only access to upstream folders (D-51). Records reach the UI as `change` frames on the one stream, and the core keeps each task's state, usage and plan limits (D-50). The UI adds the top bar with next-waiting (N), the Overview/Chat/Work panel, the board with To review, the plan card, the chief in New task, the chief's office, plan links, door states and draggable rooms (`features/office`, `chat`, `work`, `board`, `plan`, `chief`). M7 connectors attach through the tool server as before.
+The office runs several goals across departments at once. A standing chief (`packages/service/src/chief`) splits a goal into a plan of pieces per department; the user edits and approves it, and any re-plan, in Needs you. A scheduler starts a piece once what it waits on is done and its department is free, passes upstream results into the brief, and gives read-only access to upstream folders (D-51). Records reach the UI as `change` frames on the one stream, and the core keeps each task's state, usage and plan limits (D-50). The UI adds the board with To review, the plan card, the chief's page, plan links, door states and draggable rooms (`features/office`, `chat`, `work`, `board`, `plan`, `chief`).
 
-Known limits: under Full a shell command, and under Bypass anything, could still change an upstream folder; the plan card warns. One chief, one chief goal at a time.
+### Feedback rounds (done)
+
+Owner feedback after M5 reshaped the app without new modules: Home (D-52), creation flows and the Dusk look (D-53), review in the chat (D-54), your profile and templates (D-55), workspaces (D-56), Needs you (D-57), one composer (D-58), plain naming (D-59), Tasks (D-60), accounts and Usage with live plan usage (D-61), the side panel (D-62), Back/Forward and group tasks (D-63), building teams from words and the Team page (D-65).
+
+### M6 Files and Library (D-64; done)
+
+The user gives agents files, images and folders explicitly, and every one reaches the agent for real. Attachments: paperclip, drag and drop and paste in every composer; files are copied read-only, folders linked read-only; images go inline when the model can see them; the app marks each item Opened or Not opened. Library: each workspace keeps reference items given to Everyone, a department or one agent, listed in every matching task's prompt; `#` attaches one; agents add items through a team tool, and their changes go to Needs you. Code: `packages/service/src/attachments`, `src/library`, `features/attachments`, `features/library`.
+
+Out of scope: indexing and search over file contents (later, on top of this), reading Office files for the agent, editing Library files in the app.
+
+### M6.5 Onboarding and help (D-66; done)
+
+First-run setup (AI app, where work goes, about you), tutorials that run real tasks on a free or cheap model, a self-ticking Getting started list on Home, a Help page (tutorials, Display settings, What's new), and tutorials in Ctrl+K. Code: `features/onboarding`, `features/help`.
+
+Out of scope: running vendor installers from the app (setup shows the official command), an in-app terminal.
 
 ---
 
 ## Next module
 
-### M6 Files and Library (D-64; built)
-
-The user gives agents files, images and folders explicitly, and every one reaches the agent for real. Built in two steps, each its own PR, each end to end (core, both adapters, UI, one live run):
-
-1. **Attachments.** The composer (D-58), New task and the chat take files, images and folders: paperclip, drag and drop, paste an image. Files and images are copied read-only into the data folder; folders are linked read-only, live. The session gets read-only access, images also go inline when the model can see them, and the prompt lists every item with its exact path. A lead handing work on passes attachments with it (team tool), and a chief piece carries them. The app marks each attachment Opened or Not opened from the agent's own read and list tool calls.
-2. **Library.** Each workspace keeps reference files and folders, each given to Everyone, a department or one agent; those items are listed in every matching task's prompt as reference. A Library page inside the workspace (search, filters, "Given to", how often each item was opened), a Files section in agent and department settings, and # in the composer to attach a Library item. Agents add new items through a team tool without approval; their edits, replacements and removals go to Needs you.
-
-Out of scope: indexing and search over file contents (later, on top of this), reading Office files for the agent, editing Library files in the app. Mockup: https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm.
-
----
-
-### M6.5 Onboarding and help (D-66; built)
-
-A new user is set up and doing real work in minutes, and can find any feature again. First-run setup (AI app, where work goes, about you), tutorials that run real tasks on a free or cheap model, a self-ticking Getting started list on Home, a Help page (tutorials, Display settings for text size, contrast, motion and read-out, What's new), and tutorials in Ctrl+K. Code: `features/onboarding`, `features/help`.
-
-Out of scope: running vendor installers from the app (setup shows the official command), an in-app terminal, how-it-works bands on further pages.
-
----
+Not chosen yet: M7 Connectors or Agent memory (owner decision). Each gets its design session first.
 
 ## Later modules (outline only)
 

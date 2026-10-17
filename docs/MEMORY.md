@@ -1,34 +1,16 @@
 # Memory
 
-Last updated: 2026-10-14
+Last updated: 2026-10-17
 
 ## State
 
-- M1 to M5 are merged to `main` (M5 is PR #30). Feedback phase: one fix at a time; the first round is PR #31 (merged).
-- Home (D-52) merged as PR #32; creation flows (D-53) as PR #33: New task, the chief page and setup, New department and the Dusk look (D-53). Checked in browser mode on a fresh data folder: the chief set up and renamed through all four steps, a project and a department built by hand, New task's three choices and their side panel. Not run live: a task started from the new New task page (same calls as before).
-- D-54 (Send for review in the chat) merged as PR #34.
-- D-55 (profiles, templates) merged as PR #35: Your profile, agent Profile tab, Templates page, team rules, pop-up switches; agents copy templates. Checked in browser mode on a copy of old smoke data (migration ran; profile saved and shown first in the preview; team rules saved; lead profile edited and saved as a template; Templates cards and list; Use fills New task; Add someone opens template cards). Not checked: the Profile tab inside the office side panel (same component as the dialog), the finished-task pop-up, a live run reading About you (covered by `api.test.ts`).
-- D-56 (workspaces) merged as PR #36.
-- D-57 (Needs you, Trusted removed) merged as PR #37.
-- D-58 (one composer) merged as PR #38.
-- D-59 (`fix/ux-clarity`) merged as PR #39.
-- D-60 (Tasks grouped by team) merged as PR #40.
-- D-61 (accounts, Usage page) merged as PR #41.
-- D-62 (side panel) merged as PR #42.
-- M6 step 1, attachments, merged as PR #45.
-- M6 step 2, Library, merged as PR #46. Live run (Haiku 5.5, low) in Scratch: a style guide given to Everyone reached the agent as reference, it was counted opened from the agent's read, and the agent added notes.md with `add_to_library`. Checked in browser mode on a copy of old data (migration ran): Library tab, Given to menu (multi-give updated live), Web team's Files section, `#` in New task and the paperclip's "From the Library". Not checked: `change_library` live and its Needs you card (covered by `library.test.ts`), the agent profile's Files section and `#` in the chat composer on screen, Add folder and drop (app only), dark mode. Earlier attachments notes: Live run (Haiku 5.5, low) from New task with a pasted image and a markdown file: the image went inline and was described, the file was read by path, the task page showed Seen and Opened. Checked in browser mode: paste upload, chips, the no-vision warning (Big Pickle) and the Office warning. Not checked: drag and drop and the folder picker (app only), a folder or a lead passing files live (`api.test.ts` covers access and mid-task files), the chat composer and dark mode on screen (the pane did not draw).
-- D-63 (office nav) merged as PR #43.
-- Live plan usage (PR #47, merged): plan usage was only ever saved from a run's `rate_limit_event`, so it went stale between runs (showed 33% weekly while it was 83%). Now `POST /limits/refresh` asks the harness directly (Claude: the `/api/oauth/usage` endpoint the CLI's `/usage` uses, with the CLI's own token, never refreshed by us); the Usage page and Plan usage card refresh on open, every 5 minutes, on window focus, and by a Refresh button. An expired token keeps the last reading until the next run. OpenCode has no usage source. Checked live in browser mode: 83% weekly, "Updated just now". Not checked: a WSL account (reads the file with `sh -c cat`), an added account's folder.
-- Team building (D-65, PR #48, merged): Team page, entry points, the four-step New department with drafts from words, the member editor, chief drafts, removing the chief or a department. Live run (Haiku 5.5, low): a three-person blog team drafted from one sentence kept the given models, guessed the editor's, and suggested a publisher. Checked in browser mode on a copy of old data (migration ran): Team page, member save (instructions and purpose stored), a department built by hand, the floor's dashed room, removing a department with its history, the chief page band; a live lead proposal (Haiku) in Needs you, edited in the member editor (stacked at card width) and approved with a member instruction. Not checked: a chief draft live (same runner), follow-up questions on screen, several departments in one draft, the Home box handing text over, Remove chief in the UI (covered by `chief.test.ts`), dark mode. Mockup https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp.
-- `feat/onboarding` (D-66, M6.5). Live run (Big Pickle) from setup's Ready step: the first-task tutorial filled New task (Big Pickle, Asks first, Scratch), stepped on when the task started and when it finished, the write permission was allowed, and Finish saved `tutorialsDone`. Checked in browser mode on a fresh data folder: setup's four steps (both AI apps detected Ready), What's new after moving `whatsNewSeen` back, Help's text size and contrast (applied and saved), Getting started 1 of 4, the department tutorial from Ctrl+K (draft box outlined, Big Pickle). Not checked: an AI app that is not installed or not signed in (the install row, the default-login sign-in), the chief and Library tutorials live, the screen-reader announcement, light mode, a folder workspace from setup.
-- Team setup feedback (on `feat/onboarding`): the Team page is one vertical tree (You, chief or a "No chief" / locked slot, departments that fold, lead, members); the empty page has a describe-or-build starter that hands text to New department; sidebar "Your team" has a + menu and a "Build your team" card, the chief row only once it exists; Remove chief in the chief header (new `danger` button); theme moved to Your profile; no "…" on buttons. Checked in browser mode with 4 departments (dark). Not checked: the empty page and the "No chief" slot live, light mode, folding. Mockup https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc.
-- D-56 notes: Checked in browser mode on a copy of old smoke data (migration made Scratch, converted folders, linked old tasks); Workspaces list, detail with the shared-edit banner, the side sheet (repo + read-only extra folder, branch read from git), the picker in New task. Live run: a haiku task in Scratch made its own task folder and wrote its file. Not checked: the picker in New department and the plan card, a team in Scratch live, Remove from list in the UI, dark mode. Mockup https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb.
-- M5 Live run (2026-10-08, through the API): a chief goal across a Claude and an OpenCode department, plan approved, the downstream piece started with the upstream result, the goal ended in To review. Not live-run: plan edits, a busy department's queue, a failed piece and a re-plan (all covered by `chief.test.ts`).
+- M1 to M6.5 are built and merged to `main`, with the feedback rounds after M5 (PRs #31 to #51). Nothing is in progress.
+- Next: not chosen. M7 Connectors (needs the D-11 deep dive) or Agent memory (needs its design discussion); the owner sets the order.
+- Never checked by an agent, worth a click when touched: the plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50); a WSL run from New task, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check, plan usage for a WSL or added account; drag and drop and Add folder (app only); a chief draft live, the chief and Library tutorials live, setup with an AI app that is not installed or not signed in; the empty Team page and the "No chief" slot, light mode on the newer pages.
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
-- Never checked by an agent, worth a click when touched: M5's plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, live chat updates, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50), a WSL run from New task, a drag selection grouped by room, Message lead and Stop team from the department panel, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check.
-- Local only: `.claude/launch.json` (browser preview on a scratch data folder), kept out of git through `.git/info/exclude`.
-- Where things are: core process `packages/service/src/main.ts`; `src/store`, `src/registry`, `src/api`, `src/team`, `src/tools`, `src/autonomy`, `src/chief`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
-- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows and colour options https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC.
+- Where things are: core `packages/service/src/main.ts` with `store`, `registry`, `api`, `team`, `tools`, `autonomy`, `chief`, `accounts`, `attachments`, `library`, `drafts`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`, `src/styles/tokens.css`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
+- Local only, outside git: `.claude/launch.json` (browser preview configs, excluded in `.git/info/exclude`), `out/capture` (off-screen Electron screenshots), `feedback_images/`.
+- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -36,39 +18,38 @@ Last updated: 2026-10-14
 
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
 - `pnpm dev:app`: builds the UI and opens the desktop app on the default data folder. Only one core can hold a data folder, so close the app before browser mode uses the same one.
-- `pnpm dev:web [--data-folder path]`: browser mode at http://localhost:5173, a core plus Vite forwarding `/api` with the token. The folder picker and Open folder need the app; in the browser the folder is typed.
+- `pnpm dev:web [--data-folder path]`: browser mode at http://localhost:5173, a core plus Vite forwarding `/api` with the token. The folder picker, Open folder and dropping folders need the app.
 - `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume harness-session-id]`
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
-- `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId` (from `POST /workspaces`) or an `outputFolder` until one is remembered.
+- `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
 - In Git Bash, set `MSYS_NO_PATHCONV=1` before calling the core, or it rewrites `/tasks` into a Windows path. Windows arguments also lose doubled backslashes, so build JSON with Windows paths inside Node, not in the shell.
-- Live checks use the cheapest models only (owner): `--model claude-haiku-5-5 --effort low` for Claude (never Haiku 4.5), `opencode-go/longcat-2.5-preview-free` for OpenCode (Space Bunny is no longer free).
+- Live checks use the cheapest models only (owner): `--model claude-haiku-5-5 --effort low` for Claude (never Haiku 4.5); OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Space Bunny is no longer free.
 - New recording: the CLI's stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}` per line). Remove machine paths, account details and the user's skill and command lists.
 
 ## Owner requirements not yet built
 
-- Library agent writes may be reworked with agent memory (D-64).
-- Agent memory: its own module after a design discussion (see MODULES.md).
+- Agent memory: its own module after a design discussion (MODULES.md). Library agent writes may be reworked with it (D-64).
+- "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked in D-57.
+- Telling the user a CLI is out of date (D-58; needs a contract change).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
-- "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked by the owner in D-57; Squad's answer to repeated asks is a standing policy.
 
 ## Open questions for the owner
 
-- Where agent memory sits in the order; connector deep dive (D-11, now M7); final name.
+- Where agent memory sits in the order; the connector deep dive (D-11, M7); code signing for the installer; the final name.
 
 ## What the harnesses do
 
-- Claude Code 2.1.287. Permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls; the model sometimes names their fields `title`, `id` or `task_id`, which the CLI accepts, so the adapter reads the CLI's own record in `tool_use_result`. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty. `AskUserQuestion` arrives as a permission request; the answer goes back as `answers` inside `updatedInput`. Its answer to an `initialize` control request lists models and effort levels, and it exits when stdin closes. `--include-partial-messages` adds `stream_event` lines with `text_delta`. `--resume <id>` keeps the same session id; an unknown id exits with code 1. `rate_limit_event` carries `unifiedWindows` (`five_hour`, `seven_day`) with `utilization` as a 0 to 1 share and `resetsAt` in epoch seconds. A refused turn has `status: "rejected"` and names the window in `rateLimitType`. `claude auth login` (2.1.296) opens the browser and prints the page, then waits for a pasted code on stdin if the page shows one; `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the whole login. OpenCode: `opencode auth login --provider <id>` reads a key from stdin, Enter as `
-`; `XDG_DATA_HOME` moves its keys and sessions.
-- OpenCode 1.18.34 over ACP. The todo list is a `todowrite` tool call. A sub-agent's inner steps are not forwarded. ACP has no way to ask the user a question. `session/new` returns the model list and an `effort` setting (category `thought_level`) for the current model only, changed with `session/set_config_option`. `opencode models --verbose` prints every model with its `variants`, which are its effort values. `session/resume` continues without replaying; `session/load` replays the whole history. It reports context size and a dollar figure, no plan limit.
+- Claude Code 2.1.287 (fixtures), 2.1.296 checked for sign-in and images. Permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls; the model sometimes names their fields `title`, `id` or `task_id`, which the CLI accepts, so the adapter reads the CLI's own record in `tool_use_result`. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty. `AskUserQuestion` arrives as a permission request; the answer goes back as `answers` inside `updatedInput`. Its answer to an `initialize` control request lists models and effort levels, and it exits when stdin closes. `--include-partial-messages` adds `stream_event` lines with `text_delta`. `--resume <id>` keeps the same session id; an unknown id exits with code 1. `rate_limit_event` carries `unifiedWindows` (`five_hour`, `seven_day`) with `utilization` as a 0 to 1 share and `resetsAt` in epoch seconds; a refused turn has `status: "rejected"` and names the window in `rateLimitType`. Plan usage between runs comes from `/api/oauth/usage` (what the CLI's `/usage` calls) with the CLI's own token, never refreshed by us. `claude auth login` opens the browser and prints the page, then waits for a pasted code on stdin if the page shows one; `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the whole login.
+- OpenCode 1.18.34 over ACP. The todo list is a `todowrite` tool call. A sub-agent's inner steps are not forwarded. ACP has no way to ask the user a question. `session/new` returns the model list and an `effort` setting (category `thought_level`) for the current model only, changed with `session/set_config_option`. `opencode models --verbose` prints every model with its `variants` (effort values) and `capabilities.input`. `session/resume` continues without replaying; `session/load` replays the whole history. It reports context size and a dollar figure, no plan limit, and has no usage source. `opencode auth login --provider <id>` reads a key from stdin; `XDG_DATA_HOME` moves its keys and sessions.
 
 ## Environment (owner's machine, Windows 11)
 
 - Present: git, Node 24.16, pnpm 12.8, Python 3.14, Claude Code and OpenCode 1.18 logged in natively and in WSL Ubuntu (OpenCode on a Go subscription).
 - `gh` is at `C:\Program Files\GitHub CLI\gh.exe`; call it by full path if it is not on PATH.
 - Missing: `codex`, `agy`, Node inside WSL Ubuntu.
-- The app's Terminal panel tab does not reach a prompt (its shell integration script is missing), so a real Ctrl+C cannot be sent from here.
-- The browser pane does not draw while the Claude window is covered, so visual checks used an off-screen Electron window (`out/capture`, ignored by git, local only).
+- The app's Terminal panel tab does not reach a prompt, so a real Ctrl+C cannot be sent from here.
+- The browser pane does not draw while the Claude window is covered; `out/capture` is the fallback.
 
 ## Risks and known limits
 
@@ -78,14 +59,14 @@ Last updated: 2026-10-14
 - `Session.send` and `SessionRegistry.send` trust their caller; the API validates first (`agentCommandSchema`).
 - `costUsd` and `action.updated.title` are in the contract but never filled.
 - OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
+- OpenCode isolates only in part: its global config and instructions still load (D-41).
 - Vendor policy on third-party use of subscriptions is still changing (D-6).
 - `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
-- The app runs from the repository; the installer is the last module.
 - A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45).
-- OpenCode isolates only in part: its global config and instructions still load (D-41); the dialog says so.
-- Logging in to a harness or provider from the app is deferred (owner, 2026-10-04): the user logs in with the CLI. Claude Code reports no model `access` yet (D-38).
+- Under Full a shell command, and under Bypass anything, could still change an upstream read-only folder; the plan card warns. One chief, one chief goal at a time.
+- The app runs from the repository; the installer is the last module.
 
 ## Reference notes
 
-- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) visualises one harness only. Interface references: gather.town, Age of Empires.
+- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) visualises one harness only. Interface references: gather.town, Age of Empires, squad.so.
 - Command center research (2026-10-07): Gas Town (one "Mayor" agent you talk to), Paperclip (CEO agent, org chart, goals traced down), Cursor 3 "Needs Attention", Codex review queue, Vibe Kanban (cross-harness board), RimWorld and RTS (jump to the next waiting unit). Complaints to avoid: walls of live transcripts, waiting agents nobody notices, too many notifications.

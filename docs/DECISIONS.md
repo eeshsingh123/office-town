@@ -4,6 +4,10 @@ Only decisions that still guide upcoming work keep their why. Everything settled
 
 ## Guiding upcoming work
 
+### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
+
+Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M7.
+
 ### D-15 Local SQLite event log behind a store interface — accepted (2026-10-03)
 
 Every event is appended to one local SQLite file; current state and replay are both read from it. No queue, broker or database server; the rest of the core reaches storage only through a small store interface.
@@ -14,6 +18,18 @@ The interface is synchronous (owner): a write takes about 80 µs in-process, so 
 
 Commands and queries are HTTP; events flow over one SSE stream that resumes from `Last-Event-ID`, the store's event `position` (the contract's `sequence` counts within one session only).
 Why: the stream is one-way, reconnect and catch-up are built in, and it is testable with curl.
+
+### D-23 macOS is a target, parked — accepted
+
+No Mac-specific code until someone can test on a Mac. When picked up: `macos-latest` in CI, binaries through the login shell, signing and notarisation, a manual run of both adapters.
+
+### D-28 Resume by the harness's session id; live text is never the record — accepted (2026-10-03)
+
+A session resumes from the id `session.started` reported, only in its original environment and folder; a harness that cannot resume fails the start. Text fragments take sequence numbers but are not stored.
+
+### D-29 Usage limits are the single source of truth — accepted (2026-10-03)
+
+The app shows each provider's own usage limit; no budgets or dollar tracking in the app (owner: no micromanaging, and subscription dollars are estimates). Where a harness reports no limit, show tokens with cached input apart.
 
 ### D-30 Store layout and indexing — accepted (2026-10-03)
 
@@ -65,7 +81,7 @@ Why: one code path, no CORS, and the token never reaches a page that shows agent
 
 - React 19, Vite, Zustand, Radix primitives, `cmdk`, `react-markdown` (never raw HTML), lucide, Plus Jakarta Sans and Geist Mono shipped with the app.
 - CSS Modules plus one tokens file; no Tailwind.
-- Look (owner): warm greys; one blue accent for actions and running work; amber only for "needs you"; status as small icons, never large fills; interface 14 px (D-53); light and dark follow the OS; reduced motion respected.
+- Look (owner): the "Dusk" palette (D-53); amber only for what needs the user; status as small icons, never large fills; interface 14 px; light and dark follow the OS unless picked in Your profile; reduced motion respected.
 - Stream events are applied once per animation frame, or after 100 ms when hidden.
 
 ### D-38 The model list is ordered by what a model costs the user — accepted (2026-10-04)
@@ -77,6 +93,13 @@ A catalog model may carry `access`: `free`, `plan` or `paid`, set by the adapter
 The core serves MCP over HTTP on its own port and attaches it to each session with one token per session. Tools return at once; outcomes reach the agent later as a message from the core.
 Why: both CLIs call MCP tools, so delegation works the same on every harness and M7 connectors attach through the same seam; tools that wait on people would hit harness timeouts.
 
+### D-40 Departments, proposals and autonomy — accepted (2026-10-05)
+
+- Departments are saved standing teams with their own room. The lead proposes the team first; the user edits and approves it and can change it any time (owner).
+- Autonomy: Supervised ("Ask me first") and Full ("Don't ask", everything goes ahead and is recorded); Trusted was removed in D-57. Bypass stays, with a warning (owner).
+- Outward actions (push, PR, publish) go ahead only under Full (owner).
+- Outsourced agents work on a copy, never the original (owner).
+
 ### D-41 Harness facts from the M4.1 spike — accepted (2026-10-05)
 
 - Attaching: Claude `--mcp-config` plus `--allowedTools mcp__office-town`; OpenCode ACP `mcpServers` in `session/new` and `session/resume`, with an allow rule for `office-town_*`.
@@ -84,13 +107,6 @@ Why: both CLIs call MCP tools, so delegation works the same on every harness and
 - Isolation: Claude `--setting-sources "" --strict-mcp-config --disable-slash-commands` is full (`--bare` and `CLAUDE_CODE_SIMPLE` break the subscription login). OpenCode's flags leave its global config and instructions loading: partial.
 - Worktrees are made and removed by the git of the worker's environment (Windows git writes absolute paths WSL git cannot read).
 - Owner: a department works on one goal at a time; a new goal starts each agent in a fresh conversation; "one branch per worker" is a department switch, on by default.
-
-### D-40 Departments, proposals and autonomy — accepted (2026-10-05)
-
-- Departments are saved standing teams with their own room. The lead proposes the team first; the user edits and approves it and can change it any time (owner).
-- Autonomy: Supervised (every request asks) and Full (everything goes ahead and is recorded); Trusted was removed in D-57. Bypass stays, with a warning (owner).
-- Outward actions (push, PR, publish) go ahead only under Full (owner).
-- Outsourced agents work on a copy, never the original (owner).
 
 ### D-42 Agents are stored records — accepted (2026-10-05), template part replaced by D-55
 
@@ -117,7 +133,7 @@ Why: one guardrail for every harness; a new harness or connector only reports it
 
 ### D-47 Outsourced agents are guests on a copy — accepted (2026-10-05)
 
-A guest works in the same task on a copy of the chosen paths, without instruction files, harness settings, `.git` or `node_modules`, under at most Trusted. It leaves once it has answered. The user's second opinion examines the agent it is asked from, in that agent's own folder.
+A guest works in the same task on a copy of the chosen paths, without instruction files, harness settings, `.git` or `node_modules`, at its owner's level, at most Full. It leaves once it has answered. The user's second opinion examines the agent it is asked from, in that agent's own folder.
 
 ### D-49 Command center: a chief over departments — accepted (2026-10-07)
 
@@ -140,7 +156,7 @@ Why: the command center shows every goal's state at once, and the chief needs th
 
 ### D-51 Chief plans, hand-offs and read-only folders — accepted (2026-10-07)
 
-- The chief is an agent record (id in settings) working in `<data folder>/chief` at Trusted, reading every department's workspace. It gets no team tools.
+- The chief is an agent record (id in settings) working in `<data folder>/chief` at Full (Trusted until D-57), reading every department's workspace. It gets no team tools.
 - A piece runs as its department's own task (`parentTaskId`). One scheduler starts a piece once its inputs are done and its department is free. A finished piece's result is its lead's last message, sent to the chief. An approved re-plan drops pieces not yet started.
 - Upstream folders are `readOnlyPaths`: the policy compares real paths and allows only reads inside them, at any level; anything else goes to the user (owner). Such sessions are never offered "allow always", and the core refuses an answer that was not offered. Under Full a command, and under Bypass anything, could still change them; the plan card warns (owner).
 - The user picks a new department's workspace and autonomy on the plan card (owner).
@@ -153,7 +169,6 @@ Why: the floor alone opened on a near-empty screen and gave a new user no next s
 
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
-- New task: replaced by D-58.
 - Words the user reads: "How much can it do without asking you?" (Ask me first, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
 - The chief has its own page (`chief` view): a four-step setup the first time (meet and name it, its AI, house rules, its departments), then its goal box, current goal, queue, departments and rules. It replaces the settings dialog.
 - New department shows a live card of the team as it is built; role chips are only starting points for a role's name and purpose.
@@ -170,7 +185,7 @@ Why: the header buttons were out of place and unclear (owner feedback); a review
 
 ### D-55 Your profile, agent profiles and templates — accepted (2026-10-10)
 
-- Each kind of setting lives on the page of the thing it changes. Your profile (sidebar, bottom) holds your name, colour, About you, how you like answers, and the two pop-up switches (an agent needs you: on; a task is finished: off), stored as `settings.you`. An agent's settings are its Profile tab in the office (`PUT /agents/:id`). A department adds Team rules (`departments.rules`). The chief keeps its House rules, which only the chief reads.
+- Each kind of setting lives on the page of the thing it changes. Your profile (sidebar, bottom) holds your name, colour, theme, About you, how you like answers, and the two pop-up switches (an agent needs you: on; a task is finished: off), stored as `settings.you`. An agent's settings are its Profile tab in the office (`PUT /agents/:id`). A department adds Team rules (`departments.rules`). The chief keeps its House rules, which only the chief reads.
 - Every agent, guests included, reads in this order: About you and how you like answers, its team's rules, its own notes, then the task (`agents/briefs.ts` `instructionsFor`). Each profile page shows that list.
 - Profiles are called Templates and sit in the main menu: search, filter by AI app or free models, sort, cards or list. A card shows its name, job and one line "model · app · effort", with Use and a ⋯ menu. Save as template is on every agent's profile and team row; picking a template fills in the form.
 - An agent made from a template gets a copy. `profileId` only records which template, to count "Used for N agents". The migration copied each followed template into its agents.
@@ -191,50 +206,6 @@ Why: the Saved assistants page had no clear purpose, mixed one agent's settings 
 - The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.
 Why: two answers to one question, one saved and one not, three words for one idea, and no place to see, edit or share workspaces (owner feedback).
 
-### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
-
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M7.
-
-### D-23 macOS is a target, parked — accepted
-
-No Mac-specific code until someone can test on a Mac. When picked up: `macos-latest` in CI, binaries through the login shell, signing and notarisation, a manual run of both adapters.
-
-### D-28 Resume by the harness's session id; live text is never the record — accepted (2026-10-03)
-
-A session resumes from the id `session.started` reported, only in its original environment and folder; a harness that cannot resume fails the start. Text fragments take sequence numbers but are not stored.
-
-### D-29 Usage limits are the single source of truth — accepted (2026-10-03)
-
-The app shows each provider's own usage limit; no budgets or dollar tracking in the app (owner: no micromanaging, and subscription dollars are estimates). Where a harness reports no limit, show tokens with cached input apart.
-
-## Done
-
-All accepted and built.
-
-- D-1 Desktop app, not web: it drives CLIs installed on the user's machine.
-- D-2 The core is its own local process; the shell is a thin wrapper.
-- D-3, D-12 TypeScript on Node 24 everywhere: pnpm, Zod, SQLite, Electron, React, Vite, Zustand, Biome, Vitest.
-- D-4 Electron shell. Reversible because of D-2.
-- D-5, D-13 One contract, one adapter per wire format. Adapters only translate.
-- D-6 Never touch harness credentials: spawn the unmodified vendor binary only.
-- D-7 Open source; free and low-cost models are first class.
-- D-8 The app orchestrates across harnesses; a harness's own sub-agents show as nested activity.
-- D-9 Command-center direction: expanded into D-49.
-- D-10 Human in the loop: per-team autonomy plus one blocked queue.
-- D-14 Where a harness runs (native, WSL) is an `Environment`, separate from which harness it is.
-- D-16 Sandbox and computer use are deferred; D-14 keeps the door open.
-- D-18 Outsourced agents get only a brief and a copy; built as D-47.
-- D-19 No build step in development: Node runs the TypeScript sources directly.
-- D-20 Translators do no I/O and are tested by replaying recordings of the real CLIs.
-- D-21 Paths are reported as host paths in `locations`; the agent's own text is never rewritten.
-- D-22 A WSL process tree is killed by a marker set at launch.
-- D-24 "Allow always" only changes the current session.
-- D-25 An agent's question to the user is its own event, not a permission.
-- D-26 A harness lists its models and effort values through a catalog query on its adapter.
-- D-27 Withdrawn: a per-agent budget inside the app. Replaced by D-29.
-- D-46 A worker's worktree is made from the lead's branch by the worker's own git, kept in the data folder, removed once merged and ended; the branch stays.
-- D-48 Every department is a room with a desk per member, lead first; solo agents share the open floor, guests the guest desk. Room usage is per goal (D-50); rooms are draggable (D-49).
-
 ### D-57 Two everyday levels and a Needs you built for volume — accepted (2026-10-11)
 
 - Trusted goes away (owner): it asked before every web search and command, broke the flow and read like Full. Levels: Ask me first, Don't ask (Full), and Bypass behind More options. Stored Trusted becomes Full; New task, the chief and reviewers default to Full. A read-only folder still asks at every level.
@@ -245,7 +216,7 @@ Why: the owner hit repeated web-search asks under Trusted and needs a queue that
 
 ### D-58 One composer starts every task — accepted (2026-10-11)
 
-- New task and Home share one box (`new-task/Composer.tsx`). Its chips, each filled with the last choice: Goes to (an assistant, a department, a new team, the chief), Workspace, Model (AI app, model, Thinking and Runs on in one menu) and Asks first / Goes ahead (Bypass last, behind its warning). A department's workspace and level show as fixed chips. Enter starts, Shift+Enter adds a line.
+- New task and Home share one box (`new-task/Composer.tsx`). Its chips, each filled with the last choice: Goes to (an assistant, a department, a new department, the chief), Workspace, Model (AI app, model, Thinking and Runs on in one menu) and Asks first / Goes ahead (Bypass last, behind its warning). A department's workspace and level show as fixed chips. Enter starts, Shift+Enter adds a line.
 - In the text, "@" picks who takes it and "/" (at the start) a template, shown as a removable tag. Under the box one plain sentence says what starting will do; New task adds Suggested tasks before the first task, then Use again.
 - A model is always shown by name: Claude Code's `default` is named after the model it stands for, and older models fold behind "N more". Gone: the three cards, the autonomy cards, the template row and the "What happens next" panel.
 - Out for now: telling the user a CLI is out of date (needs the CLI's version in the catalog and a latest-version check, a contract change).
@@ -272,7 +243,7 @@ Why: the owner found raw model ids, handles and AI-sounding explanations through
 
 - An account is one login on one harness where it runs. The CLI's own login is the Default account (id: the harness, or `harness@distro` in WSL), so nothing changes until a second one is added. An added account is a folder of its own in `<data folder>/accounts/<id>`, handed to the unmodified CLI as `CLAUDE_CONFIG_DIR` (Claude) or `XDG_DATA_HOME` (OpenCode). D-6 holds: the CLI signs in and saves its own credentials (`claude auth login`; `opencode auth login --provider` reading the key from stdin). The core only checks that the sign-in file exists.
 - Limits are kept per account (`account_limits`; old rows became the Default account's). Agents pick an account or Automatic: at session start, the signed-in account on that harness with the most room, Default first on a tie. A resume stays on its account; if that account is used up and Automatic or the agent's pick now points elsewhere, the core starts a new conversation there with a handover note (last reply, check the work folder).
-- A Claude turn refused by its plan (`rate_limit_event` status "rejected") marks that window full. Limits update only from runs (owner chose this over Anthropic's undocumented usage endpoint); cards say "Updated N min ago". OpenCode reports no limits: its cards show tokens counted by the app and link to opencode.ai.
+- A Claude turn refused by its plan (`rate_limit_event` status "rejected") marks that window full. Limits are saved from runs and, since PR #47, also read on demand (`POST /limits/refresh`: Claude's `/api/oauth/usage`, the endpoint the CLI's own `/usage` calls, with the CLI's token, never refreshed by us); the Usage page and Plan usage card refresh on open, every 5 minutes, on focus and by a button, and say "Updated N min ago". An expired token keeps the last reading. OpenCode reports no limits: its cards show tokens counted by the app and link to opencode.ai.
 - UI: Usage in the main nav (red dot when an account is over 90%), Home's Plan usage card, an Account chip in agent settings, and agents stopped at a limit in Needs you and on Home with "Continue on <account>" and "Resume at <reset>" (an in-memory timer; closing the app drops it). Amber from 70%, red from 90% (owner). The Office bar keeps Floor/Board, "N working", the waiting chip and a used-up account; counts live on Home.
 Why: the owner runs several Claude and other subscriptions and could not see or steer their usage; the top bar's figures went unnoticed.
 
@@ -315,7 +286,7 @@ Why: the app had no way to give an agent a file, and a file the agent never open
 
 ### D-65 Building teams from words or step by step — accepted (2026-10-14)
 
-- Team in the main nav is the org chart: you, the chief, then each department with its members, and search. Sidebar ("+ Set up a chief", "+ New department"), Home ("Build your team" until one exists), the office floor (dashed rooms) and its top bar all lead there.
+- Team in the main nav is one vertical tree: you, the chief (or a "No chief" slot), then each department, folding, with its lead and members. An empty Team page offers describe-or-build, handing text to New department. The sidebar's "Your team" (a + menu and a "Build your team" card; the chief row once it exists), Home, the office floor (dashed rooms) and its top bar all lead there. Remove chief sits in the chief's header.
 - New department runs in four steps (Describe, Team, Rules and permissions, Review); nothing is saved before Create. Every person, the lead included, has a role, a one-line "what they do", instructions and a model in one editor (`MemberEditor`), also used by department settings.
 - Contract: a team role takes `instructions` (given replaces the member's notes, "" clears them, absent keeps them); a team takes `lead` (role, purpose, instructions, and settings for a department that exists); a department keeps a one-line `purpose`, which the chief reads.
 - Drafts (`POST /drafts/departments`, `/drafts/chief`): one short run on a model the user picks (Opus by default, kept in the browser), outside any task and the registry: nothing stored, no tools, isolated, in `<data>/drafts`. The reply is JSON; questions only when they would change the draft, up to 3 suggestions for what was missed (owner), several departments at once. Models, harnesses and kept members are checked against what exists; an unusable reply gets one retry. Each call sends what the user said so far and the current draft, so it holds no state.
@@ -334,3 +305,31 @@ Why: the owner could not find where to build departments or the chief, the depar
 - No waiting on a CLI where it can be avoided (owner): every AI app's model list is read in the background when the app opens (it runs the CLI, seconds the first time), so tutorials and model pickers find it ready; setup's version and sign-in checks run side by side.
 - Copy: onboarding may explain, in one short human sentence; no reassurance, no defending the app, no glossary (owner). D-59 still holds everywhere else.
 Why: the owner, who built the app, still had to work out what departments and the chief are for and where to make them; the users include non-technical managers, so accessibility comes first.
+
+## Done
+
+All accepted and built.
+
+- D-1 Desktop app, not web: it drives CLIs installed on the user's machine.
+- D-2 The core is its own local process; the shell is a thin wrapper.
+- D-3, D-12 TypeScript on Node 24 everywhere: pnpm, Zod, SQLite, Electron, React, Vite, Zustand, Biome, Vitest.
+- D-4 Electron shell. Reversible because of D-2.
+- D-5, D-13 One contract, one adapter per wire format. Adapters only translate.
+- D-6 Never touch harness credentials: spawn the unmodified vendor binary only.
+- D-7 Open source; free and low-cost models are first class.
+- D-8 The app orchestrates across harnesses; a harness's own sub-agents show as nested activity.
+- D-9 Command-center direction: expanded into D-49.
+- D-10 Human in the loop: per-team autonomy plus one blocked queue.
+- D-14 Where a harness runs (native, WSL) is an `Environment`, separate from which harness it is.
+- D-16 Sandbox and computer use are deferred; D-14 keeps the door open.
+- D-18 Outsourced agents get only a brief and a copy; built as D-47.
+- D-19 No build step in development: Node runs the TypeScript sources directly.
+- D-20 Translators do no I/O and are tested by replaying recordings of the real CLIs.
+- D-21 Paths are reported as host paths in `locations`; the agent's own text is never rewritten.
+- D-22 A WSL process tree is killed by a marker set at launch.
+- D-24 "Allow always" only changes the current session.
+- D-25 An agent's question to the user is its own event, not a permission.
+- D-26 A harness lists its models and effort values through a catalog query on its adapter.
+- D-27 Withdrawn: a per-agent budget inside the app. Replaced by D-29.
+- D-46 A worker's worktree is made from the lead's branch by the worker's own git, kept in the data folder, removed once merged and ended; the branch stays.
+- D-48 Every department is a room with a desk per member, lead first; solo agents share the open floor, guests the guest desk. Room usage is per goal (D-50); rooms are draggable (D-49).
