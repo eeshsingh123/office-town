@@ -4,9 +4,7 @@ Only decisions that still guide upcoming work keep their why. Everything settled
 
 ## Guiding upcoming work
 
-### D-11 Task agnostic, connectors as plugins — direction accepted, design pending
-
-Capabilities come from MCP connectors packaged as plugins; an agent lacking a tool can request one. Needs a deep dive before M7.
+### D-11 Task agnostic, connectors as plugins — accepted, designed in D-67
 
 ### D-15 Local SQLite event log behind a store interface — accepted (2026-10-03)
 
@@ -305,6 +303,18 @@ Why: the owner could not find where to build departments or the chief, the depar
 - No waiting on a CLI where it can be avoided (owner): every AI app's model list is read in the background when the app opens (it runs the CLI, seconds the first time), so tutorials and model pickers find it ready; setup's version and sign-in checks run side by side.
 - Copy: onboarding may explain, in one short human sentence; no reassurance, no defending the app, no glossary (owner). D-59 still holds everywhere else.
 Why: the owner, who built the app, still had to work out what departments and the chief are for and where to make them; the users include non-technical managers, so accessibility comes first.
+
+### D-67 Connectors: the core is the hub — accepted (2026-10-18)
+
+- The app owns connections, not the CLIs. The core signs in once, keeps one live link per connector, and re-serves its tools on the tool server (D-39, D-43); each agent gets only the connectors it may use. Why: each CLI keeps its own MCP sign-ins (one sign-in per CLI per app, and a Claude lead's OpenCode worker could lack the app); Claude Code cannot run an app's sign-in in headless mode; our isolation flags (D-41) switch the CLIs' own MCP config off; and ten agents on one app share one link.
+- Kinds: sign-in apps (remote, browser sign-in), key apps (remote, a pasted key), programs on this computer (stdio, started once by the core, exact command confirmed before the first run; needed for apps like Blender), and Add your own. Secrets live in the OS credential store, never in SQLite, prompts, command lines or the CLI.
+- Who can use it: the Library's audience (Everyone, departments, agents), app-wide. Guests get none.
+- Permissions per connector, in the app's own words (owner): Read only, Ask me first (default), Don't ask. Reads never ask; a change asks only under Ask me first. The connector's setting decides its own calls whatever the department's level, so Gmail can ask before sending in a Don't ask team and Blender can run end to end in an Ask me first team (owner). The department level still governs files and commands. Read or change comes from the tool's MCP annotations (`readOnlyHint`); unmarked counts as a change. Asking for every small step is bad UX (owner), so reads are never asked about.
+- The tool list never changes inside a conversation, because any change to it wipes the whole prompt cache (owner: adding an app mid-task must not break the cache). Native connector tools are fixed at a conversation's first session and kept on resume; apps granted later are reached through two fixed hub tools every agent has from its first turn (`list_app_tools`, `use_app_tool`). Removing access or turning a connector off refuses calls at once. No restart, no warning needed.
+- An agent lacking an app asks with `request_app`; the user connects it or gives access from Needs you, and the agent carries on through the hub tools.
+- Describe it (owner): a draft run like D-65, allowed only web search and fetch, finds an existing server (the maker's docs first, then the official MCP Registry) and fills in its setup; the core tests the connection before the user saves it, showing the source and Official or Community. It never writes new server code (a later module if ever wanted).
+- Catalog: about 25 official remote servers, each verified live; real logos in brand colours (owner); Add your own first. The full public registry, per-tool switches and two accounts per app are left out.
+- Look (owner feedback on the v1 mockup): real logos, one button per card, no tool lists, only say more when something is wrong.
 
 ## Done
 

@@ -1,16 +1,17 @@
 # Memory
 
-Last updated: 2026-10-17
+Last updated: 2026-10-18
 
 ## State
 
-- M1 to M6.5 are built and merged to `main`, with the feedback rounds after M5 (PRs #31 to #51). Nothing is in progress.
-- Next: not chosen. M7 Connectors (needs the D-11 deep dive) or Agent memory (needs its design discussion); the owner sets the order.
+- M1 to M6.5 are built and merged to `main`, with the feedback rounds after M5 (PRs #31 to #52).
+- Active: M7 Connectors, designed with the owner (D-67, spec in MODULES.md), on `feat/connectors`. Its first commit is the design; build starts with the step 0 spike. Agent memory comes after, once discussed.
+- Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 - Never checked by an agent, worth a click when touched: the plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB), "Show older tasks" (over 50); a WSL run from New task, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check, plan usage for a WSL or added account; drag and drop and Add folder (app only); a chief draft live, the chief and Library tutorials live, setup with an AI app that is not installed or not signed in; the empty Team page and the "No chief" slot, light mode on the newer pages.
 - The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
 - Where things are: core `packages/service/src/main.ts` with `store`, `registry`, `api`, `team`, `tools`, `autonomy`, `chief`, `accounts`, `attachments`, `library`, `drafts`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`, `src/styles/tokens.css`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
 - Local only, outside git: `.claude/launch.json` (browser preview configs, excluded in `.git/info/exclude`), `out/capture` (off-screen Electron screenshots), `feedback_images/`.
-- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc.
+- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc, connectors https://claude.ai/artifact/AMEbojnd6kH9UExCAbFtti.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 
@@ -36,7 +37,7 @@ Last updated: 2026-10-17
 
 ## Open questions for the owner
 
-- Where agent memory sits in the order; the connector deep dive (D-11, M7); code signing for the installer; the final name.
+- Where agent memory sits in the order; code signing for the installer; the final name.
 
 ## What the harnesses do
 
