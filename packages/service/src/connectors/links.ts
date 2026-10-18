@@ -15,7 +15,7 @@ const LAST_RETRY_MS = 60_000;
 // Some apps take long, such as a render; progress notes keep a call alive past this.
 const CALL_TIMEOUT_MS = 5 * 60_000;
 
-export class AppUnreachableError extends Error {
+class AppUnreachableError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AppUnreachableError";

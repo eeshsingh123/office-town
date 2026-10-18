@@ -48,14 +48,14 @@ function Mail({ input }: { input: Record<string, unknown> }) {
 
 // The departments of the agent that asked, or the agent itself, for the connect sheet.
 function useAsker(sessionId: string): Audience | undefined {
-  return useApp((state) => {
+  const agent = useApp((state) => {
     const agentId = state.sessions[sessionId]?.agentId;
-    const agent = agentId === undefined ? undefined : state.agents[agentId];
-    if (agent === undefined) return undefined;
-    return agent.departmentId === undefined
-      ? { everyone: false, departmentIds: [], agentIds: [agent.id] }
-      : { everyone: false, departmentIds: [agent.departmentId], agentIds: [] };
+    return agentId === undefined ? undefined : state.agents[agentId];
   });
+  if (agent === undefined) return undefined;
+  return agent.departmentId === undefined
+    ? { everyone: false, departmentIds: [], agentIds: [agent.id] }
+    : { everyone: false, departmentIds: [agent.departmentId], agentIds: [] };
 }
 
 export function ConnectorAskBody({
