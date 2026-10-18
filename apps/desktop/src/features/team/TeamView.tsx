@@ -265,7 +265,7 @@ function Starter() {
           <Button
             variant="ghost"
             className={styles.small}
-            onClick={() => navigate({ name: "new-department" })}
+            onClick={() => navigate({ name: "new-department", byHand: true })}
           >
             Build by hand
           </Button>

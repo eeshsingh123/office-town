@@ -34,8 +34,8 @@ export type View =
       // Fills the form in from this template.
       templateId?: string;
     }
-  // Home's box hands over a description to draft at once.
-  | { name: "new-department"; describe?: string }
+  // Home's box hands over a description to draft at once; "by hand" opens on the team step.
+  | { name: "new-department"; describe?: string; byHand?: boolean }
   | { name: "team" }
   // Set up or edit the chief; once it exists, its page.
   | { name: "chief"; edit?: boolean }

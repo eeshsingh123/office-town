@@ -110,11 +110,11 @@
 
 .setupBody {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   align-items: start;
-  gap: 40px;
-  max-width: 1040px;
-  padding: 44px 44px 56px;
+  gap: 48px;
+  /* Centred in a wide window; the padding grows so the scrollbar stays at the edge. */
+  padding: 44px max(44px, calc((100% - 1240px) / 2)) 56px;
   overflow-y: auto;
 }
 
