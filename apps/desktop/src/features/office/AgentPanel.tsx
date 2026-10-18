@@ -9,6 +9,8 @@ import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
+import { AgentConnectors } from "../connectors/AgentConnectors.tsx";
+import { AppLogo } from "../connectors/AppLogo.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { tokenLine, useRunFacts } from "../task/run-facts.ts";
@@ -23,6 +25,8 @@ function DoneLine({ action }: { action: TraceAction }) {
     <li className={styles.action}>
       {action.status === "failed" ? (
         <X size={14} className={styles.bad} aria-label="Failed" />
+      ) : action.app !== undefined ? (
+        <AppLogo app={action.app} size="sm" />
       ) : (
         <Check size={14} className={styles.ok} aria-label="Done" />
       )}
@@ -110,6 +114,8 @@ export function AgentNow({ member }: { member: FloorAgent }) {
           </ul>
         </PanelSection>
       )}
+
+      <AgentConnectors agent={agent.record} />
 
       <PanelSection title="Runs on">
         <Facts

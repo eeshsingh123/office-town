@@ -11,6 +11,7 @@ import {
   List,
   type LucideIcon,
   Network,
+  Plug,
   Plus,
   Search,
   SwatchBook,
@@ -25,6 +26,7 @@ import dialog from "../../ui/Dialog.module.css";
 import { taskTitle } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
+import { useConnectors } from "../connectors/connectors.ts";
 import picker from "../new-task/ModelPicker.module.css";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
@@ -65,6 +67,7 @@ export function CommandMenu() {
   const open = useCommandMenu((state) => state.open);
   const [search, setSearch] = useState("");
   const departments = useApp((state) => state.departments);
+  const connectors = useConnectors();
   const chief = useApp((state) =>
     state.chiefId === undefined ? undefined : state.agents[state.chiefId],
   );
@@ -145,6 +148,7 @@ export function CommandMenu() {
                   label="Workspaces"
                   onSelect={() => go({ name: "workspaces" })}
                 />
+                <Row icon={Plug} label="Connectors" onSelect={() => go({ name: "connectors" })} />
                 <Row icon={Gauge} label="Usage" onSelect={() => go({ name: "usage" })} />
                 <Row
                   icon={Network}
@@ -186,6 +190,19 @@ export function CommandMenu() {
                         onSelect={() => go({ name: "office", room: department.id })}
                       />
                     ))}
+                </Command.Group>
+              )}
+              {connectors.length === 0 ? null : (
+                <Command.Group heading="Connectors">
+                  {connectors.map((connector) => (
+                    <Row
+                      key={connector.id}
+                      icon={Plug}
+                      label={connector.setup.name}
+                      value={`connector ${connector.id}`}
+                      onSelect={() => go({ name: "connector", connectorId: connector.id })}
+                    />
+                  ))}
                 </Command.Group>
               )}
               {tasks.length === 0 ? null : (

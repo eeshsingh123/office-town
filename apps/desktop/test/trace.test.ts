@@ -113,7 +113,7 @@ describe("trace", () => {
     expect(describeActions(actions)).toBe("Read 2 files, ran 1 command");
   });
 
-  it("names calls to the core's own tools plainly, whichever harness made them", () => {
+  it("names calls to the core's own tools and to connectors plainly, whichever harness made them", () => {
     const trace = applyEvents(
       emptyTrace(SESSION),
       stream(
@@ -129,15 +129,21 @@ describe("trace", () => {
           input: { agent: "@ben-1042", brief: "Build the page" },
           tool: { server: "office-town", name: "delegate" },
         }),
-        started("other", { tool: { server: "github", name: "delegate" } }),
+        started("app", { tool: { server: "github", name: "search_issues" }, input: { q: "bug" } }),
+        started("hub", {
+          tool: { server: "office-town-apps", name: "use_app_tool" },
+          input: { app: "notion", tool: "create_page", arguments: { title: "Notes" } },
+        }),
       ),
     );
 
-    const actions = ["ask", "hand", "other"].map((id) => trace.items.get(id) as TraceAction);
-    expect(actions.map((action) => [action.actionKind, action.title])).toEqual([
-      ["other", "Asked you: Red or blue?"],
-      ["delegate", "Delegated to @ben-1042"],
-      ["read", "Read other"],
+    const ids = ["ask", "hand", "app", "hub"];
+    const actions = ids.map((id) => trace.items.get(id) as TraceAction);
+    expect(actions.map((action) => [action.actionKind, action.title, action.app])).toEqual([
+      ["other", "Asked you: Red or blue?", undefined],
+      ["delegate", "Delegated to @ben-1042", undefined],
+      ["read", 'Search issues: "bug"', "github"],
+      ["read", 'Create page: "Notes"', "notion"],
     ]);
   });
 

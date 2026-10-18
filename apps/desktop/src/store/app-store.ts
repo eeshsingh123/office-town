@@ -2,6 +2,7 @@ import type {
   Account,
   AccountLimits,
   AgentRecord,
+  Audience,
   ConnectorRecord,
   DelegationRecord,
   DepartmentRecord,
@@ -42,6 +43,9 @@ export type View =
   | { name: "tasks" }
   | { name: "templates" }
   | { name: "workspaces" }
+  // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
+  | { name: "connectors"; connect?: string; audience?: Audience }
+  | { name: "connector"; connectorId: string }
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }

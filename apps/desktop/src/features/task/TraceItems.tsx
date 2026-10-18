@@ -29,6 +29,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
+import { AppLogo } from "../connectors/AppLogo.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useMemberLinks } from "./members.ts";
@@ -158,7 +159,11 @@ const ActionRow = memo(function ActionRow({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <Icon size={14} aria-hidden />
+        {action.app === undefined ? (
+          <Icon size={14} aria-hidden />
+        ) : (
+          <AppLogo app={action.app} size="sm" />
+        )}
         <span className={styles.rowTitle}>{action.title}</span>
         {action.endedAt === undefined ? null : (
           <span className={styles.meta}>{elapsed(action.startedAt, action.endedAt)}</span>

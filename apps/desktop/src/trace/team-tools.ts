@@ -1,4 +1,4 @@
-import type { ActionKind } from "@office-town/contract";
+import { type ActionKind, appsToolServer, teamToolServer } from "@office-town/contract";
 
 type Input = Record<string, unknown>;
 
@@ -23,4 +23,26 @@ export function teamToolAction(name: string, input: unknown) {
   if (tool === undefined) return undefined;
   const fields = input !== null && typeof input === "object" ? (input as Input) : {};
   return { kind: tool.kind, title: tool.title(fields) };
+}
+
+// "create_page" reads as "Create page"; a short text it was given is quoted after it.
+export function callTitle(tool: string, input: unknown): string {
+  const words = tool.replaceAll(/[_-]+/g, " ").trim();
+  const title = words.charAt(0).toUpperCase() + words.slice(1);
+  const fields = input !== null && typeof input === "object" ? Object.values(input) : [];
+  const text = fields.find(
+    (value): value is string => typeof value === "string" && value.length > 0 && value.length <= 60,
+  );
+  return text === undefined ? title : `${title}: "${text}"`;
+}
+
+// A connector's call, named by its app and tool; one through the hub by the app it reached (D-67).
+export function appAction(tool: { server: string; name: string }, input: unknown) {
+  if (tool.server === teamToolServer) return undefined;
+  if (tool.server !== appsToolServer) {
+    return { app: tool.server, title: callTitle(tool.name, input) };
+  }
+  const fields = input !== null && typeof input === "object" ? (input as Input) : {};
+  if (tool.name !== "use_app_tool") return { app: words(fields.app), title: "Looked up its apps" };
+  return { app: words(fields.app), title: callTitle(words(fields.tool), fields.arguments) };
 }

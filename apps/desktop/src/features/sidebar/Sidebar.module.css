@@ -334,6 +334,14 @@
   background: var(--bad);
 }
 
+.attentionDot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--attention);
+}
+
 .dot {
   width: 7px;
   height: 7px;
@@ -439,7 +447,8 @@
   font-size: 10.5px;
 }
 
-.rail .usageDot {
+.rail .usageDot,
+.rail .attentionDot {
   position: absolute;
   top: 4px;
   right: 8px;

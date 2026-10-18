@@ -9,7 +9,7 @@ import type {
 } from "@office-town/contract";
 import { teamToolServer } from "@office-town/contract";
 import type { StreamedEvent } from "../api/event-stream.ts";
-import { teamToolAction } from "./team-tools.ts";
+import { appAction, teamToolAction } from "./team-tools.ts";
 
 export interface TraceAction {
   kind: "action";
@@ -25,6 +25,8 @@ export interface TraceAction {
   // The full result is read back by this sequence.
   resultSequence?: number;
   planStepId?: string;
+  // The connector it used, by slug or, through the hub, as the agent named it.
+  app?: string;
   startedAt: string;
   endedAt?: string;
   // In order.
@@ -210,11 +212,13 @@ function apply(trace: Trace, event: SessionEvent): void {
       const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
         event.payload;
       const team = tool?.server === teamToolServer ? teamToolAction(tool.name, input) : undefined;
+      const app = tool === undefined ? undefined : appAction(tool, input);
       trace.items.set(actionId, {
         kind: "action",
         id: actionId,
         actionKind: team?.kind ?? kind,
-        title: team?.title ?? title,
+        title: team?.title ?? app?.title ?? title,
+        ...(app === undefined || app.app === "" ? {} : { app: app.app }),
         input,
         status: "running",
         startedAt: event.timestamp,

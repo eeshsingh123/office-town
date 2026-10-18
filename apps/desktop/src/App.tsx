@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import styles from "./App.module.css";
 import { ChiefView } from "./features/chief/ChiefView.tsx";
 import { CommandMenu } from "./features/command/CommandMenu.tsx";
+import { ConnectorsView } from "./features/connectors/ConnectorsView.tsx";
+import { ConnectorView } from "./features/connectors/ConnectorView.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
 import { RequestAnnouncer, useDisplay } from "./features/help/display.tsx";
@@ -59,6 +61,15 @@ function Main({ view }: { view: View }) {
       return <TemplatesView />;
     case "workspaces":
       return <WorkspacesView />;
+    case "connectors":
+      return (
+        <ConnectorsView
+          {...(view.connect === undefined ? {} : { connect: view.connect })}
+          {...(view.audience === undefined ? {} : { audience: view.audience })}
+        />
+      );
+    case "connector":
+      return <ConnectorView key={view.connectorId} connectorId={view.connectorId} />;
     case "usage":
       return <UsageView />;
     case "workspace":

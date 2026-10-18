@@ -27,6 +27,8 @@
   --floor: light-dark(#efece6, #201f1d);
   --desk: light-dark(#e2ddd4, #2e2c29);
   --desk-line: light-dark(#cfc8bc, #3d3a36);
+  /* Behind an app's logo, so its own colour reads on it. */
+  --tile: light-dark(#ffffff, #2c2b28);
   --shadow: 0 1px 3px light-dark(rgb(60 45 30 / 6%), rgb(0 0 0 / 25%));
   --shadow-raised: 0 12px 32px light-dark(rgb(60 45 30 / 14%), rgb(0 0 0 / 45%));
   --ring: 0 0 0 3px var(--accent-soft);
