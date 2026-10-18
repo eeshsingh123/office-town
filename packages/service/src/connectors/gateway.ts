@@ -17,6 +17,8 @@ import { decide, isRead, mayUse, usableBy } from "./access.ts";
 import type { ConnectorLinks } from "./links.ts";
 
 const RESULT_CHARS = 20_000;
+// Sent by the core alone, once the user signed in from the app's own page.
+const SIGNED_IN = "signed-in";
 
 const failed = (text: string): ToolResult => ({ content: [{ type: "text", text }], isError: true });
 const said = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
@@ -87,7 +89,7 @@ export class ConnectorGateway {
         .send(ask.sessionId, {
           type: "answerPermission",
           requestId: ask.requestId,
-          optionId: "sign-in",
+          optionId: SIGNED_IN,
         })
         .then(() =>
           this.#registry.tell(ask.sessionId, {
@@ -249,8 +251,12 @@ export class ConnectorGateway {
         },
         (command) => {
           if (command.type !== "answerPermission") throw new AnswerError("This is a sign-in.");
+          // The card's button opens the app's page; the core answers once the sign-in is done.
+          if (command.optionId === "sign-in") {
+            throw new AnswerError(`Sign in to ${setup.name} from its card.`);
+          }
           this.#signInAsks.delete(key);
-          const signedIn = command.optionId === "sign-in";
+          const signedIn = command.optionId === SIGNED_IN;
           return {
             resolution: {
               type: "permission.resolved",

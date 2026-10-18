@@ -11,6 +11,7 @@ import { proposePlan } from "./chief/propose-plan.ts";
 import { Scheduler } from "./chief/scheduler.ts";
 import { appsOf } from "./connectors/access.ts";
 import { ConnectorHub } from "./connectors/hub.ts";
+import { AppRequests } from "./connectors/request-app.ts";
 import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { referenceOf } from "./library/library.ts";
@@ -86,6 +87,7 @@ toolServer.offer([
   messageLead(team),
   addToLibrary(team),
   changeLibrary(team),
+  new AppRequests(store, registry).tool(),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

@@ -162,6 +162,35 @@ describe("connectors", () => {
     });
   });
 
+  it("gives the asker's department access once the user approves request_app", async () => {
+    const notes = await connect("notes", "ask", someoneElse());
+    const department = (
+      await core.call("POST", "/departments", {
+        team: { name: "Research", roles: [] },
+        workspaceId,
+        autonomy: "supervised",
+        lead: { settings: { harness: "claude", environment: { kind: "native" } } },
+      })
+    ).json;
+    await core.call("POST", "/tasks/team", {
+      goal: "Research",
+      team: { departmentId: department.id },
+    });
+    const lead = core.sessions[0];
+    const asked = await core.callTool(lead, "request_app", { app: "notes", reason: "For prices" });
+    expect(asked.text).toContain("with the user");
+    const [ask] = pending();
+    await core.registry.send(lead?.id ?? "", {
+      type: "answerPermission",
+      requestId: ask?.type === "permission.requested" ? ask.payload.requestId : "",
+      optionId: "give",
+    });
+    await settle();
+    expect(core.store.getConnector(notes.id)?.audience.departmentIds).toEqual([department.id]);
+    const ready = lead?.sent.filter((command) => command.type === "prompt").at(-1);
+    expect(ready).toMatchObject({ text: expect.stringContaining("is ready for you") });
+  });
+
   it("keeps keys out of SQLite and out of what a harness is launched with", async () => {
     await connect("notes", "ask");
     const { record, session } = await startAgent();

@@ -8,6 +8,7 @@ import { proposePlan } from "../../src/chief/propose-plan.ts";
 import { Scheduler } from "../../src/chief/scheduler.ts";
 import { appsOf } from "../../src/connectors/access.ts";
 import { ConnectorHub } from "../../src/connectors/hub.ts";
+import { AppRequests } from "../../src/connectors/request-app.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
@@ -116,6 +117,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     messageLead(team),
     addToLibrary(team),
     changeLibrary(team),
+    new AppRequests(store, registry).tool(),
   ]);
   const server: ApiServer = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
   connectors.listenAt(server.url);
