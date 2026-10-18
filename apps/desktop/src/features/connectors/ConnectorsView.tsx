@@ -4,8 +4,9 @@ import type {
   ConnectorCategory,
   ConnectorRecord,
 } from "@office-town/contract";
-import { BadgeCheck, ChevronRight, Plus, Search } from "lucide-react";
-import { useState } from "react";
+import { BadgeCheck, ChevronRight, Plus, RefreshCw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
@@ -18,8 +19,12 @@ import styles from "./Connectors.module.css";
 import { ConnectSheet } from "./ConnectSheet.tsx";
 import {
   CATEGORIES,
+  isClaudeApp,
   needsUser,
+  openClaudeConnectors,
   permissionTitle,
+  refreshApps,
+  sameApp,
   signIn,
   useCatalog,
   useConnectors,
@@ -37,7 +42,7 @@ interface ConnectorsViewProps {
 
 function trouble({ status, enabled }: ConnectorRecord): string | undefined {
   if (!enabled) return "Turned off";
-  if (status === "signed_out") return "Signed out";
+  if (status === "signed_out") return "Needs sign-in";
   if (status === "failing") return "Not answering";
   return undefined;
 }
@@ -74,10 +79,60 @@ function ConnectedRow({ connector }: { connector: ConnectorRecord }) {
             signIn(connector.id).catch((failure: unknown) => showToast(String(failure)))
           }
         >
-          Sign in again
+          Sign in
         </Button>
       ) : null}
     </li>
+  );
+}
+
+// Claude Code connects these itself for the account's login; the user adds them on claude.ai.
+function ClaudeAppsSection({ connectors }: { connectors: ConnectorRecord[] }) {
+  const accounts = useApp((state) => state.accounts);
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      await api.refreshConnectors();
+    } catch (failure) {
+      showToast(String(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const byAccount = Map.groupBy(connectors, ({ setup }) => setup.account ?? "");
+  const named = byAccount.size > 1;
+  return (
+    <div className={page.section}>
+      <div className={page.sectionHead}>
+        <h2 className={page.sectionTitle}>
+          Claude apps <span className={styles.chipCount}>{connectors.length}</span>
+        </h2>
+        <Button variant="ghost" disabled={busy} onClick={() => void refresh()}>
+          <RefreshCw size={14} aria-hidden />
+          Refresh
+        </Button>
+      </div>
+      <p className={styles.note}>
+        Apps you connect in Claude. Only Claude agents use them.{" "}
+        <button type="button" className={styles.linkButton} onClick={openClaudeConnectors}>
+          Connect one in Claude
+        </button>
+      </p>
+      {[...byAccount].map(([accountId, apps]) => {
+        const name = accounts.find(({ id }) => id === accountId)?.name ?? "Claude";
+        return (
+          <div key={accountId} className={styles.group}>
+            {named ? <p className={styles.groupLabel}>{name}</p> : null}
+            <ul className={styles.list} aria-label={`Claude apps of ${name}`}>
+              {apps.map((connector) => (
+                <ConnectedRow key={connector.id} connector={connector} />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -124,13 +179,22 @@ export function ConnectorsView(props: ConnectorsViewProps) {
   const [chosen, setChosen] = useState<Sheet | null>();
   // An app asked for opens once the catalog is in, unless the user has closed it since.
   const sheet = chosen === undefined ? firstSheet(catalog?.entries, props) : chosen;
-  const connected = new Set(connectors.map(({ setup }) => setup.slug));
+  const hub = connectors.filter((connector) => !isClaudeApp(connector));
+  const claude = connectors.filter(isClaudeApp);
+  // Claude apps connected on claude.ai since are read on opening and on coming back to the app.
+  useEffect(() => {
+    refreshApps();
+    window.addEventListener("focus", refreshApps);
+    return () => window.removeEventListener("focus", refreshApps);
+  }, []);
+  const connected = new Set(hub.map(({ setup }) => setup.slug));
   const words = query.trim().toLowerCase();
   const shown = (catalog?.entries ?? []).filter(
-    ({ setup, category: kind, description }) =>
-      !connected.has(setup.slug) &&
-      (category === "all" || kind === category) &&
-      `${setup.name} ${description}`.toLowerCase().includes(words),
+    (entry) =>
+      !connected.has(entry.setup.slug) &&
+      !claude.some((connector) => sameApp(entry, connector)) &&
+      (category === "all" || entry.category === category) &&
+      `${entry.setup.name} ${entry.description}`.toLowerCase().includes(words),
   );
 
   return (
@@ -143,20 +207,22 @@ export function ConnectorsView(props: ConnectorsViewProps) {
           <p className={page.lead}>Apps your agents can use.</p>
         </header>
 
-        {connectors.length === 0 ? null : (
+        {hub.length === 0 ? null : (
           <div className={page.section}>
             <div className={page.sectionHead}>
               <h2 className={page.sectionTitle}>
-                Connected <span className={styles.chipCount}>{connectors.length}</span>
+                Connected <span className={styles.chipCount}>{hub.length}</span>
               </h2>
             </div>
             <ul className={styles.list} aria-label="Connected apps">
-              {connectors.map((connector) => (
+              {hub.map((connector) => (
                 <ConnectedRow key={connector.id} connector={connector} />
               ))}
             </ul>
           </div>
         )}
+
+        <ClaudeAppsSection connectors={claude} />
 
         <div className={page.section}>
           <div className={page.sectionHead}>
@@ -218,14 +284,14 @@ export function ConnectorsView(props: ConnectorsViewProps) {
       {sheet?.kind === "connect" ? (
         <ConnectSheet
           entry={sheet.entry}
-          keysInFile={catalog?.keysInFile ?? false}
+          keysAt={catalog?.keys ?? "store"}
           {...(sheet.audience === undefined ? {} : { audience: sheet.audience })}
           onClose={() => setChosen(null)}
         />
       ) : null}
       {sheet?.kind === "own" ? (
         <AddOwnSheet
-          keysInFile={catalog?.keysInFile ?? false}
+          keysAt={catalog?.keys ?? "store"}
           {...(sheet.describe === undefined ? {} : { describe: sheet.describe })}
           {...(sheet.audience === undefined ? {} : { audience: sheet.audience })}
           onClose={() => setChosen(null)}

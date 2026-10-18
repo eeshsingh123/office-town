@@ -16,7 +16,11 @@ export function AppLogo({ app, size = "md" }: AppLogoProps) {
       ({ setup }) => setup.slug === app || setup.name.toLowerCase() === app.toLowerCase(),
     ),
   );
-  const slug = connector?.setup.slug ?? app;
+  // A Claude app's slug is "claude-notion", so its logo is found by its name.
+  const slug =
+    connector?.setup.kind === "claude"
+      ? connector.setup.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")
+      : (connector?.setup.slug ?? app);
   const logo = LOGOS[slug];
   const name = connector?.setup.name ?? app;
   return (

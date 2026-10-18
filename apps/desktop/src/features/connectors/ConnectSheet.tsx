@@ -1,18 +1,23 @@
-import type { Audience, CatalogEntry, ConnectorPermission } from "@office-town/contract";
-import { BadgeCheck, Check } from "lucide-react";
+import type {
+  Audience,
+  CatalogEntry,
+  ConnectorCatalog,
+  ConnectorPermission,
+  ConnectorSetup,
+} from "@office-town/contract";
+import { BadgeCheck } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
-import { signIn } from "./connectors.ts";
+import { openClaudeConnectors } from "./connectors.ts";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
 
 interface ConnectSheetProps {
   entry: CatalogEntry;
-  keysInFile: boolean;
+  keysAt: ConnectorCatalog["keys"];
   audience?: Audience;
   onClose: () => void;
 }
@@ -20,30 +25,83 @@ interface ConnectSheetProps {
 const errorText = (failure: unknown) =>
   failure instanceof Error ? failure.message : String(failure);
 
-// A sign-in app is saved when the user signs in, so the core can take the app's answer; a key
-// app is tried with the key on Done.
-export function ConnectSheet({ entry, keysInFile, audience: asked, onClose }: ConnectSheetProps) {
+const by = (setup: CatalogEntry["setup"]) => (
+  <>
+    <BadgeCheck size={13} aria-hidden />
+    Official, by {setup.maker}
+  </>
+);
+
+// How to add an app on claude.ai, where Claude keeps its sign-in.
+export function ClaudeSteps({ setup }: { setup: ConnectorSetup }) {
+  return (
+    <>
+      <p className={styles.note}>
+        {setup.name} connects in Claude, which signs you in and keeps the sign-in. Your Claude
+        agents use it.
+      </p>
+      <ol className={styles.steps}>
+        <li>Open Claude's connectors page and add {setup.name}.</li>
+        {setup.url === undefined ? null : (
+          <li>
+            Not in Claude's list? Add a custom connector with this address: <code>{setup.url}</code>
+          </li>
+        )}
+        <li>Come back here. It shows under Claude apps, where you choose who can use it.</li>
+      </ol>
+    </>
+  );
+}
+
+// A sign-in app is connected on claude.ai, which keeps its sign-in; Claude agents then reach it
+// and it shows under Claude apps, where who may use it is set (D-68).
+function ClaudeSheet({ entry, onClose }: { entry: CatalogEntry; onClose: () => void }) {
+  const { setup } = entry;
+  return (
+    <ConnectorSheet
+      logo={<AppLogo app={setup.slug} />}
+      title={`Connect ${setup.name}`}
+      by={by(setup)}
+      onClose={onClose}
+      foot={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              openClaudeConnectors();
+              onClose();
+            }}
+          >
+            Open Claude
+          </Button>
+        </>
+      }
+    >
+      <ClaudeSteps setup={setup} />
+    </ConnectorSheet>
+  );
+}
+
+// A key app is tried with the key on Done; one without a key at once.
+function KeySheet({ entry, keysAt, audience: asked, onClose }: ConnectSheetProps) {
   const { setup } = entry;
   const [audience, setAudience] = useState<Audience>(asked ?? EVERYONE);
   const [permission, setPermission] = useState<ConnectorPermission>("ask");
   const [keys, setKeys] = useState<Record<string, string>>({});
-  const [connectorId, setConnectorId] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const status = useApp((state) =>
-    connectorId === undefined ? undefined : state.connectors[connectorId]?.status,
-  );
-  const signedIn = status === "connected";
   const keysGiven = setup.keys.every(({ name }) => (keys[name] ?? "").trim() !== "");
-  const ready =
-    givenToSomeone(audience) &&
-    (setup.auth === "sign-in" ? signedIn : setup.auth === "none" || keysGiven);
+  const ready = givenToSomeone(audience) && (setup.auth === "none" || keysGiven);
 
-  const run = async (work: () => Promise<void>) => {
+  const done = async () => {
     setBusy(true);
     setError(undefined);
     try {
-      await work();
+      await api.addConnector({ setup, audience, permission, keys });
+      onClose();
     } catch (failure) {
       setError(errorText(failure));
     } finally {
@@ -51,83 +109,26 @@ export function ConnectSheet({ entry, keysInFile, audience: asked, onClose }: Co
     }
   };
 
-  const startSignIn = () =>
-    run(async () => {
-      const id =
-        connectorId ??
-        (
-          await api.addConnector({
-            setup,
-            audience: givenToSomeone(audience) ? audience : EVERYONE,
-            permission,
-          })
-        ).id;
-      setConnectorId(id);
-      await signIn(id);
-    });
-
-  const done = () =>
-    run(async () => {
-      if (connectorId === undefined) {
-        await api.addConnector({ setup, audience, permission, keys });
-      } else {
-        await api.changeConnector(connectorId, { audience, permission });
-      }
-      onClose();
-    });
-
-  // One the user left before signing in is not kept.
-  const cancel = () => {
-    if (connectorId !== undefined && !signedIn) void api.removeConnector(connectorId);
-    onClose();
-  };
-
   return (
     <ConnectorSheet
       logo={<AppLogo app={setup.slug} />}
       title={`Connect ${setup.name}`}
-      by={
-        <>
-          <BadgeCheck size={13} aria-hidden />
-          Official, by {setup.maker}
-        </>
-      }
-      onClose={cancel}
+      by={by(setup)}
+      onClose={onClose}
       foot={
         <>
-          <Button variant="ghost" onClick={cancel}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!ready || busy} onClick={done}>
+          <Button variant="primary" disabled={!ready || busy} onClick={() => void done()}>
             Done
           </Button>
         </>
       }
     >
       <Field label="Account">
-        {setup.auth === "sign-in" ? (
-          <div className={styles.account}>
-            {signedIn ? (
-              <span className={styles.check}>
-                <Check size={13} strokeWidth={3} aria-hidden />
-              </span>
-            ) : null}
-            <span className={styles.accountText}>
-              <b>{signedIn ? "Signed in" : `Sign in to ${setup.name}`}</b>
-              <span className={styles.sub}>
-                {signedIn
-                  ? "Your agents use this account."
-                  : connectorId === undefined
-                    ? "Its own page opens in your browser."
-                    : "Finish in your browser, then come back."}
-              </span>
-            </span>
-            <Button variant={signedIn ? "ghost" : "primary"} disabled={busy} onClick={startSignIn}>
-              {signedIn ? "Change" : connectorId === undefined ? "Sign in" : "Open again"}
-            </Button>
-          </div>
-        ) : setup.auth === "key" ? (
-          <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysInFile={keysInFile} />
+        {setup.auth === "key" ? (
+          <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysAt={keysAt} />
         ) : (
           <p className={styles.note}>No sign-in needed.</p>
         )}
@@ -140,5 +141,13 @@ export function ConnectSheet({ entry, keysInFile, audience: asked, onClose }: Co
         </p>
       )}
     </ConnectorSheet>
+  );
+}
+
+export function ConnectSheet(props: ConnectSheetProps) {
+  return props.entry.setup.kind === "claude" ? (
+    <ClaudeSheet entry={props.entry} onClose={props.onClose} />
+  ) : (
+    <KeySheet {...props} />
   );
 }

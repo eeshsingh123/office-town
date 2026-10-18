@@ -205,9 +205,13 @@ function resolutionText(request: TraceRequest): string | undefined {
     if (resolution.outcome === "allowed") {
       const by = "answeredBy" in resolution ? resolution.answeredBy : undefined;
       if (typeof by === "object") return `Allowed by your setting · ${AUTONOMY[by.autonomy].label}`;
+      if (by === "app") return "Allowed by the app's setting";
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
-    return resolution.outcome === "denied" ? "Denied" : "Cancelled";
+    if (resolution.outcome !== "denied") return "Cancelled";
+    return "answeredBy" in resolution && resolution.answeredBy === "app"
+      ? "Refused by the app's setting"
+      : "Denied";
   }
   if (resolution.outcome !== "answered" || !("answers" in resolution)) return "Not answered";
   return `Answered: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;

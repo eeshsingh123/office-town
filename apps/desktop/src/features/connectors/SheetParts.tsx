@@ -1,4 +1,9 @@
-import type { Audience, ConnectorKey, ConnectorPermission } from "@office-town/contract";
+import type {
+  Audience,
+  ConnectorCatalog,
+  ConnectorKey,
+  ConnectorPermission,
+} from "@office-town/contract";
 import { X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import type { ReactNode } from "react";
@@ -134,12 +139,12 @@ export function KeyFields({
   keys,
   values,
   onChange,
-  keysInFile,
+  keysAt,
 }: {
   keys: ConnectorKey[];
   values: Record<string, string>;
   onChange: (values: Record<string, string>) => void;
-  keysInFile: boolean;
+  keysAt: ConnectorCatalog["keys"];
 }) {
   return (
     <>
@@ -160,9 +165,14 @@ export function KeyFields({
           )}
         </label>
       ))}
-      {keys.length > 0 && keysInFile ? (
+      {keys.length > 0 && keysAt === "file" ? (
         <p className={styles.note}>
           This computer has no password store, so keys are kept in a file only you can read.
+        </p>
+      ) : null}
+      {keys.length > 0 && keysAt === "none" ? (
+        <p className={`${styles.note} ${styles.warn}`}>
+          This computer's password store did not answer, so keys cannot be saved.
         </p>
       ) : null}
     </>

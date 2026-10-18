@@ -1,6 +1,7 @@
 import type {
   Audience,
   ConnectorAuth,
+  ConnectorCatalog,
   ConnectorFound,
   ConnectorPermission,
   ConnectorSetup,
@@ -16,11 +17,12 @@ import { DraftBox } from "../drafts/DraftBox.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
-import { signIn } from "./connectors.ts";
+import { ClaudeSteps } from "./ConnectSheet.tsx";
+import { openClaudeConnectors } from "./connectors.ts";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
 
 interface AddOwnSheetProps {
-  keysInFile: boolean;
+  keysAt: ConnectorCatalog["keys"];
   // The words to look for, such as an app an agent asked for.
   describe?: string;
   audience?: Audience;
@@ -69,7 +71,7 @@ export function setupOf(own: OwnSetup, extra: Partial<ConnectorSetup> = {}): Con
     ...(own.kind === "remote"
       ? { url: own.url.trim() }
       : { command: own.command.trim(), args: argsOf(own.args) }),
-    auth: own.kind === "local" && own.auth === "sign-in" ? "none" : own.auth,
+    auth: own.auth,
     keys: keyed ? [{ name: own.keyName.trim(), label: "Key" }] : [],
     ...extra,
   };
@@ -81,7 +83,7 @@ const errorText = (failure: unknown) =>
 function ownOf({ setup }: ConnectorFound): OwnSetup {
   return {
     name: setup.name,
-    kind: setup.kind,
+    kind: setup.kind === "local" ? "local" : "remote",
     url: setup.url ?? "",
     command: setup.command ?? "",
     args: (setup.args ?? []).map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)).join(" "),
@@ -108,10 +110,10 @@ interface HandProps {
   setup: ConnectorSetup;
   keys: Record<string, string>;
   setKeys: (keys: Record<string, string>) => void;
-  keysInFile: boolean;
+  keysAt: ConnectorCatalog["keys"];
 }
 
-function HandFields({ own, change, setup, keys, setKeys, keysInFile }: HandProps) {
+function HandFields({ own, change, setup, keys, setKeys, keysAt }: HandProps) {
   return (
     <>
       <label className={styles.field}>
@@ -177,9 +179,6 @@ function HandFields({ own, change, setup, keys, setKeys, keysInFile }: HandProps
           options={[
             { value: "none", title: "Nothing needed" },
             { value: "key", title: "A key" },
-            ...(own.kind === "remote"
-              ? [{ value: "sign-in" as const, title: "Sign in in the browser" }]
-              : []),
           ]}
           onChange={(auth) => change({ auth })}
         />
@@ -195,7 +194,7 @@ function HandFields({ own, change, setup, keys, setKeys, keysInFile }: HandProps
                 onChange={(event) => change({ keyName: event.target.value })}
               />
             </label>
-            <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysInFile={keysInFile} />
+            <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysAt={keysAt} />
           </>
         ) : null}
       </Field>
@@ -237,7 +236,9 @@ function Found({ found, tested }: { found: ConnectorFound; tested: number | unde
       </div>
       <div className={styles.foundRow}>
         <span className={styles.foundKey}>Runs</span>
-        {setup.kind === "remote" ? (
+        {setup.kind === "claude" ? (
+          <span>In Claude, which signs you in</span>
+        ) : setup.kind === "remote" ? (
           <span>On the internet</span>
         ) : (
           <span>
@@ -263,7 +264,7 @@ function Found({ found, tested }: { found: ConnectorFound; tested: number | unde
 }
 
 // Describe the app and a short run finds an existing server and sets it up; or enter it by hand.
-export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: AddOwnSheetProps) {
+export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddOwnSheetProps) {
   const [own, setOwn] = useState<OwnSetup>(EMPTY);
   const [found, setFound] = useState<ConnectorFound>();
   const [byHand, setByHand] = useState(false);
@@ -281,10 +282,10 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
   const filled =
     setup.name !== "" &&
     (own.kind === "remote" ? own.url.trim() !== "" : own.command.trim() !== "");
-  // A sign-in is tried by signing in; anything else is tried before it is added.
-  const needsTest = setup.auth !== "sign-in";
-  const ready = filled && givenToSomeone(audience) && (!needsTest || tested !== undefined);
-  const shown = byHand || found !== undefined;
+  // An app that signs in through the browser is added on claude.ai instead (D-68).
+  const inClaude = !byHand && found?.setup.kind === "claude";
+  const ready = filled && givenToSomeone(audience) && tested !== undefined;
+  const shown = byHand || (found !== undefined && !inClaude);
 
   const run = async (work: () => Promise<void>) => {
     setBusy(true);
@@ -309,8 +310,7 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
   const test = () => run(async () => setTested(await api.testConnector({ setup, keys })));
   const add = () =>
     run(async () => {
-      const connector = await api.addConnector({ setup, audience, permission, keys });
-      if (setup.auth === "sign-in") await signIn(connector.id);
+      await api.addConnector({ setup, audience, permission, keys });
       onClose();
     });
 
@@ -332,9 +332,21 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={!ready || busy} onClick={add}>
-            Add connector
-          </Button>
+          {inClaude ? (
+            <Button
+              variant="primary"
+              onClick={() => {
+                openClaudeConnectors();
+                onClose();
+              }}
+            >
+              Open Claude
+            </Button>
+          ) : (
+            <Button variant="primary" disabled={!ready || busy} onClick={add}>
+              Add connector
+            </Button>
+          )}
         </>
       }
     >
@@ -345,7 +357,7 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
           setup={setup}
           keys={keys}
           setKeys={setKeys}
-          keysInFile={keysInFile}
+          keysAt={keysAt}
         />
       ) : (
         <>
@@ -365,13 +377,9 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
               <Field label="Found">
                 <Found found={found} tested={tested} />
               </Field>
+              {inClaude ? <ClaudeSteps setup={found.setup} /> : null}
               {setup.auth === "key" ? (
-                <KeyFields
-                  keys={setup.keys}
-                  values={keys}
-                  onChange={setKeys}
-                  keysInFile={keysInFile}
-                />
+                <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysAt={keysAt} />
               ) : null}
             </>
           )}
@@ -381,34 +389,32 @@ export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: 
         <>
           <WhoField audience={audience} onChange={setAudience} />
           <PermissionField value={permission} onChange={setPermission} />
-          {needsTest ? (
-            <Field label="Test">
-              {own.kind === "local" && filled ? (
-                <p className={styles.note}>
-                  Runs{" "}
-                  <span className={styles.code}>
-                    {[setup.command, ...(setup.args ?? [])].join(" ")}
-                  </span>{" "}
-                  on this computer.
-                </p>
-              ) : null}
-              <div className={styles.account}>
-                <span className={styles.accountText}>
-                  {tested === undefined ? (
-                    <span className={styles.sub}>Connects once and lists what it offers.</span>
-                  ) : (
-                    <span className={styles.tested}>
-                      <Check size={14} aria-hidden />
-                      Tested: {tested} actions
-                    </span>
-                  )}
-                </span>
-                <Button disabled={!filled || busy} onClick={test}>
-                  {own.kind === "local" ? "Run and test" : "Test"}
-                </Button>
-              </div>
-            </Field>
-          ) : null}
+          <Field label="Test">
+            {own.kind === "local" && filled ? (
+              <p className={styles.note}>
+                Runs{" "}
+                <span className={styles.code}>
+                  {[setup.command, ...(setup.args ?? [])].join(" ")}
+                </span>{" "}
+                on this computer.
+              </p>
+            ) : null}
+            <div className={styles.account}>
+              <span className={styles.accountText}>
+                {tested === undefined ? (
+                  <span className={styles.sub}>Connects once and lists what it offers.</span>
+                ) : (
+                  <span className={styles.tested}>
+                    <Check size={14} aria-hidden />
+                    Tested: {tested} actions
+                  </span>
+                )}
+              </span>
+              <Button disabled={!filled || busy} onClick={test}>
+                {own.kind === "local" ? "Run and test" : "Test"}
+              </Button>
+            </div>
+          </Field>
         </>
       ) : null}
       {error === undefined ? null : (

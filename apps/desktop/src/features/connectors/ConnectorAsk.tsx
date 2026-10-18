@@ -16,7 +16,6 @@ export const appAskOf = (event: UserRequestEvent) =>
   event.type === "permission.requested" ? event.payload.tool : undefined;
 
 export function appAskLabel(tool: { name: string }): string {
-  if (tool.name === "sign-in") return "Signed out";
   if (tool.name === "request") return "Wants an app";
   return "Asks your approval";
 }
@@ -68,8 +67,11 @@ export function ConnectorAskBody({
   const { sending, error, run } = useAnswer();
   const { requestId, title, input, options, tool } = event.payload;
   const asker = useAsker(event.sessionId);
+  // A Claude app's own ask names it as Claude Code does, such as "claude.ai Notion".
   const connector = useApp((state) =>
-    Object.values(state.connectors).find(({ setup }) => setup.slug === tool?.server),
+    Object.values(state.connectors).find(
+      ({ setup }) => setup.slug === tool?.server || setup.app === tool?.server,
+    ),
   );
   const fields =
     input !== null && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -78,7 +80,7 @@ export function ConnectorAskBody({
   const answer = (optionId: string) =>
     run(() => api.command(event.sessionId, { type: "answerPermission", requestId, optionId }));
   const buttonFor = (optionId: string, label: string) => {
-    // Signing in and connecting happen in the app's page and the connect sheet, not here.
+    // Signing in and connecting happen in Claude's page and the connect sheet, not here.
     if (optionId === "sign-in") {
       // Not held as sending: the user may close the page and press it again.
       return () =>
@@ -99,12 +101,8 @@ export function ConnectorAskBody({
   return (
     <div className={requests.body}>
       {context}
-      <strong>
-        {tool?.name === "sign-in" ? `${connector?.setup.name ?? "An app"} is signed out` : title}
-      </strong>
-      {tool?.name === "sign-in" ? (
-        <span className={styles.note}>The agent carries on once you sign in again.</span>
-      ) : tool?.name === "request" ? null : mail ? (
+      <strong>{title}</strong>
+      {tool?.name === "request" ? null : mail ? (
         <Mail input={fields} />
       ) : detail === undefined || detail === "{}" ? null : (
         <pre className={requests.code}>{detail}</pre>

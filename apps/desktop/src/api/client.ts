@@ -190,9 +190,12 @@ export const api = {
     write("POST", "/connectors/test", request, connectorTestSchema).then(({ tools }) => tools),
   changeConnector: (connectorId: string, change: ConnectorChange): Promise<ConnectorRecord> =>
     write("PUT", `/connectors/${id(connectorId)}`, change, connectorRecordSchema),
+  // Reads the Claude apps again, such as one just connected on claude.ai.
+  refreshConnectors: (): Promise<ConnectorRecord[]> =>
+    write("POST", "/connectors/refresh", {}, listOf(connectorRecordSchema)),
   removeConnector: (connectorId: string): Promise<void> =>
     send("DELETE", `/connectors/${id(connectorId)}`),
-  // The app's own sign-in page, to open in the browser.
+  // Claude's sign-in page for a Claude app, to open in the browser.
   connectorSignIn: (connectorId: string): Promise<string> =>
     write("POST", `/connectors/${id(connectorId)}/sign-in`, {}, connectorSignInSchema).then(
       ({ url }) => url,

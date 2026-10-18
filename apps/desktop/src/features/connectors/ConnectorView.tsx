@@ -29,8 +29,9 @@ const errorText = (failure: unknown) =>
 
 function statusText({ enabled, status, setup }: ConnectorRecord): string {
   if (!enabled) return "Turned off";
-  if (status === "signed_out") return "Signed out";
+  if (status === "signed_out") return "Needs sign-in";
   if (status === "failing") return "Not answering";
+  if (setup.kind === "claude") return "Connected in Claude · used by Claude agents";
   return setup.official ? `Official, by ${setup.maker}` : "Community";
 }
 
@@ -172,6 +173,8 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
   }
   const { setup, audience, permission, enabled } = connector;
   const trouble = !enabled || connector.status !== "connected";
+  // A Claude app is signed in to and removed in Claude; here it is only given out or turned off.
+  const claude = setup.kind === "claude";
   return (
     <section className={page.page} aria-labelledby="connector-title">
       <div className={styles.column}>
@@ -196,7 +199,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                {setup.auth === "sign-in" ? (
+                {claude && connector.status === "signed_out" ? (
                   <DropdownMenu.Item
                     className={menu.item}
                     onSelect={() =>
@@ -205,7 +208,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                       )
                     }
                   >
-                    Sign in again
+                    Sign in
                   </DropdownMenu.Item>
                 ) : null}
                 <DropdownMenu.Item
@@ -214,9 +217,11 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                 >
                   {enabled ? "Turn off" : "Turn on"}
                 </DropdownMenu.Item>
-                <DropdownMenu.Item className={menu.item} onSelect={() => setConfirming(true)}>
-                  Disconnect
-                </DropdownMenu.Item>
+                {claude ? null : (
+                  <DropdownMenu.Item className={menu.item} onSelect={() => setConfirming(true)}>
+                    Disconnect
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -273,7 +278,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
         open={confirming}
         onOpenChange={setConfirming}
         title={`Disconnect ${setup.name}?`}
-        description="Agents lose it at once, and its sign-in or key is deleted from this computer."
+        description="Agents lose it at once, and its key is deleted from this computer."
         confirmLabel="Disconnect"
         onConfirm={async () => {
           await api.removeConnector(connector.id);
