@@ -45,8 +45,9 @@ function Main({ view }: { view: View }) {
     case "new-department":
       return (
         <NewDepartmentView
-          key={view.describe ?? ""}
+          key={view.byHand ? "by-hand" : (view.describe ?? "")}
           {...(view.describe === undefined ? {} : { describe: view.describe })}
+          byHand={view.byHand === true}
         />
       );
     case "team":

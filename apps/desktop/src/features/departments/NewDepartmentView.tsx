@@ -30,7 +30,7 @@ import {
 const STEPS = ["Describe", "Team", "Rules and permissions", "Review"] as const;
 
 // Departments from the user's words or built by hand; nothing is saved until Create.
-export function NewDepartmentView({ describe }: { describe?: string }) {
+export function NewDepartmentView({ describe, byHand }: { describe?: string; byHand: boolean }) {
   const harnesses = useApp((state) => state.harnesses);
   const workspaces = useWorkspaces() ?? [];
   const defaults: RoleSettings = {
@@ -40,8 +40,8 @@ export function NewDepartmentView({ describe }: { describe?: string }) {
   const [forms, setForms] = useState<DepartmentForm[]>(() => [blankDepartment(defaults)]);
   const [at, setAt] = useState(0);
   const [selected, setSelected] = useState<Record<number, number>>({});
-  const [step, setStep] = useState(0);
-  const [reached, setReached] = useState(0);
+  const [step, setStep] = useState(byHand ? 1 : 0);
+  const [reached, setReached] = useState(byHand ? 1 : 0);
   const [drafted, setDrafted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
