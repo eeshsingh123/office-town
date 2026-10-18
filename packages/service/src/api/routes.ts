@@ -6,6 +6,7 @@ import {
   chiefDraftRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
+  connectorDraftRequestSchema,
   continueTaskRequestSchema,
   departmentDraftRequestSchema,
   departmentSettingsSchema,
@@ -37,7 +38,10 @@ import { sessionOptionsFor } from "../agents/options.ts";
 import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
 import { chiefOf, isChiefTask, removeChief, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
+import type { ConnectorHub } from "../connectors/hub.ts";
+import { connectorRoutes } from "../connectors/routes.ts";
 import { draftChief } from "../drafts/chief.ts";
+import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
@@ -91,11 +95,12 @@ const NO_CONTENT = { status: 204 } as const;
 
 const sequenceSchema = z.coerce.number().int().positive();
 
-export function apiRoutes(team: TeamContext): Route[] {
+export function apiRoutes(team: TeamContext, connectors: ConnectorHub): Route[] {
   const { registry, store, readCatalog } = team;
   return [
     ...accountRoutes(team),
     ...libraryRoutes(store),
+    ...connectorRoutes(store, connectors),
     {
       method: "POST",
       path: "/tasks",
@@ -420,6 +425,14 @@ export function apiRoutes(team: TeamContext): Route[] {
       reply: async ({ body }) => ({
         status: 200,
         json: await draftChief(team, chiefDraftRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "POST",
+      path: "/drafts/connectors",
+      reply: async ({ body }) => ({
+        status: 200,
+        json: await draftConnector(team, connectorDraftRequestSchema.parse(await body())),
       }),
     },
     {

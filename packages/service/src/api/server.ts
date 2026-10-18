@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
+import type { ConnectorHub } from "../connectors/hub.ts";
 import type { TeamContext } from "../team/members.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
@@ -12,6 +13,7 @@ const BODY_LIMIT_BYTES = 1024 * 1024;
 
 export interface ApiOptions {
   team: TeamContext;
+  connectors: ConnectorHub;
   // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -82,9 +84,10 @@ function send(response: ServerResponse, reply: Reply): void {
     .end(JSON.stringify(reply.json));
 }
 
-export async function startApiServer({ team, token, port }: ApiOptions): Promise<ApiServer> {
+export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
+  const { team, connectors, token, port } = options;
   const { registry, store } = team;
-  const routes = apiRoutes(team);
+  const routes = apiRoutes(team, connectors);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");
@@ -92,11 +95,11 @@ export async function startApiServer({ team, token, port }: ApiOptions): Promise
   };
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (!authorized(request)) {
       throw new RequestError(401, "unauthorized", "A valid bearer token is required.");
     }
     const method = request.method ?? "";
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (method === "GET" && url.pathname === "/events") {
       const lastEventId = request.headers["last-event-id"];
       const query = eventStreamQuerySchema.parse({

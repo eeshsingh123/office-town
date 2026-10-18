@@ -172,6 +172,8 @@ const payloadSchemas = {
     options: z.array(permissionOptionSchema).min(1),
     kind: actionKindSchema.optional(),
     locations: z.array(z.string()).optional(),
+    // Set on a connector call the core holds for the user (D-67).
+    tool: z.object({ server: z.string().min(1), name: z.string().min(1) }).optional(),
   }),
   "permission.resolved": z.object({
     requestId: z.string().min(1),

@@ -4,11 +4,13 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
+import { AppLogo } from "../connectors/AppLogo.tsx";
+import { appAskLabel, appAskOf, ConnectorAskBody } from "../connectors/ConnectorAsk.tsx";
 import { PlanCard } from "../plan/PlanCard.tsx";
+import { detailOf, useAnswer } from "./answer.ts";
 import { ProposalCard } from "./ProposalCard.tsx";
 import styles from "./RequestCard.module.css";
 
-const DETAIL_LIMIT = 2000;
 const OWN_ANSWER = "~own";
 
 interface RequestCardProps {
@@ -26,39 +28,12 @@ export function useMinutesSince(timestamp: string): number {
   return Math.max(0, Math.floor((now - Date.parse(timestamp)) / 60_000));
 }
 
-// The part of a request's input a person needs to decide: the command, else the file, else all.
-function detailOf(input: unknown): string | undefined {
-  if (input === null || typeof input !== "object") return undefined;
-  const fields = input as Record<string, unknown>;
-  for (const key of ["command", "file_path", "path", "url"]) {
-    if (typeof fields[key] === "string") return fields[key];
-  }
-  const text = JSON.stringify(input, null, 2);
-  return text.length > DETAIL_LIMIT ? `${text.slice(0, DETAIL_LIMIT)}…` : text;
-}
-
 const VARIANTS: Record<PermissionOption["kind"], "primary" | "secondary" | "ghost"> = {
   allow_once: "primary",
   allow_always: "secondary",
   reject_once: "ghost",
   reject_always: "ghost",
 };
-
-function useAnswer() {
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string>();
-  const run = async (answer: () => Promise<void>) => {
-    setSending(true);
-    setError(undefined);
-    try {
-      await answer();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
-      setSending(false);
-    }
-  };
-  return { sending, error, run };
-}
 
 type PermissionEvent = Extract<UserRequestEvent, { type: "permission.requested" }>;
 type QuestionEvent = Extract<UserRequestEvent, { type: "question.requested" }>;
@@ -233,6 +208,7 @@ function AskCard({
 }) {
   const minutes = useMinutesSince(event.timestamp);
   const permission = event.type === "permission.requested";
+  const app = appAskOf(event);
   return (
     <article
       id={requestKey(event.payload.requestId)}
@@ -240,13 +216,25 @@ function AskCard({
       aria-label={permission ? "Permission request" : "Question"}
     >
       <div className={styles.head}>
-        {permission ? <ShieldCheck size={16} aria-hidden /> : <CircleHelp size={16} aria-hidden />}
-        {permission ? "Asks your permission" : "Asks you a question"}
+        {app !== undefined ? (
+          <AppLogo app={app.server} size="sm" />
+        ) : permission ? (
+          <ShieldCheck size={16} aria-hidden />
+        ) : (
+          <CircleHelp size={16} aria-hidden />
+        )}
+        {app !== undefined
+          ? appAskLabel(app)
+          : permission
+            ? "Asks your permission"
+            : "Asks you a question"}
         <span className={styles.since}>
           {minutes === 0 ? "just now" : `waiting ${minutes} min`}
         </span>
       </div>
-      {event.type === "permission.requested" ? (
+      {event.type === "permission.requested" && app !== undefined ? (
+        <ConnectorAskBody event={event} context={context} />
+      ) : event.type === "permission.requested" ? (
         <PermissionBody event={event} context={context} />
       ) : (
         <QuestionBody event={event} context={context} />

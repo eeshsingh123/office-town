@@ -21,13 +21,23 @@ interface DraftBoxProps {
   drafted: boolean;
   // Handed over from another screen and drafted at once.
   initial?: string;
+  // What the box says once there is a draft.
+  changePlaceholder?: string;
   run: (notes: string[], drafter: RoleSettings) => Promise<DraftAnswer>;
 }
 
 const DRAFT_ANYWAY = "Draft it now. Choose sensibly where I did not say.";
 
 // Describe it in your own words; the model may ask what would change the draft, and suggests what was missed.
-export function DraftBox({ label, placeholder, action, drafted, initial, run }: DraftBoxProps) {
+export function DraftBox({
+  label,
+  placeholder,
+  action,
+  drafted,
+  initial,
+  changePlaceholder = "Change something, for example: make the reviewer use a free model",
+  run,
+}: DraftBoxProps) {
   const [drafter, setDrafter] = useDrafter();
   const [notes, setNotes] = useState<string[]>([]);
   const [text, setText] = useState(initial ?? "");
@@ -88,11 +98,7 @@ export function DraftBox({ label, placeholder, action, drafted, initial, run }: 
           className={`${composer.prompt} ${styles.text}`}
           value={text}
           rows={drafted ? 1 : 3}
-          placeholder={
-            drafted
-              ? "Change something, for example: make the reviewer use a free model"
-              : placeholder
-          }
+          placeholder={drafted ? changePlaceholder : placeholder}
           disabled={busy}
           onChange={(change) => setText(change.target.value)}
           onKeyDown={onKeyDown}

@@ -29,6 +29,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
+import { AppLogo } from "../connectors/AppLogo.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useMemberLinks } from "./members.ts";
@@ -158,7 +159,11 @@ const ActionRow = memo(function ActionRow({
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <Icon size={14} aria-hidden />
+        {action.app === undefined ? (
+          <Icon size={14} aria-hidden />
+        ) : (
+          <AppLogo app={action.app} size="sm" />
+        )}
         <span className={styles.rowTitle}>{action.title}</span>
         {action.endedAt === undefined ? null : (
           <span className={styles.meta}>{elapsed(action.startedAt, action.endedAt)}</span>
@@ -200,9 +205,13 @@ function resolutionText(request: TraceRequest): string | undefined {
     if (resolution.outcome === "allowed") {
       const by = "answeredBy" in resolution ? resolution.answeredBy : undefined;
       if (typeof by === "object") return `Allowed by your setting · ${AUTONOMY[by.autonomy].label}`;
+      if (by === "app") return "Allowed by the app's setting";
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
-    return resolution.outcome === "denied" ? "Denied" : "Cancelled";
+    if (resolution.outcome !== "denied") return "Cancelled";
+    return "answeredBy" in resolution && resolution.answeredBy === "app"
+      ? "Refused by the app's setting"
+      : "Denied";
   }
   if (resolution.outcome !== "answered" || !("answers" in resolution)) return "Not answered";
   return `Answered: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;

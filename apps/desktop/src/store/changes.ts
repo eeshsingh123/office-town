@@ -53,6 +53,14 @@ function applyChange(state: AppState, change: Change): AppState {
       const { [change.itemId]: _, ...library } = state.library;
       return { ...state, library };
     }
+    case "connector": {
+      const { connector } = change;
+      return { ...state, connectors: { ...state.connectors, [connector.id]: connector } };
+    }
+    case "connector.removed": {
+      const { [change.connectorId]: _, ...connectors } = state.connectors;
+      return { ...state, connectors };
+    }
   }
 }
 

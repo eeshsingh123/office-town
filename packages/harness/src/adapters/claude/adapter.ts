@@ -1,4 +1,4 @@
-import type { PermissionMode, UsageLimit } from "@office-town/contract";
+import type { PermissionMode, UsageLimit, VendorApp } from "@office-town/contract";
 import type {
   AccountSupport,
   Adapter,
@@ -7,15 +7,17 @@ import type {
   HarnessCommand,
   InstallSupport,
   LaunchOptions,
+  VendorAppSupport,
 } from "../../adapter.ts";
 import {
   authStatusSchema,
   credentialsSchema,
   headerSchema,
   initializeResponseSchema,
+  mcpStatusResponseSchema,
   planUsageSchema,
 } from "./messages.ts";
-import { ClaudeTranslator } from "./translator.ts";
+import { appToolPrefix, ClaudeTranslator } from "./translator.ts";
 
 const STREAM_ARGS = [
   "--print",
@@ -47,6 +49,15 @@ function mcpConfigOf(server: AttachedToolServer, index: number) {
     : { type: "stdio", command: server.command, args: server.args, env: hidden(server.env) };
 }
 
+// The login's other apps are blocked; every call to an allowed one asks, even where the user's
+// own settings allow it, because the core decides it by the app's permission (D-68).
+function appSettings({ vendorApps = [], blockedApps = [] }: LaunchOptions) {
+  return {
+    deniedMcpServers: blockedApps.map((serverName) => ({ serverName })),
+    permissions: { ask: vendorApps.map((app) => appToolPrefix(app).slice(0, -2)) },
+  };
+}
+
 function buildCommand(options: LaunchOptions): HarnessCommand {
   const args = [
     ...STREAM_ARGS,
@@ -71,12 +82,15 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     args.push("--allowedTools", ...options.toolServers.map((server) => `mcp__${server.name}`));
   }
   // --bare would isolate more, but takes only an API key, never the subscription login (D-41).
-  if (options.isolated) {
-    args.push("--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands");
-  }
+  // No --strict-mcp-config: it drops Claude apps too, and the empty setting sources already keep
+  // the user's own MCP servers out.
+  if (options.isolated) args.push("--setting-sources", "", "--disable-slash-commands");
+  const apps = options.vendorApps ?? [];
+  if (apps.length > 0) args.push("--settings", JSON.stringify(appSettings(options)));
   for (const path of options.additionalPaths ?? []) args.push("--add-dir", path);
   const env = {
     ...(options.accountFolder === undefined ? {} : accounts.env(options.accountFolder)),
+    ...(apps.length === 0 ? { ENABLE_CLAUDEAI_MCP_SERVERS: "false" } : {}),
     ...Object.fromEntries(
       options.toolServers.map((server, index) => [tokenVariable(index), server.token]),
     ),
@@ -167,6 +181,52 @@ const accounts: AccountSupport = {
   readLimits,
 };
 
+const APP_STATUS: Record<string, VendorApp["status"]> = {
+  connected: "connected",
+  "needs-auth": "needs_sign_in",
+};
+
+// The user's claude.ai connectors, which the CLI fetches for a subscription login.
+const vendorApps: VendorAppSupport = {
+  command: { binary: "claude", args: [...STREAM_ARGS, "--setting-sources", ""] },
+  start: [
+    JSON.stringify({
+      type: "control_request",
+      request_id: "init",
+      request: { subtype: "initialize" },
+    }),
+  ],
+  poll: JSON.stringify({
+    type: "control_request",
+    request_id: "apps",
+    request: { subtype: "mcp_status" },
+  }),
+  read(line) {
+    if (!line.startsWith("{")) return undefined;
+    const parsed = mcpStatusResponseSchema.safeParse(JSON.parse(line));
+    if (!parsed.success || parsed.data.response.request_id !== "apps") return undefined;
+    const servers = parsed.data.response.response.mcpServers.filter(
+      ({ source }) => source === "claudeai",
+    );
+    return {
+      apps: servers.map((server) => ({
+        name: server.name,
+        status: APP_STATUS[server.status] ?? "failed",
+        tools: (server.tools ?? []).map((tool) => ({
+          name: tool.name,
+          ...(tool.description === undefined ? {} : { description: tool.description }),
+          readOnly: tool.annotations?.readOnly === true,
+        })),
+      })),
+      pending: servers.some(({ status }) => status === "pending"),
+    };
+  },
+  // Claude prints its page and exits; the user signs in there, and the app works from the next run.
+  signIn: (app) => ({ binary: "claude", args: ["mcp", "login", "--no-browser", app] }),
+  signInPage: (output) =>
+    output.map((line) => line.trim()).find((line) => line.startsWith("https://")),
+};
+
 const install: InstallSupport = {
   version: { binary: "claude", args: ["--version"] },
   windows: "irm https://claude.ai/install.ps1 | iex",
@@ -191,6 +251,7 @@ export const claudeAdapter: Adapter = {
   catalog,
   accounts,
   install,
+  vendorApps,
   buildCommand,
-  createTranslator: (options) => new ClaudeTranslator(options.toolServers),
+  createTranslator: (options) => new ClaudeTranslator(options.toolServers, options.vendorApps),
 };

@@ -2,6 +2,8 @@ import type {
   Account,
   AccountLimits,
   AgentRecord,
+  Audience,
+  ConnectorRecord,
   DelegationRecord,
   DepartmentRecord,
   Display,
@@ -41,6 +43,9 @@ export type View =
   | { name: "tasks" }
   | { name: "templates" }
   | { name: "workspaces" }
+  // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
+  | { name: "connectors"; connect?: string; audience?: Audience }
+  | { name: "connector"; connectorId: string }
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
@@ -92,6 +97,8 @@ export interface AppState extends Records {
   workspaces: WorkspaceRecord[] | undefined;
   // Every workspace's reference files, by id.
   library: Record<string, LibraryItem>;
+  // The apps the user connected, by id.
+  connectors: Record<string, ConnectorRecord>;
   // Undefined until loaded, so setup never flashes for someone who finished it.
   onboarding: Onboarding | undefined;
   display: Display;
@@ -123,6 +130,7 @@ export const useApp = create<AppState>(() => ({
   templates: undefined,
   workspaces: undefined,
   library: {},
+  connectors: {},
   onboarding: undefined,
   display: {},
 }));

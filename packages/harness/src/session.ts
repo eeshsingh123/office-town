@@ -27,8 +27,10 @@ import type {
 import { attachmentNote } from "./attachments.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
+import { readVendorApps } from "./vendor-apps.ts";
 
 const STOP_GRACE_MS = 3000;
+const APPS_TIMEOUT_MS = 10_000;
 const UNREADABLE_LINE_CHARS = 500;
 
 type PromptCommand = Extract<SessionCommand, { type: "prompt" }>;
@@ -217,6 +219,28 @@ export class HarnessSession implements Session {
     this.#emit(body);
   }
 
+  // The login's other apps are found now, as the user may connect one at any time; a list that
+  // cannot be read turns every app off, so none the session may not use can reach it (D-68).
+  async #withAppsBlocked(): Promise<LaunchOptions> {
+    const allowed = this.#options.vendorApps ?? [];
+    if (allowed.length === 0 || this.#adapter.vendorApps === undefined) return this.#options;
+    const { accountFolder } = this.#options;
+    const env =
+      accountFolder === undefined ? {} : (this.#adapter.accounts?.env(accountFolder) ?? {});
+    try {
+      const apps = await readVendorApps(this.#adapter, this.#environment, env, {
+        settled: false,
+        timeoutMs: APPS_TIMEOUT_MS,
+      });
+      const blockedApps = apps.map(({ name }) => name).filter((name) => !allowed.includes(name));
+      return { ...this.#options, blockedApps };
+    } catch (error) {
+      const message = `Its apps are off for this run: ${errorMessage(error)}`;
+      this.#emit({ type: "error", payload: { message, fatal: false } });
+      return { ...this.#options, vendorApps: [] };
+    }
+  }
+
   async #start(): Promise<void> {
     if (this.#state !== "created") {
       throw new SessionStateError(`Cannot start a session that is ${this.#state}.`);
@@ -230,7 +254,7 @@ export class HarnessSession implements Session {
     this.#state = "starting";
     this.#reportIgnoredEffort();
     const request = {
-      ...this.#adapter.buildCommand(this.#options),
+      ...this.#adapter.buildCommand(await this.#withAppsBlocked()),
       cwd: this.#options.workspacePath,
     };
     try {

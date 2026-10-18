@@ -14,11 +14,13 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
+import { ConnectorHub } from "../src/connectors/hub.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
 import { TaskStates } from "../src/team/task-state.ts";
+import { memorySecrets } from "./support/connectors.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
 const TOKEN = "test-token";
@@ -110,7 +112,8 @@ beforeEach(async () => {
   taskStates.follow(registry);
   const readCatalog = cachedCatalogs(async () => ({ models: [] }));
   const team = { registry, store, readCatalog, dataFolder: directory, createSession };
-  server = await startApiServer({ team, token: TOKEN, port: 0 });
+  const connectors = new ConnectorHub(store, registry, memorySecrets());
+  server = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
 });
 
 afterEach(async () => {

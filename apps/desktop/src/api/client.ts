@@ -24,7 +24,21 @@ import {
   attachmentSchema,
   type ChiefDraftReply,
   type ChiefDraftRequest,
+  type ConnectorActivity,
+  type ConnectorActivityQuery,
+  type ConnectorCatalog,
+  type ConnectorChange,
+  type ConnectorDraftReply,
+  type ConnectorDraftRequest,
+  type ConnectorRecord,
+  type ConnectorTestRequest,
   chiefDraftReplySchema,
+  connectorActivitySchema,
+  connectorCatalogSchema,
+  connectorDraftReplySchema,
+  connectorRecordSchema,
+  connectorSignInSchema,
+  connectorTestSchema,
   type DelegationRecord,
   type DepartmentDraftReply,
   type DepartmentDraftRequest,
@@ -48,6 +62,7 @@ import {
   type LibraryItemChange,
   libraryItemSchema,
   type NewAccountRequest,
+  type NewConnectorRequest,
   type NewDepartmentRequest,
   type NewLibraryItemRequest,
   type Onboarding,
@@ -165,6 +180,37 @@ export const api = {
   changeLibraryItem: (itemId: string, change: LibraryItemChange): Promise<LibraryItem> =>
     write("PUT", `/library/${id(itemId)}`, change, libraryItemSchema),
   removeLibraryItem: (itemId: string): Promise<void> => send("DELETE", `/library/${id(itemId)}`),
+  listConnectors: (): Promise<ConnectorRecord[]> =>
+    read("/connectors", listOf(connectorRecordSchema)),
+  connectorCatalog: (): Promise<ConnectorCatalog> =>
+    read("/connectors/catalog", connectorCatalogSchema),
+  addConnector: (request: NewConnectorRequest): Promise<ConnectorRecord> =>
+    write("POST", "/connectors", request, connectorRecordSchema),
+  testConnector: (request: ConnectorTestRequest): Promise<number> =>
+    write("POST", "/connectors/test", request, connectorTestSchema).then(({ tools }) => tools),
+  changeConnector: (connectorId: string, change: ConnectorChange): Promise<ConnectorRecord> =>
+    write("PUT", `/connectors/${id(connectorId)}`, change, connectorRecordSchema),
+  // Reads the Claude apps again, such as one just connected on claude.ai.
+  refreshConnectors: (): Promise<ConnectorRecord[]> =>
+    write("POST", "/connectors/refresh", {}, listOf(connectorRecordSchema)),
+  removeConnector: (connectorId: string): Promise<void> =>
+    send("DELETE", `/connectors/${id(connectorId)}`),
+  // Claude's sign-in page for a Claude app, to open in the browser.
+  connectorSignIn: (connectorId: string): Promise<string> =>
+    write("POST", `/connectors/${id(connectorId)}/sign-in`, {}, connectorSignInSchema).then(
+      ({ url }) => url,
+    ),
+  connectorActivity: (
+    connectorId: string,
+    { team, changes, before }: ConnectorActivityQuery,
+  ): Promise<ConnectorActivity> => {
+    const query = new URLSearchParams({
+      ...(team === undefined ? {} : { team }),
+      ...(changes === true ? { changes: "true" } : {}),
+      ...(before === undefined ? {} : { before: String(before) }),
+    });
+    return read(`/connectors/${id(connectorId)}/activity?${query}`, connectorActivitySchema);
+  },
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),
@@ -207,6 +253,8 @@ export const api = {
   removeChief: (): Promise<void> => send("DELETE", "/chief"),
   draftChief: (request: ChiefDraftRequest): Promise<ChiefDraftReply> =>
     write("POST", "/drafts/chief", request, chiefDraftReplySchema),
+  draftConnector: (request: ConnectorDraftRequest): Promise<ConnectorDraftReply> =>
+    write("POST", "/drafts/connectors", request, connectorDraftReplySchema),
   draftDepartments: (request: DepartmentDraftRequest): Promise<DepartmentDraftReply> =>
     write("POST", "/drafts/departments", request, departmentDraftReplySchema),
   messageAgent: (

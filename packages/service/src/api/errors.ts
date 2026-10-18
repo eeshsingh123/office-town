@@ -7,6 +7,7 @@ import {
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
 import { ChiefBusyError, NoChiefError } from "../chief/chief.ts";
+import { ConnectError } from "../connectors/links.ts";
 import { DraftError } from "../drafts/run.ts";
 import {
   AnswerError,
@@ -53,6 +54,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [TeamError, 400, "invalid_request"],
   [UnknownHarnessError, 400, "invalid_request"],
   [FolderNotFoundError, 400, "invalid_request"],
+  [ConnectError, 400, "invalid_request"],
   // A malformed percent-encoding in the path.
   [URIError, 400, "invalid_request"],
   [BinaryNotFoundError, 502, "harness_failed"],

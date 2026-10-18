@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  Plug,
   Plus,
   Search,
   SwatchBook,
@@ -22,6 +23,7 @@ import { Kbd } from "../../ui/Kbd.tsx";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { openCommandMenu } from "../command/command-menu.ts";
+import { useConnectorNeedsUser } from "../connectors/connectors.ts";
 import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
@@ -49,6 +51,7 @@ interface NavItemProps {
     | "tasks"
     | "templates"
     | "workspaces"
+    | "connectors"
     | "usage"
     | "help";
   icon: LucideIcon;
@@ -62,6 +65,7 @@ export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
     (state) =>
       state.view.name === view ||
       (view === "workspaces" && state.view.name === "workspace") ||
+      (view === "connectors" && state.view.name === "connector") ||
       (view === "team" && ["department", "new-department"].includes(state.view.name)),
   );
   const rail = useRailLabel(label);
@@ -97,6 +101,16 @@ function UsageDot() {
   return (
     <span className={styles.usageDot}>
       <span className="visually-hidden"> An account is near its limit</span>
+    </span>
+  );
+}
+
+// Amber while a connector is signed out or not answering.
+function ConnectorDot() {
+  if (!useConnectorNeedsUser()) return null;
+  return (
+    <span className={styles.attentionDot}>
+      <span className="visually-hidden"> A connector needs you</span>
     </span>
   );
 }
@@ -181,6 +195,7 @@ export function Sidebar() {
         <NavItem view="tasks" icon={List} label="Tasks" />
         <NavItem view="templates" icon={SwatchBook} label="Templates" />
         <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
+        <NavItem view="connectors" icon={Plug} label="Connectors" badge={<ConnectorDot />} />
         <NavItem view="usage" icon={Gauge} label="Usage" badge={<UsageDot />} />
         {collapsed ? null : (
           <>

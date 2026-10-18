@@ -7,6 +7,7 @@ import type {
   TeamRole,
 } from "@office-town/contract";
 import { freeIdentity } from "../agents/agents.ts";
+import { reachableApps } from "../connectors/access.ts";
 import type { HarnessSessionFactory, SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import type { ReadCatalog } from "./catalogs.ts";
@@ -171,16 +172,19 @@ export function applyLead(store: Store, department: DepartmentRecord, lead: Lead
 }
 
 export function rosterOf(store: Store, department: DepartmentRecord): string {
-  return describeWorkers(workersOf(store, department));
+  return describeWorkers(store, workersOf(store, department));
 }
 
-export function describeWorkers(workers: AgentRecord[]): string {
+// With the apps each worker reaches, so the lead hands app work to one that has the app (D-68).
+export function describeWorkers(store: Store, workers: AgentRecord[]): string {
   if (workers.length === 0) return "You have no workers yet.";
   return workers
     .map((member) => {
       const { harness, model } = member.settings;
       const what = member.purpose ? `: ${member.purpose}` : "";
-      return `- ${member.name}, ${member.role ?? "worker"}${what} (${harness}${model ? `, ${model}` : ""})`;
+      const apps = reachableApps(store, member);
+      const reaches = apps.length === 0 ? "" : `; apps: ${apps.join(", ")}`;
+      return `- ${member.name}, ${member.role ?? "worker"}${what} (${harness}${model ? `, ${model}` : ""}${reaches})`;
     })
     .join("\n");
 }

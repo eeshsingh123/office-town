@@ -39,7 +39,7 @@ export type HarnessSessionFactory = (options: SessionOptions, extras: LaunchExtr
 // One token per session, so a tool call names its agent.
 export interface ToolAccess {
   // `bind` names the session once it exists, before it starts.
-  grant(): { servers: ToolServer[]; bind(sessionId: string): void };
+  grant(connectorIds: readonly string[]): { servers: ToolServer[]; bind(sessionId: string): void };
   revoke(sessionId: string): void;
 }
 
@@ -159,16 +159,33 @@ export type Guard = (
   request: PermissionRequest["payload"],
 ) => Autonomy | undefined;
 
+// An app's own permission on one of its calls; without a verdict the user answers (D-68).
+export type AppVerdict = { allow: true } | { allow: false; reason: string };
+export type AppGuard = (
+  session: SessionRecord,
+  request: PermissionRequest["payload"],
+) => AppVerdict | undefined;
+
 export interface RegistryOptions {
   createSession?: HarnessSessionFactory;
   tools?: ToolAccess;
   guard?: Guard;
+  // Decides a call to an app the harness connects itself, whatever the level.
+  appGuard?: AppGuard;
   // Read at each start, so a resume follows a level changed since.
   permissionModeOf?: (agentId: string) => PermissionMode;
   // Whether the session's model can see an image sent inline.
   seesImages?: (options: SessionOptions) => Promise<boolean>;
   // The Library items an agent gets in a task (D-64).
   referenceOf?: (taskId: string, agentId: string) => Attachment[];
+  // The apps a new conversation gets on its login, and the lines that tell the agent (D-68).
+  appsOf?: (agentId: string, options: SessionOptions) => Apps;
+}
+
+export interface Apps {
+  connectorIds: string[];
+  vendorApps: string[];
+  brief?: string;
 }
 
 export class SessionRegistry {
@@ -176,9 +193,11 @@ export class SessionRegistry {
   readonly #createSession: HarnessSessionFactory;
   readonly #tools: ToolAccess | undefined;
   readonly #guard: Guard | undefined;
+  readonly #appGuard: AppGuard | undefined;
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #seesImages: (options: SessionOptions) => Promise<boolean>;
   readonly #referenceOf: (taskId: string, agentId: string) => Attachment[];
+  readonly #appsOf: (agentId: string, options: SessionOptions) => Apps;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // By session and request id.
@@ -192,18 +211,22 @@ export class SessionRegistry {
       createSession = createHarnessSession,
       tools,
       guard,
+      appGuard,
       permissionModeOf,
       seesImages = async () => false,
       referenceOf = () => [],
+      appsOf = () => ({ connectorIds: [], vendorApps: [] }),
     }: RegistryOptions = {},
   ) {
     this.#store = store;
     this.#createSession = createSession;
     this.#tools = tools;
     this.#guard = guard;
+    this.#appGuard = appGuard;
     this.#permissionModeOf = permissionModeOf;
     this.#seesImages = seesImages;
     this.#referenceOf = referenceOf;
+    this.#appsOf = appsOf;
     store.markInterrupted();
   }
 
@@ -213,19 +236,44 @@ export class SessionRegistry {
   }
 
   async start({ taskId, agentId, options: given, message: sent }: Launch): Promise<SessionRecord> {
-    const message = this.#withReference(taskId, agentId, sent);
-    const options = withAccess(given, filesOf(message));
+    const { message, apps } = this.#firstMessage(taskId, agentId, sent, given);
+    const options = withAccess({ ...given, ...apps }, filesOf(message));
     const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
 
-  // A new conversation starts with the Library items, except those the user attached anyway.
-  #withReference(taskId: string, agentId: string, message: Message): Message {
+  // A new conversation starts with the Library items, except those the user attached anyway,
+  // and its fixed list of connectors, which a resume keeps so the tool list never changes.
+  #firstMessage(taskId: string, agentId: string, message: Message, options: SessionOptions) {
     const attached = new Set(message.attachments?.map((attachment) => attachment.id));
     const reference = this.#referenceOf(taskId, agentId).filter(
       (attachment) => !attached.has(attachment.id),
     );
-    return reference.length === 0 ? message : { ...message, reference };
+    const { connectorIds, vendorApps, brief } = this.#appsOf(agentId, options);
+    const apps = {
+      ...(connectorIds.length === 0 ? {} : { connectorIds }),
+      ...(vendorApps.length === 0 ? {} : { vendorApps }),
+    };
+    const withReference = reference.length === 0 ? message : { ...message, reference };
+    if (brief === undefined) return { message: withReference, apps };
+    const text =
+      message.origin === undefined
+        ? `Your task:
+${message.text}`
+        : message.text;
+    return {
+      message: {
+        ...withReference,
+        text: `${brief}
+
+${text}`,
+        origin: message.origin ?? {
+          kind: "brief" as const,
+          summary: "The apps it can use, then the task",
+        },
+      },
+      apps,
+    };
   }
 
   async resume(sessionId: string, message: Message): Promise<SessionRecord> {
@@ -244,9 +292,24 @@ export class SessionRegistry {
     const moved = this.#movedAccount(earlier);
     if (moved !== undefined) {
       // A conversation stays with its login, so another account starts a new one (D-61).
-      const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
-      const fresh = this.#withReference(earlier.taskId, earlier.agentId, message);
-      const options = withAccess({ ...rest, ...moved, permissionMode }, filesOf(fresh));
+      const {
+        resumeSessionId: _,
+        accountId: __,
+        accountFolder: ___,
+        connectorIds: ____,
+        vendorApps: _____,
+        ...rest
+      } = earlier.options;
+      const { message: fresh, apps } = this.#firstMessage(
+        earlier.taskId,
+        earlier.agentId,
+        message,
+        {
+          ...rest,
+          ...moved,
+        },
+      );
+      const options = withAccess({ ...rest, ...moved, permissionMode, ...apps }, filesOf(fresh));
       const session = this.#launch(options);
       const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
       const text = handover(this.#store.lastMessage(sessionId), message.text);
@@ -431,7 +494,7 @@ export class SessionRegistry {
   }
 
   #launch(options: SessionOptions): Session {
-    const grant = this.#tools?.grant();
+    const grant = this.#tools?.grant(options.connectorIds ?? []);
     const session = this.#createSession(
       options,
       grant === undefined ? {} : { toolServers: grant.servers },
@@ -475,7 +538,14 @@ export class SessionRegistry {
     // The core's own asks, such as a Library change, always wait for the user.
     if (this.#asked.has(askedKey(request.sessionId, request.payload.requestId))) return;
     const session = this.#store.getSession(request.sessionId);
-    const level = session === undefined ? undefined : this.#guard?.(session, request.payload);
+    if (session === undefined) return;
+    // A call to one of the session's own vendor apps is decided by that app's permission.
+    const server = request.payload.tool?.server;
+    if (server !== undefined && (session.options.vendorApps ?? []).includes(server)) {
+      this.#answerForApp(live, session, request);
+      return;
+    }
+    const level = this.#guard?.(session, request.payload);
     const allow = request.payload.options.find((option) => option.kind === "allow_once");
     if (level === undefined || allow === undefined) return;
     live.session
@@ -488,6 +558,32 @@ export class SessionRegistry {
       .catch((error: unknown) => {
         this.#publishError(live, "Autonomy could not answer a request.", errorMessage(error));
       });
+  }
+
+  // The app's permission answers its call; a refusal is explained to the agent.
+  #answerForApp(live: LiveSession, session: SessionRecord, request: PermissionRequest): void {
+    const verdict = this.#appGuard?.(session, request.payload);
+    if (verdict === undefined) return;
+    const kind = verdict.allow ? "allow_once" : "reject_once";
+    const option = request.payload.options.find((candidate) => candidate.kind === kind);
+    if (option === undefined) return;
+    const answered = live.session.send({
+      type: "answerPermission",
+      requestId: request.payload.requestId,
+      optionId: option.optionId,
+      answeredBy: "app",
+    });
+    const told = verdict.allow
+      ? answered
+      : answered.then(() =>
+          this.tell(session.id, {
+            text: verdict.reason,
+            origin: { kind: "notice", summary: verdict.reason },
+          }),
+        );
+    told.catch((error: unknown) => {
+      this.#publishError(live, "An app's setting could not answer a request.", errorMessage(error));
+    });
   }
 
   // One more try once stopped, so a brief storage failure does not leave the session stuck "running".

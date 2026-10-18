@@ -60,6 +60,7 @@ Every adapter passes the same conformance tests, run against recordings of the r
 
 Describe a goal and a team does it. A lead agent proposes a department (roles, and a harness, model and effort for each); the user edits and approves it in Needs you, and can change the team at any time from the department's settings. The lead hands work to workers on any harness through the core's own MCP tool server (D-39, D-43) and gets their results back as messages (D-44). Agents and profiles are stored records (D-42). One autonomy policy in the core guards every agent (D-45). In a git workspace each worker gets its own worktree and branch, which the lead merges (D-46). A guest agent can be called in, by the lead or the user, for a second opinion on a copy of the work, isolated as far as its harness allows (D-47). In the office each department is a room with its own panel (D-48). Team code lives in `packages/service/src/team`, `src/tools` and `src/autonomy` and starts agents only through `SessionRegistry`; the UI adds `features/departments`, `features/profiles` and the team task view. M5 grows the rooms into the command center; M7 attaches connectors through the tool server.
 
+
 ### M5 Command center (done)
 
 The office runs several goals across departments at once. A standing chief (`packages/service/src/chief`) splits a goal into a plan of pieces per department; the user edits and approves it, and any re-plan, in Needs you. A scheduler starts a piece once what it waits on is done and its department is free, passes upstream results into the brief, and gives read-only access to upstream folders (D-51). Records reach the UI as `change` frames on the one stream, and the core keeps each task's state, usage and plan limits (D-50). The UI adds the board with To review, the plan card, the chief's page, plan links, door states and draggable rooms (`features/office`, `chat`, `work`, `board`, `plan`, `chief`).
@@ -80,15 +81,20 @@ First-run setup (AI app, where work goes, about you), tutorials that run real ta
 
 Out of scope: running vendor installers from the app (setup shows the official command), an in-app terminal.
 
+### M7 Connectors (D-67, D-68; done)
+
+The user connects an app once and chooses who may use it and how freely. Key apps, programs on this computer and Add your own go through the core, which every harness reaches (`packages/service/src/connectors`): one MCP client link per connector (official SDK, client side only), re-served on the tool server at `/mcp/apps/<slug>`, plus the hub's `list_app_tools` and `use_app_tool` at `/mcp/apps` for apps granted mid-conversation. Keys stay in the OS credential store. Sign-in apps are the user's claude.ai connectors, used by Claude agents only (`connectors/claude-apps.ts`, harness `vendor-apps.ts`): the core reads them per Claude account, the harness blocks the ones an agent may not use, and the core decides each call. A conversation's apps are fixed at its first session (`connectorIds`, `vendorApps`). Every call is checked against access and the app's permission, logged (`connector_calls`), and goes ahead, waits in Needs you, or is refused. `request_app` asks the user for an app, or points to a teammate who has a Claude app. The UI adds `features/connectors`: the Connectors page with its Claude apps section, connect and Add your own sheets, the connector page with activity, asks in Needs you, logos in the trace and side panel.
+
+Out of scope: running app sign-ins in the core, writing new MCP servers, the whole public registry, per-tool switches, two accounts per app, importing the CLIs' own MCP configs, send caps, MCP resources and prompts, per-workspace connectors, connectors for guests.
+
 ---
 
 ## Next module
 
-Not chosen yet: M7 Connectors or Agent memory (owner decision). Each gets its design session first.
+Agent memory, after a design discussion with the owner (see below). Nothing is detailed until then.
 
 ## Later modules (outline only)
 
-- **M7 Connectors.** MCP-based plugins injected per session through the tool server seam (D-43); an agent can request a connector it lacks. Needs the connector deep dive first (D-11).
 - **Agent memory.** What an agent remembers across tasks. Its own module, after a deep dive with the owner on storage, recency and how relevant an old memory still is; its place in the order is set then, before packaging. M4 profiles leave room for it.
 - **Deferred.** macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.
 - **Last: Packaging and release.** Built once every other module is done (owner, 2026-10-07). An installer people download and run, with no repository, Node or pnpm: Windows first, Linux packages next, macOS stays parked (D-23). The core and the built UI ship inside the app; the data folder does not move. Node will not strip TypeScript inside `node_modules`, so the core gets a build step for packaging only (D-19 still holds in development), and only `apps/desktop/electron/main.ts` changes where it finds the core and the UI. The WSL tool bridge (`packages/harness/src/environment/tool-bridge.ts`, run by the core's own Node through WSL interop) ships the same way. Code signing (unsigned installers get a SmartScreen warning; a certificate costs money, owner to decide), auto-update from GitHub Releases, and a release workflow in CI.

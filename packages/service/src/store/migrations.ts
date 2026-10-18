@@ -514,4 +514,38 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS library_uses_by_task ON library_uses (task_ref);
   `,
   addDepartmentPurpose,
+  `
+  -- Apps the user connected (D-67). Keys and sign-ins live in the OS credential store, never
+  -- here. The tools column is the app's list as last read, so a conversation never waits on it.
+  CREATE TABLE IF NOT EXISTS connectors (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    slug       TEXT NOT NULL UNIQUE,
+    setup      TEXT NOT NULL,
+    audience   TEXT NOT NULL,
+    permission TEXT NOT NULL CHECK (permission IN ('read_only', 'ask', 'dont_ask')),
+    enabled    INTEGER NOT NULL,
+    status     TEXT NOT NULL CHECK (status IN ('connected', 'signed_out', 'off', 'failing')),
+    tools      TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  -- Every call an agent made to a connector, with the team it was in at the time.
+  CREATE TABLE IF NOT EXISTS connector_calls (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    connector_ref  INTEGER NOT NULL REFERENCES connectors (ref) ON DELETE CASCADE,
+    session_ref    INTEGER NOT NULL REFERENCES sessions (ref) ON DELETE CASCADE,
+    department_ref INTEGER REFERENCES departments (ref) ON DELETE SET NULL,
+    tool           TEXT NOT NULL,
+    input          TEXT NOT NULL,
+    change         INTEGER NOT NULL,
+    outcome        TEXT NOT NULL CHECK (outcome IN ('done', 'refused', 'failed', 'asked')),
+    at             INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS connector_calls_by_connector ON connector_calls (connector_ref);
+  CREATE INDEX IF NOT EXISTS connector_calls_by_session ON connector_calls (session_ref);
+  CREATE INDEX IF NOT EXISTS connector_calls_by_department ON connector_calls (department_ref);
+  `,
 ];

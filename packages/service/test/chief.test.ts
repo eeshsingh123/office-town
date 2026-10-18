@@ -72,7 +72,10 @@ describe("the chief", () => {
     expect(first.task.state).toBe("working");
     expect(second).toEqual({ task: expect.objectContaining({ state: "queued" }), sessions: [] });
     const [session] = core.sessions;
-    expect(session?.extras.toolServers).toHaveLength(1);
+    expect(session?.extras.toolServers?.map(({ name }) => name)).toEqual([
+      "office-town",
+      "office-town-apps",
+    ]);
     // The chief leads its task but has no team to hand work to.
     const tools = await core.callTool(session, "team_status", {});
     expect(tools).toMatchObject({ isError: true, text: 'Unknown tool "team_status".' });

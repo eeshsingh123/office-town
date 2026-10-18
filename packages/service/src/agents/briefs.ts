@@ -1,4 +1,4 @@
-import type { AgentRecord } from "@office-town/contract";
+import type { AgentRecord, ConnectorPermission, ConnectorRecord } from "@office-town/contract";
 import type { Message } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 
@@ -33,4 +33,24 @@ export function soloMessage(prompt: string, instructions: string | undefined): M
     text: `${instructions}\n\nYour task:\n${prompt}`,
     origin: { kind: "brief", summary: "Your profile and its notes, then the task" },
   };
+}
+
+export const PERMISSION_WORDS: Record<ConnectorPermission, string> = {
+  read_only: "read only",
+  ask: "it may change things once the user approves each change",
+  dont_ask: "it may read and change things",
+};
+
+// Listed at the start of a conversation. A hub app given later is reached through the hub tools
+// (D-67); the Claude apps stay as they are until the next conversation (D-68).
+export function appsBrief(hub: ConnectorRecord[], claude: ConnectorRecord[]): string | undefined {
+  if (hub.length === 0 && claude.length === 0) return undefined;
+  const lines = [...hub, ...claude].map(
+    ({ setup, permission }) => `- ${setup.name}: ${PERMISSION_WORDS[permission]}.`,
+  );
+  const fixed =
+    claude.length === 0
+      ? ""
+      : " Your Claude apps are fixed for this conversation; one connected later is yours from your next task.";
+  return `Apps you can use, each through its own tools:\n${lines.join("\n")}\nFor an app given to you later, find its tools with list_app_tools and call them with use_app_tool.${fixed} If the work needs an app you do not have, ask for it with request_app.`;
 }

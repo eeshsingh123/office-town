@@ -478,9 +478,10 @@ describe("store", () => {
       "allLimits",
       "allAccounts",
       "allLibraryItems",
+      "allConnectors",
     ]);
     // These group a period's rows after finding them through an index.
-    const groupedReads = new Set(["accountUsageSince"]);
+    const groupedReads = new Set(["accountUsageSince", "connectorCallCounts"]);
     for (const [name, sql] of Object.entries(queries)) {
       if (wholeTableReads.has(name)) continue;
       const pattern = groupedReads.has(name) ? /SCAN / : /SCAN |TEMP B-TREE/;

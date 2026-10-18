@@ -85,7 +85,10 @@ describe("claude adapter", () => {
         },
       },
     });
-    expect(env).toEqual({ OFFICE_TOWN_TOOL_TOKEN_0: "secret" });
+    expect(env).toEqual({
+      OFFICE_TOWN_TOOL_TOKEN_0: "secret",
+      ENABLE_CLAUDEAI_MCP_SERVERS: "false",
+    });
     expect(args[args.indexOf("--allowedTools") + 1]).toBe("mcp__office-town");
     expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--mcp-config");
 
@@ -101,9 +104,26 @@ describe("claude adapter", () => {
 
   it("keeps out the user's and the project's own files, settings, MCP servers and skills when isolated", () => {
     const args = claudeAdapter.buildCommand({ ...replayOptions, isolated: true }).args.join(" ");
-    expect(args).toContain("--setting-sources  --strict-mcp-config --disable-slash-commands");
-    expect(claudeAdapter.buildCommand(replayOptions).args).not.toContain("--strict-mcp-config");
+    expect(args).toContain("--setting-sources  --disable-slash-commands");
     expect(claudeAdapter.capabilities.isolation).toBe("full");
+  });
+
+  // D-68: Claude apps load for the login unless blocked, so an agent gets only its own, and
+  // every call to one asks, for the core to decide.
+  it("blocks the login's other Claude apps and asks before each call to an allowed one", () => {
+    const { args, env } = claudeAdapter.buildCommand({
+      ...replayOptions,
+      vendorApps: ["claude.ai Notion"],
+      blockedApps: ["claude.ai Gmail"],
+    });
+    expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({
+      deniedMcpServers: [{ serverName: "claude.ai Gmail" }],
+      permissions: { ask: ["mcp__claude_ai_Notion"] },
+    });
+    expect(env?.ENABLE_CLAUDEAI_MCP_SERVERS).toBeUndefined();
+    expect(claudeAdapter.buildCommand(replayOptions).env?.ENABLE_CLAUDEAI_MCP_SERVERS).toBe(
+      "false",
+    );
   });
 
   it("reports a reply's text as it is produced, then the whole reply", async () => {

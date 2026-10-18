@@ -76,18 +76,29 @@ async function readAll(
 ): Promise<void> {
   const waiting = await api.listPendingRequests();
   openStream?.(waiting.position);
-  const [page, active, harnesses, agents, departments, limits, accounts, settings, library] =
-    await Promise.all([
-      api.listTasks(),
-      api.listActiveTasks(),
-      api.listHarnesses(),
-      api.listAgents(),
-      api.listDepartments(),
-      api.listLimits(),
-      api.listAccounts(),
-      api.readSettings(),
-      api.listLibrary(),
-    ]);
+  const [
+    page,
+    active,
+    harnesses,
+    agents,
+    departments,
+    limits,
+    accounts,
+    settings,
+    library,
+    connectors,
+  ] = await Promise.all([
+    api.listTasks(),
+    api.listActiveTasks(),
+    api.listHarnesses(),
+    api.listAgents(),
+    api.listDepartments(),
+    api.listLimits(),
+    api.listAccounts(),
+    api.readSettings(),
+    api.listLibrary(),
+    api.listConnectors(),
+  ]);
   // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
   const stale = new Set(
@@ -116,6 +127,7 @@ async function readAll(
     limits: Object.fromEntries(limits.map((account) => [account.accountId, account])),
     accounts,
     library: byId(library),
+    connectors: byId(connectors),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),
