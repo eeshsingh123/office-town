@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { connectorSetupSchema } from "./connectors.ts";
 import { roleSettingsSchema } from "./team.ts";
 
 // A team or a chief written from the user's own words; nothing is saved until the user creates it.
@@ -78,3 +79,22 @@ export const chiefDraftReplySchema = z.object({
   chief: chiefDraftSchema.optional(),
 });
 export type ChiefDraftReply = z.infer<typeof chiefDraftReplySchema>;
+
+export const connectorDraftRequestSchema = z.object(draftRequestShape);
+export type ConnectorDraftRequest = z.infer<typeof connectorDraftRequestSchema>;
+
+// An existing server the draft found and set up; it is tested before it is saved.
+export const connectorFoundSchema = z.object({
+  setup: connectorSetupSchema,
+  // Where it was found: the maker's docs, the MCP Registry or its repository.
+  source: z.url(),
+  // What the user must install or do first, such as an add-on.
+  installFirst: z.string().trim().min(1).optional(),
+});
+export type ConnectorFound = z.infer<typeof connectorFoundSchema>;
+
+export const connectorDraftReplySchema = z.object({
+  ...draftReplyShape,
+  found: connectorFoundSchema.optional(),
+});
+export type ConnectorDraftReply = z.infer<typeof connectorDraftReplySchema>;

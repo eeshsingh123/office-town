@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { RoleSettings, SessionEvent } from "@office-town/contract";
+import type { ActionKind, RoleSettings, SessionEvent } from "@office-town/contract";
 import type { Session } from "@office-town/harness";
 import { type ZodType, z } from "zod";
 import { chooseAccount } from "../accounts/accounts.ts";
@@ -30,10 +30,14 @@ function readJson<T>(text: string, schema: ZodType<T>): { value: T } | { problem
   return result.success ? { value: result.data } : { problem: z.prettifyError(result.error) };
 }
 
-// A draft needs no tools, so anything the model tries is refused.
-function refuse(session: Session, event: SessionEvent): void {
+// A draft needs no tools beyond those allowed, so anything else the model tries is refused.
+function refuse(session: Session, event: SessionEvent, allowed: readonly ActionKind[]): void {
   if (event.type !== "permission.requested") return;
-  const option = event.payload.options.find((each) => each.kind.startsWith("reject"));
+  const { kind } = event.payload;
+  const allow = kind !== undefined && allowed.includes(kind);
+  const option = event.payload.options.find((each) =>
+    allow ? each.kind === "allow_once" : each.kind.startsWith("reject"),
+  );
   if (option === undefined) return;
   const { requestId } = event.payload;
   void session.send({ type: "answerPermission", requestId, optionId: option.optionId });
@@ -45,6 +49,8 @@ export function askForJson<T>(
   drafter: RoleSettings,
   prompt: string,
   schema: ZodType<T>,
+  // Such as web search and fetch, for a draft that looks things up (D-67).
+  allowed: readonly ActionKind[] = [],
 ): Promise<T> {
   const folder = join(dataFolder, "drafts");
   mkdirSync(folder, { recursive: true });
@@ -76,7 +82,7 @@ export function askForJson<T>(
     TIMEOUT_MS,
   );
   const unsubscribe = session.subscribe((event) => {
-    refuse(session, event);
+    refuse(session, event, allowed);
     if (event.type === "message" && event.payload.role === "assistant") reply = event.payload.text;
     if (event.type === "session.ended") fail("The AI app stopped before the draft was ready.");
     if (event.type !== "turn.ended") return;

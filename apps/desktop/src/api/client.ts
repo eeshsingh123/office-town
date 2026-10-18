@@ -28,11 +28,14 @@ import {
   type ConnectorActivityQuery,
   type ConnectorCatalog,
   type ConnectorChange,
+  type ConnectorDraftReply,
+  type ConnectorDraftRequest,
   type ConnectorRecord,
   type ConnectorTestRequest,
   chiefDraftReplySchema,
   connectorActivitySchema,
   connectorCatalogSchema,
+  connectorDraftReplySchema,
   connectorRecordSchema,
   connectorSignInSchema,
   connectorTestSchema,
@@ -247,6 +250,8 @@ export const api = {
   removeChief: (): Promise<void> => send("DELETE", "/chief"),
   draftChief: (request: ChiefDraftRequest): Promise<ChiefDraftReply> =>
     write("POST", "/drafts/chief", request, chiefDraftReplySchema),
+  draftConnector: (request: ConnectorDraftRequest): Promise<ConnectorDraftReply> =>
+    write("POST", "/drafts/connectors", request, connectorDraftReplySchema),
   draftDepartments: (request: DepartmentDraftRequest): Promise<DepartmentDraftReply> =>
     write("POST", "/drafts/departments", request, departmentDraftReplySchema),
   messageAgent: (

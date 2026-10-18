@@ -1,16 +1,20 @@
 import type {
   Audience,
   ConnectorAuth,
+  ConnectorFound,
   ConnectorPermission,
   ConnectorSetup,
+  RoleSettings,
 } from "@office-town/contract";
-import { Check, Plus } from "lucide-react";
+import { BadgeCheck, Check, Plus } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import page from "../../ui/Page.module.css";
+import { DraftBox } from "../drafts/DraftBox.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
+import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
 import { signIn } from "./connectors.ts";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
@@ -74,66 +78,42 @@ export function setupOf(own: OwnSetup, extra: Partial<ConnectorSetup> = {}): Con
 const errorText = (failure: unknown) =>
   failure instanceof Error ? failure.message : String(failure);
 
-export function AddOwnSheet({ keysInFile, audience: asked, onClose }: AddOwnSheetProps) {
-  const [own, setOwn] = useState<OwnSetup>(EMPTY);
-  const [audience, setAudience] = useState<Audience>(asked ?? EVERYONE);
-  const [permission, setPermission] = useState<ConnectorPermission>("ask");
-  const [keys, setKeys] = useState<Record<string, string>>({});
-  const [tested, setTested] = useState<number>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-  const change = (next: Partial<OwnSetup>) => {
-    setOwn({ ...own, ...next });
-    setTested(undefined);
+function ownOf({ setup }: ConnectorFound): OwnSetup {
+  return {
+    name: setup.name,
+    kind: setup.kind,
+    url: setup.url ?? "",
+    command: setup.command ?? "",
+    args: (setup.args ?? []).map((arg) => (arg.includes(" ") ? `"${arg}"` : arg)).join(" "),
+    auth: setup.auth,
+    keyName: setup.keys[0]?.name ?? (setup.kind === "remote" ? "Authorization" : ""),
   };
-  const setup = setupOf(own);
-  const filled =
-    setup.name !== "" &&
-    (own.kind === "remote" ? own.url.trim() !== "" : own.command.trim() !== "");
-  // A sign-in is tried by signing in; anything else is tried before it is added.
-  const needsTest = setup.auth !== "sign-in";
-  const ready = filled && givenToSomeone(audience) && (!needsTest || tested !== undefined);
+}
 
-  const run = async (work: () => Promise<void>) => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await work();
-    } catch (failure) {
-      setError(errorText(failure));
-    } finally {
-      setBusy(false);
-    }
+// Who made what the draft found; its key's label and link stay while the key is unchanged.
+function foundExtra(found: ConnectorFound | undefined, own: OwnSetup): Partial<ConnectorSetup> {
+  if (found === undefined) return {};
+  const { setup } = found;
+  const sameKeys = own.auth === setup.auth && own.keyName === setup.keys[0]?.name;
+  return {
+    official: setup.official,
+    ...(setup.maker === undefined ? {} : { maker: setup.maker }),
+    ...(sameKeys ? { keys: setup.keys } : {}),
   };
-  const test = () => run(async () => setTested(await api.testConnector({ setup, keys })));
-  const add = () =>
-    run(async () => {
-      const connector = await api.addConnector({ setup, audience, permission, keys });
-      if (setup.auth === "sign-in") await signIn(connector.id);
-      onClose();
-    });
+}
 
+interface HandProps {
+  own: OwnSetup;
+  change: (next: Partial<OwnSetup>) => void;
+  setup: ConnectorSetup;
+  keys: Record<string, string>;
+  setKeys: (keys: Record<string, string>) => void;
+  keysInFile: boolean;
+}
+
+function HandFields({ own, change, setup, keys, setKeys, keysInFile }: HandProps) {
   return (
-    <ConnectorSheet
-      logo={
-        <span className={`${styles.logo} ${styles.md} ${styles.plus}`} aria-hidden>
-          <Plus size={16} />
-        </span>
-      }
-      title="Add your own"
-      by="Enter its details"
-      onClose={onClose}
-      foot={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" disabled={!ready || busy} onClick={add}>
-            Add connector
-          </Button>
-        </>
-      }
-    >
+    <>
       <label className={styles.field}>
         <span className={styles.fieldLabel}>Name</span>
         <input
@@ -219,35 +199,217 @@ export function AddOwnSheet({ keysInFile, audience: asked, onClose }: AddOwnShee
           </>
         ) : null}
       </Field>
-      <WhoField audience={audience} onChange={setAudience} />
-      <PermissionField value={permission} onChange={setPermission} />
-      {needsTest ? (
-        <Field label="Test">
-          {own.kind === "local" && filled ? (
-            <p className={styles.note}>
-              Runs{" "}
-              <span className={styles.code}>
-                {[setup.command, ...(setup.args ?? [])].join(" ")}
-              </span>{" "}
-              on this computer.
-            </p>
-          ) : null}
-          <div className={styles.account}>
-            <span className={styles.accountText}>
-              {tested === undefined ? (
-                <span className={styles.sub}>Connects once and lists what it offers.</span>
-              ) : (
-                <span className={styles.tested}>
-                  <Check size={14} aria-hidden />
-                  Tested: {tested} actions
+    </>
+  );
+}
+
+function Found({ found, tested }: { found: ConnectorFound; tested: number | undefined }) {
+  const { setup, source, installFirst } = found;
+  return (
+    <div className={styles.found}>
+      <div className={styles.foundHead}>
+        <AppLogo app={setup.slug} />
+        <span className={styles.accountText}>
+          <b>{setup.name}</b>
+          <span className={styles.by}>
+            {setup.official ? (
+              <>
+                <BadgeCheck size={13} aria-hidden />
+                Official, by {setup.maker}
+              </>
+            ) : (
+              "Community"
+            )}
+          </span>
+        </span>
+        {tested === undefined ? null : (
+          <span className={styles.tested}>
+            <Check size={14} aria-hidden />
+            Tested
+          </span>
+        )}
+      </div>
+      <div className={styles.foundRow}>
+        <span className={styles.foundKey}>Source</span>
+        <a className={styles.link} href={source} target="_blank" rel="noreferrer">
+          {source.replace(/^https?:[/][/]/, "")}
+        </a>
+      </div>
+      <div className={styles.foundRow}>
+        <span className={styles.foundKey}>Runs</span>
+        {setup.kind === "remote" ? (
+          <span>On the internet</span>
+        ) : (
+          <span>
+            On this computer:{" "}
+            <span className={styles.code}>{[setup.command, ...(setup.args ?? [])].join(" ")}</span>
+          </span>
+        )}
+      </div>
+      {installFirst === undefined ? null : (
+        <div className={styles.foundRow}>
+          <span className={styles.foundKey}>Install first</span>
+          <span>{installFirst}</span>
+        </div>
+      )}
+      {tested === undefined ? null : (
+        <div className={styles.foundRow}>
+          <span className={styles.foundKey}>Gives agents</span>
+          <span>{tested} actions</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Describe the app and a short run finds an existing server and sets it up; or enter it by hand.
+export function AddOwnSheet({ keysInFile, describe, audience: asked, onClose }: AddOwnSheetProps) {
+  const [own, setOwn] = useState<OwnSetup>(EMPTY);
+  const [found, setFound] = useState<ConnectorFound>();
+  const [byHand, setByHand] = useState(false);
+  const [audience, setAudience] = useState<Audience>(asked ?? EVERYONE);
+  const [permission, setPermission] = useState<ConnectorPermission>("ask");
+  const [keys, setKeys] = useState<Record<string, string>>({});
+  const [tested, setTested] = useState<number>();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const change = (next: Partial<OwnSetup>) => {
+    setOwn({ ...own, ...next });
+    setTested(undefined);
+  };
+  const setup = setupOf(own, foundExtra(found, own));
+  const filled =
+    setup.name !== "" &&
+    (own.kind === "remote" ? own.url.trim() !== "" : own.command.trim() !== "");
+  // A sign-in is tried by signing in; anything else is tried before it is added.
+  const needsTest = setup.auth !== "sign-in";
+  const ready = filled && givenToSomeone(audience) && (!needsTest || tested !== undefined);
+  const shown = byHand || found !== undefined;
+
+  const run = async (work: () => Promise<void>) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await work();
+    } catch (failure) {
+      setError(errorText(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const find = async (notes: string[], drafter: RoleSettings) => {
+    const reply = await api.draftConnector({ notes, drafter });
+    if (reply.found !== undefined) {
+      setFound(reply.found);
+      setOwn(ownOf(reply.found));
+      setTested(undefined);
+    }
+    return reply;
+  };
+  const test = () => run(async () => setTested(await api.testConnector({ setup, keys })));
+  const add = () =>
+    run(async () => {
+      const connector = await api.addConnector({ setup, audience, permission, keys });
+      if (setup.auth === "sign-in") await signIn(connector.id);
+      onClose();
+    });
+
+  return (
+    <ConnectorSheet
+      logo={
+        <span className={`${styles.logo} ${styles.md} ${styles.plus}`} aria-hidden>
+          <Plus size={16} />
+        </span>
+      }
+      title="Add your own"
+      by="Describe the app, or enter its details"
+      onClose={onClose}
+      foot={
+        <>
+          <Button variant="ghost" className={styles.footLeft} onClick={() => setByHand(!byHand)}>
+            {byHand ? "Describe it instead" : "Enter details by hand"}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" disabled={!ready || busy} onClick={add}>
+            Add connector
+          </Button>
+        </>
+      }
+    >
+      {byHand ? (
+        <HandFields
+          own={own}
+          change={change}
+          setup={setup}
+          keys={keys}
+          setKeys={setKeys}
+          keysInFile={keysInFile}
+        />
+      ) : (
+        <>
+          <Field label="What should your agents be able to use?">
+            <DraftBox
+              label="What should your agents be able to use?"
+              placeholder="Let my agents build 3D scenes in Blender."
+              action="Find it"
+              drafted={found !== undefined}
+              changePlaceholder="Say what to change, for example: use the official one"
+              {...(describe === undefined ? {} : { initial: describe })}
+              run={find}
+            />
+          </Field>
+          {found === undefined ? null : (
+            <>
+              <Field label="Found">
+                <Found found={found} tested={tested} />
+              </Field>
+              {setup.auth === "key" ? (
+                <KeyFields
+                  keys={setup.keys}
+                  values={keys}
+                  onChange={setKeys}
+                  keysInFile={keysInFile}
+                />
+              ) : null}
+            </>
+          )}
+        </>
+      )}
+      {shown ? (
+        <>
+          <WhoField audience={audience} onChange={setAudience} />
+          <PermissionField value={permission} onChange={setPermission} />
+          {needsTest ? (
+            <Field label="Test">
+              {own.kind === "local" && filled ? (
+                <p className={styles.note}>
+                  Runs{" "}
+                  <span className={styles.code}>
+                    {[setup.command, ...(setup.args ?? [])].join(" ")}
+                  </span>{" "}
+                  on this computer.
+                </p>
+              ) : null}
+              <div className={styles.account}>
+                <span className={styles.accountText}>
+                  {tested === undefined ? (
+                    <span className={styles.sub}>Connects once and lists what it offers.</span>
+                  ) : (
+                    <span className={styles.tested}>
+                      <Check size={14} aria-hidden />
+                      Tested: {tested} actions
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <Button disabled={!filled || busy} onClick={test}>
-              {own.kind === "local" ? "Run and test" : "Test"}
-            </Button>
-          </div>
-        </Field>
+                <Button disabled={!filled || busy} onClick={test}>
+                  {own.kind === "local" ? "Run and test" : "Test"}
+                </Button>
+              </div>
+            </Field>
+          ) : null}
+        </>
       ) : null}
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
