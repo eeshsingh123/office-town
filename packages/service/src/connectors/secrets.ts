@@ -6,10 +6,10 @@ const SERVICE = "Office Town";
 // Windows keeps at most 1280 characters per credential, so longer values are split.
 const CHUNK = 1000;
 
-// A connector's keys and sign-in, never in SQLite, prompts, command lines or logs (D-67).
+// A connector's pasted keys, never in SQLite, prompts, command lines or logs (D-67).
 export interface Secrets {
-  // "file" when this computer has no credential store.
-  readonly kind: "store" | "file";
+  // "file" off Windows when no credential store answers; "none" on Windows, where keys are refused.
+  readonly kind: "store" | "file" | "none";
   read(id: string): string | undefined;
   write(id: string, value: string): void;
   remove(id: string): void;
@@ -64,6 +64,18 @@ function secretsFile(dataFolder: string): Secrets {
   };
 }
 
+// Windows file permissions do not keep a file private the way a mode does, so keys are refused.
+function noSecrets(): Secrets {
+  return {
+    kind: "none",
+    read: () => undefined,
+    write() {
+      throw new Error("This computer's credential store did not answer, so keys cannot be saved.");
+    },
+    remove: () => undefined,
+  };
+}
+
 export function openSecrets(dataFolder: string): Secrets {
   const store = credentialStore();
   try {
@@ -71,7 +83,21 @@ export function openSecrets(dataFolder: string): Secrets {
     store.remove("check");
     return store;
   } catch (error) {
+    if (process.platform === "win32") {
+      console.error("No credential store answered; connector keys cannot be saved.", error);
+      return noSecrets();
+    }
     console.error("No credential store answered; connector keys go to a private file.", error);
     return secretsFile(dataFolder);
   }
+}
+
+// A connector's keys by name, kept as one JSON value.
+export function readKeys(secrets: Secrets, id: string): Record<string, string> {
+  const text = secrets.read(id);
+  return text === undefined ? {} : (JSON.parse(text) as Record<string, string>);
+}
+
+export function writeKeys(secrets: Secrets, id: string, keys: Record<string, string>): void {
+  secrets.write(id, JSON.stringify(keys));
 }

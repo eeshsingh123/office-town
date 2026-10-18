@@ -87,6 +87,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
     referenceOf: referenceOf(store),
     appsOf: appsOf(store),
+    appGuard: (session, request) => connectors.claudeApps.decide(session, request),
   });
   const secrets = memorySecrets();
   const connectors = new ConnectorHub(store, registry, secrets);
@@ -120,7 +121,6 @@ export async function startCore(dataFolder: string): Promise<Core> {
     new AppRequests(store, registry).tool(),
   ]);
   const server: ApiServer = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
-  connectors.listenAt(server.url);
 
   return {
     store,

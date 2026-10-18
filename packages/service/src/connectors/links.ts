@@ -1,4 +1,3 @@
-import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -7,13 +6,22 @@ import { ToolListChangedNotificationSchema } from "@modelcontextprotocol/sdk/typ
 import type { ConnectorSetup, ConnectorStatus } from "@office-town/contract";
 import type { ConnectorTool } from "../store/store.ts";
 import type { ToolResult } from "../tools/tools.ts";
-import type { Secrets } from "./secrets.ts";
-import { type ConnectorSecret, readSecret, SignInProvider } from "./sign-in.ts";
+import { readKeys, type Secrets } from "./secrets.ts";
 
 const FIRST_RETRY_MS = 1000;
 const LAST_RETRY_MS = 60_000;
 // Some apps take long, such as a render; progress notes keep a call alive past this.
 const CALL_TIMEOUT_MS = 5 * 60_000;
+
+// A connection that failed before saving, or a Claude app's sign-in that could not start.
+export class ConnectError extends Error {
+  constructor(name: string, error: unknown) {
+    super(
+      `Could not connect to ${name}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    this.name = "ConnectError";
+  }
+}
 
 class AppUnreachableError extends Error {
   constructor(message: string) {
@@ -34,12 +42,7 @@ function headersOf(setup: ConnectorSetup, keys: Record<string, string>): Record<
 }
 
 // The SDK's own classes miss its Transport type under exactOptionalPropertyTypes, hence the casts.
-function transportOf(
-  setup: ConnectorSetup,
-  secret: ConnectorSecret,
-  signIn?: SignInProvider,
-): Transport {
-  const keys = secret.keys ?? {};
+function transportOf(setup: ConnectorSetup, keys: Record<string, string>): Transport {
   if (setup.kind === "local") {
     // Keys go in the environment, never on the command line, where others could read them.
     return new StdioClientTransport({
@@ -50,7 +53,6 @@ function transportOf(
   }
   return new StreamableHTTPClientTransport(new URL(setup.url ?? ""), {
     requestInit: { headers: headersOf(setup, keys) },
-    ...(signIn === undefined ? {} : { authProvider: signIn }),
   }) as Transport;
 }
 
@@ -76,10 +78,7 @@ async function connect(transport: Transport, onToolsChanged?: (client: Client) =
 
 export interface LinkListener {
   tools(connectorId: string, tools: ConnectorTool[]): void;
-  status(
-    connectorId: string,
-    status: Extract<ConnectorStatus, "connected" | "signed_out" | "failing">,
-  ): void;
+  status(connectorId: string, status: Extract<ConnectorStatus, "connected" | "failing">): void;
 }
 
 interface Reachable {
@@ -160,10 +159,8 @@ export class ConnectorLinks {
   }
 
   async #open({ id, setup }: Reachable, lastDelay: number): Promise<Client> {
-    const secret = readSecret(this.#secrets, id);
-    const signIn = setup.auth === "sign-in" ? new SignInProvider(this.#secrets, id) : undefined;
     try {
-      const client = await connect(transportOf(setup, secret, signIn), (changed) => {
+      const client = await connect(transportOf(setup, readKeys(this.#secrets, id)), (changed) => {
         listTools(changed)
           .then((tools) => this.#listener.tools(id, tools))
           .catch((error: unknown) => console.error(`Connector ${setup.name}:`, error));
@@ -173,10 +170,6 @@ export class ConnectorLinks {
       return client;
     } catch (error) {
       this.#clients.delete(id);
-      if (error instanceof UnauthorizedError) {
-        this.#listener.status(id, "signed_out");
-        throw new AppUnreachableError("It is signed out.");
-      }
       const delay = Math.min(Math.max(lastDelay * 2, FIRST_RETRY_MS), LAST_RETRY_MS);
       this.#retries.set(id, { at: Date.now() + delay, delay });
       this.#listener.status(id, "failing");
@@ -187,7 +180,7 @@ export class ConnectorLinks {
 
 // Tries an app before it is saved: connects, lists its tools and closes.
 export async function probe(setup: ConnectorSetup, keys: Record<string, string>) {
-  const client = await connect(transportOf(setup, { keys }));
+  const client = await connect(transportOf(setup, keys));
   try {
     return await listTools(client);
   } finally {

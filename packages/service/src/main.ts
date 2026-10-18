@@ -62,6 +62,7 @@ const registry = new SessionRegistry(store, {
   seesImages: imageSight(readCatalog),
   referenceOf: referenceOf(store),
   appsOf: appsOf(store),
+  appGuard: (session, request) => connectors.claudeApps.decide(session, request),
 });
 const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder));
 toolServer.offerApps({
@@ -93,7 +94,8 @@ toolServer.offer([
 void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
 const server = await startApiServer({ team, connectors, token, port });
-connectors.listenAt(server.url);
+// Claude apps connected on claude.ai since the last run show up without a click.
+void connectors.claudeApps.refresh();
 const ready: CoreReady = { url: server.url, token };
 // Stdout carries only this line, for whoever started the core; logs go to stderr.
 process.stdout.write(`${JSON.stringify(ready)}\n`);

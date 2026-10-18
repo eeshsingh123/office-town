@@ -23,7 +23,6 @@ function requireAudience(store: Store, audience: Audience): void {
   }
 }
 
-// Sign-ins come back on GET /connectors/callback, which the API server answers without a token.
 export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
   return [
     {
@@ -35,7 +34,7 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "GET",
       path: "/connectors/catalog",
       reply: () => {
-        const json: ConnectorCatalog = { entries: catalog, keysInFile: hub.secretsKind === "file" };
+        const json: ConnectorCatalog = { entries: catalog, keys: hub.secretsKind };
         return { status: 200, json };
       },
     },
@@ -77,8 +76,16 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "POST",
       path: "/connectors/:id/sign-in",
       reply: async ({ param }) => {
-        const url = await hub.beginSignIn(param("id"));
-        return { status: 200, json: { url: url.href } };
+        return { status: 200, json: { url: await hub.claudeApps.signInPage(param("id")) } };
+      },
+    },
+    // Reads the Claude apps again, such as one just connected on claude.ai.
+    {
+      method: "POST",
+      path: "/connectors/refresh",
+      reply: async () => {
+        await hub.claudeApps.refresh();
+        return { status: 200, json: store.listConnectors() };
       },
     },
     {

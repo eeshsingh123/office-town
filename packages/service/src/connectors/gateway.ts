@@ -13,12 +13,10 @@ import {
   ToolError,
   type ToolResult,
 } from "../tools/tools.ts";
-import { decide, isRead, mayUse, usableBy } from "./access.ts";
+import { decide, isClaudeApp, isRead, mayUse, usableBy } from "./access.ts";
 import type { ConnectorLinks } from "./links.ts";
 
 const RESULT_CHARS = 20_000;
-// Sent by the core alone, once the user signed in from the app's own page.
-const SIGNED_IN = "signed-in";
 
 const failed = (text: string): ToolResult => ({ content: [{ type: "text", text }], isError: true });
 const said = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
@@ -40,11 +38,16 @@ function textOf(result: ToolResult): string {
 }
 
 // By slug or name, as an agent may write either.
-export function findConnector(store: Store, app: string): ConnectorRecord | undefined {
+export function findApps(store: Store, app: string): ConnectorRecord[] {
   const wanted = app.trim().toLowerCase();
   return store
     .listConnectors()
-    .find(({ setup }) => setup.slug === wanted || setup.name.toLowerCase() === wanted);
+    .filter(({ setup }) => setup.slug === wanted || setup.name.toLowerCase() === wanted);
+}
+
+// A hub connector; Claude apps are never served through the hub (D-68).
+export function findConnector(store: Store, app: string): ConnectorRecord | undefined {
+  return findApps(store, app).find((connector) => !isClaudeApp(connector));
 }
 
 // Every connector call passes here, natively or through the hub: it is checked against who may
@@ -53,8 +56,6 @@ export class ConnectorGateway {
   readonly #store: Store;
   readonly #registry: SessionRegistry;
   readonly #links: ConnectorLinks;
-  // One Sign in again ask per task and connector, by "<task>/<connector>".
-  readonly #signInAsks = new Map<string, { sessionId: string; requestId: string }>();
 
   constructor(store: Store, registry: SessionRegistry, links: ConnectorLinks) {
     this.#store = store;
@@ -78,29 +79,6 @@ export class ConnectorGateway {
 
   hubTools(): Tool[] {
     return [this.#listAppTools(), this.#useAppTool()];
-  }
-
-  // The asks it raised for the connector are answered, and their agents told it is back.
-  signedIn(connectorId: string): void {
-    const name = this.#store.getConnector(connectorId)?.setup.name ?? "The app";
-    for (const [key, ask] of this.#signInAsks) {
-      if (!key.endsWith(`/${connectorId}`) || !this.#registry.isRunning(ask.sessionId)) continue;
-      void this.#registry
-        .send(ask.sessionId, {
-          type: "answerPermission",
-          requestId: ask.requestId,
-          optionId: SIGNED_IN,
-        })
-        .then(() =>
-          this.#registry.tell(ask.sessionId, {
-            text: `${name} is signed in again. You can use it now.`,
-            origin: { kind: "notice", summary: `${name} is signed in again` },
-          }),
-        )
-        .catch((error: unknown) =>
-          console.error(`Could not tell an agent ${name} is back.`, error),
-        );
-    }
   }
 
   async use(
@@ -133,10 +111,6 @@ export class ConnectorGateway {
           : `${setup.name} is turned off.`,
       );
     }
-    if (connector.status === "signed_out") {
-      record("failed");
-      return this.#signedOut(caller, connector);
-    }
     const decision = decide(connector.permission, !change);
     if (decision === "refuse") {
       record("refused");
@@ -150,9 +124,6 @@ export class ConnectorGateway {
     }
     const result = await this.#run(connector, name, input);
     record(result.isError === true ? "failed" : "done");
-    if (this.#store.getConnector(connector.id)?.status === "signed_out") {
-      return this.#signedOut(caller, connector);
-    }
     return result;
   }
 
@@ -226,56 +197,6 @@ export class ConnectorGateway {
     );
   }
 
-  #signedOut(caller: Caller, connector: ConnectorRecord): ToolResult {
-    const { setup } = connector;
-    const key = `${caller.taskId}/${connector.id}`;
-    const waiting = this.#signInAsks.get(key);
-    if (waiting === undefined || !this.#registry.isRunning(waiting.sessionId)) {
-      const requestId = `sign-in-${randomUUID()}`;
-      this.#signInAsks.set(key, { sessionId: caller.sessionId, requestId });
-      this.#registry.ask(
-        caller.sessionId,
-        {
-          type: "permission.requested",
-          payload: {
-            requestId,
-            title: `Sign in to ${setup.name} again`,
-            input: {},
-            kind: "other",
-            tool: { server: setup.slug, name: "sign-in" },
-            options: [
-              { optionId: "sign-in", label: "Sign in again", kind: "allow_once" },
-              { optionId: "not-now", label: "Not now", kind: "reject_once" },
-            ],
-          },
-        },
-        (command) => {
-          if (command.type !== "answerPermission") throw new AnswerError("This is a sign-in.");
-          // The card's button opens the app's page; the core answers once the sign-in is done.
-          if (command.optionId === "sign-in") {
-            throw new AnswerError(`Sign in to ${setup.name} from its card.`);
-          }
-          this.#signInAsks.delete(key);
-          const signedIn = command.optionId === SIGNED_IN;
-          return {
-            resolution: {
-              type: "permission.resolved",
-              payload: {
-                requestId,
-                outcome: signedIn ? "allowed" : "denied",
-                optionId: command.optionId,
-                answeredBy: "user",
-              },
-            },
-          };
-        },
-      );
-    }
-    return failed(
-      `${setup.name} is signed out. The user was asked to sign in again; you will get a message once it is back.`,
-    );
-  }
-
   #listAppTools(): Tool {
     return defineTool({
       name: "list_app_tools",
@@ -289,10 +210,10 @@ export class ConnectorGateway {
         if (app === undefined) {
           if (usable.length === 0) return "You have no apps. Ask for one with request_app.";
           return usable
-            .map(({ setup, permission, status }) => {
-              const note = status === "signed_out" ? " Signed out for now." : "";
-              return `- ${setup.name} (app: "${setup.slug}"): ${PERMISSION_WORDS[permission]}.${note}`;
-            })
+            .map(
+              ({ setup, permission }) =>
+                `- ${setup.name} (app: "${setup.slug}"): ${PERMISSION_WORDS[permission]}.`,
+            )
             .join("\n");
         }
         const connector = findConnector(this.#store, app);

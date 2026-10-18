@@ -63,19 +63,21 @@ export async function draftConnector(
     "fetch",
   ]);
   const found = written.connector;
+  // A browser sign-in is Claude's to run: the user adds the app on claude.ai (D-68).
+  const inClaude = found?.kind === "remote" && found.auth === "sign-in";
   const setup =
     found === undefined
       ? undefined
       : connectorSetupSchema.safeParse({
           slug: slugOf(found.name),
           name: found.name,
-          kind: found.kind,
+          kind: inClaude ? "claude" : found.kind,
           ...(found.maker === undefined ? {} : { maker: found.maker }),
           official: found.official,
           ...(found.kind === "remote"
             ? { url: found.url }
             : { command: found.command, args: found.args }),
-          auth: found.auth,
+          auth: found.auth === "key" ? "key" : "none",
           keys: found.auth === "key" ? found.keys : [],
         });
   return {

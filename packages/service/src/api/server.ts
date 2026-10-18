@@ -84,37 +84,6 @@ function send(response: ServerResponse, reply: Reply): void {
     .end(JSON.stringify(reply.json));
 }
 
-// Where an app sends the browser after its sign-in page; plain words, as the user reads it there.
-async function signInPage(
-  response: ServerResponse,
-  connectors: ConnectorHub,
-  query: URLSearchParams,
-): Promise<void> {
-  const page = (text: string) =>
-    response
-      .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      .end(
-        `<!doctype html><title>Office Town</title><p style="font: 16px system-ui; margin: 48px">${text}</p>`,
-      );
-  const state = query.get("state") ?? "";
-  const code = query.get("code");
-  if (code === null) {
-    page("The sign-in was not finished. You can close this tab and try again in Office Town.");
-    return;
-  }
-  try {
-    const name = await connectors.finishSignIn(state, code);
-    page(
-      name === undefined
-        ? "This sign-in link has expired. Start again from Office Town."
-        : "You are signed in. You can close this tab and go back to Office Town.",
-    );
-  } catch (error) {
-    console.error("A connector sign-in failed.", error);
-    page("The sign-in did not work. You can close this tab and try again in Office Town.");
-  }
-}
-
 export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, token, port } = options;
   const { registry, store } = team;
@@ -127,11 +96,6 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    // The app's sign-in page sends the browser here, without a token; the one-time state is the key.
-    if (request.method === "GET" && url.pathname === "/connectors/callback") {
-      await signInPage(response, connectors, url.searchParams);
-      return;
-    }
     if (!authorized(request)) {
       throw new RequestError(401, "unauthorized", "A valid bearer token is required.");
     }

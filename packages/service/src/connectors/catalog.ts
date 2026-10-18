@@ -1,9 +1,9 @@
 import type { CatalogEntry, ConnectorCategory, ConnectorSetup } from "@office-town/contract";
 
-// Each was checked live on 2026-10-18: a sign-in app registered our client and gave its sign-in
-// page, Hugging Face listed its tools, GitHub took a key header. Figma, Slack, HubSpot, Box and
-// Asana let no new client register, and no official Google server answered, so they are left out.
-const signIn = (
+// Sign-in apps are connected on claude.ai and reached by Claude agents (D-68); the address is for
+// one missing from Claude's directory, added there as a custom connector. Key apps were checked
+// live on 2026-10-18: Hugging Face listed its tools, GitHub took a key header.
+const inClaude = (
   slug: string,
   name: string,
   maker: string,
@@ -11,7 +11,7 @@ const signIn = (
   category: ConnectorCategory,
   description: string,
 ): CatalogEntry => ({
-  setup: { slug, name, kind: "remote", maker, official: true, url, auth: "sign-in", keys: [] },
+  setup: { slug, name, kind: "claude", maker, official: true, url, auth: "none", keys: [] },
   category,
   description,
 });
@@ -34,7 +34,7 @@ const github: ConnectorSetup = {
 };
 
 export const catalog: CatalogEntry[] = [
-  signIn(
+  inClaude(
     "notion",
     "Notion",
     "Notion",
@@ -42,7 +42,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Search, read and write pages and databases.",
   ),
-  signIn(
+  inClaude(
     "linear",
     "Linear",
     "Linear",
@@ -50,7 +50,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Find, create and update issues and projects.",
   ),
-  signIn(
+  inClaude(
     "atlassian",
     "Jira and Confluence",
     "Atlassian",
@@ -58,7 +58,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Work with Jira issues and Confluence pages.",
   ),
-  signIn(
+  inClaude(
     "monday",
     "monday.com",
     "monday.com",
@@ -66,7 +66,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Read and update boards, items and updates.",
   ),
-  signIn(
+  inClaude(
     "airtable",
     "Airtable",
     "Airtable",
@@ -74,7 +74,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Read and change records in your bases.",
   ),
-  signIn(
+  inClaude(
     "clickup",
     "ClickUp",
     "ClickUp",
@@ -82,7 +82,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Manage tasks, lists and docs.",
   ),
-  signIn(
+  inClaude(
     "zapier",
     "Zapier",
     "Zapier",
@@ -90,7 +90,7 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Run the actions you set up in Zapier.",
   ),
-  signIn(
+  inClaude(
     "granola",
     "Granola",
     "Granola",
@@ -99,7 +99,7 @@ export const catalog: CatalogEntry[] = [
     "Read your meeting notes and transcripts.",
   ),
   { setup: github, category: "code", description: "Read code, open issues and pull requests." },
-  signIn(
+  inClaude(
     "sentry",
     "Sentry",
     "Sentry",
@@ -107,7 +107,7 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Look into errors and the issues behind them.",
   ),
-  signIn(
+  inClaude(
     "vercel",
     "Vercel",
     "Vercel",
@@ -115,7 +115,7 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Check projects, deployments and their logs.",
   ),
-  signIn(
+  inClaude(
     "supabase",
     "Supabase",
     "Supabase",
@@ -123,7 +123,7 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Query and manage your databases and projects.",
   ),
-  signIn(
+  inClaude(
     "cloudflare",
     "Cloudflare",
     "Cloudflare",
@@ -131,7 +131,7 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Manage Workers, storage and databases.",
   ),
-  signIn(
+  inClaude(
     "netlify",
     "Netlify",
     "Netlify",
@@ -139,7 +139,7 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Create, deploy and manage sites.",
   ),
-  signIn(
+  inClaude(
     "neon",
     "Neon",
     "Neon",
@@ -161,7 +161,7 @@ export const catalog: CatalogEntry[] = [
     category: "code",
     description: "Search models, datasets, papers and Spaces.",
   },
-  signIn(
+  inClaude(
     "intercom",
     "Intercom",
     "Intercom",
@@ -169,7 +169,7 @@ export const catalog: CatalogEntry[] = [
     "messages",
     "Search conversations and customer details.",
   ),
-  signIn(
+  inClaude(
     "stripe",
     "Stripe",
     "Stripe",
@@ -177,7 +177,7 @@ export const catalog: CatalogEntry[] = [
     "sales",
     "Look up and manage payments, customers and invoices.",
   ),
-  signIn(
+  inClaude(
     "paypal",
     "PayPal",
     "PayPal",
@@ -185,7 +185,7 @@ export const catalog: CatalogEntry[] = [
     "sales",
     "Create invoices and look up transactions.",
   ),
-  signIn(
+  inClaude(
     "square",
     "Square",
     "Square",
@@ -193,7 +193,7 @@ export const catalog: CatalogEntry[] = [
     "sales",
     "Work with orders, payments, items and customers.",
   ),
-  signIn(
+  inClaude(
     "attio",
     "Attio",
     "Attio",
@@ -201,7 +201,7 @@ export const catalog: CatalogEntry[] = [
     "sales",
     "Find and update people, companies and deals.",
   ),
-  signIn(
+  inClaude(
     "close",
     "Close",
     "Close",
@@ -209,7 +209,7 @@ export const catalog: CatalogEntry[] = [
     "sales",
     "Work with leads, contacts and opportunities.",
   ),
-  signIn(
+  inClaude(
     "canva",
     "Canva",
     "Canva",
@@ -217,7 +217,7 @@ export const catalog: CatalogEntry[] = [
     "design",
     "Find, create and export designs.",
   ),
-  signIn(
+  inClaude(
     "webflow",
     "Webflow",
     "Webflow",
@@ -225,7 +225,7 @@ export const catalog: CatalogEntry[] = [
     "design",
     "Edit site content and collections.",
   ),
-  signIn(
+  inClaude(
     "wix",
     "Wix",
     "Wix",
@@ -233,5 +233,12 @@ export const catalog: CatalogEntry[] = [
     "design",
     "Manage sites, content and store data.",
   ),
-  signIn("miro", "Miro", "Miro", "https://mcp.miro.com/", "design", "Read and add to your boards."),
+  inClaude(
+    "miro",
+    "Miro",
+    "Miro",
+    "https://mcp.miro.com/",
+    "design",
+    "Read and add to your boards.",
+  ),
 ];

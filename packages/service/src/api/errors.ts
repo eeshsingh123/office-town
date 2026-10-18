@@ -7,7 +7,7 @@ import {
 } from "@office-town/harness";
 import { ZodError, z } from "zod";
 import { ChiefBusyError, NoChiefError } from "../chief/chief.ts";
-import { ConnectError } from "../connectors/hub.ts";
+import { ConnectError } from "../connectors/links.ts";
 import { DraftError } from "../drafts/run.ts";
 import {
   AnswerError,

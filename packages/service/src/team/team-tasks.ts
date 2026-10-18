@@ -295,7 +295,7 @@ async function startGroupTask(
             teamName: groupName(lead),
             folders,
             instructions: instructionsFor(store, lead),
-            roster: describeWorkers(workers),
+            roster: describeWorkers(store, workers),
             branches: false,
             codeFlow: false,
             fixedTeam: true,
