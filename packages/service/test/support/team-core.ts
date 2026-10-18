@@ -1,4 +1,4 @@
-import type { HarnessCatalog } from "@office-town/contract";
+import { type HarnessCatalog, teamToolServer } from "@office-town/contract";
 import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
@@ -6,6 +6,8 @@ import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { messageLead } from "../../src/chief/message-lead.ts";
 import { proposePlan } from "../../src/chief/propose-plan.ts";
 import { Scheduler } from "../../src/chief/scheduler.ts";
+import { appsOf } from "../../src/connectors/access.ts";
+import { ConnectorHub } from "../../src/connectors/hub.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
@@ -26,6 +28,7 @@ import { TaskStates } from "../../src/team/task-state.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
 import { type RunningToolServer, startToolServer } from "../../src/tools/tool-server.ts";
+import { memorySecrets } from "./connectors.ts";
 import { FakeSession } from "./fake-session.ts";
 
 const TOKEN = "test-token";
@@ -42,11 +45,19 @@ export interface Core {
   registry: SessionRegistry;
   tools: RunningToolServer;
   team: TeamContext;
+  connectors: ConnectorHub;
+  secrets: ReturnType<typeof memorySecrets>;
   scheduler: Scheduler;
   sessions: FakeSession[];
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
   call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }>;
-  callTool(session: FakeSession | undefined, name: string, input: object): Promise<ToolReply>;
+  // On the team's server unless another of the session's servers is named.
+  callTool(
+    session: FakeSession | undefined,
+    name: string,
+    input: object,
+    server?: string,
+  ): Promise<ToolReply>;
   close(): Promise<void>;
 }
 
@@ -74,6 +85,13 @@ export async function startCore(dataFolder: string): Promise<Core> {
     guard: autonomyGuard(store),
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
     referenceOf: referenceOf(store),
+    appsOf: appsOf(store),
+  });
+  const secrets = memorySecrets();
+  const connectors = new ConnectorHub(store, registry, secrets);
+  tools.offerApps({
+    hub: connectors.gateway.hubTools(),
+    endpointOf: (slug) => connectors.gateway.endpointOf(slug),
   });
   taskStates.follow(registry);
   followLibraryUses(registry, store);
@@ -99,13 +117,16 @@ export async function startCore(dataFolder: string): Promise<Core> {
     addToLibrary(team),
     changeLibrary(team),
   ]);
-  const server: ApiServer = await startApiServer({ team, token: TOKEN, port: 0 });
+  const server: ApiServer = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
+  connectors.listenAt(server.url);
 
   return {
     store,
     registry,
     tools,
     team,
+    connectors,
+    secrets,
     scheduler,
     sessions,
     async call(method, path, body) {
@@ -117,10 +138,11 @@ export async function startCore(dataFolder: string): Promise<Core> {
       const json = response.status === 204 ? {} : await response.json();
       return { status: response.status, json };
     },
-    async callTool(session, name, input) {
-      const response = await fetch(tools.url, {
+    async callTool(session, name, input, server = teamToolServer) {
+      const attached = session?.extras.toolServers?.find((each) => each.name === server);
+      const response = await fetch(attached?.url ?? tools.url, {
         method: "POST",
-        headers: { authorization: `Bearer ${session?.extras.toolServers?.[0]?.token}` },
+        headers: { authorization: `Bearer ${attached?.token}` },
         body: JSON.stringify({
           jsonrpc: "2.0",
           id: 1,
@@ -140,6 +162,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
       await server.close();
       await registry.close();
       await tools.close();
+      await connectors.close();
       store.close();
     },
   };

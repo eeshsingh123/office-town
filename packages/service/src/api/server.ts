@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
+import type { ConnectorHub } from "../connectors/hub.ts";
 import type { TeamContext } from "../team/members.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
@@ -12,6 +13,7 @@ const BODY_LIMIT_BYTES = 1024 * 1024;
 
 export interface ApiOptions {
   team: TeamContext;
+  connectors: ConnectorHub;
   // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -82,9 +84,41 @@ function send(response: ServerResponse, reply: Reply): void {
     .end(JSON.stringify(reply.json));
 }
 
-export async function startApiServer({ team, token, port }: ApiOptions): Promise<ApiServer> {
+// Where an app sends the browser after its sign-in page; plain words, as the user reads it there.
+async function signInPage(
+  response: ServerResponse,
+  connectors: ConnectorHub,
+  query: URLSearchParams,
+): Promise<void> {
+  const page = (text: string) =>
+    response
+      .writeHead(200, { "content-type": "text/html; charset=utf-8" })
+      .end(
+        `<!doctype html><title>Office Town</title><p style="font: 16px system-ui; margin: 48px">${text}</p>`,
+      );
+  const state = query.get("state") ?? "";
+  const code = query.get("code");
+  if (code === null) {
+    page("The sign-in was not finished. You can close this tab and try again in Office Town.");
+    return;
+  }
+  try {
+    const name = await connectors.finishSignIn(state, code);
+    page(
+      name === undefined
+        ? "This sign-in link has expired. Start again from Office Town."
+        : "You are signed in. You can close this tab and go back to Office Town.",
+    );
+  } catch (error) {
+    console.error("A connector sign-in failed.", error);
+    page("The sign-in did not work. You can close this tab and try again in Office Town.");
+  }
+}
+
+export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
+  const { team, connectors, token, port } = options;
   const { registry, store } = team;
-  const routes = apiRoutes(team);
+  const routes = apiRoutes(team, connectors);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");
@@ -92,11 +126,16 @@ export async function startApiServer({ team, token, port }: ApiOptions): Promise
   };
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    // The app's sign-in page sends the browser here, without a token; the one-time state is the key.
+    if (request.method === "GET" && url.pathname === "/connectors/callback") {
+      await signInPage(response, connectors, url.searchParams);
+      return;
+    }
     if (!authorized(request)) {
       throw new RequestError(401, "unauthorized", "A valid bearer token is required.");
     }
     const method = request.method ?? "";
-    const url = new URL(request.url ?? "/", "http://127.0.0.1");
     if (method === "GET" && url.pathname === "/events") {
       const lastEventId = request.headers["last-event-id"];
       const query = eventStreamQuerySchema.parse({

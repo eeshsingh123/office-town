@@ -39,7 +39,7 @@ export type HarnessSessionFactory = (options: SessionOptions, extras: LaunchExtr
 // One token per session, so a tool call names its agent.
 export interface ToolAccess {
   // `bind` names the session once it exists, before it starts.
-  grant(): { servers: ToolServer[]; bind(sessionId: string): void };
+  grant(connectorIds: readonly string[]): { servers: ToolServer[]; bind(sessionId: string): void };
   revoke(sessionId: string): void;
 }
 
@@ -169,6 +169,13 @@ export interface RegistryOptions {
   seesImages?: (options: SessionOptions) => Promise<boolean>;
   // The Library items an agent gets in a task (D-64).
   referenceOf?: (taskId: string, agentId: string) => Attachment[];
+  // The connectors a new conversation gets, and the lines that tell the agent (D-67).
+  appsOf?: (agentId: string) => Apps;
+}
+
+export interface Apps {
+  connectorIds: string[];
+  brief?: string;
 }
 
 export class SessionRegistry {
@@ -179,6 +186,7 @@ export class SessionRegistry {
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #seesImages: (options: SessionOptions) => Promise<boolean>;
   readonly #referenceOf: (taskId: string, agentId: string) => Attachment[];
+  readonly #appsOf: (agentId: string) => Apps;
   readonly #live = new Map<string, LiveSession>();
   readonly #listeners = new Set<RegistryListener>();
   // By session and request id.
@@ -195,6 +203,7 @@ export class SessionRegistry {
       permissionModeOf,
       seesImages = async () => false,
       referenceOf = () => [],
+      appsOf = () => ({ connectorIds: [] }),
     }: RegistryOptions = {},
   ) {
     this.#store = store;
@@ -204,6 +213,7 @@ export class SessionRegistry {
     this.#permissionModeOf = permissionModeOf;
     this.#seesImages = seesImages;
     this.#referenceOf = referenceOf;
+    this.#appsOf = appsOf;
     store.markInterrupted();
   }
 
@@ -213,19 +223,41 @@ export class SessionRegistry {
   }
 
   async start({ taskId, agentId, options: given, message: sent }: Launch): Promise<SessionRecord> {
-    const message = this.#withReference(taskId, agentId, sent);
-    const options = withAccess(given, filesOf(message));
+    const { message, apps } = this.#firstMessage(taskId, agentId, sent);
+    const options = withAccess({ ...given, ...apps }, filesOf(message));
     const session = this.#launch(options);
     return this.#run(session, { id: session.id, taskId, agentId, options }, message);
   }
 
-  // A new conversation starts with the Library items, except those the user attached anyway.
-  #withReference(taskId: string, agentId: string, message: Message): Message {
+  // A new conversation starts with the Library items, except those the user attached anyway,
+  // and its fixed list of connectors, which a resume keeps so the tool list never changes.
+  #firstMessage(taskId: string, agentId: string, message: Message) {
     const attached = new Set(message.attachments?.map((attachment) => attachment.id));
     const reference = this.#referenceOf(taskId, agentId).filter(
       (attachment) => !attached.has(attachment.id),
     );
-    return reference.length === 0 ? message : { ...message, reference };
+    const { connectorIds, brief } = this.#appsOf(agentId);
+    const apps = connectorIds.length === 0 ? {} : { connectorIds };
+    const withReference = reference.length === 0 ? message : { ...message, reference };
+    if (brief === undefined) return { message: withReference, apps };
+    const text =
+      message.origin === undefined
+        ? `Your task:
+${message.text}`
+        : message.text;
+    return {
+      message: {
+        ...withReference,
+        text: `${brief}
+
+${text}`,
+        origin: message.origin ?? {
+          kind: "brief" as const,
+          summary: "The apps it can use, then the task",
+        },
+      },
+      apps,
+    };
   }
 
   async resume(sessionId: string, message: Message): Promise<SessionRecord> {
@@ -244,9 +276,15 @@ export class SessionRegistry {
     const moved = this.#movedAccount(earlier);
     if (moved !== undefined) {
       // A conversation stays with its login, so another account starts a new one (D-61).
-      const { resumeSessionId: _, accountId: __, accountFolder: ___, ...rest } = earlier.options;
-      const fresh = this.#withReference(earlier.taskId, earlier.agentId, message);
-      const options = withAccess({ ...rest, ...moved, permissionMode }, filesOf(fresh));
+      const {
+        resumeSessionId: _,
+        accountId: __,
+        accountFolder: ___,
+        connectorIds: ____,
+        ...rest
+      } = earlier.options;
+      const { message: fresh, apps } = this.#firstMessage(earlier.taskId, earlier.agentId, message);
+      const options = withAccess({ ...rest, ...moved, permissionMode, ...apps }, filesOf(fresh));
       const session = this.#launch(options);
       const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
       const text = handover(this.#store.lastMessage(sessionId), message.text);
@@ -431,7 +469,7 @@ export class SessionRegistry {
   }
 
   #launch(options: SessionOptions): Session {
-    const grant = this.#tools?.grant();
+    const grant = this.#tools?.grant(options.connectorIds ?? []);
     const session = this.#createSession(
       options,
       grant === undefined ? {} : { toolServers: grant.servers },

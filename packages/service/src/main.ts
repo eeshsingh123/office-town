@@ -9,6 +9,9 @@ import { autonomyGuard } from "./autonomy/policy.ts";
 import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
 import { Scheduler } from "./chief/scheduler.ts";
+import { appsOf } from "./connectors/access.ts";
+import { ConnectorHub } from "./connectors/hub.ts";
+import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
@@ -57,6 +60,12 @@ const registry = new SessionRegistry(store, {
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   seesImages: imageSight(readCatalog),
   referenceOf: referenceOf(store),
+  appsOf: appsOf(store),
+});
+const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder));
+toolServer.offerApps({
+  hub: connectors.gateway.hubTools(),
+  endpointOf: (slug) => connectors.gateway.endpointOf(slug),
 });
 taskStates.follow(registry);
 followLibraryUses(registry, store);
@@ -81,7 +90,8 @@ toolServer.offer([
 // After a restart, queued work may be free to start.
 void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ team, token, port });
+const server = await startApiServer({ team, connectors, token, port });
+connectors.listenAt(server.url);
 const ready: CoreReady = { url: server.url, token };
 // Stdout carries only this line, for whoever started the core; logs go to stderr.
 process.stdout.write(`${JSON.stringify(ready)}\n`);
@@ -96,6 +106,7 @@ async function shutdown(): Promise<void> {
     await registry.close();
   } finally {
     await toolServer.close();
+    await connectors.close();
     store.close();
   }
 }
