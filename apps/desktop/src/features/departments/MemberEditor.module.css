@@ -58,6 +58,16 @@
   border-bottom-left-radius: 6px;
 }
 
+/* Carries the line on past the elbow to the next member. */
+.reports:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 8px);
+  bottom: -9px;
+  left: -12px;
+  border-left: 1.5px solid var(--border-strong);
+}
+
 .person {
   display: flex;
   align-items: center;
