@@ -43,5 +43,8 @@ export const sessionOptionsSchema = z.object({
   isolated: z.boolean().optional(),
   // The connectors served natively, fixed at a conversation's first session (D-67).
   connectorIds: z.array(z.string().min(1)).optional(),
+  // The apps the harness connects itself that it may use, such as Claude apps, fixed the same
+  // way; the harness blocks every other one (D-68).
+  vendorApps: z.array(z.string().min(1)).optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;

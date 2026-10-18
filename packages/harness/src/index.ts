@@ -11,6 +11,7 @@ import {
   type SessionOptions,
   sessionOptionsSchema,
   type UsageLimit,
+  type VendorApp,
 } from "@office-town/contract";
 import type { LaunchExtras } from "./adapter.ts";
 import { adapters, findAdapter } from "./adapters/registry.ts";
@@ -21,6 +22,7 @@ import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
 import { runProcess } from "./process-runner.ts";
 import { HarnessSession, type Session } from "./session.ts";
+import { readSignInPage, readVendorApps } from "./vendor-apps.ts";
 
 export type { LaunchExtras, ToolServer } from "./adapter.ts";
 export { UnknownHarnessError } from "./adapters/registry.ts";
@@ -35,6 +37,7 @@ export {
   type SessionListener,
   SessionStateError,
 } from "./session.ts";
+export { VendorAppsError } from "./vendor-apps.ts";
 
 function environmentFor(environment: EnvironmentSpec): Environment {
   switch (environment.kind) {
@@ -151,6 +154,50 @@ export async function saveAccountKey(
   const code = await exited.promise;
   clearTimeout(timer);
   return code === 0;
+}
+
+// Whether the harness connects apps of its own for a login, such as Claude apps (D-68).
+export function hasVendorApps(harness: string): boolean {
+  return findAdapter(harness).vendorApps !== undefined;
+}
+
+function loginEnv(harness: string, environment: Environment, folder: string | undefined) {
+  const { accounts } = findAdapter(harness);
+  if (folder === undefined || accounts === undefined) return {};
+  return accounts.env(environment.toEnvironmentPath(folder));
+}
+
+// A login's apps once they have connected, or as far as they got in 20 seconds.
+export function listVendorApps(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string | undefined,
+  signal?: AbortSignal,
+): Promise<VendorApp[]> {
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  return readVendorApps(findAdapter(harness), environment, loginEnv(harness, environment, folder), {
+    settled: true,
+    timeoutMs: 20_000,
+    ...(signal === undefined ? {} : { signal }),
+  });
+}
+
+// The vendor's page where the user signs one app in; the harness keeps the sign-in.
+export function vendorAppSignInPage(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string | undefined,
+  app: string,
+): Promise<string> {
+  const support = findAdapter(harness).vendorApps;
+  if (support === undefined) throw new Error(`The "${harness}" harness has no apps of its own.`);
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const command = support.signIn(app);
+  return readSignInPage(
+    environment,
+    { ...command, env: { ...command.env, ...loginEnv(harness, environment, folder) } },
+    support.signInPage,
+  );
 }
 
 // Where an account's sign-in is saved inside its folder, for a harness that keeps accounts apart.

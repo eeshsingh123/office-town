@@ -7,6 +7,7 @@ import type {
   SessionEventBody,
   SessionOptions,
   UsageLimit,
+  VendorApp,
 } from "@office-town/contract";
 
 type BodyOf<T extends SessionEventBody["type"]> = Extract<SessionEventBody, { type: T }>;
@@ -39,6 +40,8 @@ export interface LaunchExtras {
 export type LaunchOptions = SessionOptions & {
   workspacePath: string;
   toolServers: AttachedToolServer[];
+  // The login's other vendor apps, found at launch, which the session must not reach.
+  blockedApps?: string[];
 };
 
 // For a harness that prefixes server names, such as "mcp__office-town__" or "office-town_".
@@ -122,6 +125,20 @@ export interface InstallSupport {
   page: string;
 }
 
+// Apps the vendor connects for a login itself, such as the user's claude.ai connectors (D-68).
+export interface VendorAppSupport {
+  // Run on the login, it answers without starting a turn.
+  command: HarnessCommand;
+  // Written once at start, then `poll` every so often until the list is in.
+  start: string[];
+  poll: string;
+  // Undefined for any other line. An app still connecting is listed as failed, with `pending`.
+  read(line: string): { apps: VendorApp[]; pending: boolean } | undefined;
+  // Prints the vendor's page where the user signs an app in, and exits.
+  signIn(app: string): HarnessCommand;
+  signInPage(output: string[]): string | undefined;
+}
+
 export interface Adapter {
   readonly harness: string;
   readonly name: string;
@@ -131,6 +148,7 @@ export interface Adapter {
   readonly catalog?: CatalogQuery;
   readonly accounts?: AccountSupport;
   readonly install?: InstallSupport;
+  readonly vendorApps?: VendorAppSupport;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

@@ -11,11 +11,13 @@ export const connectorSlugSchema = z
   .regex(/^[a-z0-9][a-z0-9-]{0,23}$/, "Use up to 24 lowercase letters, digits and -")
   .refine((slug) => slug !== teamToolServer && slug !== appsToolServer, "That name is taken");
 
-export const connectorKindSchema = z.enum(["remote", "local"]);
-export const connectorAuthSchema = z.enum(["sign-in", "key", "none"]);
+// A Claude app is one of the user's claude.ai connectors, reached by Claude agents only (D-68).
+export const connectorKindSchema = z.enum(["remote", "local", "claude"]);
+export const connectorAuthSchema = z.enum(["key", "none"]);
 export type ConnectorAuth = z.infer<typeof connectorAuthSchema>;
 export const connectorPermissionSchema = z.enum(["read_only", "ask", "dont_ask"]);
 export type ConnectorPermission = z.infer<typeof connectorPermissionSchema>;
+// Signed out: a Claude app that still needs its sign-in in Claude Code.
 export const connectorStatusSchema = z.enum(["connected", "signed_out", "off", "failing"]);
 export type ConnectorStatus = z.infer<typeof connectorStatusSchema>;
 
@@ -40,17 +42,18 @@ export const connectorSetupSchema = z
     url: z.url().optional(),
     command: z.string().min(1).optional(),
     args: z.array(z.string()).optional(),
+    // A Claude app's account, and its name in Claude Code, such as "claude.ai Gmail".
+    account: z.string().min(1).optional(),
+    app: z.string().min(1).optional(),
     auth: connectorAuthSchema,
     keys: z.array(connectorKeySchema).max(5),
   })
-  .refine(
-    (setup) => (setup.kind === "remote" ? setup.url !== undefined : setup.command !== undefined),
-    "A remote app needs an address, a local one a command",
-  )
-  .refine(
-    (setup) => setup.kind === "remote" || setup.auth !== "sign-in",
-    "Only a remote app can be signed in to",
-  );
+  .refine((setup) => {
+    if (setup.kind === "remote") return setup.url !== undefined;
+    if (setup.kind === "local") return setup.command !== undefined;
+    // A catalog tile names no account; a saved Claude app always has one (D-68).
+    return true;
+  }, "A remote app needs an address, a local one a command");
 export type ConnectorSetup = z.infer<typeof connectorSetupSchema>;
 
 export const connectorRecordSchema = z.object({
@@ -95,7 +98,7 @@ export const connectorChangeSchema = z.object({
 });
 export type ConnectorChange = z.infer<typeof connectorChangeSchema>;
 
-// The app's own page, opened in the system browser.
+// Claude's page for a Claude app's sign-in, opened in the system browser.
 export const connectorSignInSchema = z.object({ url: z.url() });
 export type ConnectorSignIn = z.infer<typeof connectorSignInSchema>;
 
@@ -143,7 +146,8 @@ export type ConnectorActivity = z.infer<typeof connectorActivitySchema>;
 export const connectorCategorySchema = z.enum(["work", "code", "messages", "sales", "design"]);
 export type ConnectorCategory = z.infer<typeof connectorCategorySchema>;
 
-// An official remote app, checked to connect before it was listed. Its slug is its logo key.
+// An official app: a key app checked to connect before it was listed, or a Claude app's tile.
+// Its slug is its logo key.
 export const catalogEntrySchema = z.object({
   setup: connectorSetupSchema,
   category: connectorCategorySchema,
@@ -154,7 +158,22 @@ export type CatalogEntry = z.infer<typeof catalogEntrySchema>;
 
 export const connectorCatalogSchema = z.object({
   entries: z.array(catalogEntrySchema),
-  // No credential store on this computer, so keys go to a file only the user can read.
-  keysInFile: z.boolean(),
+  // Where pasted keys go: the OS credential store, a file only the user can read (Linux without
+  // a store), or nowhere, so keys cannot be saved (Windows without a store).
+  keys: z.enum(["store", "file", "none"]),
 });
 export type ConnectorCatalog = z.infer<typeof connectorCatalogSchema>;
+
+// An app a harness connects itself for a login, as the CLI reports it (D-68).
+export const vendorAppSchema = z.object({
+  name: z.string().min(1),
+  status: z.enum(["connected", "needs_sign_in", "failed"]),
+  tools: z.array(
+    z.object({
+      name: z.string().min(1),
+      description: z.string().optional(),
+      readOnly: z.boolean(),
+    }),
+  ),
+});
+export type VendorApp = z.infer<typeof vendorAppSchema>;

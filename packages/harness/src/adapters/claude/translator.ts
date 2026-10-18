@@ -151,8 +151,12 @@ function translated(events: AdapterEvent[], outgoing: string[] = []): Translatio
   return { events, outgoing };
 }
 
+// "claude.ai Gmail" is "mcp__claude_ai_Gmail__" in tool names.
+export const appToolPrefix = (app: string) => `mcp__${app.replaceAll(/[^A-Za-z0-9_-]/g, "_")}__`;
+
 export class ClaudeTranslator implements Translator {
   readonly #toolServers: readonly { name: string }[];
+  readonly #vendorApps: readonly { name: string }[];
   #sessionStarted = false;
   #interrupts = 0;
   #steps: PlanStep[] = [];
@@ -173,8 +177,9 @@ export class ClaudeTranslator implements Translator {
     result: (message) => this.#result(message),
   };
 
-  constructor(toolServers: readonly { name: string }[] = []) {
+  constructor(toolServers: readonly { name: string }[] = [], vendorApps: readonly string[] = []) {
     this.#toolServers = toolServers;
+    this.#vendorApps = vendorApps.map((name) => ({ name }));
   }
 
   open(): string[] {
@@ -332,7 +337,9 @@ export class ClaudeTranslator implements Translator {
       this.#planCalls.set(block.id, block);
       return [];
     }
-    const tool = attachedTool(block.name, this.#toolServers, (server) => `mcp__${server}__`);
+    const tool =
+      attachedTool(block.name, this.#toolServers, (server) => `mcp__${server}__`) ??
+      attachedTool(block.name, this.#vendorApps, appToolPrefix);
     return [
       {
         type: "action.started",
@@ -460,7 +467,11 @@ export class ClaudeTranslator implements Translator {
       const payload = { requestId: request_id, ...action, questions: questions.map(questionOf) };
       return translated([{ type: "question.requested", payload }]);
     }
-    const standingChanges = standingChangesOf(permission.permission_suggestions ?? []);
+    // A Claude app's own permission decides its calls, so no standing rule is offered (D-68).
+    const app =
+      permission.mcp_server?.source === "claudeai" ? permission.mcp_server.name : undefined;
+    const standingChanges =
+      app === undefined ? standingChangesOf(permission.permission_suggestions ?? []) : [];
     this.#pendingPermissions.set(request_id, {
       input: permission.input,
       standingChanges,
@@ -475,6 +486,11 @@ export class ClaudeTranslator implements Translator {
           ...action,
           title: permission.description ? `${name}: ${permission.description}` : name,
           input: permission.input,
+          ...(app === undefined
+            ? {}
+            : {
+                tool: { server: app, name: permission.tool_name.slice(appToolPrefix(app).length) },
+              }),
           options: [
             PERMISSION_OPTIONS.allow,
             ...(standingChanges.length > 0 ? [allowAlwaysOption(standingChanges)] : []),

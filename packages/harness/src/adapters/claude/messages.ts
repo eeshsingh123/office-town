@@ -97,6 +97,34 @@ export const permissionRequestSchema = z.looseObject({
   input: z.record(z.string(), z.unknown()),
   tool_use_id: z.string().optional(),
   permission_suggestions: z.array(z.unknown()).optional(),
+  // Set for an MCP tool; "claudeai" for one of the user's claude.ai connectors.
+  mcp_server: z.looseObject({ name: z.string(), source: z.string().optional() }).optional(),
+});
+
+// The answer to an mcp_status control request: every server the CLI connects, with its tools.
+export const mcpStatusResponseSchema = z.looseObject({
+  type: z.literal("control_response"),
+  response: z.looseObject({
+    request_id: z.string(),
+    response: z.looseObject({
+      mcpServers: z.array(
+        z.looseObject({
+          name: z.string(),
+          status: z.string(),
+          source: z.string().optional(),
+          tools: z
+            .array(
+              z.looseObject({
+                name: z.string(),
+                description: z.string().optional(),
+                annotations: z.looseObject({ readOnly: z.boolean().optional() }).optional(),
+              }),
+            )
+            .optional(),
+        }),
+      ),
+    }),
+  }),
 });
 
 export const permissionSuggestionSchema = z.looseObject({
