@@ -10,7 +10,16 @@ import {
   type AgentRecord,
   type AgentSettings,
   type Attachment,
+  type Audience,
   type Change,
+  type ConnectorActivity,
+  type ConnectorActivityQuery,
+  type ConnectorCall,
+  type ConnectorCallOutcome,
+  type ConnectorPermission,
+  type ConnectorRecord,
+  type ConnectorSetup,
+  type ConnectorStatus,
   type DelegationRecord,
   type DepartmentRecord,
   type DepartmentSettings,
@@ -50,6 +59,8 @@ import {
   type AgentChange,
   type AgentSessionQuery,
   type ChangeListener,
+  type ConnectorTool,
+  type ConnectorUpdate,
   type DelegationEnd,
   type EventQuery,
   InUseError,
@@ -57,6 +68,8 @@ import {
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
+  type NewConnector,
+  type NewConnectorCall,
   type NewDelegation,
   type NewDepartment,
   type NewFile,
@@ -223,6 +236,31 @@ interface AttachmentRow {
 }
 
 type AttachmentRef = Pick<AttachmentRow, "ref" | "id" | "kind">;
+
+interface ConnectorRow {
+  ref: number;
+  id: string;
+  setup: string;
+  audience: string;
+  permission: ConnectorPermission;
+  enabled: number;
+  status: ConnectorStatus;
+  createdAt: number;
+}
+
+interface ConnectorCallRow {
+  position: number;
+  id: string;
+  connectorId: string;
+  agentId: string;
+  taskId: string;
+  departmentId: string | null;
+  tool: string;
+  input: string;
+  change: number;
+  outcome: ConnectorCallOutcome;
+  at: number;
+}
 
 interface LibraryRow {
   ref: number;
@@ -405,6 +443,43 @@ function toAttachment(row: AttachmentRow): Attachment {
     ...(row.sha256 === null ? {} : { sha256: row.sha256 }),
     createdAt: iso(row.createdAt),
   };
+}
+
+function toConnector(row: ConnectorRow): ConnectorRecord {
+  return {
+    id: row.id,
+    setup: JSON.parse(row.setup) as ConnectorSetup,
+    audience: JSON.parse(row.audience) as Audience,
+    permission: row.permission,
+    enabled: row.enabled === 1,
+    status: row.status,
+    createdAt: iso(row.createdAt),
+  };
+}
+
+function toConnectorCall(row: ConnectorCallRow): ConnectorCall {
+  return {
+    id: row.id,
+    position: row.position,
+    connectorId: row.connectorId,
+    agentId: row.agentId,
+    taskId: row.taskId,
+    ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    tool: row.tool,
+    input: JSON.parse(row.input) as unknown,
+    change: row.change === 1,
+    outcome: row.outcome,
+    at: iso(row.at),
+  };
+}
+
+const CONNECTOR_PAGE = 50;
+// The input is kept to describe the call, not to replay it.
+const CALL_INPUT_CHARS = 2000;
+
+function inputText(input: unknown): string {
+  const text = JSON.stringify(input ?? {});
+  return text.length <= CALL_INPUT_CHARS ? text : JSON.stringify({ truncated: true });
 }
 
 function toLibraryItem(row: LibraryRow): LibraryItem {
@@ -1329,6 +1404,132 @@ class SqliteStore implements Store {
   async #removeCopies(attachments: AttachmentRef[]): Promise<void> {
     const copies = attachments.filter((attachment) => attachment.kind !== "folder");
     await Promise.all(copies.map((attachment) => this.#files.remove(attachment.id)));
+  }
+
+  createConnector({ setup, audience, permission, status, tools }: NewConnector): ConnectorRecord {
+    const id = randomUUID();
+    try {
+      this.#statements.insertConnector.run(
+        id,
+        setup.slug,
+        JSON.stringify(setup),
+        JSON.stringify(audience),
+        permission,
+        1,
+        status,
+        JSON.stringify(tools),
+        Date.now(),
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new InUseError(`Another connector already uses the name "${setup.slug}".`);
+      }
+      throw error;
+    }
+    return this.#publishConnector(id);
+  }
+
+  getConnector(id: string): ConnectorRecord | undefined {
+    const row = one<ConnectorRow>(this.#statements.connectorById, id);
+    return row === undefined ? undefined : toConnector(row);
+  }
+
+  listConnectors(): ConnectorRecord[] {
+    return all<ConnectorRow>(this.#statements.allConnectors).map(toConnector);
+  }
+
+  updateConnector(id: string, update: ConnectorUpdate): ConnectorRecord {
+    const row = this.#connectorRow(id);
+    const current = toConnector(row);
+    this.#statements.updateConnector.run(
+      JSON.stringify(update.audience ?? current.audience),
+      update.permission ?? current.permission,
+      (update.enabled ?? current.enabled) ? 1 : 0,
+      update.status ?? current.status,
+      row.ref,
+    );
+    return this.#publishConnector(id);
+  }
+
+  connectorTools(id: string): ConnectorTool[] {
+    const row = one<{ tools: string }>(this.#statements.connectorTools, id);
+    if (row === undefined) throw new RecordNotFoundError("connector", id);
+    return JSON.parse(row.tools) as ConnectorTool[];
+  }
+
+  saveConnectorTools(id: string, tools: ConnectorTool[]): void {
+    this.#statements.saveConnectorTools.run(JSON.stringify(tools), this.#connectorRow(id).ref);
+  }
+
+  deleteConnector(id: string): void {
+    this.#statements.deleteConnector.run(this.#connectorRow(id).ref);
+    this.#publish({ type: "connector.removed", connectorId: id });
+  }
+
+  recordConnectorCall(call: NewConnectorCall): ConnectorCall {
+    const session = this.getSession(call.sessionId);
+    if (session === undefined) throw new RecordNotFoundError("session", call.sessionId);
+    const departmentId = this.getAgent(session.agentId)?.departmentId;
+    const id = randomUUID();
+    this.#statements.insertConnectorCall.run(
+      id,
+      this.#connectorRow(call.connectorId).ref,
+      this.#sessionRef(call.sessionId),
+      departmentId === undefined ? null : this.#departmentRow(departmentId).ref,
+      call.tool,
+      inputText(call.input),
+      call.change ? 1 : 0,
+      call.outcome,
+      Date.now(),
+    );
+    const row = one<ConnectorCallRow>(this.#statements.connectorCallById, id);
+    if (row === undefined) throw new RecordNotFoundError("connector", call.connectorId);
+    return toConnectorCall(row);
+  }
+
+  endConnectorCall(id: string, outcome: ConnectorCallOutcome): void {
+    this.#statements.endConnectorCall.run(outcome, id);
+  }
+
+  connectorActivity(id: string, query: ConnectorActivityQuery, since: Date): ConnectorActivity {
+    const { ref } = this.#connectorRow(id);
+    const rows = all<ConnectorCallRow>(
+      this.#statements.connectorCallsBefore,
+      ref,
+      since.getTime(),
+      query.before ?? Number.MAX_SAFE_INTEGER,
+      query.team ?? null,
+      query.changes === true ? 1 : null,
+      CONNECTOR_PAGE + 1,
+    );
+    const counts = all<{ departmentId: string | null; count: number; changes: number }>(
+      this.#statements.connectorCallCounts,
+      ref,
+      since.getTime(),
+    );
+    const calls = rows.slice(0, CONNECTOR_PAGE).map(toConnectorCall);
+    const last = calls.at(-1);
+    return {
+      calls,
+      total: counts.reduce((sum, row) => sum + row.count, 0),
+      changes: counts.reduce((sum, row) => sum + row.changes, 0),
+      teams: counts.map(({ departmentId, count }) =>
+        departmentId === null ? { count } : { departmentId, count },
+      ),
+      ...(rows.length > CONNECTOR_PAGE && last !== undefined ? { next: last.position } : {}),
+    };
+  }
+
+  #connectorRow(id: string): ConnectorRow {
+    const row = one<ConnectorRow>(this.#statements.connectorById, id);
+    if (row === undefined) throw new RecordNotFoundError("connector", id);
+    return row;
+  }
+
+  #publishConnector(id: string): ConnectorRecord {
+    const connector = toConnector(this.#connectorRow(id));
+    this.#publish({ type: "connector", connector });
+    return connector;
   }
 
   readSettings(): Settings {

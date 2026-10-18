@@ -2,6 +2,7 @@ import { z } from "zod";
 import { accountLimitsSchema } from "./accounts.ts";
 import { agentRecordSchema } from "./agents.ts";
 import { taskRecordSchema } from "./api.ts";
+import { connectorRecordSchema } from "./connectors.ts";
 import { libraryItemSchema } from "./library.ts";
 import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
@@ -18,5 +19,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("piece"), piece: planPieceSchema }),
   z.object({ type: z.literal("library"), item: libraryItemSchema }),
   z.object({ type: z.literal("library.removed"), itemId: z.string().min(1) }),
+  z.object({ type: z.literal("connector"), connector: connectorRecordSchema }),
+  z.object({ type: z.literal("connector.removed"), connectorId: z.string().min(1) }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

@@ -6,8 +6,17 @@ import type {
   AgentRecord,
   AgentSettings,
   Attachment,
+  Audience,
   Autonomy,
   Change,
+  ConnectorActivity,
+  ConnectorActivityQuery,
+  ConnectorCall,
+  ConnectorCallOutcome,
+  ConnectorPermission,
+  ConnectorRecord,
+  ConnectorSetup,
+  ConnectorStatus,
   DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
@@ -59,6 +68,40 @@ export interface UnopenedItem {
   itemId: string;
   kind: Attachment["kind"];
   path: string;
+}
+
+// A connector's tool as its app lists it (MCP `Tool`); a read when `readOnlyHint` is true.
+export interface ConnectorTool {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: Record<string, unknown>;
+  annotations?: { readOnlyHint?: boolean; title?: string };
+}
+
+export interface NewConnector {
+  setup: ConnectorSetup;
+  audience: Audience;
+  permission: ConnectorPermission;
+  status: ConnectorStatus;
+  tools: ConnectorTool[];
+}
+
+// A field left out stays as it is.
+export interface ConnectorUpdate {
+  audience?: Audience;
+  permission?: ConnectorPermission;
+  enabled?: boolean;
+  status?: ConnectorStatus;
+}
+
+export interface NewConnectorCall {
+  connectorId: string;
+  sessionId: string;
+  tool: string;
+  input: unknown;
+  change: boolean;
+  outcome: ConnectorCallOutcome;
 }
 
 export interface NewAgentRecord {
@@ -288,6 +331,20 @@ export interface Store {
   noteLibraryGiven(itemId: string, taskId: string): void;
   libraryUnopenedIn(taskId: string): UnopenedItem[];
   noteLibraryOpened(itemId: string, taskId: string, at: Date): void;
+  createConnector(connector: NewConnector): ConnectorRecord;
+  getConnector(id: string): ConnectorRecord | undefined;
+  // Oldest first.
+  listConnectors(): ConnectorRecord[];
+  updateConnector(id: string, update: ConnectorUpdate): ConnectorRecord;
+  connectorTools(id: string): ConnectorTool[];
+  saveConnectorTools(id: string, tools: ConnectorTool[]): void;
+  // Its calls go with it.
+  deleteConnector(id: string): void;
+  // Filed under the agent's department at the time.
+  recordConnectorCall(call: NewConnectorCall): ConnectorCall;
+  // An asked call, once the user answered.
+  endConnectorCall(id: string, outcome: ConnectorCallOutcome): void;
+  connectorActivity(id: string, query: ConnectorActivityQuery, since: Date): ConnectorActivity;
   readSettings(): Settings;
   // Only the settings given change.
   saveSettings(settings: Settings): void;
@@ -310,7 +367,8 @@ export class RecordNotFoundError extends Error {
       | "department"
       | "account"
       | "delegation"
-      | "piece",
+      | "piece"
+      | "connector",
     id: string,
   ) {
     super(`No ${kind} "${id}".`);

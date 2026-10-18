@@ -2,6 +2,7 @@ import type {
   Account,
   AccountLimits,
   AgentRecord,
+  ConnectorRecord,
   DelegationRecord,
   DepartmentRecord,
   Display,
@@ -92,6 +93,8 @@ export interface AppState extends Records {
   workspaces: WorkspaceRecord[] | undefined;
   // Every workspace's reference files, by id.
   library: Record<string, LibraryItem>;
+  // The apps the user connected, by id.
+  connectors: Record<string, ConnectorRecord>;
   // Undefined until loaded, so setup never flashes for someone who finished it.
   onboarding: Onboarding | undefined;
   display: Display;
@@ -123,6 +126,7 @@ export const useApp = create<AppState>(() => ({
   templates: undefined,
   workspaces: undefined,
   library: {},
+  connectors: {},
   onboarding: undefined,
   display: {},
 }));

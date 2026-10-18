@@ -85,6 +85,20 @@ const LIBRARY_SELECT = `
   JOIN attachments a ON a.ref = li.attachment_ref
   LEFT JOIN agents ag ON ag.ref = li.added_by_ref`;
 
+const CONNECTOR_SELECT = `
+  SELECT ref, id, setup, audience, permission, enabled, status, created_at AS createdAt
+  FROM connectors`;
+
+const CONNECTOR_CALL_SELECT = `
+  SELECT c.ref AS position, c.id, (SELECT id FROM connectors WHERE ref = c.connector_ref) AS connectorId,
+    ag.id AS agentId, t.id AS taskId, d.id AS departmentId, c.tool, c.input, c.change, c.outcome,
+    c.at
+  FROM connector_calls c
+  JOIN sessions s ON s.ref = c.session_ref
+  JOIN agents ag ON ag.ref = s.agent_ref
+  JOIN tasks t ON t.ref = s.task_ref
+  LEFT JOIN departments d ON d.ref = c.department_ref`;
+
 // The store test checks that none reads a whole table, except those marked as reading a small one.
 export const queries = {
   insertTask: `
@@ -366,6 +380,34 @@ export const queries = {
   noteLibraryOpened: `
     UPDATE library_uses SET opened_at = ?
     WHERE item_ref = ? AND task_ref = ? AND opened_at IS NULL`,
+
+  insertConnector: `
+    INSERT INTO connectors
+      (id, slug, setup, audience, permission, enabled, status, tools, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  allConnectors: `${CONNECTOR_SELECT} ORDER BY ref`,
+  connectorById: `${CONNECTOR_SELECT} WHERE id = ?`,
+  connectorTools: "SELECT tools FROM connectors WHERE id = ?",
+  updateConnector: `
+    UPDATE connectors SET audience = ?, permission = ?, enabled = ?, status = ? WHERE ref = ?`,
+  saveConnectorTools: "UPDATE connectors SET tools = ? WHERE ref = ?",
+  deleteConnector: "DELETE FROM connectors WHERE ref = ?",
+  insertConnectorCall: `
+    INSERT INTO connector_calls
+      (id, connector_ref, session_ref, department_ref, tool, input, change, outcome, at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  connectorCallById: `${CONNECTOR_CALL_SELECT} WHERE c.id = ?`,
+  endConnectorCall: "UPDATE connector_calls SET outcome = ? WHERE id = ?",
+  // ?2 is the start of the week, ?3 the page's upper bound; NULL ?4 and ?5 mean no filter.
+  connectorCallsBefore: `${CONNECTOR_CALL_SELECT}
+    WHERE c.connector_ref = ?1 AND c.at >= ?2 AND c.ref < ?3
+      AND (?4 IS NULL OR coalesce(d.id, 'none') = ?4) AND (?5 IS NULL OR c.change = 1)
+    ORDER BY c.ref DESC LIMIT ?6`,
+  connectorCallCounts: `
+    SELECT d.id AS departmentId, count(*) AS count, sum(c.change) AS changes
+    FROM connector_calls c LEFT JOIN departments d ON d.ref = c.department_ref
+    WHERE c.connector_ref = ? AND c.at >= ?
+    GROUP BY c.department_ref`,
 
   settingByKey: "SELECT value FROM settings WHERE key = ?",
   deleteSetting: "DELETE FROM settings WHERE key = ?",
