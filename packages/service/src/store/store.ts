@@ -155,14 +155,18 @@ export interface TaskPlacement {
 }
 
 export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
-  ({ departmentId: string } | { newDepartment: NonNullable<PlanPiece["newDepartment"]> });
+  (
+    | { departmentId: string; workspaceId?: string | undefined }
+    | { newDepartment: NonNullable<PlanPiece["newDepartment"]> }
+  );
 
 // Fields left out keep their value; a piece that ends gets its end time.
 export type PieceChange = Partial<
   Pick<PlanPiece, "status" | "departmentId" | "pieceTaskId" | "result">
 >;
 
-export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt">;
+// The first of `workspaceIds` is the default.
+export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt" | "workspaceId">;
 
 export type NewDelegation = Pick<
   DelegationRecord,

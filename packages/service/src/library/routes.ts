@@ -12,7 +12,7 @@ const NO_CONTENT = { status: 204 } as const;
 // Only departments of that workspace, and agents, can be given an item.
 function requireAudience(store: Store, workspaceId: string, givenTo: LibraryAudience): void {
   for (const id of givenTo.departmentIds) {
-    if (store.getDepartment(id)?.workspaceId !== workspaceId) {
+    if (!store.getDepartment(id)?.workspaceIds.includes(workspaceId)) {
       throw new RequestError(400, "invalid_request", `No department "${id}" in this workspace.`);
     }
   }

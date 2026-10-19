@@ -154,6 +154,7 @@ interface DepartmentRow {
   id: string;
   name: string;
   workspaceId: string;
+  moreWorkspaceIds: string;
   autonomy: DepartmentRecord["autonomy"];
   leadAgentId: string;
   branchPerWorker: number;
@@ -184,6 +185,7 @@ interface PieceRow {
   key: string;
   title: string;
   departmentId: string | null;
+  workspaceId: string | null;
   newDepartment: string | null;
   brief: string;
   waitsOn: string;
@@ -355,6 +357,7 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     id: row.id,
     name: row.name,
     workspaceId: row.workspaceId,
+    workspaceIds: [row.workspaceId, ...(JSON.parse(row.moreWorkspaceIds) as string[])],
     autonomy: row.autonomy,
     leadAgentId: row.leadAgentId,
     branchPerWorker: row.branchPerWorker === 1,
@@ -388,6 +391,7 @@ function toPiece(row: PieceRow): PlanPiece {
     key: row.key,
     title: row.title,
     ...(row.departmentId === null ? {} : { departmentId: row.departmentId }),
+    ...(row.workspaceId === null ? {} : { workspaceId: row.workspaceId }),
     ...(row.newDepartment === null
       ? {}
       : { newDepartment: JSON.parse(row.newDepartment) as PlanPiece["newDepartment"] }),
@@ -824,12 +828,14 @@ class SqliteStore implements Store {
     const id = randomUUID();
     const department =
       "departmentId" in piece ? this.#departmentRow(piece.departmentId) : undefined;
+    const workspaceId = "workspaceId" in piece ? piece.workspaceId : undefined;
     this.#statements.insertPiece.run(
       id,
       this.#taskRow(piece.taskId).ref,
       piece.key,
       piece.title,
       department?.ref ?? null,
+      workspaceId === undefined ? null : this.#workspaceRow(workspaceId).ref,
       "newDepartment" in piece ? JSON.stringify(piece.newDepartment) : null,
       piece.brief,
       JSON.stringify(piece.waitsOn),
@@ -1039,19 +1045,22 @@ class SqliteStore implements Store {
 
   createDepartment(department: NewDepartment): DepartmentRecord {
     const id = randomUUID();
-    const createdAt = Date.now();
-    this.#statements.insertDepartment.run(
-      id,
-      department.name,
-      this.#workspaceRow(department.workspaceId).ref,
-      department.autonomy,
-      this.#agentRow(department.leadAgentId).ref,
-      department.branchPerWorker ? 1 : 0,
-      department.codeFlow ? 1 : 0,
-      textOrNull(department.rules),
-      textOrNull(department.purpose),
-      createdAt,
-    );
+    const [first, ...more] = department.workspaceIds;
+    transaction(this.#db, () => {
+      const { lastInsertRowid } = this.#statements.insertDepartment.run(
+        id,
+        department.name,
+        this.#workspaceRow(first ?? "").ref,
+        department.autonomy,
+        this.#agentRow(department.leadAgentId).ref,
+        department.branchPerWorker ? 1 : 0,
+        department.codeFlow ? 1 : 0,
+        textOrNull(department.rules),
+        textOrNull(department.purpose),
+        Date.now(),
+      );
+      this.#addWorkspaces(Number(lastInsertRowid), more);
+    });
     return this.#publishDepartment(id);
   }
 
@@ -1067,17 +1076,30 @@ class SqliteStore implements Store {
 
   updateDepartment(id: string, settings: DepartmentSettings): DepartmentRecord {
     const row = this.#departmentRow(id);
-    const { name, autonomy, branchPerWorker, codeFlow, rules, purpose } = settings;
-    this.#statements.updateDepartment.run(
-      name,
-      autonomy,
-      branchPerWorker ? 1 : 0,
-      codeFlow ? 1 : 0,
-      textOrNull(rules),
-      textOrNull(purpose),
-      row.ref,
-    );
+    const { name, workspaceIds, autonomy, branchPerWorker, codeFlow, rules, purpose } = settings;
+    const [first, ...more] = workspaceIds;
+    transaction(this.#db, () => {
+      this.#statements.updateDepartment.run(
+        name,
+        autonomy,
+        branchPerWorker ? 1 : 0,
+        codeFlow ? 1 : 0,
+        textOrNull(rules),
+        textOrNull(purpose),
+        row.ref,
+      );
+      this.#statements.setDepartmentWorkspace.run(this.#workspaceRow(first ?? "").ref, row.ref);
+      this.#statements.clearDepartmentWorkspaces.run(row.ref);
+      this.#addWorkspaces(row.ref, more);
+    });
     return this.#publishDepartment(id);
+  }
+
+  #addWorkspaces(departmentRef: number, workspaceIds: string[]): void {
+    for (const [position, workspaceId] of workspaceIds.entries()) {
+      const workspace = this.#workspaceRow(workspaceId).ref;
+      this.#statements.addDepartmentWorkspace.run(departmentRef, workspace, position);
+    }
   }
 
   removeDepartment(id: string): void {

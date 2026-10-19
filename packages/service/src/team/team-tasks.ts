@@ -184,14 +184,18 @@ export async function startTeamTask(
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
     if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
+    const workspaceId = team.workspaceId ?? department.workspaceId;
+    if (!department.workspaceIds.includes(workspaceId)) {
+      throw new TeamError(`${department.name} does not work in that workspace.`);
+    }
     return claimDepartment(context, department.id, undefined, async () => {
       const lead = store.getAgent(department.leadAgentId);
       if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
-      const folders = foldersForTask(store, department.workspaceId, goal);
+      const folders = foldersForTask(store, workspaceId, goal);
       const task = store.createTask(
         goal,
         { leadAgentId: lead.id, departmentId: department.id },
-        { ...parent, workspaceId: department.workspaceId },
+        { ...parent, workspaceId },
       );
       piece?.onTaskCreated(task.id);
       return startFirstAgent(store, task.id, async () => {

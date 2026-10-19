@@ -17,7 +17,10 @@ const OPEN = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
 
 // A new department's lead first proposes its team.
 function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
-  if (piece.departmentId !== undefined) return { departmentId: piece.departmentId };
+  if (piece.departmentId !== undefined) {
+    const { departmentId, workspaceId } = piece;
+    return workspaceId === undefined ? { departmentId } : { departmentId, workspaceId };
+  }
   if (piece.newDepartment === undefined) throw new RecordNotFoundError("department", piece.id);
   const { lead, workspaceId, autonomy } = piece.newDepartment;
   return { lead: { settings: lead }, workspaceId, autonomy };

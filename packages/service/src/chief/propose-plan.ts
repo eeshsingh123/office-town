@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { ApprovedPiece, PlanPiece, ProposedPiece } from "@office-town/contract";
+import type {
+  ApprovedPiece,
+  DepartmentRecord,
+  PlanPiece,
+  ProposedPiece,
+} from "@office-town/contract";
 import { z } from "zod";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
@@ -34,6 +39,13 @@ const pieceSchema = z.object({
     })
     .optional()
     .describe("Only for a department that does not exist yet: its lead's harness and model."),
+  workspace: z
+    .string()
+    .min(1)
+    .optional()
+    .describe(
+      "For a department with several workspaces, the one to work in, by name. Leave it out for its default.",
+    ),
 });
 
 const inputSchema = z.object({
@@ -62,11 +74,13 @@ function problemWith(store: Store, pieces: PlannedPiece[], kept: PlanPiece[]): s
       return `"${piece.key}" waits on "${unknown}", which is not a piece it can build on. Those are: ${[...known].join(", ")}.`;
     }
     const { department } = piece;
-    if (
-      "departmentId" in department &&
-      store.getDepartment(department.departmentId) === undefined
-    ) {
-      return `"${piece.key}" names a department that does not exist.`;
+    if ("departmentId" in department) {
+      const known = store.getDepartment(department.departmentId);
+      if (known === undefined) return `"${piece.key}" names a department that does not exist.`;
+      const { workspaceId } = department;
+      if (workspaceId !== undefined && !known.workspaceIds.includes(workspaceId)) {
+        return `${known.name} does not work in the workspace "${piece.key}" names.`;
+      }
     }
     if (
       "newDepartment" in department &&
@@ -90,7 +104,21 @@ function problemWith(store: Store, pieces: PlannedPiece[], kept: PlanPiece[]): s
   return undefined;
 }
 
-// The chief names departments; the request carries their ids.
+function placeIn(
+  store: Store,
+  department: DepartmentRecord,
+  workspace: string | undefined,
+): { departmentId: string; workspaceId?: string } {
+  if (workspace === undefined) return { departmentId: department.id };
+  const named = department.workspaceIds.find((id) => store.getWorkspace(id)?.name === workspace);
+  if (named === undefined) {
+    const names = department.workspaceIds.map((id) => store.getWorkspace(id)?.name ?? id);
+    throw new ToolError(`${department.name} works in ${names.join(", ")}, not "${workspace}".`);
+  }
+  return { departmentId: department.id, workspaceId: named };
+}
+
+// The chief names departments and workspaces; the request carries their ids.
 async function resolvePieces(
   context: TeamContext,
   caller: Caller,
@@ -118,7 +146,7 @@ async function resolvePieces(
         `"${piece.department}" is not a department. The departments: ${names}. To propose a new one, add new_department.`,
       );
     }
-    resolved.push({ ...shared, waitsOn, department: { departmentId: known.id } });
+    resolved.push({ ...shared, waitsOn, department: placeIn(store, known, piece.workspace) });
   }
   return resolved;
 }
@@ -142,9 +170,7 @@ function savePlan(store: Store, taskId: string, approved: ApprovedPiece[]): void
       title,
       brief,
       waitsOn: piece.waitsOn.flatMap((upstream) => ids.get(upstream) ?? []),
-      ...("departmentId" in department
-        ? { departmentId: department.departmentId }
-        : { newDepartment: department.newDepartment }),
+      ...("departmentId" in department ? department : { newDepartment: department.newDepartment }),
     });
     ids.set(key, created.id);
   }

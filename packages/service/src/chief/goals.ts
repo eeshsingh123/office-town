@@ -30,7 +30,10 @@ function departmentViews(store: Store): DepartmentView[] {
       name: department.name,
       purpose: department.purpose,
       members: store.listMembers(department.id).map((member) => memberLine(department, member)),
-      folders: workspacePaths(store, department.workspaceId),
+      workspaces: department.workspaceIds.map((id) => {
+        const name = store.getWorkspace(id)?.name ?? id;
+        return `${name} (${workspacePaths(store, id).join(", ")})`;
+      }),
       busyWith: busy === undefined ? undefined : store.getTask(busy)?.prompt,
     };
   });
@@ -40,7 +43,7 @@ function departmentViews(store: Store): DepartmentView[] {
 function departmentFolders(store: Store): string[] {
   const folders = store
     .listDepartments()
-    .flatMap((department) => workspacePaths(store, department.workspaceId));
+    .flatMap((department) => department.workspaceIds.flatMap((id) => workspacePaths(store, id)));
   return [...new Set(folders)].filter((folder) => existsSync(folder));
 }
 

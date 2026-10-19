@@ -548,4 +548,19 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS connector_calls_by_session ON connector_calls (session_ref);
   CREATE INDEX IF NOT EXISTS connector_calls_by_department ON connector_calls (department_ref);
   `,
+  `
+  -- A department's workspaces besides its default, which stays departments.workspace_ref.
+  CREATE TABLE department_workspaces (
+    department_ref INTEGER NOT NULL REFERENCES departments (ref) ON DELETE CASCADE,
+    workspace_ref  INTEGER NOT NULL REFERENCES workspaces (ref),
+    position       INTEGER NOT NULL,
+    PRIMARY KEY (department_ref, workspace_ref)
+  ) STRICT, WITHOUT ROWID;
+
+  CREATE INDEX department_workspaces_by_workspace ON department_workspaces (workspace_ref);
+
+  -- The workspace a piece for an existing department runs in; none means its default.
+  ALTER TABLE plan_pieces ADD COLUMN workspace_ref INTEGER REFERENCES workspaces (ref)
+    ON DELETE SET NULL;
+  `,
 ];

@@ -39,7 +39,7 @@ describe("library", () => {
           name: "Web team",
           roles: [{ role: "Tester", purpose: "Tests", settings: claude }],
         },
-        workspaceId: workspace.id,
+        workspaceIds: [workspace.id],
         // The fullest level, so nothing but the user can approve a Library change.
         autonomy: "full",
         lead: { settings: claude },

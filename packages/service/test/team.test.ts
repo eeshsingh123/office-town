@@ -201,7 +201,7 @@ describe("teams", () => {
     const department = (
       await call("POST", "/departments", {
         team: { name: "Web team", roles: [] },
-        workspaceId: workspace.id,
+        workspaceIds: [workspace.id],
         autonomy: "full",
         lead: { settings: { harness: "missing", environment: native } },
       })
@@ -214,6 +214,37 @@ describe("teams", () => {
     expect(started.status).toBe(400);
     expect((await call("GET", "/tasks")).json.tasks).toEqual([]);
     expect(core.store.activeTaskOf(department.id)).toBeUndefined();
+  });
+
+  it("runs a goal in the one of its workspaces the goal names, and keeps those workspaces", async () => {
+    const ids: string[] = [];
+    for (const name of ["Site", "Docs", "Other"]) {
+      const folder = join(directory, name);
+      mkdirSync(folder);
+      const folders = [{ path: folder, access: "edit" }];
+      ids.push((await call("POST", "/workspaces", { name, kind: "folders", folders })).json.id);
+    }
+    const [site, docs, other] = ids;
+    const department = (
+      await call("POST", "/departments", {
+        team: { name: "Web team", roles: [] },
+        workspaceIds: [site, docs],
+        autonomy: "full",
+        lead: { settings: { harness: "claude", environment: native } },
+      })
+    ).json as DepartmentRecord;
+    expect(department).toMatchObject({ workspaceId: site, workspaceIds: [site, docs] });
+
+    const goal = (workspaceId: string | undefined) =>
+      call("POST", "/tasks/team", {
+        goal: "Write the docs",
+        team: { departmentId: department.id, workspaceId },
+      });
+    expect((await goal(other)).status).toBe(400);
+    const started = await goal(docs);
+    expect(started.status).toBe(201);
+    expect(core.store.getTask(started.json.taskId)?.workspaceId).toBe(docs);
+    expect((await call("DELETE", `/workspaces/${docs}`)).status).toBe(409);
   });
   it("names and briefs the lead and each member from the team; notes stay unless given", async () => {
     const project = join(directory, "site");
@@ -235,7 +266,7 @@ describe("teams", () => {
             { role: "Writer", purpose: "Writes", instructions: "Plain words", settings: claude },
           ],
         },
-        workspaceId: workspace.id,
+        workspaceIds: [workspace.id],
         autonomy: "full",
         lead: { settings: claude },
         purpose: "Builds the site",

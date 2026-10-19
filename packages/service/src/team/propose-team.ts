@@ -81,7 +81,7 @@ function placeOf(
   const department =
     task?.departmentId === undefined ? undefined : store.getDepartment(task.departmentId);
   const setup = store.taskSetup(caller.taskId);
-  const workspaceId = department?.workspaceId ?? setup?.workspaceId;
+  const workspaceId = task?.workspaceId ?? department?.workspaceId ?? setup?.workspaceId;
   const autonomy = department?.autonomy ?? setup?.autonomy;
   const workspace = store.listWorkspaces().find((known) => known.id === workspaceId);
   if (workspace === undefined || autonomy === undefined) {
@@ -112,7 +112,7 @@ function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRe
   checkTeam(store, undefined, team);
   const department = store.createDepartment({
     name: team.name,
-    workspaceId: setup.workspaceId,
+    workspaceIds: [setup.workspaceId],
     autonomy: setup.autonomy,
     leadAgentId: lead.id,
     branchPerWorker: true,

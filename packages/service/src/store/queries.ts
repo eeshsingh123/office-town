@@ -35,6 +35,9 @@ const AGENT_SELECT = `
 
 const DEPARTMENT_SELECT = `
   SELECT d.ref, d.id, d.name, (SELECT id FROM workspaces WHERE ref = d.workspace_ref) AS workspaceId,
+         (SELECT json_group_array(id) FROM (
+            SELECT w.id FROM department_workspaces dw JOIN workspaces w ON w.ref = dw.workspace_ref
+            WHERE dw.department_ref = d.ref ORDER BY dw.position)) AS moreWorkspaceIds,
          d.autonomy, l.id AS leadAgentId,
          d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
          d.purpose, d.removed_at AS removedAt, d.created_at AS createdAt
@@ -50,6 +53,7 @@ const DELEGATION_SELECT = `
 
 const PIECE_SELECT = `
   SELECT pp.ref, pp.id, t.id AS taskId, pp.key, pp.title, d.id AS departmentId,
+         (SELECT id FROM workspaces WHERE ref = pp.workspace_ref) AS workspaceId,
          pp.new_department AS newDepartment, pp.brief, pp.waits_on AS waitsOn, pp.status,
          pt.id AS pieceTaskId, pp.result, pp.created_at AS createdAt, pp.ended_at AS endedAt
   FROM plan_pieces pp
@@ -194,9 +198,9 @@ export const queries = {
 
   insertPiece: `
     INSERT INTO plan_pieces
-      (id, task_ref, key, title, department_ref, new_department, brief, waits_on, status,
-       created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)`,
+      (id, task_ref, key, title, department_ref, workspace_ref, new_department, brief, waits_on,
+       status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting', ?)`,
   pieceById: `${PIECE_SELECT} WHERE pp.id = ?`,
   piecesOfTask: `${PIECE_SELECT} WHERE pp.task_ref = ? ORDER BY pp.ref`,
   pieceOfPieceTask: `${PIECE_SELECT} WHERE pp.piece_task_ref = ?`,
@@ -219,6 +223,10 @@ export const queries = {
     UPDATE departments
     SET name = ?, autonomy = ?, branch_per_worker = ?, code_flow = ?, rules = ?, purpose = ?
     WHERE ref = ?`,
+  setDepartmentWorkspace: "UPDATE departments SET workspace_ref = ? WHERE ref = ?",
+  clearDepartmentWorkspaces: "DELETE FROM department_workspaces WHERE department_ref = ?",
+  addDepartmentWorkspace: `
+    INSERT INTO department_workspaces (department_ref, workspace_ref, position) VALUES (?, ?, ?)`,
   removeDepartment: "UPDATE departments SET removed_at = ? WHERE ref = ?",
   tasksOfDepartment: "SELECT id FROM tasks WHERE department_ref = ?",
   deleteDepartmentIfUnused: `

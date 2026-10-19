@@ -53,7 +53,7 @@ export function workspaceUsage(
     workspaceId: workspace.id,
     departmentIds: store
       .listDepartments()
-      .filter((department) => department.workspaceId === workspace.id)
+      .filter((department) => department.workspaceIds.includes(workspace.id))
       .map((department) => department.id),
     taskCount,
     recentTasks,
