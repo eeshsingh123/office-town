@@ -20,7 +20,10 @@ export interface PlanRow {
   title: string;
   brief: string;
   waitsOn: string[];
-  department: { departmentId: string } | { newDepartment: DraftDepartment };
+  // Without a workspace, the department's default.
+  department:
+    | { departmentId: string; workspaceId?: string | undefined }
+    | { newDepartment: DraftDepartment };
 }
 
 // A new piece may build on it.
@@ -166,7 +169,9 @@ export interface PlanChanges {
 }
 
 const departmentKey = (department: ProposedPiece["department"]) =>
-  "departmentId" in department ? department.departmentId : `new:${department.newDepartment.name}`;
+  "departmentId" in department
+    ? `${department.departmentId}@${department.workspaceId ?? ""}`
+    : `new:${department.newDepartment.name}`;
 
 // The pieces it drops, adds and changes.
 export function planChanges(current: readonly PlanPiece[], proposed: readonly ProposedPiece[]) {
@@ -187,7 +192,9 @@ export function planChanges(current: readonly PlanPiece[], proposed: readonly Pr
         before.title !== piece.title ||
         before.brief !== piece.brief ||
         waits.join() !== [...piece.waitsOn].sort().join() ||
-        (before.departmentId ?? `new:${before.newDepartment?.name}`) !==
+        (before.departmentId === undefined
+          ? `new:${before.newDepartment?.name}`
+          : `${before.departmentId}@${before.workspaceId ?? ""}`) !==
           departmentKey(piece.department)
       );
     }),

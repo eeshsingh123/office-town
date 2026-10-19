@@ -74,3 +74,10 @@
 .check {
   color: var(--accent);
 }
+
+.label {
+  padding: 6px 8px 4px;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-3);
+}
