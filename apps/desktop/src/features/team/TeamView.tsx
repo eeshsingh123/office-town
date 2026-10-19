@@ -1,5 +1,5 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { ChevronDown, Lock, Network, Plus, Search, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, Lock, Network, Plus, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -102,24 +102,23 @@ function DepartmentCard({
         >
           <ChevronDown size={15} aria-hidden />
         </button>
-        <Avatar name={department.name} colour={lead?.colour ?? "#4F5D75"} size={32} />
-        <div className={styles.text}>
-          <strong>{department.name}</strong>
-          <span>{summary}</span>
-        </div>
+        <button
+          type="button"
+          className={styles.openTeam}
+          title={`Open ${department.name}`}
+          onClick={() => navigate({ name: "department", departmentId: department.id })}
+        >
+          <Avatar name={department.name} colour={lead?.colour ?? "#4F5D75"} size={32} />
+          <span className={styles.text}>
+            <strong>{department.name}</strong>
+            <span>{summary}</span>
+          </span>
+        </button>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
           {working ? "Working" : "Idle"}
         </span>
         <Button variant="ghost" className={styles.small} onClick={() => selectRoom(department.id)}>
           Open in office
-        </Button>
-        <Button
-          variant="ghost"
-          icon
-          aria-label={`${department.name} settings`}
-          onClick={() => navigate({ name: "department", departmentId: department.id })}
-        >
-          <Settings size={14} aria-hidden />
         </Button>
       </header>
       {folded ? null : (

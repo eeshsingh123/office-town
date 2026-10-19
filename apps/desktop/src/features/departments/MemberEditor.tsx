@@ -8,6 +8,7 @@ import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
 import menu from "../../ui/Menu.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { AgentProfileDialog } from "../office/AgentProfile.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
@@ -16,6 +17,7 @@ import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
 import styles from "./MemberEditor.module.css";
 import {
+  baseRole,
   blankPerson,
   LEAD_COLOUR,
   memberColour,
@@ -123,7 +125,7 @@ function PersonCard({ person, name, colour, selected, onSelect, lead = false }: 
 function groupsOf(members: PersonForm[]): { role: string; members: PersonForm[] }[] {
   const groups = new Map<string, { role: string; members: PersonForm[] }>();
   for (const member of members) {
-    const role = roleOf(member);
+    const role = baseRole(roleOf(member));
     const key = role.toLowerCase();
     const group = groups.get(key) ?? { role, members: [] };
     group.members.push(member);
@@ -185,7 +187,7 @@ export function MemberEditor({
   // A copy of someone in the role, with the same job, instructions and model.
   const another = (like: PersonForm) =>
     add({
-      ...blankPerson(like.settings, like.role, like.purpose),
+      ...blankPerson(like.settings, baseRole(like.role), like.purpose),
       instructions: like.instructions,
     });
   const closeDialog = (open: boolean) => {
@@ -407,24 +409,26 @@ export function MemberEditor({
                   </label>
                 </div>
 
-                <label className={form.field}>
+                <div className={form.field}>
                   <span className={form.label}>Instructions</span>
                   <span className={form.hint}>
                     {isLead
                       ? "How to split the work, and what to check before handing it back. Read before every task."
                       : "How they work, what to avoid, what to hand back. Read before every task."}
                   </span>
-                  <textarea
-                    className={`${form.input} ${styles.instructions}`}
+                  <PointsField
+                    key={person.key}
+                    label="Instructions"
                     value={person.instructions}
                     placeholder={
                       isLead
-                        ? "For example: Give each page to one developer. Check the reviewer's notes before you hand the work back."
-                        : "For example: Write for small business owners. Short sentences, no jargon."
+                        ? "For example: Give each page to one developer"
+                        : "For example: Write for small business owners"
                     }
-                    onChange={(change) => update({ instructions: change.target.value })}
+                    addLabel="Add an instruction"
+                    onChange={(instructions) => update({ instructions })}
                   />
-                </label>
+                </div>
 
                 <div className={form.field}>
                   <span className={form.label}>Model</span>

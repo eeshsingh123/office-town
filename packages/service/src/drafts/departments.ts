@@ -92,8 +92,8 @@ Write the departments the user describes. Reply with one JSON object and nothing
 PERSON is ${PERSON}
 
 - Keep every detail the user gave: how many people, who leads, roles, models, tone.
-- name: a short team name. purpose: one line on what the department is for. rules: rules every member follows, only if the user gave some or they plainly follow from the work; else "".
-- role: a short job title. purpose: one line on what they do. instructions: 3 to 6 short lines addressed to them: how they work, what to avoid, what to hand back. The lead's instructions say how to split the work and what to check before handing it back.
+- name: a short team name. purpose: one line on what the department is for. rules: rules every member follows, one short point per line, only if the user gave some or they plainly follow from the work; else "".
+- role: a short job title. People who do the same job share the exact same role, without numbers ("Developer" twice, not "Developer 1" and "Developer 2"). purpose: one line on what they do. instructions: 3 to 6 short points addressed to them, one per line: how they work, what to avoid, what to hand back. The lead's instructions say how to split the work and what to check before handing it back.
 - Pick harness, model and effort from the list below. When the user did not name a model, pick one that fits the job, prefer free or plan models for routine work, and set model_from_user to false. Leave effort out unless it matters.
 - Write more than one department only when the user asks for more than one.${changing}
 ${ASKING}
