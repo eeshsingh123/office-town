@@ -14,7 +14,7 @@ import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { selectRoom } from "../office/office-state.ts";
-import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
+import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
 import styles from "./NewDepartment.module.css";
 import { TeamCard } from "./TeamCard.tsx";
@@ -27,7 +27,9 @@ import {
   teamOf,
 } from "./team-form.ts";
 
-const STEPS = ["Describe", "Team", "Rules and permissions", "Review"] as const;
+const STEPS = ["Describe", "Team", "Workspaces", "Rules and permissions", "Review"] as const;
+const WORKSPACES_STEP = 2;
+const RULES_STEP = 3;
 
 // Departments from the user's words or built by hand; nothing is saved until Create.
 export function NewDepartmentView({ describe, byHand }: { describe?: string; byHand: boolean }) {
@@ -47,8 +49,13 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   const [error, setError] = useState<string>();
 
   const current = forms[at] ?? forms[0];
-  const workspaceOf = (one: DepartmentForm) =>
-    workspaces.find((known) => known.id === (one.workspaceId ?? workspaces[0]?.id));
+  // With only one workspace there is nothing to choose.
+  const chosenOf = (one: DepartmentForm) =>
+    one.workspaceIds.length > 0 || workspaces.length !== 1
+      ? one.workspaceIds
+      : workspaces.map((known) => known.id);
+  const nameOf = (one: DepartmentForm | undefined, index: number) =>
+    one?.name.trim() || `Department ${index + 1}`;
   const change = (next: Partial<DepartmentForm>) =>
     setForms(forms.map((one, index) => (index === at ? { ...one, ...next } : one)));
   const setAutonomy = (autonomy: Autonomy) => change({ autonomy });
@@ -57,11 +64,10 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     setAutonomy,
     current?.name.trim() || "the department",
   );
+  const unplaced = forms.findIndex((one) => chosenOf(one).length === 0);
   const missing =
     forms.map(missingIn).find((reason) => reason !== undefined) ??
-    (forms.some((one) => workspaceOf(one) === undefined)
-      ? "Choose the workspace each department works in."
-      : undefined);
+    (unplaced === -1 ? undefined : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`);
 
   const go = (next: number) => {
     setStep(next);
@@ -93,11 +99,10 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     try {
       while (left.length > 0) {
         const one = left[0];
-        const workspace = one === undefined ? undefined : workspaceOf(one);
-        if (one === undefined || workspace === undefined) break;
+        if (one === undefined) break;
         const department = await api.createDepartment({
           team: teamOf(one),
-          workspaceId: workspace.id,
+          workspaceIds: chosenOf(one),
           autonomy: one.autonomy,
           lead: {
             settings: one.lead.settings,
@@ -131,7 +136,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
             aria-pressed={index === at}
             onClick={() => setAt(index)}
           >
-            {one.name.trim() || `Department ${index + 1}`}
+            {nameOf(one, index)}
           </button>
         ))}
       </div>
@@ -158,20 +163,24 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 ? "Describe the team you need"
                 : step === 1
                   ? "Who is on the team"
-                  : step === 2
-                    ? "Rules and permissions"
-                    : forms.length > 1
-                      ? `Review ${forms.length} departments`
-                      : "Review and create"}
+                  : step === WORKSPACES_STEP
+                    ? `Where does ${current.name.trim() || "this department"} work?`
+                    : step === RULES_STEP
+                      ? "Rules and permissions"
+                      : forms.length > 1
+                        ? `Review ${forms.length} departments`
+                        : "Review and create"}
             </h2>
             <p className={page.lead}>
               {step === 0
                 ? "Say who leads, who else is on the team and what each person does. You review everything before it's created."
                 : step === 1
                   ? "The lead splits each task among the members. Pick a person to set their role, instructions and model."
-                  : step === 2
-                    ? "Where the team works, the rules every member follows, and what it may do without asking you."
-                    : "Nothing is created until you press Create."}
+                  : step === WORKSPACES_STEP
+                    ? "Choose the folders this team can edit. New goals use the default. You can pick another when you start a goal."
+                    : step === RULES_STEP
+                      ? "The rules every member follows, and what it may do without asking you."
+                      : "Nothing is created until you press Create."}
             </p>
           </header>
 
@@ -240,16 +249,20 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
             </>
           ) : null}
 
-          {step === 2 ? (
+          {step === WORKSPACES_STEP ? (
             <>
               {switcher}
-              <section className={page.section}>
-                <WorkspacePicker
-                  value={workspaceOf(current)?.id}
-                  onChange={(workspaceId) => change({ workspaceId })}
-                  warnShared
-                />
-              </section>
+              <DepartmentWorkspaces
+                value={chosenOf(current)}
+                onChange={(workspaceIds) => change({ workspaceIds })}
+                departmentName={current.name.trim() || "this department"}
+              />
+            </>
+          ) : null}
+
+          {step === RULES_STEP ? (
+            <>
+              {switcher}
               <label className={form.field}>
                 <span className={form.label}>Team rules</span>
                 <span className={form.hint}>Every member follows these, on every task.</span>
@@ -271,20 +284,58 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
             </>
           ) : null}
 
-          {step === 3 ? (
+          {step === STEPS.length - 1 ? (
             <div className={styles.drafts}>
-              {forms.map((one) => (
-                <TeamCard
-                  key={one.key}
-                  form={one}
-                  footer={
-                    <p className={styles.facts}>
-                      {workspaceOf(one)?.name ?? "No workspace"} · {AUTONOMY[one.autonomy].label}
-                      {one.rules.trim() === "" ? "" : " · Team rules set"}
-                    </p>
-                  }
-                />
-              ))}
+              {forms.map((one, index) => {
+                const edit = (to: number) => () => {
+                  setAt(index);
+                  go(to);
+                };
+                const chosen = chosenOf(one).flatMap(
+                  (id) => workspaces.find((known) => known.id === id)?.name ?? [],
+                );
+                const noRules = one.rules.trim() === "";
+                return (
+                  <TeamCard
+                    key={one.key}
+                    form={one}
+                    footer={
+                      <dl className={styles.facts}>
+                        <div className={chosen.length === 0 ? styles.missing : undefined}>
+                          <dt>Workspaces</dt>
+                          <dd>
+                            {chosen.length === 0
+                              ? "Not chosen"
+                              : chosen
+                                  .map((name, place) => (place === 0 ? `${name} (default)` : name))
+                                  .join(", ")}
+                          </dd>
+                          <Button
+                            variant={chosen.length === 0 ? "primary" : "ghost"}
+                            onClick={edit(WORKSPACES_STEP)}
+                          >
+                            {chosen.length === 0 ? "Choose" : "Change"}
+                          </Button>
+                        </div>
+                        <div>
+                          <dt>Permissions</dt>
+                          <dd>{AUTONOMY[one.autonomy].label}</dd>
+                          <Button variant="ghost" onClick={edit(RULES_STEP)}>
+                            Change
+                          </Button>
+                        </div>
+                        <div>
+                          <dt>Team rules</dt>
+                          <dd>{noRules ? "None" : "Set"}</dd>
+                          <Button variant="ghost" onClick={edit(RULES_STEP)}>
+                            {noRules ? "Add" : "Edit"}
+                          </Button>
+                        </div>
+                      </dl>
+                    }
+                  />
+                );
+              })}
             </div>
           ) : null}
 
@@ -323,9 +374,11 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
           )}
         </div>
 
-        <aside className={page.aside}>
-          {step === 0 || step === 3 ? null : <TeamCard form={current} />}
-        </aside>
+        {step === WORKSPACES_STEP || step === RULES_STEP ? (
+          <aside className={page.aside}>
+            <TeamCard form={current} />
+          </aside>
+        ) : null}
       </div>
       {gate.confirm}
     </section>

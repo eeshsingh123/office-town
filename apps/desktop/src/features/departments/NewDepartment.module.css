@@ -18,9 +18,34 @@
 }
 
 .facts {
+  display: flex;
+  flex-direction: column;
   margin: 0;
-  padding-top: 14px;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
   border-top: 1px solid var(--border);
+}
+
+.facts dt {
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
   font-size: var(--size-meta);
   color: var(--text-2);
+}
+
+.facts .missing dd {
+  font-weight: 600;
+  color: var(--warn);
 }

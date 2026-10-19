@@ -54,6 +54,11 @@
   background: var(--hover);
 }
 
+.item[data-disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .itemText {
   display: flex;
   flex: 1;

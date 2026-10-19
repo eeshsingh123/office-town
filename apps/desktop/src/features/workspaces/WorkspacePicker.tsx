@@ -1,7 +1,7 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
 import { ChevronDown, FolderGit2, Plus, Search, Sparkles, TriangleAlert } from "lucide-react";
 import { Popover } from "radix-ui";
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import {
   mainPath,
@@ -25,6 +25,9 @@ interface WorkspacePickerProps {
   // Draws the choice as a small chip with this class, such as inside New task's box; the
   // caller then words any shared-folder warning itself (`useSharedWith`).
   chipClassName?: string | undefined;
+  // Opens the list from this button instead, such as "Add workspace"; these are left out of it.
+  trigger?: ReactElement;
+  exclude?: string[];
 }
 
 // The departments that already work in a workspace.
@@ -64,8 +67,10 @@ export function WorkspacePicker({
   warnShared = false,
   label = "Workspace",
   chipClassName,
+  trigger,
+  exclude = [],
 }: WorkspacePickerProps) {
-  const workspaces = useWorkspaces() ?? [];
+  const workspaces = (useWorkspaces() ?? []).filter((known) => !exclude.includes(known.id));
   const usage = useWorkspaceUsage();
   const sharedWith = useSharedWith(value);
   const usageLine = useUsageLine();
@@ -92,7 +97,9 @@ export function WorkspacePicker({
   const popover = (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        {chipClassName !== undefined ? (
+        {trigger !== undefined ? (
+          trigger
+        ) : chipClassName !== undefined ? (
           <button
             type="button"
             className={chipClassName}
@@ -173,8 +180,10 @@ export function WorkspacePicker({
                 </div>
               ),
             )}
-            {matching.length === 0 && words !== "" ? (
-              <p className={`${form.hint} ${styles.popEmpty}`}>No workspace matches.</p>
+            {matching.length === 0 ? (
+              <p className={`${form.hint} ${styles.popEmpty}`}>
+                {words === "" ? "No other workspaces yet." : "No workspace matches."}
+              </p>
             ) : null}
           </div>
           <button
@@ -193,7 +202,7 @@ export function WorkspacePicker({
     </Popover.Root>
   );
 
-  if (chipClassName !== undefined) {
+  if (chipClassName !== undefined || trigger !== undefined) {
     return (
       <>
         {popover}

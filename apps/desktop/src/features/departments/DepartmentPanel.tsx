@@ -1,33 +1,54 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
 import { ArrowUpRight, Users } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { mainPath, useWorkspaces } from "../../store/workspaces.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { ago, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import office from "../office/Office.module.css";
 import {
-  Facts,
   PanelHeader,
   PanelSection,
   PanelSettings,
+  SectionAction,
   StateChip,
 } from "../office/SidePanel.tsx";
 import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
+import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { totalOf } from "./usage.ts";
 
 interface Member {
   record: AgentRecord;
   // Its work on the department's latest goal, if it took part.
   work?: Agent;
+}
+
+// What a member not on the latest goal did last, such as "Last: Build the hero · 2 h ago".
+function useLastWork(agentId: string): string | undefined {
+  const sessions = useApp((state) => state.sessions);
+  const tasks = useApp((state) => state.tasks);
+  const delegations = useApp((state) => state.delegations);
+  return useMemo(() => {
+    const latest = Object.values(sessions)
+      .filter((session) => session.agentId === agentId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    if (latest === undefined) return undefined;
+    // A worker's piece of the goal is its brief; a lead's is the goal itself.
+    const brief = Object.values(delegations)
+      .filter((delegation) => delegation.workerSessionId === latest.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.brief;
+    const what = brief ?? tasks[latest.taskId]?.task.prompt;
+    if (what === undefined) return undefined;
+    return `Last: ${taskTitle(what)} · ${ago(latest.endedAt ?? latest.createdAt)}`;
+  }, [agentId, sessions, tasks, delegations]);
 }
 
 function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
@@ -39,13 +60,14 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
       member.record.settings.harness,
   );
   const { record, work } = member;
+  const lastWork = useLastWork(record.id);
   const state =
     work === undefined ? undefined : stateOf(work, traces, waitingSessions.has(work.latest.id));
   const trace = work === undefined ? undefined : traces[work.latest.id];
   const step = trace === undefined ? undefined : progressOf(trace).step;
   const doing =
     state === undefined
-      ? "Not on this goal"
+      ? (lastWork ?? "Free")
       : state === "working" && step !== undefined
         ? `Step ${step.number} · ${step.title}`
         : state === "waiting"
@@ -144,9 +166,24 @@ export function DepartmentHeader({ department }: { department: DepartmentRecord 
 }
 
 export function DepartmentNow({ department }: { department: DepartmentRecord }) {
-  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
-  const { task, members, goalSessions } = useDepartmentGoal(department);
+  const { task, members, goalSessions, working } = useDepartmentGoal(department);
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
+  const [failure, setFailure] = useState<string>();
+  const setWorkspaces = async (workspaceIds: string[]) => {
+    const {
+      id: _,
+      createdAt: _at,
+      workspaceId: _default,
+      leadAgentId: _lead,
+      ...settings
+    } = department;
+    setFailure(undefined);
+    try {
+      await api.updateDepartment(department.id, { ...settings, workspaceIds });
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   return (
     <>
@@ -179,27 +216,44 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
 
-      <PanelSection title="Runs on">
-        <Facts
-          facts={[
-            <span key="permissions" title={AUTONOMY[department.autonomy].description}>
-              {AUTONOMY[department.autonomy].label}
-            </span>,
-            workspace === undefined ? undefined : (
-              <button
-                key="workspace"
-                type="button"
-                className={styles.factLink}
-                title={mainPath(workspace)}
-                onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
-              >
-                {workspace.name}
-              </button>
-            ),
-            goalSessions.length === 0 ? undefined : tokenLine(usage),
-          ]}
+      <PanelSection title="Workspaces">
+        <DepartmentWorkspaces
+          value={department.workspaceIds}
+          onChange={setWorkspaces}
+          departmentName={department.name}
+          departmentId={department.id}
+          goalWorkspaceId={working ? task?.workspaceId : undefined}
+          keepOne
+          compact
         />
+        {working ? <p className={styles.note}>Changes apply from the next goal.</p> : null}
+        {failure === undefined ? null : (
+          <p className={styles.failure} role="alert">
+            {failure}
+          </p>
+        )}
       </PanelSection>
+
+      <PanelSection
+        title="Permissions"
+        action={
+          <SectionAction
+            label="Change"
+            onClick={() => navigate({ name: "department", departmentId: department.id })}
+          />
+        }
+      >
+        <div className={styles.permission}>
+          <strong>{AUTONOMY[department.autonomy].label}</strong>
+          <span>{AUTONOMY[department.autonomy].description}</span>
+        </div>
+      </PanelSection>
+
+      {goalSessions.length === 0 ? null : (
+        <PanelSection title="Usage on this goal">
+          <p className={styles.usage}>{tokenLine(usage)}</p>
+        </PanelSection>
+      )}
     </>
   );
 }

@@ -16,17 +16,33 @@
   margin: 0 -8px;
 }
 
-.factLink {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  cursor: pointer;
+.permission {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  font-size: var(--size-meta);
+  color: var(--text-2);
 }
 
-.factLink:hover {
-  text-decoration: underline;
+.permission strong {
+  font-size: var(--size-ui);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.note,
+.usage,
+.failure {
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.failure {
+  color: var(--bad);
 }
 
 .member {

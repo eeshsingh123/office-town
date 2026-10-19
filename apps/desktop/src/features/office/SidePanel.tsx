@@ -47,12 +47,37 @@ export function StateChip({ state }: { state: AgentState }) {
   return <span className={`${styles.chip} ${tone}`}>{STATE_LABELS[state]}</span>;
 }
 
-export function PanelSection({ title, children }: { title: string; children: ReactNode }) {
+export function PanelSection({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  // A small button beside the title, such as "Change".
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const heading = <h3 className={styles.sectionTitle}>{title}</h3>;
   return (
     <section className={styles.section} aria-label={title}>
-      <h3 className={styles.sectionTitle}>{title}</h3>
+      {action === undefined ? (
+        heading
+      ) : (
+        <div className={styles.sectionHead}>
+          {heading}
+          {action}
+        </div>
+      )}
       {children}
     </section>
+  );
+}
+
+export function SectionAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button type="button" className={styles.sectionAction} onClick={onClick}>
+      {label}
+    </button>
   );
 }
 

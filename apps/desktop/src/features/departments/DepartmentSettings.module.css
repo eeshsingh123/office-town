@@ -26,26 +26,6 @@
   gap: 20px;
 }
 
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.path {
-  font-family: var(--font-mono);
-  font-size: var(--size-meta);
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
 .fieldset {
   display: flex;
   flex-direction: column;
