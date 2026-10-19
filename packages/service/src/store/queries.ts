@@ -35,9 +35,10 @@ const AGENT_SELECT = `
 
 const DEPARTMENT_SELECT = `
   SELECT d.ref, d.id, d.name, (SELECT id FROM workspaces WHERE ref = d.workspace_ref) AS workspaceId,
-         (SELECT json_group_array(id) FROM (
-            SELECT w.id FROM department_workspaces dw JOIN workspaces w ON w.ref = dw.workspace_ref
-            WHERE dw.department_ref = d.ref ORDER BY dw.position)) AS moreWorkspaceIds,
+         -- [position, id] pairs, put in order by the store.
+         (SELECT json_group_array(
+            json_array(dw.position, (SELECT id FROM workspaces WHERE ref = dw.workspace_ref)))
+          FROM department_workspaces dw WHERE dw.department_ref = d.ref) AS moreWorkspaceIds,
          d.autonomy, l.id AS leadAgentId,
          d.branch_per_worker AS branchPerWorker, d.code_flow AS codeFlow, d.rules,
          d.purpose, d.removed_at AS removedAt, d.created_at AS createdAt

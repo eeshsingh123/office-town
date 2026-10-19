@@ -357,7 +357,12 @@ function toDepartment(row: DepartmentRow): DepartmentRecord {
     id: row.id,
     name: row.name,
     workspaceId: row.workspaceId,
-    workspaceIds: [row.workspaceId, ...(JSON.parse(row.moreWorkspaceIds) as string[])],
+    workspaceIds: [
+      row.workspaceId,
+      ...(JSON.parse(row.moreWorkspaceIds) as [number, string][])
+        .sort(([a], [b]) => a - b)
+        .map(([, id]) => id),
+    ],
     autonomy: row.autonomy,
     leadAgentId: row.leadAgentId,
     branchPerWorker: row.branchPerWorker === 1,
