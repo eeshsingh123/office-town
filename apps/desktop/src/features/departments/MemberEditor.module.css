@@ -6,12 +6,12 @@
 
 .editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 440px;
   align-items: start;
   gap: 28px;
 }
 
-@container (max-width: 900px) {
+@container (max-width: 760px) {
   .editor {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -206,13 +206,14 @@
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
 .headText {
   display: flex;
-  flex: 1;
+  flex: 1 1 160px;
   flex-direction: column;
   min-width: 0;
   font-size: 15px;
@@ -282,7 +283,7 @@
   color: var(--text);
 }
 
-@container (max-width: 900px) {
+@container (max-width: 760px) {
   .card {
     position: static;
   }

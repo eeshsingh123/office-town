@@ -361,7 +361,7 @@ export function DepartmentSettings({
           <Guide
             id="department-guide"
             title="How a department works"
-            intro="A lead and its members, with one workspace and one set of rules. The lead decides who does what."
+            intro="A lead and its members, with their own workspaces and one set of rules. The lead decides who does what."
             steps={DEPARTMENT_STEPS}
             onHide={() => setGuideHidden(true)}
           />

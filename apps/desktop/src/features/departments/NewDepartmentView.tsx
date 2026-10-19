@@ -125,6 +125,10 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   };
 
   if (current === undefined) return null;
+  // The team card sits beside the steps that do not show the team themselves.
+  const withCard = step === WORKSPACES_STEP || step === RULES_STEP;
+  // The team and the review lay out several cards across the whole width.
+  const wide = step === 1 || step === STEPS.length - 1;
   const switcher =
     forms.length < 2 ? null : (
       <div className={styles.switcher}>
@@ -152,7 +156,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
         reached={reached}
         onGo={go}
       />
-      <div className={steps.setupBody}>
+      <div className={`${steps.setupBody} ${wide ? steps.wide : ""}`}>
         <div className={page.main}>
           <header className={page.header}>
             <span className={steps.stepCount}>
@@ -374,7 +378,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
           )}
         </div>
 
-        {step === WORKSPACES_STEP || step === RULES_STEP ? (
+        {withCard ? (
           <aside className={page.aside}>
             <TeamCard form={current} />
           </aside>
