@@ -233,6 +233,8 @@
   place-items: center;
   width: 36px;
   height: 36px;
+  /* A button, so the browser's own border goes. */
+  border: 0;
   border-radius: 50%;
   background: var(--text);
   color: var(--bg);
@@ -241,7 +243,27 @@
   box-shadow:
     0 0 0 3px var(--surface),
     0 2px 6px rgb(0 0 0 / 18%);
-  pointer-events: none;
+  cursor: default;
+}
+
+.youNamed {
+  padding: 0;
+  background: none;
+}
+
+/* Quieter than an agent's name tag: the user knows who they are. */
+.youName {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
 }
 
 .reach {

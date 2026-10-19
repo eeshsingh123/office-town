@@ -13,8 +13,10 @@ import {
 import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
+import { Avatar } from "../../ui/Avatar.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { useYou } from "../you/you.ts";
 import { Character } from "./Character.tsx";
 import { DoorChips } from "./DoorChips.tsx";
 import type { DoorChip } from "./doors.ts";
@@ -317,7 +319,9 @@ export function Floor(props: FloorProps) {
   const { onSelect, onOpenRoom, onOpenChat } = props;
   const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
-  const you = useRef<HTMLDivElement>(null);
+  const you = useRef<HTMLButtonElement>(null);
+  const profile = useYou();
+  const yourName = profile.name.trim();
   useWalkFromAnywhere(floor, press);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
   const scale = useFitScale(floor, plan.width);
@@ -558,14 +562,26 @@ export function Floor(props: FloorProps) {
       )}
 
       {/* Under the agents, so an agent the player stands on stays readable. */}
-      <div
+      {/* Once the profile has a name, the player wears the user's face and name. */}
+      <button
         ref={you}
-        className={styles.you}
+        type="button"
+        className={`${styles.you} ${yourName === "" ? "" : styles.youNamed}`}
         style={{ left: player.x - 18, top: player.y - 18 }}
-        aria-hidden
+        tabIndex={-1}
+        title="Double-click to open your profile"
+        aria-label="You. Double-click to open your profile"
+        onDoubleClick={() => navigate({ name: "you" })}
       >
-        You
-      </div>
+        {yourName === "" ? (
+          "You"
+        ) : (
+          <>
+            <Avatar name={yourName} colour={profile.colour} size={36} />
+            <span className={styles.youName}>{yourName}</span>
+          </>
+        )}
+      </button>
       {seated.map(({ id, name, colour, state, position, bubble, detail }) => {
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
@@ -629,7 +645,11 @@ export function Floor(props: FloorProps) {
       })}
 
       {near === undefined ? null : (
-        <div className={styles.hint} style={{ left: player.x, top: player.y + 26 }} aria-hidden>
+        <div
+          className={styles.hint}
+          style={{ left: player.x, top: player.y + (yourName === "" ? 26 : 44) }}
+          aria-hidden
+        >
           <Kbd>E</Kbd>Talk to {near.name}
         </div>
       )}
