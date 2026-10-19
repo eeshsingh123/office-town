@@ -1,114 +1,199 @@
-/* The team as a small org chart on the left, the picked person's details on the right;
-   stacked when its own space is narrow, as inside a request card. */
+/* The team as a roster grouped by role, the picked person's details beside it; the details
+   drop below when its own space is narrow, as inside a request card. */
 .frame {
   container-type: inline-size;
 }
 
 .editor {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 380px;
   align-items: start;
-  gap: 24px;
+  gap: 28px;
 }
 
-@container (max-width: 640px) {
+@container (max-width: 900px) {
   .editor {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.list {
+.roster {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
+  min-width: 0;
 }
 
-.eyebrow {
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--text-3);
 }
 
-.people {
+.search input {
+  width: 100%;
+  padding: 7px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.filters {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-/* A member hangs off the lead with a small elbow line. */
-.reports {
-  position: relative;
-  margin-left: 20px;
+.count {
+  font-family: var(--font-mono);
+  font-size: var(--size-small);
+  color: var(--text-3);
 }
 
-.reports::before {
-  content: "";
-  position: absolute;
-  top: -9px;
-  bottom: 50%;
-  left: -12px;
-  width: 9px;
-  border-bottom: 1.5px solid var(--border-strong);
-  border-left: 1.5px solid var(--border-strong);
-  border-bottom-left-radius: 6px;
+.addMember {
+  margin-left: auto;
 }
 
-/* Carries the line on past the elbow to the next member. */
-.reports:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: calc(50% - 8px);
-  bottom: -9px;
-  left: -12px;
-  border-left: 1.5px solid var(--border-strong);
-}
-
+.leadCard,
 .person {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   width: 100%;
-  padding: 10px 12px;
+  min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: var(--surface);
   text-align: left;
   cursor: pointer;
 }
 
+.leadCard {
+  align-items: center;
+  padding: 16px 20px;
+  border-color: var(--border-strong);
+}
+
+.person {
+  padding: 14px 16px;
+}
+
+.leadCard:hover,
 .person:hover {
   border-color: var(--border-strong);
 }
 
+.leadCard[aria-pressed="true"],
 .person[aria-pressed="true"] {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  box-shadow: var(--ring);
 }
 
 .personText {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-.personText strong,
-.personText span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.personName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.personText span {
+.personName strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.leadBadge {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
+.purpose {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: var(--size-meta);
+  color: var(--text-2);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.model {
+  margin-top: 4px;
+  font-size: var(--size-small);
   color: var(--text-3);
 }
 
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--size-ui);
+}
+
+.rule {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.another {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.another:hover {
+  text-decoration: underline;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+}
+
 .card {
+  position: sticky;
+  top: 16px;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -195,4 +280,10 @@
 .starter:hover {
   border-style: solid;
   color: var(--text);
+}
+
+@container (max-width: 900px) {
+  .card {
+    position: static;
+  }
 }
