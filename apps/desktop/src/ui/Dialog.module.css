@@ -15,6 +15,7 @@
   gap: 20px;
   width: min(540px, calc(100vw - 32px));
   max-height: calc(100vh - 64px);
+  --scroll-pad-bottom: 28px;
   padding: 28px;
   overflow-y: auto;
   border: 1px solid var(--border-strong);

@@ -226,7 +226,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           {error}
         </p>
       )}
-      <div className={form.actions}>
+      <div className={`${form.actions} ${form.sticky}`}>
         <Button onClick={() => setSavingTemplate(true)}>Save as template</Button>
         <Button variant="primary" disabled={saving} onClick={() => void save()}>
           {saving ? "Saving…" : "Save changes"}

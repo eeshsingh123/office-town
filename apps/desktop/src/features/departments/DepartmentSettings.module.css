@@ -42,8 +42,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: 16px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
 }
 
 .danger {

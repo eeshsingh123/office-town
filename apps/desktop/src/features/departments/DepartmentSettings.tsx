@@ -304,7 +304,7 @@ function Settings({
         </fieldset>
       </section>
 
-      <div className={styles.actions}>
+      <div className={`${styles.actions} ${form.sticky}`}>
         {message === undefined ? null : (
           <p
             className={message.error ? page.error : form.hint}
