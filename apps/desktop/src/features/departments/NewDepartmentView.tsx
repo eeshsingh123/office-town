@@ -9,7 +9,9 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
@@ -235,11 +237,10 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 </label>
                 <label className={form.field}>
                   <span className={form.label}>What it's for</span>
-                  <input
-                    className={form.input}
+                  <LineField
                     value={current.purpose}
                     placeholder="One line; the chief reads it when it plans"
-                    onChange={(event) => change({ purpose: event.target.value })}
+                    onChange={(purpose) => change({ purpose })}
                   />
                 </label>
               </div>
@@ -267,16 +268,18 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
           {step === RULES_STEP ? (
             <>
               {switcher}
-              <label className={form.field}>
+              <div className={form.field}>
                 <span className={form.label}>Team rules</span>
                 <span className={form.hint}>Every member follows these, on every task.</span>
-                <textarea
-                  className={form.input}
+                <PointsField
+                  key={current.key}
+                  label="Team rules"
                   value={current.rules}
-                  placeholder="For example: Use TypeScript. Write a test for each new page."
-                  onChange={(event) => change({ rules: event.target.value })}
+                  placeholder="For example: Use TypeScript"
+                  addLabel="Add a rule"
+                  onChange={(rules) => change({ rules })}
                 />
-              </label>
+              </div>
               <section className={page.section}>
                 <h3 className={page.sectionTitle}>Permissions</h3>
                 <AutonomyChoice

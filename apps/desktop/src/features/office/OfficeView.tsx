@@ -1,4 +1,5 @@
 import type { AccountLimits, AgentRecord, DepartmentRecord } from "@office-town/contract";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
@@ -111,8 +112,11 @@ function layOut(layout: Layout) {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
       return { id: one.id, kind: "department", desks };
     }),
-    { id: ADD_DEPARTMENT, kind: "add", desks: 1 },
-    ...(chiefId === undefined ? [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const] : []),
+    // Only an empty office invites setup on the floor; after that the top bar offers it.
+    ...(departments.length > 0 ? [] : [{ id: ADD_DEPARTMENT, kind: "add", desks: 1 } as const]),
+    ...(departments.length > 0 || chiefId !== undefined
+      ? []
+      : [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const]),
     { id: OPEN, kind: "open", desks: Math.max(3, solo.length + 1) },
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];
@@ -251,21 +255,24 @@ export function OfficeView() {
         <BoardView />
       ) : (
         <div className={styles.body}>
-          <div className={styles.scroll}>
-            <Floor
-              plan={plan}
-              agents={floorAgents}
-              signs={signs}
-              doors={doors}
-              links={links}
-              linksGoal={goalId}
-              chief={chiefId === undefined ? undefined : records[chiefId]}
-              selection={selection}
-              room={chosen.length === 0 ? openRoom?.id : undefined}
-              onSelect={onSelect}
-              onOpenRoom={onOpenRoom}
-              onOpenChat={onOpenChat}
-            />
+          <div className={styles.stage}>
+            <div className={styles.scroll}>
+              <Floor
+                plan={plan}
+                agents={floorAgents}
+                signs={signs}
+                doors={doors}
+                links={links}
+                linksGoal={goalId}
+                chief={chiefId === undefined ? undefined : records[chiefId]}
+                selection={selection}
+                room={chosen.length === 0 ? openRoom?.id : undefined}
+                onSelect={onSelect}
+                onOpenRoom={onOpenRoom}
+                onOpenChat={onOpenChat}
+              />
+            </div>
+            {departments.length === 0 ? null : <AddCorner chief={chiefId === undefined} />}
           </div>
           <OfficePanel
             selection={selection}
@@ -276,6 +283,28 @@ export function OfficeView() {
         </div>
       )}
     </section>
+  );
+}
+
+// Once the office has a team, setup waits quietly in the corner instead of taking floor space.
+function AddCorner({ chief }: { chief: boolean }) {
+  return (
+    <div className={styles.addCorner}>
+      {chief ? (
+        <button type="button" className={styles.addBox} onClick={() => navigate({ name: "chief" })}>
+          <Plus size={14} aria-hidden />
+          Chief's office
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className={styles.addBox}
+        onClick={() => navigate({ name: "new-department" })}
+      >
+        <Plus size={14} aria-hidden />
+        New department
+      </button>
+    </div>
   );
 }
 

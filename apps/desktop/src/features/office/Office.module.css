@@ -11,6 +11,56 @@
   min-height: 0;
 }
 
+.stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Muted until pointed at, so it never competes with the rooms. */
+.addCorner {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  gap: 10px;
+  opacity: 0.55;
+  transition: opacity var(--motion);
+}
+
+.addCorner:hover,
+.addCorner:focus-within {
+  opacity: 1;
+}
+
+.addBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 128px;
+  height: 72px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color var(--motion),
+    color var(--motion),
+    background var(--motion);
+}
+
+.addBox:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
 .scroll {
   flex: 1;
   min-width: 0;
