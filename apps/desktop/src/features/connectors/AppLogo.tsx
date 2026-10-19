@@ -1,7 +1,7 @@
-import type { CSSProperties } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { useTheme } from "../../ui/theme.ts";
 import styles from "./Connectors.module.css";
-import { LOGOS } from "./logos.ts";
+import { DEEP, LOGOS } from "./logos.ts";
 
 interface AppLogoProps {
   // A slug, or an app's name as an agent wrote it.
@@ -11,6 +11,7 @@ interface AppLogoProps {
 
 // The app's own logo on a tile, or its first letter.
 export function AppLogo({ app, size = "md" }: AppLogoProps) {
+  const dark = useTheme() === "dark";
   const connector = useApp((state) =>
     Object.values(state.connectors).find(
       ({ setup }) => setup.slug === app || setup.name.toLowerCase() === app.toLowerCase(),
@@ -25,8 +26,7 @@ export function AppLogo({ app, size = "md" }: AppLogoProps) {
   const name = connector?.setup.name ?? app;
   return (
     <span
-      className={`${styles.logo} ${styles[size]} ${logo?.deep ? styles.deep : ""}`}
-      style={logo === undefined ? undefined : ({ "--ink": logo.ink } as CSSProperties)}
+      className={`${styles.logo} ${styles[size]} ${dark && DEEP.has(slug) ? styles.deep : ""}`}
       role="img"
       aria-label={name}
     >
@@ -35,9 +35,7 @@ export function AppLogo({ app, size = "md" }: AppLogoProps) {
           {name.charAt(0).toUpperCase()}
         </span>
       ) : (
-        <svg viewBox="0 0 24 24" aria-hidden>
-          <path d={logo.path} />
-        </svg>
+        <img src={logo} alt="" draggable={false} />
       )}
     </span>
   );

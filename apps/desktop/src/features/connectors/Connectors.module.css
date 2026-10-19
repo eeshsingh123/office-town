@@ -18,12 +18,13 @@
   color: var(--text-2);
 }
 
-.logo svg {
-  fill: var(--ink);
+.logo img {
+  object-fit: contain;
 }
 
-.deep svg {
-  fill: light-dark(var(--ink), var(--text));
+/* Flips lightness but keeps the hue, so a dark mark reads on a dark tile. */
+.deep img {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 .sm {
@@ -32,7 +33,7 @@
   border-radius: 7px;
 }
 
-.sm svg {
+.sm img {
   width: 14px;
   height: 14px;
 }
@@ -42,7 +43,7 @@
   height: 36px;
 }
 
-.md svg {
+.md img {
   width: 20px;
   height: 20px;
 }
@@ -53,7 +54,7 @@
   border-radius: 14px;
 }
 
-.lg svg {
+.lg img {
   width: 30px;
   height: 30px;
 }
