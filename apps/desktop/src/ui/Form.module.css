@@ -147,6 +147,17 @@ textarea.input.line {
   gap: 10px;
 }
 
+/* A save row that stays at the bottom of the window while a long form scrolls. Sticky
+   stops at the scroll area's bottom padding, so it reaches past it to the edge. */
+.sticky {
+  position: sticky;
+  bottom: calc(-1 * var(--scroll-pad-bottom, 0px));
+  z-index: 1;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  background: var(--scroll-bg, var(--surface));
+}
+
 .error {
   margin: 0;
   color: var(--bad);

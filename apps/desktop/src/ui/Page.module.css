@@ -1,7 +1,9 @@
 /* The layout of the pages that set something up: a form, and a side column beside it. */
 .page {
   height: 100%;
-  padding: 48px 56px 72px;
+  --scroll-pad-bottom: 72px;
+  --scroll-bg: var(--bg);
+  padding: 48px 56px var(--scroll-pad-bottom);
   overflow-y: auto;
   background: var(--bg);
 }
@@ -33,7 +35,8 @@
 /* A narrow window keeps the same rhythm with less of the width spent on padding. */
 @media (max-width: 760px) {
   .page {
-    padding: 32px 24px 56px;
+    --scroll-pad-bottom: 56px;
+    padding: 32px 24px var(--scroll-pad-bottom);
   }
 }
 

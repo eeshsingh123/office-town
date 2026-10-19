@@ -109,6 +109,7 @@
   flex-direction: column;
   gap: 28px;
   min-height: 0;
+  --scroll-pad-bottom: 24px;
   padding: 24px 20px;
   overflow-y: auto;
 }

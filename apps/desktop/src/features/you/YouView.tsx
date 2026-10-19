@@ -207,7 +207,7 @@ export function YouView() {
                 {error}
               </p>
             )}
-            <div className={form.actions}>
+            <div className={`${form.actions} ${form.sticky}`}>
               <Button variant="primary" disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save"}
               </Button>
