@@ -4,7 +4,7 @@ import type {
   RoleSettings,
   StartTaskRequest,
 } from "@office-town/contract";
-import { CornerDownLeft, FolderGit2, LayoutTemplate, ShieldCheck, X } from "lucide-react";
+import { CornerDownLeft, LayoutTemplate, ShieldCheck, X } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -36,6 +36,7 @@ import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.ts
 import { AskChip } from "./AskChip.tsx";
 import styles from "./Composer.module.css";
 import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
+import { DepartmentWorkspaceChip } from "./DepartmentWorkspaceChip.tsx";
 import { GoesToChip, targetIcon } from "./GoesToChip.tsx";
 import { ModelChip } from "./ModelChip.tsx";
 import { Suggestions } from "./Suggestions.tsx";
@@ -87,6 +88,7 @@ export function Composer({ home = false }: ComposerProps) {
   const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("full");
   const [prompt, setPrompt] = useState(handed?.prompt ?? "");
   const [workspaceId, setWorkspaceId] = useState(remembered.workspaceId);
+  const [departmentWorkspaceId, setDepartmentWorkspaceId] = useState<string>();
   const [mention, setMention] = useState<Mention>();
   const [highlight, setHighlight] = useState(0);
   const [starting, setStarting] = useState(false);
@@ -111,10 +113,17 @@ export function Composer({ home = false }: ComposerProps) {
   const picksAgent = target === SOLO || proposing;
   const description = harnesses.find((known) => known.harness === harness) ?? harnesses[0];
   const profile = templates?.find((known) => known.id === profileId);
+  // A department's goal runs in its default unless the user picks another of its workspaces.
+  const goalWorkspaceId =
+    department === undefined
+      ? undefined
+      : department.workspaceIds.includes(departmentWorkspaceId ?? "")
+        ? (departmentWorkspaceId ?? department.workspaceId)
+        : department.workspaceId;
   const workspace =
     department === undefined
       ? defaultWorkspace(workspaces, workspaceId)
-      : workspaces.find((known) => known.id === department.workspaceId);
+      : workspaces.find((known) => known.id === goalWorkspaceId);
   const sharedWith = useSharedWith(proposing ? workspace?.id : undefined);
   const soloAutonomy = choices.autonomy ?? "full";
   const level = proposing ? teamAutonomy : soloAutonomy;
@@ -215,7 +224,11 @@ export function Composer({ home = false }: ComposerProps) {
       };
       const session =
         department !== undefined
-          ? await api.startTeamTask({ goal, team: { departmentId: department.id }, ...files })
+          ? await api.startTeamTask({
+              goal,
+              team: { departmentId: department.id, workspaceId: goalWorkspaceId },
+              ...files,
+            })
           : workspace === undefined
             ? undefined
             : proposing
@@ -530,10 +543,12 @@ export function Composer({ home = false }: ComposerProps) {
               onChange={setChosen}
             />
             {target === CHIEF ? null : department !== undefined ? (
-              <span className={`${styles.chip} ${styles.fixed}`} title="Set by the department">
-                <FolderGit2 size={14} aria-hidden />
-                <span className={styles.chipText}>{workspace?.name ?? "No workspace"}</span>
-              </span>
+              <DepartmentWorkspaceChip
+                department={department}
+                workspaces={workspaces}
+                value={workspace?.id ?? department.workspaceId}
+                onChange={setDepartmentWorkspaceId}
+              />
             ) : (
               <WorkspacePicker
                 value={workspace?.id}

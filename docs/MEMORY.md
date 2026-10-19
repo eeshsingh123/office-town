@@ -1,11 +1,13 @@
 # Memory
 
-Last updated: 2026-10-18
+Last updated: 2026-10-19
 
 ## State
 
 - M1 to M6.5 are built and merged to `main`, with the feedback rounds after M5 (PRs #31 to #52).
-- M7 Connectors is built on `feat/connectors`, PR #53, in review (D-67, D-68: sign-in apps are now Claude apps; the core's own OAuth was removed). Next: agent memory, once discussed with the owner.
+- M7 Connectors is merged (PR #53, D-67, D-68). Feedback fixes after it: PR #54, #55.
+- `feat/department-workspaces` (D-69), in review: several workspaces per department with a Workspaces wizard step, editing in settings and the Office panel, a workspace pick per goal and per plan piece, a roster grouped by role for big teams, and "Last: <work> · <when>" or "Free" for members not on the goal. Checked live: a Haiku 5.5 goal for a department ran in its non-default workspace; Make default from the Office panel saved. Not checked: the plan card's workspace pick with a live chief, "Last:" lines with real history, light mode.
+- Next: agent memory, once discussed with the owner.
 - Never checked live for M7: a Claude app's sign-in finished end to end (Sign in returns Claude's page; not opened), Refresh after connecting a new app on claude.ai, a second Claude account's apps, `request_app` routing to a teammate, a real key app (GitHub with a token), a WSL agent using a connector, a local program from the catalog flow such as Blender, the Windows "keys cannot be saved" path. Checked: refresh read 4 Claude apps in 3 s; a Haiku 5.5 agent's Claude Docs read was allowed by the app's setting and its change waited in Needs you and was declined; the Connectors page and the Connect in Claude sheet in browser mode; earlier, Claude and OpenCode read from the notes test app through the hub, an Ask me first change ran after Approve, `use_app_tool` for an app granted mid-task, describe-it found Blender's server.
 - Codex can connect apps through its plugins (Gmail, Drive, Slack via /plugins); when the Codex harness lands, check headless use and add it as a second source of vendor apps (D-68).
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
@@ -14,7 +16,7 @@ Last updated: 2026-10-18
 - Where things are: core `packages/service/src/main.ts` with `store`, `registry`, `api`, `team`, `tools`, `autonomy`, `chief`, `accounts`, `attachments`, `library`, `drafts`, `connectors`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`, `src/styles/tokens.css`. Default data folder: `%LOCALAPPDATA%\OfficeTown` (Linux: XDG data folder).
 - Local only, outside git: `.claude/launch.json` (browser preview configs, excluded in `.git/info/exclude`), `out/capture` (off-screen Electron screenshots), `feedback_images/`.
 - A test app for connectors: `node packages/service/test/support/notes-app.ts <port>` serves it over HTTP; with `--stdio` it is a local program.
-- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc, connectors https://claude.ai/artifact/AMEbojnd6kH9UExCAbFtti.
+- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc, connectors https://claude.ai/artifact/AMEbojnd6kH9UExCAbFtti, department workspaces and big teams https://claude.ai/artifact/Dih5V7i4Z9Y5Efxrzi6EZz.
 - Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 - Name: "Office Town" is a placeholder. "Bullpen" was rejected.
 

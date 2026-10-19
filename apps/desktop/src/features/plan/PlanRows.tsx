@@ -1,7 +1,8 @@
-import { autonomySchema } from "@office-town/contract";
+import { autonomySchema, type DepartmentRecord } from "@office-town/contract";
 import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
 import { DropdownMenu, ToggleGroup } from "radix-ui";
 import { useApp } from "../../store/app-store.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
@@ -21,6 +22,31 @@ interface PlanRowsProps {
   onChange: (rows: PlanRow[]) => void;
   kept: KeptPiece[];
   defaultLead: DraftDepartment["lead"];
+}
+
+// Which of an existing department's workspaces the piece runs in; shown only when it has a choice.
+function PieceWorkspace({
+  department,
+  value,
+  onChange,
+}: {
+  department: DepartmentRecord | undefined;
+  value: string | undefined;
+  onChange: (workspaceId: string) => void;
+}) {
+  const workspaces = useWorkspaces() ?? [];
+  if (department === undefined || department.workspaceIds.length < 2) return null;
+  return (
+    <ChoiceMenu
+      label="Workspace"
+      value={value ?? department.workspaceId}
+      choices={department.workspaceIds.map((id, index) => {
+        const name = workspaces.find((known) => known.id === id)?.name ?? "A workspace";
+        return { value: id, label: index === 0 ? `${name} (default)` : name };
+      })}
+      onChange={onChange}
+    />
+  );
 }
 
 function NewDepartmentFields({
@@ -208,6 +234,19 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
                   ]}
                   onChange={(value) => chooseDepartment(row, value)}
                 />
+                {"departmentId" in row.department ? (
+                  <PieceWorkspace
+                    department={departments[row.department.departmentId]}
+                    value={row.department.workspaceId}
+                    onChange={(workspaceId) =>
+                      "departmentId" in row.department
+                        ? update(row.key, {
+                            department: { departmentId: row.department.departmentId, workspaceId },
+                          })
+                        : undefined
+                    }
+                  />
+                ) : null}
                 <span className={styles.spacer} />
                 <Button
                   variant="ghost"

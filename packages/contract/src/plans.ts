@@ -31,7 +31,8 @@ export const proposedPieceSchema = z.object({
   ...pieceFieldsShape,
   waitsOn: z.array(z.string().min(1)),
   department: z.union([
-    z.object({ departmentId: z.string().min(1) }),
+    // Without a workspace, the department's default.
+    z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),
     z.object({ newDepartment: proposedDepartmentSchema }),
   ]),
 });
@@ -39,7 +40,7 @@ export type ProposedPiece = z.infer<typeof proposedPieceSchema>;
 
 export const approvedPieceSchema = proposedPieceSchema.extend({
   department: z.union([
-    z.object({ departmentId: z.string().min(1) }),
+    z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),
     z.object({ newDepartment: placedDepartmentSchema }),
   ]),
 });
@@ -64,6 +65,8 @@ export const planPieceSchema = z.object({
   taskId: z.string().min(1),
   ...pieceFieldsShape,
   departmentId: z.string().min(1).optional(),
+  // One of an existing department's workspaces; without it, its default when the piece starts.
+  workspaceId: z.string().min(1).optional(),
   newDepartment: placedDepartmentSchema.optional(),
   // Piece ids.
   waitsOn: z.array(z.string().min(1)),

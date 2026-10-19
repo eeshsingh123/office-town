@@ -391,7 +391,7 @@ function BuildTeam() {
           <Users size={18} aria-hidden />
           <strong>New department</strong>
           <span>
-            A lead and the people it hands work to, with one workspace and one set of rules.
+            A lead and the people it hands work to, with their own workspaces and one set of rules.
           </span>
           <span className={styles.buildGo}>
             Start <ArrowRight size={13} aria-hidden />

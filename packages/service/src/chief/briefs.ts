@@ -6,7 +6,8 @@ export interface DepartmentView {
   purpose: string | undefined;
   // The lead first.
   members: string[];
-  folders: string[];
+  // "name (folders)", the default first.
+  workspaces: string[];
   busyWith: string | undefined;
 }
 
@@ -28,7 +29,11 @@ function describeDepartments(departments: DepartmentView[]): string {
       const state =
         department.busyWith === undefined ? "free" : `busy with "${department.busyWith}"`;
       const purpose = department.purpose === undefined ? "" : `, for: ${department.purpose}`;
-      return `- ${department.name} (${state}${purpose}), working in ${department.folders.join(", ")}:\n${department.members.map((member) => `  ${member}`).join("\n")}`;
+      const where =
+        department.workspaces.length === 1
+          ? `working in ${department.workspaces[0]}`
+          : `with the workspaces ${department.workspaces.join("; ")}, the first its default`;
+      return `- ${department.name} (${state}${purpose}), ${where}:\n${department.members.map((member) => `  ${member}`).join("\n")}`;
     })
     .join("\n");
 }

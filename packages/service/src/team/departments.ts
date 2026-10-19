@@ -6,7 +6,7 @@ import type {
 } from "@office-town/contract";
 import { createAgent } from "../agents/agents.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { requireWorkspaceFolders } from "../task-folders.ts";
 import {
   applyLead,
@@ -15,6 +15,7 @@ import {
   DepartmentBusyError,
   rosterOf,
   type TeamContext,
+  TeamError,
 } from "./members.ts";
 import { deleteTask, isClaimed } from "./team-tasks.ts";
 
@@ -49,17 +50,25 @@ async function tellLead(
   }
 }
 
+// Each named once, and each with folders to work in.
+function checkWorkspaces(store: Store, workspaceIds: string[]): void {
+  if (new Set(workspaceIds).size !== workspaceIds.length) {
+    throw new TeamError("A workspace is named twice.");
+  }
+  for (const id of workspaceIds) requireWorkspaceFolders(store.useWorkspace(id));
+}
+
 export function createDepartment(
   context: TeamContext,
-  { team, workspaceId, autonomy, lead: newLead, purpose, rules }: NewDepartmentRequest,
+  { team, workspaceIds, autonomy, lead: newLead, purpose, rules }: NewDepartmentRequest,
 ): DepartmentRecord {
   const { store } = context;
-  requireWorkspaceFolders(store.useWorkspace(workspaceId));
+  checkWorkspaces(store, workspaceIds);
   checkTeam(store, undefined, team);
   const lead = createAgent(store, newLead, { role: "Lead", autonomy });
   const department = store.createDepartment({
     name: team.name,
-    workspaceId,
+    workspaceIds,
     autonomy,
     leadAgentId: lead.id,
     branchPerWorker: true,
@@ -125,6 +134,10 @@ export function updateDepartment(
   departmentId: string,
   settings: DepartmentSettings,
 ): DepartmentRecord {
-  departmentOf(context, departmentId);
+  const current = departmentOf(context, departmentId);
+  // A running goal keeps the workspace it started in; the change applies from the next one.
+  if (settings.workspaceIds.join() !== current.workspaceIds.join()) {
+    checkWorkspaces(context.store, settings.workspaceIds);
+  }
   return context.store.updateDepartment(departmentId, settings);
 }

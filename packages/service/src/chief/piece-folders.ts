@@ -13,7 +13,7 @@ function foldersOf(store: Store, piece: PlanPiece): string[] {
   const workspaceId =
     piece.departmentId === undefined
       ? piece.newDepartment?.workspaceId
-      : store.getDepartment(piece.departmentId)?.workspaceId;
+      : (piece.workspaceId ?? store.getDepartment(piece.departmentId)?.workspaceId);
   return workspaceId === undefined ? [] : workspacePaths(store, workspaceId);
 }
 

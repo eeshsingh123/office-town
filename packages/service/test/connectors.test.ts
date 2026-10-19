@@ -168,7 +168,7 @@ describe("connectors", () => {
     const department = (
       await core.call("POST", "/departments", {
         team: { name: "Research", roles: [] },
-        workspaceId,
+        workspaceIds: [workspaceId],
         autonomy: "supervised",
         lead: { settings: { harness: "claude", environment: { kind: "native" } } },
       })

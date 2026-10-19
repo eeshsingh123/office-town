@@ -36,7 +36,8 @@ export interface DepartmentForm extends TeamForm {
   name: string;
   purpose: string;
   rules: string;
-  workspaceId?: string;
+  // The default first; empty until the user chooses.
+  workspaceIds: string[];
   autonomy: Autonomy;
 }
 
@@ -61,6 +62,7 @@ export function blankDepartment(settings: RoleSettings): DepartmentForm {
     name: "",
     purpose: "",
     rules: "",
+    workspaceIds: [],
     autonomy: "full",
     lead: blankPerson(settings, "Lead", "Splits each task among the team"),
     members: [],
@@ -85,7 +87,7 @@ export function formOfDraft(draft: DepartmentDraft, kept?: DepartmentForm): Depa
     name: draft.name,
     purpose: draft.purpose,
     rules: draft.rules,
-    ...(kept?.workspaceId === undefined ? {} : { workspaceId: kept.workspaceId }),
+    workspaceIds: kept?.workspaceIds ?? [],
     autonomy: kept?.autonomy ?? "full",
     lead: personOfDraft(draft.lead),
     members: draft.members.map(personOfDraft),
@@ -137,7 +139,7 @@ export function formOfDepartment(
     name: department.name,
     purpose: department.purpose ?? "",
     rules: department.rules ?? "",
-    workspaceId: department.workspaceId,
+    workspaceIds: department.workspaceIds,
     autonomy: department.autonomy,
     lead:
       lead === undefined

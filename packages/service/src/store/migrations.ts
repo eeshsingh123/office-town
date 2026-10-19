@@ -175,6 +175,34 @@ function addDepartmentPurpose(db: DatabaseSync): void {
   `);
 }
 
+function addDepartmentWorkspaces(db: DatabaseSync): void {
+  db.exec(`
+  -- A department's workspaces besides its default, which stays departments.workspace_ref.
+  CREATE TABLE IF NOT EXISTS department_workspaces (
+    department_ref INTEGER NOT NULL REFERENCES departments (ref) ON DELETE CASCADE,
+    position       INTEGER NOT NULL,
+    workspace_ref  INTEGER NOT NULL REFERENCES workspaces (ref),
+    PRIMARY KEY (department_ref, position),
+    UNIQUE (department_ref, workspace_ref)
+  ) STRICT, WITHOUT ROWID;
+
+  CREATE INDEX IF NOT EXISTS department_workspaces_by_workspace
+    ON department_workspaces (workspace_ref);
+  `);
+  const has = db.prepare(
+    "SELECT 1 FROM pragma_table_info('plan_pieces') WHERE name = 'workspace_ref'",
+  );
+  if (has.get() !== undefined) return;
+  // The workspace a piece for an existing department runs in; none means its default.
+  db.exec(`
+  ALTER TABLE plan_pieces ADD COLUMN workspace_ref INTEGER REFERENCES workspaces (ref)
+    ON DELETE SET NULL;
+
+  CREATE INDEX plan_pieces_by_workspace ON plan_pieces (workspace_ref)
+    WHERE workspace_ref IS NOT NULL;
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -548,4 +576,5 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS connector_calls_by_session ON connector_calls (session_ref);
   CREATE INDEX IF NOT EXISTS connector_calls_by_department ON connector_calls (department_ref);
   `,
+  addDepartmentWorkspaces,
 ];

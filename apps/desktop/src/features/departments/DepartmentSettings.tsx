@@ -3,7 +3,6 @@ import { CircleHelp } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { mainPath, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
@@ -16,6 +15,7 @@ import { DraftBox } from "../drafts/DraftBox.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { DEPARTMENT_STEPS } from "../team/guides.tsx";
 import styles from "./DepartmentSettings.module.css";
+import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
 import {
   blankPerson,
@@ -109,7 +109,6 @@ function Settings({
   member: string | undefined;
 }) {
   const agents = useApp((state) => state.agents);
-  const workspace = useWorkspaces()?.find((known) => known.id === department.workspaceId);
   const [start] = useState(() => startingForm(department, agents, member));
   const [team, setTeam] = useState<DepartmentForm>(start.loaded);
   const [selected, setSelected] = useState(start.selected);
@@ -146,6 +145,7 @@ function Settings({
     try {
       await api.updateDepartment(department.id, {
         name: team.name.trim(),
+        workspaceIds: team.workspaceIds,
         autonomy: team.autonomy,
         branchPerWorker,
         codeFlow,
@@ -198,21 +198,22 @@ function Settings({
             />
           </label>
         </div>
-        <div className={form.field}>
-          <span className={form.label}>Workspace</span>
-          <div className={form.row}>
-            <button
-              type="button"
-              className={styles.link}
-              onClick={() => navigate({ name: "workspace", workspaceId: department.workspaceId })}
-            >
-              {workspace?.name ?? "Open workspace"}
-            </button>
-            <span className={styles.path}>
-              {workspace === undefined ? "" : mainPath(workspace)}
-            </span>
-          </div>
+      </section>
+
+      <section className={page.section}>
+        <div>
+          <h2 className={page.sectionTitle}>Workspaces</h2>
+          <p className={form.hint}>
+            Folders this team can edit. New goals use the default. Changes apply from the next goal.
+          </p>
         </div>
+        <DepartmentWorkspaces
+          value={team.workspaceIds}
+          onChange={(workspaceIds) => change({ workspaceIds })}
+          departmentName={department.name}
+          departmentId={department.id}
+          keepOne
+        />
       </section>
 
       <section className={page.section}>
@@ -360,7 +361,7 @@ export function DepartmentSettings({
           <Guide
             id="department-guide"
             title="How a department works"
-            intro="A lead and its members, with one workspace and one set of rules. The lead decides who does what."
+            intro="A lead and its members, with their own workspaces and one set of rules. The lead decides who does what."
             steps={DEPARTMENT_STEPS}
             onHide={() => setGuideHidden(true)}
           />

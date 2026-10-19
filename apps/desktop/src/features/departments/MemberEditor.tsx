@@ -1,5 +1,5 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { MoreHorizontal, Plus, SwatchBook } from "lucide-react";
+import { MoreHorizontal, Plus, Search, SwatchBook } from "lucide-react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
@@ -78,35 +78,61 @@ function LockedLead({ person, note }: { person: PersonForm; note: string }) {
   );
 }
 
-function ListRow({
-  person,
-  colour,
-  lead,
-  selected,
-  onSelect,
-}: {
+const roleOf = (person: PersonForm, lead = false) =>
+  person.role.trim() || (lead ? "Lead" : "New member");
+
+// Search and role filters only once the team is big enough to need them.
+const SEARCH_FROM = 6;
+
+interface PersonCardProps {
   person: PersonForm;
+  // The agent's name, once it exists.
+  name: string | undefined;
   colour: string;
-  lead: boolean;
   selected: boolean;
   onSelect: () => void;
-}) {
+  lead?: boolean;
+}
+
+function PersonCard({ person, name, colour, selected, onSelect, lead = false }: PersonCardProps) {
   const model = useModelLine(person.settings);
-  const role = person.role.trim() || (lead ? "Lead" : "New member");
+  const role = roleOf(person, lead);
   return (
-    <li className={lead ? undefined : styles.reports}>
-      <button type="button" className={styles.person} aria-pressed={selected} onClick={onSelect}>
-        <Avatar name={role} colour={colour} size={30} />
-        <span className={styles.personText}>
-          <strong>{role}</strong>
-          <span>{model}</span>
+    <button
+      type="button"
+      className={lead ? styles.leadCard : styles.person}
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
+      <Avatar name={name ?? role} colour={colour} size={lead ? 40 : 32} />
+      <span className={styles.personText}>
+        <span className={styles.personName}>
+          <strong>{name ?? role}</strong>
+          {lead ? <span className={styles.leadBadge}>Lead</span> : null}
         </span>
-      </button>
-    </li>
+        {person.purpose.trim() === "" ? null : (
+          <span className={styles.purpose}>{person.purpose}</span>
+        )}
+        <span className={styles.model}>{model}</span>
+      </span>
+    </button>
   );
 }
 
-// The team as a small org chart on the left, and everything about the picked person beside it.
+// Members grouped by role, in the order each role first appears.
+function groupsOf(members: PersonForm[]): { role: string; members: PersonForm[] }[] {
+  const groups = new Map<string, { role: string; members: PersonForm[] }>();
+  for (const member of members) {
+    const role = roleOf(member);
+    const key = role.toLowerCase();
+    const group = groups.get(key) ?? { role, members: [] };
+    group.members.push(member);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
+// The team as a roster grouped by role, and everything about the picked person beside it.
 export function MemberEditor({
   team,
   onChange,
@@ -119,6 +145,8 @@ export function MemberEditor({
 }: MemberEditorProps) {
   const agents = useApp((state) => state.agents);
   const [opened, setOpened] = useState<Opened>();
+  const [query, setQuery] = useState("");
+  const [role, setRole] = useState<string>();
   const isLead = selected === team.lead.key;
   const locked = isLead && leadLocked !== undefined;
   const person = isLead ? team.lead : team.members.find((member) => member.key === selected);
@@ -154,38 +182,125 @@ export function MemberEditor({
     onChange({ ...team, members: rest });
     onSelect(rest[Math.max(0, index - 1)]?.key ?? team.lead.key);
   };
+  // A copy of someone in the role, with the same job, instructions and model.
+  const another = (like: PersonForm) =>
+    add({
+      ...blankPerson(like.settings, like.role, like.purpose),
+      instructions: like.instructions,
+    });
   const closeDialog = (open: boolean) => {
     if (!open) setOpened(undefined);
   };
 
+  const nameOf = (one: PersonForm) =>
+    one.agentId === undefined ? undefined : agents[one.agentId]?.name;
+  const colourOf = (one: PersonForm) => {
+    const own = one.agentId === undefined ? undefined : agents[one.agentId]?.colour;
+    return own ?? memberColour(team.members.indexOf(one));
+  };
+  const groups = groupsOf(team.members);
+  const big = team.members.length + 1 >= SEARCH_FROM;
+  const words = query.trim().toLowerCase();
+  const shown = groups
+    .filter((group) => role === undefined || group.role === role)
+    .map((group) => ({
+      ...group,
+      members: group.members.filter((one) =>
+        `${one.role} ${one.purpose} ${nameOf(one) ?? ""}`.toLowerCase().includes(words),
+      ),
+    }))
+    .filter((group) => group.members.length > 0);
+
   return (
     <div className={styles.frame}>
       <div className={styles.editor}>
-        <div className={styles.list}>
-          <span className={styles.eyebrow}>Team</span>
-          <ul className={styles.people} aria-label="Team">
-            <ListRow
-              person={team.lead}
-              colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
-              lead
-              selected={isLead}
-              onSelect={() => onSelect(team.lead.key)}
-            />
-            {team.members.map((member, at) => (
-              <ListRow
-                key={member.key}
-                person={member}
-                colour={(member.agentId && agents[member.agentId]?.colour) || memberColour(at)}
-                lead={false}
-                selected={member.key === selected}
-                onSelect={() => onSelect(member.key)}
-              />
-            ))}
-          </ul>
-          <Button onClick={() => setOpened({ kind: "add" })}>
-            <Plus size={14} aria-hidden />
-            Add a member
-          </Button>
+        <div className={styles.roster}>
+          <div className={styles.toolbar}>
+            {big ? (
+              <label className={styles.search}>
+                <Search size={14} aria-hidden />
+                <input
+                  type="search"
+                  value={query}
+                  placeholder="Search people"
+                  aria-label="Search people"
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+            ) : null}
+            {big && groups.length > 1 ? (
+              <div className={styles.filters}>
+                <button
+                  type="button"
+                  className={form.chip}
+                  aria-pressed={role === undefined}
+                  onClick={() => setRole(undefined)}
+                >
+                  All <span className={styles.count}>{team.members.length + 1}</span>
+                </button>
+                {groups.map((group) => (
+                  <button
+                    key={group.role}
+                    type="button"
+                    className={form.chip}
+                    aria-pressed={role === group.role}
+                    onClick={() => setRole(role === group.role ? undefined : group.role)}
+                  >
+                    {group.role} <span className={styles.count}>{group.members.length}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <Button className={styles.addMember} onClick={() => setOpened({ kind: "add" })}>
+              <Plus size={14} aria-hidden />
+              Add a member
+            </Button>
+          </div>
+
+          <PersonCard
+            person={team.lead}
+            name={nameOf(team.lead)}
+            colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
+            lead
+            selected={isLead}
+            onSelect={() => onSelect(team.lead.key)}
+          />
+
+          {shown.map((group) => (
+            <section key={group.role} className={styles.group} aria-label={group.role}>
+              <header className={styles.groupHead}>
+                <strong>{group.role}</strong>
+                <span className={styles.count}>{group.members.length}</span>
+                <span className={styles.rule} />
+                <button
+                  type="button"
+                  className={styles.another}
+                  onClick={() => {
+                    const [like] = group.members;
+                    if (like !== undefined) another(like);
+                  }}
+                >
+                  <Plus size={13} aria-hidden />
+                  Add another
+                </button>
+              </header>
+              <div className={styles.grid}>
+                {group.members.map((member) => (
+                  <PersonCard
+                    key={member.key}
+                    person={member}
+                    name={nameOf(member)}
+                    colour={colourOf(member)}
+                    selected={member.key === selected}
+                    onSelect={() => onSelect(member.key)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          {words !== "" && shown.length === 0 ? (
+            <p className={form.hint}>Nobody on the team matches "{query.trim()}".</p>
+          ) : null}
           {leaving.length === 0 ? null : (
             <p className={form.hint}>
               Leaves the team: {leaving.map((one) => one.name).join(", ")}
@@ -252,6 +367,11 @@ export function MemberEditor({
                     >
                       Save as template
                     </DropdownMenu.Item>
+                    {isLead ? null : (
+                      <DropdownMenu.Item className={menu.item} onSelect={() => another(person)}>
+                        Duplicate
+                      </DropdownMenu.Item>
+                    )}
                     {isLead ? null : (
                       <DropdownMenu.Item className={menu.item} onSelect={remove}>
                         Remove from team

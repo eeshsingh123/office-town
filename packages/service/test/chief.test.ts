@@ -25,7 +25,7 @@ async function departmentIn(name: string) {
   const department = (
     await core.call("POST", "/departments", {
       team: { name, roles: [] },
-      workspaceId: workspace.id,
+      workspaceIds: [workspace.id],
       autonomy: "full",
       lead: { settings: claude },
     })

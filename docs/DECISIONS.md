@@ -327,6 +327,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Only Claude agents reach Claude apps, never through the hub. A lead's roster lists each worker's apps. `request_app` from another harness names the teammates who can use the app, or tells the user no one on the team can. The catalog keeps sign-in apps as tiles that open claude.ai's connectors page, with the server address for a custom connector; describe-it does the same for a sign-in server it finds.
 - Codex can connect apps through its plugins (Gmail, Drive, Slack); when the Codex harness lands, it is a second source of vendor apps through the same `vendorApps` contract, if it works headless.
 
+### D-69 A department works in several workspaces — accepted (2026-10-19)
+
+- A department keeps a list of workspaces, the first its default (owner). Each goal runs in one of them: New task offers them when there are two or more, the chief may name one per piece and the user can change it on the plan card; without a choice, the default. Why: one place per goal keeps clear what changed where; all of them at once would repeat what a workspace's extra folders already do.
+- The list can be changed any time, in settings and in the Office panel. A running goal stays where it started; the change applies from the next goal (owner). The last workspace cannot be removed.
+- New department has a Workspaces step of its own and no silent default once there is more than one workspace; Review blocks Create until each department has one.
+- Contract: `workspaceIds` on the department record, its settings and the create request; `workspaceId` stays as the default. `startTeamTask` and plan pieces take an optional `workspaceId`. Store: `department_workspaces` for the others, `plan_pieces.workspace_ref`.
+
 ## Done
 
 All accepted and built.

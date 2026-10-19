@@ -46,7 +46,10 @@ export type Team = z.infer<typeof teamSchema>;
 export const departmentRecordSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  // The default; goals run here unless they name another of `workspaceIds`.
   workspaceId: z.string().min(1),
+  // Every workspace the department may work in, the default first.
+  workspaceIds: z.array(z.string().min(1)).min(1),
   autonomy: autonomySchema,
   leadAgentId: z.string().min(1),
   // In a git workspace, each worker gets its own worktree and branch, which the lead merges.
@@ -63,6 +66,7 @@ export type DepartmentRecord = z.infer<typeof departmentRecordSchema>;
 
 export const departmentSettingsSchema = departmentRecordSchema.pick({
   name: true,
+  workspaceIds: true,
   autonomy: true,
   branchPerWorker: true,
   codeFlow: true,
@@ -73,7 +77,8 @@ export type DepartmentSettings = z.infer<typeof departmentSettingsSchema>;
 
 export const newDepartmentRequestSchema = z.object({
   team: teamSchema,
-  workspaceId: z.string().min(1),
+  // The default first.
+  workspaceIds: z.array(z.string().min(1)).min(1),
   autonomy: autonomySchema,
   lead: newAgentSchema,
   purpose: z.string().trim().optional(),
@@ -87,7 +92,8 @@ export const startTeamTaskRequestSchema = z.object({
   goal: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
   team: z.union([
-    z.object({ departmentId: z.string().min(1) }),
+    // Without a workspace, the department's default.
+    z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),
     z.object({ lead: newAgentSchema, workspaceId: z.string().min(1), autonomy: autonomySchema }),
     z.object({
       leadAgentId: z.string().min(1),
