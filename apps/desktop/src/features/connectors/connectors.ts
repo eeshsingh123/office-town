@@ -70,9 +70,12 @@ export function refreshOnReturn(): void {
   window.addEventListener("focus", refreshApps, { once: true });
 }
 
-// Signed out or not answering, while the user still has it on.
-export const needsUser = ({ enabled, status }: ConnectorRecord) =>
-  enabled && (status === "signed_out" || status === "failing");
+// Signed out or not answering, while the user still has it on. claude.ai lists apps such as Gmail
+// before the user ever connects them, so a signed-out Claude app is an offer, not a problem.
+export const needsUser = (connector: ConnectorRecord) =>
+  connector.enabled &&
+  (connector.status === "failing" ||
+    (connector.status === "signed_out" && !isClaudeApp(connector)));
 
 export function useConnectorNeedsUser(): boolean {
   return useApp((state) => Object.values(state.connectors).some(needsUser));
