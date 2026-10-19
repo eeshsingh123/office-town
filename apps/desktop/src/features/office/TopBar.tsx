@@ -28,6 +28,7 @@ function useFullAccounts(): string[] {
 // Only what can be acted on: counts live on Home, usage on its own page.
 export function TopBar() {
   const focus = useApp((state) => state.focus);
+  const chiefId = useApp((state) => state.chiefId);
   const mode = useOffice((state) => state.mode);
   const panelOpen = useOffice((state) => state.panelOpen);
   const { working, order } = useCounts();
@@ -89,10 +90,19 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
-        <Button variant="ghost" onClick={() => navigate({ name: "new-department" })}>
-          <Plus size={14} aria-hidden />
-          Department
-        </Button>
+        {/* The floor offers these in its corner. */}
+        {mode === "board" && chiefId === undefined ? (
+          <Button variant="ghost" onClick={() => navigate({ name: "chief" })}>
+            <Plus size={14} aria-hidden />
+            Chief
+          </Button>
+        ) : null}
+        {mode === "board" ? (
+          <Button variant="ghost" onClick={() => navigate({ name: "new-department" })}>
+            <Plus size={14} aria-hidden />
+            Department
+          </Button>
+        ) : null}
         {mode === "floor" ? (
           <button
             type="button"

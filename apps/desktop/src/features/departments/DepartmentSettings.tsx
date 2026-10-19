@@ -10,7 +10,9 @@ import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import form from "../../ui/Form.module.css";
 import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
+import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { DEPARTMENT_STEPS } from "../team/guides.tsx";
@@ -190,11 +192,10 @@ function Settings({
           </label>
           <label className={form.field}>
             <span className={form.label}>What it's for</span>
-            <input
-              className={form.input}
+            <LineField
               value={team.purpose}
               placeholder="One line; the chief reads it when it plans"
-              onChange={(event) => change({ purpose: event.target.value })}
+              onChange={(purpose) => change({ purpose })}
             />
           </label>
         </div>
@@ -230,16 +231,17 @@ function Settings({
       </section>
 
       <section className={page.section}>
-        <label className={form.field}>
+        <div className={form.field}>
           <span className={page.sectionTitle}>Team rules</span>
           <span className={form.hint}>Every member follows these, on every task.</span>
-          <textarea
-            className={form.input}
+          <PointsField
+            label="Team rules"
             value={team.rules}
-            placeholder="For example: Use TypeScript. Write a test for each new page."
-            onChange={(event) => change({ rules: event.target.value })}
+            placeholder="For example: Use TypeScript"
+            addLabel="Add a rule"
+            onChange={(rules) => change({ rules })}
           />
-        </label>
+        </div>
       </section>
 
       <FilesSection
