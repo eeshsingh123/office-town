@@ -480,6 +480,9 @@ Testing again.`),
     // Uncommitted and new files reach the checker; the owner's folder is never touched.
     expect(readFileSync(join(work, "menu.html"), "utf8")).toBe("bread and cake");
     expect(existsSync(join(work, "prices.txt"))).toBe(true);
+    expect(execFileSync("git", ["-C", work, "status", "--short"], { encoding: "utf8" })).toBe(
+      git("status", "--short"),
+    );
     const brief = checker?.sent.find((sent) => sent.type === "prompt");
     expect(brief && "text" in brief ? brief.text : "").toContain("Open menu.html");
 

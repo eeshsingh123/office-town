@@ -393,11 +393,13 @@ export class Checks {
               : "Your checklist is already approved; run it.",
           );
         }
+        // Without a checklist from the owner, nothing on the list came from the team.
+        const given = store.getTask(check.taskId)?.checklist?.agentId === check.ownerAgentId;
         const proposed: CheckItem[] = items.map(({ check: text, expected, fromLead }, index) => ({
           id: `c${index + 1}`,
           check: text,
           expected,
-          from: fromLead === true ? "lead" : "checker",
+          from: given && fromLead === true ? "lead" : "checker",
         }));
         const requestId = `checklist-${randomUUID()}`;
         store.updateCheck(check.id, { status: "approving" });

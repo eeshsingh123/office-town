@@ -37,12 +37,19 @@ async function worktreeOf(environment: EnvironmentSpec, main: string, path: stri
   const inside = (folder: string) => environmentPath(environment, folder);
   await inTurn(main, async () => {
     const stash = await git(environment, ["-C", inside(main), "stash", "create"], "read changes");
-    const at = stash === "" ? "HEAD" : stash;
     await git(
       environment,
-      ["-C", inside(main), "worktree", "add", "--detach", inside(path), at],
+      ["-C", inside(main), "worktree", "add", "--detach", inside(path), "HEAD"],
       "make a worktree for the checker",
     );
+    // Uncommitted there, as in the owner's folder, so git shows the checker the same changes.
+    if (stash !== "") {
+      await git(
+        environment,
+        ["-C", inside(path), "stash", "apply", "--quiet", stash],
+        "copy the uncommitted changes",
+      );
+    }
   });
   const untracked = await git(
     environment,
