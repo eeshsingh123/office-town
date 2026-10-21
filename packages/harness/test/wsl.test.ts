@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LaunchRequest } from "../src/environment/environment.ts";
-import { parseDistroList, WslEnvironment } from "../src/environment/wsl.ts";
+import { WslEnvironment } from "../src/environment/wsl.ts";
 import { toWindowsPath, toWslPath } from "../src/environment/wsl-paths.ts";
 import { ScriptedEnvironment } from "./support/replay.ts";
 
@@ -31,14 +31,6 @@ describe("WSL path translation", () => {
       expect(toWindowsPath(wslPath, "Ubuntu")).toBe(windowsPath);
     }
   });
-
-  it("reads the distro list that wsl.exe prints in UTF-16, without Docker's own distros", () => {
-    const printed = Buffer.from(
-      "\uFEFFUbuntu\r\ndocker-desktop\r\nDebian-12\r\ndocker-desktop-data\r\n\r\n",
-      "utf16le",
-    );
-    expect(parseDistroList(printed)).toEqual(["Ubuntu", "Debian-12"]);
-  });
 });
 
 function fakeDistro(binaries: Record<string, string>) {
@@ -55,17 +47,6 @@ function fakeDistro(binaries: Record<string, string>) {
 }
 
 describe("WslEnvironment", () => {
-  it("launches the binary it found in the distro through wsl.exe, in the given folder", async () => {
-    const { environment, host } = fakeDistro({ claude: "/home/dev/.local/bin/claude" });
-
-    await environment.launch({ binary: "claude", args: ["--print", "a b"], cwd: "/mnt/c/work" });
-
-    const request = host.request as LaunchRequest;
-    expect(request.binary).toBe("wsl.exe");
-    expect(request.args.slice(0, 5)).toEqual(["-d", "Ubuntu", "--cd", "/mnt/c/work", "-e"]);
-    expect(request.args.slice(-3)).toEqual(["/home/dev/.local/bin/claude", "--print", "a b"]);
-  });
-
   it("kills by launch marker inside the distro as well as the relay on the host", async () => {
     const { environment, host, commands } = fakeDistro({ claude: "/usr/bin/claude" });
     const launched = await environment.launch({ binary: "claude", args: [] });

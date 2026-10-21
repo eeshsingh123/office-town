@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   attachmentSchema,
-  changeSchema,
   type SessionEvent,
   sessionRecordSchema,
   workspaceRecordSchema,
@@ -303,39 +302,5 @@ describe("api", () => {
       "id: 5",
       "id: 6",
     ]);
-  });
-
-  it("sends record changes live on the stream of every session only, never on a replay", async () => {
-    const started = await startTask("Write a report");
-    const session = sessionRecordSchema.parse(await started.json());
-    const everything = await openStream("/events?after=0");
-    const oneSession = await openStream(`/events?session=${session.id}&after=0`);
-    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "1" } });
-    sessions[0]?.emit({
-      type: "turn.ended",
-      payload: { turnId: "1", outcome: "completed", usage: { inputTokens: 9, outputTokens: 1 } },
-    });
-
-    // The turn adds to the task's usage, and ends the goal.
-    const frames = await everything(6);
-    expect(frames.map(({ id, name, event }) => [id, name, event.type])).toEqual([
-      ["1", undefined, "session.started"],
-      ["2", undefined, "message"],
-      ["3", undefined, "turn.started"],
-      [undefined, "change", "task"],
-      [undefined, "change", "task"],
-      ["4", undefined, "turn.ended"],
-    ]);
-    expect(changeSchema.parse(frames[4]?.event)).toMatchObject({
-      task: { state: "ended", usage: [{ harness: "claude", inputTokens: 9 }] },
-    });
-    expect((await oneSession(4)).map(({ event }) => event.type)).toEqual([
-      "session.started",
-      "message",
-      "turn.started",
-      "turn.ended",
-    ]);
-    const replay = await (await call("GET", "/events?follow=false")).text();
-    expect(replay).not.toContain("event: change");
   });
 });

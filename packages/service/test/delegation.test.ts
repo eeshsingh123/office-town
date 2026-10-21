@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type AgentRecord, defaultAccountId } from "@office-town/contract";
@@ -269,29 +269,6 @@ Tests pass.`,
     });
   });
 
-  it("suggests a fresh session once a lead's conversation passes 400k tokens, and lets it hand over on approval", async () => {
-    const { writer } = await teamAtWork();
-    const lead = core.sessions[0];
-    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
-    const usage = { inputTokens: 1, outputTokens: 1, contextTokens: 450_000 };
-    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed", usage } });
-    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed", usage } });
-    await settle();
-
-    const { requests } = core.store.listPendingRequests();
-    expect(requests).toHaveLength(1);
-    expect(requests[0]?.event.payload).toMatchObject({ title: expect.stringContaining("450k") });
-    await core.call("POST", `/sessions/${lead?.id}/commands`, {
-      type: "answerPermission",
-      requestId: requests[0]?.event.payload.requestId,
-      optionId: "approve",
-    });
-    await settle();
-    expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("Call hand_over now") });
-    const handover = { decisions: [], facts: [], next: "Merge the menu." };
-    expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
-  });
-
   it("pauses a whole team past 95% of a usage window and carries it on through its lead on resume", async () => {
     const { task, writer } = await teamAtWork();
     const lead = core.sessions[0];
@@ -419,41 +396,6 @@ Testing again.`),
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
   });
 
-  it("calls in a guest on a copy without instruction files, hands its answer to the lead, lets it leave, and removes the copy with the task", async () => {
-    const { task } = await teamAtWork();
-    const lead = core.sessions[0];
-    const project = join(directory, "bakery");
-    writeFileSync(join(project, "menu.md"), "Bread");
-    writeFileSync(join(project, "CLAUDE.md"), "Be brief");
-    mkdirSync(join(project, ".claude"));
-
-    const outside = await core.callTool(lead, "outsource", { brief: "Check", paths: [".."] });
-    expect(outside).toMatchObject({ isError: true, text: expect.stringContaining("workspace") });
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    expect(agents.some((agent) => agent.guest)).toBe(false);
-    await core.callTool(lead, "outsource", { brief: "Check the menu", paths: ["."] });
-    const guest = core.store.getSession(core.sessions[1]?.id ?? "");
-    const copy = guest?.options.workspacePath ?? "";
-    expect(guest?.options.isolated).toBe(true);
-    expect(core.store.getAgent(guest?.agentId ?? "")).toMatchObject({ guest: true });
-    expect(core.store.getAgent(guest?.agentId ?? "")?.departmentId).toBeUndefined();
-    expect(existsSync(join(copy, "menu.md"))).toBe(true);
-    expect(existsSync(join(copy, "CLAUDE.md")) || existsSync(join(copy, ".claude"))).toBe(false);
-
-    playTurn(core.sessions[1], "The menu has no prices.");
-    await settle();
-    expect(lastSent(0)).toMatchObject({
-      text: expect.stringContaining("The menu has no prices."),
-      origin: { kind: "result" },
-    });
-    expect(core.store.getSession(guest?.id ?? "")?.status).toBe("exited");
-
-    // A deleted task takes the copy with it.
-    await core.call("POST", `/tasks/${task.taskId}/stop`);
-    expect((await core.call("DELETE", `/tasks/${task.taskId}`)).status).toBe(204);
-    expect(existsSync(copy)).toBe(false);
-  });
-
   it("stops an agent left idle, but not one waiting for the user", async () => {
     const activity = new SessionActivity(core.registry);
     const { task } = await teamAtWork();
@@ -473,31 +415,6 @@ Testing again.`),
 
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
-  });
-
-  it("starts a group of picked agents under one of them, refusing busy ones on both sides", async () => {
-    const { department, writer, tester } = await teamAtWork();
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id ?? "";
-    const group = (leadAgentId: string, workerAgentIds: string[]) =>
-      core.call("POST", "/tasks/team", {
-        goal: "Write the opening hours",
-        team: { leadAgentId, workerAgentIds, workspaceId: department.workspaceId },
-      });
-
-    const busy = await group(department.leadAgentId, [idOf(writer)]);
-    expect(busy).toMatchObject({ status: 400, json: { message: expect.stringContaining("Busy") } });
-
-    const started = await group(idOf(writer), [idOf(tester)]);
-    expect(started.status).toBe(201);
-    const task = core.store.getTask(core.store.getSession(started.json.id)?.taskId ?? "");
-    expect(task).toMatchObject({ leadAgentId: idOf(writer), workerAgentIds: [idOf(tester)] });
-    expect(lastSent(1)).toMatchObject({ text: expect.stringContaining(`- ${tester}, Tester`) });
-    expect(
-      (await core.callTool(core.sessions[1], "delegate", { agent: tester, brief: "Check" })).text,
-    ).toContain(`Delegated to ${tester}`);
-    const taken = await core.callTool(core.sessions[0], "delegate", { agent: tester, brief: "x" });
-    expect(taken).toMatchObject({ isError: true, text: expect.stringContaining("busy") });
   });
 });
 

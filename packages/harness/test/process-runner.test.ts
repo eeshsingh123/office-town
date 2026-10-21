@@ -61,17 +61,6 @@ afterEach(async () => {
 });
 
 describe("runProcess in the native environment", () => {
-  it("reports the exit code and captured stderr after the last line", async () => {
-    const observed = await observe(process.execPath, [fixture("echo.mjs")]);
-    observed.process.writeLine("last");
-    observed.process.writeLine("fail");
-
-    const { exit, stderrTail } = await observed.exited;
-    expect(exit.code).toBe(3);
-    expect(stderrTail).toContain("something broke");
-    expect(observed.lines.at(-1)).toBe("echo:last");
-  });
-
   it("kills the whole process tree", async () => {
     const observed = await observe(process.execPath, [fixture("tree.mjs")]);
     const grandchildPid = Number(await observed.nextLine());

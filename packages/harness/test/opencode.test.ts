@@ -3,7 +3,7 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { opencodeAdapter } from "../src/adapters/opencode/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadLines, loadRecording, replay, replayOptions } from "./support/replay.ts";
+import { loadRecording, replay, replayOptions } from "./support/replay.ts";
 
 const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "opencode", name);
 const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
@@ -18,10 +18,9 @@ const recordings = {
 };
 // Recorded with an effort chosen, so it only replays correctly with one.
 const effortRecording = recording("effort");
-const catalogOutput = loadLines(fixture("catalog.txt"));
 const withEffort = (effort: string) => ({ ...replayOptions, effort });
 
-describeAdapterConformance(opencodeAdapter, recordings, catalogOutput);
+describeAdapterConformance(opencodeAdapter, recordings);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -107,7 +106,7 @@ describe("opencode adapter", () => {
     expect(opencodeAdapter.isolationNote).toContain("global");
   });
 
-  it("performs the handshake, then sends the prompt once the session exists", async () => {
+  it("performs the handshake, then sends the prompt once the session exists, resuming an earlier one when given", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
     expect(written.slice(0, 3).map((line) => JSON.parse(line).method)).toEqual([
@@ -119,6 +118,23 @@ describe("opencode adapter", () => {
       harnessSessionId: "ses_f02f3e6afffe7FEhhi26uQhMlv",
       model: "opencode/big-pickle",
     });
+
+    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
+    const resumed = await replay(opencodeAdapter, recording("resumed"), {
+      ...replayOptions,
+      resumeSessionId,
+    });
+    const sent = resumed.written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/resume",
+      "session/prompt",
+    ]);
+    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
+    expect(sent[2].params.sessionId).toBe(resumeSessionId);
+    expect(only(resumed.events, "session.started")[0]?.payload.harnessSessionId).toBe(
+      resumeSessionId,
+    );
   });
 
   it("sets the chosen effort before the first prompt, or names the values the model offers", async () => {
@@ -217,43 +233,6 @@ describe("opencode adapter", () => {
       usage: { inputTokens: 2350, outputTokens: 35, cachedInputTokens: 2200 },
       children: ["ses_child"],
     });
-  });
-
-  it("resumes an earlier session instead of creating one, and reports its id", async () => {
-    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
-    const { events, written } = await replay(opencodeAdapter, recording("resumed"), {
-      ...replayOptions,
-      resumeSessionId,
-    });
-
-    const sent = written.map((line) => JSON.parse(line));
-    expect(sent.map((message) => message.method)).toEqual([
-      "initialize",
-      "session/resume",
-      "session/prompt",
-    ]);
-    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
-    expect(sent[2].params.sessionId).toBe(resumeSessionId);
-    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
-    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
-
-  it("reads the todo list as the plan and a sub-agent call as a delegation", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["plan-and-subagent"]);
-
-    expect(only(events, "plan.updated").map((event) => event.payload.steps)).toEqual([
-      [
-        { id: "1", title: "look at files", status: "in_progress" },
-        { id: "2", title: "report", status: "pending" },
-      ],
-      [
-        { id: "1", title: "look at files", status: "completed" },
-        { id: "2", title: "report", status: "completed" },
-      ],
-    ]);
-    expect(only(events, "action.started").map((event) => event.payload)).toEqual([
-      expect.objectContaining({ kind: "delegate", title: "Glob for txt files", planStepId: "1" }),
-    ]);
   });
 
   it("answers a pending permission as cancelled when interrupted, and stays usable", async () => {

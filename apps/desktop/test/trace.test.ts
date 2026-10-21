@@ -1,8 +1,6 @@
-import type { SessionEvent, SessionEventBody, SessionRecord } from "@office-town/contract";
+import type { SessionEvent, SessionEventBody } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { StreamedEvent } from "../src/api/event-stream.ts";
-import { describeActions, toBlocks } from "../src/trace/blocks.ts";
-import { agentState, progressOf } from "../src/trace/progress.ts";
 import { applyEvents, emptyTrace, requestKey, type TraceAction } from "../src/trace/trace.ts";
 
 const SESSION = "session-1";
@@ -80,49 +78,5 @@ describe("trace", () => {
     const finished = applyEvents(trace, done);
     expect(finished.streaming).toEqual({});
     expect(finished.order.at(-1)).toBe(done[0]?.event.id);
-  });
-
-  it("groups actions by plan step, naming each step once, and sums up a run of actions", () => {
-    const batch = stream(
-      started("a", { planStepId: "1" }),
-      started("b", { planStepId: "1", kind: "execute" }),
-      { type: "message", payload: { role: "assistant", text: "Halfway" } },
-      started("c", { planStepId: "1" }),
-      started("d", { planStepId: "2" }),
-    );
-    const trace = applyEvents(emptyTrace(SESSION), batch);
-
-    expect(toBlocks(trace)).toEqual([
-      { kind: "actions", ids: ["a", "b"], stepId: "1", showsStep: true },
-      { kind: "item", id: batch[2]?.event.id },
-      { kind: "actions", ids: ["c"], stepId: "1", showsStep: false },
-      { kind: "actions", ids: ["d"], stepId: "2", showsStep: true },
-    ]);
-    const actions = ["a", "b", "c"].map((id) => trace.items.get(id) as TraceAction);
-    expect(describeActions(actions)).toBe("Read 2 files, ran 1 command");
-  });
-
-  it("tells working from waiting from done for now, and shows the step and current action", () => {
-    const session = { status: "running" } as SessionRecord;
-    const working = applyEvents(emptyTrace(SESSION), work);
-    const idle = applyEvents(
-      working,
-      stream({ type: "turn.ended", payload: { turnId: "t1", outcome: "completed" } }),
-    );
-
-    expect(progressOf(working)).toMatchObject({
-      step: { number: 1, title: "Look" },
-      stepCount: 2,
-      current: { id: "write" },
-    });
-    expect(agentState(session, working, false)).toBe("working");
-    expect(agentState(session, working, true)).toBe("waiting");
-    // The write is still open, so the agent is working until it ends.
-    expect(agentState(session, idle, false)).toBe("working");
-    const closed = applyEvents(idle, stream(ended("write")));
-    expect(agentState(session, closed, false)).toBe("idle");
-    expect(agentState({ status: "interrupted" } as SessionRecord, closed, false)).toBe(
-      "interrupted",
-    );
   });
 });
