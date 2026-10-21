@@ -322,15 +322,30 @@ export async function deleteTask(context: TeamContext, taskId: string): Promise<
   await context.store.deleteTask(taskId);
 }
 
+// Between turns, owed nothing, asking nothing and handed nothing: its work was finished.
+function finishedWork(store: Store, session: SessionRecord, waiting: Set<string>): boolean {
+  if (store.latestTurn(session.id)?.ended !== true || store.owesTurn(session.id)) return false;
+  return !waiting.has(session.id) && store.workingDelegation(session.id) === undefined;
+}
+
+// A member that had finished ends as done, like one stopped for being idle; the rest as stopped.
 export async function stopTeam({ store, registry }: TeamContext, taskId: string): Promise<void> {
-  for (const delegation of store.listDelegations(taskId)) {
+  const delegations = store.listDelegations(taskId);
+  const handedOut = delegations.some((delegation) => delegation.status === "working");
+  const leadId = store.getTask(taskId)?.leadAgentId;
+  const waiting = new Set(store.listPendingRequests().requests.map(({ event }) => event.sessionId));
+  const open = store
+    .listSessions(taskId)
+    .filter(isOpen)
+    .map((session) => {
+      const awaitsTeam = session.agentId === leadId && handedOut;
+      return { session, done: !awaitsTeam && finishedWork(store, session, waiting) };
+    });
+  for (const delegation of delegations) {
     if (delegation.status === "working") store.endDelegation(delegation.id, "stopped");
   }
   const stops = await Promise.allSettled(
-    store
-      .listSessions(taskId)
-      .filter(isOpen)
-      .map((session) => registry.stop(session.id)),
+    open.map(({ session, done }) => registry.stop(session.id, done)),
   );
   throwUnlessStopped(stops, "Some members could not be stopped.");
 }
