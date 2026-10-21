@@ -10,7 +10,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
-import { usageByPerson } from "../departments/usage.ts";
+import { newTokens, usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import {
@@ -122,6 +122,19 @@ function layOut(layout: Layout) {
   ];
   const plan = floorPlan(specs, layout.positions);
 
+  // Each department's current or last goal, and what each member used on it once its traces are in.
+  const goals = new Map(departments.map((one) => [one.id, goalOf(one, state)]));
+  const memberTokens = new Map<string, number>();
+  // Sessions whose traces the token counts still wait for.
+  const unloaded: string[] = [];
+  for (const goal of goals.values()) {
+    const people = usageByPerson(goal.sessions, traces);
+    if (people === undefined) {
+      unloaded.push(...goal.sessions.flatMap((one) => (traces[one.id] ? [] : one.id)));
+    }
+    for (const person of people ?? []) memberTokens.set(person.agentId, person.tokens);
+  }
+
   const floorAgents = present.map((agent): FloorAgent => {
     const roomId = roomOf(agent, byId, chiefId);
     const room = plan.rooms.find((one) => one.id === roomId);
@@ -134,6 +147,7 @@ function layOut(layout: Layout) {
             ? guests.indexOf(agent)
             : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
+    const tokens = roomId === agent.record.departmentId ? memberTokens.get(agent.id) : undefined;
     const trace = traces[agent.latest.id];
     return {
       agent,
@@ -148,6 +162,7 @@ function layOut(layout: Layout) {
             : roomId === GUESTS
               ? "Guests"
               : (byId[roomId]?.name ?? ""),
+      ...(tokens === undefined ? {} : { tokens }),
       ...bubbleOf(
         agentState,
         asking.get(agent.latest.id),
@@ -160,38 +175,23 @@ function layOut(layout: Layout) {
     [OPEN]: { title: "Open floor", note: "Assistants", lines: [] },
     [GUESTS]: { title: "Review desk", note: "Reviewers", lines: [] },
   };
-  // Sessions whose traces the usage strips still wait for.
-  const unloaded: string[] = [];
   for (const department of departments) {
-    const goal = goalOf(department, state);
-    const working = goal.task !== undefined && goal.sessions.some(isOpen);
-    const people = usageByPerson(goal.sessions, traces);
-    if (people === undefined) {
-      unloaded.push(...goal.sessions.flatMap((one) => (traces[one.id] ? [] : one.id)));
-    }
+    const goal = goals.get(department.id);
+    const task = goal?.task;
+    const working = task !== undefined && (goal?.sessions ?? []).some(isOpen);
+    const apps = (task?.usage ?? [])
+      .map((one) => ({ name: harnessName(one.harness), tokens: newTokens(one) }))
+      .filter((one) => one.tokens > 0);
     signs[department.id] = {
       title: department.name,
       note: AUTONOMY[department.autonomy].short,
       lines:
-        goal.task === undefined
+        task === undefined
           ? ["No goal in progress"]
-          : working
-            ? [taskTitle(goal.task.prompt)]
-            : ["No goal in progress", `Last goal · ${taskTitle(goal.task.prompt)}`],
-      ...(people === undefined || people.length === 0
+          : [working ? taskTitle(task.prompt) : `Last goal · ${taskTitle(task.prompt)}`],
+      ...(apps.length === 0
         ? {}
-        : {
-            usage: {
-              label: working ? "This goal" : "Last goal",
-              people: people.flatMap(({ agentId, tokens }) => {
-                const agent = state.agents[agentId];
-                return agent === undefined
-                  ? []
-                  : [{ id: agentId, name: agent.name, colour: agent.colour, tokens }];
-              }),
-              total: people.reduce((sum, one) => sum + one.tokens, 0),
-            },
-          }),
+        : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),
     };
   }
   return { plan, floorAgents, signs, unloaded };

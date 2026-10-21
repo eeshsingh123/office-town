@@ -639,20 +639,20 @@
   color: var(--text);
 }
 
-/* Who used what, in the free strip under the bottom desks. */
+/* A goal's tokens, in all and per AI app, under the room's goal line. */
 .roomUsage {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 26px;
-  padding: 0 14px;
-  border-top: 1px solid var(--border);
-  font-size: 11.5px;
-  color: var(--text-2);
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roomUsage li {
+  padding: 1px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .roomUsage strong {
@@ -660,34 +660,30 @@
   color: var(--text);
 }
 
-.usagePeople {
-  display: flex;
-  flex: 1;
-  gap: 14px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  list-style: none;
-}
-
-.usagePeople li {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-}
-
-.usageName {
-  max-width: 90px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .usageTotal {
-  flex: none;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.usageApp {
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+/* What a member used on its department's goal, above its head. */
+.tokens {
+  position: absolute;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
   white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .roomLines span {

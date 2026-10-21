@@ -338,7 +338,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 
 - OpenCode's ACP turn result reports only the turn's last model step, so tokens were undercounted 2 to 7 times. Once a session ends (idle stop included), the core reads the conversation back with the adapter's `recount` (`opencode export`, sub-agents' sessions followed) and adds what the turns missed as a `usage.recounted` event. Why after the session (owner): nothing runs while the agent works, so the user is never held up; the figure is low only until the session ends.
 - The event carries the missing part, not a total, so every sum (task, agent, account) just adds it like a turn. The missing part is the conversation's real total minus everything its sessions recorded, so recounting again adds nothing and a resumed conversation is not counted twice. At start, sessions of the last 7 days not yet recounted are caught up.
-- A department's floor sign shows its goal's tokens per member (owner's pick, mockup C), never an account's plan %, which belongs to the whole account.
+- A department's sign shows its goal's total and per AI app, and each member's tokens float above its head (owner's pick, A+C; a strip under the desks got cramped in a big room). Never an account's plan %, which belongs to the whole account. Department rooms are taller for it (`DEPARTMENT_DESK_TOP`, `DEPARTMENT_PITCH_Y`).
 
 ## Done
 

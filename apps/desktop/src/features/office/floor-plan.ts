@@ -59,6 +59,9 @@ const GAP = { x: 40, y: 50 };
 // Room for the sign, goal and usage lines above the first desk; the chief's office has no goal or usage.
 const DESK_TOP = 160;
 const CHIEF_DESK_TOP = 90;
+// A department's sign holds its goal's usage, and each member a token count above its head.
+const DEPARTMENT_DESK_TOP = 212;
+const DEPARTMENT_PITCH_Y = 180;
 const DESK_BOTTOM = 34;
 const CORRIDOR = 90;
 // Room for the plan's links between the chief's office and the rooms below.
@@ -72,14 +75,16 @@ export const movable = (kind: RoomKind) => kind === "department" || kind === "ch
 function placeRoom(spec: RoomSpec, at: Point): Room {
   const columns = Math.min(MAX_COLUMNS, Math.max(1, spec.desks));
   const rows = Math.max(1, Math.ceil(spec.desks / columns));
-  const top = spec.kind === "chief" ? CHIEF_DESK_TOP : DESK_TOP;
+  const department = spec.kind === "department";
+  const top = spec.kind === "chief" ? CHIEF_DESK_TOP : department ? DEPARTMENT_DESK_TOP : DESK_TOP;
+  const pitchY = department ? DEPARTMENT_PITCH_Y : PITCH.y;
   const width = columns * PITCH.x + 70;
-  const height = top + (rows - 1) * PITCH.y + DESK.height + DESK_BOTTOM;
+  const height = top + (rows - 1) * pitchY + DESK.height + DESK_BOTTOM;
   const left = at.x + (width - ((columns - 1) * PITCH.x + DESK.width)) / 2;
   const seats = Array.from({ length: Math.max(1, spec.desks) }, (_, index) => {
     const desk = {
       x: left + (index % columns) * PITCH.x,
-      y: at.y + top + Math.floor(index / columns) * PITCH.y,
+      y: at.y + top + Math.floor(index / columns) * pitchY,
     };
     return { desk, agent: { x: desk.x + DESK.width / 2, y: desk.y - 46 } };
   });
