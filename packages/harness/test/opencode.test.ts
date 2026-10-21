@@ -222,6 +222,7 @@ describe("opencode adapter", () => {
       inputTokens: 10405,
       outputTokens: 1025,
       cachedInputTokens: 10297,
+      contextTokens: 11430,
     });
   });
 

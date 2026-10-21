@@ -216,6 +216,13 @@ describe("claude adapter", () => {
     });
   });
 
+  it("reports the main conversation's length at each turn's end, not a sub-agent's", async () => {
+    const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
+    expect(only(events, "turn.ended").map((event) => event.payload.usage?.contextTokens)).toEqual([
+      38583, 39529,
+    ]);
+  });
+
   it("reports how much of each subscription window is used and when it resets", async () => {
     const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
 

@@ -8,6 +8,8 @@ export const tokenUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   cachedInputTokens: z.number().int().nonnegative().optional(),
+  // How long the conversation was at the turn's last model step; every step re-reads all of it.
+  contextTokens: z.number().int().nonnegative().optional(),
   costUsd: z.number().nonnegative().optional(),
 });
 export type TokenUsage = z.infer<typeof tokenUsageSchema>;

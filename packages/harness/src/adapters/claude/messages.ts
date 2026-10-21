@@ -62,8 +62,16 @@ export const streamEventSchema = z.looseObject({
   parent_tool_use_id: z.string().nullish(),
 });
 
+const callUsageSchema = z.looseObject({
+  input_tokens: z.number(),
+  output_tokens: z.number(),
+  cache_creation_input_tokens: z.number().optional(),
+  cache_read_input_tokens: z.number().optional(),
+});
+
 export const assistantSchema = z.looseObject({
-  message: z.looseObject({ content: z.array(blockSchema) }),
+  // One model call's usage; the CLI repeats it on every line of that call.
+  message: z.looseObject({ content: z.array(blockSchema), usage: callUsageSchema.optional() }),
   parent_tool_use_id: z.string().nullish(),
 });
 
@@ -162,14 +170,7 @@ export const resultSchema = z.looseObject({
   subtype: z.string(),
   terminal_reason: z.string().optional(),
   result: z.string().optional(),
-  usage: z
-    .looseObject({
-      input_tokens: z.number(),
-      output_tokens: z.number(),
-      cache_creation_input_tokens: z.number().optional(),
-      cache_read_input_tokens: z.number().optional(),
-    })
-    .optional(),
+  usage: callUsageSchema.optional(),
 });
 
 // `claude auth status --json`; the rest of its fields are not needed.
