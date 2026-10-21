@@ -4,8 +4,6 @@ Only decisions that still guide upcoming work keep their why. Everything settled
 
 ## Guiding upcoming work
 
-### D-11 Task agnostic, connectors as plugins — accepted, designed in D-67 and D-68
-
 ### D-15 Local SQLite event log behind a store interface — accepted (2026-10-03)
 
 Every event is appended to one local SQLite file; current state and replay are both read from it. No queue, broker or database server; the rest of the core reaches storage only through a small store interface.
@@ -96,7 +94,7 @@ Why: both CLIs call MCP tools, so delegation works the same on every harness and
 - Departments are saved standing teams with their own room. The lead proposes the team first; the user edits and approves it and can change it any time (owner).
 - Autonomy: Supervised ("Ask me first") and Full ("Don't ask", everything goes ahead and is recorded); Trusted was removed in D-57. Bypass stays, with a warning (owner).
 - Outward actions (push, PR, publish) go ahead only under Full (owner).
-- Outsourced agents work on a copy, never the original (owner).
+- A checker works in a sandbox, never on the original (owner, D-73).
 
 ### D-41 Harness facts from the M4.1 spike — accepted (2026-10-05)
 
@@ -129,9 +127,9 @@ Why: tools return at once (D-39), and only a turn's end says the work is finishe
 Agents run in the harness's `ask` mode; the session attaches each request's action (kind, paths, command) and the core's policy answers what the level allows; anything unreadable goes to the user. A read-only folder asks for anything but a read at every level (D-57). A session already in Bypass stays unguarded until it ends.
 Why: one guardrail for every harness; a new harness or connector only reports its actions' kinds and paths.
 
-### D-47 Outsourced agents are guests on a copy — accepted (2026-10-05)
+### D-47 Guests work outside the team, on a sandbox — accepted (2026-10-05), now only the checker (D-73)
 
-A guest works in the same task on a copy of the chosen paths, without instruction files, harness settings, `.git` or `node_modules`, at its owner's level, at most Full. It leaves once it has answered. The user's second opinion examines the agent it is asked from, in that agent's own folder.
+A guest works in the same task, not on the team, at its owner's level, at most Full, and leaves once it has answered. Only the user calls one in, as the checker; its sandbox is set in D-73.
 
 ### D-49 Command center: a chief over departments — accepted (2026-10-07)
 
@@ -160,11 +158,6 @@ Why: the command center shows every goal's state at once, and the chief needs th
 - The user picks a new department's workspace and autonomy on the plan card (owner).
 - A user's message to a worker is noted to its lead only while the lead is at work, so no turn is spent on a note.
 
-### D-52 Home is the screen the app opens on — accepted (2026-10-10)
-
-Home shows the office at a glance: a one-line composer (to the chief, a department, or a solo agent on New task's last choices; otherwise it hands the text to New task), what needs you, the status counts, the team with one line each, and recent tasks or a Get started list before the first task. Departments can be built by hand on New department through the existing `POST /departments`.
-Why: the floor alone opened on a near-empty screen and gave a new user no next step (owner feedback, squad.so as reference). The floor and board stay one click away.
-
 ### D-53 Creation flows for people who are not technical — accepted (2026-10-10)
 
 - Words the user reads: "How much can it do without asking you?" (Ask me first, Don't ask; the harness bypass sits behind More options), Workspace (D-56), AI app for a harness, Templates for profiles (D-55). Code and API keep their names.
@@ -175,7 +168,7 @@ Why: the owner found the old form vague, full of jargon and generic-looking; the
 
 ### D-54 A review is the next step in the chat — accepted (2026-10-10)
 
-- "Second opinion" is now "Send for review" (D-18 unchanged underneath). Once a team task, or a solo task with a plan of three or more steps, has finished, a card at the end of the chat asks "Do you want this work reviewed?" with Send for review, See the files and No thanks (remembered per task in the browser). While a review runs the card says so; after it, Read the review and Review again.
+- Once a team task, or a solo task with a plan of three or more steps, has finished, a card at the end of the chat asks "Done. Get this work checked?" with Send for review, See the files and No thanks (remembered per task in the browser). What follows is the check loop (D-73).
 - "Send for review" also sits under the message box at any time. The dialog comes with a ready brief, so one click sends it. Reviewers are listed as Reviewers in the team view.
 - Open folder moved into the header's facts as the folder's name; in the app a click opens it.
 - The offer comes from the app, not the agent: it shows the same way on every harness, costs no tokens, and only appears when the lead really finished (not interrupted, stopped or failed).
@@ -228,15 +221,6 @@ Why: the owner found the form vague, slow and generic-looking; Devin, Jules, Cod
 - Ctrl+K opens a search over pages, departments and recent tasks, with "Start a task" for the typed text last.
 Why: the owner found raw model ids, handles and AI-sounding explanations throughout the app.
 
-### D-60 Tasks grouped by team, with tabs, search and filters — accepted (2026-10-11)
-
-- Tasks groups by team by default (the chief, each department by name, then Assistants); Group by also offers Status and Day, remembered in the browser. Tabs with counts: All, Needs you, Working, To review, Done, Failed or stopped. Search covers title, prompt, live line, team, agents and workspace; filters for Team, Workspace and Started.
-- A row: status icon, title, one live line (the ask, the step "Step 2 of 6 · …", or what it waits on), who, a step or part bar, last activity, one button (Answer or Review) and a ⋯ menu (Show in office, Delete). Handles stay out (D-59): a team's row reads "Lead + 2".
-- A chief's parts sit under their goal, planned ones included; a part stands alone under its department, with "Part of: …", only when its goal is filtered out. A goal that waits on a part needs you, and Answer opens that part.
-- Working with nothing new in its trace for 60 minutes shows "Stuck 1 h" (owner). No trace loaded means unknown, never stuck.
-- Done tasks fold into "Show N done" in a group that still has open work. The history size is a small muted figure beside the tabs, amber past 1 GB. No bulk delete (owner).
-- The logic is `features/tasks/task-list.ts`; the Office Board stays as the live column view.
-
 ### D-61 Accounts and a Usage page — accepted (2026-10-11)
 
 - An account is one login on one harness where it runs. The CLI's own login is the Default account (id: the harness, or `harness@distro` in WSL), so nothing changes until a second one is added. An added account is a folder of its own in `<data folder>/accounts/<id>`, handed to the unmodified CLI as `CLAUDE_CONFIG_DIR` (Claude) or `XDG_DATA_HOME` (OpenCode). D-6 holds: the CLI signs in and saves its own credentials (`claude auth login`; `opencode auth login --provider` reading the key from stdin). The core only checks that the sign-in file exists.
@@ -244,24 +228,6 @@ Why: the owner found raw model ids, handles and AI-sounding explanations through
 - A Claude turn refused by its plan (`rate_limit_event` status "rejected") marks that window full. Limits are saved from runs and, since PR #47, also read on demand (`POST /limits/refresh`: Claude's `/api/oauth/usage`, the endpoint the CLI's own `/usage` calls, with the CLI's token, never refreshed by us); the Usage page and Plan usage card refresh on open, every 5 minutes, on focus and by a button, and say "Updated N min ago". An expired token keeps the last reading. OpenCode reports no limits: its cards show tokens counted by the app and link to opencode.ai.
 - UI: Usage in the main nav (red dot when an account is over 90%), Home's Plan usage card, an Account chip in agent settings, and agents stopped at a limit in Needs you and on Home with "Continue on <account>" and "Resume at <reset>" (an in-memory timer; closing the app drops it). Amber from 70%, red from 90% (owner). The Office bar keeps Floor/Board, "N working", the waiting chip and a used-up account; counts live on Home.
 Why: the owner runs several Claude and other subscriptions and could not see or steer their usage; the top bar's figures went unnoticed.
-
-### D-62 Side panel and resizable sidebars — accepted (2026-10-11)
-
-- The Office side panel is a quick look at one agent, department or the chief, with the same shape for all three: a header (picture, name, role, status chip, close), tabs Now / Activity / Chat (and Profile for an agent), and a footer of buttons under Now and Activity. Now shows, in order: the waiting ask, what it works on with a live line and its step, the last 3 finished actions, and one row of run facts.
-- Activity shows the agent's own steps with each step's actions summarised under it (actions carry `planStepId`). An agent that made no step list gets its actions grouped by the message that started them ("You asked: …"), so the tab is never empty while the agent works. The logic is `trace/activity.ts`.
-- Chat folds each run of tool calls between messages into one line ("Searched once, fetched 3 pages").
-- The task page drops its Details column and the facts under the title. One run bar above the message box shows who, AI app and model, effort, permissions, folder, and time and tokens; the last opens the full run details. The plan is a Steps column that hides and resizes, shown only when a step list exists. Plan usage stays in the top bar.
-- The left sidebar, the side panel and the Steps column resize by dragging their edge (arrow keys on the focused handle, double-click resets); widths are kept in the browser. The left sidebar collapses to an icon rail (button or Ctrl+B); the side panel slides out whole (close, or the top-bar button) and comes back when something is picked. Both move in 180 ms, none with reduced motion.
-Why: the owner found the panel cramped (hidden tabs still took space), the Work tab empty for most agents, the Details column a repeat of the header, and both sidebars fixed.
-
-### D-63 Back and Forward, double-click to chat, group selection — accepted (2026-10-11)
-
-- The app keeps a browser-like history in memory: every screen change is a step, and each step keeps the office selection it had, so Back from a task page lands on the office with the same agent open. Picking agents in the office is not a step of its own (clicking five agents should not take five Backs). Back and Forward sit at the top of the sidebar (also in the icon rail, with "Back to …" on hover); Alt+←/→ and the mouse's side buttons work too. Task, department and workspace pages show a breadcrumb. Esc stays "close and clear", not Back.
-- Double-click (or Enter on the selected one) on an agent, the chief or a department sign opens the side panel on Chat with the message box focused.
-- A multi-agent selection shows a count by state, one card per agent (who needs you first, each with its main button: Answer or Review), Message all (finished agents are resumed in their last task, as in the single chat), Stop N at work, Give them a task, and Pin.
-- Group task (owner): the user picks a lead among free selected agents; the others are its workers for that task only (`task.workerAgentIds`, table `task_workers`). Each agent keeps its own settings, permissions and its department's rules; work happens in one workspace, by default the lead's; no branch per worker; the lead cannot propose a different team. Busy agents (an open session on a working or waiting task) cannot be picked, and a lead cannot hand work to a worker that became busy elsewhere. The chief and reviewers stay out. Tasks lists a group task under its lead's department, as "N agents".
-- Pinned agents show in a strip at the bottom of every screen, kept in the browser across restarts, until unpinned.
-Why: the owner had no way back from any screen, double-click did nothing, and a drag selection only offered messages that could not reach finished agents.
 
 ### D-64 Files and Library — accepted (2026-10-11)
 
@@ -363,7 +329,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Checking stays an offer and is never automatic (owner). Send for review starts a checker: a fresh guest with the goal, the user's messages, every piece's brief and result, the lead's final account and its conversation as a file to search. Owner: it must have every piece of context it needs. In round 1 it adds edge cases, boundary cases and expected scenarios (`propose_checks`), at most 10 focused items in all (owner: a list the user can read through; they add more in the card). You edit and approve the combined list in Needs you, and after that the list cannot change. The checker then runs every item and reports pass, fail or not run, each with evidence (`report_check`). A fail needs steps, what was expected, and what happened. Anything outside the list goes to notes and is never fixed in the loop.
 - You are the round limit. The card shows "n of m pass" with each failure. **Send fixes to the team** sends only the failing items to the lead, with "smallest change; never edit a test to make it pass". **Check again** starts a fresh checker that runs the whole frozen list, so a fix that breaks a passing item shows as a regression. **Accept as is** marks the task reviewed.
 - Sandbox: in a git workspace, a detached worktree of the lead's folder, uncommitted and untracked work included. It leaves no branch behind, and the checker may install and run things in it. Elsewhere, a copy without `.git` and `node_modules`. Owner: no leftovers. Each sandbox lives under `checks/` in the data folder and is removed when the checker's session ends for any reason, when its list is declined, and when the task is deleted. At startup, any sandbox left over is removed and git's worktree records are pruned.
-- The lead's `outsource` tool is removed: a mid-work second opinion overlaps with workers, costs tokens on every lead step, and is one more place to loop. D-47's guest-on-a-copy stays as the checker.
+- The lead's `outsource` tool is removed: a mid-work second opinion overlaps with workers, costs tokens on every lead step, and is one more place to loop. D-47's guest stays, as the checker.
 
 ## Done
 
@@ -379,6 +345,7 @@ All accepted and built.
 - D-8 The app orchestrates across harnesses; a harness's own sub-agents show as nested activity.
 - D-9 Command-center direction: expanded into D-49.
 - D-10 Human in the loop: per-team autonomy plus one blocked queue.
+- D-11 Task agnostic, connectors as plugins: built as D-67 and D-68.
 - D-14 Where a harness runs (native, WSL) is an `Environment`, separate from which harness it is.
 - D-16 Sandbox and computer use are deferred; D-14 keeps the door open.
 - D-18 Outsourced agents get only a brief and a copy; built as D-47.
@@ -392,3 +359,7 @@ All accepted and built.
 - D-27 Withdrawn: a per-agent budget inside the app. Replaced by D-29.
 - D-46 A worker's worktree is made from the lead's branch by the worker's own git, kept in the data folder, removed once merged and ended; the branch stays.
 - D-48 Every department is a room with a desk per member, lead first; solo agents share the open floor, guests the guest desk. Room usage is per goal (D-50); rooms are draggable (D-49).
+- D-52 Home is the first screen: one-line composer, what needs you, status counts, the team, recent tasks or Get started.
+- D-60 Tasks groups by team, with tabs, search and filters; "Stuck 1 h" after 60 minutes with nothing new (owner); no bulk delete (owner). Logic in `features/tasks/task-list.ts`.
+- D-62 One side panel shape for an agent, a department and the chief (Now, Activity, Chat); the sidebars resize and collapse. Activity logic in `trace/activity.ts`.
+- D-63 Back and Forward keep the office selection; double-click opens Chat; a group task picks a lead among free selected agents (`task_workers`), the chief and reviewers stay out; pinned agents stay in a strip.
