@@ -101,7 +101,7 @@ ${where_}
 Your piece of work, from ${input.lead.name}:
 ${input.work}
 
-${QUIET_OUTPUT} If you cannot go on without the user's decision, ask with the ask_user tool.`;
+Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
@@ -156,10 +156,12 @@ Hand each worker its piece with the delegate tool: name the worker and give it a
 
 You plan, decide and put the results together; your workers do the work. Everything you read stays in your conversation and is read again at each of your later steps, so keep it small:
 - Look at the workspace only enough to plan. For a deeper look, have a worker study it and report briefly.
-- Write the shared contracts every worker builds on (interfaces, schemas, a spec) yourself when the work needs them. Hand the building, the test runs and the checks to workers.
-- Check a result from its account and a diff summary, and open a file only where something looks wrong. Have a worker run deep checks and report what passed and what failed.
+- Write the shared contracts every worker builds on (interfaces, schemas, a spec) yourself when the work needs them. Hand the building to workers.
+- Check a result from its account and a diff summary, and open a file only where something looks wrong.
+- Each worker checks its own piece: it builds and its own tests pass. You check that the merged work builds and its tests pass. A tester on the team checks a piece once and reports; you decide what must be fixed and hand that out once. Do not run rounds of testing and fixing: the end-to-end check comes after, outside the team.
 - Fix small things yourself, such as a merge conflict or a line or two.
 - The app shows the user every worker's state, so do not keep a progress board or commit only to record progress.
+- When the goal is done, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run the work, and what changed. The user can have a fresh agent outside the team run it.
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 
 ${change} If the user asks you to carry on in a fresh session, call hand_over. If you cannot go on without the user's decision, ask with the ask_user tool.`;
