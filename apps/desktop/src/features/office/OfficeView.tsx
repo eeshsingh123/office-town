@@ -9,7 +9,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
-import { usageByHarness, usageSummary } from "../departments/usage.ts";
+import { tokenSummary } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import {
@@ -83,7 +83,6 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
-  limits: Record<string, AccountLimits>;
   state: Known;
   chiefId: string | undefined;
   positions: Record<string, Point>;
@@ -91,7 +90,7 @@ interface Layout {
 
 // Every agent at work or done today, at a desk. The chief keeps its office whenever it is set up.
 function layOut(layout: Layout) {
-  const { agents, traces, waiting, harnessName, departments, limits, state, chiefId } = layout;
+  const { agents, traces, waiting, harnessName, departments, state, chiefId } = layout;
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
@@ -162,8 +161,8 @@ function layOut(layout: Layout) {
   };
   for (const department of departments) {
     const goal = goalOf(department, state);
-    const usage = usageByHarness(goal.sessions, goal.task?.usage ?? [], limits)
-      .map((one) => usageSummary(one, harnessName(one.harness)))
+    const usage = (goal.task?.usage ?? [])
+      .map((one) => tokenSummary(one, harnessName(one.harness)))
       .join(" · ");
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
     signs[department.id] = {
@@ -188,7 +187,6 @@ export function OfficeView() {
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) => state.waiting);
   const harnesses = useApp((state) => state.harnesses);
-  const limits = useApp((state) => state.limits);
   const selection = useApp((state) => state.selection);
   const mode = useOffice((state) => state.mode);
   const view = useApp((state) => state.view);
@@ -211,7 +209,6 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
-      limits,
       state: { agents: records, tasks, sessions },
       chiefId,
       positions,
@@ -222,7 +219,6 @@ export function OfficeView() {
     waiting,
     harnesses,
     departments,
-    limits,
     records,
     tasks,
     sessions,
