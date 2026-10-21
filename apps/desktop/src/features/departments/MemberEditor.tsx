@@ -1,5 +1,5 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { MoreHorizontal, Plus, Search, SwatchBook } from "lucide-react";
+import { MoreHorizontal, Plus, Search, SwatchBook, Trash2 } from "lucide-react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
@@ -184,8 +184,10 @@ export function MemberEditor({
     onChange({ ...team, members: rest });
     onSelect(rest[Math.max(0, index - 1)]?.key ?? team.lead.key);
   };
+  // A new, blank member in the role: only the role name is filled in.
+  const another = (role: string) => add(blankPerson(defaults, role));
   // A copy of someone in the role, with the same job, instructions and model.
-  const another = (like: PersonForm) =>
+  const duplicate = (like: PersonForm) =>
     add({
       ...blankPerson(like.settings, baseRole(like.role), like.purpose),
       instructions: like.instructions,
@@ -277,10 +279,7 @@ export function MemberEditor({
                 <button
                   type="button"
                   className={styles.another}
-                  onClick={() => {
-                    const [like] = group.members;
-                    if (like !== undefined) another(like);
-                  }}
+                  onClick={() => another(group.role)}
                 >
                   <Plus size={13} aria-hidden />
                   Add another
@@ -327,6 +326,12 @@ export function MemberEditor({
                   Start from template
                 </Button>
               )}
+              {isLead ? null : (
+                <Button variant="danger" onClick={remove}>
+                  <Trash2 size={14} aria-hidden />
+                  Remove from team
+                </Button>
+              )}
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <Button
@@ -370,13 +375,8 @@ export function MemberEditor({
                       Save as template
                     </DropdownMenu.Item>
                     {isLead ? null : (
-                      <DropdownMenu.Item className={menu.item} onSelect={() => another(person)}>
+                      <DropdownMenu.Item className={menu.item} onSelect={() => duplicate(person)}>
                         Duplicate
-                      </DropdownMenu.Item>
-                    )}
-                    {isLead ? null : (
-                      <DropdownMenu.Item className={menu.item} onSelect={remove}>
-                        Remove from team
                       </DropdownMenu.Item>
                     )}
                   </DropdownMenu.Content>
@@ -447,9 +447,15 @@ export function MemberEditor({
               </>
             )}
 
-            {agent === undefined ||
-            workspaceId === undefined ||
-            departmentId === undefined ? null : (
+            {workspaceId === undefined || departmentId === undefined ? null : agent ===
+              undefined ? (
+              <div className={form.field}>
+                <span className={form.label}>Files</span>
+                <span className={form.hint}>
+                  Save the team first, then give {person.role.trim() || "this member"} files.
+                </span>
+              </div>
+            ) : (
               <FilesSection
                 workspaceId={workspaceId}
                 holder={{ departmentId, agentId: agent.id }}
