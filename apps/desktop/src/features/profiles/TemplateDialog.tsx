@@ -14,6 +14,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { AsksFirst } from "./AsksFirst.tsx";
@@ -141,12 +142,11 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
             </div>
             <label className={form.field} htmlFor="template-job">
               <span className={form.label}>What it does</span>
-              <input
+              <LineField
                 id="template-job"
-                className={form.input}
                 value={draft.job}
                 placeholder="For example: Builds pages, styles and forms"
-                onChange={(event) => set({ job: event.target.value })}
+                onChange={(job) => set({ job })}
               />
             </label>
             <div className={form.field}>

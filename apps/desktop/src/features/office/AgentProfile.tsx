@@ -7,6 +7,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
@@ -152,12 +153,11 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
       </div>
       <label className={form.field} htmlFor={`agent-job-${id}`}>
         <span className={form.label}>What {who} does</span>
-        <input
+        <LineField
           id={`agent-job-${id}`}
-          className={form.input}
           value={draft.job}
           placeholder="For example: Builds pages, styles and forms"
-          onChange={(event) => set({ job: event.target.value })}
+          onChange={(job) => set({ job })}
         />
         <span className={form.hint}>
           {department === undefined || leads
