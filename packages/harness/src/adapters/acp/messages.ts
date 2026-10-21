@@ -22,6 +22,7 @@ export const promptResultSchema = z.looseObject({
       outputTokens: z.number().optional(),
       thoughtTokens: z.number().optional(),
       cachedReadTokens: z.number().optional(),
+      cachedWriteTokens: z.number().optional(),
     })
     .optional(),
 });

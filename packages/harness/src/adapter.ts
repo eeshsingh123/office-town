@@ -6,6 +6,7 @@ import type {
   Question,
   SessionEventBody,
   SessionOptions,
+  TokenUsage,
   UsageLimit,
   VendorApp,
 } from "@office-town/contract";
@@ -139,6 +140,13 @@ export interface VendorAppSupport {
   signInPage(output: string[]): string | undefined;
 }
 
+// Reads what a conversation really used from the harness's own records, after its session ends.
+export interface RecountSupport {
+  command(conversationId: string): HarnessCommand;
+  // Its tokens, and the conversations its sub-agents ran in, which are read the same way.
+  parse(output: string): { usage: TokenUsage; children: string[] };
+}
+
 export interface Adapter {
   readonly harness: string;
   readonly name: string;
@@ -149,6 +157,7 @@ export interface Adapter {
   readonly accounts?: AccountSupport;
   readonly install?: InstallSupport;
   readonly vendorApps?: VendorAppSupport;
+  readonly recount?: RecountSupport;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

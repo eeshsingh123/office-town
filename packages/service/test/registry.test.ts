@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { followRecounts } from "../src/registry/recount.ts";
 import {
   AnswerError,
   type PublishedEvent,
@@ -92,6 +93,43 @@ describe("session registry", () => {
     ]);
     audit.close();
     store = openStore(directory);
+  });
+
+  it("adds what a session's turns left out once it ends, read from the harness's records", async () => {
+    const registry = openRegistry();
+    const recounted = new Promise<void>((done) =>
+      registry.subscribe(({ event }) => {
+        if (event.type === "usage.recounted") done();
+      }),
+    );
+    void followRecounts(
+      registry,
+      store,
+      ["claude"],
+      async () => ({
+        inputTokens: 100,
+        outputTokens: 20,
+        cachedInputTokens: 60,
+      }),
+      0,
+    );
+    const record = await start(registry, "Write a report");
+    sessions[0]?.emit({
+      type: "turn.ended",
+      payload: {
+        turnId: "1",
+        outcome: "completed",
+        usage: { inputTokens: 40, outputTokens: 5, cachedInputTokens: 30 },
+      },
+    });
+    sessions[0]?.emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
+    await recounted;
+
+    expect(store.getTask(record.taskId)?.usage).toEqual([
+      { harness: "claude", inputTokens: 100, outputTokens: 20, cachedInputTokens: 60 },
+    ]);
+    expect(store.sessionsToRecount("claude", new Date(0).toISOString())).toEqual([]);
+    await registry.close();
   });
 
   it("carries on in a new conversation on another account once the first is used up", async () => {

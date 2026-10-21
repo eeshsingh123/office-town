@@ -266,7 +266,7 @@ export class AcpTranslator implements Translator {
           ? {}
           : {
               usage: {
-                inputTokens: (usage.inputTokens ?? 0) + cached,
+                inputTokens: (usage.inputTokens ?? 0) + cached + (usage.cachedWriteTokens ?? 0),
                 // Thinking is billed as output but reported apart.
                 outputTokens: (usage.outputTokens ?? 0) + (usage.thoughtTokens ?? 0),
                 cachedInputTokens: cached,

@@ -577,4 +577,15 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS connector_calls_by_department ON connector_calls (department_ref);
   `,
   addDepartmentWorkspaces,
+  `
+  -- Usage recounted after a session ends sums with its turns (registry/recount.ts).
+  DROP INDEX IF EXISTS events_turns_by_time;
+  CREATE INDEX IF NOT EXISTS events_usage_by_time ON events (timestamp)
+    WHERE type IN ('turn.ended', 'usage.recounted');
+  CREATE INDEX IF NOT EXISTS events_usage ON events (session_ref)
+    WHERE type IN ('turn.ended', 'usage.recounted');
+  CREATE INDEX IF NOT EXISTS sessions_by_conversation ON sessions (harness_session_id)
+    WHERE harness_session_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS sessions_by_end ON sessions (ended_at);
+  `,
 ];

@@ -6,6 +6,7 @@ import type {
   HarnessCommand,
   InstallSupport,
   LaunchOptions,
+  RecountSupport,
 } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
 
@@ -101,6 +102,56 @@ const ISOLATED = {
   OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
 };
 
+const tokensSchema = z.looseObject({
+  input: z.number(),
+  output: z.number(),
+  reasoning: z.number().optional(),
+  cache: z.looseObject({ read: z.number(), write: z.number() }).optional(),
+});
+const exportSchema = z.looseObject({
+  messages: z.array(
+    z.looseObject({
+      info: z.looseObject({ role: z.string(), tokens: tokensSchema.optional() }),
+      parts: z.array(z.looseObject({ type: z.string() })).optional(),
+    }),
+  ),
+});
+const childSchema = z.looseObject({
+  tool: z.literal("task"),
+  state: z.looseObject({ metadata: z.looseObject({ sessionId: z.string().min(1) }) }),
+});
+
+// Every model step is its own assistant message, while a turn's ACP result reports only the last
+// one, so the whole conversation is read back from its export. Sub-agents ran in sessions of their
+// own, named by their task tool calls.
+const recount: RecountSupport = {
+  command: (conversationId) => ({ binary: "opencode", args: ["export", conversationId] }),
+  parse(text) {
+    // Anything it logs comes before the JSON.
+    const exported = exportSchema.parse(JSON.parse(text.slice(text.indexOf("{"))));
+    let input = 0;
+    let output = 0;
+    let cached = 0;
+    const children: string[] = [];
+    for (const { info, parts } of exported.messages) {
+      if (info.role === "assistant" && info.tokens !== undefined) {
+        const { cache, reasoning } = info.tokens;
+        input += info.tokens.input + (cache?.read ?? 0) + (cache?.write ?? 0);
+        output += info.tokens.output + (reasoning ?? 0);
+        cached += cache?.read ?? 0;
+      }
+      for (const part of parts ?? []) {
+        const child = childSchema.safeParse(part);
+        if (child.success) children.push(child.data.state.metadata.sessionId);
+      }
+    }
+    return {
+      usage: { inputTokens: input, outputTokens: output, cachedInputTokens: cached },
+      children,
+    };
+  },
+};
+
 // Each model is a line with its id, then indented JSON; its variants are its effort values.
 const catalog: CatalogQuery = {
   command: { binary: "opencode", args: ["models", "--verbose"] },
@@ -154,5 +205,6 @@ export const opencodeAdapter = createAcpAdapter({
   catalog,
   accounts,
   install,
+  recount,
   buildCommand,
 });

@@ -315,9 +315,28 @@ export const queries = {
     FROM events e
     JOIN sessions s ON s.ref = e.session_ref
     JOIN agents a ON a.ref = s.agent_ref
-    WHERE e.type = 'turn.ended' AND e.timestamp >= ? AND e.payload ->> '$.usage' IS NOT NULL
+    WHERE e.type IN ('turn.ended', 'usage.recounted') AND e.timestamp >= ?
+      AND e.payload ->> '$.usage' IS NOT NULL
     GROUP BY 1, a.id
     ORDER BY outputTokens DESC`,
+  conversationUsage: `
+    SELECT coalesce(sum(e.payload ->> '$.usage.inputTokens'), 0) AS inputTokens,
+           coalesce(sum(e.payload ->> '$.usage.outputTokens'), 0) AS outputTokens,
+           coalesce(sum(e.payload ->> '$.usage.cachedInputTokens'), 0) AS cachedInputTokens
+    FROM events e JOIN sessions s ON s.ref = e.session_ref
+    WHERE s.harness_session_id = ? AND s.options ->> '$.harness' = ?
+      AND e.type IN ('turn.ended', 'usage.recounted') AND e.payload ->> '$.usage' IS NOT NULL`,
+  // Ended since then, with a turn after its last recount (or none yet).
+  sessionsToRecount: `
+    ${SESSION_SELECT}
+    WHERE s.options ->> '$.harness' = ? AND s.harness_session_id IS NOT NULL
+      AND s.status NOT IN ('starting', 'running') AND s.ended_at >= ?
+      AND coalesce((SELECT max(position) FROM events WHERE session_ref = s.ref
+                    AND type = 'turn.ended'), 0)
+        > coalesce((SELECT max(position) FROM events WHERE session_ref = s.ref
+                    AND type = 'usage.recounted'), 0)
+    ORDER BY s.ended_at`,
+  lastSequence: "SELECT coalesce(max(sequence), 0) AS sequence FROM events WHERE session_ref = ?",
   insertAccount: `
     INSERT INTO accounts (id, harness, environment, name, folder, created_at)
     VALUES (?, ?, ?, ?, ?, ?)`,
