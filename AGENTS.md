@@ -17,7 +17,7 @@ Open-source desktop app where a user describes a task and a team of AI agents pl
 - [docs/DECISIONS.md](docs/DECISIONS.md): architecture decisions. Only those that still guide upcoming work keep their why; settled ones are compressed to one line under Done.
 - [docs/MEMORY.md](docs/MEMORY.md): current state, active module, open questions. Update at the end of every work session.
 
-Keep all three short. If a line would not change what the next session does, delete it.
+Keep all four short. If a line would not change what the next session does, delete it.
 
 ## How we work
 
