@@ -212,16 +212,17 @@ function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] 
   if (move === undefined) return [...rooms];
   const dx = move.at.x - move.from.x;
   const dy = move.at.y - move.from.y;
+  const shift = <T extends Point>(point: T): T => ({ ...point, x: point.x + dx, y: point.y + dy });
   return rooms.map((room) =>
     room.id !== move.id
       ? room
       : {
           ...room,
-          rect: { ...room.rect, x: room.rect.x + dx, y: room.rect.y + dy },
-          seats: room.seats.map(({ desk, agent }) => ({
-            desk: { x: desk.x + dx, y: desk.y + dy },
-            agent: { x: agent.x + dx, y: agent.y + dy },
-          })),
+          rect: shift(room.rect),
+          seats: room.seats.map(({ desk, agent }) => ({ desk: shift(desk), agent: shift(agent) })),
+          ...(room.pods === undefined
+            ? {}
+            : { pods: room.pods.map((pod) => ({ ...pod, rect: shift(pod.rect) })) }),
         },
   );
 }
@@ -549,6 +550,30 @@ export function Floor(props: FloorProps) {
           </div>
         );
       })}
+      {rooms.flatMap((one) =>
+        (one.pods ?? []).map((pod) => {
+          const here = inRect(pod.rect, seated).map(({ id }) => id);
+          const { x, y, width, height } = pod.rect;
+          return (
+            <div
+              key={`${pod.rect.x},${pod.rect.y}`}
+              className={styles.pod}
+              style={{ left: x, top: y, width, height }}
+            >
+              <button
+                type="button"
+                className={styles.podLabel}
+                disabled={here.length === 0}
+                title={here.length === 0 ? undefined : "Select everyone here"}
+                onClick={() => onSelect(here)}
+              >
+                <span className={styles.podName}>{pod.label}</span>
+                <span className={styles.podCount}>{pod.desks}</span>
+              </button>
+            </div>
+          );
+        }),
+      )}
       {rooms
         .filter((one) => one.kind !== "add")
         .flatMap((one) => one.seats)

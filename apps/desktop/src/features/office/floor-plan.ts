@@ -23,17 +23,33 @@ export type RoomKind = "department" | "chief" | "open" | "guest" | "add";
 export const ADD_CHIEF = "~add-chief";
 export const ADD_DEPARTMENT = "~add-department";
 
+// A department's sub-team: its lead, or the members sharing a role.
+export interface TeamGroup {
+  label: string;
+  desks: number;
+}
+
 export interface RoomSpec {
   // A department's id, or the kind for the other rooms.
   id: string;
   kind: RoomKind;
   desks: number;
+  // Two or more, filled in order; their desks add up to `desks`.
+  groups?: TeamGroup[];
+}
+
+// The area a sub-team's desks share inside its room.
+export interface Pod {
+  label: string;
+  desks: number;
+  rect: Rect;
 }
 
 export interface Room extends RoomSpec {
   rect: Rect;
   // Filled in order.
   seats: Seat[];
+  pods?: Pod[];
 }
 
 export interface FloorPlan {
@@ -69,10 +85,62 @@ const CHIEF_GAP = 70;
 // So a sign never sits on the room above it.
 const ROOM_GAP = 20;
 
+// A pod holds the token count above its heads and its name below its desks.
+const POD = { side: 40, top: 100, bottom: 34, gap: 16 };
+// Pods share a row while they fit four desks across.
+const POD_ROW = 4 * PITCH.x + POD.gap;
+const POD_ROOM_SIDE = 20;
+const MIN_ROOM_WIDTH = PITCH.x + 70;
+
 // The open floor and the guest desk are always placed automatically.
 export const movable = (kind: RoomKind) => kind === "department" || kind === "chief";
 
+// Sub-teams as pods, in rows left to right, so a big department reads as its teams.
+function placeTeams(spec: RoomSpec, groups: readonly TeamGroup[], at: Point): Room {
+  const sized = groups.map((group) => {
+    const columns = Math.min(MAX_COLUMNS, Math.max(1, group.desks));
+    const rows = Math.ceil(group.desks / columns);
+    return {
+      group,
+      columns,
+      width: (columns - 1) * PITCH.x + DESK.width + 2 * POD.side,
+      height: POD.top + (rows - 1) * DEPARTMENT_PITCH_Y + DESK.height + POD.bottom,
+    };
+  });
+  const rows: (typeof sized)[] = [];
+  for (const pod of sized) {
+    const row = rows.at(-1);
+    const used = row?.reduce((sum, one) => sum + one.width + POD.gap, 0) ?? 0;
+    if (row !== undefined && used + pod.width <= POD_ROW) row.push(pod);
+    else rows.push([pod]);
+  }
+  const pods: Pod[] = [];
+  const seats: Seat[] = [];
+  let y = at.y + DEPARTMENT_DESK_TOP - POD.top;
+  let widest = 0;
+  for (const row of rows) {
+    let x = at.x + POD_ROOM_SIDE;
+    for (const { group, columns, width, height } of row) {
+      pods.push({ label: group.label, desks: group.desks, rect: { x, y, width, height } });
+      for (let index = 0; index < group.desks; index += 1) {
+        const desk = {
+          x: x + POD.side + (index % columns) * PITCH.x,
+          y: y + POD.top + Math.floor(index / columns) * DEPARTMENT_PITCH_Y,
+        };
+        seats.push({ desk, agent: { x: desk.x + DESK.width / 2, y: desk.y - 46 } });
+      }
+      x += width + POD.gap;
+    }
+    widest = Math.max(widest, x - POD.gap - at.x);
+    y += Math.max(...row.map((pod) => pod.height)) + POD.gap;
+  }
+  const width = Math.max(MIN_ROOM_WIDTH, widest + POD_ROOM_SIDE);
+  const height = y - POD.gap + POD_ROOM_SIDE - at.y;
+  return { ...spec, rect: { ...at, width, height }, seats, pods };
+}
+
 function placeRoom(spec: RoomSpec, at: Point): Room {
+  if (spec.groups !== undefined && spec.groups.length > 1) return placeTeams(spec, spec.groups, at);
   const columns = Math.min(MAX_COLUMNS, Math.max(1, spec.desks));
   const rows = Math.max(1, Math.ceil(spec.desks / columns));
   const department = spec.kind === "department";
