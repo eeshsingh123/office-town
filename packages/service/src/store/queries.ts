@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt,
+         t.reviewed_at AS reviewedAt, t.paused,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
@@ -126,6 +126,8 @@ export const queries = {
     UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
     WHERE ref = ?2 AND state <> ?1`,
   taskReviewed: "UPDATE tasks SET reviewed_at = ? WHERE ref = ?",
+  setTaskPause: "UPDATE tasks SET paused = ? WHERE ref = ?",
+  pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",
   usageOfTask: `
     SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
            cached_input_tokens AS cachedInputTokens
@@ -196,6 +198,10 @@ export const queries = {
   delegationById: `${DELEGATION_SELECT} WHERE g.id = ?`,
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
+  interruptSession: `UPDATE sessions SET status = 'interrupted' WHERE id = ? AND ${UNFINISHED}`,
+  workingDelegationsOfSession: `${DELEGATION_SELECT} WHERE g.status = 'working' AND g.worker_session = ?`,
+  interruptDelegationsOfSession:
+    "UPDATE delegations SET status = 'interrupted' WHERE status = 'working' AND worker_session = ?",
 
   insertPiece: `
     INSERT INTO plan_pieces

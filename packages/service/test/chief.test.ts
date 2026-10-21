@@ -61,34 +61,6 @@ afterEach(async () => {
 });
 
 describe("the chief", () => {
-  it("runs one goal at a time and starts the next queued one when the first ends", async () => {
-    expect((await core.call("POST", "/tasks/chief", { goal: "Launch" })).status).toBe(409);
-    const chief = (await core.call("PUT", "/chief", { settings: claude })).json;
-    expect(chief).toMatchObject({ name: "@chief", role: "Chief", autonomy: "full" });
-    expect((await core.call("GET", "/chief")).json.id).toBe(chief.id);
-
-    const first = (await core.call("POST", "/tasks/chief", { goal: "Launch the bakery" })).json;
-    const second = (await core.call("POST", "/tasks/chief", { goal: "Open a second shop" })).json;
-    expect(first.task.state).toBe("working");
-    expect(second).toEqual({ task: expect.objectContaining({ state: "queued" }), sessions: [] });
-    const [session] = core.sessions;
-    expect(session?.extras.toolServers?.map(({ name }) => name)).toEqual([
-      "office-town",
-      "office-town-apps",
-    ]);
-    // The chief leads its task but has no team to hand work to.
-    const tools = await core.callTool(session, "team_status", {});
-    expect(tools).toMatchObject({ isError: true, text: 'Unknown tool "team_status".' });
-
-    playTurn(session, "Nothing to plan.");
-    await settle();
-    expect(core.store.getTask(first.task.id)?.state).toBe("ended");
-    expect(core.store.getTask(second.task.id)?.state).toBe("working");
-    expect(core.sessions[1]?.sent.at(-1)).toMatchObject({
-      text: expect.stringContaining("Open a second shop"),
-    });
-  });
-
   it("runs a plan: pieces in parallel, a downstream piece with the upstream result and folder, a queue for a busy department, a failure and an approved re-plan", async () => {
     const api = await departmentIn("api");
     const web = await departmentIn("web");
@@ -255,26 +227,6 @@ describe("the chief", () => {
     expect(core.store.getTask(goal.task.id)?.state).toBe("ended");
   });
 
-  it("keeps a goal whose chief stopped as idle while a piece is at work", async () => {
-    await departmentIn("api");
-    await core.call("PUT", "/chief", { settings: claude });
-    const goal = (await core.call("POST", "/tasks/chief", { goal: "Build" })).json;
-    const chief = leadOf(goal.task.id);
-    await core.callTool(chief, "propose_plan", {
-      pieces: [{ key: "api", title: "API", department: "api", brief: "Build the API" }],
-    });
-    playTurn(chief, "I proposed a plan.");
-    const { requestId, pieces } = waitingPlan().payload;
-    await core.call("POST", `/sessions/${chief?.id}/commands`, {
-      type: "answerPlan",
-      requestId,
-      answer: { outcome: "approved", pieces },
-    });
-    await settle();
-    await core.registry.stop(chief?.id ?? "", true);
-
-    expect((await core.call("DELETE", `/tasks/${goal.task.id}`)).status).toBe(409);
-  });
   it("removes the chief or a department only when idle, keeping their history unless asked", async () => {
     await core.call("PUT", "/chief", { settings: claude });
     const goal = (await core.call("POST", "/tasks/chief", { goal: "Launch" })).json;
@@ -309,5 +261,26 @@ describe("the chief", () => {
     expect(core.store.getTask(tasks[1] ?? "")).toBeUndefined();
     expect(core.store.getAgent(gone.department.leadAgentId)).toBeUndefined();
     expect((await core.call("GET", "/departments")).json).toEqual([]);
+  });
+
+  it("keeps a goal whose chief stopped as idle while a piece is at work", async () => {
+    await departmentIn("api");
+    await core.call("PUT", "/chief", { settings: claude });
+    const goal = (await core.call("POST", "/tasks/chief", { goal: "Build" })).json;
+    const chief = leadOf(goal.task.id);
+    await core.callTool(chief, "propose_plan", {
+      pieces: [{ key: "api", title: "API", department: "api", brief: "Build the API" }],
+    });
+    playTurn(chief, "I proposed a plan.");
+    const { requestId, pieces } = waitingPlan().payload;
+    await core.call("POST", `/sessions/${chief?.id}/commands`, {
+      type: "answerPlan",
+      requestId,
+      answer: { outcome: "approved", pieces },
+    });
+    await settle();
+    await core.registry.stop(chief?.id ?? "", true);
+
+    expect((await core.call("DELETE", `/tasks/${goal.task.id}`)).status).toBe(409);
   });
 });

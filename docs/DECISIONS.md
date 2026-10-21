@@ -347,6 +347,14 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The worker's `session.ended` carries `stoppedBy` (lead, reason); without it "stopped" still means the user (D-31). The trace shows "Stopped by <lead>: <reason>".
 - `resume_work` hands the stopped piece's brief back in the same conversation, as a new delegation. New or changed work goes through `delegate`. No token budget per piece (owner: goals can be open-ended).
 
+### D-72 Lean team runs — accepted (2026-10-22)
+
+- Measured on a real goal (Opus lead, 5 workers): the lead was ~60% of the Claude spend, from ~190 model calls at ~130k context each; 98.8% of input was cache reads, so the cost is volume, not cache misses. Every step re-reads the whole conversation, so cost ≈ context size × steps. `out/burn.mjs` (local) measures a run from a copy of the store.
+- The lead manages: it plans, writes shared contracts, merges, fixes small things and decides; workers explore, build and check. Workers report in under 200 words with details in a file; every agent keeps command output quiet. Owner: quality must not drop, so the lead still checks results and opens files where something looks wrong.
+- Not done, by the owner: results are not batched (a worker may need another's result through the lead without waiting), models and efforts stay the lead's and the user's choice, no budgets.
+- A fresh lead session (`team/handover.ts`), never automatic (owner: a summary must not cost quality unasked). `hand_over` works only when the last word from a person was the user's, or the user accepted the suggestion that comes once per conversation past 400k tokens with work still out. The lead writes decisions with why, facts, next step and files; the fresh session also gets its lead brief, the user's messages and answers, and every piece with its brief and result from the records, plus the earlier conversation as a file to search. Our own rather than Claude's `/compact`: it works on every harness and the facts come from records. A turn's usage carries `contextTokens` (Claude: the main conversation's last call; OpenCode: its last step).
+- Past 95% of an account's window (owner: pause and ask), every task with an open session on that account pauses whole (`team/usage-pause.ts`), closed as a shutdown closes it, so no lead reacts to a worker's stop. The task records `paused`; Needs you and Home offer Resume at the reset (survives a restart) or Resume now. A team carries on through `continueTeam`, told what was cut off; a lone agent where it stopped. Once per window and reset: after Resume now, the user decides.
+
 ## Done
 
 All accepted and built.

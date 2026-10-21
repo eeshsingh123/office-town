@@ -160,6 +160,8 @@ export class ClaudeTranslator implements Translator {
   #sessionStarted = false;
   #interrupts = 0;
   #steps: PlanStep[] = [];
+  // The main conversation's length at its latest model call; sub-agents have their own.
+  #contextTokens = 0;
   readonly #planCalls = new Map<string, ToolUse>();
   readonly #backgroundActions = new Set<string>();
   readonly #pendingPermissions = new Map<string, PendingPermission>();
@@ -316,6 +318,15 @@ export class ClaudeTranslator implements Translator {
   #assistant(message: unknown): Translation {
     const { message: body, parent_tool_use_id } = assistantSchema.parse(message);
     const parent = parentOf(parent_tool_use_id);
+    if (body.usage !== undefined && parent_tool_use_id == null) {
+      const { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens } =
+        body.usage;
+      this.#contextTokens =
+        input_tokens +
+        (cache_creation_input_tokens ?? 0) +
+        (cache_read_input_tokens ?? 0) +
+        output_tokens;
+    }
     const events: AdapterEvent[] = [];
     for (const block of body.content) {
       if (block.type === "text") {
@@ -547,6 +558,7 @@ export class ClaudeTranslator implements Translator {
                 inputTokens: usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) + cached,
                 outputTokens: usage.output_tokens,
                 cachedInputTokens: cached,
+                ...(this.#contextTokens === 0 ? {} : { contextTokens: this.#contextTokens }),
               },
             }),
       },

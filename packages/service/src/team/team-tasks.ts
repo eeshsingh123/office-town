@@ -350,7 +350,17 @@ export async function stopTeam({ store, registry }: TeamContext, taskId: string)
   throwUnlessStopped(stops, "Some members could not be stopped.");
 }
 
-function cutOffNotice(store: Store, cut: DelegationRecord[]): string {
+export type CutOffBy = "restart" | "pause";
+
+const CUT_OFF: Record<CutOffBy, { opening: string; summary: string }> = {
+  restart: { opening: "Office Town was closed", summary: "Work cut off by a restart" },
+  pause: {
+    opening: "The user's plan passed 95% of a usage window, so your team was paused",
+    summary: "Work cut off by a pause",
+  },
+};
+
+function cutOffNotice(store: Store, cut: DelegationRecord[], by: CutOffBy): string {
   const lines = cut.map((delegation) => {
     const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
     const brief =
@@ -359,7 +369,7 @@ function cutOffNotice(store: Store, cut: DelegationRecord[]): string {
         : delegation.brief;
     return `- ${name}: ${brief}`;
   });
-  return `Office Town was closed while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.`;
+  return `${CUT_OFF[by].opening} while your team worked, and this work was cut off before it finished:\n${lines.join("\n")}\n\nHand it out again with delegate if it is still needed.`;
 }
 
 // Pieces that ended after the chief's latest session did, so it never got their results.
@@ -380,6 +390,7 @@ export async function continueTeam(
   taskId: string,
   prompt: string | undefined,
   attachments: Attachment[] = [],
+  by: CutOffBy = "restart",
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const task = store.getTask(taskId);
@@ -392,7 +403,7 @@ export async function continueTeam(
     const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
     const missed = missedResults(store, taskId, lead);
     const notices = [
-      ...(cut.length === 0 ? [] : [cutOffNotice(store, cut)]),
+      ...(cut.length === 0 ? [] : [cutOffNotice(store, cut, by)]),
       ...(missed.length === 0
         ? []
         : [
@@ -402,7 +413,7 @@ export async function continueTeam(
     const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;
     const summary =
       cut.length > 0
-        ? `Work cut off by a restart: ${cut.length}`
+        ? `${CUT_OFF[by].summary}: ${cut.length}`
         : `Results that came while you were not running: ${missed.length}`;
     const message: Message = {
       ...(notices.length === 0

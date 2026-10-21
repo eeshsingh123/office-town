@@ -195,36 +195,6 @@ describe("session registry", () => {
     expect(store.getSession(resumed.id)?.status).toBe("interrupted");
   });
 
-  it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {
-    const registry = openRegistry();
-    const record = await start(registry, "Write a report");
-    vi.spyOn(store, "append").mockImplementationOnce(() => {
-      throw new Error("database or disk is full");
-    });
-
-    sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Done" } });
-
-    expect(published.slice(2).map(({ event }) => event.type)).toEqual([
-      "message",
-      "error",
-      "session.ended",
-    ]);
-    expect(published[3]?.event.payload).toEqual({
-      message:
-        "This agent's work could not be saved, so the agent was stopped. " +
-        "Nothing it does from here on is in its history.",
-      detail: "database or disk is full",
-      fatal: true,
-    });
-    expect(sessions[0]?.sent.at(-1)).toEqual({ type: "stop" });
-    await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
-      SessionNotRunningError,
-    );
-    expect(published[4]?.position).toBeDefined();
-    expect(store.getSession(record.id)?.status).toBe("failed");
-    await store.deleteTask(record.taskId);
-  });
-
   it("offers no 'always allow' to an agent with a read-only folder, and takes no answer it was not offered", async () => {
     const registry = openRegistry();
     const task = store.createTask("Build on the API");
@@ -264,5 +234,35 @@ describe("session registry", () => {
     await answer("once");
     expect(sessions[0]?.sent.at(-1)).toMatchObject({ optionId: "once" });
     await registry.close();
+  });
+
+  it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {
+    const registry = openRegistry();
+    const record = await start(registry, "Write a report");
+    vi.spyOn(store, "append").mockImplementationOnce(() => {
+      throw new Error("database or disk is full");
+    });
+
+    sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Done" } });
+
+    expect(published.slice(2).map(({ event }) => event.type)).toEqual([
+      "message",
+      "error",
+      "session.ended",
+    ]);
+    expect(published[3]?.event.payload).toEqual({
+      message:
+        "This agent's work could not be saved, so the agent was stopped. " +
+        "Nothing it does from here on is in its history.",
+      detail: "database or disk is full",
+      fatal: true,
+    });
+    expect(sessions[0]?.sent.at(-1)).toEqual({ type: "stop" });
+    await expect(registry.send(record.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
+      SessionNotRunningError,
+    );
+    expect(published[4]?.position).toBeDefined();
+    expect(store.getSession(record.id)?.status).toBe("failed");
+    await store.deleteTask(record.taskId);
   });
 });

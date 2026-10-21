@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
 import type { ConnectorHub } from "../connectors/hub.ts";
 import type { TeamContext } from "../team/members.ts";
+import type { UsagePauses } from "../team/usage-pause.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
@@ -14,6 +15,7 @@ const BODY_LIMIT_BYTES = 1024 * 1024;
 export interface ApiOptions {
   team: TeamContext;
   connectors: ConnectorHub;
+  pauses: UsagePauses;
   // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -85,9 +87,9 @@ function send(response: ServerResponse, reply: Reply): void {
 }
 
 export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
-  const { team, connectors, token, port } = options;
+  const { team, connectors, pauses, token, port } = options;
   const { registry, store } = team;
-  const routes = apiRoutes(team, connectors);
+  const routes = apiRoutes(team, connectors, pauses);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");

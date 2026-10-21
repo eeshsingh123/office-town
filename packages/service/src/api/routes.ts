@@ -18,6 +18,7 @@ import {
   onboardingSchema,
   profileRequestSchema,
   renameAgentRequestSchema,
+  resumePausedRequestSchema,
   resumeSessionRequestSchema,
   roomPositionSchema,
   secondOpinionRequestSchema,
@@ -64,6 +65,7 @@ import {
   startTeamTask,
   stopTeam,
 } from "../team/team-tasks.ts";
+import type { UsagePauses } from "../team/usage-pause.ts";
 import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
 
@@ -95,10 +97,23 @@ const NO_CONTENT = { status: 204 } as const;
 
 const sequenceSchema = z.coerce.number().int().positive();
 
-export function apiRoutes(team: TeamContext, connectors: ConnectorHub): Route[] {
+export function apiRoutes(
+  team: TeamContext,
+  connectors: ConnectorHub,
+  pauses: UsagePauses,
+): Route[] {
   const { registry, store, readCatalog } = team;
   return [
     ...accountRoutes(team),
+    {
+      method: "POST",
+      path: "/accounts/:id/resume-paused",
+      reply: async ({ param, body }) => {
+        const { at } = resumePausedRequestSchema.parse(await body());
+        await pauses.resume(param("id"), at);
+        return NO_CONTENT;
+      },
+    },
     ...libraryRoutes(store),
     ...connectorRoutes(store, connectors),
     {
@@ -150,7 +165,14 @@ export function apiRoutes(team: TeamContext, connectors: ConnectorHub): Route[] 
       path: "/tasks",
       reply: ({ query }) => {
         const { limit, cursor, active } = taskListQuerySchema.parse(Object.fromEntries(query));
-        if (active) return { status: 200, json: { tasks: store.listActiveTasks() } };
+        if (active) {
+          // A paused task waits on the user as much as a running one.
+          const running = store.listActiveTasks();
+          const paused = store
+            .listPausedTasks()
+            .filter((task) => !running.some(({ id }) => id === task.id));
+          return { status: 200, json: { tasks: [...running, ...paused] } };
+        }
         return {
           status: 200,
           json: store.listTasks(cursor === undefined ? { limit } : { limit, cursor }),

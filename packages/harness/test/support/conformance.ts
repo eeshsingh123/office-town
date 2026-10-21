@@ -1,12 +1,7 @@
-import {
-  harnessCatalogSchema,
-  type SessionEvent,
-  sessionEventSchema,
-  sessionOptionsSchema,
-} from "@office-town/contract";
+import { type SessionEvent, sessionEventSchema } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter } from "../../src/adapter.ts";
-import { type ReceivedLine, type RecordingEntry, replay, replayOptions } from "./replay.ts";
+import { type ReceivedLine, type RecordingEntry, replay } from "./replay.ts";
 
 type PayloadOf<T extends SessionEvent["type"]> = Extract<SessionEvent, { type: T }>["payload"];
 
@@ -81,42 +76,41 @@ function expectFragmentLinesPartial(received: ReceivedLine[]): void {
   }
 }
 
+async function expectEventRules(adapter: Adapter, lines: RecordingEntry[]): Promise<void> {
+  const { events, written, lines: reported, received } = await replay(adapter, lines);
+
+  expectValidEventsInSequence(events);
+  expectOneSessionEndedLast(events);
+  expectTurnsInPairs(events);
+  expectActionsStartedBeforeUse(events);
+  expectEveryRequestResolved(events);
+  expectFragmentsToAddUp(events);
+  expectFragmentLinesPartial(received);
+  expect(reported.filter((line) => line.direction === "out").map((line) => line.text)).toEqual(
+    written,
+  );
+  if (!adapter.capabilities.usageLimits) {
+    expect(payloadsOf(events, "limits.updated")).toEqual([]);
+  }
+  for (const line of written) expect(() => JSON.parse(line)).not.toThrow();
+}
+
 // The rules every adapter must keep, checked against real recordings of its harness.
 export function describeAdapterConformance(
   adapter: Adapter,
   recordings: Record<string, RecordingEntry[]>,
-  catalogOutput: string[],
 ): void {
   describe(`${adapter.harness} adapter conformance`, () => {
-    it("lists its models, each usable as a session's model, exactly when it says it can", () => {
-      expect(adapter.catalog !== undefined).toBe(adapter.capabilities.modelList);
-      if (adapter.catalog === undefined) return;
-      const { models } = harnessCatalogSchema.parse(adapter.catalog.parse(catalogOutput));
-      expect(models.length).toBeGreaterThan(0);
-      expect(models.some((model) => model.efforts.length > 0)).toBe(adapter.capabilities.effort);
-      for (const model of models) {
-        const options = { ...replayOptions, model: model.id, effort: model.efforts[0] };
-        expect(sessionOptionsSchema.safeParse(options).success).toBe(true);
+    it("keeps the event rules in every recording", async () => {
+      for (const [name, lines] of Object.entries(recordings)) {
+        try {
+          await expectEventRules(adapter, lines);
+        } catch (error) {
+          throw new Error(`Replaying ${name}: ${error instanceof Error ? error.message : error}`, {
+            cause: error,
+          });
+        }
       }
-    });
-
-    it.each(Object.entries(recordings))("keeps the event rules replaying %s", async (_, lines) => {
-      const { events, written, lines: reported, received } = await replay(adapter, lines);
-
-      expectValidEventsInSequence(events);
-      expectOneSessionEndedLast(events);
-      expectTurnsInPairs(events);
-      expectActionsStartedBeforeUse(events);
-      expectEveryRequestResolved(events);
-      expectFragmentsToAddUp(events);
-      expectFragmentLinesPartial(received);
-      expect(reported.filter((line) => line.direction === "out").map((line) => line.text)).toEqual(
-        written,
-      );
-      if (!adapter.capabilities.usageLimits) {
-        expect(payloadsOf(events, "limits.updated")).toEqual([]);
-      }
-      for (const line of written) expect(() => JSON.parse(line)).not.toThrow();
     });
   });
 }

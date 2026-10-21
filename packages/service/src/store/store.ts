@@ -34,6 +34,7 @@ import type {
   Settings,
   StoreSize,
   TaskPage,
+  TaskPause,
   TaskRecord,
   TaskState,
   TaskSummary,
@@ -227,10 +228,12 @@ export interface Store {
   // Leaving "ended" clears the review.
   setTaskState(taskId: string, state: TaskState): void;
   markReviewed(taskId: string): TaskRecord;
+  setTaskPause(taskId: string, pause: TaskPause | undefined): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;
   listActiveTasks(): TaskSummary[];
+  listPausedTasks(): TaskSummary[];
   // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
@@ -247,6 +250,7 @@ export interface Store {
   updateSessionOptions(id: string, options: SessionOptions): SessionRecord;
   // Run at startup; the sessions' delegations are cut off too.
   markInterrupted(): SessionRecord[];
+  interruptSessions(sessionIds: string[]): void;
   createDelegation(delegation: NewDelegation): DelegationRecord;
   listDelegations(taskId: string): DelegationRecord[];
   workingDelegation(workerSessionId: string): DelegationRecord | undefined;

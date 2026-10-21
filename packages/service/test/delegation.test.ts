@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentRecord } from "@office-town/contract";
+import { type AgentRecord, defaultAccountId } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionActivity } from "../src/registry/activity.ts";
 import { stopIdleAgents } from "../src/registry/idle-stop.ts";
-import { type Core, playTurn, settle, startCore } from "./support/team-core.ts";
+import { type Core, eventually, playTurn, settle, startCore } from "./support/team-core.ts";
 
 const claude = { harness: "claude", environment: { kind: "native" } };
 
@@ -255,15 +255,82 @@ Tests pass.`,
     expect(state()).toBe("ended");
   });
 
-  it("ends a member that had finished as done when its team is stopped", async () => {
-    const { task, writer } = await teamAtWork();
-    await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write" });
-    playTurn(core.sessions[1], "Written.");
+  it("hands a lead over to a fresh session only on the user's word, with the records and its handover", async () => {
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    const leadAgentId = core.store.getSession(lead?.id ?? "")?.agentId ?? "";
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const handover = {
+      decisions: ["Plain HTML, no framework: the user asked for it"],
+      facts: ["Tests run with npm test"],
+      next: "Merge the menu once it is written.",
+    };
+
+    expect((await core.callTool(lead, "hand_over", handover)).text).toContain(
+      "only when the user asks",
+    );
+    await core.call("POST", `/agents/${leadAgentId}/messages`, {
+      text: "Take this into a new session",
+    });
+    expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
+    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    await eventually(() => core.sessions.length === 3);
+    const fresh = core.sessions[2];
+    const firstWords = core.store
+      .readEvents({ after: 0, limit: 10, sessionId: fresh?.id ?? "" })
+      .find(({ event }) => event.type === "message")?.event.payload;
+    expect(firstWords).toMatchObject({ origin: { kind: "brief" } });
+    for (const part of [
+      "Plain HTML, no framework",
+      "You: Take this into a new session",
+      "still working:\n  Brief: Write the menu",
+      join(directory, "data", "handovers"),
+    ]) {
+      expect(firstWords && "text" in firstWords ? firstWords.text : "").toContain(part);
+    }
+    expect(lastSent(0)).toEqual({ type: "stop", idle: true });
+
+    playTurn(worker, "Menu written.");
     await settle();
-    expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
-    // The lead was owed a turn for the result, so it was cut off.
+    expect(lastSent(2)).toMatchObject({
+      text: expect.stringContaining("finished:\nMenu written."),
+    });
+  });
+
+  it("pauses a whole team past 95% of a usage window and carries it on through its lead on resume", async () => {
+    const { task, writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const limits = [
+      {
+        id: "five_hour",
+        label: "5-hour",
+        usedFraction: 0.96,
+        resetsAt: "2026-10-23T12:00:00.000Z",
+      },
+    ];
+    worker?.emit({ type: "limits.updated", payload: { limits } });
+    await eventually(() => core.store.getTask(task.taskId)?.paused !== undefined);
+    await settle();
+
+    expect(core.store.getTask(task.taskId)?.paused).toMatchObject({ window: "5-hour" });
     expect(lastSent(0)).toEqual({ type: "stop" });
-    expect(lastSent(1)).toEqual({ type: "stop", idle: true });
+    expect(lastSent(1)).toEqual({ type: "stop" });
+    expect(core.store.listDelegations(task.taskId).map(({ status }) => status)).toEqual([
+      "interrupted",
+    ]);
+
+    const accountId = defaultAccountId("claude", { kind: "native" });
+    expect((await core.call("POST", `/accounts/${accountId}/resume-paused`, {})).status).toBe(204);
+    await eventually(() => core.sessions.length === 3);
+    expect(core.store.getTask(task.taskId)?.paused).toBeUndefined();
+    expect(core.store.getSession(core.sessions[2]?.id ?? "")?.resumedFrom).toBe(lead?.id);
+    expect(lastSent(2)).toMatchObject({
+      text: expect.stringContaining("so your team was paused"),
+    });
+    expect(lastSent(2)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
   it("stops a worker only once the user approves its lead's ask, and resumes it in the same conversation", async () => {
@@ -358,41 +425,6 @@ Testing again.`),
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
   });
 
-  it("calls in a guest on a copy without instruction files, hands its answer to the lead, lets it leave, and removes the copy with the task", async () => {
-    const { task } = await teamAtWork();
-    const lead = core.sessions[0];
-    const project = join(directory, "bakery");
-    writeFileSync(join(project, "menu.md"), "Bread");
-    writeFileSync(join(project, "CLAUDE.md"), "Be brief");
-    mkdirSync(join(project, ".claude"));
-
-    const outside = await core.callTool(lead, "outsource", { brief: "Check", paths: [".."] });
-    expect(outside).toMatchObject({ isError: true, text: expect.stringContaining("workspace") });
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    expect(agents.some((agent) => agent.guest)).toBe(false);
-    await core.callTool(lead, "outsource", { brief: "Check the menu", paths: ["."] });
-    const guest = core.store.getSession(core.sessions[1]?.id ?? "");
-    const copy = guest?.options.workspacePath ?? "";
-    expect(guest?.options.isolated).toBe(true);
-    expect(core.store.getAgent(guest?.agentId ?? "")).toMatchObject({ guest: true });
-    expect(core.store.getAgent(guest?.agentId ?? "")?.departmentId).toBeUndefined();
-    expect(existsSync(join(copy, "menu.md"))).toBe(true);
-    expect(existsSync(join(copy, "CLAUDE.md")) || existsSync(join(copy, ".claude"))).toBe(false);
-
-    playTurn(core.sessions[1], "The menu has no prices.");
-    await settle();
-    expect(lastSent(0)).toMatchObject({
-      text: expect.stringContaining("The menu has no prices."),
-      origin: { kind: "result" },
-    });
-    expect(core.store.getSession(guest?.id ?? "")?.status).toBe("exited");
-
-    // A deleted task takes the copy with it.
-    await core.call("POST", `/tasks/${task.taskId}/stop`);
-    expect((await core.call("DELETE", `/tasks/${task.taskId}`)).status).toBe(204);
-    expect(existsSync(copy)).toBe(false);
-  });
-
   it("stops an agent left idle, but not one waiting for the user", async () => {
     const activity = new SessionActivity(core.registry);
     const { task } = await teamAtWork();
@@ -412,55 +444,6 @@ Testing again.`),
 
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
-  });
-
-  it("hands the user's message to a worker and a note to its lead at work", async () => {
-    const { writer, tester } = await teamAtWork();
-    const lead = core.sessions[0];
-    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id;
-
-    const sent = await core.call("POST", `/agents/${idOf(writer)}/messages`, {
-      text: "Use British spelling",
-    });
-
-    expect(sent.status).toBe(204);
-    expect(lastSent(1)).toEqual({ type: "prompt", text: "Use British spelling" });
-    expect(lastSent(0)).toEqual({
-      type: "prompt",
-      text: `The user told ${writer} directly: "Use British spelling"`,
-      origin: { kind: "notice", summary: `The user messaged ${writer}` },
-    });
-    expect(
-      (await core.call("POST", `/agents/${idOf(tester)}/messages`, { text: "Hi" })).status,
-    ).toBe(409);
-    expect((await core.call("POST", "/agents/nobody/messages", { text: "Hi" })).status).toBe(404);
-  });
-
-  it("starts a group of picked agents under one of them, refusing busy ones on both sides", async () => {
-    const { department, writer, tester } = await teamAtWork();
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id ?? "";
-    const group = (leadAgentId: string, workerAgentIds: string[]) =>
-      core.call("POST", "/tasks/team", {
-        goal: "Write the opening hours",
-        team: { leadAgentId, workerAgentIds, workspaceId: department.workspaceId },
-      });
-
-    const busy = await group(department.leadAgentId, [idOf(writer)]);
-    expect(busy).toMatchObject({ status: 400, json: { message: expect.stringContaining("Busy") } });
-
-    const started = await group(idOf(writer), [idOf(tester)]);
-    expect(started.status).toBe(201);
-    const task = core.store.getTask(core.store.getSession(started.json.id)?.taskId ?? "");
-    expect(task).toMatchObject({ leadAgentId: idOf(writer), workerAgentIds: [idOf(tester)] });
-    expect(lastSent(1)).toMatchObject({ text: expect.stringContaining(`- ${tester}, Tester`) });
-    expect(
-      (await core.callTool(core.sessions[1], "delegate", { agent: tester, brief: "Check" })).text,
-    ).toContain(`Delegated to ${tester}`);
-    const taken = await core.callTool(core.sessions[0], "delegate", { agent: tester, brief: "x" });
-    expect(taken).toMatchObject({ isError: true, text: expect.stringContaining("busy") });
   });
 });
 

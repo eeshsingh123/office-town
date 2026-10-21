@@ -353,5 +353,8 @@ export const api = {
     read(`/usage?since=${id(since)}`, listOf(accountUsageSchema)),
   resumeAgentAt: (agentId: string, at: string): Promise<void> =>
     send("POST", `/agents/${id(agentId)}/resume-at`, { at }),
+  // Without `at`, now.
+  resumePaused: (accountId: string, at?: string): Promise<void> =>
+    send("POST", `/accounts/${id(accountId)}/resume-paused`, at === undefined ? {} : { at }),
   readStoreSize: (): Promise<StoreSize> => read("/storage", storeSizeSchema),
 };

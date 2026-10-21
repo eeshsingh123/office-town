@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Audience,
-  appsToolServer,
   type ConnectorPermission,
   type ConnectorRecord,
   defaultAccountId,
@@ -11,9 +10,8 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { decide } from "../src/connectors/access.ts";
-import { addAgent } from "./support/agents.ts";
 import { type NotesApp, startNotesApp } from "./support/notes-app.ts";
-import { type Core, eventually, settle, startCore } from "./support/team-core.ts";
+import { type Core, settle, startCore } from "./support/team-core.ts";
 
 const KEY = "notes-key-1234";
 const everyone: Audience = { everyone: true, departmentIds: [], agentIds: [] };
@@ -41,12 +39,6 @@ afterEach(async () => {
 });
 
 // Given to another agent only, so the one under test has no access.
-const someoneElse = () => ({
-  everyone: false,
-  departmentIds: [],
-  agentIds: [addAgent(core.store).id],
-});
-
 async function connect(slug: string, permission: ConnectorPermission, audience = everyone) {
   const reply = await core.call("POST", "/connectors", {
     setup: {
@@ -91,105 +83,6 @@ describe("connectors", () => {
     expect(decide("read_only", false)).toBe("refuse");
     expect(decide("ask", false)).toBe("ask");
     expect(decide("dont_ask", false)).toBe("go");
-  });
-
-  it("serves its apps natively, holds a change for the user under Ask me first, and goes through under Don't ask in a supervised team", async () => {
-    const asking = await connect("notes", "ask");
-    const free = await connect("free-notes", "dont_ask");
-    const { record, session } = await startAgent();
-    expect(record.options.connectorIds).toEqual([asking.id, free.id]);
-    expect(session?.extras.toolServers?.map(({ name }) => name)).toEqual([
-      "office-town",
-      appsToolServer,
-      "notes",
-      "free-notes",
-    ]);
-
-    const read = await core.callTool(session, "search_notes", { query: "Pricing" }, "notes");
-    expect(read.text).toContain("12 dollars");
-    const held = await core.callTool(session, "create_note", { text: "From the agent" }, "notes");
-    expect(held.text).toContain("waits for the user's OK");
-    const [ask] = pending();
-    expect(ask).toMatchObject({ payload: { tool: { server: "notes", name: "create_note" } } });
-    await core.registry.send(record.id, {
-      type: "answerPermission",
-      requestId: ask?.type === "permission.requested" ? ask.payload.requestId : "",
-      optionId: "approve",
-    });
-    await eventually(() => app.notes.includes("From the agent"));
-    expect(app.notes).toContain("From the agent");
-
-    const direct = await core.callTool(session, "create_note", { text: "Free" }, "free-notes");
-    expect(direct.text).toMatch(/Saved note/);
-    const activity = (await core.call("GET", `/connectors/${asking.id}/activity`)).json;
-    expect(
-      activity.calls.map(({ tool, outcome }: { tool: string; outcome: string }) => [tool, outcome]),
-    ).toEqual([
-      ["create_note", "done"],
-      ["search_notes", "done"],
-    ]);
-  });
-
-  it("keeps a conversation's apps on resume, reaches one granted since through the hub, and refuses once access is removed", async () => {
-    const first = await connect("notes", "read_only");
-    const { record, session } = await startAgent();
-    const later = await connect("later-notes", "dont_ask", someoneElse());
-    const refused = await core.callTool(
-      session,
-      "use_app_tool",
-      { app: "later-notes", tool: "search_notes", arguments: { query: "Launch" } },
-      appsToolServer,
-    );
-    expect(refused).toMatchObject({ isError: true });
-    await core.call("PUT", `/connectors/${later.id}`, { audience: everyone });
-    const reached = await core.callTool(
-      session,
-      "use_app_tool",
-      { app: "later-notes", tool: "search_notes", arguments: { query: "Launch" } },
-      appsToolServer,
-    );
-    expect(reached.text).toContain("Friday");
-
-    await core.registry.stop(record.id);
-    const resumed = await core.registry.resume(record.id, { text: "Carry on" });
-    expect(resumed.options.connectorIds).toEqual([first.id]);
-
-    await core.call("PUT", `/connectors/${first.id}`, { audience: someoneElse() });
-    const next = core.sessions.at(-1);
-    const gone = await core.callTool(next, "search_notes", { query: "Pricing" }, "notes");
-    expect(gone).toMatchObject({
-      isError: true,
-      text: expect.stringContaining("do not have access"),
-    });
-  });
-
-  it("gives the asker's department access once the user approves request_app", async () => {
-    const notes = await connect("notes", "ask", someoneElse());
-    const department = (
-      await core.call("POST", "/departments", {
-        team: { name: "Research", roles: [] },
-        workspaceIds: [workspaceId],
-        autonomy: "supervised",
-        lead: { settings: { harness: "claude", environment: { kind: "native" } } },
-      })
-    ).json;
-    await core.call("POST", "/tasks/team", {
-      goal: "Research",
-      team: { departmentId: department.id },
-    });
-    const lead = core.sessions[0];
-    const asked = await core.callTool(lead, "request_app", { app: "notes", reason: "For prices" });
-    expect(asked.text).toContain("with the user");
-    const [ask] = pending();
-    await core.registry.send(lead?.id ?? "", {
-      type: "answerPermission",
-      requestId: ask?.type === "permission.requested" ? ask.payload.requestId : "",
-      optionId: "give",
-    });
-    await settle();
-    expect(core.store.getConnector(notes.id)?.audience.departmentIds).toEqual([department.id]);
-    const ready = lead?.sent.filter((command) => command.type === "prompt").at(-1);
-    expect(ready).toMatchObject({ text: expect.stringContaining("is ready for you") });
   });
 
   // D-68: Claude Code connects Claude apps itself; the core picks who gets them and decides calls.

@@ -258,6 +258,9 @@ export class AcpTranslator implements Translator {
       events.push({ type: "error", payload: { message, fatal: false } });
     }
     const cached = usage?.cachedReadTokens ?? 0;
+    const input = (usage?.inputTokens ?? 0) + cached + (usage?.cachedWriteTokens ?? 0);
+    // Thinking is billed as output but reported apart.
+    const output = (usage?.outputTokens ?? 0) + (usage?.thoughtTokens ?? 0);
     events.push({
       type: "turn.ended",
       payload: {
@@ -266,10 +269,11 @@ export class AcpTranslator implements Translator {
           ? {}
           : {
               usage: {
-                inputTokens: (usage.inputTokens ?? 0) + cached + (usage.cachedWriteTokens ?? 0),
-                // Thinking is billed as output but reported apart.
-                outputTokens: (usage.outputTokens ?? 0) + (usage.thoughtTokens ?? 0),
+                inputTokens: input,
+                outputTokens: output,
                 cachedInputTokens: cached,
+                // OpenCode reports only the turn's last model step, which is the conversation's length.
+                contextTokens: input + output,
               },
             }),
       },

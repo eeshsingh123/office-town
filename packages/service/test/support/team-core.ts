@@ -21,12 +21,14 @@ import { openStore } from "../../src/store/sqlite-store.ts";
 import type { Store } from "../../src/store/store.ts";
 import { cachedCatalogs } from "../../src/team/catalogs.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
+import { Handovers } from "../../src/team/handover.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
+import { UsagePauses } from "../../src/team/usage-pause.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
 import { type RunningToolServer, startToolServer } from "../../src/tools/tool-server.ts";
@@ -106,6 +108,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const team = { store, registry, readCatalog, dataFolder, createSession };
   const activity = new SessionActivity(registry);
   reportResults(team, activity);
+  const handovers = new Handovers(team);
+  const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
   guestsLeave(team);
   const scheduler = new Scheduler(team);
@@ -116,6 +120,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     teamStatus(team, activity),
     stopWork(team, activity),
     resumeWork(team),
+    handovers.tool(),
     outsource(team),
     proposePlan(team, scheduler),
     messageLead(team),
@@ -123,7 +128,13 @@ export async function startCore(dataFolder: string): Promise<Core> {
     changeLibrary(team),
     new AppRequests(store, registry).tool(),
   ]);
-  const server: ApiServer = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
+  const server: ApiServer = await startApiServer({
+    team,
+    connectors,
+    pauses,
+    token: TOKEN,
+    port: 0,
+  });
 
   return {
     store,

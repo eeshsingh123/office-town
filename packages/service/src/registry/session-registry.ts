@@ -462,6 +462,24 @@ ${text}`,
     this.#publish(this.#store.append(event) ?? { event });
   }
 
+  // Closed as a shutdown closes them: no end is recorded, so no stop or result reaches anyone, and
+  // they carry on later like any interrupted session.
+  async pause(sessionIds: string[]): Promise<void> {
+    const paused = sessionIds.flatMap((id) => this.#live.get(id) ?? []);
+    for (const live of paused) {
+      live.stopListening();
+      this.#forget(live.session.id);
+    }
+    const stops = await Promise.allSettled(
+      paused.map(({ session }) => session.send({ type: "stop" })),
+    );
+    this.#store.interruptSessions(paused.map(({ session }) => session.id));
+    const failures = stops.flatMap((stop) => (stop.status === "rejected" ? [stop.reason] : []));
+    if (failures.length > 0) {
+      throw new AggregateError(failures, "Some agents could not be paused and may still run.");
+    }
+  }
+
   // Recorded like a crash, so the sessions can be resumed later.
   async close(): Promise<void> {
     const running = [...this.#live.values()];

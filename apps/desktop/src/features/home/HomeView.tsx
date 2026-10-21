@@ -28,6 +28,7 @@ import { TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
+import { UsagePauses } from "../usage/UsagePauses.tsx";
 import styles from "./Home.module.css";
 
 const SHOWN_REQUESTS = 3;
@@ -479,6 +480,7 @@ export function HomeView() {
         <p className={styles.summary}>{summary}</p>
         <Composer home />
         <Waiting />
+        <UsagePauses />
         <LimitStops />
         <Tiles />
         <GettingStarted />

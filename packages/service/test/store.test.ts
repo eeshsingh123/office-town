@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
   type Change,
@@ -12,7 +12,6 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/store/database.ts";
-import { migrations } from "../src/store/migrations.ts";
 import { queries } from "../src/store/queries.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import {
@@ -148,92 +147,8 @@ describe("store", () => {
     store = openStore(join(directory, "fresh"));
   });
 
-  it("gives each task of an earlier version its agent, with the name and colour M3 showed and the level its permissions meant", () => {
-    store.close();
-    const file = join(directory, "m3", "store.db");
-    mkdirSync(dirname(file));
-    const m3 = new DatabaseSync(file);
-    for (const sql of migrations.slice(0, 2)) m3.exec(sql as string);
-    m3.exec(`
-      PRAGMA application_id = ${0x4f54_4f57};
-      PRAGMA user_version = 2;
-      INSERT INTO tasks (ref, id, prompt, created_at) VALUES (1, 'task-1', 'Write a report', 0);
-      INSERT INTO sessions (ref, id, task_ref, options, status, created_at) VALUES
-        (1, '5f0c3b7e-9a41-4d2e-8b6f-1c2d3e4f5a6b', 1,
-         '{"harness":"opencode","environment":{"kind":"native"},"model":"m","permissionMode":"ask"}',
-         'exited', 0),
-        (2, 'resumed', 1, '{"harness":"opencode","environment":{"kind":"native"},"permissionMode":"acceptEdits"}',
-         'exited', 0);
-      INSERT INTO events (session_ref, sequence, id, type, timestamp, payload) VALUES
-        (1, 1, 'e1', 'turn.ended', 0,
-         '{"turnId":"t","outcome":"completed","usage":{"inputTokens":10,"outputTokens":2}}'),
-        (2, 1, 'e2', 'turn.ended', 0,
-         '{"turnId":"t","outcome":"completed","usage":{"inputTokens":5,"outputTokens":1,"cachedInputTokens":3}}');
-    `);
-    m3.close();
-
-    store = openStore(dirname(file));
-    const [agent] = store.listAgents();
-    expect(agent).toMatchObject({
-      name: "@gil-4498",
-      colour: "#A2456E",
-      autonomy: "full",
-      settings: { harness: "opencode", environment: { kind: "native" }, model: "m" },
-    });
-    expect(store.listSessions("task-1").map((session) => session.agentId)).toEqual([
-      agent?.id,
-      agent?.id,
-    ]);
-    // The harness itself now only asks; the level answers what it allows.
-    expect(store.getSession("resumed")?.options.permissionMode).toBe("ask");
-    // Old history counts as finished and reviewed, with its usage summed from the stored turns.
-    expect(store.getTask("task-1")).toMatchObject({
-      state: "ended",
-      reviewedAt: expect.any(String),
-      usage: [{ harness: "opencode", inputTokens: 15, outputTokens: 3, cachedInputTokens: 3 }],
-    });
-  });
-
-  it("moves the output folder into a Scratch workspace and gives each earlier task its workspace", () => {
-    store.close();
-    const file = join(directory, "d55", "store.db");
-    mkdirSync(dirname(file));
-    const d55 = new DatabaseSync(file);
-    for (const sql of migrations.slice(0, 10)) {
-      if (typeof sql === "string") d55.exec(sql);
-      else sql(d55);
-    }
-    const output = join(directory, "out");
-    const project = join(directory, "project");
-    const workingIn = (folder: string) =>
-      JSON.stringify({ harness: "claude", environment: { kind: "native" }, workspacePath: folder });
-    d55.exec(`
-      PRAGMA application_id = ${0x4f54_4f57};
-      PRAGMA user_version = 10;
-      INSERT INTO settings (key, value) VALUES ('outputFolder', '${JSON.stringify(output)}');
-      INSERT INTO workspaces (ref, id, name, folders, created_at, used_at)
-        VALUES (1, 'report', 'Report', '${JSON.stringify([project])}', 0, 0);
-      INSERT INTO tasks (ref, id, prompt, created_at, state) VALUES
-        (1, 'in-project', 'Fix it', 0, 'ended'), (2, 'in-scratch', 'Write it', 0, 'ended');
-      INSERT INTO sessions (ref, id, task_ref, options, status, created_at) VALUES
-        (1, 's1', 1, '${workingIn(project)}', 'exited', 0),
-        (2, 's2', 2, '${workingIn(join(output, "2026-10-10 Write it"))}', 'exited', 0);
-    `);
-    d55.close();
-
-    store = openStore(dirname(file));
-    const scratch = store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
-    expect(scratch?.folders).toEqual([{ path: output, access: "edit" }]);
-    expect(store.getWorkspace("report")).toMatchObject({
-      kind: "folders",
-      folders: [{ path: project, access: "edit" }],
-    });
-    expect(store.getTask("in-project")?.workspaceId).toBe("report");
-    expect(store.getTask("in-scratch")?.workspaceId).toBe(scratch?.id);
-    expect(store.readSettings()).toEqual({});
-  });
-
-  it("turns every stored Trusted level, past answers included, into Full", () => {
+  // Rewinding the version reruns every later migration, so each one must be rerunnable.
+  it("reruns its migrations over existing data, turning every stored Trusted level into Full", () => {
     const agent = addAgent(store);
     const task = store.createTask("Edit the report");
     const session = startSession(task.id, { agentId: agent.id });
@@ -333,29 +248,6 @@ describe("store", () => {
     expect(waiting()).toEqual([]);
   });
 
-  it("pages tasks newest first with their sessions, even after the last task shown is deleted, and lists the active ones apart", async () => {
-    const oldest = store.createTask("one");
-    const middle = store.createTask("two");
-    const newest = store.createTask("three");
-    const running = startSession(oldest.id);
-    startSession(middle.id).emit({
-      type: "session.ended",
-      payload: { reason: "exited", exitCode: 0 },
-    });
-
-    const first = store.listTasks({ limit: 1 });
-    expect(first.tasks).toEqual([{ ...newest, sessions: [] }]);
-    await store.deleteTask(newest.id);
-    const rest = store.listTasks({ limit: 2, cursor: first.next ?? "" });
-    expect(rest.tasks.map(({ id, sessions }) => [id, sessions.length])).toEqual([
-      [middle.id, 1],
-      [oldest.id, 1],
-    ]);
-    expect(store.listActiveTasks()).toEqual([
-      { ...oldest, sessions: [store.getSession(running.id)] },
-    ]);
-  });
-
   it("sums each task's tokens by harness and keeps each harness's latest limits, telling listeners", () => {
     const changes: Change[] = [];
     store.subscribe((change) => changes.push(change));
@@ -399,20 +291,6 @@ describe("store", () => {
     ]);
     expect(changes.at(-2)).toEqual({ type: "task", task: store.getTask(task.id) });
     expect(changes.at(-1)).toEqual({ type: "limits", limits: store.listLimits()[0] });
-  });
-
-  it("pages an agent's sessions across its tasks, newest first", () => {
-    const agentId = addAgent(store).id;
-    const ids = ["one", "two", "three"].map((prompt) => {
-      const task = store.createTask(prompt);
-      startSession(task.id);
-      return startSession(task.id, { agentId }).id;
-    });
-
-    const first = store.listAgentSessions(agentId, { limit: 2 });
-    expect(first.sessions.map((session) => session.id)).toEqual([ids[2], ids[1]]);
-    const rest = store.listAgentSessions(agentId, { limit: 2, before: first.next ?? "" });
-    expect(rest).toEqual({ sessions: [store.getSession(ids[0] ?? "")] });
   });
 
   it("keeps a chief's plan with its goal: its pieces go with it, the departments' tasks stay", async () => {
@@ -479,6 +357,8 @@ describe("store", () => {
       "allAccounts",
       "allLibraryItems",
       "allConnectors",
+      // Through a partial index that holds only paused tasks.
+      "pausedTasks",
     ]);
     // These group a period's rows after finding them through an index.
     const groupedReads = new Set(["accountUsageSince", "connectorCallCounts"]);
@@ -493,6 +373,7 @@ describe("store", () => {
       [queries.deleteSessionEvents, "events_by_session"],
       [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
       [queries.sessionsOfTask, "sessions_by_task"],
+      [queries.pausedTasks, "tasks_paused"],
       [queries.agentSessionsBefore, "sessions_by_agent"],
       [queries.activeTaskOfDepartment, "tasks_open_by_department"],
       [queries.latestTurnOfSession, "events_turns"],

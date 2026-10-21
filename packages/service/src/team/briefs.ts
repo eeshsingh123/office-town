@@ -39,6 +39,14 @@ function where({ workspacePath, additionalPaths, readOnlyPaths }: TaskFolders): 
   return `You work in ${workspacePath}${also}.${read}`;
 }
 
+// Whatever an agent reads is read again at each of its later steps, so long output is costly.
+const QUIET_OUTPUT =
+  "Keep command output short: quiet flags for tests and builds, and long output into a file you search.";
+
+// A worker's result stays in the lead's conversation, so details go in a file the lead opens if needed.
+const RESULT_ASK =
+  "End with a short account in under 200 words: what you did, where it is, what you checked and how it went, and anything the lead must decide. Put longer findings in a file and give its path.";
+
 function instructionsOf(instructions: string | undefined): string {
   const text = instructions?.trim() ?? "";
   return text === "" ? "" : `${text}\n\n`;
@@ -83,7 +91,7 @@ export function workerBrief(input: {
     input.branch === undefined
       ? where(input.folders)
       : `${where(input.folders)} It is your own git worktree, on the branch ${input.branch}. Commit your work there before you finish; your lead merges it. Do not merge or push.`;
-  const text = `You are the ${input.role} in ${input.teamName}, a team of AI agents in Office Town. Your lead, ${input.lead.name}, hands you a piece of work. When you finish, your last message goes to the lead as your result, so end with a short account of what you did and where it is.
+  const text = `You are the ${input.role} in ${input.teamName}, a team of AI agents in Office Town. Your lead, ${input.lead.name}, hands you a piece of work. When you finish, your last message goes to the lead as your result. ${RESULT_ASK}
 
 ${instructionsOf(input.instructions)}The team's goal:
 ${input.goal}
@@ -93,7 +101,7 @@ ${where_}
 Your piece of work, from ${input.lead.name}:
 ${input.work}
 
-If you cannot go on without the user's decision, ask with the ask_user tool.`;
+${QUIET_OUTPUT} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
@@ -106,10 +114,12 @@ export function nextWork(lead: { id: string; name: string }, work: string): Mess
     text: `A new piece of work from ${lead.name}:
 ${work}
 
-If you work on a branch of your own, commit your work there. End with a short account of what you did and where it is.`,
+If you work on a branch of your own, commit your work there. ${RESULT_ASK}`,
     origin: { kind: "brief", summary: `New work from ${lead.name}`, from: lead.id },
   };
 }
+
+export const LEAD_BRIEF_SUMMARY = "The goal and your team";
 
 export function leadBrief(input: {
   goal: string;
@@ -142,8 +152,16 @@ ${where(input.folders)}
 Your team:
 ${input.roster}
 
-Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on. Do the rest yourself, then put the results together.${branches}${codeFlow}
+Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on.
 
-${change} If you cannot go on without the user's decision, ask with the ask_user tool.`;
-  return { text, origin: { kind: "brief", summary: "The goal and your team" } };
+You plan, decide and put the results together; your workers do the work. Everything you read stays in your conversation and is read again at each of your later steps, so keep it small:
+- Look at the workspace only enough to plan. For a deeper look, have a worker study it and report briefly.
+- Write the shared contracts every worker builds on (interfaces, schemas, a spec) yourself when the work needs them. Hand the building, the test runs and the checks to workers.
+- Check a result from its account and a diff summary, and open a file only where something looks wrong. Have a worker run deep checks and report what passed and what failed.
+- Fix small things yourself, such as a merge conflict or a line or two.
+- The app shows the user every worker's state, so do not keep a progress board or commit only to record progress.
+- ${QUIET_OUTPUT}${branches}${codeFlow}
+
+${change} If the user asks you to carry on in a fresh session, call hand_over. If you cannot go on without the user's decision, ask with the ask_user tool.`;
+  return { text, origin: { kind: "brief", summary: LEAD_BRIEF_SUMMARY } };
 }

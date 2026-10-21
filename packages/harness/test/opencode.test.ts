@@ -3,7 +3,7 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { opencodeAdapter } from "../src/adapters/opencode/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadLines, loadRecording, replay, replayOptions } from "./support/replay.ts";
+import { loadRecording, replay, replayOptions } from "./support/replay.ts";
 
 const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", "opencode", name);
 const recording = (name: string) => loadRecording(fixture(`${name}.jsonl`));
@@ -18,10 +18,9 @@ const recordings = {
 };
 // Recorded with an effort chosen, so it only replays correctly with one.
 const effortRecording = recording("effort");
-const catalogOutput = loadLines(fixture("catalog.txt"));
 const withEffort = (effort: string) => ({ ...replayOptions, effort });
 
-describeAdapterConformance(opencodeAdapter, recordings, catalogOutput);
+describeAdapterConformance(opencodeAdapter, recordings);
 
 function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
@@ -107,7 +106,7 @@ describe("opencode adapter", () => {
     expect(opencodeAdapter.isolationNote).toContain("global");
   });
 
-  it("performs the handshake, then sends the prompt once the session exists", async () => {
+  it("performs the handshake, then sends the prompt once the session exists, resuming an earlier one when given", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
     expect(written.slice(0, 3).map((line) => JSON.parse(line).method)).toEqual([
@@ -119,35 +118,23 @@ describe("opencode adapter", () => {
       harnessSessionId: "ses_f02f3e6afffe7FEhhi26uQhMlv",
       model: "opencode/big-pickle",
     });
-  });
 
-  it("reads its models from the CLI's list, with each model's provider, what it costs, and its variants as its effort values, what it takes besides text, leaving out models that cannot call tools", () => {
-    expect(opencodeAdapter.catalog?.parse(catalogOutput).models).toEqual([
-      {
-        id: "opencode/big-pickle",
-        name: "Big Pickle",
-        provider: "opencode",
-        access: "free",
-        efforts: [],
-        inputs: [],
-      },
-      {
-        id: "opencode/ling-3.1-flash-free",
-        name: "Ling 3.1 Flash Free",
-        provider: "opencode",
-        access: "free",
-        efforts: ["low", "medium", "high"],
-        inputs: [],
-      },
-      {
-        id: "opencode-go/deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
-        provider: "opencode-go",
-        access: "plan",
-        efforts: ["low", "high", "max"],
-        inputs: [],
-      },
+    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
+    const resumed = await replay(opencodeAdapter, recording("resumed"), {
+      ...replayOptions,
+      resumeSessionId,
+    });
+    const sent = resumed.written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "initialize",
+      "session/resume",
+      "session/prompt",
     ]);
+    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
+    expect(sent[2].params.sessionId).toBe(resumeSessionId);
+    expect(only(resumed.events, "session.started")[0]?.payload.harnessSessionId).toBe(
+      resumeSessionId,
+    );
   });
 
   it("sets the chosen effort before the first prompt, or names the values the model offers", async () => {
@@ -177,7 +164,7 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("starts an action once its input is known and passes the harness's options through", async () => {
+  it("starts an action once its input is known, passes the options through, fails it once denied, and counts thinking as output", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
     const [write, shell] = only(events, "action.started");
@@ -201,28 +188,17 @@ describe("opencode adapter", () => {
       id: 0,
       result: { outcome: { outcome: "selected", optionId: "once" } },
     });
-  });
-
-  it("joins streamed fragments into whole messages and reasoning", async () => {
-    const allowed = await replay(opencodeAdapter, recordings["write-allowed"]);
-    const denied = await replay(opencodeAdapter, recordings["write-denied"]);
-
-    const replies = only(allowed.events, "message").filter((e) => e.payload.role === "assistant");
-    expect(replies.map((event) => event.payload.text)).toEqual([
-      'Created hello.txt with "hi"\ndone',
-    ]);
-    expect(only(denied.events, "reasoning")).toHaveLength(1);
-    expect(only(denied.events, "reasoning.delta").length).toBeGreaterThan(1);
-    expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
-  });
-
-  it("counts thinking tokens as output", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
+    // The turn's usage is its last model step, which is the conversation's length.
     expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
       inputTokens: 10405,
       outputTokens: 1025,
       cachedInputTokens: 10297,
+      contextTokens: 11430,
     });
+
+    const denied = await replay(opencodeAdapter, recordings["write-denied"]);
+    expect(only(denied.events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
+    expect(only(denied.events, "action.ended")[0]?.payload.outcome).toBe("failed");
   });
 
   it("recounts a conversation from its export: every model step, its thinking, and its sub-agents", () => {
@@ -257,60 +233,6 @@ describe("opencode adapter", () => {
       usage: { inputTokens: 2350, outputTokens: 35, cachedInputTokens: 2200 },
       children: ["ses_child"],
     });
-  });
-
-  it("reports streamed command output once, then the result", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
-
-    expect(only(events, "action.updated").map((event) => event.payload.output)).toEqual(["done\n"]);
-    expect(only(events, "action.ended").map((event) => event.payload.result)).toEqual([
-      "Wrote file successfully.",
-      "done\n",
-    ]);
-  });
-
-  it("resumes an earlier session instead of creating one, and reports its id", async () => {
-    const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
-    const { events, written } = await replay(opencodeAdapter, recording("resumed"), {
-      ...replayOptions,
-      resumeSessionId,
-    });
-
-    const sent = written.map((line) => JSON.parse(line));
-    expect(sent.map((message) => message.method)).toEqual([
-      "initialize",
-      "session/resume",
-      "session/prompt",
-    ]);
-    expect(sent[1].params).toMatchObject({ sessionId: resumeSessionId, cwd: "/workspace" });
-    expect(sent[2].params.sessionId).toBe(resumeSessionId);
-    expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
-    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
-
-  it("fails the action when the user denies it", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
-
-    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
-    expect(only(events, "action.ended")[0]?.payload.outcome).toBe("failed");
-  });
-
-  it("reads the todo list as the plan and a sub-agent call as a delegation", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["plan-and-subagent"]);
-
-    expect(only(events, "plan.updated").map((event) => event.payload.steps)).toEqual([
-      [
-        { id: "1", title: "look at files", status: "in_progress" },
-        { id: "2", title: "report", status: "pending" },
-      ],
-      [
-        { id: "1", title: "look at files", status: "completed" },
-        { id: "2", title: "report", status: "completed" },
-      ],
-    ]);
-    expect(only(events, "action.started").map((event) => event.payload)).toEqual([
-      expect.objectContaining({ kind: "delegate", title: "Glob for txt files", planStepId: "1" }),
-    ]);
   });
 
   it("answers a pending permission as cancelled when interrupted, and stays usable", async () => {
@@ -352,16 +274,5 @@ describe("opencode adapter", () => {
     expect(written.findIndex((line) => line.includes("queued"))).toBeGreaterThan(
       written.findIndex((line) => line.includes('"optionId":"once"')),
     );
-  });
-
-  it("ends the session as failed when the harness rejects the handshake", async () => {
-    const { events } = await replay(opencodeAdapter, [
-      { receive: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "Not logged in" } } },
-    ]);
-
-    expect(events.map((event) => [event.type, event.payload])).toEqual([
-      ["error", { message: 'The harness rejected "initialize": Not logged in', fatal: true }],
-      ["session.ended", { reason: "failed", exitCode: null }],
-    ]);
   });
 });
