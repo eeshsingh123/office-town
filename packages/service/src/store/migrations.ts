@@ -588,4 +588,8 @@ export const migrations: readonly Migration[] = [
     WHERE harness_session_id IS NOT NULL;
   CREATE INDEX IF NOT EXISTS sessions_by_end ON sessions (ended_at);
   `,
+  `
+  -- A task paused at 95% of an account's usage window (team/usage-pause.ts).
+  ALTER TABLE tasks ADD COLUMN paused TEXT;
+  `,
 ];

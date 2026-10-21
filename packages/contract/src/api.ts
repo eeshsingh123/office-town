@@ -19,6 +19,21 @@ export const taskUsageSchema = z.object({
 });
 export type TaskUsage = z.infer<typeof taskUsageSchema>;
 
+// Its agents were stopped once an account passed 95% of a usage window, until the user resumes them.
+export const taskPauseSchema = z.object({
+  accountId: z.string().min(1),
+  // The window's own name, such as "5-hour".
+  window: z.string().min(1),
+  usedFraction: z.number().nonnegative(),
+  resetsAt: z.iso.datetime().optional(),
+  // When the user chose to resume it at the reset.
+  resumeAt: z.iso.datetime().optional(),
+});
+export type TaskPause = z.infer<typeof taskPauseSchema>;
+
+export const resumePausedRequestSchema = z.object({ at: z.iso.datetime().optional() });
+export type ResumePausedRequest = z.infer<typeof resumePausedRequestSchema>;
+
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
   prompt: z.string(),
@@ -35,6 +50,7 @@ export const taskRecordSchema = z.object({
   state: taskStateSchema,
   // Cleared when the finished goal is taken up again.
   reviewedAt: z.iso.datetime().optional(),
+  paused: taskPauseSchema.optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
 });

@@ -40,6 +40,7 @@ import {
   type StoreSize,
   settingsSchema,
   type TaskPage,
+  type TaskPause,
   type TaskRecord,
   type TaskState,
   type TaskSummary,
@@ -108,6 +109,7 @@ interface TaskRow {
   setup: string | null;
   state: TaskState;
   reviewedAt: number | null;
+  paused: string | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -319,6 +321,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.workspaceId === null ? {} : { workspaceId: row.workspaceId }),
     state: row.state,
     ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
+    ...(row.paused === null ? {} : { paused: JSON.parse(row.paused) as TaskPause }),
     usage,
   };
 }
@@ -637,6 +640,12 @@ class SqliteStore implements Store {
     if (this.#statements.setTaskState.run(state, ref).changes > 0) this.#publishTask(taskId);
   }
 
+  setTaskPause(taskId: string, pause: TaskPause | undefined): TaskRecord {
+    const value = pause === undefined ? null : JSON.stringify(pause);
+    this.#statements.setTaskPause.run(value, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
   markReviewed(taskId: string): TaskRecord {
     this.#statements.taskReviewed.run(Date.now(), this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
@@ -664,6 +673,12 @@ class SqliteStore implements Store {
       .map((id) => this.#taskRow(id))
       .sort((a, b) => b.ref - a.ref)
       .map((row) => this.#summarize(row));
+  }
+
+  listPausedTasks(): TaskSummary[] {
+    return all<{ id: string }>(this.#statements.pausedTasks).map(({ id }) =>
+      this.#summarize(this.#taskRow(id)),
+    );
   }
 
   async deleteTask(id: string): Promise<void> {
@@ -794,6 +809,31 @@ class SqliteStore implements Store {
     // The tasks' records are unchanged, but whoever keeps their state reads them again.
     for (const taskId of new Set(sessions.map((row) => row.taskId))) this.#publishTask(taskId);
     return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
+  }
+
+  // Like a restart, for these sessions only.
+  interruptSessions(sessionIds: string[]): void {
+    const { taskIds, delegations } = transaction(this.#db, () => {
+      const taskIds = new Set<string>();
+      const delegations: DelegationRow[] = [];
+      for (const id of sessionIds) {
+        const session = this.getSession(id);
+        if (session === undefined) continue;
+        taskIds.add(session.taskId);
+        delegations.push(...all<DelegationRow>(this.#statements.workingDelegationsOfSession, id));
+        this.#statements.deleteSessionPendingRequests.run(this.#sessionRef(id));
+        this.#statements.interruptSession.run(id);
+        this.#statements.interruptDelegationsOfSession.run(id);
+      }
+      return { taskIds, delegations };
+    });
+    for (const row of delegations) {
+      this.#publish({
+        type: "delegation",
+        delegation: toDelegation({ ...row, status: "interrupted" }),
+      });
+    }
+    for (const taskId of taskIds) this.#publishTask(taskId);
   }
 
   createDelegation(delegation: NewDelegation): DelegationRecord {

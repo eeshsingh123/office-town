@@ -30,6 +30,7 @@ import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
 import { TaskStates } from "./team/task-state.ts";
+import { UsagePauses } from "./team/usage-pause.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
 import { askUser } from "./tools/ask-user.ts";
 import { startToolServer } from "./tools/tool-server.ts";
@@ -90,6 +91,7 @@ void followRecounts(
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
 const handovers = new Handovers(team);
+const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
 guestsLeave(team);
 const scheduler = new Scheduler(team);
@@ -111,7 +113,7 @@ toolServer.offer([
 // After a restart, queued work may be free to start.
 void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ team, connectors, token, port });
+const server = await startApiServer({ team, connectors, pauses, token, port });
 // Claude apps connected on claude.ai since the last run show up without a click.
 void connectors.claudeApps.refresh();
 const ready: CoreReady = { url: server.url, token };

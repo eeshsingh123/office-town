@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentRecord } from "@office-town/contract";
+import { type AgentRecord, defaultAccountId } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionActivity } from "../src/registry/activity.ts";
 import { stopIdleAgents } from "../src/registry/idle-stop.ts";
@@ -330,6 +330,41 @@ Tests pass.`,
     expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("Call hand_over now") });
     const handover = { decisions: [], facts: [], next: "Merge the menu." };
     expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
+  });
+
+  it("pauses a whole team past 95% of a usage window and carries it on through its lead on resume", async () => {
+    const { task, writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const limits = [
+      {
+        id: "five_hour",
+        label: "5-hour",
+        usedFraction: 0.96,
+        resetsAt: "2026-10-23T12:00:00.000Z",
+      },
+    ];
+    worker?.emit({ type: "limits.updated", payload: { limits } });
+    await eventually(() => core.store.getTask(task.taskId)?.paused !== undefined);
+    await settle();
+
+    expect(core.store.getTask(task.taskId)?.paused).toMatchObject({ window: "5-hour" });
+    expect(lastSent(0)).toEqual({ type: "stop" });
+    expect(lastSent(1)).toEqual({ type: "stop" });
+    expect(core.store.listDelegations(task.taskId).map(({ status }) => status)).toEqual([
+      "interrupted",
+    ]);
+
+    const accountId = defaultAccountId("claude", { kind: "native" });
+    expect((await core.call("POST", `/accounts/${accountId}/resume-paused`, {})).status).toBe(204);
+    await eventually(() => core.sessions.length === 3);
+    expect(core.store.getTask(task.taskId)?.paused).toBeUndefined();
+    expect(core.store.getSession(core.sessions[2]?.id ?? "")?.resumedFrom).toBe(lead?.id);
+    expect(lastSent(2)).toMatchObject({
+      text: expect.stringContaining("so your team was paused"),
+    });
+    expect(lastSent(2)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
   it("stops a worker only once the user approves its lead's ask, and resumes it in the same conversation", async () => {

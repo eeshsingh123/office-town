@@ -20,6 +20,7 @@ import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
 import { TaskStates } from "../src/team/task-state.ts";
+import { UsagePauses } from "../src/team/usage-pause.ts";
 import { memorySecrets } from "./support/connectors.ts";
 import { FakeSession } from "./support/fake-session.ts";
 
@@ -113,7 +114,8 @@ beforeEach(async () => {
   const readCatalog = cachedCatalogs(async () => ({ models: [] }));
   const team = { registry, store, readCatalog, dataFolder: directory, createSession };
   const connectors = new ConnectorHub(store, registry, memorySecrets());
-  server = await startApiServer({ team, connectors, token: TOKEN, port: 0 });
+  const pauses = new UsagePauses(team);
+  server = await startApiServer({ team, connectors, pauses, token: TOKEN, port: 0 });
 });
 
 afterEach(async () => {
