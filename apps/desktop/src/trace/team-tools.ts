@@ -3,6 +3,7 @@ import { type ActionKind, appsToolServer, teamToolServer } from "@office-town/co
 type Input = Record<string, unknown>;
 
 const words = (value: unknown) => (typeof value === "string" ? value : "");
+const count = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
 // Whichever harness called them.
 const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => string }> = {
@@ -10,7 +11,17 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   propose_team: { kind: "other", title: () => "Proposed a team" },
   delegate: { kind: "delegate", title: (input) => `Delegated to ${words(input.agent)}` },
   team_status: { kind: "other", title: () => "Checked on the team" },
+  // Kept for traces from before D-73.
   outsource: { kind: "delegate", title: () => "Sent the work for review" },
+  write_checklist: {
+    kind: "other",
+    title: (input) => `Wrote a checklist of ${count(input.items)} checks`,
+  },
+  propose_checks: {
+    kind: "other",
+    title: (input) => `Proposed ${count(input.items)} checks for you to approve`,
+  },
+  report_check: { kind: "other", title: (input) => `Reported ${count(input.results)} results` },
   propose_plan: { kind: "other", title: () => "Proposed a plan" },
   message_lead: {
     kind: "other",

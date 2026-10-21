@@ -22,6 +22,8 @@ import {
   answerPermissionsResultSchema,
   apiErrorSchema,
   attachmentSchema,
+  type CheckRecord,
+  type CheckRequest,
   type ChiefDraftReply,
   type ChiefDraftRequest,
   type ConnectorActivity,
@@ -32,6 +34,7 @@ import {
   type ConnectorDraftRequest,
   type ConnectorRecord,
   type ConnectorTestRequest,
+  checkRecordSchema,
   chiefDraftReplySchema,
   connectorActivitySchema,
   connectorCatalogSchema,
@@ -75,7 +78,6 @@ import {
   planPieceSchema,
   profileRecordSchema,
   type RoomPosition,
-  type SecondOpinionRequest,
   type SessionPage,
   type SessionRecord,
   type Settings,
@@ -95,11 +97,9 @@ import {
   taskRecordSchema,
   type UserProfile,
   userProfileSchema,
-  type WorkspaceEntry,
   type WorkspaceRecord,
   type WorkspaceRequest,
   type WorkspaceUsage,
-  workspaceEntrySchema,
   workspaceRecordSchema,
   workspaceUsageSchema,
 } from "@office-town/contract";
@@ -266,10 +266,10 @@ export const api = {
     send("POST", `/agents/${id(agentId)}/messages`, { text, taskId, ...withFiles(attachments) }),
   listDelegations: (taskId: string): Promise<DelegationRecord[]> =>
     read(`/tasks/${id(taskId)}/delegations`, listOf(delegationRecordSchema)),
-  listTaskFiles: (taskId: string, agentId: string): Promise<WorkspaceEntry[]> =>
-    read(`/tasks/${id(taskId)}/files?agent=${id(agentId)}`, listOf(workspaceEntrySchema)),
-  secondOpinion: (taskId: string, request: SecondOpinionRequest): Promise<SessionRecord> =>
-    write("POST", `/tasks/${id(taskId)}/second-opinion`, request, sessionRecordSchema),
+  startCheck: (taskId: string, request: CheckRequest): Promise<CheckRecord> =>
+    write("POST", `/tasks/${id(taskId)}/checks`, request, checkRecordSchema),
+  listChecks: (taskId: string): Promise<CheckRecord[]> =>
+    read(`/tasks/${id(taskId)}/checks`, listOf(checkRecordSchema)),
   listDepartments: (): Promise<DepartmentRecord[]> =>
     read("/departments", listOf(departmentRecordSchema)),
   createDepartment: (request: NewDepartmentRequest): Promise<DepartmentRecord> =>

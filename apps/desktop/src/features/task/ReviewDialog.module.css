@@ -31,21 +31,10 @@
 }
 
 .file {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+  margin: 0;
   padding: 7px 10px;
   border-top: 1px solid var(--border);
-}
-
-.file input {
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.name {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .reviewer {

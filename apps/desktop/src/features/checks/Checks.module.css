@@ -1,0 +1,173 @@
+.lead {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hover);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
+.from {
+  flex: 1;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: var(--size-meta);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+/* The results card at the end of the chat. */
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 12px 0 6px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.resultsHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.resultsTitle {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.resultsTitle strong {
+  font-weight: 600;
+}
+
+.resultsTitle span {
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.outcome {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+}
+
+.outcome[data-outcome="fail"] {
+  background: color-mix(in srgb, var(--bad) 9%, transparent);
+}
+
+.outcomeIcon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.outcome[data-outcome="pass"] .outcomeIcon {
+  color: var(--ok);
+}
+
+.outcome[data-outcome="fail"] .outcomeIcon {
+  color: var(--bad);
+}
+
+.outcome[data-outcome="not_run"] .outcomeIcon {
+  color: var(--text-3);
+}
+
+.outcomeText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.outcomeDetail {
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.change {
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--bad);
+}
+
+.change[data-change="fixed"] {
+  color: var(--ok);
+}
+
+.notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.sectionLabel {
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

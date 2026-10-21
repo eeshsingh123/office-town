@@ -24,6 +24,7 @@ import {
   type Group,
   type GroupBy,
   groupAsks,
+  isDecision,
   KIND_LABEL,
   NO_FILTERS,
   ofType,
@@ -298,7 +299,7 @@ export function NeedsYouView() {
   const workspaceOptions = options((ask) => [ask.workspaceId, ask.workspaceName]);
   const harnessOptions = options((ask) => [ask.harness, ask.harness]);
 
-  const decisions = asks.filter((ask) => ask.kind === "plan" || ask.kind === "team").length;
+  const decisions = asks.filter((ask) => isDecision(ask.kind)).length;
   const taskCount = new Set(asks.map((ask) => ask.taskId)).size;
   const oldest = asks.reduce((least, ask) => Math.min(least, ask.askedAt), now);
 
