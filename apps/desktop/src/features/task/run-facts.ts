@@ -39,7 +39,7 @@ function endOf(latest: SessionRecord, traces: readonly Trace[]): string {
   return times.reduce((last, time) => (time > last ? time : last), latest.createdAt);
 }
 
-// What an agent runs on, for the side panel and the task page's run bar.
+// What an agent runs on, for the side panel and the task page's run card.
 export function useRunFacts(agent: Agent): RunFacts {
   const { latest } = agent;
   const first = agent.sessions[0] ?? latest;

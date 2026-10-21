@@ -10,6 +10,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
+import { byRole } from "../departments/team-form.ts";
 import { newTokens, usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
@@ -45,15 +46,25 @@ function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progre
   return { bubble: text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text };
 }
 
-// Lead first, then in join order, so each keeps its desk.
-function membersOf(department: DepartmentRecord, agents: Record<string, AgentRecord>) {
-  return Object.values(agents)
+interface Team {
+  label: string;
+  members: AgentRecord[];
+}
+
+// The lead, then one sub-team per role, each in join order.
+function teamsOf(department: DepartmentRecord, agents: Record<string, AgentRecord>): Team[] {
+  const joined = Object.values(agents)
     .filter((agent) => agent.departmentId === department.id)
-    .sort(
-      (a, b) =>
-        Number(b.id === department.leadAgentId) - Number(a.id === department.leadAgentId) ||
-        a.createdAt.localeCompare(b.createdAt),
-    );
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const lead = joined.filter((agent) => agent.id === department.leadAgentId);
+  const others = byRole(
+    joined.filter((agent) => agent.id !== department.leadAgentId),
+    (agent) => agent.role,
+  );
+  return [
+    ...(lead.length === 0 ? [] : [{ label: "Lead", members: lead }]),
+    ...others.map(({ role, people }) => ({ label: role || "Team", members: people })),
+  ];
 }
 
 type Known = Pick<AppState, "agents" | "tasks" | "sessions">;
@@ -103,14 +114,22 @@ function layOut(layout: Layout) {
     )
     .reverse();
   const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId, chiefId));
-  const members = new Map(departments.map((one) => [one.id, membersOf(one, state.agents)]));
+  const teams = new Map(departments.map((one) => [one.id, teamsOf(one, state.agents)]));
+  // Seats follow the teams' order.
+  const members = new Map(
+    [...teams].map(([id, list]) => [id, list.flatMap((team) => team.members)]),
+  );
   const solo = inRoom.get(OPEN) ?? [];
   const guests = inRoom.get(GUESTS) ?? [];
   const specs: RoomSpec[] = [
     ...(chiefId === undefined ? [] : [{ id: CHIEF_ROOM, kind: "chief", desks: 1 } as const]),
     ...departments.map((one): RoomSpec => {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
-      return { id: one.id, kind: "department", desks };
+      const groups = (teams.get(one.id) ?? []).map(({ label, members: people }) => ({
+        label,
+        desks: people.length,
+      }));
+      return { id: one.id, kind: "department", desks, ...(groups.length > 1 ? { groups } : {}) };
     }),
     // Only an empty office invites setup as rooms; after that the floor's corner offers it.
     ...(departments.length > 0 ? [] : [{ id: ADD_DEPARTMENT, kind: "add", desks: 1 } as const]),

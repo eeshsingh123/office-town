@@ -255,6 +255,17 @@ Tests pass.`,
     expect(state()).toBe("ended");
   });
 
+  it("ends a member that had finished as done when its team is stopped", async () => {
+    const { task, writer } = await teamAtWork();
+    await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write" });
+    playTurn(core.sessions[1], "Written.");
+    await settle();
+    expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
+    // The lead was owed a turn for the result, so it was cut off.
+    expect(lastSent(0)).toEqual({ type: "stop" });
+    expect(lastSent(1)).toEqual({ type: "stop", idle: true });
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });

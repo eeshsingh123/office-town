@@ -15,7 +15,7 @@ import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
-import { RunBar } from "./RunBar.tsx";
+import { RunCard } from "./RunCard.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import { StepsButton, StepsColumn } from "./StepsColumn.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
@@ -137,6 +137,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
 
       <div className={styles.body}>
         <div className={styles.column}>
+          <RunCard agent={agent} />
           <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
             <div className={styles.traceWidth}>
               {agent.sessions.map((session, index) => (
@@ -157,8 +158,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               />
             </div>
           </div>
-          <div className={styles.traceWidth}>
-            <RunBar agent={agent} />
+          <div className={`${styles.traceWidth} ${styles.dock}`}>
             <MessageBox agent={agent} actions={<ReviewAction onClick={() => setAsking(true)} />} />
           </div>
         </div>

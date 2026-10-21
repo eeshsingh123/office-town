@@ -2,6 +2,7 @@ import type { SessionRecord } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import {
   clampToFloor,
+  contains,
   dragTarget,
   floorPlan,
   inRect,
@@ -44,6 +45,34 @@ describe("floor plan", () => {
     const outside = clampToFloor({ x: -50, y: plan.height + 50 }, plan);
     expect(outside.x).toBeGreaterThan(0);
     expect(outside.y).toBeLessThan(plan.height);
+  });
+
+  it("seats each sub-team in its own pod inside the department's room", () => {
+    const groups = [
+      { label: "Lead", desks: 1 },
+      { label: "Developer", desks: 3 },
+      { label: "Tester", desks: 2 },
+      { label: "Designer", desks: 1 },
+    ];
+    const [room] = floorPlan([{ id: "web", kind: "department", desks: 7, groups }]).rooms;
+    const pods = room?.pods ?? [];
+    expect(pods.map((pod) => pod.label)).toEqual(["Lead", "Developer", "Tester", "Designer"]);
+    let seat = 0;
+    for (const [index, pod] of pods.entries()) {
+      const { x, y, width, height } = pod.rect;
+      expect(contains(room?.rect ?? pod.rect, { x, y })).toBe(true);
+      expect(contains(room?.rect ?? pod.rect, { x: x + width, y: y + height })).toBe(true);
+      for (const one of room?.seats.slice(seat, seat + pod.desks) ?? []) {
+        expect(inRect(pod.rect, [{ position: one.agent }])).toHaveLength(1);
+      }
+      seat += pod.desks;
+      for (const other of pods.slice(index + 1)) {
+        const apart =
+          pod.rect.x + pod.rect.width <= other.rect.x ||
+          pod.rect.y + pod.rect.height <= other.rect.y;
+        expect(apart).toBe(true);
+      }
+    }
   });
 
   it("keeps a dragged room where it was put, and lands drags on the grid clear of other rooms", () => {
