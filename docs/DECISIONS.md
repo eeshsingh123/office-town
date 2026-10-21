@@ -347,6 +347,12 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The worker's `session.ended` carries `stoppedBy` (lead, reason); without it "stopped" still means the user (D-31). The trace shows "Stopped by <lead>: <reason>".
 - `resume_work` hands the stopped piece's brief back in the same conversation, as a new delegation. New or changed work goes through `delegate`. No token budget per piece (owner: goals can be open-ended).
 
+### D-72 Lean team runs — in progress (2026-10-22)
+
+- Measured on a real goal (Opus lead, 5 workers): the lead was ~60% of the Claude spend, from ~190 model calls at ~130k context each; 98.8% of input was cache reads, so the cost is volume, not cache misses. Every step re-reads the whole conversation, so cost ≈ context size × steps. `out/burn.mjs` (local) measures a run from a copy of the store.
+- The lead manages: it plans, writes shared contracts, merges, fixes small things and decides; workers explore, build and check. Workers report in under 200 words with details in a file; every agent keeps command output quiet. Owner: quality must not drop, so the lead still checks results and opens files where something looks wrong.
+- Not done, by the owner: results are not batched (a worker may need another's result through the lead without waiting), models and efforts stay the lead's and the user's choice, no budgets. Only a checkpoint once a usage window passes 95%.
+
 ## Done
 
 All accepted and built.
