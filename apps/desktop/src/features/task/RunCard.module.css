@@ -1,0 +1,224 @@
+/* Narrow trace: a pill on its own row, top right. Wide trace (container `trace`): a card
+   in the right margin, which the trace and its message box leave free. */
+.run {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding: 12px 20px 0;
+}
+
+.card {
+  display: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: inherit;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.pill:hover,
+.pill[data-state="open"] {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.pill svg {
+  flex: none;
+}
+
+.pillName {
+  flex: none;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pillFacts {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  padding: 18px 18px 16px;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whoText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.whoText strong {
+  overflow: hidden;
+  font-size: var(--size-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.role {
+  overflow: hidden;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--size-meta);
+  color: var(--text);
+}
+
+.facts li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.facts li > svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+.folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: -3px -6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.facts .folder svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.folder:hover {
+  background: var(--hover);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.statLabel {
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+.statValue {
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.statNote {
+  overflow: hidden;
+  font-size: var(--size-small);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cached {
+  margin: -6px 0 0;
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+/* Last, so it overrides the narrow layout above. */
+@container trace (min-width: 1120px) {
+  .run {
+    position: absolute;
+    z-index: 1;
+    top: 20px;
+    right: 24px;
+    width: 280px;
+    padding: 0;
+  }
+
+  .pill {
+    display: none;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    padding: 18px 18px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+}

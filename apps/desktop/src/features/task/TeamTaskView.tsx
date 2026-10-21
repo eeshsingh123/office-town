@@ -13,7 +13,7 @@ import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
-import { RunBar } from "./RunBar.tsx";
+import { RunCard } from "./RunCard.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
@@ -189,6 +189,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
         </nav>
         <MemberLinks.Provider value={setChosenId}>
           <div className={styles.column}>
+            <RunCard agent={shown} />
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
                 {shown.sessions.map((session, index) => (
@@ -212,8 +213,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 ) : null}
               </div>
             </div>
-            <div className={styles.traceWidth}>
-              <RunBar agent={shown} />
+            <div className={`${styles.traceWidth} ${styles.dock}`}>
               <MessageBox
                 agent={shown}
                 actions={

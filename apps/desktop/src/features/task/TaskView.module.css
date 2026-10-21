@@ -127,11 +127,16 @@
   min-height: 0;
 }
 
+/* Wide enough, the run card takes the right margin, and the trace and its box centre in the rest. */
 .column {
+  --run-card-space: 328px;
+
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  container: trace / inline-size;
 }
 
 .scroll {
@@ -144,6 +149,17 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
+}
+
+@container trace (min-width: 1120px) {
+  .scroll {
+    padding-right: calc(28px + var(--run-card-space));
+  }
+
+  .dock {
+    position: relative;
+    left: calc(var(--run-card-space) / -2);
+  }
 }
 
 .divider {
