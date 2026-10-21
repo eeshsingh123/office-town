@@ -262,4 +262,25 @@ describe("the chief", () => {
     expect(core.store.getAgent(gone.department.leadAgentId)).toBeUndefined();
     expect((await core.call("GET", "/departments")).json).toEqual([]);
   });
+
+  it("keeps a goal whose chief stopped as idle while a piece is at work", async () => {
+    await departmentIn("api");
+    await core.call("PUT", "/chief", { settings: claude });
+    const goal = (await core.call("POST", "/tasks/chief", { goal: "Build" })).json;
+    const chief = leadOf(goal.task.id);
+    await core.callTool(chief, "propose_plan", {
+      pieces: [{ key: "api", title: "API", department: "api", brief: "Build the API" }],
+    });
+    playTurn(chief, "I proposed a plan.");
+    const { requestId, pieces } = waitingPlan().payload;
+    await core.call("POST", `/sessions/${chief?.id}/commands`, {
+      type: "answerPlan",
+      requestId,
+      answer: { outcome: "approved", pieces },
+    });
+    await settle();
+    await core.registry.stop(chief?.id ?? "", true);
+
+    expect((await core.call("DELETE", `/tasks/${goal.task.id}`)).status).toBe(409);
+  });
 });

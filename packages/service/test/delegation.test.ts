@@ -133,6 +133,35 @@ Tests pass.`,
     ]);
   });
 
+  it("tells the lead at once when a worker cannot start, and keeps no work out with it", async () => {
+    const { department, task, writer } = await teamAtWork();
+    const [member] = (await core.call("GET", "/agents")).json.filter(
+      (agent: AgentRecord) => agent.name === writer,
+    );
+    await core.call("PUT", `/departments/${department.id}/team`, {
+      name: "Web team",
+      roles: [
+        {
+          role: "Writer",
+          purpose: "Writes",
+          agentId: member.id,
+          settings: { ...claude, model: "broken" },
+        },
+      ],
+    });
+
+    const reply = await core.callTool(core.sessions[0], "delegate", {
+      agent: writer,
+      brief: "Write",
+    });
+
+    expect(reply).toMatchObject({
+      isError: true,
+      text: expect.stringContaining("could not start"),
+    });
+    expect(core.store.listDelegations(task.taskId)).toEqual([]);
+  });
+
   it("keeps a goal's state: working, waiting on the user, working while its lead owes a turn for a result, ended once the lead finished, and idle when cut off", async () => {
     const first = await teamAtWork("First goal");
     const state = (taskId: string) => core.store.getTask(taskId)?.state;

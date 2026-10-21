@@ -170,4 +170,25 @@ describe("session", () => {
 
     expect(events.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
   });
+
+  it("keeps going when a subscriber throws, and reports it", async () => {
+    const environment = new ScriptedEnvironment();
+    const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
+    const events: SessionEvent[] = [];
+    session.subscribe(() => {
+      throw new Error("store is full");
+    });
+    session.subscribe((event) => events.push(event));
+    await session.send({ type: "start" });
+
+    await environment.emitLine(JSON.stringify([{ type: "turn.started" }]));
+    await session.send({ type: "stop" });
+
+    expect(events[0]?.type).toBe("turn.started");
+    expect(events[1]).toMatchObject({
+      type: "error",
+      payload: { message: "A subscriber failed to handle an event: store is full", fatal: false },
+    });
+    expect(events.at(-1)?.type).toBe("session.ended");
+  });
 });

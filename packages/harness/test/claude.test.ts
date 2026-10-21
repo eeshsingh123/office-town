@@ -272,7 +272,7 @@ describe("claude adapter", () => {
     ]);
   });
 
-  it("reports a question as a question and hands the user's answer back", async () => {
+  it("reports a question as a question, hands the user's answer back, and refuses a request it does not know", async () => {
     const { events, written } = await replay(claudeAdapter, recordings["question-answered"]);
 
     expect(only(events, "permission.requested")).toEqual([]);
@@ -292,6 +292,15 @@ describe("claude adapter", () => {
       answers: [{ questionId: "1", selected: ["Blue"] }],
     });
     expect(only(events, "action.ended")[0]?.payload.result).toContain("Blue");
+
+    // A request a newer CLI sends that we do not know is refused, so the CLI is never left waiting.
+    const unknown = await replay(claudeAdapter, [
+      { receive: { type: "control_request", request_id: "r1", request: { subtype: "mystery" } } },
+    ]);
+    expect(JSON.parse(unknown.written[0] as string)).toMatchObject({
+      type: "control_response",
+      response: { subtype: "error", request_id: "r1" },
+    });
   });
 
   it("ends an interrupted turn as interrupted, cancels its pending permission and stays usable", async () => {
