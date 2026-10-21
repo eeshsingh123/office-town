@@ -24,6 +24,7 @@ import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
+import { Handovers } from "./team/handover.ts";
 import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
@@ -88,6 +89,7 @@ void followRecounts(
 );
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
+const handovers = new Handovers(team);
 cleanUpWorktrees(team);
 guestsLeave(team);
 const scheduler = new Scheduler(team);
@@ -98,6 +100,7 @@ toolServer.offer([
   teamStatus(team, activity),
   stopWork(team, activity),
   resumeWork(team),
+  handovers.tool(),
   outsource(team),
   proposePlan(team, scheduler),
   messageLead(team),

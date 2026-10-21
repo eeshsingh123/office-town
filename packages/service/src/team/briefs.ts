@@ -119,6 +119,8 @@ If you work on a branch of your own, commit your work there. ${RESULT_ASK}`,
   };
 }
 
+export const LEAD_BRIEF_SUMMARY = "The goal and your team";
+
 export function leadBrief(input: {
   goal: string;
   teamName: string;
@@ -160,6 +162,6 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - The app shows the user every worker's state, so do not keep a progress board or commit only to record progress.
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 
-${change} If you cannot go on without the user's decision, ask with the ask_user tool.`;
-  return { text, origin: { kind: "brief", summary: "The goal and your team" } };
+${change} If the user asks you to carry on in a fresh session, call hand_over. If you cannot go on without the user's decision, ask with the ask_user tool.`;
+  return { text, origin: { kind: "brief", summary: LEAD_BRIEF_SUMMARY } };
 }

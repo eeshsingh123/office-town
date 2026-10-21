@@ -5,7 +5,7 @@ import type { AgentRecord } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionActivity } from "../src/registry/activity.ts";
 import { stopIdleAgents } from "../src/registry/idle-stop.ts";
-import { type Core, playTurn, settle, startCore } from "./support/team-core.ts";
+import { type Core, eventually, playTurn, settle, startCore } from "./support/team-core.ts";
 
 const claude = { harness: "claude", environment: { kind: "native" } };
 
@@ -264,6 +264,72 @@ Tests pass.`,
     // The lead was owed a turn for the result, so it was cut off.
     expect(lastSent(0)).toEqual({ type: "stop" });
     expect(lastSent(1)).toEqual({ type: "stop", idle: true });
+  });
+
+  it("hands a lead over to a fresh session only on the user's word, with the records and its handover", async () => {
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    const leadAgentId = core.store.getSession(lead?.id ?? "")?.agentId ?? "";
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const handover = {
+      decisions: ["Plain HTML, no framework: the user asked for it"],
+      facts: ["Tests run with npm test"],
+      next: "Merge the menu once it is written.",
+    };
+
+    expect((await core.callTool(lead, "hand_over", handover)).text).toContain(
+      "only when the user asks",
+    );
+    await core.call("POST", `/agents/${leadAgentId}/messages`, {
+      text: "Take this into a new session",
+    });
+    expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
+    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    await eventually(() => core.sessions.length === 3);
+    const fresh = core.sessions[2];
+    const firstWords = core.store
+      .readEvents({ after: 0, limit: 10, sessionId: fresh?.id ?? "" })
+      .find(({ event }) => event.type === "message")?.event.payload;
+    expect(firstWords).toMatchObject({ origin: { kind: "brief" } });
+    for (const part of [
+      "Plain HTML, no framework",
+      "You: Take this into a new session",
+      "still working:\n  Brief: Write the menu",
+      join(directory, "data", "handovers"),
+    ]) {
+      expect(firstWords && "text" in firstWords ? firstWords.text : "").toContain(part);
+    }
+    expect(lastSent(0)).toEqual({ type: "stop", idle: true });
+
+    playTurn(worker, "Menu written.");
+    await settle();
+    expect(lastSent(2)).toMatchObject({
+      text: expect.stringContaining("finished:\nMenu written."),
+    });
+  });
+
+  it("suggests a fresh session once a lead's conversation passes 400k tokens, and lets it hand over on approval", async () => {
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const usage = { inputTokens: 1, outputTokens: 1, contextTokens: 450_000 };
+    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed", usage } });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed", usage } });
+    await settle();
+
+    const { requests } = core.store.listPendingRequests();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.event.payload).toMatchObject({ title: expect.stringContaining("450k") });
+    await core.call("POST", `/sessions/${lead?.id}/commands`, {
+      type: "answerPermission",
+      requestId: requests[0]?.event.payload.requestId,
+      optionId: "approve",
+    });
+    await settle();
+    expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("Call hand_over now") });
+    const handover = { decisions: [], facts: [], next: "Merge the menu." };
+    expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
   });
 
   it("stops a worker only once the user approves its lead's ask, and resumes it in the same conversation", async () => {
