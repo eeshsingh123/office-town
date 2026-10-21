@@ -55,6 +55,27 @@ export const memberColour = (index: number) =>
 // "Developer 2" works in the same role as "Developer"; older drafts numbered people that way.
 export const baseRole = (role: string) => role.trim().replace(/\s*#?\d+$/, "") || role.trim();
 
+// Which one of its role a numbered person is ("Developer 2" is 2).
+export function roleNumber(role: string): number | undefined {
+  const digits = /\s*#?(\d+)$/.exec(role.trim())?.[1];
+  return digits === undefined ? undefined : Number(digits);
+}
+
+// People sharing a role, in the order each role first appears.
+export function byRole<T>(
+  people: readonly T[],
+  roleOf: (person: T) => string | undefined,
+): { role: string; people: T[] }[] {
+  const groups = new Map<string, { role: string; people: T[] }>();
+  for (const person of people) {
+    const role = baseRole(roleOf(person) ?? "");
+    const group = groups.get(role.toLowerCase()) ?? { role, people: [] };
+    group.people.push(person);
+    groups.set(role.toLowerCase(), group);
+  }
+  return [...groups.values()];
+}
+
 export function blankPerson(settings: RoleSettings, role = "", purpose = ""): PersonForm {
   return { key: nextKey(), role, purpose, instructions: "", settings };
 }
