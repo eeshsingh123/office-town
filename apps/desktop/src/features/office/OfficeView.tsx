@@ -112,7 +112,7 @@ function layOut(layout: Layout) {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
       return { id: one.id, kind: "department", desks };
     }),
-    // Only an empty office invites setup on the floor; after that the top bar offers it.
+    // Only an empty office invites setup as rooms; after that the floor's corner offers it.
     ...(departments.length > 0 ? [] : [{ id: ADD_DEPARTMENT, kind: "add", desks: 1 } as const]),
     ...(departments.length > 0 || chiefId !== undefined
       ? []

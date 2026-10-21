@@ -1,7 +1,6 @@
-import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, Plus, SquareKanban } from "lucide-react";
+import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { Button } from "../../ui/Button.tsx";
 import { HistoryButtons } from "../sidebar/HistoryButtons.tsx";
 import { useSidebar } from "../sidebar/sidebar-state.ts";
 import { fullest } from "../usage/limits.ts";
@@ -28,7 +27,6 @@ function useFullAccounts(): string[] {
 // Only what can be acted on: counts live on Home, usage on its own page.
 export function TopBar() {
   const focus = useApp((state) => state.focus);
-  const chiefId = useApp((state) => state.chiefId);
   const mode = useOffice((state) => state.mode);
   const panelOpen = useOffice((state) => state.panelOpen);
   const { working, order } = useCounts();
@@ -90,19 +88,6 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
-        {/* The floor offers these in its corner. */}
-        {mode === "board" && chiefId === undefined ? (
-          <Button variant="ghost" onClick={() => navigate({ name: "chief" })}>
-            <Plus size={14} aria-hidden />
-            Chief
-          </Button>
-        ) : null}
-        {mode === "board" ? (
-          <Button variant="ghost" onClick={() => navigate({ name: "new-department" })}>
-            <Plus size={14} aria-hidden />
-            Department
-          </Button>
-        ) : null}
         {mode === "floor" ? (
           <button
             type="button"
