@@ -61,7 +61,9 @@ export type CoreReport = Extract<
       | "proposal.requested"
       | "proposal.resolved"
       | "plan.requested"
-      | "plan.resolved";
+      | "plan.resolved"
+      | "checklist.requested"
+      | "checklist.resolved";
   }
 >;
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sentAttachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
+import { checkItemSchema } from "./checks.ts";
 import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
 
@@ -231,6 +232,18 @@ const payloadSchemas = {
     pieces: z.array(approvedPieceSchema).optional(),
     note: z.string().optional(),
   }),
+  // A checker's list for the user to edit and approve (D-73).
+  "checklist.requested": z.object({
+    requestId: z.string().min(1),
+    checkId: z.string().min(1),
+    items: z.array(checkItemSchema).min(1),
+  }),
+  "checklist.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["approved", "declined", "cancelled"]),
+    // After the user's changes.
+    items: z.array(checkItemSchema).optional(),
+  }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   // Added by the core after a session ends: tokens its turns did not report, read from the
   // harness's own records. Totals add it like a turn's usage.
@@ -274,6 +287,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("proposal.resolved"),
   eventOf("plan.requested"),
   eventOf("plan.resolved"),
+  eventOf("checklist.requested"),
+  eventOf("checklist.resolved"),
   eventOf("limits.updated"),
   eventOf("usage.recounted"),
   eventOf("error"),
@@ -290,5 +305,6 @@ export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("question.requested"),
   eventOf("proposal.requested"),
   eventOf("plan.requested"),
+  eventOf("checklist.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

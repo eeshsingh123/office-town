@@ -9,6 +9,7 @@ import type {
   Audience,
   Autonomy,
   Change,
+  CheckRecord,
   ConnectorActivity,
   ConnectorActivityQuery,
   ConnectorCall,
@@ -20,6 +21,7 @@ import type {
   DelegationRecord,
   DepartmentRecord,
   DepartmentSettings,
+  EnvironmentSpec,
   LibraryAudience,
   LibraryItem,
   LibraryItemChange,
@@ -33,6 +35,7 @@ import type {
   SessionRecord,
   Settings,
   StoreSize,
+  TaskChecklist,
   TaskPage,
   TaskPause,
   TaskRecord,
@@ -177,6 +180,19 @@ export type NewDelegation = Pick<
 
 export type DelegationEnd = Exclude<DelegationRecord["status"], "working">;
 
+// Where a check's sandbox is, so it can be removed after a restart too (D-73).
+export interface CheckSandbox {
+  path: string;
+  // A worktree's repository, removed through the git of its environment.
+  repository?: string;
+  environment?: EnvironmentSpec;
+}
+
+export type NewCheck = Omit<CheckRecord, "id" | "createdAt" | "endedAt" | "results" | "notes">;
+
+// Fields left out keep their value; a check that ends gets its end time.
+export type CheckChange = Partial<Pick<CheckRecord, "status" | "items" | "results" | "notes">>;
+
 // `position` orders events across all sessions and is the cursor every reader resumes from.
 export interface StoredEvent {
   position: number;
@@ -229,6 +245,7 @@ export interface Store {
   setTaskState(taskId: string, state: TaskState): void;
   markReviewed(taskId: string): TaskRecord;
   setTaskPause(taskId: string, pause: TaskPause | undefined): TaskRecord;
+  setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;
@@ -255,6 +272,17 @@ export interface Store {
   listDelegations(taskId: string): DelegationRecord[];
   workingDelegation(workerSessionId: string): DelegationRecord | undefined;
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
+  createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord;
+  getCheck(id: string): CheckRecord | undefined;
+  // Oldest first.
+  listChecks(taskId: string): CheckRecord[];
+  checkOfSession(checkerSessionId: string): CheckRecord | undefined;
+  updateCheck(id: string, change: CheckChange): CheckRecord;
+  // Run at startup: no checker survives a restart.
+  stopOpenChecks(): void;
+  // Every sandbox not yet removed, or a task's.
+  checkSandboxes(taskId?: string): { checkId: string; sandbox: CheckSandbox }[];
+  sandboxRemoved(checkId: string): void;
   createPiece(piece: NewPiece): PlanPiece;
   getPiece(id: string): PlanPiece | undefined;
   // Oldest first.
@@ -382,6 +410,7 @@ export class RecordNotFoundError extends Error {
       | "department"
       | "account"
       | "delegation"
+      | "check"
       | "piece"
       | "connector",
     id: string,

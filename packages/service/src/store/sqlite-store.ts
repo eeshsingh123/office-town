@@ -12,6 +12,9 @@ import {
   type Attachment,
   type Audience,
   type Change,
+  type CheckItem,
+  type CheckRecord,
+  type CheckResult,
   type ConnectorActivity,
   type ConnectorActivityQuery,
   type ConnectorCall,
@@ -39,6 +42,7 @@ import {
   type Settings,
   type StoreSize,
   settingsSchema,
+  type TaskChecklist,
   type TaskPage,
   type TaskPause,
   type TaskRecord,
@@ -61,6 +65,8 @@ import {
   type AgentChange,
   type AgentSessionQuery,
   type ChangeListener,
+  type CheckChange,
+  type CheckSandbox,
   type ConnectorTool,
   type ConnectorUpdate,
   type DelegationEnd,
@@ -70,6 +76,7 @@ import {
   type LineDirection,
   NameTakenError,
   type NewAgentRecord,
+  type NewCheck,
   type NewConnector,
   type NewConnectorCall,
   type NewDelegation,
@@ -110,6 +117,7 @@ interface TaskRow {
   state: TaskState;
   reviewedAt: number | null;
   paused: string | null;
+  checklist: string | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -177,6 +185,24 @@ interface DelegationRow {
   brief: string;
   status: DelegationRecord["status"];
   result: string | null;
+  createdAt: number;
+  endedAt: number | null;
+}
+
+interface CheckRow {
+  ref: number;
+  id: string;
+  taskId: string;
+  round: number;
+  status: CheckRecord["status"];
+  checkerAgentId: string;
+  checkerSessionId: string;
+  ownerAgentId: string;
+  sandboxKind: CheckRecord["sandbox"];
+  // JSON.
+  items: string;
+  results: string | null;
+  notes: string | null;
   createdAt: number;
   endedAt: number | null;
 }
@@ -322,6 +348,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     state: row.state,
     ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
     ...(row.paused === null ? {} : { paused: JSON.parse(row.paused) as TaskPause }),
+    ...(row.checklist === null ? {} : { checklist: JSON.parse(row.checklist) as TaskChecklist }),
     usage,
   };
 }
@@ -392,6 +419,26 @@ function toDelegation(row: DelegationRow): DelegationRecord {
     ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
   };
 }
+
+function toCheck(row: CheckRow): CheckRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    round: row.round,
+    status: row.status,
+    checkerAgentId: row.checkerAgentId,
+    checkerSessionId: row.checkerSessionId,
+    ownerAgentId: row.ownerAgentId,
+    sandbox: row.sandboxKind,
+    items: JSON.parse(row.items) as CheckItem[],
+    ...(row.results === null ? {} : { results: JSON.parse(row.results) as CheckResult[] }),
+    ...(row.notes === null ? {} : { notes: JSON.parse(row.notes) as string[] }),
+    createdAt: iso(row.createdAt),
+    ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
+  };
+}
+
+const ENDED_CHECK = new Set<CheckRecord["status"]>(["done", "stopped", "failed"]);
 
 function toPiece(row: PieceRow): PlanPiece {
   return {
@@ -646,6 +693,11 @@ class SqliteStore implements Store {
     return this.#publishTask(taskId);
   }
 
+  setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord {
+    this.#statements.setTaskChecklist.run(JSON.stringify(checklist), this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
   markReviewed(taskId: string): TaskRecord {
     this.#statements.taskReviewed.run(Date.now(), this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
@@ -868,6 +920,88 @@ class SqliteStore implements Store {
     this.#statements.endDelegation.run(status, result ?? null, endedAt, row.ref);
     const ended = { ...row, status, result: result ?? null, endedAt };
     this.#publish({ type: "delegation", delegation: toDelegation(ended) });
+  }
+
+  createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    this.#statements.insertCheck.run(
+      id,
+      this.#taskRow(check.taskId).ref,
+      check.round,
+      check.status,
+      this.#agentRow(check.checkerAgentId).ref,
+      check.checkerSessionId,
+      this.#agentRow(check.ownerAgentId).ref,
+      JSON.stringify(check.items),
+      check.sandbox,
+      JSON.stringify(sandbox),
+      createdAt,
+    );
+    const record = { ...check, id, createdAt: iso(createdAt) };
+    this.#publish({ type: "check", check: record });
+    return record;
+  }
+
+  getCheck(id: string): CheckRecord | undefined {
+    const row = one<CheckRow>(this.#statements.checkById, id);
+    return row === undefined ? undefined : toCheck(row);
+  }
+
+  listChecks(taskId: string): CheckRecord[] {
+    const ref = this.#taskRow(taskId).ref;
+    return all<CheckRow>(this.#statements.checksOfTask, ref).map(toCheck);
+  }
+
+  checkOfSession(checkerSessionId: string): CheckRecord | undefined {
+    const row = one<CheckRow>(this.#statements.checkOfSession, checkerSessionId);
+    return row === undefined ? undefined : toCheck(row);
+  }
+
+  updateCheck(id: string, change: CheckChange): CheckRecord {
+    const row = one<CheckRow>(this.#statements.checkById, id);
+    if (row === undefined) throw new RecordNotFoundError("check", id);
+    const next = { ...toCheck(row), ...change };
+    const ended = ENDED_CHECK.has(next.status);
+    const endedAt = row.endedAt ?? (ended ? Date.now() : null);
+    this.#statements.updateCheck.run(
+      next.status,
+      JSON.stringify(next.items),
+      next.results === undefined ? null : JSON.stringify(next.results),
+      next.notes === undefined ? null : JSON.stringify(next.notes),
+      endedAt,
+      row.ref,
+    );
+    const record = {
+      ...next,
+      ...(endedAt === null ? {} : { endedAt: iso(endedAt) }),
+    };
+    this.#publish({ type: "check", check: record });
+    return record;
+  }
+
+  stopOpenChecks(): void {
+    for (const row of all<CheckRow>(this.#statements.openChecks)) {
+      this.updateCheck(row.id, { status: "stopped" });
+    }
+  }
+
+  checkSandboxes(taskId?: string): { checkId: string; sandbox: CheckSandbox }[] {
+    const rows =
+      taskId === undefined
+        ? all<{ id: string; sandbox: string }>(this.#statements.checkSandboxes)
+        : all<{ id: string; sandbox: string }>(
+            this.#statements.checkSandboxesOfTask,
+            this.#taskRow(taskId).ref,
+          );
+    return rows.map(({ id, sandbox }) => ({
+      checkId: id,
+      sandbox: JSON.parse(sandbox) as CheckSandbox,
+    }));
+  }
+
+  sandboxRemoved(checkId: string): void {
+    this.#statements.clearCheckSandbox.run(checkId);
   }
 
   createPiece(piece: NewPiece): PlanPiece {
@@ -1840,12 +1974,14 @@ class SqliteStore implements Store {
       case "question.requested":
       case "proposal.requested":
       case "plan.requested":
+      case "checklist.requested":
         this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
         return;
       case "permission.resolved":
       case "question.resolved":
       case "proposal.resolved":
       case "plan.resolved":
+      case "checklist.resolved":
         this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
         return;
       case "session.ended":
