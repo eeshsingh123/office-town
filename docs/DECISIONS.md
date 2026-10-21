@@ -334,6 +334,12 @@ Why: the owner, who built the app, still had to work out what departments and th
 - New department has a Workspaces step of its own and no silent default once there is more than one workspace; Review blocks Create until each department has one.
 - Contract: `workspaceIds` on the department record, its settings and the create request; `workspaceId` stays as the default. `startTeamTask` and plan pieces take an optional `workspaceId`. Store: `department_workspaces` for the others, `plan_pieces.workspace_ref`.
 
+### D-70 Usage is recounted after a session ends — accepted (2026-10-21)
+
+- OpenCode's ACP turn result reports only the turn's last model step, so tokens were undercounted 2 to 7 times. Once a session ends (idle stop included), the core reads the conversation back with the adapter's `recount` (`opencode export`, sub-agents' sessions followed) and adds what the turns missed as a `usage.recounted` event. Why after the session (owner): nothing runs while the agent works, so the user is never held up; the figure is low only until the session ends.
+- The event carries the missing part, not a total, so every sum (task, agent, account) just adds it like a turn. The missing part is the conversation's real total minus everything its sessions recorded, so recounting again adds nothing and a resumed conversation is not counted twice. At start, sessions of the last 7 days not yet recounted are caught up.
+- A department's floor sign shows its goal's tokens per member (owner's pick, mockup C), never an account's plan %, which belongs to the whole account.
+
 ## Done
 
 All accepted and built.

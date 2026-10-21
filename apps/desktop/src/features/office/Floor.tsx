@@ -14,6 +14,7 @@ import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { useYou } from "../you/you.ts";
@@ -54,10 +55,35 @@ export interface FloorAgent {
   group: string;
 }
 
+function RoomUsage({ usage }: { usage: NonNullable<RoomSign["usage"]> }) {
+  return (
+    <div className={styles.roomUsage}>
+      <ul className={styles.usagePeople} aria-label={`${usage.label}: tokens per member`}>
+        {usage.people.map((person) => (
+          <li key={person.id} title={`${person.name}: ${compactCount(person.tokens)} tokens`}>
+            <Avatar name={person.name} colour={person.colour} size={18} />
+            <span className={styles.usageName}>{person.name}</span>
+            <strong>{compactCount(person.tokens)}</strong>
+          </li>
+        ))}
+      </ul>
+      <span className={styles.usageTotal}>
+        {usage.label} <strong>{compactCount(usage.total)}</strong> tokens
+      </span>
+    </div>
+  );
+}
+
 export interface RoomSign {
   title: string;
   note: string;
   lines: string[];
+  // Who used what on the room's current or last goal.
+  usage?: {
+    label: string;
+    people: { id: string; name: string; colour: string; tokens: number }[];
+    total: number;
+  };
 }
 
 interface Seated {
@@ -524,6 +550,7 @@ export function Floor(props: FloorProps) {
                 ))}
               </div>
             )}
+            {sign?.usage === undefined ? null : <RoomUsage usage={sign.usage} />}
           </div>
         );
       })}

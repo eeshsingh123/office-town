@@ -1,15 +1,16 @@
-import type { AccountLimits, AgentRecord, DepartmentRecord } from "@office-town/contract";
+import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
+import { loadTrace } from "../../store/live.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
-import { tokenSummary } from "../departments/usage.ts";
+import { usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import {
@@ -159,22 +160,41 @@ function layOut(layout: Layout) {
     [OPEN]: { title: "Open floor", note: "Assistants", lines: [] },
     [GUESTS]: { title: "Review desk", note: "Reviewers", lines: [] },
   };
+  // Sessions whose traces the usage strips still wait for.
+  const unloaded: string[] = [];
   for (const department of departments) {
     const goal = goalOf(department, state);
-    const usage = (goal.task?.usage ?? [])
-      .map((one) => tokenSummary(one, harnessName(one.harness)))
-      .join(" · ");
     const working = goal.task !== undefined && goal.sessions.some(isOpen);
+    const people = usageByPerson(goal.sessions, traces);
+    if (people === undefined) {
+      unloaded.push(...goal.sessions.flatMap((one) => (traces[one.id] ? [] : one.id)));
+    }
     signs[department.id] = {
       title: department.name,
       note: AUTONOMY[department.autonomy].short,
-      lines: [
-        working && goal.task !== undefined ? taskTitle(goal.task.prompt) : "No goal in progress",
-        ...(usage === "" ? [] : [`${working ? "This goal" : "Last goal"} · ${usage}`]),
-      ],
+      lines:
+        goal.task === undefined
+          ? ["No goal in progress"]
+          : working
+            ? [taskTitle(goal.task.prompt)]
+            : ["No goal in progress", `Last goal · ${taskTitle(goal.task.prompt)}`],
+      ...(people === undefined || people.length === 0
+        ? {}
+        : {
+            usage: {
+              label: working ? "This goal" : "Last goal",
+              people: people.flatMap(({ agentId, tokens }) => {
+                const agent = state.agents[agentId];
+                return agent === undefined
+                  ? []
+                  : [{ id: agentId, name: agent.name, colour: agent.colour, tokens }];
+              }),
+              total: people.reduce((sum, one) => sum + one.tokens, 0),
+            },
+          }),
     };
   }
-  return { plan, floorAgents, signs };
+  return { plan, floorAgents, signs, unloaded };
 }
 
 // The home screen (D-35).
@@ -200,7 +220,7 @@ export function OfficeView() {
       Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
-  const { plan, floorAgents, signs } = useMemo(() => {
+  const { plan, floorAgents, signs, unloaded } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
     return layOut({
@@ -225,6 +245,9 @@ export function OfficeView() {
     chiefId,
     positions,
   ]);
+  useEffect(() => {
+    for (const sessionId of unloaded) loadTrace(sessionId);
+  }, [unloaded]);
   const { links, goalId, doors } = useCommandFloor(departments);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
