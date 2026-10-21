@@ -479,6 +479,8 @@ describe("store", () => {
       "allAccounts",
       "allLibraryItems",
       "allConnectors",
+      // Through a partial index that holds only paused tasks.
+      "pausedTasks",
     ]);
     // These group a period's rows after finding them through an index.
     const groupedReads = new Set(["accountUsageSince", "connectorCallCounts"]);
@@ -493,6 +495,7 @@ describe("store", () => {
       [queries.deleteSessionEvents, "events_by_session"],
       [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
       [queries.sessionsOfTask, "sessions_by_task"],
+      [queries.pausedTasks, "tasks_paused"],
       [queries.agentSessionsBefore, "sessions_by_agent"],
       [queries.activeTaskOfDepartment, "tasks_open_by_department"],
       [queries.latestTurnOfSession, "events_turns"],

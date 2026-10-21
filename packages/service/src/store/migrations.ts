@@ -175,6 +175,13 @@ function addDepartmentPurpose(db: DatabaseSync): void {
   `);
 }
 
+// A task paused at 95% of an account's usage window (team/usage-pause.ts).
+function addTaskPause(db: DatabaseSync): void {
+  const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'paused'");
+  if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN paused TEXT");
+  db.exec("CREATE INDEX IF NOT EXISTS tasks_paused ON tasks (ref) WHERE paused IS NOT NULL");
+}
+
 function addDepartmentWorkspaces(db: DatabaseSync): void {
   db.exec(`
   -- A department's workspaces besides its default, which stays departments.workspace_ref.
@@ -588,8 +595,5 @@ export const migrations: readonly Migration[] = [
     WHERE harness_session_id IS NOT NULL;
   CREATE INDEX IF NOT EXISTS sessions_by_end ON sessions (ended_at);
   `,
-  `
-  -- A task paused at 95% of an account's usage window (team/usage-pause.ts).
-  ALTER TABLE tasks ADD COLUMN paused TEXT;
-  `,
+  addTaskPause,
 ];
