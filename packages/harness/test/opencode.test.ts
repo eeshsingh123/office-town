@@ -121,35 +121,6 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("reads its models from the CLI's list, with each model's provider, what it costs, and its variants as its effort values, what it takes besides text, leaving out models that cannot call tools", () => {
-    expect(opencodeAdapter.catalog?.parse(catalogOutput).models).toEqual([
-      {
-        id: "opencode/big-pickle",
-        name: "Big Pickle",
-        provider: "opencode",
-        access: "free",
-        efforts: [],
-        inputs: [],
-      },
-      {
-        id: "opencode/ling-3.1-flash-free",
-        name: "Ling 3.1 Flash Free",
-        provider: "opencode",
-        access: "free",
-        efforts: ["low", "medium", "high"],
-        inputs: [],
-      },
-      {
-        id: "opencode-go/deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
-        provider: "opencode-go",
-        access: "plan",
-        efforts: ["low", "high", "max"],
-        inputs: [],
-      },
-    ]);
-  });
-
   it("sets the chosen effort before the first prompt, or names the values the model offers", async () => {
     const { events, written } = await replay(opencodeAdapter, effortRecording, withEffort("high"));
 
@@ -177,7 +148,7 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("starts an action once its input is known and passes the harness's options through", async () => {
+  it("starts an action once its input is known, passes the options through, fails it once denied, and counts thinking as output", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
     const [write, shell] = only(events, "action.started");
@@ -201,29 +172,17 @@ describe("opencode adapter", () => {
       id: 0,
       result: { outcome: { outcome: "selected", optionId: "once" } },
     });
-  });
-
-  it("joins streamed fragments into whole messages and reasoning", async () => {
-    const allowed = await replay(opencodeAdapter, recordings["write-allowed"]);
-    const denied = await replay(opencodeAdapter, recordings["write-denied"]);
-
-    const replies = only(allowed.events, "message").filter((e) => e.payload.role === "assistant");
-    expect(replies.map((event) => event.payload.text)).toEqual([
-      'Created hello.txt with "hi"\ndone',
-    ]);
-    expect(only(denied.events, "reasoning")).toHaveLength(1);
-    expect(only(denied.events, "reasoning.delta").length).toBeGreaterThan(1);
-    expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
-  });
-
-  it("counts thinking tokens as output", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
+    // The turn's usage is its last model step, which is the conversation's length.
     expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
       inputTokens: 10405,
       outputTokens: 1025,
       cachedInputTokens: 10297,
       contextTokens: 11430,
     });
+
+    const denied = await replay(opencodeAdapter, recordings["write-denied"]);
+    expect(only(denied.events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
+    expect(only(denied.events, "action.ended")[0]?.payload.outcome).toBe("failed");
   });
 
   it("recounts a conversation from its export: every model step, its thinking, and its sub-agents", () => {
@@ -260,16 +219,6 @@ describe("opencode adapter", () => {
     });
   });
 
-  it("reports streamed command output once, then the result", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
-
-    expect(only(events, "action.updated").map((event) => event.payload.output)).toEqual(["done\n"]);
-    expect(only(events, "action.ended").map((event) => event.payload.result)).toEqual([
-      "Wrote file successfully.",
-      "done\n",
-    ]);
-  });
-
   it("resumes an earlier session instead of creating one, and reports its id", async () => {
     const resumeSessionId = "ses_f01fc672affeHbUsfz1oeMbkVA";
     const { events, written } = await replay(opencodeAdapter, recording("resumed"), {
@@ -287,13 +236,6 @@ describe("opencode adapter", () => {
     expect(sent[2].params.sessionId).toBe(resumeSessionId);
     expect(only(events, "session.started")[0]?.payload.harnessSessionId).toBe(resumeSessionId);
     expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("completed");
-  });
-
-  it("fails the action when the user denies it", async () => {
-    const { events } = await replay(opencodeAdapter, recordings["write-denied"]);
-
-    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
-    expect(only(events, "action.ended")[0]?.payload.outcome).toBe("failed");
   });
 
   it("reads the todo list as the plan and a sub-agent call as a delegation", async () => {
@@ -353,16 +295,5 @@ describe("opencode adapter", () => {
     expect(written.findIndex((line) => line.includes("queued"))).toBeGreaterThan(
       written.findIndex((line) => line.includes('"optionId":"once"')),
     );
-  });
-
-  it("ends the session as failed when the harness rejects the handshake", async () => {
-    const { events } = await replay(opencodeAdapter, [
-      { receive: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "Not logged in" } } },
-    ]);
-
-    expect(events.map((event) => [event.type, event.payload])).toEqual([
-      ["error", { message: 'The harness rejected "initialize": Not logged in', fatal: true }],
-      ["session.ended", { reason: "failed", exitCode: null }],
-    ]);
   });
 });

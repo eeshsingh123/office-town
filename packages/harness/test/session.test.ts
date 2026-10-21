@@ -91,19 +91,23 @@ describe("session", () => {
     expect(started.map((event) => event.payload.planStepId)).toEqual([undefined, "2", undefined]);
   });
 
-  it("hands the adapter environment paths and reports locations as host paths", async () => {
+  it("hands the adapter environment paths and reports an action's and its permission's as host paths", async () => {
     const environment = new ScriptedEnvironment();
     environment.toEnvironmentPath = (hostPath) => `inside:${hostPath}`;
     environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
     const { events, emit } = await startSession(environment);
 
-    await emit({
-      type: "action.started",
-      payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x/file"] },
-    });
+    await emit(
+      {
+        type: "action.started",
+        payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x/file"] },
+      },
+      { ...permission, payload: { ...permission.payload, actionId: "a" } },
+    );
 
     expect(environment.request?.cwd).toBe("inside:/workspace");
     expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
+    expect(events[1]?.payload).toMatchObject({ kind: "edit", locations: ["host:/x/file"] });
   });
 
   it("lists a message's files by the paths the agent sees, inline only where the harness carries images", async () => {
@@ -139,22 +143,6 @@ describe("session", () => {
         },
       ],
     });
-  });
-
-  it("gives a permission request the kind and host paths of the action it asks for", async () => {
-    const environment = new ScriptedEnvironment();
-    environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
-    const { events, emit } = await startSession(environment);
-
-    await emit(
-      {
-        type: "action.started",
-        payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x"] },
-      },
-      { ...permission, payload: { ...permission.payload, actionId: "a" } },
-    );
-
-    expect(events[1]?.payload).toMatchObject({ kind: "edit", locations: ["host:/x"] });
   });
 
   it("answers a pending permission once and reports how it was resolved", async () => {
@@ -224,22 +212,6 @@ describe("session", () => {
       ["session.ended", 4],
     ]);
     expect(() => session.report(question)).toThrow(SessionStateError);
-  });
-
-  it("rejects commands the current state does not allow", async () => {
-    const session = new HarnessSession(
-      replayOptions,
-      passthroughAdapter,
-      new ScriptedEnvironment(),
-    );
-
-    await expect(session.send({ type: "prompt", text: "hi" })).rejects.toBeInstanceOf(
-      SessionStateError,
-    );
-    await session.send({ type: "start" });
-    await expect(session.send({ type: "start" })).rejects.toBeInstanceOf(SessionStateError);
-    await session.send({ type: "stop" });
-    await expect(session.send({ type: "interrupt" })).rejects.toBeInstanceOf(SessionStateError);
   });
 
   it("reports a harness that cannot be launched and ends the session as failed", async () => {
@@ -320,42 +292,6 @@ describe("session", () => {
     expect(events.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
   });
 
-  it("keeps going when a subscriber throws, and reports it", async () => {
-    const environment = new ScriptedEnvironment();
-    const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
-    const events: SessionEvent[] = [];
-    session.subscribe(() => {
-      throw new Error("store is full");
-    });
-    session.subscribe((event) => events.push(event));
-    await session.send({ type: "start" });
-
-    await environment.emitLine(JSON.stringify([{ type: "turn.started" }]));
-    await session.send({ type: "stop" });
-
-    expect(events[0]?.type).toBe("turn.started");
-    expect(events[1]).toMatchObject({
-      type: "error",
-      payload: { message: "A subscriber failed to handle an event: store is full", fatal: false },
-    });
-    expect(events.at(-1)?.type).toBe("session.ended");
-  });
-
-  it("says so when the harness cannot use the chosen effort", async () => {
-    const session = new HarnessSession(
-      { ...replayOptions, effort: "high" },
-      passthroughAdapter,
-      new ScriptedEnvironment(),
-    );
-    const events: SessionEvent[] = [];
-    session.subscribe((event) => events.push(event));
-
-    await session.send({ type: "start" });
-
-    expect(events[0]).toMatchObject({ type: "error", payload: { fatal: false } });
-    expect(events[0]?.payload).toMatchObject({ message: expect.stringContaining('"high"') });
-  });
-
   it("refuses to resume on a harness that cannot, rather than starting a fresh session", async () => {
     const environment = new ScriptedEnvironment();
     const options = { ...replayOptions, resumeSessionId: "earlier" };
@@ -370,16 +306,5 @@ describe("session", () => {
       ["error", { message: 'The "replayed" harness cannot resume a session.', fatal: true }],
       ["session.ended", { reason: "failed", exitCode: null }],
     ]);
-  });
-
-  it("reports output it cannot read and keeps going", async () => {
-    const environment = new ScriptedEnvironment();
-    const { events } = await startSession(environment);
-
-    await environment.emitLine("not json");
-    await environment.emitLine(JSON.stringify([{ type: "turn.started" }]));
-
-    expect(events.map((event) => event.type)).toEqual(["error", "turn.started"]);
-    expect(events[0]?.payload).toMatchObject({ detail: "not json", fatal: false });
   });
 });

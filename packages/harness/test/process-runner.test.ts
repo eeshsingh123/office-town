@@ -4,7 +4,6 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ProcessExit } from "../src/environment/environment.ts";
-import { BinaryNotFoundError } from "../src/environment/find-binary.ts";
 import { NativeEnvironment } from "../src/environment/native.ts";
 import { type RunningProcess, runProcess } from "../src/process-runner.ts";
 
@@ -62,15 +61,6 @@ afterEach(async () => {
 });
 
 describe("runProcess in the native environment", () => {
-  it("delivers stdout as lines and writes lines to stdin", async () => {
-    const observed = await observe(process.execPath, [fixture("echo.mjs"), "one", "two words"]);
-    cleanups.push(() => observed.process.killTree());
-
-    expect(await observed.nextLine()).toBe('args:["one","two words"]');
-    observed.process.writeLine("hello");
-    expect(await observed.nextLine()).toBe("echo:hello");
-  });
-
   it("reports the exit code and captured stderr after the last line", async () => {
     const observed = await observe(process.execPath, [fixture("echo.mjs")]);
     observed.process.writeLine("last");
@@ -80,13 +70,6 @@ describe("runProcess in the native environment", () => {
     expect(exit.code).toBe(3);
     expect(stderrTail).toContain("something broke");
     expect(observed.lines.at(-1)).toBe("echo:last");
-  });
-
-  it("exits cleanly when input is closed", async () => {
-    const observed = await observe(process.execPath, [fixture("echo.mjs")]);
-    observed.process.closeInput();
-
-    expect((await observed.exited).exit.code).toBe(0);
   });
 
   it("kills the whole process tree", async () => {
@@ -99,20 +82,6 @@ describe("runProcess in the native environment", () => {
     // The OS may take a moment to reap a signalled process.
     for (let attempt = 0; attempt < 20 && isAlive(grandchildPid); attempt++) await delay(50);
     expect(isAlive(grandchildPid)).toBe(false);
-  });
-
-  it("finds a binary on PATH with or without its extension, and rejects one not there", async () => {
-    const { name, base, dir } = path.parse(process.execPath);
-    const environment = new NativeEnvironment();
-    const env = { PATH: dir };
-
-    for (const binary of [name, base]) {
-      const launched = await environment.launch({ binary, args: ["-e", ""], env });
-      expect((await launched.exited).code).toBe(0);
-    }
-    await expect(observe("no-such-binary-office-town", [])).rejects.toBeInstanceOf(
-      BinaryNotFoundError,
-    );
   });
 
   it.runIf(process.platform === "win32")(

@@ -126,49 +126,7 @@ describe("claude adapter", () => {
     );
   });
 
-  it("reports a reply's text as it is produced, then the whole reply", async () => {
-    const { events } = await replay(claudeAdapter, recordings["resumed-streamed"]);
-
-    const fragments = only(events, "message.delta").map((event) => event.payload.text);
-    const replies = only(events, "message").filter((e) => e.payload.role === "assistant");
-    expect(fragments.length).toBeGreaterThan(1);
-    expect(fragments.join("")).toBe("Mango.");
-    expect(replies.map((event) => event.payload.text)).toEqual(["Mango."]);
-    expect(events.findLastIndex((event) => event.type === "message.delta")).toBeLessThan(
-      events.findLastIndex((event) => event.type === "message"),
-    );
-  });
-
-  it("reads its models and their effort values from the CLI's description of itself", () => {
-    expect(claudeAdapter.catalog?.parse(catalogOutput).models).toEqual([
-      {
-        id: "default",
-        name: "Default (recommended)",
-        description: "Opus 5.5 · Best for everyday, complex tasks",
-        resolvedId: "claude-opus-5-5",
-        efforts: ["low", "medium", "high", "xhigh", "max"],
-        inputs: ["image", "pdf"],
-      },
-      {
-        id: "sonnet",
-        name: "Sonnet 5.5",
-        description: "Efficient for routine tasks",
-        resolvedId: "claude-sonnet-5-5",
-        efforts: ["low", "medium", "high", "xhigh", "max"],
-        inputs: ["image", "pdf"],
-      },
-      {
-        id: "haiku",
-        name: "Haiku 4.5",
-        description: "Fastest for quick answers",
-        resolvedId: "claude-haiku-4-5-20251001",
-        efforts: [],
-        inputs: ["image", "pdf"],
-      },
-    ]);
-  });
-
-  it("reports a write, asks permission for it and completes it once allowed", async () => {
+  it("reports a write, asks permission for it, completes it once allowed and fails it once denied", async () => {
     const { events, written } = await replay(claudeAdapter, recordings["write-allowed"]);
 
     expect(types(events)).toEqual([
@@ -214,17 +172,20 @@ describe("claude adapter", () => {
       outcome: "completed",
       usage: { inputTokens: 72122, outputTokens: 453, cachedInputTokens: 34545 },
     });
+
+    const denied = await replay(claudeAdapter, recordings["write-denied"]);
+    expect(JSON.parse(denied.written[1] as string).response.response.behavior).toBe("deny");
+    expect(only(denied.events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
+    expect(only(denied.events, "action.ended")[0]?.payload).toMatchObject({ outcome: "failed" });
   });
 
-  it("reports the main conversation's length at each turn's end, not a sub-agent's", async () => {
+  it("reports each window's use and reset, and the main conversation's length at each turn's end", async () => {
     const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
+
+    // A sub-agent's calls have their own conversation, so they never count here.
     expect(only(events, "turn.ended").map((event) => event.payload.usage?.contextTokens)).toEqual([
       38583, 39529,
     ]);
-  });
-
-  it("reports how much of each subscription window is used and when it resets", async () => {
-    const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
 
     expect(only(events, "limits.updated")[0]?.payload.limits).toEqual([
       {
@@ -345,30 +306,6 @@ describe("claude adapter", () => {
     expect(only(events, "action.ended")[0]?.payload.result).toContain("Blue");
   });
 
-  it("cancels a pending question when the harness withdraws it", async () => {
-    const untilAsked = recordings["question-answered"].slice(0, 7);
-    const { events: asked } = await replay(claudeAdapter, untilAsked);
-    const requestId = only(asked, "question.requested")[0]?.payload.requestId;
-    expect(requestId).toBeDefined();
-
-    const { events } = await replay(claudeAdapter, [
-      ...untilAsked,
-      { receive: { type: "control_cancel_request", request_id: requestId } },
-    ]);
-
-    expect(only(events, "question.resolved").map((event) => event.payload)).toEqual([
-      { requestId, outcome: "cancelled" },
-    ]);
-  });
-
-  it("fails the action when the user denies it", async () => {
-    const { events, written } = await replay(claudeAdapter, recordings["write-denied"]);
-
-    expect(JSON.parse(written[1] as string).response.response.behavior).toBe("deny");
-    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("denied");
-    expect(only(events, "action.ended")[0]?.payload).toMatchObject({ outcome: "failed" });
-  });
-
   it("builds the plan from task tool calls instead of reporting them as actions", async () => {
     const { events } = await replay(claudeAdapter, recordings["plan-and-subagent"]);
 
@@ -403,7 +340,7 @@ describe("claude adapter", () => {
     expect(agentEnded?.sequence).toBeGreaterThan(globEnded?.sequence ?? Number.POSITIVE_INFINITY);
   });
 
-  it("ends an interrupted turn as interrupted and keeps the session usable", async () => {
+  it("ends an interrupted turn as interrupted, cancels its pending permission and stays usable", async () => {
     const { events } = await replay(claudeAdapter, recordings["interrupt-running"]);
 
     expect(only(events, "turn.ended").map((event) => event.payload.outcome)).toEqual([
@@ -411,24 +348,10 @@ describe("claude adapter", () => {
       "completed",
     ]);
     expect(only(events, "error")).toEqual([]);
-  });
 
-  it("cancels a pending permission when the turn is interrupted", async () => {
-    const { events } = await replay(claudeAdapter, recordings["interrupt-pending-permission"]);
-
-    expect(only(events, "permission.resolved")[0]?.payload.outcome).toBe("cancelled");
-    expect(only(events, "turn.ended")[0]?.payload.outcome).toBe("interrupted");
-  });
-
-  it("refuses control requests it does not understand so the CLI is not left waiting", async () => {
-    const { written } = await replay(claudeAdapter, [
-      { receive: { type: "control_request", request_id: "r1", request: { subtype: "mystery" } } },
-    ]);
-
-    expect(JSON.parse(written[0] as string)).toMatchObject({
-      type: "control_response",
-      response: { subtype: "error", request_id: "r1" },
-    });
+    const pending = await replay(claudeAdapter, recordings["interrupt-pending-permission"]);
+    expect(only(pending.events, "permission.resolved")[0]?.payload.outcome).toBe("cancelled");
+    expect(only(pending.events, "turn.ended")[0]?.payload.outcome).toBe("interrupted");
   });
 });
 

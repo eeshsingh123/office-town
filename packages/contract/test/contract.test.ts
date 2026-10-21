@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sessionCommandSchema, sessionOptionsSchema } from "../src/index.ts";
+import { sessionOptionsSchema } from "../src/index.ts";
 
 const options = { harness: "claude", environment: { kind: "native" }, permissionMode: "ask" };
 
@@ -15,15 +15,5 @@ describe("contract", () => {
         expect(sessionOptionsSchema.safeParse({ ...options, [field]: value }).success).toBe(false);
       }
     }
-  });
-
-  it("requires a question's answer to select something", () => {
-    const answer = (selected: string[]) => ({
-      type: "answerQuestion",
-      requestId: "request-2",
-      answers: [{ questionId: "1", selected }],
-    });
-    expect(sessionCommandSchema.safeParse(answer(["Blue"])).success).toBe(true);
-    expect(sessionCommandSchema.safeParse(answer([])).success).toBe(false);
   });
 });

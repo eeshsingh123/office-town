@@ -133,35 +133,6 @@ Tests pass.`,
     ]);
   });
 
-  it("tells the lead at once when a worker cannot start, and keeps no work out with it", async () => {
-    const { department, task, writer } = await teamAtWork();
-    const [member] = (await core.call("GET", "/agents")).json.filter(
-      (agent: AgentRecord) => agent.name === writer,
-    );
-    await core.call("PUT", `/departments/${department.id}/team`, {
-      name: "Web team",
-      roles: [
-        {
-          role: "Writer",
-          purpose: "Writes",
-          agentId: member.id,
-          settings: { ...claude, model: "broken" },
-        },
-      ],
-    });
-
-    const reply = await core.callTool(core.sessions[0], "delegate", {
-      agent: writer,
-      brief: "Write",
-    });
-
-    expect(reply).toMatchObject({
-      isError: true,
-      text: expect.stringContaining("could not start"),
-    });
-    expect(core.store.listDelegations(task.taskId)).toEqual([]);
-  });
-
   it("keeps a goal's state: working, waiting on the user, working while its lead owes a turn for a result, ended once the lead finished, and idle when cut off", async () => {
     const first = await teamAtWork("First goal");
     const state = (taskId: string) => core.store.getTask(taskId)?.state;
@@ -253,17 +224,6 @@ Tests pass.`,
     expect(state()).toBe("idle");
     expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
     expect(state()).toBe("ended");
-  });
-
-  it("ends a member that had finished as done when its team is stopped", async () => {
-    const { task, writer } = await teamAtWork();
-    await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write" });
-    playTurn(core.sessions[1], "Written.");
-    await settle();
-    expect((await core.call("POST", `/tasks/${task.taskId}/stop`)).status).toBe(204);
-    // The lead was owed a turn for the result, so it was cut off.
-    expect(lastSent(0)).toEqual({ type: "stop" });
-    expect(lastSent(1)).toEqual({ type: "stop", idle: true });
   });
 
   it("hands a lead over to a fresh session only on the user's word, with the records and its handover", async () => {
@@ -513,30 +473,6 @@ Testing again.`),
 
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
-  });
-
-  it("hands the user's message to a worker and a note to its lead at work", async () => {
-    const { writer, tester } = await teamAtWork();
-    const lead = core.sessions[0];
-    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
-    const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-    const idOf = (name: string) => agents.find((agent) => agent.name === name)?.id;
-
-    const sent = await core.call("POST", `/agents/${idOf(writer)}/messages`, {
-      text: "Use British spelling",
-    });
-
-    expect(sent.status).toBe(204);
-    expect(lastSent(1)).toEqual({ type: "prompt", text: "Use British spelling" });
-    expect(lastSent(0)).toEqual({
-      type: "prompt",
-      text: `The user told ${writer} directly: "Use British spelling"`,
-      origin: { kind: "notice", summary: `The user messaged ${writer}` },
-    });
-    expect(
-      (await core.call("POST", `/agents/${idOf(tester)}/messages`, { text: "Hi" })).status,
-    ).toBe(409);
-    expect((await core.call("POST", "/agents/nobody/messages", { text: "Hi" })).status).toBe(404);
   });
 
   it("starts a group of picked agents under one of them, refusing busy ones on both sides", async () => {

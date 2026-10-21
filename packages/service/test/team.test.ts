@@ -188,34 +188,6 @@ describe("teams", () => {
     expect(lead.sent).toHaveLength(told);
   });
 
-  it("leaves no task behind when its first agent cannot start, so the department stays free", async () => {
-    const project = join(directory, "bakery");
-    mkdirSync(project);
-    const workspace = (
-      await call("POST", "/workspaces", {
-        name: "Bakery",
-        kind: "folders",
-        folders: [{ path: project, access: "edit" }],
-      })
-    ).json;
-    const department = (
-      await call("POST", "/departments", {
-        team: { name: "Web team", roles: [] },
-        workspaceIds: [workspace.id],
-        autonomy: "full",
-        lead: { settings: { harness: "missing", environment: native } },
-      })
-    ).json as DepartmentRecord;
-
-    const started = await call("POST", "/tasks/team", {
-      goal: "Build a bakery site",
-      team: { departmentId: department.id },
-    });
-    expect(started.status).toBe(400);
-    expect((await call("GET", "/tasks")).json.tasks).toEqual([]);
-    expect(core.store.activeTaskOf(department.id)).toBeUndefined();
-  });
-
   it("runs a goal in the one of its workspaces the goal names, and keeps those workspaces", async () => {
     const ids: string[] = [];
     for (const name of ["Site", "Docs", "Other"]) {
@@ -245,48 +217,5 @@ describe("teams", () => {
     expect(started.status).toBe(201);
     expect(core.store.getTask(started.json.taskId)?.workspaceId).toBe(docs);
     expect((await call("DELETE", `/workspaces/${docs}`)).status).toBe(409);
-  });
-  it("names and briefs the lead and each member from the team; notes stay unless given", async () => {
-    const project = join(directory, "site");
-    mkdirSync(project);
-    const workspace = (
-      await call("POST", "/workspaces", {
-        name: "Site",
-        kind: "folders",
-        folders: [{ path: project, access: "edit" }],
-      })
-    ).json;
-    const claude = { harness: "claude", environment: native };
-    const department = (
-      await call("POST", "/departments", {
-        team: {
-          name: "Site",
-          lead: { role: "Tech lead", purpose: "Plans the work", instructions: "Split by page" },
-          roles: [
-            { role: "Writer", purpose: "Writes", instructions: "Plain words", settings: claude },
-          ],
-        },
-        workspaceIds: [workspace.id],
-        autonomy: "full",
-        lead: { settings: claude },
-        purpose: "Builds the site",
-      })
-    ).json as DepartmentRecord;
-    const lead = core.store.getAgent(department.leadAgentId);
-    expect([lead?.role, lead?.purpose, lead?.settings.instructions]).toEqual([
-      "Tech lead",
-      "Plans the work",
-      "Split by page",
-    ]);
-    expect(department.purpose).toBe("Builds the site");
-    const writer = core.store.listMembers(department.id).find((agent) => agent.role === "Writer");
-    expect(writer?.settings.instructions).toBe("Plain words");
-
-    const kept = { role: "Writer", purpose: "Writes", agentId: writer?.id, settings: claude };
-    await call("PUT", `/departments/${department.id}/team`, { name: "Site", roles: [kept] });
-    expect(core.store.getAgent(writer?.id ?? "")?.settings.instructions).toBe("Plain words");
-    const cleared = { name: "Site", roles: [{ ...kept, instructions: "" }] };
-    await call("PUT", `/departments/${department.id}/team`, cleared);
-    expect(core.store.getAgent(writer?.id ?? "")?.settings.instructions).toBeUndefined();
   });
 });

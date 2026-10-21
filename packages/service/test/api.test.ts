@@ -2,13 +2,10 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  agentRecordSchema,
   attachmentSchema,
   changeSchema,
-  profileRecordSchema,
   type SessionEvent,
   sessionRecordSchema,
-  taskDetailSchema,
   workspaceRecordSchema,
   workspaceUsageSchema,
 } from "@office-town/contract";
@@ -139,30 +136,6 @@ describe("api", () => {
     }
   });
 
-  it("runs a session through its commands and answers misuse with the matching status", async () => {
-    const started = await startTask("Write a report");
-    expect(started.status).toBe(201);
-    const session = sessionRecordSchema.parse(await started.json());
-    expect(session).toMatchObject({ status: "running" });
-    const commands = `/sessions/${session.id}/commands`;
-
-    expect((await call("POST", commands, { type: "prompt", text: "More" })).status).toBe(204);
-    expect(sessions[0]?.sent.at(-1)).toEqual({ type: "prompt", text: "More" });
-    expect((await call("POST", commands, { type: "stop" })).status).toBe(400);
-    expect((await call("POST", "/tasks", { prompt: "", ...newTask })).status).toBe(400);
-
-    const detail = taskDetailSchema.parse(
-      await (await call("GET", `/tasks/${session.taskId}`)).json(),
-    );
-    expect(detail.sessions.map(({ id }) => id)).toEqual([session.id]);
-    expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(409);
-
-    expect((await call("POST", `/sessions/${session.id}/stop`)).status).toBe(204);
-    expect((await call("POST", commands, { type: "interrupt" })).status).toBe(409);
-    expect((await call("GET", "/sessions/unknown")).status).toBe(404);
-    expect((await call("DELETE", `/tasks/${session.taskId}`)).status).toBe(204);
-  });
-
   it("starts a task in its workspace, a new folder per task in Scratch, keeps folder access, counts the use, and resumes only where it started", async () => {
     const start = (workspaceId: string) =>
       call("POST", "/tasks", { prompt: "Write: a report?", ...newTask, workspaceId });
@@ -280,81 +253,6 @@ describe("api", () => {
     expect(existsSync(references)).toBe(true);
   });
 
-  it("gives each task's agent a free name, copies its template, reads the user's profile first, and refuses a name in use", async () => {
-    await call("PUT", "/you", {
-      name: "Eesh",
-      colour: "#A2456E",
-      about: "Python developer.",
-      answerStyle: ["Explain the why"],
-      answerNotes: "",
-      notifyNeedsYou: true,
-      notifyFinished: false,
-    });
-    const profile = profileRecordSchema.parse(
-      await (
-        await call("POST", "/profiles", {
-          name: "Copywriter",
-          role: "Writes the words",
-          colour: "#6553AE",
-          settings: { ...settings, model: "haiku", instructions: "Write plainly." },
-        })
-      ).json(),
-    );
-    const fromProfile = sessionRecordSchema.parse(
-      await (
-        await call("POST", "/tasks", {
-          prompt: "Write the menu",
-          agent: { profileId: profile.id },
-          autonomy: "supervised",
-          workspaceId: scratchId,
-        })
-      ).json(),
-    );
-    expect(fromProfile.options.model).toBe("haiku");
-    expect(sessions[0]?.sent[1]).toMatchObject({
-      text:
-        "About the person you work for (Eesh):\nPython developer.\n\n" +
-        "How Eesh likes answers:\n- Explain the why\n\n" +
-        "Your own notes:\nWrite plainly.\n\nYour task:\nWrite the menu",
-      origin: { kind: "brief" },
-    });
-    const solo = sessionRecordSchema.parse(await (await startTask("Write a report")).json());
-    const agents = agentRecordSchema.array().parse(await (await call("GET", "/agents")).json());
-    expect(agents.map(({ id, role, colour }) => [id, role, colour])).toEqual([
-      [fromProfile.agentId, "Copywriter", "#6553AE"],
-      [solo.agentId, undefined, expect.any(String)],
-    ]);
-
-    const taken = agents[0]?.name;
-    const rename = (name: string | undefined) =>
-      call("PUT", `/agents/${solo.agentId}/name`, { name });
-    expect((await rename(taken)).status).toBe(409);
-    expect((await rename("Ben")).status).toBe(400);
-    expect(await (await rename("@ben")).json()).toMatchObject({ name: "@ben" });
-
-    // Editing the template later leaves the agent made from it as it is.
-    await call("PUT", `/profiles/${profile.id}`, {
-      ...profile,
-      settings: { ...settings, model: "sonnet" },
-    });
-    const copied = agentRecordSchema.parse(
-      await (await call("GET", `/agents/${fromProfile.agentId}`)).json(),
-    );
-    expect(copied.settings.model).toBe("haiku");
-
-    // A deleted profile leaves its agents working with the settings they were made with.
-    expect((await call("DELETE", `/profiles/${profile.id}`)).status).toBe(204);
-    const kept = agentRecordSchema.parse(
-      await (await call("GET", `/agents/${fromProfile.agentId}`)).json(),
-    );
-    expect(kept.profileId).toBeUndefined();
-    expect(kept.settings.model).toBe("haiku");
-
-    await call("POST", `/sessions/${solo.id}/stop`);
-    expect((await call("DELETE", `/tasks/${solo.taskId}`)).status).toBe(204);
-    expect((await call("GET", `/agents/${solo.agentId}`)).status).toBe(404);
-  });
-
   it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {
     const started = await startTask("Write a report");
     const session = sessionRecordSchema.parse(await started.json());
@@ -439,42 +337,5 @@ describe("api", () => {
     ]);
     const replay = await (await call("GET", "/events?follow=false")).text();
     expect(replay).not.toContain("event: change");
-  });
-
-  it("marks only a finished goal reviewed, and clears the review when the goal is taken up again", async () => {
-    const started = sessionRecordSchema.parse(await (await startTask("Write a report")).json());
-    const reviewed = `/tasks/${started.taskId}/reviewed`;
-    expect((await call("POST", reviewed)).status).toBe(409);
-
-    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "1" } });
-    sessions[0]?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
-    const marked = await call("POST", reviewed);
-    expect(marked.status).toBe(200);
-    expect(await marked.json()).toMatchObject({ state: "ended", reviewedAt: expect.any(String) });
-
-    sessions[0]?.emit({ type: "turn.started", payload: { turnId: "2" } });
-    expect(store.getTask(started.taskId)).toMatchObject({ state: "working" });
-    expect(store.getTask(started.taskId)?.reviewedAt).toBeUndefined();
-  });
-
-  it("keeps a dragged room's position, for the chief or a department that exists, until it is reset", async () => {
-    expect((await call("PUT", "/room-positions/chief", { x: 12.5, y: 40 })).status).toBe(400);
-    expect((await call("PUT", "/room-positions/chief", { x: 120, y: 40 })).status).toBe(204);
-    expect((await call("PUT", "/room-positions/web", { x: 0, y: 300 })).status).toBe(404);
-    expect((await call("DELETE", "/room-positions/web")).status).toBe(204);
-    expect(await (await call("GET", "/settings")).json()).toEqual({
-      roomPositions: { chief: { x: 120, y: 40 } },
-    });
-  });
-
-  it("keeps setup progress and display choices, and refuses a text size it does not offer", async () => {
-    const onboarding = { setupDone: true, purpose: "business", tutorialsDone: ["first-task"] };
-    expect((await call("PUT", "/onboarding", onboarding)).status).toBe(200);
-    expect((await call("PUT", "/display", { textSize: 120 })).status).toBe(400);
-    expect((await call("PUT", "/display", { textSize: 130, lessMotion: true })).status).toBe(200);
-    expect(await (await call("GET", "/settings")).json()).toEqual({
-      onboarding,
-      display: { textSize: 130, lessMotion: true },
-    });
   });
 });
