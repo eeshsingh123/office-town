@@ -182,6 +182,42 @@ function addTaskPause(db: DatabaseSync): void {
   db.exec("CREATE INDEX IF NOT EXISTS tasks_paused ON tasks (ref) WHERE paused IS NOT NULL");
 }
 
+// A lead's checklist on its task, and the rounds of checking it (D-73).
+function addChecks(db: DatabaseSync): void {
+  const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'checklist'");
+  if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN checklist TEXT");
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS checks (
+    ref             INTEGER PRIMARY KEY,
+    id              TEXT NOT NULL UNIQUE,
+    task_ref        INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    round           INTEGER NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN
+                      ('drafting', 'approving', 'running', 'done', 'stopped', 'failed')),
+    checker_ref     INTEGER NOT NULL REFERENCES agents (ref),
+    checker_session TEXT NOT NULL,
+    owner_ref       INTEGER NOT NULL REFERENCES agents (ref),
+    -- JSON: items, results and notes as the contract has them.
+    items           TEXT NOT NULL,
+    sandbox_kind    TEXT NOT NULL CHECK (sandbox_kind IN ('worktree', 'copy')),
+    results         TEXT,
+    notes           TEXT,
+    -- JSON: where the sandbox is and how to remove it. Cleared once it is gone.
+    sandbox         TEXT,
+    created_at      INTEGER NOT NULL,
+    ended_at        INTEGER
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS checks_by_task ON checks (task_ref);
+  CREATE INDEX IF NOT EXISTS checks_by_session ON checks (checker_session);
+  CREATE INDEX IF NOT EXISTS checks_by_checker ON checks (checker_ref);
+  CREATE INDEX IF NOT EXISTS checks_by_owner ON checks (owner_ref);
+  CREATE INDEX IF NOT EXISTS checks_with_sandbox ON checks (ref) WHERE sandbox IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS checks_open ON checks (status)
+    WHERE status IN ('drafting', 'approving', 'running');
+  `);
+}
+
 function addDepartmentWorkspaces(db: DatabaseSync): void {
   db.exec(`
   -- A department's workspaces besides its default, which stays departments.workspace_ref.
@@ -596,4 +632,5 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS sessions_by_end ON sessions (ended_at);
   `,
   addTaskPause,
+  addChecks,
 ];

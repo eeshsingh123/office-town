@@ -3,6 +3,7 @@ import type {
   AccountLimits,
   AgentRecord,
   Audience,
+  CheckRecord,
   ConnectorRecord,
   DelegationRecord,
   DepartmentRecord,
@@ -67,6 +68,8 @@ export interface AppState extends Records {
   departments: Record<string, DepartmentRecord>;
   // Of every team task that has not ended, and each one made since.
   delegations: Record<string, DelegationRecord>;
+  // Of the tasks whose checks were read, and each one made since (D-73).
+  checks: Record<string, CheckRecord>;
   // Of every chief goal that has not ended, and each piece made since.
   pieces: Record<string, PlanPiece>;
   // By account id.
@@ -110,6 +113,7 @@ export const useApp = create<AppState>(() => ({
   agents: {},
   departments: {},
   delegations: {},
+  checks: {},
   pieces: {},
   limits: {},
   accounts: [],

@@ -49,7 +49,12 @@ export interface ToolAccess {
 export type CoreRequest = Extract<
   SessionEventBody,
   {
-    type: "permission.requested" | "question.requested" | "proposal.requested" | "plan.requested";
+    type:
+      | "permission.requested"
+      | "question.requested"
+      | "proposal.requested"
+      | "plan.requested"
+      | "checklist.requested";
   }
 >;
 export type AnswerCommand = Extract<AgentCommand, { requestId: string }>;
@@ -59,7 +64,12 @@ export interface CoreAnswer {
   resolution: Extract<
     SessionEventBody,
     {
-      type: "permission.resolved" | "question.resolved" | "proposal.resolved" | "plan.resolved";
+      type:
+        | "permission.resolved"
+        | "question.resolved"
+        | "proposal.resolved"
+        | "plan.resolved"
+        | "checklist.resolved";
     }
   >;
   // Runs once the resolution is recorded.
@@ -366,7 +376,11 @@ ${text}`,
       await answer.afterwards?.();
       return;
     }
-    if (command.type === "answerProposal" || command.type === "answerPlan") {
+    if (
+      command.type === "answerProposal" ||
+      command.type === "answerPlan" ||
+      command.type === "answerChecklist"
+    ) {
       throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
     }
     if (command.type === "answerPermission") {

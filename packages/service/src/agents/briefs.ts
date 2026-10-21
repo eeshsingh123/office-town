@@ -26,11 +26,18 @@ export function instructionsFor(store: Store, agent: AgentRecord): string | unde
   return parts.length === 0 ? undefined : parts.join("\n\n");
 }
 
+// Its tool alone is not enough: Claude defers it and never looks (D-73).
+const CHECKLIST_ASK =
+  "If your work changes files, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run it, and what changed. The user can have a fresh agent run it.";
+
 // The user's words as they are, after what the agent reads first, if anything.
 export function soloMessage(prompt: string, instructions: string | undefined): Message {
-  if (instructions === undefined) return { text: prompt };
+  const task = `Your task:\n${prompt}\n\n${CHECKLIST_ASK}`;
+  if (instructions === undefined) {
+    return { text: task, origin: { kind: "brief", summary: "The task, then its checklist" } };
+  }
   return {
-    text: `${instructions}\n\nYour task:\n${prompt}`,
+    text: `${instructions}\n\n${task}`,
     origin: { kind: "brief", summary: "Your profile and its notes, then the task" },
   };
 }

@@ -1,10 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type AgentRecord, defaultAccountId } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SessionActivity } from "../src/registry/activity.ts";
 import { stopIdleAgents } from "../src/registry/idle-stop.ts";
+import { removeAllSandboxes } from "../src/team/check-sandbox.ts";
 import { type Core, eventually, playTurn, settle, startCore } from "./support/team-core.ts";
 
 const claude = { harness: "claude", environment: { kind: "native" } };
@@ -444,6 +446,97 @@ Testing again.`),
 
     const sessions = core.store.listSessions(task.taskId);
     expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
+  });
+
+  it("checks finished work in a temporary worktree from the user's approved list, wants steps for a fail, and leaves nothing behind", async () => {
+    const { task } = await teamAtWork();
+    const project = join(directory, "bakery");
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-C", project, "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
+        encoding: "utf8",
+      });
+    git("init", "-q");
+    writeFileSync(join(project, "menu.html"), "bread");
+    git("add", ".");
+    git("commit", "-qm", "menu");
+    writeFileSync(join(project, "menu.html"), "bread and cake");
+    writeFileSync(join(project, "prices.txt"), "3");
+    const lead = core.sessions[0];
+    const item = { check: "Open menu.html", expected: "It lists cake" };
+    await core.callTool(lead, "write_checklist", {
+      items: [item],
+      setup: "Open the file in a browser",
+      changes: "Added cake to the menu",
+    });
+    playTurn(lead, "The menu is done.");
+    await settle();
+
+    const started = await core.call("POST", `/tasks/${task.taskId}/checks`, {
+      reviewer: { settings: claude },
+    });
+    expect(started.json).toMatchObject({ status: "drafting", sandbox: "worktree", round: 1 });
+    const checker = core.sessions.at(-1);
+    const work = core.store.getSession(started.json.checkerSessionId)?.options.workspacePath ?? "";
+    // Uncommitted and new files reach the checker; the owner's folder is never touched.
+    expect(readFileSync(join(work, "menu.html"), "utf8")).toBe("bread and cake");
+    expect(existsSync(join(work, "prices.txt"))).toBe(true);
+    expect(execFileSync("git", ["-C", work, "status", "--short"], { encoding: "utf8" })).toBe(
+      git("status", "--short"),
+    );
+    const brief = checker?.sent.find((sent) => sent.type === "prompt");
+    expect(brief && "text" in brief ? brief.text : "").toContain("Open menu.html");
+
+    await core.callTool(checker, "propose_checks", {
+      items: [
+        { ...item, fromLead: true },
+        { check: "Open it with no prices", expected: "No error" },
+      ],
+    });
+    const asked = core.store
+      .listPendingRequests()
+      .requests.find(({ event }) => event.type === "checklist.requested");
+    // The user drops the checker's case and adds one of their own.
+    const approved = [
+      { id: "c1", ...item, from: "lead" },
+      { id: "u1", check: "Open it on a phone", expected: "It fits", from: "user" },
+    ];
+    await core.call("POST", `/sessions/${checker?.id}/commands`, {
+      type: "answerChecklist",
+      requestId: asked?.event.payload.requestId,
+      answer: { outcome: "approved", items: approved },
+    });
+    const vague = { id: "u1", outcome: "fail", evidence: "Looked on a phone" };
+    const pass = { id: "c1", outcome: "pass", evidence: "Cake is listed" };
+    expect(
+      (await core.callTool(checker, "report_check", { results: [pass, vague] })).text,
+    ).toContain("steps to reproduce");
+    const fail = { ...vague, steps: "Open at 375 px wide", got: "The menu overflows" };
+    await core.callTool(checker, "report_check", { results: [pass, fail], notes: ["No favicon"] });
+    playTurn(checker, "Checked.");
+
+    await eventually(() => core.store.checkSandboxes().length === 0);
+    expect(existsSync(join(work, ".."))).toBe(false);
+    expect(core.store.getCheck(started.json.id)).toMatchObject({
+      status: "done",
+      items: approved,
+      results: [pass, fail],
+      notes: ["No favicon"],
+    });
+    expect(git("worktree", "list", "--porcelain").match(/^worktree /gm)).toHaveLength(1);
+    expect(readFileSync(join(project, "menu.html"), "utf8")).toBe("bread and cake");
+  });
+
+  it("removes at startup every sandbox a crash left behind, and the old review copies", async () => {
+    const data = join(directory, "data");
+    const left = join(data, "checks", "left-by-a-crash", "work");
+    const copy = join(data, "outsourced", "old-review");
+    mkdirSync(left, { recursive: true });
+    mkdirSync(copy, { recursive: true });
+
+    await removeAllSandboxes(core.store, data);
+
+    expect(existsSync(join(left, ".."))).toBe(false);
+    expect(existsSync(copy)).toBe(false);
   });
 });
 

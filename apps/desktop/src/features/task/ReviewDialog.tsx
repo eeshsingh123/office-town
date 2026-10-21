@@ -5,13 +5,12 @@ import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { approvedList, keepChecks, useChecks } from "../../store/checks.ts";
 import { track } from "../../store/live.ts";
 import { useTemplates } from "../../store/templates.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
-import { taskTitle } from "../../ui/format.ts";
-import { useLoaded } from "../../ui/use-loaded.ts";
 import { useModels } from "../profiles/model-line.ts";
 import { modelLine } from "../profiles/model-name.ts";
 import styles from "./ReviewDialog.module.css";
@@ -31,27 +30,50 @@ function isolationLine(harness: HarnessDescription | undefined): string {
 }
 
 interface ReviewDialogProps {
-  // The reviewer starts with this agent's harness, model and effort.
+  // The checker starts with this agent's harness, model and effort.
   agent: Agent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // With the reviewer's agent id, so a team view can show its work.
+  // With the checker's agent id, so a team view can show its work.
   onStarted?: (agentId: string) => void;
 }
 
-// Ready to send as is, so a review is one click away.
-const defaultBrief = (agent: Agent) =>
-  `Check that this work does what was asked: "${taskTitle(agent.task.prompt)}". List anything wrong, missing or risky, most important first.`;
+// What the checker starts from: the approved list, else the lead's checklist, else nothing (D-73).
+function ListPreview({ agent }: { agent: Agent }) {
+  const checks = useChecks(agent.taskId);
+  const approved = approvedList(checks, agent.task);
+  const written = agent.task.checklist;
+  const items = approved?.items ?? (written?.agentId === agent.id ? written.items : []);
+  const legend =
+    approved !== undefined
+      ? `Round ${approved.round + 1} runs the ${items.length} checks you approved`
+      : items.length > 0
+        ? `${agent.name}'s checklist: ${items.length} ${items.length === 1 ? "check" : "checks"}`
+        : "Checklist";
+  return (
+    <fieldset className={styles.files}>
+      <legend className={styles.legend}>{legend}</legend>
+      {items.map((item) => (
+        <p key={item.check} className={styles.file}>
+          {item.check}
+        </p>
+      ))}
+      <p className={styles.note}>
+        {approved !== undefined
+          ? "The list stays as you approved it, so every round is measured the same way."
+          : items.length > 0
+            ? "The checker adds edge cases and boundaries; you approve the whole list before it runs."
+            : `${agent.name} wrote no checklist, so the checker writes one; you approve it before it runs.`}
+      </p>
+    </fieldset>
+  );
+}
 
-// Its answer is its own trace, beside the task's agents (D-18).
+// Its work is its own trace, beside the task's agents (D-18, D-73).
 export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
-  const files = useLoaded(open ? `files:${agent.taskId}:${agent.id}` : undefined, () =>
-    api.listTaskFiles(agent.taskId, agent.id),
-  );
   const templates = useTemplates() ?? [];
-  const [brief, setBrief] = useState(() => defaultBrief(agent));
-  const [unchecked, setUnchecked] = useState<Set<string>>(new Set());
+  const [ask, setAsk] = useState("");
   const [reviewer, setReviewer] = useState(SAME);
   const [error, setError] = useState<string>();
   const [starting, setStarting] = useState(false);
@@ -61,9 +83,6 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
   const modelsOf = useModels([settings, ...templates.map((known) => known.settings)]);
   const chosenHarness = profile?.settings.harness ?? settings.harness;
   const isolation = harnesses.find((known) => known.harness === chosenHarness);
-  const paths = (files.value ?? [])
-    .filter((entry) => !unchecked.has(entry.name))
-    .map((entry) => entry.name);
   const choices = [
     {
       value: SAME,
@@ -77,30 +96,23 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
     })),
   ];
 
-  const toggle = (name: string) => {
-    const next = new Set(unchecked);
-    if (next.has(name)) next.delete(name);
-    else next.add(name);
-    setUnchecked(next);
-  };
-
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setStarting(true);
     setError(undefined);
     try {
       const chosen: NewAgent = profile === undefined ? { settings } : { profileId: profile.id };
-      const started = await api.secondOpinion(agent.taskId, {
-        brief: brief.trim(),
-        paths,
+      const started = await api.startCheck(agent.taskId, {
         reviewer: chosen,
         agentId: agent.id,
+        ...(ask.trim() === "" ? {} : { ask: ask.trim() }),
       });
+      keepChecks([started]);
       await track(agent.taskId);
       onOpenChange(false);
-      setBrief(defaultBrief(agent));
+      setAsk("");
       navigate({ name: "task", taskId: agent.taskId });
-      onStarted?.(started.agentId);
+      onStarted?.(started.checkerAgentId);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -115,50 +127,24 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
         <Dialog.Content className={`${dialog.content} ${styles.content}`}>
           <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            A new agent checks {agent.name}'s work on a copy of the files. Your workspace is not
-            changed.
+            A fresh agent checks {agent.name}'s work on a temporary copy of the folder, removed when
+            it finishes. Your files are not changed.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
+            {open ? <ListPreview agent={agent} /> : null}
             <label className={dialog.label}>
-              What should the reviewer check?
+              Anything else to check? (optional)
               <textarea
                 className={styles.brief}
-                rows={3}
-                value={brief}
-                onChange={(change) => setBrief(change.target.value)}
-                required
+                rows={2}
+                value={ask}
+                placeholder="For example: try it with a slow network"
+                onChange={(change) => setAsk(change.target.value)}
               />
             </label>
-            <fieldset className={styles.files}>
-              <legend className={styles.legend}>Files it gets a copy of</legend>
-              {files.error !== undefined ? (
-                <p className={dialog.error}>{files.error}</p>
-              ) : files.value === undefined ? (
-                <p className={styles.note}>Reading the workspace…</p>
-              ) : files.value.length === 0 ? (
-                <p className={styles.note}>The workspace has nothing to examine yet.</p>
-              ) : (
-                files.value.map((entry) => (
-                  <label key={entry.name} className={styles.file}>
-                    <input
-                      type="checkbox"
-                      checked={!unchecked.has(entry.name)}
-                      onChange={() => toggle(entry.name)}
-                    />
-                    <span className={styles.name}>
-                      {entry.name}
-                      {entry.folder ? "/" : ""}
-                    </span>
-                  </label>
-                ))
-              )}
-              <p className={styles.note}>
-                Instruction files such as CLAUDE.md and AGENTS.md are left out.
-              </p>
-            </fieldset>
             <div className={styles.reviewer}>
               <ChoiceMenu
-                label="Reviewer"
+                label="Checker"
                 value={reviewer}
                 choices={choices}
                 onChange={setReviewer}
@@ -181,11 +167,7 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
               <Dialog.Close asChild>
                 <Button variant="ghost">Cancel</Button>
               </Dialog.Close>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={starting || brief.trim() === "" || paths.length === 0}
-              >
+              <Button type="submit" variant="primary" disabled={starting}>
                 Send for review
               </Button>
             </div>

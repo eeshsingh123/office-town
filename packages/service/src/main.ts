@@ -23,9 +23,10 @@ import { followRecounts } from "./registry/recount.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
+import { removeAllSandboxes } from "./team/check-sandbox.ts";
+import { Checks } from "./team/checks.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
 import { Handovers } from "./team/handover.ts";
-import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
@@ -93,7 +94,10 @@ reportResults(team, activity);
 const handovers = new Handovers(team);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
-guestsLeave(team);
+const checks = new Checks(team);
+// No checker survives a restart, and neither does its sandbox (D-73).
+store.stopOpenChecks();
+await removeAllSandboxes(store, dataFolder);
 const scheduler = new Scheduler(team);
 toolServer.offer([
   askUser(registry),
@@ -103,7 +107,9 @@ toolServer.offer([
   stopWork(team, activity),
   resumeWork(team),
   handovers.tool(),
-  outsource(team),
+  checks.writeChecklistTool(),
+  checks.proposeChecksTool(),
+  checks.reportCheckTool(),
   proposePlan(team, scheduler),
   messageLead(team),
   addToLibrary(team),
@@ -113,7 +119,7 @@ toolServer.offer([
 // After a restart, queued work may be free to start.
 void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ team, connectors, pauses, token, port });
+const server = await startApiServer({ team, connectors, pauses, checks, token, port });
 // Claude apps connected on claude.ai since the last run show up without a click.
 void connectors.claudeApps.refresh();
 const ready: CoreReady = { url: server.url, token };

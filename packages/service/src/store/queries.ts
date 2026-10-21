@@ -2,13 +2,23 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
   LEFT JOIN agents l ON l.ref = t.lead_ref
   LEFT JOIN departments d ON d.ref = t.department_ref
   LEFT JOIN tasks p ON p.ref = t.parent_ref`;
+
+const CHECK_SELECT = `
+  SELECT c.ref, c.id, t.id AS taskId, c.round, c.status, a.id AS checkerAgentId,
+         c.checker_session AS checkerSessionId, o.id AS ownerAgentId,
+         c.sandbox_kind AS sandboxKind, c.items, c.results,
+         c.notes, c.created_at AS createdAt, c.ended_at AS endedAt
+  FROM checks c
+  JOIN tasks t ON t.ref = c.task_ref
+  JOIN agents a ON a.ref = c.checker_ref
+  JOIN agents o ON o.ref = c.owner_ref`;
 
 const SESSION_SELECT = `
   SELECT s.ref, s.id, t.id AS taskId, a.id AS agentId, s.options, s.status,
@@ -127,6 +137,7 @@ export const queries = {
     WHERE ref = ?2 AND state <> ?1`,
   taskReviewed: "UPDATE tasks SET reviewed_at = ? WHERE ref = ?",
   setTaskPause: "UPDATE tasks SET paused = ? WHERE ref = ?",
+  setTaskChecklist: "UPDATE tasks SET checklist = ? WHERE ref = ?",
   pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",
   usageOfTask: `
     SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
@@ -202,6 +213,20 @@ export const queries = {
   workingDelegationsOfSession: `${DELEGATION_SELECT} WHERE g.status = 'working' AND g.worker_session = ?`,
   interruptDelegationsOfSession:
     "UPDATE delegations SET status = 'interrupted' WHERE status = 'working' AND worker_session = ?",
+
+  insertCheck: `
+    INSERT INTO checks (id, task_ref, round, status, checker_ref, checker_session, owner_ref, items,
+                        sandbox_kind, sandbox, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  checksOfTask: `${CHECK_SELECT} WHERE c.task_ref = ? ORDER BY c.ref`,
+  checkById: `${CHECK_SELECT} WHERE c.id = ?`,
+  checkOfSession: `${CHECK_SELECT} WHERE c.checker_session = ?`,
+  updateCheck: `
+    UPDATE checks SET status = ?, items = ?, results = ?, notes = ?, ended_at = ? WHERE ref = ?`,
+  checkSandboxes: "SELECT id, sandbox FROM checks WHERE sandbox IS NOT NULL",
+  checkSandboxesOfTask: "SELECT id, sandbox FROM checks WHERE sandbox IS NOT NULL AND task_ref = ?",
+  clearCheckSandbox: "UPDATE checks SET sandbox = NULL WHERE id = ?",
+  openChecks: `${CHECK_SELECT} WHERE c.status IN ('drafting', 'approving', 'running')`,
 
   insertPiece: `
     INSERT INTO plan_pieces
@@ -293,7 +318,8 @@ export const queries = {
                WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')
                  AND type = 'turn.started'),
               0))
-        OR (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved')
+        OR (type IN ('question.resolved', 'proposal.resolved', 'plan.resolved',
+                     'checklist.resolved')
             AND position > coalesce(
               (SELECT max(position) FROM events
                WHERE session_ref = ?1 AND type IN ('turn.started', 'turn.ended')

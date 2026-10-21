@@ -8,7 +8,7 @@ import type {
 import type { TaskEntry, WaitingRequest } from "../../store/records.ts";
 import { taskTitle } from "../../ui/format.ts";
 
-export type AskKind = "plan" | "team" | "question" | "approval";
+export type AskKind = "plan" | "team" | "checklist" | "question" | "approval";
 export type TypeFilter = "all" | "decisions" | "question" | "approval";
 export type GroupBy = "task" | "department" | "workspace" | "agent" | "type";
 
@@ -74,11 +74,18 @@ export interface Group {
 }
 
 // Plans and team proposals hold a whole team back, so they come first; then questions.
-const RANK: Record<AskKind, number> = { plan: 0, team: 0, question: 1, approval: 2 };
+const RANK: Record<AskKind, number> = {
+  plan: 0,
+  team: 0,
+  checklist: 0,
+  question: 1,
+  approval: 2,
+};
 
 export const KIND_LABEL: Record<AskKind, string> = {
   plan: "Plan",
   team: "Team",
+  checklist: "Checklist",
   question: "Question",
   approval: "Approval",
 };
@@ -86,6 +93,7 @@ export const KIND_LABEL: Record<AskKind, string> = {
 const TYPE_NAME: Record<AskKind, string> = {
   plan: "Plans and teams",
   team: "Plans and teams",
+  checklist: "Plans and teams",
   question: "Questions",
   approval: "Approvals",
 };
@@ -98,6 +106,8 @@ function kindOf(event: UserRequestEvent): AskKind {
       return "plan";
     case "proposal.requested":
       return "team";
+    case "checklist.requested":
+      return "checklist";
     case "question.requested":
       return "question";
     case "permission.requested":
@@ -131,6 +141,13 @@ function describe(event: UserRequestEvent): { title: string; detail: string | un
       return {
         title: `Plan with ${pieces.length} ${pieces.length === 1 ? "piece" : "pieces"}`,
         detail: pieces.map((piece) => piece.title).join(", "),
+      };
+    }
+    case "checklist.requested": {
+      const { items } = event.payload;
+      return {
+        title: `Checklist with ${items.length} ${items.length === 1 ? "check" : "checks"}`,
+        detail: items[0]?.check,
       };
     }
     case "proposal.requested": {
@@ -178,10 +195,17 @@ export function buildAsks(sources: QueueSources): Ask[] {
     .sort(byUrgency);
 }
 
+// What holds a whole team or a check back.
+export const isDecision = (kind: AskKind) =>
+  kind === "plan" || kind === "team" || kind === "checklist";
+
+function filterOf(kind: AskKind): Exclude<TypeFilter, "all"> {
+  if (isDecision(kind)) return "decisions";
+  return kind === "question" ? "question" : "approval";
+}
+
 function matchesType(kind: AskKind, type: TypeFilter): boolean {
-  if (type === "all") return true;
-  if (type === "decisions") return kind === "plan" || kind === "team";
-  return kind === type;
+  return type === "all" || filterOf(kind) === type;
 }
 
 // Every filter but the type, so the type chips can count what the others leave.
@@ -209,7 +233,7 @@ export function typeCounts(asks: readonly Ask[]): Record<TypeFilter, number> {
   const counts: Record<TypeFilter, number> = { all: 0, decisions: 0, question: 0, approval: 0 };
   for (const ask of asks) {
     counts.all += 1;
-    counts[ask.kind === "plan" || ask.kind === "team" ? "decisions" : ask.kind] += 1;
+    counts[filterOf(ask.kind)] += 1;
   }
   return counts;
 }

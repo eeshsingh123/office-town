@@ -3,6 +3,7 @@ import { newAgentSchema, userProfileSchema } from "./agents.ts";
 import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
+import { taskChecklistSchema } from "./checks.ts";
 import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 
@@ -51,6 +52,8 @@ export const taskRecordSchema = z.object({
   // Cleared when the finished goal is taken up again.
   reviewedAt: z.iso.datetime().optional(),
   paused: taskPauseSchema.optional(),
+  // The lead's or solo agent's, for a check (D-73).
+  checklist: taskChecklistSchema.optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
 });

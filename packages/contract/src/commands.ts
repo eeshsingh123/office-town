@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { attachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
+import { checkItemSchema } from "./checks.ts";
 import { messageOriginSchema, questionAnswerSchema } from "./events.ts";
 import { approvedPieceSchema } from "./plans.ts";
 import { teamSchema } from "./team.ts";
@@ -37,6 +38,15 @@ const answerPlanSchema = z.object({
   ]),
 });
 
+const answerChecklistSchema = z.object({
+  type: z.literal("answerChecklist"),
+  requestId: z.string().min(1),
+  answer: z.discriminatedUnion("outcome", [
+    z.object({ outcome: z.literal("approved"), items: z.array(checkItemSchema).min(1) }),
+    z.object({ outcome: z.literal("declined") }),
+  ]),
+});
+
 const interruptSchema = z.object({ type: z.literal("interrupt") });
 
 // Starting and stopping belong to whoever owns the session, so only these reach a running agent.
@@ -46,6 +56,7 @@ export const agentCommandSchema = z.discriminatedUnion("type", [
   answerQuestionSchema,
   answerProposalSchema,
   answerPlanSchema,
+  answerChecklistSchema,
   interruptSchema,
 ]);
 export type AgentCommand = z.infer<typeof agentCommandSchema>;

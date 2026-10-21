@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ChecklistCard } from "../checks/ChecklistCard.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { appAskLabel, appAskOf, ConnectorAskBody } from "../connectors/ConnectorAsk.tsx";
 import { PlanCard } from "../plan/PlanCard.tsx";
@@ -196,6 +197,9 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
 export function RequestCard({ event, context }: RequestCardProps) {
   if (event.type === "proposal.requested") return <ProposalCard event={event} context={context} />;
   if (event.type === "plan.requested") return <PlanCard event={event} context={context} />;
+  if (event.type === "checklist.requested") {
+    return <ChecklistCard event={event} context={context} />;
+  }
   return <AskCard event={event} context={context} />;
 }
 

@@ -10,5 +10,7 @@ export function requestLabel(request: WaitingRequest): string {
       return "Proposes a team";
     case "plan.requested":
       return "Proposes a plan";
+    case "checklist.requested":
+      return "Wants a checklist approved";
   }
 }

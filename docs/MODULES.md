@@ -26,7 +26,7 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 - Delegation: a piece of work the lead hands a worker, and the result that comes back.
 - Autonomy: how much a department's agents may do without asking the user.
 - Tool server: the core's own MCP server that gives agents team tools, such as delegating or asking the user.
-- Outsourced agent: a fresh agent outside the team that gets only a brief and the work to examine, for a clean-slate review (D-47).
+- Checker: a fresh agent outside the team that checks finished work against a checklist the user approves, in a temporary sandbox (D-47, D-73).
 
 ---
 

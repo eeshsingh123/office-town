@@ -12,5 +12,7 @@ export function requestSummary(event: UserRequestEvent): string {
         : "Wants to change the team";
     case "plan.requested":
       return event.payload.replan ? "Wants to change the plan" : "Proposes a plan";
+    case "checklist.requested":
+      return `Wants ${event.payload.items.length} checks approved`;
   }
 }
