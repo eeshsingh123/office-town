@@ -43,7 +43,7 @@ The app shows each provider's own usage limit; no budgets or dollar tracking in 
 - Store, then publish; listeners get the stored event. Text fragments are published without a `position` and never stored.
 - The registry changes sessions; reads go straight to the store.
 - Resuming needs a prompt. Any ended session with a harness session id can be resumed; the new session joins its task.
-- A shutdown is recorded like a crash (interrupted), so "stopped" always means the user stopped it.
+- A shutdown is recorded like a crash (interrupted), so "stopped" means the user stopped it, unless the end names a lead (D-71).
 - If the store fails, the agent is stopped with a fatal `error` (owner: work that cannot be recorded cannot be traced), and its end is saved once more as `failed`.
 - Partial raw lines are flagged by the adapter and not stored.
 
@@ -339,6 +339,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - OpenCode's ACP turn result reports only the turn's last model step, so tokens were undercounted 2 to 7 times. Once a session ends (idle stop included), the core reads the conversation back with the adapter's `recount` (`opencode export`, sub-agents' sessions followed) and adds what the turns missed as a `usage.recounted` event. Why after the session (owner): nothing runs while the agent works, so the user is never held up; the figure is low only until the session ends.
 - The event carries the missing part, not a total, so every sum (task, agent, account) just adds it like a turn. The missing part is the conversation's real total minus everything its sessions recorded, so recounting again adds nothing and a resumed conversation is not counted twice. At start, sessions of the last 7 days not yet recounted are caught up.
 - A department's sign shows its goal's total and per AI app, and each member's tokens float above its head (owner's pick, A+C; a strip under the desks got cramped in a big room). Never an account's plan %, which belongs to the whole account. Department rooms are taller for it (`DEPARTMENT_DESK_TOP`, `DEPARTMENT_PITCH_Y`).
+
+### D-71 A lead can stop and resume its workers — accepted (2026-10-22)
+
+- `stop_work` (workers by name, a required reason) and `resume_work` (one worker) are lead-only team tools. Owner: a lead told to stop over-testing workers had no way to. A stop waits for the user's approval in Needs you, like a Library change; the lead hears the answer as a message. Owner: a lead alone must never cut off a worker deep in hard work, so the brief also tells it to stop only for a clear reason. Resuming needs no approval.
+- Once approved, a stop ends the delegation first, so no "stopped" result wakes the lead a second time; then interrupts an open turn (5 s at most), so the harness closes it in its own records; then closes the CLI as a user stop does. The process must end, not just the turn: Claude's sub-agents run in the background and would go on using tokens.
+- The worker's `session.ended` carries `stoppedBy` (lead, reason); without it "stopped" still means the user (D-31). The trace shows "Stopped by <lead>: <reason>".
+- `resume_work` hands the stopped piece's brief back in the same conversation, as a new delegation. New or changed work goes through `delegate`. No token budget per piece (owner: goals can be open-ended).
 
 ## Done
 

@@ -27,6 +27,7 @@ import { delegate, teamStatus } from "./team/delegate.ts";
 import { guestsLeave, outsource } from "./team/outsource.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { reportResults } from "./team/results.ts";
+import { resumeWork, stopWork } from "./team/stop-work.ts";
 import { TaskStates } from "./team/task-state.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
 import { askUser } from "./tools/ask-user.ts";
@@ -95,6 +96,8 @@ toolServer.offer([
   proposeTeam(team),
   delegate(team),
   teamStatus(team, activity),
+  stopWork(team, activity),
+  resumeWork(team),
   outsource(team),
   proposePlan(team, scheduler),
   messageLead(team),

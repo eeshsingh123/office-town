@@ -25,6 +25,7 @@ import type { TeamContext } from "../../src/team/members.ts";
 import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
+import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
 import { askUser } from "../../src/tools/ask-user.ts";
@@ -113,6 +114,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
     proposeTeam(team),
     delegate(team),
     teamStatus(team, activity),
+    stopWork(team, activity),
+    resumeWork(team),
     outsource(team),
     proposePlan(team, scheduler),
     messageLead(team),
