@@ -20,7 +20,7 @@ import { workerFolders } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 80;
 
-interface LedTeam {
+export interface LedTeam {
   name: string;
   // None for a group task.
   department: DepartmentRecord | undefined;
@@ -29,7 +29,7 @@ interface LedTeam {
   workers: AgentRecord[];
 }
 
-function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
+export function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
   const task = store.getTask(caller.taskId);
   const lead = store.getAgent(caller.agentId);
   if (task?.leadAgentId !== caller.agentId || lead === undefined) return undefined;
@@ -45,15 +45,15 @@ function teamOf({ store }: TeamContext, caller: Caller): LedTeam | undefined {
 }
 
 // A harness reads its tools once, at start, so a lead has them from its first session.
-const isLead =
+export const isLead =
   ({ store }: TeamContext) =>
   (caller: Caller) =>
     leadsTeam(store, caller);
 
-const NOT_YET = "Your team is not approved yet. Wait for the user to answer your proposal.";
+export const NOT_YET = "Your team is not approved yet. Wait for the user to answer your proposal.";
 
 // Continues the worker's session in this task if it has one. Workers run at the same time.
-async function startWork(
+export async function startWork(
   context: TeamContext,
   team: LedTeam,
   caller: Caller,
@@ -207,6 +207,10 @@ function stateOf(
     return `is working on "${piece}" (for ${minutes} min)`;
   }
   if (isOpen(session) && activity.of(session.id)?.turnOpen) return "is at work";
+  const last = context.store
+    .listDelegations(caller.taskId)
+    .findLast((one) => one.workerAgentId === worker.id);
+  if (!isOpen(session) && last?.status === "stopped") return "was stopped before it finished";
   return session.status === "failed" ? "failed on its last piece" : "has finished its last piece";
 }
 

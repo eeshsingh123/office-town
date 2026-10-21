@@ -68,6 +68,9 @@ export class FakeSession implements Session {
         payload: { requestId, outcome: "allowed", optionId, ...(answeredBy ? { answeredBy } : {}) },
       });
     }
+    if (command.type === "interrupt") {
+      this.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "interrupted" } });
+    }
     if (command.type === "stop") {
       this.emit({
         type: "session.ended",

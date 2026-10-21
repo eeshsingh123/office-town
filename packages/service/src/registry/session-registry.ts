@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import type {
   AgentCommand,
   Attachment,
@@ -10,12 +11,14 @@ import type {
   SessionEventBody,
   SessionOptions,
   SessionRecord,
+  StoppedBy,
 } from "@office-town/contract";
 import {
   createSession as createHarnessSession,
   type HarnessLine,
   type LaunchExtras,
   type Session,
+  SessionStateError,
   type ToolServer,
 } from "@office-town/harness";
 import {
@@ -125,8 +128,21 @@ interface LiveSession {
   // Set until the first message is sent, so a later one never overtakes it.
   firstMessage: Promise<void> | undefined;
   stopping: boolean;
+  // Set by a lead's stop, and written onto the session's end.
+  stoppedBy: StoppedBy | undefined;
+  // Settles when the open turn ends; none between turns.
+  turn: PromiseWithResolvers<void> | undefined;
   ended: PromiseWithResolvers<void>;
   readOnly: boolean;
+}
+
+const INTERRUPT_GRACE_MS = 5_000;
+
+// A lead's stop shows on the worker's end, so "stopped" is not read as the user's doing.
+function stamped(live: LiveSession, event: SessionEvent): SessionEvent {
+  if (event.type !== "session.ended" || live.stoppedBy === undefined) return event;
+  if (event.payload.reason !== "stopped") return event;
+  return { ...event, payload: { ...event.payload, stoppedBy: live.stoppedBy } };
 }
 
 const NOT_RECORDED =
@@ -405,11 +421,28 @@ ${text}`,
     live.session.report(request);
   }
 
-  // `idle` ends the agent as finished, to be resumed when next needed.
-  async stop(sessionId: string, idle = false): Promise<void> {
+  // `idle` ends the agent as finished, to be resumed when next needed. A lead's stop (`by`)
+  // interrupts the turn first, so the harness closes it in its own records before it exits.
+  async stop(sessionId: string, idle = false, by?: StoppedBy): Promise<void> {
     const live = this.#running(sessionId);
     live.stopping = true;
+    if (by !== undefined) {
+      live.stoppedBy = by;
+      if (live.turn !== undefined) await this.#interrupt(live, live.turn);
+    }
     await live.session.send({ type: "stop", ...(idle ? { idle } : {}) });
+  }
+
+  // Bounded: a harness that does not end its turn in time is stopped all the same.
+  async #interrupt(live: LiveSession, turn: PromiseWithResolvers<void>): Promise<void> {
+    try {
+      await live.session.send({ type: "interrupt" });
+    } catch (error) {
+      // It ended or is ending on its own.
+      if (error instanceof SessionStateError) return;
+      throw error;
+    }
+    await Promise.race([turn.promise, delay(INTERRUPT_GRACE_MS, undefined, { ref: false })]);
   }
 
   isRunning(sessionId: string): boolean {
@@ -460,6 +493,8 @@ ${text}`,
       conversation: record.options.resumeSessionId,
       firstMessage: ready.promise,
       stopping: false,
+      stoppedBy: undefined,
+      turn: undefined,
       ended: Promise.withResolvers<void>(),
       readOnly: (record.options.readOnlyPaths ?? []).length > 0,
     };
@@ -526,8 +561,13 @@ ${text}`,
   }
 
   #record(live: LiveSession, received: SessionEvent): void {
-    const event = live.readOnly ? withoutAllowAlways(received) : received;
+    const event = stamped(live, live.readOnly ? withoutAllowAlways(received) : received);
     live.lastSequence = event.sequence;
+    if (event.type === "turn.started") live.turn = Promise.withResolvers<void>();
+    if (event.type === "turn.ended") {
+      live.turn?.resolve();
+      live.turn = undefined;
+    }
     if (event.type === "session.started") live.conversation ??= event.payload.harnessSessionId;
     if (event.type === "session.ended") this.#forget(event.sessionId);
     if (!live.recorded) {

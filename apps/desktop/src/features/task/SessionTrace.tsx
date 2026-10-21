@@ -34,6 +34,10 @@ function StepHeading({ trace, stepId }: { trace: Trace; stepId: string }) {
 function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }) {
   // A guest leaves once it has answered; nothing but the user brings it back.
   const guest = useApp((state) => state.agents[session.agentId]?.guest === true);
+  const stoppedBy = trace.ended?.stoppedBy;
+  const lead = useApp((state) =>
+    stoppedBy === undefined ? undefined : (state.agents[stoppedBy.agentId]?.name ?? "its lead"),
+  );
   switch (session.status) {
     case "starting":
     case "running":
@@ -49,7 +53,7 @@ function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }
       return (
         <p className={styles.ended}>
           <CircleMinus size={14} aria-hidden />
-          Stopped
+          {stoppedBy === undefined ? "Stopped" : `Stopped by ${lead}: ${stoppedBy.reason}`}
         </p>
       );
     case "failed":

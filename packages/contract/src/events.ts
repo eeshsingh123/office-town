@@ -108,6 +108,13 @@ export const overflowSchema = z.object({
 });
 export type Overflow = z.infer<typeof overflowSchema>;
 
+// A lead that stopped its worker, with the reason it gave.
+export const stoppedBySchema = z.object({
+  agentId: z.string().min(1),
+  reason: z.string().min(1),
+});
+export type StoppedBy = z.infer<typeof stoppedBySchema>;
+
 const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
@@ -118,6 +125,8 @@ const payloadSchemas = {
     exitCode: z.number().int().nullable(),
     // Stopped while idle; it resumes when next needed.
     idle: z.literal(true).optional(),
+    // Stopped by its lead rather than the user.
+    stoppedBy: stoppedBySchema.optional(),
   }),
   "turn.started": z.object({ turnId: z.string().min(1) }),
   "turn.ended": z.object({
