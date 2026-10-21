@@ -7,6 +7,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
 import menu from "../../ui/Menu.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
@@ -320,18 +321,6 @@ export function MemberEditor({
                   {agent === undefined ? "" : ` · ${agent.name}`}
                 </span>
               </div>
-              {locked ? null : (
-                <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
-                  <SwatchBook size={14} aria-hidden />
-                  Start from template
-                </Button>
-              )}
-              {isLead ? null : (
-                <Button variant="danger" onClick={remove}>
-                  <Trash2 size={14} aria-hidden />
-                  Remove from team
-                </Button>
-              )}
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <Button
@@ -382,32 +371,43 @@ export function MemberEditor({
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
+              {locked ? null : (
+                <div className={styles.headActions}>
+                  <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
+                    <SwatchBook size={14} aria-hidden />
+                    Start from template
+                  </Button>
+                  {isLead ? null : (
+                    <Button variant="danger" onClick={remove}>
+                      <Trash2 size={14} aria-hidden />
+                      Remove from team
+                    </Button>
+                  )}
+                </div>
+              )}
             </header>
 
             {leadLocked !== undefined && locked ? (
               <LockedLead person={person} note={leadLocked} />
             ) : (
               <>
-                <div className={styles.pair}>
-                  <label className={form.field}>
-                    <span className={form.label}>Role name</span>
-                    <input
-                      className={form.input}
-                      value={person.role}
-                      placeholder={isLead ? "Lead" : "For example: Copywriter"}
-                      onChange={(change) => update({ role: change.target.value })}
-                    />
-                  </label>
-                  <label className={form.field}>
-                    <span className={form.label}>What they do</span>
-                    <input
-                      className={form.input}
-                      value={person.purpose}
-                      placeholder="One line, shown on cards and to the lead"
-                      onChange={(change) => update({ purpose: change.target.value })}
-                    />
-                  </label>
-                </div>
+                <label className={form.field}>
+                  <span className={form.label}>Role name</span>
+                  <input
+                    className={form.input}
+                    value={person.role}
+                    placeholder={isLead ? "Lead" : "For example: Copywriter"}
+                    onChange={(change) => update({ role: change.target.value })}
+                  />
+                </label>
+                <label className={form.field}>
+                  <span className={form.label}>What they do</span>
+                  <LineField
+                    value={person.purpose}
+                    placeholder="One line, shown on cards and to the lead"
+                    onChange={(purpose) => update({ purpose })}
+                  />
+                </label>
 
                 <div className={form.field}>
                   <span className={form.label}>Instructions</span>

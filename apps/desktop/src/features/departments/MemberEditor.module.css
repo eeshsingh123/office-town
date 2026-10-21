@@ -219,15 +219,17 @@
   font-size: 15px;
 }
 
+/* Actions on their own row under the name, so they never split around a wrap. */
+.headActions {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .headText span {
   font-size: var(--size-meta);
   color: var(--text-3);
-}
-
-.pair {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
 }
 
 .chips {
