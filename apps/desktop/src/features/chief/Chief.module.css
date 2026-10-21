@@ -81,12 +81,6 @@
   color: var(--accent-text);
 }
 
-.rules {
-  min-height: 120px;
-  resize: vertical;
-  line-height: 1.55;
-}
-
 .preview {
   align-items: center;
   text-align: center;

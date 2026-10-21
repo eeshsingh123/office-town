@@ -8,6 +8,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import styles from "./YouView.module.css";
@@ -134,22 +135,22 @@ export function YouView() {
               <h2 id="you-work" className={page.sectionTitle}>
                 How agents work with you
               </h2>
-              <label className={form.field} htmlFor="you-about">
+              <div className={form.field}>
                 <span className={form.label}>About you</span>
-                <textarea
-                  id="you-about"
-                  className={form.input}
-                  rows={4}
-                  value={draft.about}
-                  placeholder="For example: I'm a backend developer. I know Python well and I'm new to TypeScript."
-                  onChange={(event) => set({ about: event.target.value })}
-                />
                 <span className={form.hint}>
                   Your work, what you know well and what you're new to.
                 </span>
-              </label>
+                <PointsField
+                  label="About you"
+                  value={draft.about}
+                  placeholder="For example: I'm a backend developer"
+                  addLabel="Add a point"
+                  onChange={(about) => set({ about })}
+                />
+              </div>
               <fieldset className={`${form.field} ${form.group}`}>
                 <legend className={form.label}>How you like answers</legend>
+                <p className={form.hint}>Pick any that fit, or add your own.</p>
                 <div className={form.row}>
                   {ANSWER_PICKS.map((pick) => {
                     const on = draft.answerStyle.includes(pick);
@@ -172,15 +173,13 @@ export function YouView() {
                     );
                   })}
                 </div>
-                <textarea
-                  className={form.input}
-                  rows={2}
-                  aria-label="Anything else about how you like answers"
+                <PointsField
+                  label="Anything else about how you like answers"
                   value={draft.answerNotes}
                   placeholder="Anything else, in your own words"
-                  onChange={(event) => set({ answerNotes: event.target.value })}
+                  addLabel="Add your own"
+                  onChange={(answerNotes) => set({ answerNotes })}
                 />
-                <p className={form.hint}>Pick any that fit, or write your own.</p>
               </fieldset>
             </section>
 
@@ -219,7 +218,20 @@ export function YouView() {
           <Appearance />
           <div className={page.panel}>
             <span className={page.eyebrow}>What your agents will read</span>
-            <p className={styles.preview}>{preview === "" ? "Nothing yet." : preview}</p>
+            {preview.length === 0 ? (
+              <p className={form.hint}>Nothing yet. Fill in your profile and it shows here.</p>
+            ) : (
+              preview.map((section) => (
+                <div key={section.title} className={styles.preview}>
+                  <h3 className={styles.previewTitle}>{section.title}</h3>
+                  <ul className={styles.previewPoints}>
+                    {section.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
           </div>
         </aside>
       </div>

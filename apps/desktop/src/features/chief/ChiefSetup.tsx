@@ -9,6 +9,7 @@ import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
@@ -300,16 +301,12 @@ export function ChiefSetup() {
                   );
                 })}
               </div>
-              <label htmlFor="chief-rules" className="visually-hidden">
-                Planning rules
-              </label>
-              <textarea
-                id="chief-rules"
-                className={`${page.input} ${styles.rules}`}
-                rows={5}
+              <PointsField
+                label="Planning rules"
                 value={rules}
                 placeholder="For example: the Backend department always goes before Frontend."
-                onChange={(change) => setDraft({ ...draft, instructions: change.target.value })}
+                addLabel="Add a rule"
+                onChange={(instructions) => setDraft({ ...draft, instructions })}
               />
             </section>
           ) : null}

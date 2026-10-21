@@ -7,6 +7,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { AsksFirst } from "../profiles/AsksFirst.tsx";
@@ -164,17 +165,17 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
             : "One line. The lead uses it to hand out work."}
         </span>
       </label>
-      <label className={form.field} htmlFor={`agent-notes-${id}`}>
+      <div className={form.field}>
         <span className={form.label}>Notes for {who}</span>
-        <textarea
-          id={`agent-notes-${id}`}
-          className={form.input}
-          rows={4}
+        <span className={form.hint}>Only {who} reads these, before every task.</span>
+        <PointsField
+          label={`Notes for ${who}`}
           value={draft.notes}
-          onChange={(event) => set({ notes: event.target.value })}
+          placeholder="For example: Work only on your own branch"
+          addLabel="Add a note"
+          onChange={(notes) => set({ notes })}
         />
-        <span className={form.hint}>Only {who} reads these.</span>
-      </label>
+      </div>
       <div className={form.field}>
         <span className={form.label}>Model</span>
         <div className={form.row}>
