@@ -165,7 +165,14 @@ export function apiRoutes(
       path: "/tasks",
       reply: ({ query }) => {
         const { limit, cursor, active } = taskListQuerySchema.parse(Object.fromEntries(query));
-        if (active) return { status: 200, json: { tasks: store.listActiveTasks() } };
+        if (active) {
+          // A paused task waits on the user as much as a running one.
+          const running = store.listActiveTasks();
+          const paused = store
+            .listPausedTasks()
+            .filter((task) => !running.some(({ id }) => id === task.id));
+          return { status: 200, json: { tasks: [...running, ...paused] } };
+        }
         return {
           status: 200,
           json: store.listTasks(cursor === undefined ? { limit } : { limit, cursor }),
