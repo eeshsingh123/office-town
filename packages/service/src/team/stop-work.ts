@@ -1,7 +1,8 @@
-import type { AgentRecord } from "@office-town/contract";
+import { randomUUID } from "node:crypto";
+import type { AgentRecord, StoppedBy } from "@office-town/contract";
 import { z } from "zod";
 import type { SessionActivity } from "../registry/activity.ts";
-import { SessionNotRunningError } from "../registry/session-registry.ts";
+import { AnswerError, SessionNotRunningError } from "../registry/session-registry.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { isLead, type LedTeam, NOT_YET, startWork, teamOf } from "./delegate.ts";
 import { busyAgents, isOpen, latestSession } from "./lead.ts";
@@ -27,16 +28,34 @@ function lastWords(activity: SessionActivity, sessionId: string): string {
   return ` Its last words:\n${shown}`;
 }
 
-// A worker with nothing handed out is stopped too: its own sub-agents may still be running.
-// Its delegation ends first, so no "stopped" result wakes the lead for a turn it caused.
+// The user approves every stop in Needs you (owner: a worker deep in hard work must not be cut off
+// by its lead alone). A worker with nothing handed out is stopped too: its own sub-agents may still
+// be running. Its delegation ends first, so no "stopped" result wakes the lead a second time.
 export function stopWork(context: TeamContext, activity: SessionActivity) {
   const { store, registry } = context;
+
+  const stopOne = async (caller: Caller, worker: AgentRecord, by: StoppedBy) => {
+    const session = latestSession(context, caller.taskId, worker.id);
+    if (session === undefined || !isOpen(session)) return `- ${worker.name}: had already ended.`;
+    const words = lastWords(activity, session.id);
+    const working = store.workingDelegation(session.id);
+    if (working !== undefined) store.endDelegation(working.id, "stopped");
+    try {
+      await registry.stop(session.id, false, by);
+    } catch (error) {
+      if (error instanceof SessionNotRunningError) return `- ${worker.name}: had already ended.`;
+      return `- ${worker.name}: could not be stopped and may still be running.`;
+    }
+    return `- ${worker.name}: stopped.${words}`;
+  };
+
   return defineTool({
     name: "stop_work",
     description:
-      "Stop workers now, such as when they go beyond what you asked or spend too much. Each " +
-      "ends its turn and its program closes, so nothing more runs or uses tokens. Its " +
-      "conversation is kept: resume_work has it carry on where it stopped.",
+      "Ask the user to stop workers, such as when they go well beyond what you asked. Only " +
+      "for a clear reason: deep work on a hard problem is not one. It returns at once; the " +
+      "user's answer reaches you later as a message. A stopped worker's program closes, so " +
+      "nothing more runs or uses tokens, and its conversation is kept for resume_work.",
     input: z.object({
       agents: z
         .array(z.string().min(1))
@@ -46,33 +65,68 @@ export function stopWork(context: TeamContext, activity: SessionActivity) {
         .string()
         .trim()
         .min(1)
-        .describe("Why, in a sentence. The user reads it on the worker's trace."),
+        .describe("Why, in a sentence. The user reads it before approving."),
     }),
     offeredTo: isLead(context),
-    async call({ agents, reason }, caller: Caller) {
+    call({ agents, reason }, caller: Caller) {
       const team = teamOf(context, caller);
       if (team === undefined) throw new ToolError(NOT_YET);
-      const workers = workersNamed(team, agents);
-      const by = { agentId: caller.agentId, reason };
-      const lines = await Promise.all(
-        workers.map(async (worker) => {
-          const session = latestSession(context, caller.taskId, worker.id);
-          if (session === undefined || !isOpen(session))
-            return `- ${worker.name}: was not running.`;
-          const words = lastWords(activity, session.id);
-          const working = store.workingDelegation(session.id);
-          if (working !== undefined) store.endDelegation(working.id, "stopped");
-          try {
-            await registry.stop(session.id, false, by);
-          } catch (error) {
-            if (error instanceof SessionNotRunningError)
-              return `- ${worker.name}: had already ended.`;
-            return `- ${worker.name}: could not be stopped and may still be running.`;
-          }
-          return `- ${worker.name}: stopped.${words}`;
-        }),
+      const workers = workersNamed(team, agents).filter((worker) => {
+        const session = latestSession(context, caller.taskId, worker.id);
+        return session !== undefined && isOpen(session);
+      });
+      if (workers.length === 0) throw new ToolError("None of them is running.");
+      const names = workers.map((worker) => worker.name).join(", ");
+      const title = `Stop ${names}, asked by ${team.lead.name}`;
+      const requestId = `stop-${randomUUID()}`;
+      const tell = (text: string, summary: string) =>
+        registry.tell(caller.sessionId, { text, origin: { kind: "notice", summary } });
+      registry.ask(
+        caller.sessionId,
+        {
+          type: "permission.requested",
+          payload: {
+            requestId,
+            title: `${title}. ${reason}`,
+            input: { agents: workers.map((worker) => worker.name), reason },
+            options: [
+              { optionId: "approve", label: "Stop them", kind: "allow_once" },
+              { optionId: "decline", label: "Let them work", kind: "reject_once" },
+            ],
+          },
+        },
+        (command) => {
+          if (command.type !== "answerPermission") throw new AnswerError("This is an approval.");
+          const approved = command.optionId === "approve";
+          return {
+            resolution: {
+              type: "permission.resolved",
+              payload: {
+                requestId,
+                outcome: approved ? "allowed" : "denied",
+                optionId: command.optionId,
+                answeredBy: "user",
+              },
+            },
+            afterwards: async () => {
+              if (!approved) {
+                await tell(
+                  `The user declined to stop ${names}. Let them keep working.`,
+                  "You let them keep working",
+                );
+                return;
+              }
+              const by = { agentId: caller.agentId, reason };
+              const lines = await Promise.all(workers.map((worker) => stopOne(caller, worker, by)));
+              await tell(
+                `The user approved.\n${lines.join("\n")}\n\nTo have one carry on where it stopped, call resume_work.`,
+                `You approved stopping ${names}`,
+              );
+            },
+          };
+        },
       );
-      return `${lines.join("\n")}\n\nTo have one carry on where it stopped, call resume_work.`;
+      return "Your request to stop them is with the user. Their answer will reach you as a message.";
     },
   });
 }

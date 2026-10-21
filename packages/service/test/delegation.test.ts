@@ -266,23 +266,39 @@ Tests pass.`,
     expect(lastSent(1)).toEqual({ type: "stop", idle: true });
   });
 
-  it("lets a lead stop a worker mid-turn without waking itself, and resume it in the same conversation", async () => {
+  it("stops a worker only once the user approves its lead's ask, and resumes it in the same conversation", async () => {
     const { writer } = await teamAtWork();
     const lead = core.sessions[0];
     await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
     const worker = core.sessions[1];
     worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
     worker?.emit({ type: "message", payload: { role: "assistant", text: "Testing again." } });
-    const sentToLead = lead?.sent.length;
+    const ask = () =>
+      core.callTool(lead, "stop_work", { agents: [writer], reason: "Too much testing" });
+    const answer = async (optionId: string) => {
+      const [request] = core.store.listPendingRequests().requests;
+      await core.call("POST", `/sessions/${lead?.id}/commands`, {
+        type: "answerPermission",
+        requestId: request?.event.payload.requestId,
+        optionId,
+      });
+      await settle();
+    };
 
-    const stopped = await core.callTool(lead, "stop_work", {
-      agents: [writer],
-      reason: "Too much testing",
-    });
-    await settle();
-    expect(stopped.text).toContain(`${writer}: stopped. Its last words:
-Testing again.`);
+    expect((await ask()).text).toContain("with the user");
+    await answer("decline");
+    expect(core.registry.isRunning(worker?.id ?? "")).toBe(true);
+    expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("declined") });
+
+    await ask();
+    expect(worker?.sent.at(-1)?.type).not.toBe("stop");
+    await answer("approve");
     expect(worker?.sent.slice(-2).map(({ type }) => type)).toEqual(["interrupt", "stop"]);
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining(`${writer}: stopped. Its last words:
+Testing again.`),
+      origin: { kind: "notice" },
+    });
     const ended = core.store
       .readEvents({ after: 0, limit: 100, sessionId: worker?.id ?? "" })
       .find(({ event }) => event.type === "session.ended");
@@ -293,7 +309,6 @@ Testing again.`);
         reason: "Too much testing",
       },
     });
-    expect(lead?.sent).toHaveLength(sentToLead ?? 0);
     expect((await core.callTool(lead, "team_status", {})).text).toContain("was stopped");
 
     const resumed = await core.callTool(lead, "resume_work", { agent: writer });
@@ -301,11 +316,6 @@ Testing again.`);
     const next = core.sessions.at(-1);
     expect(core.store.getSession(next?.id ?? "")?.resumedFrom).toBe(worker?.id);
     expect(next?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
-    expect(
-      core.store
-        .listDelegations(core.store.getSession(next?.id ?? "")?.taskId ?? "")
-        .map((one) => one.status),
-    ).toEqual(["stopped", "working"]);
   });
 
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {

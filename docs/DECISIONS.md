@@ -342,8 +342,8 @@ Why: the owner, who built the app, still had to work out what departments and th
 
 ### D-71 A lead can stop and resume its workers — accepted (2026-10-22)
 
-- `stop_work` (workers by name, a required reason) and `resume_work` (one worker) are lead-only team tools. Owner: a lead told to stop over-testing workers had no way to. No approval: stopping only cuts spend, and the work can be resumed.
-- A stop ends the delegation first, so no "stopped" result wakes the lead for a paid turn it caused; then interrupts an open turn (5 s at most), so the harness closes it in its own records; then closes the CLI as a user stop does. The process must end, not just the turn: Claude's sub-agents run in the background and would go on using tokens.
+- `stop_work` (workers by name, a required reason) and `resume_work` (one worker) are lead-only team tools. Owner: a lead told to stop over-testing workers had no way to. A stop waits for the user's approval in Needs you, like a Library change; the lead hears the answer as a message. Owner: a lead alone must never cut off a worker deep in hard work, so the brief also tells it to stop only for a clear reason. Resuming needs no approval.
+- Once approved, a stop ends the delegation first, so no "stopped" result wakes the lead a second time; then interrupts an open turn (5 s at most), so the harness closes it in its own records; then closes the CLI as a user stop does. The process must end, not just the turn: Claude's sub-agents run in the background and would go on using tokens.
 - The worker's `session.ended` carries `stoppedBy` (lead, reason); without it "stopped" still means the user (D-31). The trace shows "Stopped by <lead>: <reason>".
 - `resume_work` hands the stopped piece's brief back in the same conversation, as a new delegation. New or changed work goes through `delegate`. No token budget per piece (owner: goals can be open-ended).
 

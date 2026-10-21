@@ -142,7 +142,7 @@ ${where(input.folders)}
 Your team:
 ${input.roster}
 
-Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. If one goes beyond its piece or the user asks, stop it with stop_work; resume_work has it carry on. Do the rest yourself, then put the results together.${branches}${codeFlow}
+Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on. Do the rest yourself, then put the results together.${branches}${codeFlow}
 
 ${change} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return { text, origin: { kind: "brief", summary: "The goal and your team" } };
