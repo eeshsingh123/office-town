@@ -44,6 +44,7 @@ import {
   type TaskState,
   type TaskSummary,
   type TaskUsage,
+  type TokenUsage,
   type UsageLimit,
   type UserRequestEvent,
   type WorkspaceFolder,
@@ -1139,6 +1140,30 @@ class SqliteStore implements Store {
     return all<AccountUsage>(this.#statements.accountUsageSince, Date.parse(since));
   }
 
+  conversationUsage(harness: string, harnessSessionId: string): TokenUsage {
+    return (
+      one<TokenUsage>(this.#statements.conversationUsage, harnessSessionId, harness) ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedInputTokens: 0,
+      }
+    );
+  }
+
+  sessionsToRecount(harness: string, since: string): SessionRecord[] {
+    return all<SessionRow>(this.#statements.sessionsToRecount, harness, Date.parse(since)).map(
+      toSession,
+    );
+  }
+
+  nextSequence(sessionId: string): number {
+    const row = one<{ sequence: number }>(
+      this.#statements.lastSequence,
+      this.#sessionRef(sessionId),
+    );
+    return (row?.sequence ?? 0) + 1;
+  }
+
   createAccount(account: Account): Account {
     const { id, harness, environment, name, folder = "", createdAt } = account;
     this.#statements.insertAccount.run(
@@ -1744,7 +1769,8 @@ class SqliteStore implements Store {
         limits: { accountId, harness, limits, reportedAt: event.timestamp },
       };
     }
-    if (event.type !== "turn.ended" || event.payload.usage === undefined) return undefined;
+    if (event.type !== "turn.ended" && event.type !== "usage.recounted") return undefined;
+    if (event.payload.usage === undefined) return undefined;
     const { usage } = event.payload;
     const { taskRef, harness } = this.#sessionTask(sessionRef);
     this.#statements.addTaskUsage.run(

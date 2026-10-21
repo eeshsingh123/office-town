@@ -1,15 +1,16 @@
-import type { AccountLimits, AgentRecord, DepartmentRecord } from "@office-town/contract";
+import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
+import { loadTrace } from "../../store/live.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
-import { usageByHarness, usageSummary } from "../departments/usage.ts";
+import { newTokens, usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import {
@@ -83,7 +84,6 @@ interface Layout {
   waiting: Record<string, WaitingRequest>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
-  limits: Record<string, AccountLimits>;
   state: Known;
   chiefId: string | undefined;
   positions: Record<string, Point>;
@@ -91,7 +91,7 @@ interface Layout {
 
 // Every agent at work or done today, at a desk. The chief keeps its office whenever it is set up.
 function layOut(layout: Layout) {
-  const { agents, traces, waiting, harnessName, departments, limits, state, chiefId } = layout;
+  const { agents, traces, waiting, harnessName, departments, state, chiefId } = layout;
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
@@ -112,7 +112,7 @@ function layOut(layout: Layout) {
       const desks = Math.max(1, members.get(one.id)?.length ?? 0);
       return { id: one.id, kind: "department", desks };
     }),
-    // Only an empty office invites setup on the floor; after that the top bar offers it.
+    // Only an empty office invites setup as rooms; after that the floor's corner offers it.
     ...(departments.length > 0 ? [] : [{ id: ADD_DEPARTMENT, kind: "add", desks: 1 } as const]),
     ...(departments.length > 0 || chiefId !== undefined
       ? []
@@ -121,6 +121,19 @@ function layOut(layout: Layout) {
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];
   const plan = floorPlan(specs, layout.positions);
+
+  // Each department's current or last goal, and what each member used on it once its traces are in.
+  const goals = new Map(departments.map((one) => [one.id, goalOf(one, state)]));
+  const memberTokens = new Map<string, number>();
+  // Sessions whose traces the token counts still wait for.
+  const unloaded: string[] = [];
+  for (const goal of goals.values()) {
+    const people = usageByPerson(goal.sessions, traces);
+    if (people === undefined) {
+      unloaded.push(...goal.sessions.flatMap((one) => (traces[one.id] ? [] : one.id)));
+    }
+    for (const person of people ?? []) memberTokens.set(person.agentId, person.tokens);
+  }
 
   const floorAgents = present.map((agent): FloorAgent => {
     const roomId = roomOf(agent, byId, chiefId);
@@ -134,6 +147,7 @@ function layOut(layout: Layout) {
             ? guests.indexOf(agent)
             : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
+    const tokens = roomId === agent.record.departmentId ? memberTokens.get(agent.id) : undefined;
     const trace = traces[agent.latest.id];
     return {
       agent,
@@ -148,6 +162,7 @@ function layOut(layout: Layout) {
             : roomId === GUESTS
               ? "Guests"
               : (byId[roomId]?.name ?? ""),
+      ...(tokens === undefined ? {} : { tokens }),
       ...bubbleOf(
         agentState,
         asking.get(agent.latest.id),
@@ -161,21 +176,25 @@ function layOut(layout: Layout) {
     [GUESTS]: { title: "Review desk", note: "Reviewers", lines: [] },
   };
   for (const department of departments) {
-    const goal = goalOf(department, state);
-    const usage = usageByHarness(goal.sessions, goal.task?.usage ?? [], limits)
-      .map((one) => usageSummary(one, harnessName(one.harness)))
-      .join(" · ");
-    const working = goal.task !== undefined && goal.sessions.some(isOpen);
+    const goal = goals.get(department.id);
+    const task = goal?.task;
+    const working = task !== undefined && (goal?.sessions ?? []).some(isOpen);
+    const apps = (task?.usage ?? [])
+      .map((one) => ({ name: harnessName(one.harness), tokens: newTokens(one) }))
+      .filter((one) => one.tokens > 0);
     signs[department.id] = {
       title: department.name,
       note: AUTONOMY[department.autonomy].short,
-      lines: [
-        working && goal.task !== undefined ? taskTitle(goal.task.prompt) : "No goal in progress",
-        ...(usage === "" ? [] : [`${working ? "This goal" : "Last goal"} · ${usage}`]),
-      ],
+      lines:
+        task === undefined
+          ? ["No goal in progress"]
+          : [working ? taskTitle(task.prompt) : `Last goal · ${taskTitle(task.prompt)}`],
+      ...(apps.length === 0
+        ? {}
+        : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),
     };
   }
-  return { plan, floorAgents, signs };
+  return { plan, floorAgents, signs, unloaded };
 }
 
 // The home screen (D-35).
@@ -188,7 +207,6 @@ export function OfficeView() {
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) => state.waiting);
   const harnesses = useApp((state) => state.harnesses);
-  const limits = useApp((state) => state.limits);
   const selection = useApp((state) => state.selection);
   const mode = useOffice((state) => state.mode);
   const view = useApp((state) => state.view);
@@ -202,7 +220,7 @@ export function OfficeView() {
       Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
-  const { plan, floorAgents, signs } = useMemo(() => {
+  const { plan, floorAgents, signs, unloaded } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
     return layOut({
@@ -211,7 +229,6 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
-      limits,
       state: { agents: records, tasks, sessions },
       chiefId,
       positions,
@@ -222,13 +239,15 @@ export function OfficeView() {
     waiting,
     harnesses,
     departments,
-    limits,
     records,
     tasks,
     sessions,
     chiefId,
     positions,
   ]);
+  useEffect(() => {
+    for (const sessionId of unloaded) loadTrace(sessionId);
+  }, [unloaded]);
   const { links, goalId, doors } = useCommandFloor(departments);
 
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));

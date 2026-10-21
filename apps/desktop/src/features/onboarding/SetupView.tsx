@@ -9,6 +9,7 @@ import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
 import form from "../../ui/Form.module.css";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { LATEST } from "../help/whats-new.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
@@ -249,18 +250,15 @@ function YourWork(props: YourWorkProps) {
           />
         </div>
         <div className={form.field}>
-          <label className={form.label} htmlFor="setup-about">
-            About you and your work
-          </label>
-          <textarea
-            id="setup-about"
-            className={form.input}
-            rows={3}
-            value={props.about}
-            placeholder="For example: I run marketing at a small bakery. Keep answers short."
-            onChange={(change) => props.onChange({ about: change.target.value })}
-          />
+          <span className={form.label}>About you and your work</span>
           <span className={form.hint}>Every agent reads this.</span>
+          <PointsField
+            label="About you and your work"
+            value={props.about}
+            placeholder="For example: I run marketing at a small bakery"
+            addLabel="Add a point"
+            onChange={(about) => props.onChange({ about })}
+          />
         </div>
       </div>
     </>

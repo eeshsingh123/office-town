@@ -216,6 +216,49 @@ describe("opencode adapter", () => {
     expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
   });
 
+  it("counts thinking tokens as output", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
+    expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
+      inputTokens: 10405,
+      outputTokens: 1025,
+      cachedInputTokens: 10297,
+    });
+  });
+
+  it("recounts a conversation from its export: every model step, its thinking, and its sub-agents", () => {
+    const step = (input: number, output: number, reasoning: number, read: number) => ({
+      info: {
+        role: "assistant",
+        tokens: { input, output, reasoning, cache: { read, write: 0 } },
+      },
+      parts: [],
+    });
+    const exported = {
+      info: { id: "ses_parent" },
+      messages: [
+        { info: { role: "user" }, parts: [{ type: "text" }] },
+        {
+          ...step(100, 10, 5, 1000),
+          parts: [
+            {
+              type: "tool",
+              tool: "task",
+              state: { metadata: { sessionId: "ses_child", parentSessionId: "ses_parent" } },
+            },
+          ],
+        },
+        step(50, 20, 0, 1200),
+      ],
+    };
+    const recount = opencodeAdapter.recount;
+
+    expect(recount?.command("ses_parent").args).toEqual(["export", "ses_parent"]);
+    expect(recount?.parse(`Exporting session…\n${JSON.stringify(exported)}`)).toEqual({
+      usage: { inputTokens: 2350, outputTokens: 35, cachedInputTokens: 2200 },
+      children: ["ses_child"],
+    });
+  });
+
   it("reports streamed command output once, then the result", async () => {
     const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
 

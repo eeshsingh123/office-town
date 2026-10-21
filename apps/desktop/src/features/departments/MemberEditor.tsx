@@ -1,5 +1,5 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { MoreHorizontal, Plus, Search, SwatchBook } from "lucide-react";
+import { MoreHorizontal, Plus, Search, SwatchBook, Trash2 } from "lucide-react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
@@ -7,6 +7,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
 import menu from "../../ui/Menu.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
@@ -184,8 +185,10 @@ export function MemberEditor({
     onChange({ ...team, members: rest });
     onSelect(rest[Math.max(0, index - 1)]?.key ?? team.lead.key);
   };
+  // A new, blank member in the role: only the role name is filled in.
+  const another = (role: string) => add(blankPerson(defaults, role));
   // A copy of someone in the role, with the same job, instructions and model.
-  const another = (like: PersonForm) =>
+  const duplicate = (like: PersonForm) =>
     add({
       ...blankPerson(like.settings, baseRole(like.role), like.purpose),
       instructions: like.instructions,
@@ -277,10 +280,7 @@ export function MemberEditor({
                 <button
                   type="button"
                   className={styles.another}
-                  onClick={() => {
-                    const [like] = group.members;
-                    if (like !== undefined) another(like);
-                  }}
+                  onClick={() => another(group.role)}
                 >
                   <Plus size={13} aria-hidden />
                   Add another
@@ -321,12 +321,6 @@ export function MemberEditor({
                   {agent === undefined ? "" : ` · ${agent.name}`}
                 </span>
               </div>
-              {locked ? null : (
-                <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
-                  <SwatchBook size={14} aria-hidden />
-                  Start from template
-                </Button>
-              )}
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <Button
@@ -370,44 +364,50 @@ export function MemberEditor({
                       Save as template
                     </DropdownMenu.Item>
                     {isLead ? null : (
-                      <DropdownMenu.Item className={menu.item} onSelect={() => another(person)}>
+                      <DropdownMenu.Item className={menu.item} onSelect={() => duplicate(person)}>
                         Duplicate
-                      </DropdownMenu.Item>
-                    )}
-                    {isLead ? null : (
-                      <DropdownMenu.Item className={menu.item} onSelect={remove}>
-                        Remove from team
                       </DropdownMenu.Item>
                     )}
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
+              {locked ? null : (
+                <div className={styles.headActions}>
+                  <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
+                    <SwatchBook size={14} aria-hidden />
+                    Start from template
+                  </Button>
+                  {isLead ? null : (
+                    <Button variant="danger" onClick={remove}>
+                      <Trash2 size={14} aria-hidden />
+                      Remove from team
+                    </Button>
+                  )}
+                </div>
+              )}
             </header>
 
             {leadLocked !== undefined && locked ? (
               <LockedLead person={person} note={leadLocked} />
             ) : (
               <>
-                <div className={styles.pair}>
-                  <label className={form.field}>
-                    <span className={form.label}>Role name</span>
-                    <input
-                      className={form.input}
-                      value={person.role}
-                      placeholder={isLead ? "Lead" : "For example: Copywriter"}
-                      onChange={(change) => update({ role: change.target.value })}
-                    />
-                  </label>
-                  <label className={form.field}>
-                    <span className={form.label}>What they do</span>
-                    <input
-                      className={form.input}
-                      value={person.purpose}
-                      placeholder="One line, shown on cards and to the lead"
-                      onChange={(change) => update({ purpose: change.target.value })}
-                    />
-                  </label>
-                </div>
+                <label className={form.field}>
+                  <span className={form.label}>Role name</span>
+                  <input
+                    className={form.input}
+                    value={person.role}
+                    placeholder={isLead ? "Lead" : "For example: Copywriter"}
+                    onChange={(change) => update({ role: change.target.value })}
+                  />
+                </label>
+                <label className={form.field}>
+                  <span className={form.label}>What they do</span>
+                  <LineField
+                    value={person.purpose}
+                    placeholder="One line, shown on cards and to the lead"
+                    onChange={(purpose) => update({ purpose })}
+                  />
+                </label>
 
                 <div className={form.field}>
                   <span className={form.label}>Instructions</span>
@@ -447,9 +447,15 @@ export function MemberEditor({
               </>
             )}
 
-            {agent === undefined ||
-            workspaceId === undefined ||
-            departmentId === undefined ? null : (
+            {workspaceId === undefined || departmentId === undefined ? null : agent ===
+              undefined ? (
+              <div className={form.field}>
+                <span className={form.label}>Files</span>
+                <span className={form.hint}>
+                  Save the team first, then give {person.role.trim() || "this member"} files.
+                </span>
+              </div>
+            ) : (
               <FilesSection
                 workspaceId={workspaceId}
                 holder={{ departmentId, agentId: agent.id }}

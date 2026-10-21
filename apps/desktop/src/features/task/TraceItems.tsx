@@ -32,6 +32,7 @@ import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
+import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
 import { useMemberLinks } from "./members.ts";
 import styles from "./Trace.module.css";
 
@@ -265,16 +266,17 @@ function MessageFiles({ item, sessionId }: { item: TraceMessage; sessionId: stri
   return <SentFiles uses={useFileUses(sessionId, item.id)} />;
 }
 
+// The user's own words sit on the right in their colour, apart from the agent's.
 function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+  const name = useYourName();
   return (
     <div className={styles.user}>
-      <span className={styles.you} aria-hidden>
-        Y
-      </span>
       <div className={styles.userSaid}>
+        <span className={styles.userName}>{name}</span>
         <div className={styles.userBubble}>{item.text}</div>
         <MessageFiles item={item} sessionId={sessionId} />
       </div>
+      <YouAvatar size={24} />
     </div>
   );
 }

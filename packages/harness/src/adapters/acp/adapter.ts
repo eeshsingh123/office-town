@@ -10,6 +10,7 @@ export type AcpHarness = Pick<
   | "catalog"
   | "accounts"
   | "install"
+  | "recount"
   | "buildCommand"
 >;
 

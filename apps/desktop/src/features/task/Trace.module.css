@@ -6,38 +6,36 @@
 
 .user {
   display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
   gap: 10px;
-  margin: 6px 0 14px;
+  margin: 14px 0 18px;
 }
 
 .userSaid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: flex-end;
+  gap: 6px;
   min-width: 0;
+  max-width: 82%;
+}
+
+.userName {
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text-2);
 }
 
 .userBubble {
   padding: 9px 13px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 12px 4px 12px 12px;
+  background: var(--accent-soft);
   font-size: var(--size-agent);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.you {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--hover);
-  font-size: var(--size-small);
-  font-weight: 600;
 }
 
 .text {

@@ -10,6 +10,7 @@ import {
   type HarnessStatus,
   type SessionOptions,
   sessionOptionsSchema,
+  type TokenUsage,
   type UsageLimit,
   type VendorApp,
 } from "@office-town/contract";
@@ -81,6 +82,44 @@ export function runCommand(
   command: { binary: string; args: string[]; cwd?: string },
 ): Promise<CommandResult> {
   return runIn(environmentFor(environmentSpecSchema.parse(spec)), command);
+}
+
+export function canRecount(harness: string): boolean {
+  return findAdapter(harness).recount !== undefined;
+}
+
+// What a conversation and its sub-agents really used, from the harness's own records; undefined
+// where the harness keeps none or they cannot be read.
+export async function recountUsage(
+  harness: string,
+  spec: EnvironmentSpec,
+  accountFolder: string | undefined,
+  conversationId: string,
+): Promise<TokenUsage | undefined> {
+  const { recount, accounts } = findAdapter(harness);
+  if (recount === undefined) return undefined;
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const env =
+    accountFolder === undefined || accounts === undefined
+      ? {}
+      : accounts.env(environment.toEnvironmentPath(accountFolder));
+  const total = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+  const queue = [conversationId];
+  const seen = new Set<string>();
+  // A cap, in case sub-agents ever name each other.
+  for (let id = queue.shift(); id !== undefined && seen.size < 50; id = queue.shift()) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const command = recount.command(id);
+    const result = await runIn(environment, { ...command, env: { ...command.env, ...env } });
+    if (result.code !== 0) return undefined;
+    const { usage, children } = recount.parse(result.stdout);
+    total.inputTokens += usage.inputTokens;
+    total.outputTokens += usage.outputTokens;
+    total.cachedInputTokens += usage.cachedInputTokens ?? 0;
+    queue.push(...children);
+  }
+  return total;
 }
 
 // Such as /mnt/c/work for C:\work in WSL.

@@ -5,6 +5,7 @@ import type {
   PlanStep,
   SentAttachment,
   SessionEvent,
+  TokenUsage,
   UserRequestEvent,
 } from "@office-town/contract";
 import { teamToolServer } from "@office-town/contract";
@@ -144,6 +145,14 @@ function updateAction(trace: Trace, id: string, change: (action: TraceAction) =>
   if (action?.kind === "action") trace.items.set(id, change(action));
 }
 
+function addUsage(trace: Trace, usage: TokenUsage): void {
+  trace.usage = {
+    inputTokens: trace.usage.inputTokens + usage.inputTokens,
+    outputTokens: trace.usage.outputTokens + usage.outputTokens,
+    cachedInputTokens: trace.usage.cachedInputTokens + (usage.cachedInputTokens ?? 0),
+  };
+}
+
 function apply(trace: Trace, event: SessionEvent): void {
   switch (event.type) {
     case "session.started":
@@ -161,13 +170,7 @@ function apply(trace: Trace, event: SessionEvent): void {
       const { outcome, usage } = event.payload;
       trace.turnOpen = false;
       trace.lastTurn = outcome;
-      if (usage !== undefined) {
-        trace.usage = {
-          inputTokens: trace.usage.inputTokens + usage.inputTokens,
-          outputTokens: trace.usage.outputTokens + usage.outputTokens,
-          cachedInputTokens: trace.usage.cachedInputTokens + (usage.cachedInputTokens ?? 0),
-        };
-      }
+      if (usage !== undefined) addUsage(trace, usage);
       if (outcome !== "completed") {
         const text = outcome === "interrupted" ? "Turn interrupted" : "Turn failed";
         trace.items.set(event.id, { kind: "notice", id: event.id, tone: "quiet", text });
@@ -175,6 +178,10 @@ function apply(trace: Trace, event: SessionEvent): void {
       }
       return;
     }
+    // Tokens the turns left out, added by the core once the session ended.
+    case "usage.recounted":
+      addUsage(trace, event.payload.usage);
+      return;
     case "message": {
       const { role, text, parentActionId, origin, attachments } = event.payload;
       delete trace.streaming[parentActionId ?? ""];

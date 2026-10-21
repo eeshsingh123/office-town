@@ -1,5 +1,6 @@
 import type { UserProfile } from "@office-town/contract";
 import { useApp } from "../../store/app-store.ts";
+import { pointsOf } from "../../ui/points.ts";
 
 export const ANSWER_PICKS = [
   "Short and to the point",
@@ -24,16 +25,19 @@ export function useYou(): UserProfile {
   return useApp((state) => state.you) ?? DEFAULT_YOU;
 }
 
-// The same text the core puts first in every agent's instructions (agents/briefs.ts).
-export function youPreview(you: UserProfile): string {
+export interface PreviewSection {
+  title: string;
+  points: string[];
+}
+
+// The parts the core puts first in every agent's instructions (agents/briefs.ts), as points.
+export function youPreview(you: UserProfile): PreviewSection[] {
   const name = you.name.trim() || "the user";
-  const style = [...you.answerStyle.map((pick) => `- ${pick}`), you.answerNotes.trim()].filter(
-    (line) => line !== "",
-  );
   return [
-    you.about.trim() === "" ? "" : `About the person you work for (${name}):\n${you.about.trim()}`,
-    style.length === 0 ? "" : `How ${name} likes answers:\n${style.join("\n")}`,
-  ]
-    .filter((part) => part !== "")
-    .join("\n\n");
+    { title: `About the person you work for (${name})`, points: pointsOf(you.about) },
+    {
+      title: `How ${name} likes answers`,
+      points: [...you.answerStyle, ...pointsOf(you.answerNotes)],
+    },
+  ].filter((section) => section.points.length > 0);
 }

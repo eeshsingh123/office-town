@@ -639,6 +639,57 @@
   color: var(--text);
 }
 
+/* A goal's tokens, in all and per AI app, under the room's goal line. */
+.roomUsage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roomUsage li {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.roomUsage strong {
+  font-weight: 700;
+}
+
+/* The total reads first: solid, in the action colour. */
+.usageTotal {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.usageApp {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* What a member used on its department's goal, above its head. */
+.tokens {
+  position: absolute;
+  padding: 1px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .roomLines span {
   overflow: hidden;
   white-space: nowrap;

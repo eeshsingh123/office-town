@@ -13,6 +13,8 @@ export class SessionActivity {
 
   constructor(registry: SessionRegistry) {
     registry.subscribe(({ event }) => {
+      // Added after the session ended; not activity.
+      if (event.type === "usage.recounted") return;
       if (event.type === "session.ended") {
         // Every listener reads the session as it last was before it is forgotten.
         queueMicrotask(() => this.#sessions.delete(event.sessionId));

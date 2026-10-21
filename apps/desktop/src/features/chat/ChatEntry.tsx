@@ -9,6 +9,7 @@ import { SentFiles } from "../attachments/SentFiles.tsx";
 import { DELEGATION_STATUS } from "../work/delegation-status.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
 import { usePlan } from "../work/use-plan.ts";
+import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
 import styles from "./Chat.module.css";
 import type { ChatItem, DelegationThread, ThreadState } from "./chat-items.ts";
 
@@ -170,6 +171,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
     const department = departmentId === undefined ? undefined : state.departments[departmentId];
     return department === undefined ? undefined : state.agents[department.leadAgentId];
   });
+  const yourName = useYourName();
   switch (item.kind) {
     case "user":
       return (
@@ -178,7 +180,10 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
             <Markdown text={item.text} />
           </div>
           <SentFiles uses={item.files} />
-          <span className={styles.meta}>You · {clockTime(item.at)}</span>
+          <span className={`${styles.meta} ${styles.mineMeta}`}>
+            <strong>{yourName}</strong> · {clockTime(item.at)}
+            <YouAvatar size={18} />
+          </span>
           {noted.has(item.text.trim()) && lead !== undefined ? (
             <span className={styles.noted}>
               <CornerDownRight size={12} aria-hidden />

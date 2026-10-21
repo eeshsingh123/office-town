@@ -14,6 +14,8 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { LineField } from "../../ui/LineField.tsx";
+import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { AsksFirst } from "./AsksFirst.tsx";
 import { type ChipSettings, SettingsChips } from "./SettingsChips.tsx";
@@ -140,25 +142,24 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
             </div>
             <label className={form.field} htmlFor="template-job">
               <span className={form.label}>What it does</span>
-              <input
+              <LineField
                 id="template-job"
-                className={form.input}
                 value={draft.job}
                 placeholder="For example: Builds pages, styles and forms"
-                onChange={(event) => set({ job: event.target.value })}
+                onChange={(job) => set({ job })}
               />
             </label>
-            <label className={form.field} htmlFor="template-notes">
+            <div className={form.field}>
               <span className={form.label}>Notes</span>
-              <textarea
-                id="template-notes"
-                className={form.input}
-                rows={4}
-                value={draft.notes}
-                onChange={(event) => set({ notes: event.target.value })}
-              />
               <span className={form.hint}>Agents made from it follow these notes.</span>
-            </label>
+              <PointsField
+                label="Notes"
+                value={draft.notes}
+                placeholder="For example: Write for small business owners"
+                addLabel="Add a note"
+                onChange={(notes) => set({ notes })}
+              />
+            </div>
             <div className={form.field}>
               <span className={form.label}>Model</span>
               <div className={form.row}>

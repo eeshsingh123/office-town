@@ -37,6 +37,7 @@ import type {
   TaskRecord,
   TaskState,
   TaskSummary,
+  TokenUsage,
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
@@ -268,6 +269,12 @@ export interface Store {
   saveLimits(entry: AccountLimits): void;
   // Tokens per account and agent, over the turns that ended since then.
   accountUsageSince(since: string): AccountUsage[];
+  // What a harness conversation's sessions recorded so far, over all of them.
+  conversationUsage(harness: string, harnessSessionId: string): TokenUsage;
+  // Sessions on the harness that ended since then and have turns not yet recounted.
+  sessionsToRecount(harness: string, since: string): SessionRecord[];
+  // The next sequence number for an event the core adds to a session.
+  nextSequence(sessionId: string): number;
   // Only the logins the user added; the default ones are no record (D-61).
   createAccount(account: Account): Account;
   getAccount(id: string): Account | undefined;

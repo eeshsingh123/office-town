@@ -221,6 +221,9 @@ const payloadSchemas = {
     note: z.string().optional(),
   }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
+  // Added by the core after a session ends: tokens its turns did not report, read from the
+  // harness's own records. Totals add it like a turn's usage.
+  "usage.recounted": z.object({ usage: tokenUsageSchema }),
   error: z.object({
     message: z.string(),
     detail: z.string().optional(),
@@ -261,6 +264,7 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("plan.requested"),
   eventOf("plan.resolved"),
   eventOf("limits.updated"),
+  eventOf("usage.recounted"),
   eventOf("error"),
 ]);
 export type SessionEvent = z.infer<typeof sessionEventSchema>;

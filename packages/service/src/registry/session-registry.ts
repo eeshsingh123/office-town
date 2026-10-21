@@ -416,6 +416,19 @@ ${text}`,
     return this.#live.has(sessionId);
   }
 
+  // An event the core adds to a session that has ended, such as its recounted usage.
+  appendToEnded(sessionId: string, body: SessionEventBody): void {
+    if (this.#live.has(sessionId)) throw new Error(`Session "${sessionId}" is still running.`);
+    const event = {
+      ...body,
+      id: randomUUID(),
+      sessionId,
+      sequence: this.#store.nextSequence(sessionId),
+      timestamp: new Date().toISOString(),
+    } as SessionEvent;
+    this.#publish(this.#store.append(event) ?? { event });
+  }
+
   // Recorded like a crash, so the sessions can be resumed later.
   async close(): Promise<void> {
     const running = [...this.#live.values()];

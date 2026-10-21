@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
-import { createSession } from "@office-town/harness";
+import { canRecount, createSession, listHarnesses, recountUsage } from "@office-town/harness";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
@@ -19,6 +19,7 @@ import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
+import { followRecounts } from "./registry/recount.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
@@ -73,6 +74,17 @@ taskStates.follow(registry);
 followLibraryUses(registry, store);
 const team = { store, registry, readCatalog, dataFolder, createSession };
 const activity = new SessionActivity(registry);
+void followRecounts(
+  registry,
+  store,
+  listHarnesses()
+    .map((one) => one.harness)
+    .filter(canRecount),
+  ({ options, harnessSessionId }) =>
+    harnessSessionId === undefined
+      ? Promise.resolve(undefined)
+      : recountUsage(options.harness, options.environment, options.accountFolder, harnessSessionId),
+);
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
 cleanUpWorktrees(team);

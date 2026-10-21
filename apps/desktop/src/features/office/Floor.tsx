@@ -14,6 +14,7 @@ import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { useYou } from "../you/you.ts";
@@ -50,14 +51,21 @@ export interface FloorAgent {
   harness: string;
   // Shown above its head while it works or waits.
   bubble?: string;
+  // What it used on its department's current or last goal, shown above its head.
+  tokens?: number;
   // By name, to group a selection.
   group: string;
 }
+
+// From the agent's centre to the top of its token count.
+const TOKENS_ABOVE = 52;
 
 export interface RoomSign {
   title: string;
   note: string;
   lines: string[];
+  // What the room's current or last goal used, in all and per AI app.
+  usage?: { apps: { name: string; tokens: number }[]; total: number };
 }
 
 interface Seated {
@@ -68,6 +76,7 @@ interface Seated {
   state?: AgentState;
   position: Point;
   bubble?: string;
+  tokens?: number;
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
   detail: string;
@@ -227,7 +236,7 @@ function seatedOf(
     move === undefined || !contains(move.from, position)
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
-  const seated = agents.map(({ agent, state, position, harness, bubble }) => ({
+  const seated = agents.map(({ agent, state, position, harness, bubble, tokens }) => ({
     id: agent.id,
     name: agent.name,
     colour: agent.colour,
@@ -236,6 +245,7 @@ function seatedOf(
     sessionId: agent.latest.id,
     detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
     ...(bubble === undefined ? {} : { bubble }),
+    ...(tokens === undefined ? {} : { tokens }),
   }));
   const office = rooms.find((room) => room.kind === "chief")?.seats[0];
   if (chief === undefined || office === undefined || seated.some(({ id }) => id === chief.id)) {
@@ -522,6 +532,18 @@ export function Floor(props: FloorProps) {
                 {sign.lines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
+                {sign.usage === undefined ? null : (
+                  <ul className={styles.roomUsage} aria-label="Tokens on this goal">
+                    <li className={styles.usageTotal}>
+                      <strong>{compactCount(sign.usage.total)}</strong> tokens
+                    </li>
+                    {sign.usage.apps.map((app) => (
+                      <li key={app.name} className={styles.usageApp}>
+                        {app.name} <strong>{compactCount(app.tokens)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -582,15 +604,25 @@ export function Floor(props: FloorProps) {
           </>
         )}
       </button>
-      {seated.map(({ id, name, colour, state, position, bubble, detail }) => {
+      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail }) => {
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
           <div key={id}>
+            {tokens === undefined ? null : (
+              <div
+                className={styles.tokens}
+                style={{ left: position.x, top: position.y - TOKENS_ABOVE }}
+                title={`${name} used ${compactCount(tokens)} tokens on this goal`}
+              >
+                {compactCount(tokens)}
+              </div>
+            )}
             {bubble === undefined ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : ""}`}
-                style={{ left: position.x, top: position.y - 46 }}
+                // Above the token count, when there is one.
+                style={{ left: position.x, top: position.y - (tokens === undefined ? 46 : 88) }}
               >
                 {bubble}
               </div>

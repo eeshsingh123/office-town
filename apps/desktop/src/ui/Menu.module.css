@@ -54,7 +54,8 @@
   background: var(--hover);
 }
 
-.item[data-disabled] {
+/* Search lists (cmdk) mark every row data-disabled="false"; only a real disabled row fades. */
+.item[data-disabled]:not([data-disabled="false"]) {
   opacity: 0.5;
   cursor: default;
 }
