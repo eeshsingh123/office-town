@@ -31,7 +31,8 @@ import { isOpen, latestSession } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 
 const OPEN = new Set<CheckRecord["status"]>(["drafting", "approving", "running"]);
-const MAX_ITEMS = 60;
+// Owner: a short list the user can read through; they add more in the card if they want.
+const MAX_ITEMS = 10;
 
 const itemInput = z.object({
   check: z.string().trim().min(1).describe("What to do: a command to run, or steps in the app."),
@@ -137,7 +138,7 @@ function draftBrief(place: Place, background: Background, file: string, ask: str
 
 ${given}${section("The user also asks", ask)}
 
-First, write the checklist you will run; do not run anything yet. Keep ${owner.name}'s items and add what they miss: the expected scenario end to end, edge cases, boundary values, empty or wrong input, and error paths. Each item is one check with the result it expects, specific enough that anyone gets the same answer. Look at the work only as much as you need for that. Call propose_checks with the full list, then end your turn. The user edits and approves it, and the approved list reaches you as a message.`;
+First, write the checklist you will run; do not run anything yet. Write at most ${MAX_ITEMS} focused checks: keep the most important of ${owner.name}'s items, and add only the cases most likely to break it: the expected scenario end to end, then edge cases, boundary values, empty or wrong input and error paths. Merge checks that test the same thing. Each item is one check with the result it expects, specific enough that anyone gets the same answer. Look at the work only as much as you need for that. Call propose_checks with the full list, then end your turn. The user edits and approves it, and the approved list reaches you as a message.`;
   return { text, origin: { kind: "brief", summary: `Check ${owner.name}'s work` } } as const;
 }
 
@@ -338,7 +339,7 @@ export class Checks {
       name: "write_checklist",
       description:
         "Once your work is done, write the checklist a fresh agent outside your team runs when " +
-        "the user sends the work for a check: each item a check with the result it expects, how " +
+        `the user sends the work for a check: at most ${MAX_ITEMS} focused items, each a check with the result it expects, how ` +
         "to set up and run the work, and what changed. Write it before your final message; " +
         "writing it again replaces it.",
       input: z.object({
@@ -367,7 +368,7 @@ export class Checks {
     return defineTool({
       name: "propose_checks",
       description:
-        "Send the user the full checklist you will run: the items you were given and the cases " +
+        `Send the user the checklist you will run, at most ${MAX_ITEMS} focused items: the most important you were given and the cases ` +
         "you add. The user edits and approves it, and the approved list reaches you as a " +
         "message. End your turn after calling it.",
       input: z.object({
