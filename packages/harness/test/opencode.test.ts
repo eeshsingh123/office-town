@@ -216,6 +216,15 @@ describe("opencode adapter", () => {
     expect(only(denied.events, "reasoning")[0]?.payload.text).toContain("use the write tool.");
   });
 
+  it("counts thinking tokens as output", async () => {
+    const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
+    expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
+      inputTokens: 10405,
+      outputTokens: 1025,
+      cachedInputTokens: 10297,
+    });
+  });
+
   it("reports streamed command output once, then the result", async () => {
     const { events } = await replay(opencodeAdapter, recordings["write-allowed"]);
 
