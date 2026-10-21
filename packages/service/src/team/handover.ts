@@ -25,7 +25,7 @@ interface Handover {
   files: string[];
 }
 
-function eventsOf(store: Store, sessionId: string): SessionEvent[] {
+export function eventsOf(store: Store, sessionId: string): SessionEvent[] {
   const events: SessionEvent[] = [];
   let after = 0;
   for (;;) {
@@ -36,7 +36,7 @@ function eventsOf(store: Store, sessionId: string): SessionEvent[] {
   }
 }
 
-const userMessages = (events: SessionEvent[]) =>
+export const userMessages = (events: SessionEvent[]) =>
   events.flatMap((event) =>
     event.type === "message" && event.payload.role === "user" ? [event.payload] : [],
   );
@@ -71,7 +71,7 @@ function transcriptLine(event: SessionEvent, leadName: string): string | undefin
   }
 }
 
-function transcriptOf(sessions: SessionEvent[][], leadName: string): string {
+export function transcriptOf(sessions: SessionEvent[][], leadName: string): string {
   return sessions
     .flat()
     .flatMap((event) => transcriptLine(event, leadName) ?? [])

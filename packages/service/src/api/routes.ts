@@ -3,6 +3,7 @@ import {
   agentMessageRequestSchema,
   agentProfileRequestSchema,
   answerPermissionsRequestSchema,
+  checkRequestSchema,
   chiefDraftRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
@@ -21,7 +22,6 @@ import {
   resumePausedRequestSchema,
   resumeSessionRequestSchema,
   roomPositionSchema,
-  secondOpinionRequestSchema,
   sessionPageQuerySchema,
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
@@ -49,6 +49,7 @@ import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
+import type { Checks } from "../team/checks.ts";
 import {
   changeTeam,
   createDepartment,
@@ -57,7 +58,6 @@ import {
 } from "../team/departments.ts";
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
-import { secondOpinion, workspaceEntries } from "../team/outsource.ts";
 import {
   claimDepartment,
   continueTeam,
@@ -101,6 +101,7 @@ export function apiRoutes(
   team: TeamContext,
   connectors: ConnectorHub,
   pauses: UsagePauses,
+  checks: Checks,
 ): Route[] {
   const { registry, store, readCatalog } = team;
   return [
@@ -215,15 +216,16 @@ export function apiRoutes(
     },
     {
       method: "POST",
-      path: "/tasks/:id/second-opinion",
+      path: "/tasks/:id/checks",
       reply: async ({ param, body }) => ({
         status: 201,
-        json: await secondOpinion(
-          team,
-          param("id"),
-          secondOpinionRequestSchema.parse(await body()),
-        ),
+        json: await checks.start(param("id"), checkRequestSchema.parse(await body())),
       }),
+    },
+    {
+      method: "GET",
+      path: "/tasks/:id/checks",
+      reply: ({ param }) => ({ status: 200, json: store.listChecks(param("id")) }),
     },
     {
       method: "GET",
@@ -246,14 +248,6 @@ export function apiRoutes(
         }
         return { status: 200, json: store.markReviewed(task.id) };
       },
-    },
-    {
-      method: "GET",
-      path: "/tasks/:id/files",
-      reply: ({ param, query }) => ({
-        status: 200,
-        json: workspaceEntries(team, param("id"), query.get("agent") ?? undefined),
-      }),
     },
     {
       method: "POST",

@@ -20,7 +20,11 @@ export function isRepository(folder: string): boolean {
   return existsSync(join(folder, ".git"));
 }
 
-async function git(environment: EnvironmentSpec, args: string[], what: string): Promise<string> {
+export async function git(
+  environment: EnvironmentSpec,
+  args: string[],
+  what: string,
+): Promise<string> {
   const result = await runCommand(environment, { binary: "git", args });
   if (result.code !== 0) throw new GitError(what, result.stderr || result.stdout);
   return result.stdout.trim();
@@ -44,7 +48,7 @@ const slug = (text: string, length: number) =>
 
 // One worktree change at a time per repository: git locks its own files while it works.
 const queues = new Map<string, Promise<unknown>>();
-function inTurn<T>(repository: string, work: () => Promise<T>): Promise<T> {
+export function inTurn<T>(repository: string, work: () => Promise<T>): Promise<T> {
   const next = (queues.get(repository) ?? Promise.resolve()).then(work, work);
   queues.set(
     repository,

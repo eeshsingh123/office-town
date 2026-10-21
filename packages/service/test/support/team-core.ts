@@ -20,10 +20,10 @@ import {
 import { openStore } from "../../src/store/sqlite-store.ts";
 import type { Store } from "../../src/store/store.ts";
 import { cachedCatalogs } from "../../src/team/catalogs.ts";
+import { Checks } from "../../src/team/checks.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import { Handovers } from "../../src/team/handover.ts";
 import type { TeamContext } from "../../src/team/members.ts";
-import { guestsLeave, outsource } from "../../src/team/outsource.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { reportResults } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
@@ -111,7 +111,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const handovers = new Handovers(team);
   const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
-  guestsLeave(team);
+  const checks = new Checks(team);
   const scheduler = new Scheduler(team);
   tools.offer([
     askUser(registry),
@@ -121,7 +121,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
     stopWork(team, activity),
     resumeWork(team),
     handovers.tool(),
-    outsource(team),
+    checks.writeChecklistTool(),
+    checks.proposeChecksTool(),
+    checks.reportCheckTool(),
     proposePlan(team, scheduler),
     messageLead(team),
     addToLibrary(team),
@@ -132,6 +134,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     team,
     connectors,
     pauses,
+    checks,
     token: TOKEN,
     port: 0,
   });

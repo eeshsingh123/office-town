@@ -18,6 +18,7 @@ import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { foldersForTask, type TaskFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
+import { removeSandboxesOf } from "./check-sandbox.ts";
 import { busyAgents, groupName, isOpen, latestSession } from "./lead.ts";
 import {
   DepartmentBusyError,
@@ -26,7 +27,6 @@ import {
   type TeamContext,
   TeamError,
 } from "./members.ts";
-import { removeCopies } from "./outsource.ts";
 import { isRepository, removeWorktrees } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
@@ -315,10 +315,10 @@ async function startGroupTask(
 }
 
 // Delegations close first, so no "stopped" result wakes the lead being stopped too.
-// With the worktrees and review copies made for it.
+// With the worktrees and check sandboxes made for it.
 export async function deleteTask(context: TeamContext, taskId: string): Promise<void> {
   await removeWorktrees(context, taskId);
-  removeCopies(context, taskId);
+  await removeSandboxesOf(context.store, taskId);
   await context.store.deleteTask(taskId);
 }
 

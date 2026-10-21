@@ -15,6 +15,7 @@ import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
+import { Checks } from "../src/team/checks.ts";
 import { TaskStates } from "../src/team/task-state.ts";
 import { UsagePauses } from "../src/team/usage-pause.ts";
 import { memorySecrets } from "./support/connectors.ts";
@@ -111,7 +112,8 @@ beforeEach(async () => {
   const team = { registry, store, readCatalog, dataFolder: directory, createSession };
   const connectors = new ConnectorHub(store, registry, memorySecrets());
   const pauses = new UsagePauses(team);
-  server = await startApiServer({ team, connectors, pauses, token: TOKEN, port: 0 });
+  const checks = new Checks(team);
+  server = await startApiServer({ team, connectors, pauses, checks, token: TOKEN, port: 0 });
 });
 
 afterEach(async () => {
