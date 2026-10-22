@@ -16,7 +16,8 @@ export function localAddresses(text: string): string[] {
   return [...found];
 }
 
-// A local address an agent gave, with its path; undefined for anything else.
+// A local address an agent gave, with its path; undefined for anything else. Named localhost as
+// spotted ones are, so one site is one address, and a server that answers only on IPv6 loads.
 export function siteAddress(text: string): string | undefined {
   let url: URL;
   try {
@@ -26,7 +27,7 @@ export function siteAddress(text: string): string | undefined {
   }
   if (!["http:", "https:"].includes(url.protocol) || url.port === "") return undefined;
   if (!LOCAL_HOSTS.has(url.hostname)) return undefined;
-  if (url.hostname === "0.0.0.0") url.hostname = "localhost";
+  url.hostname = "localhost";
   return url.href;
 }
 

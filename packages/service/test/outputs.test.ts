@@ -128,8 +128,53 @@ describe("outputs", () => {
         [edited, false],
       ]);
       expect(outputs.spotted.map(({ url }) => url)).toEqual([answering]);
+
+      // Shown by its IP address it is the same site, so it is no longer only spotted.
+      const url = answering.replace("localhost", "127.0.0.1");
+      await core.callTool(lead, "show_result", { title: "Shop", url });
+      const shown = (await core.call("GET", `/tasks/${taskId}/outputs`)).json as TaskOutputs;
+      expect(shown.results.map(({ target }) => target)).toEqual([{ kind: "site", url: answering }]);
+      expect(shown.running).toEqual([answering]);
+      expect(shown.spotted).toEqual([]);
     } finally {
       await new Promise((resolve) => site.close(resolve));
     }
+  });
+  it("opens a worker's result from the lead's folder once its worktree is merged and removed", async () => {
+    const { lead, taskId } = await startLead();
+    const options = core.store.getSession(lead.id)?.options;
+    if (options === undefined) throw new Error("The lead has no session.");
+    const worktree = join(directory, "data", "worktrees", taskId, "designer");
+    const worker = core.store.createAgent({
+      name: "@designer",
+      colour: "#2F7565",
+      settings: { harness: "claude", environment: { kind: "native" } },
+    });
+    core.store.createSession({
+      id: "worker-session",
+      taskId,
+      agentId: worker.id,
+      options: { ...options, workspacePath: worktree },
+    });
+    const shownAt = join(worktree, "site", "index.html");
+    const result = core.store.showOutput({
+      taskId,
+      agentId: worker.id,
+      sessionId: "worker-session",
+      title: "Page",
+      target: { kind: "file", path: shownAt },
+      kept: false,
+    });
+    const merged = join(project, "site", "index.html");
+    writeFileSync(merged, "merged");
+
+    const outputs = (await core.call("GET", `/tasks/${taskId}/outputs`)).json as TaskOutputs;
+    expect(outputs.movedTo).toEqual({ [result.id]: merged });
+    expect(outputs.freshOnly).toEqual([worker.id]);
+    const preview = await core.call("POST", `/tasks/${taskId}/preview`, {
+      outputId: result.id,
+      version: 1,
+    });
+    expect(await (await fetch(preview.json.url as string)).text()).toBe("merged");
   });
 });

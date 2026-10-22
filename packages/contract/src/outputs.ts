@@ -8,6 +8,19 @@ export const MAX_TABLE_ROWS = 1000;
 export const MAX_PREVIEW_BYTES = 50 * 1024 * 1024;
 export const MAX_PICTURE_BYTES = 1024 * 1024;
 
+// What "Open with default app" opens, by extension: documents, pictures, media, models and
+// archives, whose apps show them without running anything an agent wrote. Anything else is
+// shown in its folder instead (M8).
+export const OPENS_SAFELY: ReadonlySet<string> = new Set(
+  (
+    "doc docx xls xlsx ppt pptx odt ods odp odg rtf epub pages numbers key " +
+    "png jpg jpeg gif webp bmp tif tiff heic avif ico psd fig sketch xd " +
+    "mp3 wav ogg flac m4a aac mp4 mov webm mkv avi " +
+    "stl obj glb gltf fbx 3mf ttf otf woff woff2 zip 7z rar tar gz " +
+    "txt log md csv tsv json xml yaml yml"
+  ).split(" "),
+);
+
 // A file an agent wrote, or a local address its server serves.
 export const outputTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("file"), path: z.string().min(1) }),
@@ -67,6 +80,12 @@ export const taskOutputsSchema = z.object({
   roots: z.array(z.string()),
   // How long each agent's latest conversation is, by agent id: resuming one reads all of it.
   contextTokens: z.record(z.string(), z.number().int().nonnegative()),
+  // Agents whose folder was removed once their work was merged: only a fresh conversation, in
+  // the lead's folder, can start their site again.
+  freshOnly: z.array(z.string()),
+  // Where a result's file is now, by result id, when that is not where it was shown: a worker's
+  // file merged into the lead's folder.
+  movedTo: z.record(z.string(), z.string()),
 });
 export type TaskOutputs = z.infer<typeof taskOutputsSchema>;
 

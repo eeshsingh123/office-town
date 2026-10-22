@@ -1,8 +1,11 @@
+import { existsSync } from "node:fs";
 import { extname, isAbsolute, join, posix, relative, resolve } from "node:path";
 import type { SessionRecord } from "@office-town/contract";
 import { environmentPath, hostPath } from "@office-town/harness";
 import { canonicalPath, inside } from "../autonomy/policy.ts";
 import type { Store } from "../store/store.ts";
+import type { TeamContext } from "../team/members.ts";
+import { mergedPath } from "../team/worktrees.ts";
 
 const WINDOWS_PATH = /^[A-Za-z]:[\\/]|^\\\\/;
 
@@ -37,6 +40,11 @@ export function hostPathOf(session: SessionRecord, path: string): string | undef
   if (posix.isAbsolute(path)) return hostPath(environment, path);
   if (workspacePath === undefined) return undefined;
   return hostPath(environment, posix.join(environmentPath(environment, workspacePath), path));
+}
+
+// Where the file is now: a worker's file is in the lead's folder once its worktree is merged.
+export function currentPath(context: TeamContext, taskId: string, path: string): string {
+  return existsSync(path) ? path : (mergedPath(context, taskId, path) ?? path);
 }
 
 // With forward slashes, as a link inside a page names it.

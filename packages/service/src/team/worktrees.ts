@@ -1,5 +1,5 @@
 import { existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import type { AgentRecord, DepartmentRecord, EnvironmentSpec } from "@office-town/contract";
 import { environmentPath, runCommand } from "@office-town/harness";
 import type { Store } from "../store/store.ts";
@@ -58,7 +58,7 @@ export function inTurn<T>(repository: string, work: () => Promise<T>): Promise<T
 }
 
 // As the lead's first session got them: in Scratch, the folder made for this task.
-function leadFolders(store: Store, taskId: string): TaskFolders | undefined {
+export function leadFolders(store: Store, taskId: string): TaskFolders | undefined {
   const leadAgentId = store.getTask(taskId)?.leadAgentId;
   const lead = store.listSessions(taskId).find((session) => session.agentId === leadAgentId);
   if (lead?.options.workspacePath === undefined) return undefined;
@@ -108,6 +108,22 @@ export async function workerFolders(
     );
     return { ...folders, workspacePath: path, branch };
   });
+}
+
+// Where a file in a worker's worktree is once the worktree was merged and removed: the same place
+// in the lead's folder. Undefined while the worktree stands, or for a path outside one.
+export function mergedPath(
+  { store, dataFolder }: TeamContext,
+  taskId: string,
+  path: string,
+): string | undefined {
+  const root = join(dataFolder, WORKTREES, taskId);
+  const way = relative(root, path);
+  if (way.startsWith("..") || isAbsolute(way)) return undefined;
+  const [name, ...rest] = way.split(/[\\/]/);
+  if (name === undefined || rest.length === 0 || existsSync(join(root, name))) return undefined;
+  const main = leadFolders(store, taskId)?.workspacePath;
+  return main === undefined ? undefined : join(main, ...rest);
 }
 
 interface Worktree {

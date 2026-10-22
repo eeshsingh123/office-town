@@ -1,6 +1,8 @@
+import { existsSync } from "node:fs";
 import { mkdir, open, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
+  type ChangedFile,
   MAX_PICTURE_BYTES,
   MAX_PREVIEW_BYTES,
   type OutputRecord,
@@ -16,9 +18,9 @@ import { latestSession } from "../team/lead.ts";
 import type { TeamContext } from "../team/members.ts";
 import { git } from "../team/worktrees.ts";
 import { contentTypeOf } from "./content-types.ts";
-import { linkPath, pictureFile, rootOf, taskRoots, versionFile } from "./paths.ts";
+import { currentPath, linkPath, pictureFile, rootOf, taskRoots, versionFile } from "./paths.ts";
 import type { PreviewServer } from "./preview-server.ts";
-import { restartSite } from "./restart.ts";
+import { folderGone, restartSite } from "./restart.ts";
 import { isAnswering, portOf } from "./sites.ts";
 import type { TaskFiles } from "./task-files.ts";
 
@@ -52,29 +54,30 @@ function taskFile(context: TeamContext, taskId: string, query: URLSearchParams |
   );
   const roots = taskRoots(context.store, taskId);
   const missing = () => new RequestError(404, "not_found", "That file is not part of this task.");
-  if ("path" in asked) {
-    const root = rootOf(roots, asked.path);
+  const located = (path: string): TaskFile => {
+    const now = currentPath(context, taskId, path);
+    const root = rootOf(roots, now);
     if (root === undefined) throw missing();
-    return { path: asked.path, root } satisfies TaskFile;
-  }
+    return { path: now, root };
+  };
+  if ("path" in asked) return located(asked.path);
   const output = outputOf(context, asked.outputId);
   const version = output.versions.find((one) => one.number === asked.version);
   if (output.taskId !== taskId || output.target.kind !== "file" || version === undefined) {
     throw missing();
   }
-  const { path } = output.target;
-  const root = rootOf(roots, path);
-  if (root === undefined) throw missing();
-  // The latest version is the file as it is now.
-  if (version.number === output.versions.at(-1)?.number) return { path, root } satisfies TaskFile;
+  const file = located(output.target.path);
+  // The latest version is the file as it is now, or its copy once the file is gone, as a
+  // checker's sandbox goes when the check ends.
+  const latest = version.number === output.versions.at(-1)?.number;
+  if (latest && (existsSync(file.path) || !version.kept)) return file;
   if (!version.kept) {
     throw new RequestError(404, "not_found", "That version was too large to keep a copy of.");
   }
   return {
-    path,
-    root,
-    copy: versionFile(context.dataFolder, output.id, version.number, path),
-  } satisfies TaskFile;
+    ...file,
+    copy: versionFile(context.dataFolder, output.id, version.number, output.target.path),
+  };
 }
 
 async function readStart(file: string, limit: number): Promise<{ bytes: Buffer; size: number }> {
@@ -122,11 +125,17 @@ export function outputRoutes(context: TeamContext, services: OutputServices): Ro
         const results = store.listOutputs(taskId);
         const roots = taskRoots(store, taskId);
         const { changed, seen } = files.read(taskId);
-        const shown = new Set(
-          results.flatMap(({ target }) =>
-            target.kind === "file" ? [canonicalPath(target.path)] : [new URL(target.url).origin],
-          ),
-        );
+        const movedTo: Record<string, string> = {};
+        const shown = new Set<string>();
+        for (const { id, target } of results) {
+          if (target.kind === "site") {
+            shown.add(new URL(target.url).origin);
+            continue;
+          }
+          const now = currentPath(context, taskId, target.path);
+          if (now !== target.path) movedTo[id] = now;
+          shown.add(canonicalPath(now));
+        }
         const sites = results.flatMap(({ target }) => (target.kind === "site" ? [target.url] : []));
         const spotted = seen.filter(({ url }) => !shown.has(new URL(url).origin));
         const [running, open] = await Promise.all([
@@ -134,22 +143,38 @@ export function outputRoutes(context: TeamContext, services: OutputServices): Ro
           answering(spotted.map(({ url }) => url)),
         ]);
         const agentIds = new Set([...results, ...spotted].map(({ agentId }) => agentId));
+        const sessions = [...agentIds].map((agentId) => ({
+          agentId,
+          latest: latestSession(context, taskId, agentId),
+        }));
         const contextTokens = Object.fromEntries(
-          [...agentIds].flatMap((agentId) => {
-            const latest = latestSession(context, taskId, agentId);
+          sessions.flatMap(({ agentId, latest }) => {
             const tokens = latest === undefined ? undefined : store.contextTokens(latest.id);
             return tokens === undefined ? [] : [[agentId, tokens]];
           }),
         );
+        // A worker's file and the lead's merged copy of it are one file.
+        const byPath = new Map<string, ChangedFile>();
+        for (const file of changed) {
+          const path = currentPath(context, taskId, file.path);
+          const key = canonicalPath(path);
+          const before = byPath.get(key);
+          if (before === undefined || before.at < file.at) byPath.set(key, { ...file, path });
+        }
         const outputs: TaskOutputs = {
           results,
-          changed: changed
-            .filter(({ path }) => !shown.has(canonicalPath(path)) && rootOf(roots, path))
+          changed: [...byPath]
+            .filter(([key, { path }]) => !shown.has(key) && rootOf(roots, path))
+            .map(([, file]) => file)
             .sort((a, b) => b.at.localeCompare(a.at)),
           spotted: spotted.filter(({ url }) => open.includes(url)),
           running,
           roots,
           contextTokens,
+          freshOnly: sessions.flatMap(({ agentId, latest }) =>
+            folderGone(latest) ? [agentId] : [],
+          ),
+          movedTo,
         };
         return { status: 200, json: outputs };
       },
