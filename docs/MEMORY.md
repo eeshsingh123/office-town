@@ -6,6 +6,7 @@ Last updated: 2026-10-22
 
 - Built and merged to `main`: M1 to M7, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #63 (2026-10-22). Nothing is in flight.
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
+- M8 Outputs and preview (D-74) is built on `feat/outputs`. Mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
 - Next: agent memory, once discussed with the owner.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
@@ -13,6 +14,7 @@ Last updated: 2026-10-22
 
 Worth a click when touched.
 
+- Outputs (D-74): an OpenCode or WSL agent calling `show_result`, a PDF in the app's frame, a version's page loading its styles, a stopped site restarted fresh, Open with default app, light mode on the Outputs tab.
 - Check loop (D-73): a team lead writing its checklist, Send fixes and round 2, a copy sandbox (no git), WSL.
 - Lean runs (D-72): a real 95% pause (needs a nearly used window), the 400k handover suggestion.
 - Usage (D-70): a sub-agent's tokens followed live, a WSL recount.

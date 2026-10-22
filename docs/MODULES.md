@@ -91,6 +91,12 @@ Out of scope: running app sign-ins in the core, writing new MCP servers, the who
 
 Feedback: several workspaces per department (D-69), lists of points for every rules and notes field, sub-teams on the floor, the team tree and the run card. Optimization, from a measured goal where the lead was ~60% of the spend: usage recounted after a session (D-70), a lead stopping its workers (D-71), lean team runs with handover and a usage pause (D-72), and a check loop outside the team (D-73). Code: `packages/service/src/team` (`stop-work.ts`, `handover.ts`, `usage-pause.ts`, `checks.ts`, `check-sandbox.ts`).
 
+### M8 Outputs and preview (D-74; done)
+
+See what agents made without leaving the app, on every harness: results agents mark with `show_result`, the files they changed, and local sites they run. A viewer shows pages and sites (sandboxed, with screen sizes and versions), images, Markdown, PDF, tables and code with its changes; anything else opens in its default app. Feedback goes back to the agent, with pictures of spots marked on the page. Code: `packages/service/src/outputs` (tool, preview server, routes), `features/outputs`.
+
+Out of scope: editing outputs in the app, deploying or sharing them, starting a dev server for the agent, an app-wide Outputs page.
+
 ---
 
 ## Next module
