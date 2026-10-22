@@ -14,11 +14,13 @@ const CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",
 };
 
-// Agents write text that the page shows, so the page may load nothing from anywhere else.
+// Agents write text that the page shows, so the page may load nothing from anywhere else. Frames
+// show what agents made, from the core's preview server or their own local sites (M8).
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
+  "frame-src http://127.0.0.1:* http://localhost:* https://localhost:*",
   "object-src 'none'",
   "base-uri 'none'",
 ].join("; ");
@@ -37,7 +39,14 @@ export function registerAppScheme(): void {
 export function serveApp(uiFolder: string, core: () => CoreReady): void {
   protocol.handle("app", (request) => {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/")) return forward(request, url, core());
+    if (url.pathname.startsWith("/api/")) {
+      // A page an agent made, shown in a frame, must never reach the API with the app's token.
+      const origin = request.headers.get("origin");
+      if (origin !== null && origin !== APP_ORIGIN) {
+        return Promise.resolve(new Response("Forbidden", { status: 403 }));
+      }
+      return forward(request, url, core());
+    }
     return serveFile(uiFolder, url.pathname);
   });
 }

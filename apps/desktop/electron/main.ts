@@ -1,4 +1,5 @@
 import { stat } from "node:fs/promises";
+import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { taskPageSchema } from "@office-town/contract";
 import {
@@ -9,6 +10,7 @@ import {
   ipcMain,
   nativeTheme,
   net,
+  session,
   shell,
   type Tray,
 } from "electron";
@@ -23,6 +25,14 @@ const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
 const CORE_ENTRY = file("../../../packages/service/src/main.ts");
 const QUIT_CHECK_TIMEOUT_MS = 3000;
+// Opening one of these runs it; an agent may have written it (M8).
+const RUNS_WHEN_OPENED = new Set(
+  (
+    ".exe .com .bat .cmd .ps1 .psm1 .psd1 .vbs .vbe .js .jse .mjs .cjs .wsf .wsh .msi .msp .msix " +
+    ".appx .scr .pif .lnk .url .cpl .hta .jar .reg .application .appref-ms .gadget .msc .inf .sct " +
+    ".sh .bash .zsh .command .py .pyw .pl .rb .php .desktop .appimage .deb .rpm .run .bin .dll .sys"
+  ).split(" "),
+);
 
 // The core runs on Electron's own Node, so users install no Node (D-34).
 const coreCommand: CoreCommand = {
@@ -53,6 +63,7 @@ async function start(): Promise<void> {
     return core.ready;
   });
   registerBridge();
+  denyPagesPermissions();
   window = createWindow({ icon: ICON, preload: PRELOAD, isQuitting: () => quitting });
   tray = createTray(ICON, { open, quit: () => void confirmQuit() });
 }
@@ -147,6 +158,24 @@ function fromApp(event: IpcMainInvokeEvent): void {
   }
 }
 
+// Pages agents made ask for nothing: no camera, microphone, location or notifications (M8).
+function denyPagesPermissions(): void {
+  const fromAppPage = (url: string) => url.startsWith(`${APP_ORIGIN}/`) || url === APP_ORIGIN;
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback, details) =>
+    callback(fromAppPage(details.requestingUrl)),
+  );
+  session.defaultSession.setPermissionCheckHandler((_contents, _permission, origin) =>
+    fromAppPage(origin),
+  );
+}
+
+async function existingFile(path: unknown): Promise<string> {
+  if (typeof path !== "string" || !(await stat(path)).isFile()) {
+    throw new Error("Only an existing file can be opened.");
+  }
+  return path;
+}
+
 function registerBridge(): void {
   ipcMain.handle("pick-folder", async (event) => {
     fromApp(event);
@@ -167,6 +196,37 @@ function registerBridge(): void {
     }
     const error = await shell.openPath(path);
     if (error !== "") throw new Error(error);
+  });
+  ipcMain.handle("show-file", async (event, path: unknown) => {
+    fromApp(event);
+    shell.showItemInFolder(await existingFile(path));
+  });
+  ipcMain.handle("open-file", async (event, path: unknown) => {
+    fromApp(event);
+    const file = await existingFile(path);
+    if (RUNS_WHEN_OPENED.has(extname(file).toLowerCase())) {
+      throw new Error("This kind of file runs when opened, so the app does not open it.");
+    }
+    const error = await shell.openPath(file);
+    if (error !== "") throw new Error(error);
+  });
+  // A picture of part of the window: a marked spot, or a result's picture (M8).
+  ipcMain.handle("capture", async (event, area: unknown, width: unknown) => {
+    fromApp(event);
+    const { x, y, width: w, height: h } = (area ?? {}) as Record<string, unknown>;
+    if (![x, y, w, h].every((value) => typeof value === "number" && Number.isFinite(value))) {
+      throw new Error("A capture needs an area.");
+    }
+    const zoom = event.sender.getZoomFactor();
+    const rect = [x, y, w, h].map((value) => Math.round((value as number) * zoom));
+    const [left = 0, top = 0, across = 1, down = 1] = rect;
+    const image = await event.sender.capturePage({ x: left, y: top, width: across, height: down });
+    const target = typeof width === "number" && width > 0 ? width : undefined;
+    const sized =
+      target !== undefined && image.getSize().width > target
+        ? image.resize({ width: target })
+        : image;
+    return sized.toPNG();
   });
   ipcMain.handle("show-window", (event) => {
     fromApp(event);
