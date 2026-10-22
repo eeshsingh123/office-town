@@ -23,6 +23,7 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   },
   report_check: { kind: "other", title: (input) => `Reported ${count(input.results)} results` },
   propose_plan: { kind: "other", title: () => "Proposed a plan" },
+  show_result: { kind: "other", title: (input) => `Showed you ${words(input.title)}` },
   message_lead: {
     kind: "other",
     title: (input) => `Messaged the lead of ${words(input.department)}`,

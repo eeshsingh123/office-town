@@ -33,6 +33,8 @@ export type ChatItem =
   | { kind: "notice"; id: string; text: string }
   // A run of tool calls between messages, in one line.
   | { kind: "work"; id: string; text: string }
+  // A result the agent showed, by its title in the session's task (M8).
+  | { kind: "result"; id: string; sessionId: string; title: string }
   | DelegationThread
   | { kind: "handoff"; id: string; pieceId: string; state: ThreadState; result: string };
 
@@ -107,6 +109,16 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
     const uses = fileUses(trace);
     for (const id of trace.order) {
       const entry = trace.items.get(id);
+      if (entry?.kind === "action" && entry.shows !== undefined && entry.status === "completed") {
+        flush();
+        items.push({
+          kind: "result",
+          id: entry.id,
+          sessionId: trace.sessionId,
+          title: entry.shows,
+        });
+        continue;
+      }
       if (entry?.kind === "action") {
         const thread = delegationOf(entry, context.idOfName);
         if (thread === undefined) {

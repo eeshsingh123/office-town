@@ -69,13 +69,18 @@ import {
   type NewDepartmentRequest,
   type NewLibraryItemRequest,
   type Onboarding,
+  type OutputFileQuery,
+  type OutputRecord,
   onboardingSchema,
+  outputRecordSchema,
   type PendingRequestList,
   type PlanPiece,
+  type PreviewReply,
   type ProfileRecord,
   type ProfileRequest,
   pendingRequestListSchema,
   planPieceSchema,
+  previewReplySchema,
   profileRecordSchema,
   type RoomPosition,
   type SessionPage,
@@ -89,10 +94,12 @@ import {
   settingsSchema,
   storeSizeSchema,
   type TaskDetail,
+  type TaskOutputs,
   type TaskPage,
   type TaskRecord,
   type Team,
   taskDetailSchema,
+  taskOutputsSchema,
   taskPageSchema,
   taskRecordSchema,
   type UserProfile,
@@ -169,7 +176,33 @@ function environmentQuery(environment: EnvironmentSpec): string {
 // Left out when empty, so a message without files reads as before.
 const withFiles = (attachments: string[] = []) => (attachments.length === 0 ? {} : { attachments });
 
+// A task's file, or a kept version of a result.
+function fileQuery(query: OutputFileQuery): string {
+  return "path" in query
+    ? `path=${id(query.path)}`
+    : `outputId=${id(query.outputId)}&version=${query.version}`;
+}
+
+// Read straight by an <img> or fetch, as the shell forwards the token.
+export const fileAddress = (taskId: string, query: OutputFileQuery, limit?: number) =>
+  `/api/tasks/${id(taskId)}/file?${fileQuery(query)}${limit === undefined ? "" : `&limit=${limit}`}`;
+
+export const pictureAddress = (output: OutputRecord) =>
+  `/api/outputs/${id(output.id)}/picture?at=${id(output.picturedAt ?? "")}`;
+
 export const api = {
+  listOutputs: (): Promise<OutputRecord[]> => read("/outputs", listOf(outputRecordSchema)),
+  taskOutputs: (taskId: string): Promise<TaskOutputs> =>
+    read(`/tasks/${id(taskId)}/outputs`, taskOutputsSchema),
+  preview: (taskId: string, query: OutputFileQuery): Promise<PreviewReply> =>
+    write("POST", `/tasks/${id(taskId)}/preview`, query, previewReplySchema),
+  // Uncommitted changes or the latest commit's; empty outside git.
+  changes: async (taskId: string, path: string): Promise<string> =>
+    (await call("GET", `/tasks/${id(taskId)}/changes?path=${id(path)}`)).text(),
+  savePicture: (outputId: string, png: Blob): Promise<OutputRecord> =>
+    write("PUT", `/outputs/${id(outputId)}/picture`, png, outputRecordSchema),
+  restartSite: (outputId: string, fresh: boolean): Promise<void> =>
+    send("POST", `/outputs/${id(outputId)}/restart`, { fresh }),
   uploadFile: (file: Blob, name: string): Promise<Attachment> =>
     write("POST", `/attachments?name=${id(name)}`, file, attachmentSchema),
   linkFolder: (path: string): Promise<Attachment> =>

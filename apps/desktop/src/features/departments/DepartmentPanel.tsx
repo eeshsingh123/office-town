@@ -19,6 +19,8 @@ import {
   SectionAction,
   StateChip,
 } from "../office/SidePanel.tsx";
+import { ResultRows } from "../outputs/OutputCards.tsx";
+import { useResults } from "../outputs/use-task-outputs.ts";
 import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
@@ -165,6 +167,27 @@ export function DepartmentHeader({ department }: { department: DepartmentRecord 
   );
 }
 
+// The latest few results of its goal; the rest are a click away.
+const SHOWN_RESULTS = 3;
+
+function DepartmentOutputs({ taskId }: { taskId: string }) {
+  const results = useResults(taskId);
+  if (results.length === 0) return null;
+  return (
+    <PanelSection
+      title="Outputs"
+      action={
+        <SectionAction
+          label={results.length > SHOWN_RESULTS ? `All ${results.length}` : "Open"}
+          onClick={() => navigate({ name: "task", taskId, tab: "outputs" })}
+        />
+      }
+    >
+      <ResultRows outputs={results.slice(0, SHOWN_RESULTS)} />
+    </PanelSection>
+  );
+}
+
 export function DepartmentNow({ department }: { department: DepartmentRecord }) {
   const { task, members, goalSessions, working } = useDepartmentGoal(department);
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
@@ -215,6 +238,8 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
       </PanelSection>
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
+
+      {task === undefined ? null : <DepartmentOutputs taskId={task.id} />}
 
       <PanelSection title="Workspaces">
         <DepartmentWorkspaces

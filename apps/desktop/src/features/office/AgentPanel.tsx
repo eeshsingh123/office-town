@@ -11,6 +11,8 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { AgentConnectors } from "../connectors/AgentConnectors.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
+import { ResultCard } from "../outputs/OutputCards.tsx";
+import { useResults } from "../outputs/use-task-outputs.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { tokenLine, useRunFacts } from "../task/run-facts.ts";
@@ -18,7 +20,7 @@ import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
 import { pin, unpin, usePins } from "./pins.ts";
-import { Facts, PanelHeader, PanelSection, StateChip } from "./SidePanel.tsx";
+import { Facts, PanelHeader, PanelSection, SectionAction, StateChip } from "./SidePanel.tsx";
 
 function DoneLine({ action }: { action: TraceAction }) {
   return (
@@ -70,6 +72,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
     for (const session of agent.sessions) loadTrace(session.id);
   }, [agent.sessions]);
   const facts = useRunFacts(agent);
+  const results = useResults(agent.taskId).filter((output) => output.agentId === agent.id);
   const progress = trace === undefined ? undefined : progressOf(trace);
   const done = progress?.recent.filter((action) => action.status !== "running") ?? [];
   const busy = state === "working" || state === "starting";
@@ -104,6 +107,22 @@ export function AgentNow({ member }: { member: FloorAgent }) {
           </div>
         )}
       </PanelSection>
+
+      {results[0] === undefined ? null : (
+        <PanelSection
+          title="Latest result"
+          action={
+            results.length > 1 ? (
+              <SectionAction
+                label={`All ${results.length}`}
+                onClick={() => navigate({ name: "task", taskId: agent.taskId, tab: "outputs" })}
+              />
+            ) : undefined
+          }
+        >
+          <ResultCard output={results[0]} />
+        </PanelSection>
+      )}
 
       {done.length === 0 ? null : (
         <PanelSection title="Last done">

@@ -28,6 +28,8 @@ export interface TraceAction {
   planStepId?: string;
   // The connector it used, by slug or, through the hub, as the agent named it.
   app?: string;
+  // The title of a result it showed the user with show_result (M8).
+  shows?: string;
   startedAt: string;
   endedAt?: string;
   // In order.
@@ -219,6 +221,10 @@ function apply(trace: Trace, event: SessionEvent): void {
       const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
         event.payload;
       const team = tool?.server === teamToolServer ? teamToolAction(tool.name, input) : undefined;
+      const shows =
+        tool?.server === teamToolServer && tool.name === "show_result"
+          ? (input as { title?: unknown } | null)?.title
+          : undefined;
       const app = tool === undefined ? undefined : appAction(tool, input);
       trace.items.set(actionId, {
         kind: "action",
@@ -226,6 +232,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         actionKind: team?.kind ?? kind,
         title: team?.title ?? app?.title ?? title,
         ...(app === undefined || app.app === "" ? {} : { app: app.app }),
+        ...(typeof shows === "string" ? { shows: shows.trim() } : {}),
         input,
         status: "running",
         startedAt: event.timestamp,

@@ -16,7 +16,10 @@ export function withoutTask(state: AppState, taskId: string): AppState {
   const checks = Object.fromEntries(
     Object.entries(state.checks).filter(([, check]) => check.taskId !== taskId),
   );
-  return { ...state, ...removeTask(state, taskId), traces, delegations, pieces, checks };
+  const outputs = Object.fromEntries(
+    Object.entries(state.outputs).filter(([, output]) => output.taskId !== taskId),
+  );
+  return { ...state, ...removeTask(state, taskId), traces, delegations, pieces, checks, outputs };
 }
 
 // A task the app does not hold yet is left out: it is read whole once one of its sessions shows up.
@@ -66,6 +69,8 @@ function applyChange(state: AppState, change: Change): AppState {
       const { [change.connectorId]: _, ...connectors } = state.connectors;
       return { ...state, connectors };
     }
+    case "output":
+      return { ...state, outputs: { ...state.outputs, [change.output.id]: change.output } };
   }
 }
 

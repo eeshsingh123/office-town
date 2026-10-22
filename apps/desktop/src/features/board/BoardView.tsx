@@ -8,6 +8,7 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
+import { ReviewResults } from "../outputs/OutputCards.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
 import { departmentName } from "../work/use-plan.ts";
@@ -222,6 +223,7 @@ const TaskCard = memo(function TaskCard({
         <PartOf taskId={task.parentTaskId} />
       </button>
       <NoteLine note={note} task={task} />
+      {column === "review" ? <ReviewResults taskId={task.id} /> : null}
       {column === "review" ? <ReviewActions task={task} owner={owner} /> : null}
     </article>
   );

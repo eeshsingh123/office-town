@@ -11,6 +11,7 @@ import type {
   HarnessDescription,
   LibraryItem,
   Onboarding,
+  OutputRecord,
   PlanPiece,
   ProfileRecord,
   RoomPosition,
@@ -53,7 +54,8 @@ export type View =
   | { name: "help" }
   // `member` opens that agent in the team editor, or "new" adds one.
   | { name: "department"; departmentId: string; member?: string }
-  | { name: "task"; taskId: string };
+  // `output` opens that result in the task's Outputs (M8).
+  | { name: "task"; taskId: string; tab?: "outputs"; output?: string };
 
 // A screen to go back to, with the office selection it had.
 export interface Visit {
@@ -70,6 +72,8 @@ export interface AppState extends Records {
   delegations: Record<string, DelegationRecord>;
   // Of the tasks whose checks were read, and each one made since (D-73).
   checks: Record<string, CheckRecord>;
+  // Results agents showed: the latest across tasks, and each one shown since (M8).
+  outputs: Record<string, OutputRecord>;
   // Of every chief goal that has not ended, and each piece made since.
   pieces: Record<string, PlanPiece>;
   // By account id.
@@ -114,6 +118,7 @@ export const useApp = create<AppState>(() => ({
   departments: {},
   delegations: {},
   checks: {},
+  outputs: {},
   pieces: {},
   limits: {},
   accounts: [],
