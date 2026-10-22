@@ -2,7 +2,7 @@ import { LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp } from "../../store/app-store.ts";
+import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";

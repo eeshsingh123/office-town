@@ -42,12 +42,21 @@ export function OutputsPane({
   );
   const changed = outputs?.changed ?? [];
 
+  // From the latest read, so a file changed again shows its new state.
   const current = ((): Shown | undefined => {
     const viewed = results.find((output) => output.id === chosen);
     if (viewed !== undefined) return { kind: "result", output: viewed };
-    if (picked !== undefined && picked.kind !== "result") return picked;
-    const [latest] = results;
-    return latest === undefined ? undefined : { kind: "result", output: latest };
+    if (picked?.kind === "file") {
+      const file = changed.find((one) => one.path === picked.file.path);
+      if (file !== undefined) return { kind: "file", file };
+    }
+    if (picked?.kind === "spotted") {
+      const site = spotted.find((one) => one.url === picked.site.url);
+      if (site !== undefined) return { kind: "spotted", site };
+    }
+    // A site may have stopped and open on its restart offer, so anything else opens first.
+    const first = results.find((output) => output.target.kind !== "site") ?? results[0];
+    return first === undefined ? undefined : { kind: "result", output: first };
   })();
   const choose = (shown: Shown) => {
     setPicked(shown);
@@ -162,7 +171,7 @@ export function OutputsPane({
       </nav>
       {current === undefined ? (
         <div className={styles.empty}>
-          <p>Pick something on the left to see it here.</p>
+          <p>Pick something from the list to see it here.</p>
         </div>
       ) : (
         <Viewer
@@ -177,6 +186,8 @@ export function OutputsPane({
               running.has(current.output.target.url))
           }
           contextTokens={outputs?.contextTokens ?? {}}
+          freshOnly={outputs?.freshOnly ?? []}
+          movedTo={outputs?.movedTo ?? {}}
           onRestarted={read}
         />
       )}
@@ -199,6 +210,10 @@ function ResultItem({
 }) {
   const kind = viewKindOf(output.target);
   const state = kind === "site" ? (live ? "Running" : "Stopped") : ago(output.updatedAt);
+  // The state first, so a narrow list cuts the name, which the avatar also shows.
+  const meta = [KIND_LABELS[kind], state, agent?.name]
+    .filter((part) => part !== undefined)
+    .join(" · ");
   return (
     <button
       type="button"
@@ -213,11 +228,7 @@ function ResultItem({
           {agent === undefined ? null : (
             <Avatar name={agent.name} colour={agent.colour} size={18} />
           )}
-          <span>
-            {[agent?.name, KIND_LABELS[kind], state]
-              .filter((part) => part !== undefined)
-              .join(" · ")}
-          </span>
+          <span>{meta}</span>
         </span>
       </span>
     </button>

@@ -33,17 +33,27 @@ export function useTaskOutputs(taskId: string) {
     api
       .taskOutputs(taskId)
       .then((read) => {
+        // The app loads only the latest results across tasks, so an older task's come from its
+        // read; those it holds stay, as live changes keep them current.
+        const missing = read.results.filter(
+          (one) => useApp.getState().outputs[one.id] === undefined,
+        );
+        if (missing.length > 0) {
+          useApp.setState((state) => ({
+            outputs: {
+              ...Object.fromEntries(missing.map((one) => [one.id, one])),
+              ...state.outputs,
+            },
+          }));
+        }
         setOutputs(read);
         setFailed(false);
       })
       .catch(() => setFailed(true));
   }, [taskId]);
-  // Again whenever a result is shown or changes.
   const shownAt = results[0]?.updatedAt;
-  useEffect(() => {
-    void shownAt;
-    read();
-  }, [read, shownAt]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read again whenever a result is shown or changes
+  useEffect(() => read(), [read, shownAt]);
   useEffect(() => {
     if (!working) return;
     const timer = setInterval(() => {

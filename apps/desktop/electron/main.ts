@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { taskPageSchema } from "@office-town/contract";
+import { OPENS_SAFELY, taskPageSchema } from "@office-town/contract";
 import {
   app,
   type BrowserWindow,
@@ -25,14 +25,6 @@ const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
 const CORE_ENTRY = file("../../../packages/service/src/main.ts");
 const QUIT_CHECK_TIMEOUT_MS = 3000;
-// Opening one of these runs it; an agent may have written it (M8).
-const RUNS_WHEN_OPENED = new Set(
-  (
-    ".exe .com .bat .cmd .ps1 .psm1 .psd1 .vbs .vbe .js .jse .mjs .cjs .wsf .wsh .msi .msp .msix " +
-    ".appx .scr .pif .lnk .url .cpl .hta .jar .reg .application .appref-ms .gadget .msc .inf .sct " +
-    ".sh .bash .zsh .command .py .pyw .pl .rb .php .desktop .appimage .deb .rpm .run .bin .dll .sys"
-  ).split(" "),
-);
 
 // The core runs on Electron's own Node, so users install no Node (D-34).
 const coreCommand: CoreCommand = {
@@ -204,8 +196,11 @@ function registerBridge(): void {
   ipcMain.handle("open-file", async (event, path: unknown) => {
     fromApp(event);
     const file = await existingFile(path);
-    if (RUNS_WHEN_OPENED.has(extname(file).toLowerCase())) {
-      throw new Error("This kind of file runs when opened, so the app does not open it.");
+    // An agent may have written it, so only kinds that cannot run when opened (M8).
+    if (!OPENS_SAFELY.has(extname(file).slice(1).toLowerCase())) {
+      throw new Error(
+        "The app opens only documents, pictures and media. Open this from its folder.",
+      );
     }
     const error = await shell.openPath(file);
     if (error !== "") throw new Error(error);

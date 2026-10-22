@@ -1,10 +1,9 @@
 import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";

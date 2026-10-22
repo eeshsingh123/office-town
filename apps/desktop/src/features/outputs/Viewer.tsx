@@ -2,6 +2,7 @@ import {
   type ChangedFile,
   MAX_PREVIEW_TEXT_BYTES,
   MAX_TABLE_ROWS,
+  OPENS_SAFELY,
   type OutputFileQuery,
   type OutputRecord,
   type OutputTarget,
@@ -91,6 +92,8 @@ export function Viewer({
   roots,
   running,
   contextTokens,
+  freshOnly,
+  movedTo,
   onRestarted,
 }: {
   taskId: string;
@@ -99,6 +102,8 @@ export function Viewer({
   // A site that answered on the last read.
   running: boolean;
   contextTokens: Record<string, number>;
+  freshOnly: readonly string[];
+  movedTo: Record<string, string>;
   onRestarted: () => void;
 }) {
   const agent = useApp((state) => state.agents[agentIdOf(shown)]);
@@ -107,7 +112,9 @@ export function Viewer({
   const output = shown.kind === "result" ? shown.output : undefined;
   const versions = output?.versions ?? [];
   const latest = versions.at(-1)?.number;
-  const [version, setVersion] = useState(latest);
+  // Follows each new version the agent shows, unless an older one was picked.
+  const [picked, setPicked] = useState<number>();
+  const version = picked ?? latest;
   const query: OutputFileQuery | undefined =
     target.kind === "site"
       ? undefined
@@ -119,6 +126,16 @@ export function Viewer({
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [marking, setMarking] = useState(false);
+  const [reloads, setReloads] = useState(0);
+  // A new version or a reload reads the file again; spots marked on the old one no longer fit.
+  const changedAt = shown.kind === "file" ? shown.file.at : output?.updatedAt;
+  const stamp = `${version}:${changedAt}:${reloads}`;
+  const [stampSeen, setStampSeen] = useState(stamp);
+  if (stampSeen !== stamp) {
+    setStampSeen(stamp);
+    setSpots([]);
+    setMarking(false);
+  }
   const deleted = shown.kind === "file" && shown.file.deleted;
   const framed = kind === "page" || kind === "pdf";
   const queryKey = JSON.stringify(query);
@@ -150,6 +167,9 @@ export function Viewer({
 
   const title =
     output?.title ?? (target.kind === "site" ? new URL(target.url).host : fileName(target.path));
+  // Where the file is on disk now, for the shell to open.
+  const filePath =
+    target.kind === "file" ? ((output && movedTo[output.id]) ?? target.path) : undefined;
   const where = target.kind === "site" ? target.url : shownPath(target.path, roots);
   const when =
     shown.kind === "result"
@@ -159,6 +179,7 @@ export function Viewer({
         : "is running it";
   const openAddress = target.kind === "site" ? target.url : framed ? previewUrl : undefined;
   const markable = shell !== undefined && (kind === "page" || kind === "site");
+  const reloadable = target.kind === "file" && !deleted;
   const stoppedSite = target.kind === "site" && !running;
 
   const tools: ReactNode[] = [];
@@ -174,10 +195,7 @@ export function Viewer({
           description:
             one.kept || one.number === latest ? clockTime(one.at) : "Not kept: too large",
         }))}
-        onChange={(next) => {
-          setVersion(Number(next));
-          setSpots([]);
-        }}
+        onChange={(next) => setPicked(Number(next) === latest ? undefined : Number(next))}
       />,
     );
   }
@@ -234,14 +252,25 @@ export function Viewer({
               <ExternalLink size={16} aria-hidden />
             </a>
           )}
-          {shell === undefined || target.kind !== "file" || deleted ? null : (
+          {reloadable ? (
+            <button
+              type="button"
+              className={styles.iconButton}
+              aria-label="Reload"
+              title="Reload"
+              onClick={() => setReloads(reloads + 1)}
+            >
+              <RotateCw size={16} aria-hidden />
+            </button>
+          ) : null}
+          {shell === undefined || filePath === undefined || deleted ? null : (
             <button
               type="button"
               className={styles.iconButton}
               aria-label="Show in folder"
               title="Show in folder"
               onClick={() =>
-                void shell?.showFile(target.path).catch(() => showToast("The file is not there."))
+                void shell?.showFile(filePath).catch(() => showToast("The file is not there."))
               }
             >
               <FolderOpen size={16} aria-hidden />
@@ -258,11 +287,14 @@ export function Viewer({
           </button>
         </div>
       </header>
-      {tools.length === 0 && !(kind === "page" || kind === "site") ? null : (
+      {tools.length === 0 && kind !== "page" ? null : (
         <div className={styles.tools}>
           <div className={styles.toolsStart}>{tools}</div>
-          {kind === "page" || (kind === "site" && !stoppedSite) ? (
-            <span className={styles.sandboxed} title="It cannot reach the app or your other files">
+          {kind === "page" ? (
+            <span
+              className={styles.sandboxed}
+              title="It cannot reach the app, or files outside this task's folders"
+            >
               <Lock size={13} aria-hidden />
               Sandboxed
             </span>
@@ -270,7 +302,7 @@ export function Viewer({
         </div>
       )}
 
-      <div className={styles.body}>
+      <div className={styles.body} key={stamp}>
         {deleted ? (
           <Note title="This file was deleted" text="It is listed because an agent removed it." />
         ) : stoppedSite && target.kind === "site" ? (
@@ -278,6 +310,7 @@ export function Viewer({
             output={output}
             agentName={agent?.name ?? "The agent"}
             tokens={contextTokens[agentIdOf(shown)]}
+            freshOnly={freshOnly.includes(agentIdOf(shown))}
             onRestarted={onRestarted}
           />
         ) : kind === "page" || kind === "site" ? (
@@ -304,16 +337,14 @@ export function Viewer({
             <iframe className={styles.pdf} src={previewUrl} title={title} />
           )
         ) : kind === "image" && query !== undefined ? (
-          <ImageBody src={fileAddress(taskId, query)} title={title} />
-        ) : kind === "other" || query === undefined ? (
-          <NoPreview path={target.kind === "file" ? target.path : undefined} />
-        ) : (
-          <TextBody
-            taskId={taskId}
-            query={query}
-            kind={kind}
-            path={target.kind === "file" ? target.path : ""}
+          <ImageBody
+            src={`${fileAddress(taskId, query)}&at=${encodeURIComponent(stamp)}`}
+            title={title}
           />
+        ) : kind === "other" || query === undefined ? (
+          <NoPreview path={filePath} />
+        ) : (
+          <TextBody taskId={taskId} query={query} kind={kind} path={filePath ?? ""} />
         )}
       </div>
 
@@ -376,6 +407,9 @@ function FrameStage({
   const [path, setPath] = useState(site && src !== undefined ? new URL(src).pathname : "/");
   const [address, setAddress] = useState(src);
   const shown = site ? address : src;
+  const frameKey = `${shown}:${reloads}`;
+  // Until the frame has loaded, so a slow page is not mistaken for an empty one.
+  const [loadedKey, setLoadedKey] = useState<string>();
 
   const capture = async (area: Area, max?: number) => {
     if (shell === undefined) return undefined;
@@ -464,14 +498,22 @@ function FrameStage({
         >
           {shown === undefined ? null : (
             <iframe
-              key={`${shown}:${reloads}`}
+              key={frameKey}
               ref={frame}
               src={shown}
               title={title}
               sandbox={FRAME_SANDBOX}
               className={styles.frame}
-              onLoad={takePicture}
+              onLoad={() => {
+                setLoadedKey(frameKey);
+                takePicture();
+              }}
             />
+          )}
+          {loadedKey === frameKey ? null : (
+            <p className={styles.frameLoading}>
+              {site ? "Opening the site…" : "Loading the page…"}
+            </p>
           )}
           {spots.map((spot) => (
             <span
@@ -501,15 +543,18 @@ function StoppedSite({
   output,
   agentName,
   tokens,
+  freshOnly,
   onRestarted,
 }: {
   output: OutputRecord | undefined;
   agentName: string;
   tokens: number | undefined;
+  // Its folder was removed once its work was merged.
+  freshOnly: boolean;
   onRestarted: () => void;
 }) {
   const [asked, setAsked] = useState(false);
-  const long = tokens !== undefined && tokens >= FRESH_FROM_TOKENS;
+  const long = !freshOnly && tokens !== undefined && tokens >= FRESH_FROM_TOKENS;
   const restart = (fresh: boolean) => {
     if (output === undefined) return;
     api
@@ -534,9 +579,11 @@ function StoppedSite({
     <Note
       title="This site is not running"
       text={
-        long
-          ? `It ran on ${agentName}'s server, which has stopped. ${agentName}'s conversation is ${compactCount(tokens ?? 0)} tokens long, and continuing it reads all of it again at each step. A fresh one starts short and is told how the site was started.`
-          : `It ran on ${agentName}'s server, which has stopped. Ask ${agentName} to start it again, and it opens here once it answers.`
+        freshOnly
+          ? `${agentName}'s work was merged into the lead's folder, so ${agentName} starts it from there in a fresh conversation, told how it was started. It opens here once it answers.`
+          : long
+            ? `${agentName}'s conversation is ${compactCount(tokens ?? 0)} tokens long, and continuing it reads all of it again at every step. A fresh conversation starts small and is told how the site was started.`
+            : `Ask ${agentName} to start it again. It opens here once it answers.`
       }
     >
       {output === undefined ? null : (
@@ -549,7 +596,7 @@ function StoppedSite({
               </Button>
             </>
           ) : (
-            <Button variant="primary" onClick={() => restart(false)}>
+            <Button variant="primary" onClick={() => restart(freshOnly)}>
               Ask {agentName} to start it
             </Button>
           )}
@@ -562,7 +609,7 @@ function StoppedSite({
 function ImageBody({ src, title }: { src: string; title: string }) {
   const [actual, setActual] = useState(false);
   const [broken, setBroken] = useState(false);
-  if (broken) return <NoPreview path={undefined} />;
+  if (broken) return <NoPreview path={undefined} failed />;
   return (
     <div className={styles.imageStage}>
       <div className={styles.imageTools}>
@@ -583,35 +630,42 @@ function ImageBody({ src, title }: { src: string; title: string }) {
   );
 }
 
-function NoPreview({ path }: { path: string | undefined }) {
+// A kind the viewer does not show, or a file it could not read.
+function NoPreview({ path, failed = false }: { path: string | undefined; failed?: boolean }) {
   const extension = path === undefined ? "" : extensionOf(path);
+  const opens = shell !== undefined && path !== undefined && OPENS_SAFELY.has(extension);
+  const title = failed
+    ? "The file could not be read"
+    : extension === ""
+      ? "No preview for this file"
+      : `No preview for .${extension} files`;
+  const text = failed
+    ? "It may have been moved or removed since."
+    : opens
+      ? "Open it in the app your computer uses for this kind of file."
+      : "Open it from its folder if you trust it: files like this can run when opened.";
   return (
     <Note
-      title={
-        path === undefined
-          ? "This file cannot be shown here"
-          : `No preview for .${extension || "this"} files`
-      }
-      text={
-        shell === undefined
-          ? "Open it from its folder on your computer."
-          : "Open it in the app your computer uses for this kind of file."
-      }
+      title={title}
+      text={shell === undefined ? "Open it from its folder on your computer." : text}
     >
-      {shell === undefined || path === undefined ? null : (
+      {shell === undefined || path === undefined || failed ? null : (
         <div className={styles.noteActions}>
           <Button
             variant="primary"
             onClick={() =>
-              void shell
-                ?.openFile(path)
-                .catch((error: unknown) =>
+              void (opens ? shell?.openFile(path) : shell?.showFile(path))?.catch(
+                (error: unknown) =>
                   showToast(error instanceof Error ? error.message : "It could not be opened."),
-                )
+              )
             }
           >
-            <SquareArrowOutUpRight size={14} aria-hidden />
-            Open with default app
+            {opens ? (
+              <SquareArrowOutUpRight size={14} aria-hidden />
+            ) : (
+              <FolderOpen size={14} aria-hidden />
+            )}
+            {opens ? "Open with default app" : "Show in folder"}
           </Button>
         </div>
       )}
@@ -673,7 +727,7 @@ function TextBody({
     };
   }, [kind, older, taskId, path]);
 
-  if (failed) return <NoPreview path={path || undefined} />;
+  if (failed) return <NoPreview path={path || undefined} failed />;
   if (text === undefined) return <p className={styles.loading}>Reading the file…</p>;
   const cut =
     text.size > MAX_PREVIEW_TEXT_BYTES
@@ -875,14 +929,20 @@ function AskBox({
           }
         }}
       />
-      <div className={styles.askRow}>
-        <div className={styles.askStart}>
-          {markable ? (
-            <Button variant="ghost" aria-pressed={marking} onClick={onMark}>
-              <Crosshair size={14} aria-hidden />
-              {marking ? "Click the spot" : "Mark a spot"}
-            </Button>
-          ) : null}
+      <div className={styles.askActions}>
+        {markable ? (
+          <Button variant="ghost" aria-pressed={marking} onClick={onMark}>
+            <Crosshair size={14} aria-hidden />
+            {marking ? "Click the spot" : "Mark a spot"}
+          </Button>
+        ) : null}
+        <Button type="submit" variant="primary" disabled={!ready || sending}>
+          <Send size={14} aria-hidden />
+          Send to {agentName}
+        </Button>
+      </div>
+      {spots.length === 0 ? null : (
+        <div className={styles.askSpots}>
           {spots.map((spot) => (
             <span key={spot.number} className={styles.spotChip}>
               <span className={styles.spotNumber}>{spot.number}</span>
@@ -897,11 +957,7 @@ function AskBox({
             </span>
           ))}
         </div>
-        <Button type="submit" variant="primary" disabled={!ready || sending}>
-          <Send size={14} aria-hidden />
-          Send to {agentName}
-        </Button>
-      </div>
+      )}
     </form>
   );
 }
