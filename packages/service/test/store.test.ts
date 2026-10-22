@@ -361,6 +361,8 @@ describe("store", () => {
       "pausedTasks",
       // Through a partial index that holds only sandboxes not yet removed.
       "checkSandboxes",
+      // The newest few results, in the order of their index on time.
+      "latestOutputs",
     ]);
     // These group a period's rows after finding them through an index.
     const groupedReads = new Set(["accountUsageSince", "connectorCallCounts"]);

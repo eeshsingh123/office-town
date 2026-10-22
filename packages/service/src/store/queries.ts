@@ -20,6 +20,14 @@ const CHECK_SELECT = `
   JOIN agents a ON a.ref = c.checker_ref
   JOIN agents o ON o.ref = c.owner_ref`;
 
+const OUTPUT_SELECT = `
+  SELECT o.ref, o.id, t.id AS taskId, a.id AS agentId, o.session_id AS sessionId, o.title,
+         o.kind, o.target, o.versions, o.pictured_at AS picturedAt, o.created_at AS createdAt,
+         o.updated_at AS updatedAt
+  FROM outputs o
+  JOIN tasks t ON t.ref = o.task_ref
+  JOIN agents a ON a.ref = o.agent_ref`;
+
 const SESSION_SELECT = `
   SELECT s.ref, s.id, t.id AS taskId, a.id AS agentId, s.options, s.status,
          s.created_at AS createdAt, s.harness_session_id AS harnessSessionId,
@@ -214,6 +222,20 @@ export const queries = {
   interruptDelegationsOfSession:
     "UPDATE delegations SET status = 'interrupted' WHERE status = 'working' AND worker_session = ?",
 
+  outputByTarget: `${OUTPUT_SELECT} WHERE o.task_ref = ? AND o.kind = ? AND o.target = ?`,
+  outputById: `${OUTPUT_SELECT} WHERE o.id = ?`,
+  outputsOfTask: `${OUTPUT_SELECT} WHERE o.task_ref = ? ORDER BY o.updated_at DESC`,
+  latestOutputs: `${OUTPUT_SELECT} ORDER BY o.updated_at DESC LIMIT ?`,
+  outputIdsOfTask: "SELECT id FROM outputs WHERE task_ref = ?",
+  insertOutput: `
+    INSERT INTO outputs (id, task_ref, agent_ref, session_id, title, kind, target, versions,
+                         created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  updateOutput: `
+    UPDATE outputs SET agent_ref = ?, session_id = ?, title = ?, versions = ?, updated_at = ?
+    WHERE ref = ?`,
+  setOutputPicture: "UPDATE outputs SET pictured_at = ? WHERE ref = ?",
+
   insertCheck: `
     INSERT INTO checks (id, task_ref, round, status, checker_ref, checker_session, owner_ref, items,
                         sandbox_kind, sandbox, created_at)
@@ -303,6 +325,11 @@ export const queries = {
     JOIN sessions s ON s.ref = e.session_ref
     JOIN tasks t ON t.ref = s.task_ref
     ORDER BY p.event_position`,
+  // The repeated type terms let it use the partial index on usage.
+  lastContextTokens: `
+    SELECT payload ->> '$.usage.contextTokens' AS tokens FROM events
+    WHERE session_ref = ? AND type IN ('turn.ended', 'usage.recounted') AND type = 'turn.ended'
+    ORDER BY position DESC LIMIT 1`,
   latestTurnOfSession: `
     SELECT type, timestamp, payload ->> '$.outcome' AS outcome FROM events
     WHERE session_ref = ? AND type IN ('turn.started', 'turn.ended')

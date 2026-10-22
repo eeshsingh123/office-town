@@ -17,6 +17,9 @@ import { defaultDataFolder } from "./data-folder.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
+import { PreviewServer } from "./outputs/preview-server.ts";
+import { showResult } from "./outputs/show-result.ts";
+import { TaskFiles } from "./outputs/task-files.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
 import { followRecounts } from "./registry/recount.ts";
@@ -115,11 +118,23 @@ toolServer.offer([
   addToLibrary(team),
   changeLibrary(team),
   new AppRequests(store, registry).tool(),
+  showResult(team),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
 const token = randomBytes(32).toString("base64url");
-const server = await startApiServer({ team, connectors, pauses, checks, token, port });
+const preview = await PreviewServer.start();
+const ownPorts = new Set([preview.port, Number(new URL(toolServer.url).port)]);
+const server = await startApiServer({
+  team,
+  connectors,
+  pauses,
+  checks,
+  outputs: { preview, files: new TaskFiles(store), ownPorts },
+  token,
+  port,
+});
+ownPorts.add(Number(new URL(server.url).port));
 // Claude apps connected on claude.ai since the last run show up without a click.
 void connectors.claudeApps.refresh();
 const ready: CoreReady = { url: server.url, token };
@@ -132,6 +147,7 @@ async function shutdown(): Promise<void> {
   closing = true;
   stopIdle();
   await server.close();
+  await preview.close();
   try {
     await registry.close();
   } finally {

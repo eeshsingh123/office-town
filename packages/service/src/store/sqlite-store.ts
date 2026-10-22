@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
 import { setImmediate as yieldToEventLoop } from "node:timers/promises";
@@ -30,6 +31,9 @@ import {
   type LibraryAudience,
   type LibraryItem,
   type LibraryItemChange,
+  type OutputRecord,
+  type OutputTarget,
+  type OutputVersion,
   type PendingRequestList,
   type PlanPiece,
   type ProfileRecord,
@@ -87,6 +91,7 @@ import {
   type NewSession,
   type PieceChange,
   RecordNotFoundError,
+  type ShownOutput,
   type Store,
   type StoredEvent,
   TaskActiveError,
@@ -420,6 +425,44 @@ function toDelegation(row: DelegationRow): DelegationRecord {
   };
 }
 
+interface OutputRow {
+  ref: number;
+  id: string;
+  taskId: string;
+  agentId: string;
+  sessionId: string;
+  title: string;
+  kind: OutputTarget["kind"];
+  // A path or an address, by kind.
+  target: string;
+  // JSON.
+  versions: string;
+  picturedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+function toOutput(row: OutputRow): OutputRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    agentId: row.agentId,
+    sessionId: row.sessionId,
+    title: row.title,
+    target:
+      row.kind === "file" ? { kind: "file", path: row.target } : { kind: "site", url: row.target },
+    versions: JSON.parse(row.versions) as OutputVersion[],
+    ...(row.picturedAt === null ? {} : { picturedAt: iso(row.picturedAt) }),
+    createdAt: iso(row.createdAt),
+    updatedAt: iso(row.updatedAt),
+  };
+}
+
+const targetText = (target: OutputTarget) => (target.kind === "file" ? target.path : target.url);
+
+// Results listed with no task, such as on the Office's panels.
+const LATEST_OUTPUTS = 500;
+
 function toCheck(row: CheckRow): CheckRecord {
   return {
     id: row.id,
@@ -586,6 +629,7 @@ export function openStore(directory: string): Store {
     file,
     new ResultFiles(join(directory, "results")),
     new AttachmentFiles(join(directory, "files")),
+    join(directory, "outputs"),
   );
 }
 
@@ -594,6 +638,8 @@ class SqliteStore implements Store {
   readonly #file: string;
   readonly #results: ResultFiles;
   readonly #files: AttachmentFiles;
+  // Kept versions and pictures of results, one folder per result.
+  readonly #outputs: string;
   readonly #statements: Statements;
   // While a task's rows are deleted in chunks, no new session may join it.
   readonly #deleting = new Set<string>();
@@ -601,11 +647,18 @@ class SqliteStore implements Store {
   readonly #outbox: Change[] = [];
   #publishing = false;
 
-  constructor(db: DatabaseSync, file: string, results: ResultFiles, files: AttachmentFiles) {
+  constructor(
+    db: DatabaseSync,
+    file: string,
+    results: ResultFiles,
+    files: AttachmentFiles,
+    outputs: string,
+  ) {
     this.#db = db;
     this.#file = file;
     this.#results = results;
     this.#files = files;
+    this.#outputs = outputs;
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -749,6 +802,7 @@ class SqliteStore implements Store {
       // Deleting a chief's goal clears its pieces' link to it, so they are published again.
       const children = all<{ id: string }>(this.#statements.childTasks, task.ref);
       const attachments = all<AttachmentRef>(this.#statements.attachmentsOnlyOfTask, task.ref);
+      const outputs = all<{ id: string }>(this.#statements.outputIdsOfTask, task.ref);
       transaction(this.#db, () => {
         this.#statements.deleteTask.run(task.ref);
         for (const attachment of attachments) {
@@ -763,6 +817,11 @@ class SqliteStore implements Store {
       for (const child of children) this.#publishTask(child.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#removeCopies(attachments);
+      await Promise.all(
+        outputs.map(({ id: outputId }) =>
+          rm(join(this.#outputs, outputId), { recursive: true, force: true }),
+        ),
+      );
       await this.#returnFreeSpace();
     } finally {
       this.#deleting.delete(id);
@@ -1002,6 +1061,87 @@ class SqliteStore implements Store {
 
   sandboxRemoved(checkId: string): void {
     this.#statements.clearCheckSandbox.run(checkId);
+  }
+
+  showOutput(output: ShownOutput): OutputRecord {
+    const taskRef = this.#taskRow(output.taskId).ref;
+    const agentRef = this.#agentRow(output.agentId).ref;
+    const target = targetText(output.target);
+    const now = Date.now();
+    const version = (number: number): OutputVersion[] =>
+      output.target.kind === "file" ? [{ number, at: iso(now), kept: output.kept }] : [];
+    const row = one<OutputRow>(
+      this.#statements.outputByTarget,
+      taskRef,
+      output.target.kind,
+      target,
+    );
+    if (row === undefined) {
+      this.#statements.insertOutput.run(
+        randomUUID(),
+        taskRef,
+        agentRef,
+        output.sessionId,
+        output.title,
+        output.target.kind,
+        target,
+        JSON.stringify(version(1)),
+        now,
+        now,
+      );
+    } else {
+      const versions = JSON.parse(row.versions) as OutputVersion[];
+      const next = [...versions, ...version((versions.at(-1)?.number ?? 0) + 1)];
+      this.#statements.updateOutput.run(
+        agentRef,
+        output.sessionId,
+        output.title,
+        JSON.stringify(next),
+        now,
+        row.ref,
+      );
+    }
+    const saved = one<OutputRow>(
+      this.#statements.outputByTarget,
+      taskRef,
+      output.target.kind,
+      target,
+    );
+    if (saved === undefined) throw new RecordNotFoundError("output", target);
+    const record = toOutput(saved);
+    this.#publish({ type: "output", output: record });
+    return record;
+  }
+
+  getOutput(id: string): OutputRecord | undefined {
+    const row = one<OutputRow>(this.#statements.outputById, id);
+    return row === undefined ? undefined : toOutput(row);
+  }
+
+  listOutputs(taskId?: string): OutputRecord[] {
+    const rows =
+      taskId === undefined
+        ? all<OutputRow>(this.#statements.latestOutputs, LATEST_OUTPUTS)
+        : all<OutputRow>(this.#statements.outputsOfTask, this.#taskRow(taskId).ref);
+    return rows.map(toOutput);
+  }
+
+  outputPictured(id: string): OutputRecord {
+    const row = one<OutputRow>(this.#statements.outputById, id);
+    if (row === undefined) throw new RecordNotFoundError("output", id);
+    const picturedAt = Date.now();
+    this.#statements.setOutputPicture.run(picturedAt, row.ref);
+    const record = toOutput({ ...row, picturedAt });
+    this.#publish({ type: "output", output: record });
+    return record;
+  }
+
+  contextTokens(sessionId: string): number | undefined {
+    const row = one<{ tokens: number | null }>(
+      this.#statements.lastContextTokens,
+      this.#sessionRef(sessionId),
+    );
+    return row?.tokens ?? undefined;
   }
 
   createPiece(piece: NewPiece): PlanPiece {

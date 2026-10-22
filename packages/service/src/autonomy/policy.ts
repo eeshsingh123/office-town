@@ -12,7 +12,7 @@ type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>
 
 const READS = new Set(["read", "search", "think"]);
 
-function inside(folder: string, path: string): boolean {
+export function inside(folder: string, path: string): boolean {
   const way = relative(folder, path);
   return way === "" || (!way.startsWith("..") && !isAbsolute(way));
 }
@@ -20,7 +20,7 @@ function inside(folder: string, path: string): boolean {
 const WSL_LOCALHOST = /^\\\\wsl\.localhost\\/i;
 
 // Links resolved, WSL's two share names made one, case ignored where Windows ignores it.
-function canonicalPath(path: string): string {
+export function canonicalPath(path: string): string {
   const missing: string[] = [];
   let existing = resolve(path);
   while (!existsSync(existing) && dirname(existing) !== existing) {
