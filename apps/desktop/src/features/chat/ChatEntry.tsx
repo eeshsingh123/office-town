@@ -214,7 +214,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
     case "work":
       return <p className={styles.work}>{item.text}</p>;
     case "result":
-      return <ShownResult sessionId={item.sessionId} title={item.title} />;
+      return <ShownResult sessionId={item.sessionId} shows={item.shows} />;
     case "delegation":
       return <DelegationEntry thread={item} />;
     case "handoff":

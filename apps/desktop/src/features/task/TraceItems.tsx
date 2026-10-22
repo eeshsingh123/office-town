@@ -373,9 +373,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       return (
         <>
           <ActionRow action={item} place={place} />
-          {item.shows !== undefined && item.status === "completed" ? (
-            <ShownResult sessionId={place.sessionId} title={item.shows} />
-          ) : null}
+          <ResultUnder action={item} place={place} />
         </>
       );
     case "request":
@@ -424,6 +422,16 @@ interface ActionGroupProps {
   place: Place;
 }
 
+// The card of a result the action showed the user (M8).
+function ResultUnder({ action, place }: { action: TraceAction; place: Place }) {
+  if (action.shows === undefined || action.status !== "completed") return null;
+  return (
+    <div className={styles.under}>
+      <ShownResult sessionId={place.sessionId} shows={action.shows} />
+    </div>
+  );
+}
+
 // Folds into one line once done; while it runs, every action shows.
 export function ActionGroup({ ids, place }: ActionGroupProps) {
   const actions = useApp(
@@ -438,8 +446,11 @@ export function ActionGroup({ ids, place }: ActionGroupProps) {
   const [open, setOpen] = useState<boolean>();
   if (actions.length === 1) {
     const [only] = actions;
-    return (
-      <div className={styles.group}>{only ? <ActionRow action={only} place={place} /> : null}</div>
+    return only === undefined ? null : (
+      <div className={styles.group}>
+        <ActionRow action={only} place={place} />
+        <ResultUnder action={only} place={place} />
+      </div>
     );
   }
   const expanded = open ?? !done;

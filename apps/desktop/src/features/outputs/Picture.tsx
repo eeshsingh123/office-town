@@ -29,7 +29,15 @@ export function KindIcon({ kind, size = 18 }: { kind: ViewKind; size?: number })
   return <Icon size={size} aria-hidden />;
 }
 
-// The saved picture, the image itself, or the kind's icon; `large` fills its card's width.
+// The saved picture, or the image itself; other kinds have none until a picture is taken.
+export function pictureSource(output: OutputRecord): string | undefined {
+  const { target } = output;
+  if (output.picturedAt !== undefined) return pictureAddress(output);
+  if (viewKindOf(target) !== "image" || target.kind !== "file") return undefined;
+  return `${fileAddress(output.taskId, { path: target.path })}&at=${encodeURIComponent(output.updatedAt)}`;
+}
+
+// The picture or the kind's icon; `large` fills its card's width.
 export function Picture({
   output,
   large = false,
@@ -41,13 +49,7 @@ export function Picture({
   live?: boolean;
 }) {
   const kind = viewKindOf(output.target);
-  const { target } = output;
-  const source =
-    output.picturedAt !== undefined
-      ? pictureAddress(output)
-      : kind === "image" && target.kind === "file"
-        ? fileAddress(output.taskId, { path: target.path })
-        : undefined;
+  const source = pictureSource(output);
   return (
     <span className={`${styles.picture} ${large ? styles.pictureLarge : ""}`}>
       {source === undefined ? (

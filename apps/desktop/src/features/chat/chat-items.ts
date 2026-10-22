@@ -1,6 +1,7 @@
 import type { DelegationRecord } from "@office-town/contract";
 import { describeActions } from "../../trace/blocks.ts";
 import { type FileUse, fileUses } from "../../trace/file-uses.ts";
+import type { ShownInput } from "../../trace/team-tools.ts";
 import type { Trace, TraceAction, TraceMessage } from "../../trace/trace.ts";
 
 export type ThreadState = "working" | "done" | "failed" | "stopped";
@@ -33,8 +34,8 @@ export type ChatItem =
   | { kind: "notice"; id: string; text: string }
   // A run of tool calls between messages, in one line.
   | { kind: "work"; id: string; text: string }
-  // A result the agent showed, by its title in the session's task (M8).
-  | { kind: "result"; id: string; sessionId: string; title: string }
+  // A result the agent showed, by what it showed in the session's task (M8).
+  | { kind: "result"; id: string; sessionId: string; shows: ShownInput }
   | DelegationThread
   | { kind: "handoff"; id: string; pieceId: string; state: ThreadState; result: string };
 
@@ -115,7 +116,7 @@ export function chatOf(traces: readonly Trace[], context: ChatContext): ChatItem
           kind: "result",
           id: entry.id,
           sessionId: trace.sessionId,
-          title: entry.shows,
+          shows: entry.shows,
         });
         continue;
       }

@@ -8,20 +8,24 @@ export type TraceBlock =
 export function toBlocks(trace: Trace): TraceBlock[] {
   const blocks: TraceBlock[] = [];
   let shownStep: string | undefined;
+  // A result an agent showed stands alone with its card, never folded into a run (M8).
+  let shut = false;
   for (const id of trace.order) {
     const item = trace.items.get(id);
     if (item?.kind !== "action") {
       blocks.push({ kind: "item", id });
       continue;
     }
+    const alone = item.shows !== undefined && item.status === "completed";
     const last = blocks.at(-1);
-    if (last?.kind === "actions" && last.stepId === item.planStepId) {
+    if (!alone && !shut && last?.kind === "actions" && last.stepId === item.planStepId) {
       last.ids.push(id);
       continue;
     }
     const stepId = item.planStepId;
     blocks.push({ kind: "actions", ids: [id], stepId, showsStep: stepId !== shownStep });
     shownStep = stepId ?? shownStep;
+    shut = alone;
   }
   return blocks;
 }

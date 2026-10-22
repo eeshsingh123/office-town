@@ -1,10 +1,11 @@
 import type { OutputRecord } from "@office-town/contract";
 import { navigate, useApp } from "../../store/app-store.ts";
+import type { ShownInput } from "../../trace/team-tools.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ago } from "../../ui/format.ts";
 import { KIND_LABELS, viewKindOf } from "./kinds.ts";
 import styles from "./Outputs.module.css";
-import { Picture } from "./Picture.tsx";
+import { Picture, pictureSource } from "./Picture.tsx";
 import { useResults } from "./use-task-outputs.ts";
 
 export const openOutput = (output: OutputRecord) =>
@@ -24,9 +25,11 @@ export function ResultCard({
   output: OutputRecord;
   primary?: boolean;
 }) {
+  // Without a picture yet, a row: a large empty frame says nothing.
+  const pictured = pictureSource(output) !== undefined;
   return (
-    <div className={styles.card}>
-      <Picture output={output} large />
+    <div className={`${styles.card} ${pictured ? "" : styles.cardRow}`}>
+      <Picture output={output} large={pictured} />
       <div className={styles.cardBody}>
         <div className={styles.cardText}>
           <strong>{output.title}</strong>
@@ -40,11 +43,33 @@ export function ResultCard({
   );
 }
 
+const folded = (path: string) => path.replaceAll("\\", "/").replace(/^\.\//, "").toLowerCase();
+
+// By what was shown, since showing it again may rename it. A relative or WSL path is the end of
+// the stored one; a site's host is stored as localhost.
+function showedIt(output: OutputRecord, shows: ShownInput): boolean {
+  const { target } = output;
+  if (target.kind === "file") {
+    if (shows.path === undefined) return false;
+    const [stored, given] = [folded(target.path), folded(shows.path)];
+    return stored === given || stored.endsWith(`/${given.replace(/^\//, "")}`);
+  }
+  if (shows.url === undefined || !URL.canParse(shows.url)) return false;
+  const [stored, given] = [new URL(target.url), new URL(shows.url)];
+  return stored.port === given.port && stored.pathname === given.pathname;
+}
+
 // Where an agent called show_result; a later version shows on the same card.
-export function ShownResult({ sessionId, title }: { sessionId: string; title: string }) {
+export function ShownResult({ sessionId, shows }: { sessionId: string; shows: ShownInput }) {
   const output = useApp((state) => {
     const taskId = state.sessions[sessionId]?.taskId;
-    return Object.values(state.outputs).find((one) => one.taskId === taskId && one.title === title);
+    const ofTask = Object.values(state.outputs).filter((one) => one.taskId === taskId);
+    const matching = ofTask.filter((one) => showedIt(one, shows));
+    return (
+      matching.find((one) => one.title === shows.title) ??
+      matching[0] ??
+      ofTask.find((one) => one.title === shows.title)
+    );
   });
   return output === undefined ? null : <ResultCard output={output} primary />;
 }
