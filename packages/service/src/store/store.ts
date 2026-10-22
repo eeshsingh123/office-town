@@ -25,6 +25,8 @@ import type {
   LibraryAudience,
   LibraryItem,
   LibraryItemChange,
+  OutputRecord,
+  OutputTarget,
   PendingRequestList,
   PlanPiece,
   ProfileRecord,
@@ -190,6 +192,16 @@ export interface CheckSandbox {
 
 export type NewCheck = Omit<CheckRecord, "id" | "createdAt" | "endedAt" | "results" | "notes">;
 
+// A result shown again in its task adds a version; `kept` says whether its copy is saved.
+export interface ShownOutput {
+  taskId: string;
+  agentId: string;
+  sessionId: string;
+  title: string;
+  target: OutputTarget;
+  kept: boolean;
+}
+
 // Fields left out keep their value; a check that ends gets its end time.
 export type CheckChange = Partial<Pick<CheckRecord, "status" | "items" | "results" | "notes">>;
 
@@ -283,6 +295,13 @@ export interface Store {
   // Every sandbox not yet removed, or a task's.
   checkSandboxes(taskId?: string): { checkId: string; sandbox: CheckSandbox }[];
   sandboxRemoved(checkId: string): void;
+  showOutput(output: ShownOutput): OutputRecord;
+  getOutput(id: string): OutputRecord | undefined;
+  // A task's, or the latest across tasks; newest first.
+  listOutputs(taskId?: string): OutputRecord[];
+  outputPictured(id: string): OutputRecord;
+  // From the latest turn that reported it.
+  contextTokens(sessionId: string): number | undefined;
   createPiece(piece: NewPiece): PlanPiece;
   getPiece(id: string): PlanPiece | undefined;
   // Oldest first.
@@ -409,6 +428,7 @@ export class RecordNotFoundError extends Error {
       | "profile"
       | "department"
       | "account"
+      | "output"
       | "delegation"
       | "check"
       | "piece"

@@ -87,6 +87,7 @@ async function readAll(
     settings,
     library,
     connectors,
+    outputs,
   ] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
@@ -98,6 +99,7 @@ async function readAll(
     api.readSettings(),
     api.listLibrary(),
     api.listConnectors(),
+    api.listOutputs(),
   ]);
   // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
@@ -128,6 +130,7 @@ async function readAll(
     accounts,
     library: byId(library),
     connectors: byId(connectors),
+    outputs: byId(outputs),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
     ...(first ? { olderTasks: page.next } : {}),

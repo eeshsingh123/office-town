@@ -9,6 +9,7 @@ import { OPEN_CHECK, useChecks } from "../../store/checks.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import checks from "../checks/Checks.module.css";
+import { ReviewResults } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import styles from "./ReviewOffer.module.css";
 
@@ -303,6 +304,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
           A fresh agent outside the team runs a checklist you approve, on a temporary copy.
         </span>
       </p>
+      <ReviewResults taskId={agent.taskId} />
       <div className={styles.actions}>
         <Button variant="primary" onClick={onReview}>
           Send for review

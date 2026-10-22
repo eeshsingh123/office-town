@@ -45,6 +45,7 @@ import { draftChief } from "../drafts/chief.ts";
 import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import { libraryRoutes } from "../library/routes.ts";
+import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
@@ -84,6 +85,7 @@ export interface RouteRequest {
 export type Reply =
   | { status: 200 | 201; json: unknown }
   | { status: 200; text: string }
+  | { status: 200; bytes: Buffer; type: string; headers?: Record<string, string> }
   | { status: 204 };
 
 export interface Route {
@@ -102,6 +104,7 @@ export function apiRoutes(
   connectors: ConnectorHub,
   pauses: UsagePauses,
   checks: Checks,
+  outputs: OutputServices,
 ): Route[] {
   const { registry, store, readCatalog } = team;
   return [
@@ -116,6 +119,7 @@ export function apiRoutes(
       },
     },
     ...libraryRoutes(store),
+    ...outputRoutes(team, outputs),
     ...connectorRoutes(store, connectors),
     {
       method: "POST",

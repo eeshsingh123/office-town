@@ -331,6 +331,18 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Sandbox: in a git workspace, a detached worktree of the lead's folder, uncommitted and untracked work included. It leaves no branch behind, and the checker may install and run things in it. Elsewhere, a copy without `.git` and `node_modules`. Owner: no leftovers. Each sandbox lives under `checks/` in the data folder and is removed when the checker's session ends for any reason, when its list is declined, and when the task is deleted. At startup, any sandbox left over is removed and git's worktree records are pruned.
 - The lead's `outsource` tool is removed: a mid-work second opinion overlaps with workers, costs tokens on every lead step, and is one more place to loop. D-47's guest stays, as the checker.
 
+### D-74 Outputs and preview — accepted (2026-10-22)
+
+- No harness reports "artifacts": Claude Code, OpenCode and Codex write files. So an output is a file or a local site, and the viewer works the same on every harness. Agents mark results with `show_result`, named in every brief because Claude defers the tool. A task's changed files come from its stored edit actions, and spotted sites from local addresses in its output, read per task on request (`outputs/task-files.ts`).
+- An agent's page is untrusted code and must never reach the app's token. Pages and PDFs load from the core's preview server, a separate loopback port that serves only folders it was granted, never hidden files or anything outside the task's folders. The app's own origin refuses `/api` calls from any other origin, and pages get no device permissions. Pages may load from the internet (owner).
+- Showing a result again adds a version. Files up to 10 MB keep a copy in `outputs/<id>/`; the latest version is the live file, and its copy once the file is gone. The viewer follows each new version unless an older one was picked.
+- A worker's worktree is removed once merged, so its results and changed files are read from the same place in the lead's folder (`team/worktrees.ts` `mergedPath`); its stopped site starts in a fresh conversation there.
+- Light on the app (owner): nothing loads until opened, one preview runs at a time, and the list re-reads every 15 s only while the task's agents work. The desktop app takes a page's or site's picture once per version, the first time it shows at desktop size; images are their own picture, other kinds show an icon.
+- Mark a spot works in the desktop app only (owner). Its picture is taken when the spot is marked and goes with the message as an attachment.
+- A stopped site: "Ask to start it" continues the agent's conversation. Past 100k context tokens the user may pick a fresh conversation instead, briefed from the records, including the command that printed the address. It is cheaper than D-72's handover, because starting a server needs no history (owner asked for the option).
+- Where it shows: an Outputs tab on the task page (switching tabs replaces the view, so Back leaves the task), result cards in the trace and chat, Latest result on an agent's panel, Outputs on a department's panel, and results on the To review and done cards. No app-wide Outputs page (owner).
+- "Open with default app" opens only documents, pictures, media, models and archives (`OPENS_SAFELY`); anything else is shown in its folder.
+
 ## Done
 
 All accepted and built.

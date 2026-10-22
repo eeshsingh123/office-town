@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
 import type { ConnectorHub } from "../connectors/hub.ts";
+import type { OutputServices } from "../outputs/routes.ts";
 import type { Checks } from "../team/checks.ts";
 import type { TeamContext } from "../team/members.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
@@ -18,6 +19,7 @@ export interface ApiOptions {
   connectors: ConnectorHub;
   pauses: UsagePauses;
   checks: Checks;
+  outputs: OutputServices;
   // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -79,6 +81,19 @@ function send(response: ServerResponse, reply: Reply): void {
     response.writeHead(204).end();
     return;
   }
+  if ("bytes" in reply) {
+    response
+      .writeHead(200, {
+        ...reply.headers,
+        "content-type": reply.type,
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff",
+        // Shown as an image or read as text by the app, never run as a page.
+        "content-security-policy": "sandbox",
+      })
+      .end(reply.bytes);
+    return;
+  }
   if ("text" in reply) {
     response.writeHead(200, { "content-type": "text/plain; charset=utf-8" }).end(reply.text);
     return;
@@ -89,9 +104,9 @@ function send(response: ServerResponse, reply: Reply): void {
 }
 
 export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
-  const { team, connectors, pauses, checks, token, port } = options;
+  const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
-  const routes = apiRoutes(team, connectors, pauses, checks);
+  const routes = apiRoutes(team, connectors, pauses, checks, outputs);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");

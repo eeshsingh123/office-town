@@ -6,6 +6,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles } from "../attachments/SentFiles.tsx";
+import { ShownResult } from "../outputs/OutputCards.tsx";
 import { DELEGATION_STATUS } from "../work/delegation-status.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
 import { usePlan } from "../work/use-plan.ts";
@@ -212,6 +213,8 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
       return <p className={styles.notice}>{item.text}</p>;
     case "work":
       return <p className={styles.work}>{item.text}</p>;
+    case "result":
+      return <ShownResult sessionId={item.sessionId} shows={item.shows} />;
     case "delegation":
       return <DelegationEntry thread={item} />;
     case "handoff":

@@ -11,6 +11,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
 import { ConnectorHub } from "../src/connectors/hub.ts";
+import { PreviewServer } from "../src/outputs/preview-server.ts";
+import { TaskFiles } from "../src/outputs/task-files.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
@@ -36,6 +38,7 @@ let directory: string;
 let store: Store;
 let registry: SessionRegistry;
 let server: ApiServer;
+let preview: PreviewServer;
 let sessions: FakeSession[];
 let scratchId: string;
 const streams: AbortController[] = [];
@@ -113,12 +116,23 @@ beforeEach(async () => {
   const connectors = new ConnectorHub(store, registry, memorySecrets());
   const pauses = new UsagePauses(team);
   const checks = new Checks(team);
-  server = await startApiServer({ team, connectors, pauses, checks, token: TOKEN, port: 0 });
+  preview = await PreviewServer.start();
+  const outputs = { preview, files: new TaskFiles(store), ownPorts: new Set<number>() };
+  server = await startApiServer({
+    team,
+    connectors,
+    pauses,
+    checks,
+    outputs,
+    token: TOKEN,
+    port: 0,
+  });
 });
 
 afterEach(async () => {
   for (const stream of streams.splice(0)) stream.abort();
   await server.close();
+  await preview.close();
   await registry.close();
   store.close();
   rmSync(directory, { recursive: true, force: true });

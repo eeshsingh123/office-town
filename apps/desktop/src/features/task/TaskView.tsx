@@ -2,7 +2,7 @@ import { LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp } from "../../store/app-store.ts";
+import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";
@@ -11,6 +11,8 @@ import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { OutputsPane } from "../outputs/OutputsPane.tsx";
+import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
@@ -56,6 +58,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
   const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
   const [asking, setAsking] = useState(false);
+  const tab = useTaskTab(taskId);
 
   useEffect(() => {
     if (agent === undefined) void track(taskId);
@@ -88,7 +91,8 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             </span>
           </div>
         </div>
-        {plan === undefined ? null : <StepsButton plan={plan} />}
+        <TaskTabs taskId={taskId} />
+        {plan === undefined || tab.outputs ? null : <StepsButton plan={plan} />}
         {live ? (
           <Button onClick={() => void api.stop(latest.id)}>
             <Square size={12} aria-hidden />
@@ -135,35 +139,42 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         </div>
       ) : null}
 
-      <div className={styles.body}>
-        <div className={styles.column}>
-          <RunCard agent={agent} />
-          <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
-            <div className={styles.traceWidth}>
-              {agent.sessions.map((session, index) => (
-                <Fragment key={session.id}>
-                  {index === 0 ? null : (
-                    <div className={styles.divider}>
-                      Continued at {clockTime(session.createdAt)}
-                    </div>
-                  )}
-                  <SessionTrace session={session} />
-                </Fragment>
-              ))}
-              <ReviewOffer
+      {tab.outputs ? (
+        <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+      ) : (
+        <div className={styles.body}>
+          <div className={styles.column}>
+            <RunCard agent={agent} />
+            <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
+              <div className={styles.traceWidth}>
+                {agent.sessions.map((session, index) => (
+                  <Fragment key={session.id}>
+                    {index === 0 ? null : (
+                      <div className={styles.divider}>
+                        Continued at {clockTime(session.createdAt)}
+                      </div>
+                    )}
+                    <SessionTrace session={session} />
+                  </Fragment>
+                ))}
+                <ReviewOffer
+                  agent={agent}
+                  members={[agent]}
+                  suggest={(progress?.stepCount ?? 0) >= LONG_TASK_STEPS}
+                  onReview={() => setAsking(true)}
+                />
+              </div>
+            </div>
+            <div className={`${styles.traceWidth} ${styles.dock}`}>
+              <MessageBox
                 agent={agent}
-                members={[agent]}
-                suggest={(progress?.stepCount ?? 0) >= LONG_TASK_STEPS}
-                onReview={() => setAsking(true)}
+                actions={<ReviewAction onClick={() => setAsking(true)} />}
               />
             </div>
           </div>
-          <div className={`${styles.traceWidth} ${styles.dock}`}>
-            <MessageBox agent={agent} actions={<ReviewAction onClick={() => setAsking(true)} />} />
-          </div>
+          {plan === undefined ? null : <StepsColumn plan={plan} />}
         </div>
-        {plan === undefined ? null : <StepsColumn plan={plan} />}
-      </div>
+      )}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </section>
   );

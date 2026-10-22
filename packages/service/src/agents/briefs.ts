@@ -30,9 +30,13 @@ export function instructionsFor(store: Store, agent: AgentRecord): string | unde
 const CHECKLIST_ASK =
   "If your work changes files, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run it, and what changed. The user can have a fresh agent run it.";
 
+// Claude defers this tool too (M8).
+export const SHOW_ASK =
+  "When you make something the user should look at, such as a page, mockup, image, document or a running site, show it to them with show_result.";
+
 // The user's words as they are, after what the agent reads first, if anything.
 export function soloMessage(prompt: string, instructions: string | undefined): Message {
-  const task = `Your task:\n${prompt}\n\n${CHECKLIST_ASK}`;
+  const task = `Your task:\n${prompt}\n\n${SHOW_ASK} ${CHECKLIST_ASK}`;
   if (instructions === undefined) {
     return { text: task, origin: { kind: "brief", summary: "The task, then its checklist" } };
   }

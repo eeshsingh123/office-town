@@ -218,6 +218,32 @@ function addChecks(db: DatabaseSync): void {
   `);
 }
 
+function addOutputs(db: DatabaseSync): void {
+  db.exec(`
+  -- Results agents showed the user (M8). Versions are JSON as the contract has them; their copies
+  -- live in outputs/<id>/ beside the database.
+  CREATE TABLE IF NOT EXISTS outputs (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    task_ref    INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    agent_ref   INTEGER NOT NULL REFERENCES agents (ref),
+    session_id  TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('file', 'site')),
+    target      TEXT NOT NULL,
+    versions    TEXT NOT NULL,
+    pictured_at INTEGER,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    UNIQUE (task_ref, kind, target)
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS outputs_by_task ON outputs (task_ref, updated_at);
+  CREATE INDEX IF NOT EXISTS outputs_by_agent ON outputs (agent_ref);
+  CREATE INDEX IF NOT EXISTS outputs_by_time ON outputs (updated_at);
+  `);
+}
+
 function addDepartmentWorkspaces(db: DatabaseSync): void {
   db.exec(`
   -- A department's workspaces besides its default, which stays departments.workspace_ref.
@@ -633,4 +659,5 @@ export const migrations: readonly Migration[] = [
   `,
   addTaskPause,
   addChecks,
+  addOutputs,
 ];

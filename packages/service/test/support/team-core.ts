@@ -12,6 +12,9 @@ import { AppRequests } from "../../src/connectors/request-app.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
+import { PreviewServer } from "../../src/outputs/preview-server.ts";
+import { showResult } from "../../src/outputs/show-result.ts";
+import { TaskFiles } from "../../src/outputs/task-files.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import {
   type HarnessSessionFactory,
@@ -129,12 +132,15 @@ export async function startCore(dataFolder: string): Promise<Core> {
     addToLibrary(team),
     changeLibrary(team),
     new AppRequests(store, registry).tool(),
+    showResult(team),
   ]);
+  const preview = await PreviewServer.start();
   const server: ApiServer = await startApiServer({
     team,
     connectors,
     pauses,
     checks,
+    outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
     token: TOKEN,
     port: 0,
   });
@@ -179,6 +185,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     },
     async close() {
       await server.close();
+      await preview.close();
       await registry.close();
       await tools.close();
       await connectors.close();

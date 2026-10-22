@@ -23,6 +23,7 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   },
   report_check: { kind: "other", title: (input) => `Reported ${count(input.results)} results` },
   propose_plan: { kind: "other", title: () => "Proposed a plan" },
+  show_result: { kind: "other", title: (input) => `Showed you ${words(input.title)}` },
   message_lead: {
     kind: "other",
     title: (input) => `Messaged the lead of ${words(input.department)}`,
@@ -56,4 +57,22 @@ export function appAction(tool: { server: string; name: string }, input: unknown
   const fields = input !== null && typeof input === "object" ? (input as Input) : {};
   if (tool.name !== "use_app_tool") return { app: words(fields.app), title: "Looked up its apps" };
   return { app: words(fields.app), title: callTitle(words(fields.tool), fields.arguments) };
+}
+
+// What a show_result call showed, as the agent gave it (M8).
+export interface ShownInput {
+  title: string;
+  path?: string;
+  url?: string;
+}
+
+export function shownInput(input: unknown): ShownInput | undefined {
+  if (input === null || typeof input !== "object") return undefined;
+  const { title, path, url } = input as Input;
+  if (typeof title !== "string" || title.trim() === "") return undefined;
+  return {
+    title: title.trim(),
+    ...(typeof path === "string" ? { path } : {}),
+    ...(typeof url === "string" ? { url } : {}),
+  };
 }

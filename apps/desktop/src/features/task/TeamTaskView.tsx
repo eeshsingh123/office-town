@@ -1,14 +1,15 @@
 import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { type AgentState, progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
+import { OutputsPane } from "../outputs/OutputsPane.tsx";
+import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useModelName } from "../profiles/model-line.ts";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
@@ -120,6 +121,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const lead = members.find((member) => member.id === task?.leadAgentId) ?? members[0];
   const [chosenId, setChosenId] = useState<string>();
   const [asking, setAsking] = useState(false);
+  const tab = useTaskTab(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
   const follow = useFollow(`${shown?.id}:${trace?.position}:${trace?.streaming[""]?.length}`);
@@ -178,6 +180,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             </span>
           </div>
         </div>
+        <TaskTabs taskId={taskId} />
         {open ? (
           <StopTeamButton
             taskId={taskId}
@@ -185,111 +188,117 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           />
         ) : null}
       </header>
-      <div className={styles.body}>
-        <nav className={team.members} aria-label="Who works on this">
-          <div className={team.heading}>
-            <span className={team.label}>Who works on this</span>
-            <span className={team.headCount}>
-              {members.length - visitors.length} people
-              {working === 0 ? "" : ` · ${working} at work`}
-            </span>
-          </div>
-          <MemberRow
-            agent={lead}
-            state={stateById.get(lead.id) ?? "idle"}
-            chosen={shown.id === lead.id}
-            lead
-            onChoose={() => setChosenId(lead.id)}
-          />
-          {workers.length === 0 ? null : (
-            <div className={team.tree}>
-              {groups.map(({ role, people }, index) => (
-                <Fragment key={role}>
-                  <div className={`${team.branch} ${team.group}`}>
-                    <span className={team.groupName}>{role || "Team"}</span>
-                    <span className={team.groupCount}>{people.length}</span>
-                    <span className={team.groupSummary}>
-                      {summaryOf(people.map((one) => stateById.get(one.id) ?? "idle"))}
-                    </span>
-                  </div>
-                  {people.map((worker, at) => {
-                    const state = stateById.get(worker.id) ?? "idle";
-                    const last = index === groups.length - 1 && at === people.length - 1;
-                    const live = state === "working" || state === "starting";
-                    return (
-                      <div
-                        key={worker.id}
-                        className={`${team.branch} ${last ? team.last : ""} ${live ? team.live : ""}`}
-                      >
-                        <MemberRow
-                          agent={worker}
-                          state={state}
-                          chosen={shown.id === worker.id}
-                          number={
-                            people.length > 1 ? roleNumber(worker.record.role ?? "") : undefined
-                          }
-                          onChoose={() => setChosenId(worker.id)}
-                        />
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              ))}
+      {tab.outputs ? (
+        <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+      ) : (
+        <div className={styles.body}>
+          <nav className={team.members} aria-label="Who works on this">
+            <div className={team.heading}>
+              <span className={team.label}>Who works on this</span>
+              <span className={team.headCount}>
+                {members.length - visitors.length} people
+                {working === 0 ? "" : ` · ${working} at work`}
+              </span>
             </div>
-          )}
-          {visitors.length === 0 ? null : (
-            <>
-              <span className={`${team.label} ${team.visiting}`}>Reviewers</span>
-              {visitors.map((visitor) => (
-                <MemberRow
-                  key={visitor.id}
-                  agent={visitor}
-                  chosen={shown.id === visitor.id}
-                  state={stateById.get(visitor.id) ?? "idle"}
-                  visiting
-                  onChoose={() => setChosenId(visitor.id)}
-                />
-              ))}
-            </>
-          )}
-        </nav>
-        <MemberLinks.Provider value={setChosenId}>
-          <div className={styles.column}>
-            <RunCard agent={shown} />
-            <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
-              <div className={styles.traceWidth}>
-                {shown.sessions.map((session, index) => (
-                  <Fragment key={session.id}>
-                    {index === 0 ? null : (
-                      <div className={styles.divider}>
-                        Continued at {clockTime(session.createdAt)}
-                      </div>
-                    )}
-                    <SessionTrace session={session} />
+            <MemberRow
+              agent={lead}
+              state={stateById.get(lead.id) ?? "idle"}
+              chosen={shown.id === lead.id}
+              lead
+              onChoose={() => setChosenId(lead.id)}
+            />
+            {workers.length === 0 ? null : (
+              <div className={team.tree}>
+                {groups.map(({ role, people }, index) => (
+                  <Fragment key={role}>
+                    <div className={`${team.branch} ${team.group}`}>
+                      <span className={team.groupName}>{role || "Team"}</span>
+                      <span className={team.groupCount}>{people.length}</span>
+                      <span className={team.groupSummary}>
+                        {summaryOf(people.map((one) => stateById.get(one.id) ?? "idle"))}
+                      </span>
+                    </div>
+                    {people.map((worker, at) => {
+                      const state = stateById.get(worker.id) ?? "idle";
+                      const last = index === groups.length - 1 && at === people.length - 1;
+                      const live = state === "working" || state === "starting";
+                      return (
+                        <div
+                          key={worker.id}
+                          className={`${team.branch} ${last ? team.last : ""} ${live ? team.live : ""}`}
+                        >
+                          <MemberRow
+                            agent={worker}
+                            state={state}
+                            chosen={shown.id === worker.id}
+                            number={
+                              people.length > 1 ? roleNumber(worker.record.role ?? "") : undefined
+                            }
+                            onChoose={() => setChosenId(worker.id)}
+                          />
+                        </div>
+                      );
+                    })}
                   </Fragment>
                 ))}
-                {shown.id === lead.id ? (
-                  <ReviewOffer
-                    agent={lead}
-                    members={members}
-                    suggest
-                    onReview={() => setAsking(true)}
-                    onShow={setChosenId}
+              </div>
+            )}
+            {visitors.length === 0 ? null : (
+              <>
+                <span className={`${team.label} ${team.visiting}`}>Reviewers</span>
+                {visitors.map((visitor) => (
+                  <MemberRow
+                    key={visitor.id}
+                    agent={visitor}
+                    chosen={shown.id === visitor.id}
+                    state={stateById.get(visitor.id) ?? "idle"}
+                    visiting
+                    onChoose={() => setChosenId(visitor.id)}
                   />
-                ) : null}
+                ))}
+              </>
+            )}
+          </nav>
+          <MemberLinks.Provider value={setChosenId}>
+            <div className={styles.column}>
+              <RunCard agent={shown} />
+              <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
+                <div className={styles.traceWidth}>
+                  {shown.sessions.map((session, index) => (
+                    <Fragment key={session.id}>
+                      {index === 0 ? null : (
+                        <div className={styles.divider}>
+                          Continued at {clockTime(session.createdAt)}
+                        </div>
+                      )}
+                      <SessionTrace session={session} />
+                    </Fragment>
+                  ))}
+                  {shown.id === lead.id ? (
+                    <ReviewOffer
+                      agent={lead}
+                      members={members}
+                      suggest
+                      onReview={() => setAsking(true)}
+                      onShow={setChosenId}
+                    />
+                  ) : null}
+                </div>
+              </div>
+              <div className={`${styles.traceWidth} ${styles.dock}`}>
+                <MessageBox
+                  agent={shown}
+                  actions={
+                    shown.record.guest ? undefined : (
+                      <ReviewAction onClick={() => setAsking(true)} />
+                    )
+                  }
+                />
               </div>
             </div>
-            <div className={`${styles.traceWidth} ${styles.dock}`}>
-              <MessageBox
-                agent={shown}
-                actions={
-                  shown.record.guest ? undefined : <ReviewAction onClick={() => setAsking(true)} />
-                }
-              />
-            </div>
-          </div>
-        </MemberLinks.Provider>
-      </div>
+          </MemberLinks.Provider>
+        </div>
+      )}
       <ReviewDialog
         key={shown.id}
         agent={shown}

@@ -1,0 +1,975 @@
+/* The list and the viewer each scroll on their own, so the page itself never does (M8). */
+.pane {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 24px 28px;
+  overflow: hidden;
+}
+
+/* Narrower: a slimmer list, so the viewer keeps its height (the app is at least 960 wide). */
+@media (max-width: 1100px) {
+  .pane {
+    grid-template-columns: 224px minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 20px;
+  }
+}
+
+/* Browser mode only: the list sits above the viewer, which still fills the rest. */
+@media (max-width: 860px) {
+  .pane {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .list {
+    max-height: 180px;
+  }
+}
+
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 28px;
+  color: var(--text-2);
+  text-align: center;
+}
+
+.empty strong {
+  color: var(--text);
+  font-size: var(--size-title);
+}
+
+.empty p {
+  max-width: 52ch;
+  margin: 0;
+}
+
+/* List */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  overflow: auto;
+  padding: 2px 4px 2px 2px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupLabel {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 4px;
+  font-size: var(--size-small);
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion);
+}
+
+.item:hover {
+  background: var(--hover);
+}
+
+.chosen,
+.chosen:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.itemText strong {
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.meta > span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.picture {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text-3);
+}
+
+.picture img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.pictureLarge {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.spotted .picture {
+  border-style: dashed;
+}
+
+.liveDot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Other changed files */
+
+.changed {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.changedHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chevron,
+.chevronOpen {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--motion);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.count {
+  margin-left: auto;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+  color: var(--text-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.file:hover {
+  background: var(--hover);
+}
+
+.fileChosen {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.filePath {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fileDir {
+  color: var(--text-3);
+}
+
+.deleted {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--bad);
+}
+
+.more {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Viewer */
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.full {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: 0;
+  border-radius: 0;
+}
+
+.viewerHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 14px 16px 12px 20px;
+}
+
+.viewerTitle {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.viewerTitle h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.kindChip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.byLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.path {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--size-small);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.viewerActions {
+  display: flex;
+  gap: 2px;
+}
+
+.iconButton {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 6px 16px 6px 20px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.toolsStart {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.segment {
+  display: inline-flex;
+  gap: 2px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--hover);
+}
+
+.segment button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.segment button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.sandboxed {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+
+.tools + .body {
+  border-top: 0;
+}
+
+.note {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.note strong {
+  font-size: 15px;
+}
+
+.note p {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--text-2);
+}
+
+.noteActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.loading {
+  padding: 24px 20px;
+  color: var(--text-3);
+}
+
+/* Pages and sites */
+
+.stageWrap {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.addressBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.address {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.address:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.address input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px;
+  background-color: var(--floor);
+  background-image: radial-gradient(var(--desk-line) 1px, transparent 1px);
+  background-size: 16px 16px;
+  overflow: auto;
+}
+
+.device {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  transition: max-width 200ms ease-out;
+}
+
+/* It fills the stage, so the page scrolls inside itself and nothing scrolls around it. */
+.frame {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow-raised);
+}
+
+.frameLoading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.spot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--on-accent);
+  box-shadow:
+    0 0 0 3px rgb(255 255 255 / 85%),
+    0 4px 10px rgb(0 0 0 / 25%);
+  pointer-events: none;
+}
+
+.markLayer {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 4%);
+  cursor: crosshair;
+}
+
+.pdf {
+  flex: 1;
+  width: 100%;
+  border: 0;
+}
+
+/* Images, text, tables */
+
+.imageStage,
+.textStage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.imageTools {
+  display: flex;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.imageScroll {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  min-height: 0;
+  padding: 20px;
+  overflow: auto;
+  background-color: var(--floor);
+}
+
+.imageScroll img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: var(--shadow-raised);
+}
+
+.actual {
+  place-items: start;
+}
+
+.actual img {
+  max-width: none;
+  max-height: none;
+}
+
+.textScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.document {
+  max-width: 72ch;
+  padding: 24px 28px;
+}
+
+.code,
+.diff {
+  margin: 0;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.diffAdd {
+  display: block;
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.diffDel {
+  display: block;
+  background: var(--warn-soft);
+  color: var(--bad);
+}
+
+.diffMeta {
+  display: block;
+  color: var(--text-3);
+}
+
+.table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.cut {
+  margin: 0;
+  padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Asking for changes */
+
+/* One row until the text grows; marked spots wrap below. */
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin: 12px 16px 14px;
+  padding: 6px 6px 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.ask:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.ask textarea {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 22px;
+  max-height: 160px;
+  padding: 7px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+  resize: none;
+  field-sizing: content;
+}
+
+.ask textarea::placeholder {
+  color: var(--text-3);
+}
+
+.askActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.askSpots {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.spotChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.spotChip button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.spotChip button:hover {
+  background: var(--hover);
+}
+
+.spotNumber {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--on-accent);
+}
+
+/* A result as a card, in the chat, a side panel or the review card */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 360px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.cardBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.cardRow {
+  flex-direction: row;
+  align-items: center;
+  padding-left: 10px;
+}
+
+.cardRow .cardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cardText strong {
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cardText span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.stripItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stripItem .picture {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+}
+
+.stripItem > span:last-child {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.row .picture {
+  width: 48px;
+  height: 34px;
+}
+
+/* A pill of its own height, so it sits centred beside the label whatever the font. */
+.tabCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--accent-text);
+}
+
+.review {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.review .strip {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

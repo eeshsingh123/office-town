@@ -5,6 +5,7 @@ import { taskRecordSchema } from "./api.ts";
 import { checkRecordSchema } from "./checks.ts";
 import { connectorRecordSchema } from "./connectors.ts";
 import { libraryItemSchema } from "./library.ts";
+import { outputRecordSchema } from "./outputs.ts";
 import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
 
@@ -23,5 +24,6 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("library.removed"), itemId: z.string().min(1) }),
   z.object({ type: z.literal("connector"), connector: connectorRecordSchema }),
   z.object({ type: z.literal("connector.removed"), connectorId: z.string().min(1) }),
+  z.object({ type: z.literal("output"), output: outputRecordSchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

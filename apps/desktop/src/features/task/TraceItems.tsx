@@ -30,6 +30,7 @@ import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
+import { ShownResult } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
@@ -369,7 +370,12 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
     case undefined:
       return null;
     case "action":
-      return <ActionRow action={item} place={place} />;
+      return (
+        <>
+          <ActionRow action={item} place={place} />
+          <ResultUnder action={item} place={place} />
+        </>
+      );
     case "request":
       return <RequestLine request={item} live={place.live} />;
     case "reasoning":
@@ -416,6 +422,16 @@ interface ActionGroupProps {
   place: Place;
 }
 
+// The card of a result the action showed the user (M8).
+function ResultUnder({ action, place }: { action: TraceAction; place: Place }) {
+  if (action.shows === undefined || action.status !== "completed") return null;
+  return (
+    <div className={styles.under}>
+      <ShownResult sessionId={place.sessionId} shows={action.shows} />
+    </div>
+  );
+}
+
 // Folds into one line once done; while it runs, every action shows.
 export function ActionGroup({ ids, place }: ActionGroupProps) {
   const actions = useApp(
@@ -430,8 +446,11 @@ export function ActionGroup({ ids, place }: ActionGroupProps) {
   const [open, setOpen] = useState<boolean>();
   if (actions.length === 1) {
     const [only] = actions;
-    return (
-      <div className={styles.group}>{only ? <ActionRow action={only} place={place} /> : null}</div>
+    return only === undefined ? null : (
+      <div className={styles.group}>
+        <ActionRow action={only} place={place} />
+        <ResultUnder action={only} place={place} />
+      </div>
     );
   }
   const expanded = open ?? !done;
