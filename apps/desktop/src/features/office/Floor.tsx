@@ -101,7 +101,8 @@ interface FloorProps {
   onOpenChat: (id: string, kind: PanelKind) => void;
 }
 
-const SPEED = 260;
+// Screen pixels per second, the same at any floor scale.
+const SPEED = 480;
 const DIRECTIONS: Record<string, Point> = {
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
@@ -131,7 +132,7 @@ const LEGEND: [LinkState, string][] = [
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Walks once per frame until every key is released.
-function useWalking(plan: FloorPlan) {
+function useWalking(plan: FloorPlan, scale: number) {
   // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they load.
   const [walked, setWalked] = useState<Point>();
   const player = walked ?? plan.start;
@@ -154,15 +155,13 @@ function useWalking(plan: FloorPlan) {
         frame.current = undefined;
         return;
       }
+      const step = (SPEED / scale) * seconds;
       setWalked((at = plan.start) =>
-        clampToFloor(
-          { x: at.x + (x / length) * SPEED * seconds, y: at.y + (y / length) * SPEED * seconds },
-          plan,
-        ),
+        clampToFloor({ x: at.x + (x / length) * step, y: at.y + (y / length) * step }, plan),
       );
       frame.current = requestAnimationFrame(tick);
     },
-    [plan],
+    [plan, scale],
   );
 
   const press = (key: string) => {
@@ -328,21 +327,21 @@ function useWalkFromAnywhere(
 export function Floor(props: FloorProps) {
   const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
   const { onSelect, onOpenRoom, onOpenChat } = props;
-  const { player, press, release } = useWalking(plan);
   const floor = useRef<HTMLDivElement>(null);
+  const scale = useFitScale(floor, plan.width);
+  const { player, press, release } = useWalking(plan, scale);
   const you = useRef<HTMLButtonElement>(null);
   const profile = useYou();
   const yourName = profile.name.trim();
   useWalkFromAnywhere(floor, press);
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
-  const scale = useFitScale(floor, plan.width);
   const { move, handlers, wasClick } = useRoomDrag(plan, scale);
   const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
   const seated = seatedOf(agents, chief, rooms, move);
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
-  // Walking into a room opens its panel.
+  // Walking into a room opens its panel; walking out closes it if it is still the one open.
   const inside = useRef<string | undefined>(undefined);
 
   const focus = useApp((state) => state.focus);
@@ -368,6 +367,8 @@ export function Floor(props: FloorProps) {
     const standingIn = roomAt(player, plan);
     const entered = standingIn?.kind === "department" ? standingIn.id : undefined;
     if (entered !== undefined && entered !== inside.current) onOpenRoom(entered);
+    else if (entered === undefined && inside.current !== undefined && room === inside.current)
+      onSelect([]);
     inside.current = entered;
   }, [player]);
 
