@@ -92,6 +92,20 @@ const install: InstallSupport = {
   windows: "npm install -g opencode-ai",
   unix: "curl -fsSL https://opencode.ai/install | bash",
   page: "https://opencode.ai/download",
+  // Windows has no installer of its own (owner): npm or Scoop when one is here, else the command.
+  installers: {
+    windows: [
+      { needs: "npm", command: { binary: "npm", args: ["install", "-g", "opencode-ai"] } },
+      { needs: "scoop", command: { binary: "scoop", args: ["install", "opencode"] } },
+    ],
+    unix: [
+      {
+        needs: "curl",
+        command: { binary: "bash", args: ["-c", "curl -fsSL https://opencode.ai/install | bash"] },
+      },
+    ],
+  },
+  folder: ".opencode/bin",
 };
 
 // Its global config and global instructions still load (D-41).

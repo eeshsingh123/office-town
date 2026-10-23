@@ -232,6 +232,18 @@ const install: InstallSupport = {
   windows: "irm https://claude.ai/install.ps1 | iex",
   unix: "curl -fsSL https://claude.ai/install.sh | bash",
   page: "https://claude.com/claude-code",
+  installers: {
+    // Defender flags its one-line installer run from another app as a trojan, so Windows users run
+    // it themselves (owner, D-75).
+    windows: [],
+    unix: [
+      {
+        needs: "curl",
+        command: { binary: "bash", args: ["-c", "curl -fsSL https://claude.ai/install.sh | bash"] },
+      },
+    ],
+  },
+  folder: ".local/bin",
 };
 
 export const claudeAdapter: Adapter = {

@@ -21,6 +21,7 @@ import { type CommandResult, runIn } from "./command.ts";
 import type { Environment } from "./environment/environment.ts";
 import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
+import { canInstallHarness } from "./install.ts";
 import { runProcess } from "./process-runner.ts";
 import { HarnessSession, type Session } from "./session.ts";
 import { readSignInPage, readVendorApps } from "./vendor-apps.ts";
@@ -30,6 +31,12 @@ export { UnknownHarnessError } from "./adapters/registry.ts";
 export { CatalogError } from "./catalog.ts";
 export type { CommandResult } from "./command.ts";
 export { BinaryNotFoundError } from "./environment/find-binary.ts";
+export {
+  addInstallFoldersToPath,
+  type InstallExit,
+  type RunningInstall,
+  startHarnessInstall,
+} from "./install.ts";
 export {
   type CoreReport,
   type HarnessLine,
@@ -248,19 +255,21 @@ export function accountCredentials(harness: string): string | undefined {
 export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
   const { install } = findAdapter(harness);
   const environment = environmentFor({ kind: "native" });
-  // Both at once: each starts the CLI, which takes most of a second.
-  const [installed, signIn] = await Promise.all([
+  // At once: each starts the CLI, which takes most of a second.
+  const [installed, signIn, canInstall] = await Promise.all([
     install === undefined ||
       runIn(environment, install.version).then(
         (result) => result.code === 0,
         () => false,
       ),
     readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined),
+    canInstallHarness(harness),
   ]);
   const status = installed ? signIn : undefined;
   return {
     harness,
     installed,
+    canInstall,
     ...(status === undefined ? {} : { signedIn: status.signedIn }),
     ...(install === undefined
       ? {}

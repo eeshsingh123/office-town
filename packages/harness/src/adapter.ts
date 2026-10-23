@@ -118,12 +118,24 @@ export interface AccountSupport {
 }
 
 // How a user gets the CLI, in the vendor's own words, for setup.
+// One way the vendor installs its CLI, run as is (D-6, D-75).
+export interface Installer {
+  // A program it cannot run without; the first installer whose program is here runs.
+  needs: string;
+  command: HarnessCommand;
+}
+
 export interface InstallSupport {
   // Exits 0 when the CLI is installed.
   version: HarnessCommand;
+  // What setup shows the user to run, and the vendor's page.
   windows: string;
   unix: string;
   page: string;
+  installers: { windows: Installer[]; unix: Installer[] };
+  // Where the installer puts the CLI, under the home folder. Its PATH change reaches only new
+  // terminals, so the app adds this folder itself.
+  folder?: string;
 }
 
 // Apps the vendor connects for a login itself, such as the user's claude.ai connectors (D-68).

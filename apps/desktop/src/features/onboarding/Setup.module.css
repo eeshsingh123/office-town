@@ -147,8 +147,26 @@
 }
 
 .missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-2);
   font-weight: 600;
+}
+
+.installLine {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--size-meta);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.installFailed {
+  margin: 0;
+  color: var(--bad);
 }
 
 .install {

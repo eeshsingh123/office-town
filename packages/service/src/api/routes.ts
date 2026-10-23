@@ -69,6 +69,7 @@ import {
 import type { UsagePauses } from "../team/usage-pause.ts";
 import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
+import { installRoutes } from "./install-routes.ts";
 
 const isRunning = (session: { status: string }) =>
   session.status === "starting" || session.status === "running";
@@ -109,6 +110,7 @@ export function apiRoutes(
   const { registry, store, readCatalog } = team;
   return [
     ...accountRoutes(team),
+    ...installRoutes(),
     {
       method: "POST",
       path: "/accounts/:id/resume-paused",
