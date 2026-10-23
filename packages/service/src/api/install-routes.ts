@@ -18,7 +18,7 @@ function failureMessage(code: number | null, stderr: string, line: string | unde
 }
 
 // Setup's Install button (D-75): one installer per AI app at a time, and the UI asks how it went.
-export function installRoutes(): Route[] {
+export function installRoutes(start: typeof startHarnessInstall = startHarnessInstall): Route[] {
   const installs = new Map<string, HarnessInstall>();
   return [
     {
@@ -30,7 +30,7 @@ export function installRoutes(): Route[] {
         if (running?.state === "running") return { status: 200, json: running };
         let install: HarnessInstall = { state: "running" };
         installs.set(harness, install);
-        const process = await startHarnessInstall(harness, (output) => {
+        const installer = await start(harness, (output) => {
           const line = progressLine(output);
           if (line === "") return;
           install = { ...install, line };
@@ -39,12 +39,12 @@ export function installRoutes(): Route[] {
           installs.delete(harness);
           throw error;
         });
-        if (process === undefined) {
+        if (installer === undefined) {
           installs.delete(harness);
           throw new RequestError(400, "invalid_request", "This app cannot be installed from here.");
         }
-        const timer = setTimeout(() => void process.stop(), INSTALL_TIMEOUT_MS);
-        void process.exited.then(({ code, stderr }) => {
+        const timer = setTimeout(() => void installer.stop(), INSTALL_TIMEOUT_MS);
+        void installer.exited.then(({ code, stderr }) => {
           clearTimeout(timer);
           install =
             code === 0

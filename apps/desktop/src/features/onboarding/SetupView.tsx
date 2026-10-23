@@ -7,7 +7,7 @@ import type {
 } from "@office-town/contract";
 import { Check, Copy, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../api/client.ts";
+import { ApiRequestError, api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { loadWorkspaces, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -129,10 +129,10 @@ function InstallCommand({
 }
 
 // The vendor's own installer, run by the core (D-75); the page asks how it is going.
-function useInstalls(onInstalled: (harness: string) => void) {
+function useInstalls(onEnded: (harness: string) => void) {
   const [installs, setInstalls] = useState<Record<string, HarnessInstall>>({});
-  const installed = useRef(onInstalled);
-  installed.current = onInstalled;
+  const ended = useRef(onEnded);
+  ended.current = onEnded;
   const running = Object.keys(installs).filter((harness) => installs[harness]?.state === "running");
   const runningKey = running.join(",");
   useEffect(() => {
@@ -143,9 +143,14 @@ function useInstalls(onInstalled: (harness: string) => void) {
           .readHarnessInstall(harness)
           .then((next) => {
             setInstalls((all) => ({ ...all, [harness]: next }));
-            if (next.state === "done") installed.current(harness);
+            if (next.state === "done") ended.current(harness);
           })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            // The core restarted and lost the installer, so the app's own check says how it ended.
+            if (!(error instanceof ApiRequestError) || error.status !== 404) return;
+            setInstalls(({ [harness]: _lost, ...others }) => others);
+            ended.current(harness);
+          });
       }
     }, INSTALL_POLL_MS);
     return () => clearInterval(timer);
