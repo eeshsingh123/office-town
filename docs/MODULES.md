@@ -113,6 +113,21 @@ Out of scope until the owner asks for the release: publishing a stable version, 
 - The final name (the app id `town.office.desktop` stays, so renaming breaks no updates or data).
 - Then: run the stable workflow, add the README Download link.
 
+### M10 Voice input (D-76; next, built in a new session)
+
+Speak instead of typing in any text box, on this computer and free. It is the base for a later live mode: walking the avatar up to an agent in the Office and talking to it. No AI app takes audio, so the core turns speech into text, and the text goes through the existing send commands. `harness`, `team` and `chief` do not change.
+
+- Capture (renderer): one `useDictation` hook that records mono 16 kHz PCM through an AudioWorklet, so the core needs no audio decoder. The Electron shell grants `media` only to the app's own origin.
+- Transcribe (core): `packages/service/src/speech` with `POST /speech/transcribe` (PCM in, text out) behind one `SpeechProvider` interface: `transcribe(samples)` now, `stream` added for live mode. The v1 provider is `sherpa-onnx-node` (Apache-2.0, CPU, prebuilt for Windows and Linux). No cloud provider and no GPU.
+- Model: downloaded on first enable into `<data folder>/speech/`, with progress. It loads on first use and unloads after 5 idle minutes, which keeps RAM free for agents. Parakeet TDT 0.6B v3 int8 (more accurate, 25 European languages) is the lead pick, with Moonshine base (English, smallest) as the fallback. A benchmark on the owner's laptop (8 GB RAM, GTX 1650, CPU only) settles it. The bar: a 30 s clip transcribes in under 2 s.
+- UI: holding Ctrl+Space anywhere in the app dictates into the focused field. A quick tap starts and stops instead, for anyone who cannot hold a key, and Esc throws the recording away. The text is inserted at the cursor and an `input` event fires, so every text box works with no per-field code. A mic button sits only on `new-task/Composer.tsx`, `chat/Composer.tsx` and `task/MessageBox.tsx`. Text is never sent by itself. Settings gets a Voice section: on/off, the model download and the push-to-talk key.
+- Store: audio is never saved; only the text the user sends is.
+- Contract: speech settings and the transcribe route, changed first.
+
+Out of scope: live talk with agents (streaming, voice detection, reading replies aloud; sherpa-onnx covers all three later), voice commands, auto-send, cloud providers, GPU.
+
+Languages: English first, then the other languages Parakeet v3 covers (Spanish, French, German and more). Hindi, Chinese, Japanese and Arabic would need a Whisper model, in the same library.
+
 ## Later modules (outline only)
 
 - **Deferred.** Agent memory (owner, 2026-10-23): the harnesses keep their own, so an app layer adds little; back only if the owner raises it. macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.

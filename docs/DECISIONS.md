@@ -361,6 +361,17 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Setup's Install: OpenCode on Windows through npm or Scoop when one is there, else the command (owner). Claude Code on Windows keeps the copy command: Defender flagged its one-line installer run hidden from the app as `Trojan:Win32/Commando.A!ml` (owner, 2026-10-23); look again once the app is signed. Setup checks again when the window regains focus, never on a timer (owner). WSL installs are not built: setup checks the native install only.
 - The core adds the vendors' install folders (`~/.local/bin`, `~/.opencode/bin`) to its PATH, which an app started from a menu does not inherit.
 
+### D-76 Voice input runs on this computer — accepted (2026-10-24)
+
+- Speech becomes text in the core, and the text goes through the existing send commands. No AI app takes audio, so voice cannot ride the user's subscription, and agents never see audio.
+- Transcription is on-device, CPU only, through `sherpa-onnx-node`. Parakeet TDT 0.6B v3 int8 is the lead pick (owner), with Moonshine base as the fallback; M10's first step benchmarks both on the owner's laptop (8 GB RAM, GTX 1650) against a 30 s clip in under 2 s. Check the chosen model's licence before it ships.
+- No cloud provider: Groq or OpenAI could cost the user money. No GPU: a 4 GB card does not fit the larger models, and CUDA or Vulkan builds add packaging work. No browser speech API: it fails in Electron without Google's keys.
+- Dictation is push-to-talk into the focused field and never sends by itself. Audio is never stored.
+- The key is Ctrl+Space, changeable in Settings: hold to talk, a quick tap toggles (no holding needed), Esc cancels. It is a common default for dictation apps and the app does not use it yet. Ctrl+Win (Wispr Flow, OpenWhispr) is out: those apps grab it system-wide, and a page cannot stop Windows acting on the Win key. The key works only while the app is focused, so it never collides with another app's dictation.
+- Languages: English first, plus Parakeet v3's European languages. Others need a Whisper model.
+- Live talk with agents (the avatar in the Office) is later: speech to text, the agent, then text read aloud by the same library. A voice-to-voice model as the agent is ruled out: it would be a second brain beside the agent's own AI app.
+Why: free and offline for every user, one dependency now and for live mode later, and no change to the harness, team or chief code.
+
 ## Done
 
 All accepted and built.
