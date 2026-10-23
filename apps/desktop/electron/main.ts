@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OPENS_SAFELY, taskPageSchema } from "@office-town/contract";
 import {
@@ -23,7 +23,10 @@ const file = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const ICON = file("./icon.png");
 const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
-const CORE_ENTRY = file("../../../packages/service/src/main.ts");
+// Installed, the core is plain JS outside the archive (D-75); otherwise the sources run (D-19).
+const CORE_ENTRY = app.isPackaged
+  ? join(process.resourcesPath, "core", "main.mjs")
+  : file("../../../packages/service/src/main.ts");
 const QUIT_CHECK_TIMEOUT_MS = 3000;
 
 // The core runs on Electron's own Node, so users install no Node (D-34).

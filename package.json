@@ -16,7 +16,8 @@
     "dev:catalog": "node packages/harness/dev/catalog.ts",
     "dev:core": "node packages/service/src/main.ts",
     "dev:web": "node apps/desktop/dev/web.ts",
-    "dev:app": "pnpm --filter @office-town/desktop build && pnpm --filter @office-town/desktop start"
+    "dev:app": "pnpm --filter @office-town/desktop build && pnpm --filter @office-town/desktop start",
+    "package": "node apps/desktop/packaging/package.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
