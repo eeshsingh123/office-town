@@ -343,6 +343,18 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Where it shows: an Outputs tab on the task page (switching tabs replaces the view, so Back leaves the task), result cards in the trace and chat, Latest result on an agent's panel, Outputs on a department's panel, and results on the To review and done cards. No app-wide Outputs page (owner).
 - "Open with default app" opens only documents, pictures, media, models and archives (`OPENS_SAFELY`); anything else is shown in its folder.
 
+### D-75 Packaging: an internal beta first, the release on the owner's word — accepted (2026-10-23)
+
+- Packaging comes before any new feature module; agent memory is deferred (owner): the harnesses keep their own memory.
+- electron-builder: a per-user one-click installer (no admin, no questions) on Windows and an AppImage on Linux, with electron-updater for updates. Forge's Squirrel installer cannot update an AppImage, so one tool covers both platforms. macOS stays parked (D-23).
+- Only the installer has a build step; development keeps running the sources (D-19).
+- Two channels. Every merge to `main` publishes a beta, and only the owner's app follows betas, so a breaking change reaches the owner first. A stable release goes to users only when the owner has tested a beta and asks; the agent never runs the stable workflow on its own. Until then nothing is on the stable channel.
+- An update installs on quit or on "Restart to update", never while an agent runs. Users' stores now outlive versions: a migration never loses data, and the core copies `store.db` before it runs one.
+- The dev app is "Office Town Dev" with its own data folder, so it runs next to the installed app.
+- Setup offers to install Claude Code and OpenCode by running the vendor's official installer. D-6 holds: we still run the unmodified binary, and it signs in by itself.
+- Open, before P3: where betas are published. A prerelease on the public repo needs no setup but anyone can find it; a private releases repo keeps betas hidden but needs a read token on the owner's machine. Recommended: public prereleases, since the code is public already.
+- Open, before the release: signing (recommended: unsigned now, apply to SignPath Foundation, free for open source), the intro video (discuss first), the final name. The app id `town.office.desktop` never changes, so a rename keeps updates and data.
+
 ## Done
 
 All accepted and built.

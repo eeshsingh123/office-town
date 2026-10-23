@@ -1,13 +1,13 @@
 # Memory
 
-Last updated: 2026-10-22
+Last updated: 2026-10-23
 
 ## State
 
-- Built and merged to `main`: M1 to M7, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #64 (2026-10-22).
+- Built and merged to `main`: M1 to M8, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #65 (2026-10-23).
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
-- M8 Outputs and preview (D-74) is in review as PR #65 on `feat/outputs`. Mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Next: agent memory, once discussed with the owner.
+- M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
+- Active: M9 Packaging (D-75) on `feat/packaging`; nothing built yet, start at P1 in MODULES.md. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
 ## Not checked yet
@@ -46,7 +46,6 @@ Worth a click when touched.
 
 ## Owner requirements not yet built
 
-- Agent memory: its own module after a design discussion (MODULES.md). Library agent writes may be reworked with it (D-64).
 - "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked in D-57.
 - Telling the user a CLI is out of date (D-58; needs a contract change).
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
@@ -54,7 +53,8 @@ Worth a click when touched.
 
 ## Open questions for the owner
 
-- Where agent memory sits in the order; code signing for the installer; the final name.
+- Before P3: betas on public prereleases or a private releases repo (D-75).
+- Before the release: code signing, the intro video (a discussion), the final name.
 
 ## What the harnesses do
 
@@ -87,7 +87,7 @@ Worth a click when touched.
 - A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45). Under Bypass, Claude app calls run without the app's permission (D-68).
 - A Claude agent's apps are read before each launch (1 to 2 s; up to 10 s before the run goes on with its apps off).
 - Under Full a shell command, and under Bypass anything, could still change an upstream read-only folder; the plan card warns. One chief, one chief goal at a time.
-- The app runs from the repository; the installer is the last module.
+- The app runs from the repository until M9 P1 lands.
 
 ## Reference notes
 
