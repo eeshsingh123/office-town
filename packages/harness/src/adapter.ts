@@ -117,7 +117,6 @@ export interface AccountSupport {
   readLimits?: (credentials: string) => Promise<UsageLimit[] | undefined>;
 }
 
-// How a user gets the CLI, in the vendor's own words, for setup.
 // One way the vendor installs its CLI, run as is (D-6, D-75).
 export interface Installer {
   // A program it cannot run without; the first installer whose program is here runs.
@@ -125,6 +124,7 @@ export interface Installer {
   command: HarnessCommand;
 }
 
+// How a user gets the CLI, in the vendor's own words, for setup.
 export interface InstallSupport {
   // Exits 0 when the CLI is installed.
   version: HarnessCommand;

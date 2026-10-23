@@ -255,7 +255,7 @@ export function accountCredentials(harness: string): string | undefined {
 export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
   const { install } = findAdapter(harness);
   const environment = environmentFor({ kind: "native" });
-  // At once: each starts the CLI, which takes most of a second.
+  // At once: the first two each start the CLI, which takes most of a second.
   const [installed, signIn, canInstall] = await Promise.all([
     install === undefined ||
       runIn(environment, install.version).then(

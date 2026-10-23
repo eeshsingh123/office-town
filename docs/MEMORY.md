@@ -8,7 +8,7 @@ Last updated: 2026-10-23
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
 - Active: M9 Packaging (D-75), P1 to P5 built on `feat/packaging`, PR open. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
-- The owner's machine runs the installed app (`%LOCALAPPDATA%Programsoffice-town`) on the default data folder; development runs on `OfficeTown Dev`. The first CI beta appears after the PR merges and CI passes on `main`.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder; development runs on `OfficeTown Dev`. The first CI beta appears after the PR merges and CI passes on `main`.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
 ## Not checked yet
