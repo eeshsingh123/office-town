@@ -165,6 +165,9 @@ async function restartToUpdate(): Promise<void> {
   if (waiting?.ready() === undefined || !(await agreeToStopAgents("update"))) return;
   await stopCore();
   waiting.install();
+  // If the updater cannot start the installer it does not quit, and the app would be left with no
+  // window and no tray.
+  app.quit();
 }
 
 // Every way of quitting passes here, so the core always gets to record its agents as interrupted.
