@@ -1,4 +1,6 @@
 import type { Display } from "@office-town/contract";
+import { useEffect, useState } from "react";
+import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
@@ -81,12 +83,22 @@ function DisplaySettings() {
   );
 }
 
+function useAppVersion(): string | undefined {
+  const [version, setVersion] = useState<string>();
+  useEffect(() => {
+    void shell?.appVersion().then(setVersion);
+  }, []);
+  return version;
+}
+
 function WhatsNew() {
+  const version = useAppVersion();
   return (
     <section className={styles.card} aria-labelledby="help-new">
       <h2 id="help-new" className={styles.cardTitle}>
         What's new
       </h2>
+      {version === undefined ? null : <p className={styles.version}>Version {version}</p>}
       {RELEASES.map((release) => (
         <div key={release.date} className={styles.release}>
           <h3 className={styles.date}>{release.date}</h3>

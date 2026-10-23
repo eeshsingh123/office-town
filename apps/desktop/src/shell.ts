@@ -11,6 +11,13 @@ interface ShellBridge {
   openFile(path: string): Promise<void>;
   // A PNG of that part of the window, in page pixels, at most `width` wide.
   capture(area: Area, width?: number): Promise<Uint8Array>;
+  appVersion(): Promise<string>;
+  // The version downloaded and waiting for a restart; null while there is none.
+  updateReady(): Promise<string | null>;
+  // Returns a function that stops listening.
+  onUpdateReady(listener: (version: string) => void): () => void;
+  // Asks first when agents are open; does nothing if the user cancels.
+  restartToUpdate(): Promise<void>;
 }
 
 export interface Area {

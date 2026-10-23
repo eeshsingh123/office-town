@@ -11,11 +11,13 @@ import {
   PanelLeftOpen,
   Plug,
   Plus,
+  RefreshCw,
   Search,
   SwatchBook,
   Users,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import { shell } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -115,6 +117,38 @@ function ConnectorDot() {
   );
 }
 
+function useUpdateReady(): string | undefined {
+  const [version, setVersion] = useState<string>();
+  useEffect(() => {
+    if (shell === undefined) return;
+    const stop = shell.onUpdateReady(setVersion);
+    void shell.updateReady().then((ready) => {
+      if (ready !== null) setVersion(ready);
+    });
+    return stop;
+  }, []);
+  return version;
+}
+
+// Only once an update has downloaded. It installs on quit anyway; this installs it now.
+function UpdateItem() {
+  const version = useUpdateReady();
+  const rail = useRailLabel("Restart to update");
+  if (version === undefined) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.nav} ${styles.update}`}
+      title={`Version ${version} is ready`}
+      onClick={() => void shell?.restartToUpdate()}
+      {...rail}
+    >
+      <RefreshCw size={16} aria-hidden />
+      <span className={styles.text}>Restart to update</span>
+    </button>
+  );
+}
+
 // The person using the app, at the very bottom.
 function YouItem() {
   const you = useYou();
@@ -204,6 +238,7 @@ export function Sidebar() {
           </>
         )}
         <div className={styles.footer}>
+          <UpdateItem />
           <NavItem view="help" icon={CircleHelp} label="Help" />
           <ConnectionStatus />
           <YouItem />

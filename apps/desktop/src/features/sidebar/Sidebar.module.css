@@ -143,6 +143,11 @@
   color: var(--text);
 }
 
+.update,
+.update:hover {
+  color: var(--accent);
+}
+
 .nav[aria-current="page"] {
   background: var(--surface);
   color: var(--text);

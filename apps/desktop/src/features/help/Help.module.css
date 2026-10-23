@@ -44,6 +44,12 @@
   font-size: var(--size-title);
 }
 
+.version {
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
 .list {
   display: flex;
   flex-direction: column;

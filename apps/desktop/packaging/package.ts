@@ -151,6 +151,8 @@ await makeInstaller({
       owner: "eeshsingh123",
       repo: "office-town",
       releaseType: values.stable ? "release" : "prerelease",
+      // Names the update file the app reads: a beta follows beta.yml, a release latest.yml.
+      channel: values.stable ? "latest" : "beta",
     },
   },
 });

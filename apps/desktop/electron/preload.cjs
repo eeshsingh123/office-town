@@ -10,4 +10,12 @@ contextBridge.exposeInMainWorld("officeTown", {
   showFile: (path) => ipcRenderer.invoke("show-file", path),
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   capture: (area, width) => ipcRenderer.invoke("capture", area, width),
+  appVersion: () => ipcRenderer.invoke("app-version"),
+  updateReady: () => ipcRenderer.invoke("update-ready"),
+  onUpdateReady: (listener) => {
+    const handler = (_event, version) => listener(version);
+    ipcRenderer.on("update-ready", handler);
+    return () => ipcRenderer.removeListener("update-ready", handler);
+  },
+  restartToUpdate: () => ipcRenderer.invoke("restart-to-update"),
 });
