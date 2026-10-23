@@ -23,9 +23,16 @@ let stopping = false;
 
 function startApp(): void {
   const started = spawn(ELECTRON, [DESKTOP], { stdio: ["ignore", "inherit", "inherit", "ipc"] });
-  started.on("exit", () => {
-    // Quitting from the tray ends the dev loop too; a restart starts the next app itself.
-    if (app === started && !stopping) void stop();
+  started.on("exit", (code) => {
+    // A restart starts the next app itself.
+    if (app !== started || stopping) return;
+    // Quitting from the tray ends the dev loop; a failed start waits for the next save.
+    if (code === 0) {
+      void stop();
+      return;
+    }
+    app = undefined;
+    console.log("The app stopped. Save a file to start it again.");
   });
   app = started;
 }
