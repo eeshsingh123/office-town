@@ -1,0 +1,67 @@
+name: Release
+
+# Run only on the owner's word (D-75). Started by hand it builds, and publishes only when
+# "publish" is ticked; on a pull request that changes packaging it is a dry run.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the release (off builds only, as a dry run)
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - apps/desktop/packaging/**
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm package --stable
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            apps/desktop/out/package/installers/*.exe
+            apps/desktop/out/package/installers/*.AppImage
+            apps/desktop/out/package/installers/*.blockmap
+            apps/desktop/out/package/installers/latest*.yml
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version: //p' release/latest.yml)
+          gh release create "v$version" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --latest \
+            --title "Office Town $version" \
+            --generate-notes

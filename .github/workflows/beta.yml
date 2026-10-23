@@ -1,0 +1,67 @@
+name: Beta
+
+# Every merge to main that passes CI becomes a beta: a prerelease only betas follow (D-75).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta
+
+jobs:
+  build:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The run number only grows, so each beta is newer than the last.
+      - run: pnpm package --beta ${{ github.run_number }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            apps/desktop/out/package/installers/*.exe
+            apps/desktop/out/package/installers/*.AppImage
+            apps/desktop/out/package/installers/*.blockmap
+            apps/desktop/out/package/installers/beta*.yml
+          if-no-files-found: error
+
+  # One job publishes both platforms, so two builds never race to create the release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish the prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          version=$(sed -n 's/^version: //p' release/beta.yml)
+          gh release create "v$version" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --prerelease \
+            --title "Office Town $version" \
+            --notes "Beta of $SHA, for testing. Not a release."
