@@ -352,7 +352,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - An update installs on quit or on "Restart to update", never while an agent runs. Users' stores now outlive versions: a migration never loses data, and the core copies `store.db` before it runs one.
 - The dev app is "Office Town Dev" with its own data folder, so it runs next to the installed app.
 - Setup offers to install Claude Code and OpenCode by running the vendor's official installer. D-6 holds: we still run the unmodified binary, and it signs in by itself.
-- Open, before P3: where betas are published. A prerelease on the public repo needs no setup but anyone can find it; a private releases repo keeps betas hidden but needs a read token on the owner's machine. Recommended: public prereleases, since the code is public already.
+- Betas are prereleases on the public repo (owner): no token or second repo, and the code is public already. Anyone could find one, but nothing points to it until the release.
 - Signing: SignPath Foundation, free for open source (owner). Betas stay unsigned. The agent reminds the owner to apply once P4 is done, since approval takes time and must land before the release.
 - Open, before the release: the intro video (discuss first), the final name. The app id `town.office.desktop` never changes, so a rename keeps updates and data.
 

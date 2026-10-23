@@ -53,7 +53,6 @@ Worth a click when touched.
 
 ## Open questions for the owner
 
-- Before P3: betas on public prereleases or a private releases repo (D-75).
 - After P4: remind the owner to apply to SignPath Foundation for signing (D-75).
 - Before the release: the intro video (a discussion), the final name.
 
