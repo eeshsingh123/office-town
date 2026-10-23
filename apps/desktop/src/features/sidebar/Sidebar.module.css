@@ -93,14 +93,9 @@
 }
 
 .logo {
-  display: grid;
-  place-items: center;
+  flex-shrink: 0;
   width: 24px;
   height: 24px;
-  border-radius: 7px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-size: 12px;
 }
 
 .newTask {

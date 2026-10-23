@@ -20,6 +20,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { shell } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import appIcon from "../../ui/app-icon.svg";
 import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
@@ -185,9 +186,7 @@ export function Sidebar() {
     >
       <nav aria-label="Main" className={`${styles.sidebar} ${collapsed ? styles.rail : ""}`}>
         <div className={styles.brand}>
-          <span className={styles.logo} aria-hidden>
-            O
-          </span>
+          <img className={styles.logo} src={appIcon} alt="" />
           <span className={styles.text}>Office Town</span>
           {/* Collapsed, back and forward move to the top of the main area. */}
           {collapsed ? null : <HistoryButtons />}
