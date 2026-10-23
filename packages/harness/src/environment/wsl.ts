@@ -1,12 +1,12 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { promisify } from "node:util";
 import type { AttachedToolServer, ToolServer } from "../adapter.ts";
+import { BRIDGE_TOKEN } from "./bridge-token.ts";
 import type { Environment, LaunchedProcess, LaunchRequest } from "./environment.ts";
 import { BinaryNotFoundError } from "./find-binary.ts";
 import { NativeEnvironment } from "./native.ts";
-import { BRIDGE_TOKEN } from "./tool-bridge.ts";
 import { toWindowsPath, toWslPath } from "./wsl-paths.ts";
 
 const MARKER = "OFFICE_TOWN_LAUNCH";
@@ -18,7 +18,8 @@ const DISTRO_TIMEOUT_MS = 15_000;
 // Detached processes keep the marker too, so matching on it reaches what a signal would miss.
 const KILL_SCRIPT = `for p in /proc/[0-9]*; do if grep -qz "^${MARKER}=$0$" "$p/environ" 2>/dev/null; then kill -9 "\${p#/proc/}"; fi; done`;
 const NOT_FOUND_EXIT_CODE = 1;
-const BRIDGE = join(import.meta.dirname, "tool-bridge.ts");
+// Next to this file: the source in development, the built `.js` beside the bundled core when installed.
+const BRIDGE = join(import.meta.dirname, `tool-bridge${extname(import.meta.filename)}`);
 
 export type DistroCommand = (distro: string, command: string[]) => Promise<string>;
 

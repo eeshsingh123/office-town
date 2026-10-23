@@ -1,7 +1,5 @@
 import { createInterface } from "node:readline";
-import { pathToFileURL } from "node:url";
-
-export const BRIDGE_TOKEN = "OFFICE_TOWN_TOOL_TOKEN";
+import { BRIDGE_TOKEN } from "./bridge-token.ts";
 
 const INTERNAL_ERROR = -32603;
 
@@ -50,6 +48,4 @@ function bridge(url: string, token: string): void {
   lines.on("close", () => process.exit(0));
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  bridge(process.argv[2] ?? "", process.env[BRIDGE_TOKEN] ?? "");
-}
+bridge(process.argv[2] ?? "", process.env[BRIDGE_TOKEN] ?? "");
