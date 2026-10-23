@@ -8,9 +8,11 @@ import { saveDisplay, saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
 import styles from "./Help.module.css";
-import { RELEASES } from "./whats-new.ts";
+import { ReleaseList } from "./Releases.tsx";
+import { LATEST, RELEASES } from "./whats-new.ts";
 
 const TEXT_SIZES: NonNullable<Display["textSize"]>[] = [100, 115, 130];
+const RECENT_RELEASES = 3;
 
 function Tutorials() {
   const state = useApp();
@@ -93,22 +95,30 @@ function useAppVersion(): string | undefined {
 
 function WhatsNew() {
   const version = useAppVersion();
+  const [showAll, setShowAll] = useState(false);
+  const earlier = RELEASES.length - RECENT_RELEASES;
   return (
     <section className={styles.card} aria-labelledby="help-new">
-      <h2 id="help-new" className={styles.cardTitle}>
-        What's new
-      </h2>
-      {version === undefined ? null : <p className={styles.version}>Version {version}</p>}
-      {RELEASES.map((release) => (
-        <div key={release.date} className={styles.release}>
-          <h3 className={styles.date}>{release.date}</h3>
-          <ul className={styles.changes}>
-            {release.changes.map((change) => (
-              <li key={change}>{change}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <div className={styles.cardHead}>
+        <h2 id="help-new" className={styles.cardTitle}>
+          What's new
+        </h2>
+        {version === undefined ? null : <span className={styles.version}>Version {version}</span>}
+      </div>
+      <ReleaseList
+        releases={showAll ? RELEASES : RELEASES.slice(0, RECENT_RELEASES)}
+        latest={LATEST}
+      />
+      {earlier > 0 ? (
+        <Button
+          variant="ghost"
+          className={styles.more}
+          aria-expanded={showAll}
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? "Show fewer" : `Show ${earlier} earlier updates`}
+        </Button>
+      ) : null}
     </section>
   );
 }

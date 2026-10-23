@@ -1,19 +1,60 @@
+import {
+  CircleHelp,
+  Eye,
+  ListChecks,
+  type LucideIcon,
+  PackageCheck,
+  Paperclip,
+  Plug,
+} from "lucide-react";
+
 export interface Release {
   // YYYY-MM-DD, newest first.
   date: string;
+  title: string;
+  icon: LucideIcon;
   changes: string[];
 }
 
 export const RELEASES: Release[] = [
   {
     date: "2026-10-23",
+    title: "Install and updates",
+    icon: PackageCheck,
     changes: [
-      "Office Town installs like any app and updates itself; Restart to update installs a new version now",
-      "Setup can install OpenCode, and Claude Code on Linux",
+      "Office Town installs like any app and updates itself",
+      "Restart to update, in the sidebar, installs a new version right away",
+      "Setup can install OpenCode for you, and Claude Code on Linux",
+    ],
+  },
+  {
+    date: "2026-10-22",
+    title: "Outputs and preview",
+    icon: Eye,
+    changes: [
+      "A task's Outputs tab shows what its agents made: pages, sites, images, documents, tables and code",
+      "Preview a page or a local site at phone, tablet and desktop sizes, with every version kept",
+      "Mark a spot on a page and send it to the agent with your feedback",
+      "Results also show in the chat, on an agent's panel and on finished tasks",
+      "Open a file in its default app, or show it in its folder",
+    ],
+  },
+  {
+    date: "2026-10-18",
+    title: "Connectors",
+    icon: Plug,
+    changes: [
+      "Connect an app once on the Connectors page: with a key, as a program on this computer, or your own",
+      "Choose who can use each app, and set it to Ask me first, Don't ask or Read only",
+      "Claude agents use the apps you connected in claude.ai, such as Gmail, Drive and Notion",
+      "An agent that needs an app asks for it in Needs you",
+      "Every call to an app is listed on that app's page",
     ],
   },
   {
     date: "2026-10-14",
+    title: "Setup and help",
+    icon: CircleHelp,
     changes: [
       "Setup when you first open the app, and tutorials you can run any time from Help",
       "Help: text size, higher contrast, less motion, and read-out of new requests",
@@ -24,6 +65,8 @@ export const RELEASES: Release[] = [
   },
   {
     date: "2026-10-12",
+    title: "Files and usage",
+    icon: Paperclip,
     changes: [
       "Usage reads your plan's numbers when you open it, not only after a task",
       "Library: give files to everyone, a department or one agent, once",
@@ -32,6 +75,8 @@ export const RELEASES: Release[] = [
   },
   {
     date: "2026-10-11",
+    title: "Tasks and accounts",
+    icon: ListChecks,
     changes: [
       "Back and Forward between screens",
       "Several accounts per AI app, and a Usage page",

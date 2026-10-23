@@ -44,10 +44,28 @@
   font-size: var(--size-title);
 }
 
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+}
+
 .version {
-  margin: 0;
-  font-size: var(--size-meta);
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
   color: var(--text-3);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lines up with the release text, past the timeline's markers. */
+.more {
+  align-self: flex-start;
+  margin-left: 30px;
 }
 
 .list {
@@ -112,26 +130,4 @@
   width: 16px;
   height: 16px;
   accent-color: var(--accent);
-}
-
-.release {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.date {
-  margin: 0;
-  color: var(--text-2);
-  font-size: var(--size-meta);
-  font-weight: 600;
-}
-
-.changes {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.5;
 }
