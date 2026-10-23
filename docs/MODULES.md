@@ -117,7 +117,7 @@ Out of scope until the owner asks for the release: publishing a stable version, 
 
 - The owner has tested the beta and says release.
 - Intro video for marketing: discussed with the owner first.
-- Code signing: unsigned with SignPath Foundation (free for open source) applied for, or a paid certificate.
+- Code signing through SignPath Foundation (D-75): the owner applies once P4 is done; signing is wired in when approved.
 - The final name (the app id `town.office.desktop` stays, so renaming breaks no updates or data).
 - Then: run the stable workflow, add the README Download link.
 
