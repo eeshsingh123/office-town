@@ -7,7 +7,7 @@ Last updated: 2026-10-23
 - Built and merged to `main`: M1 to M9, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #66 (2026-10-23).
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Active: feedback after M9 on `fix/office-walk` (office walking speed and department focus), and a new app icon (owner picks from mockups). Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
+- Active: feedback after M9 on `fix/office-walk` (office walking speed and department focus), and a new app icon: six options on https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD, the owner picks one. The icon lives in `apps/desktop/electron/icon.png` and `apps/desktop/packaging/icon.png`. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
