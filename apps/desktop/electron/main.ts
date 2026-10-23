@@ -16,6 +16,7 @@ import {
 } from "electron";
 import { APP_ORIGIN, registerAppScheme, serveApp } from "./app-protocol.ts";
 import { type CoreCommand, type CoreProcess, startCore } from "./core-process.ts";
+import { becomeDevApp, quitWhenDisconnected, reloadOnRebuild } from "./dev-mode.ts";
 import { createTray } from "./tray.ts";
 import { createWindow, showWindow } from "./window.ts";
 
@@ -41,6 +42,9 @@ let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let quitting = false;
 
+if (!app.isPackaged) becomeDevApp();
+// Only `pnpm dev:app` starts the app with an IPC channel.
+if (process.send !== undefined) quitWhenDisconnected();
 registerAppScheme();
 if (app.requestSingleInstanceLock()) {
   app.on("second-instance", () => open());
@@ -51,7 +55,7 @@ if (app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  app.setAppUserModelId("town.office.desktop");
+  app.setAppUserModelId(app.isPackaged ? "town.office.desktop" : "town.office.desktop.dev");
   core = await startCore(coreCommand, { onCrash });
   serveApp(UI_FOLDER, () => {
     if (core === undefined) throw new Error("The core is not running.");
@@ -61,6 +65,7 @@ async function start(): Promise<void> {
   denyPagesPermissions();
   window = createWindow({ icon: ICON, preload: PRELOAD, isQuitting: () => quitting });
   tray = createTray(ICON, { open, quit: () => void confirmQuit() });
+  if (!app.isPackaged) reloadOnRebuild(UI_FOLDER, () => window);
 }
 
 function open(): void {
@@ -69,7 +74,7 @@ function open(): void {
 
 function failToStart(error: unknown): void {
   dialog.showErrorBox(
-    "Office Town could not start",
+    `${app.getName()} could not start`,
     error instanceof Error ? error.message : String(error),
   );
   app.exit(1);

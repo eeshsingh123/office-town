@@ -55,7 +55,8 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
 }
 
-const dataFolder = values["data-folder"] ?? defaultDataFolder();
+// Only the installed app runs the core as built JS; anything run from the sources is development.
+const dataFolder = values["data-folder"] ?? defaultDataFolder(import.meta.filename.endsWith(".ts"));
 const store = openStore(dataFolder);
 const taskStates = new TaskStates(store);
 // Files picked but never sent are kept a day, in case the message is still being written.
