@@ -6,6 +6,13 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-10-23",
+    changes: [
+      "Office Town installs like any app and updates itself; Restart to update installs a new version now",
+      "Setup can install OpenCode, and Claude Code on Linux",
+    ],
+  },
+  {
     date: "2026-10-14",
     changes: [
       "Setup when you first open the app, and tutorials you can run any time from Help",

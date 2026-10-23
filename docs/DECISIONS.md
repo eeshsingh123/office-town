@@ -355,6 +355,11 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Betas are prereleases on the public repo (owner): no token or second repo, and the code is public already. Anyone could find one, but nothing points to it until the release.
 - Signing: SignPath Foundation, free for open source (owner). Betas stay unsigned. The agent reminds the owner to apply once P4 is done, since approval takes time and must land before the release.
 - Open, before the release: the intro video (discuss first), the final name. The app id `town.office.desktop` never changes, so a rename keeps updates and data.
+- Built (2026-10-23). `pnpm package` bundles the shell, the core (`main.mjs`) and the WSL tool bridge with Vite; the core and the keyring sit in `resources/core`, outside the archive (electron-builder drops `node_modules` from extra resources, so the keyring is `core/keyring`). `apps/desktop/package.json` holds the next release's version; a beta is `<version>-beta.<CI run>`, a local build `-beta.0`. Bump the version after each release, or betas sort below it.
+- Anything run from the sources is development and uses the `OfficeTown Dev` data folder (owner: every dev command). `pnpm dev:app` restarts the app over an IPC channel, since Electron's main process on Windows sees stdin closed from the start.
+- The channel is built into the app (`beta.yml` or `latest.yml`). Restart to update asks like Quit when agents are open (owner) and stops the core before installing. A beta is published only after CI passes on `main`.
+- Setup's Install: OpenCode on Windows through npm or Scoop when one is there, else the command (owner). Claude Code on Windows keeps the copy command: Defender flagged its one-line installer run hidden from the app as `Trojan:Win32/Commando.A!ml` (owner, 2026-10-23); look again once the app is signed. Setup checks again when the window regains focus, never on a timer (owner). WSL installs are not built: setup checks the native install only.
+- The core adds the vendors' install folders (`~/.local/bin`, `~/.opencode/bin`) to its PATH, which an app started from a menu does not inherit.
 
 ## Done
 

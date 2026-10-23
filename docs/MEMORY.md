@@ -7,13 +7,15 @@ Last updated: 2026-10-23
 - Built and merged to `main`: M1 to M8, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #65 (2026-10-23).
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Active: M9 Packaging (D-75) on `feat/packaging`; nothing built yet, start at P1 in MODULES.md. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
+- Active: M9 Packaging (D-75), P1 to P5 built on `feat/packaging`, PR open. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%Programsoffice-town`) on the default data folder; development runs on `OfficeTown Dev`. The first CI beta appears after the PR merges and CI passes on `main`.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- Packaging (D-75): the Linux AppImage (built only in CI), the beta and release workflows on GitHub (the release dry run runs on the PR), an update from a real GitHub beta (tested with a local feed), Restart to update with agents open, an installed app's WSL task from the UI (tested on the packaged core), the setup Install progress line live (the API was run end to end with OpenCode through npm), the install folders on Linux.
 - Outputs (D-74): a team worker's result after its merge (tested in the core, not live), an OpenCode or WSL agent calling `show_result`, a PDF in the app's frame, a version's page loading its styles, a stopped site restarted fresh, Open with default app, light mode on the Outputs tab.
 - Check loop (D-73): a team lead writing its checklist, Send fixes and round 2, a copy sandbox (no git), WSL.
 - Lean runs (D-72): a real 95% pause (needs a nearly used window), the 400k handover suggestion.
@@ -35,8 +37,9 @@ Worth a click when touched.
 ## How to run
 
 - `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
-- `pnpm dev:app`: builds the UI and opens the desktop app on the default data folder. Only one core can hold a data folder, so close the app before browser mode uses the same one.
+- `pnpm dev:app`: "Office Town Dev", next to the installed app. The UI rebuilds and the window reloads; a change to the shell or the core restarts the app. Every dev command uses the `OfficeTown Dev` data folder unless given `--data-folder`.
 - `pnpm dev:web [--data-folder path]`: browser mode at http://localhost:5173, a core plus Vite forwarding `/api` with the token. The folder picker, Open folder and dropping folders need the app.
+- `pnpm package [--beta n | --stable]`: the installer for this OS in `apps/desktop/out/package/installers` (local builds are `-beta.0`). Install silently with `<setup>.exe /S`.
 - `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume harness-session-id]`
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
 - `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
@@ -53,7 +56,7 @@ Worth a click when touched.
 
 ## Open questions for the owner
 
-- After P4: remind the owner to apply to SignPath Foundation for signing (D-75).
+- Apply to SignPath Foundation for signing now that P4 is built (D-75); reminded 2026-10-23.
 - Before the release: the intro video (a discussion), the final name.
 
 ## What the harnesses do
@@ -68,6 +71,8 @@ Worth a click when touched.
 - Missing: `codex`, `agy`, Node inside WSL Ubuntu.
 - The app's Terminal panel tab does not reach a prompt, so a real Ctrl+C cannot be sent from here.
 - The browser pane does not draw while the Claude window is covered; `out/capture` is the fallback.
+- Defender flags PowerShell running `irm … | iex` from a hidden process (`Commando.A!ml`) and refuses the start (`spawn EPERM`). Never run a vendor's one-line installer hidden.
+- Start an installed app or installer from here through `Win32_Process.Create` (WMI) so it uses the real `%LOCALAPPDATA%`; a window of it can be pressed through UI Automation (InvokePattern) without moving the mouse.
 - Commands run from the Claude desktop app see a virtualized `%LOCALAPPDATA%` (its private copy lives in `Packages\Claude_*\LocalCache\Local`): `OfficeTown\store.db` there is an Oct 7 copy, so it reads as "malformed". The real store is fine; read it from a process started through `Win32_Process.Create` (WMI), which runs outside the package.
 
 ## Risks and known limits
@@ -87,7 +92,7 @@ Worth a click when touched.
 - A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45). Under Bypass, Claude app calls run without the app's permission (D-68).
 - A Claude agent's apps are read before each launch (1 to 2 s; up to 10 s before the run goes on with its apps off).
 - Under Full a shell command, and under Bypass anything, could still change an upstream read-only folder; the plan card warns. One chief, one chief goal at a time.
-- The app runs from the repository until M9 P1 lands.
+- Betas and installers are unsigned, so Windows SmartScreen warns on first install (SignPath, D-75).
 
 ## Reference notes
 

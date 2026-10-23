@@ -99,9 +99,7 @@ Out of scope: editing outputs in the app, deploying or sharing them, starting a 
 
 ---
 
-## Next module
-
-### M9 Packaging (D-75)
+### M9 Packaging (D-75; built, PR open)
 
 An installed app the owner runs from its icon, updated by itself from beta builds, with the public release built and ready but run only when the owner asks. Sub-modules in order, one commit series each, all on `feat/packaging`:
 
@@ -109,7 +107,9 @@ An installed app the owner runs from its icon, updated by itself from beta build
 2. **P2 Dev loop.** `pnpm dev:app` watches: the UI rebuilds and the window reloads, the core and shell restart on change. It runs as "Office Town Dev" with its own data folder, so it runs next to the installed app and never touches its data.
 3. **P3 Updates and data safety.** electron-updater on the beta channel: check at start and every few hours, download in the background, install on quit or on "Restart to update", never while an agent runs. The core copies `store.db` before it runs a new migration.
 4. **P4 Beta workflow.** CI builds Windows and Linux on every merge to `main` and publishes a beta (`x.y.z-beta.n`) that the owner's app picks up. The stable workflow is written and checked with a dry run (builds, publishes nothing); it runs only on the owner's word (D-75).
-5. **P5 Install the AI apps from setup.** Setup's "not installed" step gets an Install button for Claude Code and OpenCode that runs the vendor's official installer, shows its progress, then goes on to sign-in as today. Native first; WSL when the distro has what the installer needs.
+5. **P5 Install the AI apps from setup.** Setup's "not installed" step gets an Install button for Claude Code and OpenCode that runs the vendor's official installer, shows its progress, then goes on to sign-in as today. Built native only; Claude Code on Windows keeps the copy command (D-75).
+
+Code: `apps/desktop/packaging`, `apps/desktop/dev/app.ts`, `electron/dev-mode.ts`, `electron/updates.ts`, `.github/workflows/beta.yml` and `release.yml`, `packages/harness/src/install.ts`, `packages/service/src/api/install-routes.ts`.
 
 Out of scope until the owner asks for the release: publishing a stable version, a Download link in the README, code signing, the intro video.
 
