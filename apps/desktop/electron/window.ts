@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import { APP_ORIGIN } from "./app-protocol.ts";
 
 export interface WindowOptions {
@@ -10,7 +10,7 @@ export interface WindowOptions {
 
 export function createWindow({ icon, preload, isQuitting }: WindowOptions): BrowserWindow {
   const window = new BrowserWindow({
-    title: "Office Town",
+    title: app.getName(),
     width: 1440,
     height: 900,
     minWidth: 960,
@@ -22,6 +22,8 @@ export function createWindow({ icon, preload, isQuitting }: WindowOptions): Brow
     webPreferences: { preload, sandbox: true, contextIsolation: true },
   });
   window.once("ready-to-show", () => window.show());
+  // The page has one fixed title; the window keeps the app name, which tells the dev app apart.
+  window.on("page-title-updated", (event) => event.preventDefault());
   window.on("close", (event) => {
     if (isQuitting()) return;
     event.preventDefault();

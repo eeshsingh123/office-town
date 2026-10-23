@@ -99,12 +99,28 @@ Out of scope: editing outputs in the app, deploying or sharing them, starting a 
 
 ---
 
-## Next module
+### M9 Packaging (D-75; built, PR open)
 
-Agent memory, after a design discussion with the owner (see below). Nothing is detailed until then.
+An installed app the owner runs from its icon, updated by itself from beta builds, with the public release built and ready but run only when the owner asks. Sub-modules in order, one commit series each, all on `feat/packaging`:
+
+1. **P1 Build and installer.** Bundle the shell, the core and the WSL tool bridge into plain JS with the repo's Vite (Node will not strip TypeScript in an installed app); `@napi-rs/keyring` and the tool bridge stay real files outside the archive. `electron/main.ts` alone learns where the core and UI live when packaged. electron-builder makes a per-user one-click NSIS installer (Windows) and an AppImage (Linux). `pnpm package` builds it locally. Done when the installed app starts from its icon on the default data folder, runs a haiku task, and runs a WSL task through the bridge.
+2. **P2 Dev loop.** `pnpm dev:app` watches: the UI rebuilds and the window reloads, the core and shell restart on change. It runs as "Office Town Dev" with its own data folder, so it runs next to the installed app and never touches its data.
+3. **P3 Updates and data safety.** electron-updater on the beta channel: check at start and every few hours, download in the background, install on quit or on "Restart to update", never while an agent runs. The core copies `store.db` before it runs a new migration.
+4. **P4 Beta workflow.** CI builds Windows and Linux on every merge to `main` and publishes a beta (`x.y.z-beta.n`) that the owner's app picks up. The stable workflow is written and checked with a dry run (builds, publishes nothing); it runs only on the owner's word (D-75).
+5. **P5 Install the AI apps from setup.** Setup's "not installed" step gets an Install button for Claude Code and OpenCode that runs the vendor's official installer, shows its progress, then goes on to sign-in as today. Built native only; Claude Code on Windows keeps the copy command (D-75).
+
+Code: `apps/desktop/packaging`, `apps/desktop/dev/app.ts`, `electron/dev-mode.ts`, `electron/updates.ts`, `.github/workflows/beta.yml` and `release.yml`, `packages/harness/src/install.ts`, `packages/service/src/api/install-routes.ts`.
+
+Out of scope until the owner asks for the release: publishing a stable version, a Download link in the README, code signing, the intro video.
+
+### Before the public release (owner's go-ahead)
+
+- The owner has tested the beta and says release.
+- Intro video for marketing: discussed with the owner first.
+- Code signing through SignPath Foundation (D-75): the owner applies once P4 is done; signing is wired in when approved.
+- The final name (the app id `town.office.desktop` stays, so renaming breaks no updates or data).
+- Then: run the stable workflow, add the README Download link.
 
 ## Later modules (outline only)
 
-- **Agent memory.** What an agent remembers across tasks. Its own module, after a deep dive with the owner on storage, recency and how relevant an old memory still is; its place in the order is set then, before packaging. M4 profiles leave room for it.
-- **Deferred.** macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.
-- **Last: Packaging and release.** Built once every other module is done (owner, 2026-10-07). An installer people download and run, with no repository, Node or pnpm: Windows first, Linux packages next, macOS stays parked (D-23). The core and the built UI ship inside the app; the data folder does not move. Node will not strip TypeScript inside `node_modules`, so the core gets a build step for packaging only (D-19 still holds in development), and only `apps/desktop/electron/main.ts` changes where it finds the core and the UI. The WSL tool bridge (`packages/harness/src/environment/tool-bridge.ts`, run by the core's own Node through WSL interop) ships the same way. Code signing (unsigned installers get a SmartScreen warning; a certificate costs money, owner to decide), auto-update from GitHub Releases, and a release workflow in CI.
+- **Deferred.** Agent memory (owner, 2026-10-23): the harnesses keep their own, so an app layer adds little; back only if the owner raises it. macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.

@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { extname } from "node:path";
+import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OPENS_SAFELY, taskPageSchema } from "@office-town/contract";
 import {
@@ -16,14 +16,19 @@ import {
 } from "electron";
 import { APP_ORIGIN, registerAppScheme, serveApp } from "./app-protocol.ts";
 import { type CoreCommand, type CoreProcess, startCore } from "./core-process.ts";
+import { becomeDevApp, quitWhenDisconnected, reloadOnRebuild } from "./dev-mode.ts";
 import { createTray } from "./tray.ts";
+import { followUpdates, type Updates } from "./updates.ts";
 import { createWindow, showWindow } from "./window.ts";
 
 const file = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const ICON = file("./icon.png");
 const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
-const CORE_ENTRY = file("../../../packages/service/src/main.ts");
+// Installed, the core is plain JS outside the archive (D-75); otherwise the sources run (D-19).
+const CORE_ENTRY = app.isPackaged
+  ? join(process.resourcesPath, "core", "main.mjs")
+  : file("../../../packages/service/src/main.ts");
 const QUIT_CHECK_TIMEOUT_MS = 3000;
 
 // The core runs on Electron's own Node, so users install no Node (D-34).
@@ -36,8 +41,12 @@ const coreCommand: CoreCommand = {
 let core: CoreProcess | undefined;
 let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
+let updates: Updates | undefined;
 let quitting = false;
 
+if (!app.isPackaged) becomeDevApp();
+// Only `pnpm dev:app` starts the app with an IPC channel.
+if (process.send !== undefined) quitWhenDisconnected();
 registerAppScheme();
 if (app.requestSingleInstanceLock()) {
   app.on("second-instance", () => open());
@@ -48,7 +57,7 @@ if (app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  app.setAppUserModelId("town.office.desktop");
+  app.setAppUserModelId(app.isPackaged ? "town.office.desktop" : "town.office.desktop.dev");
   core = await startCore(coreCommand, { onCrash });
   serveApp(UI_FOLDER, () => {
     if (core === undefined) throw new Error("The core is not running.");
@@ -58,6 +67,10 @@ async function start(): Promise<void> {
   denyPagesPermissions();
   window = createWindow({ icon: ICON, preload: PRELOAD, isQuitting: () => quitting });
   tray = createTray(ICON, { open, quit: () => void confirmQuit() });
+  if (!app.isPackaged) reloadOnRebuild(UI_FOLDER, () => window);
+  if (app.isPackaged) {
+    updates = followUpdates((version) => window?.webContents.send("update-ready", version));
+  }
 }
 
 function open(): void {
@@ -66,7 +79,7 @@ function open(): void {
 
 function failToStart(error: unknown): void {
   dialog.showErrorBox(
-    "Office Town could not start",
+    `${app.getName()} could not start`,
     error instanceof Error ? error.message : String(error),
   );
   app.exit(1);
@@ -112,36 +125,66 @@ function quitQuestion(open: number | undefined): string {
   return open === 1 ? "An agent is still open." : `${open} agents are still open.`;
 }
 
+const STOP_QUESTIONS = {
+  quit: {
+    detail: "Quitting stops any open agent. It is marked interrupted and can be continued later.",
+    button: "Quit",
+  },
+  update: {
+    detail: "Restarting stops any open agent. You can continue it after the update.",
+    button: "Restart",
+  },
+};
+
 // A core that does not answer must not stop the user from quitting: they are asked instead.
-async function confirmQuit(): Promise<void> {
+async function agreeToStopAgents(reason: keyof typeof STOP_QUESTIONS): Promise<boolean> {
   const open = await openAgents().catch((error: unknown) => {
     console.error("Could not count the open agents.", error);
     return undefined;
   });
-  if (open !== 0) {
-    const { response } = await dialog.showMessageBox({
-      type: "question",
-      message: quitQuestion(open),
-      detail: "Quitting stops any open agent. It is marked interrupted and can be continued later.",
-      buttons: ["Quit", "Cancel"],
-      defaultId: 1,
-      cancelId: 1,
-    });
-    if (response !== 0) return;
-  }
+  if (open === 0) return true;
+  const { detail, button } = STOP_QUESTIONS[reason];
+  const { response } = await dialog.showMessageBox({
+    type: "question",
+    message: quitQuestion(open),
+    detail,
+    buttons: [button, "Cancel"],
+    defaultId: 1,
+    cancelId: 1,
+  });
+  return response === 0;
+}
+
+async function confirmQuit(): Promise<void> {
+  if (await agreeToStopAgents("quit")) app.quit();
+}
+
+// The update installs only after the core has stopped its agents (D-75).
+async function restartToUpdate(): Promise<void> {
+  const waiting = updates;
+  if (waiting?.ready() === undefined || !(await agreeToStopAgents("update"))) return;
+  await stopCore();
+  waiting.install();
+  // If the updater cannot start the installer it does not quit, and the app would be left with no
+  // window and no tray.
   app.quit();
 }
 
 // Every way of quitting passes here, so the core always gets to record its agents as interrupted.
 function stopCoreFirst(event: Electron.Event): void {
   quitting = true;
-  const stopping = core;
-  if (stopping === undefined) return;
+  if (core === undefined) return;
   event.preventDefault();
+  void stopCore().finally(() => app.quit());
+}
+
+async function stopCore(): Promise<void> {
+  quitting = true;
+  const stopping = core;
   core = undefined;
   tray?.destroy();
   window?.hide();
-  void stopping.stop().finally(() => app.quit());
+  await stopping?.stop();
 }
 
 function fromApp(event: IpcMainInvokeEvent): void {
@@ -226,6 +269,18 @@ function registerBridge(): void {
   ipcMain.handle("show-window", (event) => {
     fromApp(event);
     open();
+  });
+  ipcMain.handle("app-version", (event) => {
+    fromApp(event);
+    return app.isPackaged ? app.getVersion() : `${app.getVersion()} dev`;
+  });
+  ipcMain.handle("update-ready", (event) => {
+    fromApp(event);
+    return updates?.ready() ?? null;
+  });
+  ipcMain.handle("restart-to-update", (event) => {
+    fromApp(event);
+    return restartToUpdate();
   });
   // The window frame follows the theme the user picks in the app.
   ipcMain.handle("set-theme", (event, theme: unknown) => {

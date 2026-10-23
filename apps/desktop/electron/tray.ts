@@ -1,4 +1,4 @@
-import { Menu, Tray } from "electron";
+import { app, Menu, Tray } from "electron";
 
 export interface TrayActions {
   open(): void;
@@ -7,10 +7,10 @@ export interface TrayActions {
 
 export function createTray(icon: string, { open, quit }: TrayActions): Tray {
   const tray = new Tray(icon);
-  tray.setToolTip("Office Town");
+  tray.setToolTip(app.getName());
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Open Office Town", click: open },
+      { label: `Open ${app.getName()}`, click: open },
       { type: "separator" },
       { label: "Quit", click: quit },
     ]),

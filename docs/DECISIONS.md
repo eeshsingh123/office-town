@@ -343,6 +343,24 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Where it shows: an Outputs tab on the task page (switching tabs replaces the view, so Back leaves the task), result cards in the trace and chat, Latest result on an agent's panel, Outputs on a department's panel, and results on the To review and done cards. No app-wide Outputs page (owner).
 - "Open with default app" opens only documents, pictures, media, models and archives (`OPENS_SAFELY`); anything else is shown in its folder.
 
+### D-75 Packaging: an internal beta first, the release on the owner's word — accepted (2026-10-23)
+
+- Packaging comes before any new feature module; agent memory is deferred (owner): the harnesses keep their own memory.
+- electron-builder: a per-user one-click installer (no admin, no questions) on Windows and an AppImage on Linux, with electron-updater for updates. Forge's Squirrel installer cannot update an AppImage, so one tool covers both platforms. macOS stays parked (D-23).
+- Only the installer has a build step; development keeps running the sources (D-19).
+- Two channels. Every merge to `main` publishes a beta, and only the owner's app follows betas, so a breaking change reaches the owner first. A stable release goes to users only when the owner has tested a beta and asks; the agent never runs the stable workflow on its own. Until then nothing is on the stable channel.
+- An update installs on quit or on "Restart to update", never while an agent runs. Users' stores now outlive versions: a migration never loses data, and the core copies `store.db` before it runs one.
+- The dev app is "Office Town Dev" with its own data folder, so it runs next to the installed app.
+- Setup offers to install Claude Code and OpenCode by running the vendor's official installer. D-6 holds: we still run the unmodified binary, and it signs in by itself.
+- Betas are prereleases on the public repo (owner): no token or second repo, and the code is public already. Anyone could find one, but nothing points to it until the release.
+- Signing: SignPath Foundation, free for open source (owner). Betas stay unsigned. The agent reminds the owner to apply once P4 is done, since approval takes time and must land before the release.
+- Open, before the release: the intro video (discuss first), the final name. The app id `town.office.desktop` never changes, so a rename keeps updates and data.
+- Built (2026-10-23). `pnpm package` bundles the shell, the core (`main.mjs`) and the WSL tool bridge with Vite; the core and the keyring sit in `resources/core`, outside the archive (electron-builder drops `node_modules` from extra resources, so the keyring is `core/keyring`). `apps/desktop/package.json` holds the next release's version; a beta is `<version>-beta.<CI run>`, a local build `-beta.0`. Bump the version after each release, or betas sort below it.
+- Anything run from the sources is development and uses the `OfficeTown Dev` data folder (owner: every dev command). `pnpm dev:app` restarts the app over an IPC channel, since Electron's main process on Windows sees stdin closed from the start.
+- The channel is built into the app (`beta.yml` or `latest.yml`). Restart to update asks like Quit when agents are open (owner) and stops the core before installing. A beta is published only after CI passes on `main`.
+- Setup's Install: OpenCode on Windows through npm or Scoop when one is there, else the command (owner). Claude Code on Windows keeps the copy command: Defender flagged its one-line installer run hidden from the app as `Trojan:Win32/Commando.A!ml` (owner, 2026-10-23); look again once the app is signed. Setup checks again when the window regains focus, never on a timer (owner). WSL installs are not built: setup checks the native install only.
+- The core adds the vendors' install folders (`~/.local/bin`, `~/.opencode/bin`) to its PATH, which an app started from a menu does not inherit.
+
 ## Done
 
 All accepted and built.

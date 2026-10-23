@@ -140,8 +140,19 @@ export const harnessStatusSchema = z.object({
   // The vendor's own install command for this computer, and its page.
   installCommand: z.string().optional(),
   installPage: z.string().optional(),
+  // The app can run the vendor's installer here, from setup (D-75).
+  canInstall: z.boolean(),
 });
 export type HarnessStatus = z.infer<typeof harnessStatusSchema>;
+
+// A vendor installer the app is running or ran from setup (D-75).
+export const harnessInstallSchema = z.object({
+  state: z.enum(["running", "done", "failed"]),
+  // The installer's latest line of output, shown as its progress.
+  line: z.string().optional(),
+  message: z.string().optional(),
+});
+export type HarnessInstall = z.infer<typeof harnessInstallSchema>;
 
 export const environmentListSchema = z.array(environmentSpecSchema);
 export type EnvironmentList = z.infer<typeof environmentListSchema>;

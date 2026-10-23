@@ -57,9 +57,11 @@ import {
   environmentListSchema,
   type HarnessCatalog,
   type HarnessDescription,
+  type HarnessInstall,
   type HarnessStatus,
   harnessCatalogSchema,
   harnessDescriptionSchema,
+  harnessInstallSchema,
   harnessStatusSchema,
   type LibraryItem,
   type LibraryItemChange,
@@ -374,6 +376,10 @@ export const api = {
     read(`/accounts/${id(accountId)}/status`, accountStatusSchema.nullable()),
   saveAccountKey: (accountId: string, key: AccountKeyRequest): Promise<AccountStatus> =>
     write("POST", `/accounts/${id(accountId)}/key`, key, accountStatusSchema),
+  installHarness: (harness: string): Promise<HarnessInstall> =>
+    write("POST", `/harnesses/${id(harness)}/install`, {}, harnessInstallSchema),
+  readHarnessInstall: (harness: string): Promise<HarnessInstall> =>
+    read(`/harnesses/${id(harness)}/install`, harnessInstallSchema),
   startSignIn: (accountId: string): Promise<AccountLogin> =>
     write("POST", `/accounts/${id(accountId)}/sign-in`, {}, accountLoginSchema),
   readSignIn: (accountId: string): Promise<AccountLogin> =>

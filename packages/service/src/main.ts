@@ -1,7 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
-import { canRecount, createSession, listHarnesses, recountUsage } from "@office-town/harness";
+import {
+  addInstallFoldersToPath,
+  canRecount,
+  createSession,
+  listHarnesses,
+  recountUsage,
+} from "@office-town/harness";
 import { permissionModeOf } from "./agents/options.ts";
 import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
@@ -49,13 +55,15 @@ const { values } = parseArgs({
 
 // Agents must not inherit Electron's Node mode, or an Electron app they start would run as plain Node.
 delete process.env.ELECTRON_RUN_AS_NODE;
+addInstallFoldersToPath();
 
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
 }
 
-const dataFolder = values["data-folder"] ?? defaultDataFolder();
+// Only the installed app runs the core as built JS; anything run from the sources is development.
+const dataFolder = values["data-folder"] ?? defaultDataFolder(import.meta.filename.endsWith(".ts"));
 const store = openStore(dataFolder);
 const taskStates = new TaskStates(store);
 // Files picked but never sent are kept a day, in case the message is still being written.

@@ -1,3 +1,7 @@
 packages:
   - packages/*
   - apps/*
+
+allowBuilds:
+  # Squirrel tooling electron-builder pulls in; we build NSIS and AppImage only.
+  electron-winstaller: false
