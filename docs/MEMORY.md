@@ -1,13 +1,13 @@
 # Memory
 
-Last updated: 2026-10-23
+Last updated: 2026-10-24
 
 ## State
 
 - Built and merged to `main`: M1 to M9, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #66 (2026-10-23).
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Active: feedback after M9 on `fix/office-walk`, PR open: office walking speed, department focus, and the new app icon ("Late shift", picked by the owner from https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD). The icon's source is `apps/desktop/src/ui/app-icon.svg` (sidebar logo, browser tab); `electron/icon.png` (64 px, window and tray) and `packaging/icon.png` (512 px, installer) are rendered from it. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
+- Active: none. Done: feedback after M9 (PR #67, merged): office walking speed, department focus, and the new app icon ("Late shift", picked by the owner from https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD). The icon's source is `apps/desktop/src/ui/app-icon.svg` (sidebar logo, browser tab); `electron/icon.png` (64 px, window and tray) and `packaging/icon.png` (512 px, installer) are rendered from it. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
@@ -51,6 +51,7 @@ Worth a click when touched.
 
 - "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked in D-57.
 - Telling the user a CLI is out of date (D-58; needs a contract change).
+- Voice input, parked by the owner (2026-10-24): shipping it to users is too much work for now (a native speech engine in the installer, a model download of several hundred MB, mic permissions). The owner may add it later, for themself first. The plan (on-device sherpa-onnx with Parakeet) is on closed PR #68.
 - Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
 - Human-in-the-loop UI starts simple but must extend without rewrites.
 
