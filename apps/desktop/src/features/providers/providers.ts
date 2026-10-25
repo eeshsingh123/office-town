@@ -1,4 +1,9 @@
-import type { Account, HarnessDescription, HarnessStatus } from "@office-town/contract";
+import type {
+  Account,
+  EnvironmentSpec,
+  HarnessDescription,
+  HarnessStatus,
+} from "@office-town/contract";
 import { useEffect } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -49,25 +54,32 @@ export function checkHarnesses({ now = false } = {}): Promise<void> {
   return checking;
 }
 
-// Checked when first needed and again on coming back to the window, as after running an install
-// command in a terminal.
-export function useHarnessStatuses(): Record<string, HarnessStatus> | undefined {
+// Checked once when first needed. Pages about getting an app ready check again on coming back to
+// the window, as after running an install command in a terminal; each check starts every CLI.
+export function useHarnessStatuses({
+  recheckOnFocus = false,
+} = {}): Record<string, HarnessStatus> | undefined {
   const statuses = useApp((state) => state.harnessStatuses);
   useEffect(() => {
     const check = () => void checkHarnesses().catch(() => {});
-    check();
+    if (recheckOnFocus || useApp.getState().harnessStatuses === undefined) check();
+    if (!recheckOnFocus) return;
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
-  }, []);
+  }, [recheckOnFocus]);
   return statuses;
 }
 
 // The AI apps an agent can be put on: the ones ready here, and the one already chosen. Every one
-// until the check is in, so nothing disappears while it runs.
-export function useOfferedHarnesses(current?: string): HarnessDescription[] {
+// until the check is in, so nothing disappears while it runs, and every one in WSL, where the app
+// does not check installs (D-75).
+export function useOfferedHarnesses(
+  current: string | undefined,
+  environment: EnvironmentSpec | undefined,
+): HarnessDescription[] {
   const harnesses = useApp((state) => state.harnesses);
   const statuses = useHarnessStatuses();
-  if (statuses === undefined) return harnesses;
+  if (statuses === undefined || environment?.kind === "wsl") return harnesses;
   return harnesses.filter(
     (description) => description.harness === current || isReady(statuses[description.harness]),
   );

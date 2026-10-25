@@ -74,7 +74,7 @@ export function ChiefSetup() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const offered = useOfferedHarnesses(draft.harness);
+  const offered = useOfferedHarnesses(draft.harness, draft.environment);
   const summary = useModelLine(draft);
   const handle = toHandle(name);
   const validName = agentNameSchema.safeParse(handle).success;

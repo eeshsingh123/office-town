@@ -39,7 +39,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
     state.harnesses.find((known) => known.harness === value.harness),
   );
   // Only the apps ready here, and the one already picked (D-76).
-  const harnesses = useOfferedHarnesses(value.harness);
+  const harnesses = useOfferedHarnesses(value.harness, value.environment);
   const environments = useLoaded("environments", api.listEnvironments).value ?? [];
   const { models, error } = useCatalog(description, value.environment);
   const [open, setOpen] = useState(false);

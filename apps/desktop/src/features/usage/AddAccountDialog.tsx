@@ -230,7 +230,7 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
                     <strong>{known.name}</strong>
                     <small>
                       {known.signIn === "key"
-                        ? `${known.needs}; paid plans sign in with a key from their console`
+                        ? `Signed in with a key from your ${known.name} console`
                         : `${known.needs}, signed in through your browser`}
                     </small>
                   </span>

@@ -172,6 +172,7 @@ export function AccountGrid({ accounts, spend, showLeft }: AccountGridProps) {
               key={account.id}
               account={account}
               harnessName={harness?.name ?? account.harness}
+              usagePage={harness?.usagePage}
               reportsLimits={harness?.capabilities.usageLimits ?? false}
               limits={limits[account.id]}
               users={users}

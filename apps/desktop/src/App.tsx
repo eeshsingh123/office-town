@@ -65,12 +65,7 @@ function Main({ view }: { view: View }) {
     case "workspaces":
       return <WorkspacesView />;
     case "providers":
-      return (
-        <ProvidersView
-          key={view.install ?? ""}
-          {...(view.install === undefined ? {} : { install: view.install })}
-        />
-      );
+      return <ProvidersView />;
     case "provider":
       return <ProviderView key={view.harness} harness={view.harness} />;
     case "connectors":

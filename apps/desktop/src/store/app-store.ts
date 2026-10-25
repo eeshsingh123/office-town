@@ -46,10 +46,9 @@ export type View =
   | { name: "tasks" }
   | { name: "templates" }
   | { name: "workspaces" }
-  // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
-  // `install` opens that AI app's install sheet at once.
-  | { name: "providers"; install?: string }
+  | { name: "providers" }
   | { name: "provider"; harness: string }
+  // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
   | { name: "connectors"; connect?: string; audience?: Audience }
   | { name: "connector"; connectorId: string }
   | { name: "usage" }

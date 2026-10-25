@@ -16,7 +16,7 @@ Last updated: 2026-10-25
 
 Worth a click when touched.
 
-- M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers.
+- M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers, a resumed Muse session setting its approval mode and model again.
 - Packaging (D-75): the Linux AppImage (built only in CI), an update from one real GitHub beta to the next (`v0.1.0-beta.1` is the first; the update was tested with a local feed), Restart to update with agents open, an installed app's WSL task from the UI (tested on the packaged core), the setup Install progress line live (the API was run end to end with OpenCode through npm), the install folders on Linux.
 - Outputs (D-74): a team worker's result after its merge (tested in the core, not live), an OpenCode or WSL agent calling `show_result`, a PDF in the app's frame, a version's page loading its styles, a stopped site restarted fresh, Open with default app, light mode on the Outputs tab.
 - Check loop (D-73): a team lead writing its checklist, Send fixes and round 2, a copy sandbox (no git), WSL.

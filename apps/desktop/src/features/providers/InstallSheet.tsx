@@ -90,7 +90,7 @@ interface InstallSheetProps {
 // Install, sign in, ready: the app runs the vendor's installer where it can, else shows the command.
 export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) {
   const description = useApp((state) => state.harnesses.find((one) => one.harness === harness));
-  const status = useHarnessStatuses()?.[harness];
+  const status = useHarnessStatuses({ recheckOnFocus: true })?.[harness];
   const { install, start } = useInstall(harness, () => void checkHarnesses({ now: true }));
   const [checking, setChecking] = useState(false);
   const name = description?.name ?? harness;
@@ -177,7 +177,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
             </>
           ) : (
             <p className={styles.muted}>
-              {description?.maker}'s own installer, run as it is. It takes a minute or two.
+              Runs {description?.maker}'s own installer. It takes a minute or two.
             </p>
           )}
         </section>

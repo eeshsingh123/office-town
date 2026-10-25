@@ -102,8 +102,8 @@ const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" 
 function Estimate({ dollars }: { dollars: number }) {
   return (
     <p className={styles.estimate}>
-      About <strong>{dollars < 0.01 ? "under $0.01" : USD.format(dollars)}</strong> this week at API
-      prices
+      {dollars < 0.01 ? "Under " : "About "}
+      <strong>{USD.format(Math.max(dollars, 0.01))}</strong> this week at API prices
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
           <button type="button" className={styles.tipButton} aria-label="How this is worked out">
@@ -124,6 +124,7 @@ function Estimate({ dollars }: { dollars: number }) {
 interface AccountCardProps {
   account: Account;
   harnessName: string;
+  usagePage: string | undefined;
   reportsLimits: boolean;
   limits: AccountLimits | undefined;
   // Agents that use it, by their own pick or their last session.
@@ -256,11 +257,11 @@ export function AccountCard(props: AccountCardProps) {
           )}
           <p className={styles.info}>
             {harnessName} doesn't share plan usage with other apps.{" "}
-            {account.harness === "opencode" ? (
-              <a href="https://opencode.ai/auth" target="_blank" rel="noreferrer">
-                See it on opencode.ai
+            {props.usagePage === undefined ? null : (
+              <a href={props.usagePage} target="_blank" rel="noreferrer">
+                See it on {new URL(props.usagePage).host}
               </a>
-            ) : null}
+            )}
           </p>
         </>
       )}

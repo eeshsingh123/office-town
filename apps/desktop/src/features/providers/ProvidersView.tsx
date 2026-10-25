@@ -61,15 +61,13 @@ function Side(props: { description: HarnessDescription; accounts: Account[]; spe
 type Sheet = { kind: "install"; harness: string } | { kind: "sign-in"; account: Account };
 
 // The AI apps agents run on: the ones here with their accounts, and the ones to get (D-76).
-export function ProvidersView({ install }: { install?: string }) {
+export function ProvidersView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
-  const statuses = useHarnessStatuses();
+  const statuses = useHarnessStatuses({ recheckOnFocus: true });
   const spend = useSpend();
   useLiveLimits();
-  const [sheet, setSheet] = useState<Sheet | undefined>(
-    install === undefined ? undefined : { kind: "install", harness: install },
-  );
+  const [sheet, setSheet] = useState<Sheet>();
   useEffect(() => {
     void reloadAccounts().catch(() => {});
   }, []);

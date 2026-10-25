@@ -90,7 +90,7 @@ type Sheet = { kind: "install"; harness: string } | { kind: "sign-in"; account: 
 function AiApps() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
-  const statuses = useHarnessStatuses();
+  const statuses = useHarnessStatuses({ recheckOnFocus: true });
   const [sheet, setSheet] = useState<Sheet>();
   const signIn = (harness: string) => {
     const account = defaultLogin(accounts, harness);

@@ -8,7 +8,7 @@ import { compactCount } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { isReady, useHarnessStatuses } from "../providers/providers.ts";
 import { Meter } from "./AccountCard.tsx";
-import { AccountGrid, tokensOf, useSpend } from "./AccountGrid.tsx";
+import { AccountGrid, tokensOf, useAccountUsers, useSpend } from "./AccountGrid.tsx";
 import { clock, fullest, inTime, roomiest, windowLabel } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { reloadAccounts, useLimitStops, useLiveLimits, useMinute } from "./use-usage.ts";
@@ -23,6 +23,7 @@ export function UsageView() {
   const limits = useApp((state) => state.limits);
   const departments = useApp((state) => state.departments);
   const statuses = useHarnessStatuses();
+  const usersOf = useAccountUsers();
   const stops = useLimitStops();
   const spend = useSpend();
   const now = useMinute();
@@ -41,14 +42,16 @@ export function UsageView() {
   const reports = (harness: string) =>
     harnesses.find((known) => known.harness === harness)?.capabilities.usageLimits ?? false;
 
-  // An added account always shows; a default login once its AI app is ready here, so apps the
-  // user never installed stay off this page.
+  // An added account always shows; a default login once its AI app is ready here, or once it was
+  // used, so a signed-out one can sign in again while apps never set up stay off this page.
   const inUse = accounts.filter(
     (account) =>
       account.folder !== undefined ||
       account.environment.kind === "wsl" ||
       statuses === undefined ||
-      isReady(statuses[account.harness]),
+      isReady(statuses[account.harness]) ||
+      usersOf.has(account.id) ||
+      limits[account.id] !== undefined,
   );
   const used = harnesses.filter((known) =>
     inUse.some((account) => account.harness === known.harness),

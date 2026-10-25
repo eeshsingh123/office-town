@@ -70,7 +70,7 @@ type Sheet = "install" | "sign-in" | "add";
 export function ProviderView({ harness }: { harness: string }) {
   const description = useApp((state) => state.harnesses.find((one) => one.harness === harness));
   const accounts = useApp((state) => state.accounts);
-  const status = useHarnessStatuses()?.[harness];
+  const status = useHarnessStatuses({ recheckOnFocus: true })?.[harness];
   const spend = useSpend();
   useLiveLimits();
   const [sheet, setSheet] = useState<Sheet>();

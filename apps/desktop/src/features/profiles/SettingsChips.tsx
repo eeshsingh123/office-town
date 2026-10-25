@@ -81,7 +81,7 @@ export function SettingsChips({
   showHarness = true,
   onChange,
 }: SettingsChipsProps) {
-  const harnesses = useOfferedHarnesses(value.harness);
+  const harnesses = useOfferedHarnesses(value.harness, value.environment);
   const description = harnesses.find((known) => known.harness === value.harness) ?? harnesses[0];
   const environments = useLoaded("environments", api.listEnvironments);
   const catalog = useCatalog(description, value.environment);
