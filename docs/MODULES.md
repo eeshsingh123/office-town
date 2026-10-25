@@ -15,7 +15,7 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 
 ## Vocabulary
 
-- Harness: a vendor CLI (Claude Code, OpenCode, Codex, Antigravity).
+- Harness: a vendor CLI (Claude Code, OpenCode, Codex and others). "AI app" in what the user reads.
 - Session: one running conversation between the app and one harness process. Resuming starts a new session of the same agent.
 - Event: one normalized fact a session reports. The UI, storage and orchestration consume only events.
 - Environment: where a harness process is launched (native OS, WSL, later a sandbox).
@@ -32,78 +32,35 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 
 ## Built
 
-### M1 Harness core (done)
+Each line is what later work builds on; the why lives in DECISIONS.md.
 
-`packages/harness` starts one agent on one harness (Claude Code, OpenCode over ACP), natively or in WSL, and reports everything it does as one event stream: plan, nested actions, permission requests and questions, usage limits, live text. It lists each harness's models and effort values and can resume a harness session by its id. `pnpm dev:run` and `pnpm dev:catalog` use it directly.
+- **M1 Harness core.** `packages/harness` runs one agent on one harness (Claude Code; OpenCode over ACP), natively or in WSL, as one event stream; lists models and efforts; resumes by the harness's id. Layers: environment (launch, paths, kill), process runner, JSON-RPC client, session (ids, sequence, errors, plan steps), adapter (command, native message -> events, outgoing commands). Every adapter passes the same conformance tests against recordings of the real CLI. `pnpm dev:run`, `pnpm dev:catalog`.
+- **M2 Core service.** `packages/service`: many sessions, every event stored in SQLite before it is published, one localhost API with a per-launch token and one event stream for live, catch-up and replay (D-15, D-17, D-30 to D-32). Workspaces (D-33, D-56); interrupted sessions resume after a crash. `SessionRegistry` is the only thing that starts sessions.
+- **M3 Desktop shell.** `apps/desktop`: Electron starts the core, keeps agents in the tray and forwards `/api` with the token (D-34, D-36). One API client, one Zustand store fed by one stream, pure event -> trace functions (D-37). The office floor (`features/office`), the trace, the request card (`features/requests`), Tasks, themes.
+- **M4 Orchestration.** A lead proposes a department, the user approves it in Needs you, and the lead delegates to workers on any harness through the core's MCP tool server (D-39, D-43, D-44). Stored agents and templates (D-42, D-55), one autonomy policy (D-45), a worktree per worker (D-46), a room per department (D-48). Code: `service/src/team`, `tools`, `autonomy`.
+- **M5 Command center.** A standing chief splits a goal into pieces per department; a scheduler runs them in order, passing results and read-only upstream folders (D-49, D-51). Records reach the UI as `change` frames; task state, usage and limits live in the core (D-50). `service/src/chief`; UI `board`, `plan`, `chief`, `work`.
+- **Feedback rounds after M5.** Home, creation flows, the Dusk look, review in the chat, profiles and templates, workspaces, Needs you, one composer, plain naming, Tasks, accounts and Usage, team building (D-52 to D-63, D-65).
+- **M6 Files and Library (D-64).** Attachments in every composer, copied or linked read-only, images inline when the model sees them, marked Opened or Not opened; a workspace Library given to Everyone, a department or an agent. `service/src/attachments`, `library`. Out: content search, reading Office files, editing Library files.
+- **M6.5 Onboarding and help (D-66).** Setup (AI app, where work goes, about you), tutorials that run real tasks on cheap models, Getting started, Help. `features/onboarding`, `help`.
+- **M7 Connectors (D-67, D-68).** Key apps, local programs and Add your own run through the core's hub and reach every harness (`service/src/connectors`, keys in the OS store); sign-in apps are the user's claude.ai connectors, Claude agents only. Every call is checked against access and permission and logged. `features/connectors`. Out: our own app sign-ins, the full registry, per-tool switches.
+- **After M7: feedback and optimization.** Several workspaces per department (D-69); usage recount (D-70), a lead stopping workers (D-71), lean runs with handover and usage pause (D-72), the check loop outside the team (D-73).
+- **M8 Outputs and preview (D-74).** `show_result`, changed files and local sites, viewed in a sandboxed viewer with feedback and marked spots. `service/src/outputs`, `features/outputs`.
+- **M9 Packaging (D-75).** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, a beta on every green merge, stable only on the owner's word, setup installing harnesses with the vendor's installer (`harness/src/install.ts`). Out until release: stable, Download link, signing, intro video.
 
-A new adapter must stay small. Shared behaviour lives outside it:
+## Next
 
-| Layer | Owns |
-|---|---|
-| Environment | launching a command, path translation, killing the process tree |
-| Process runner | spawn, stdout line framing, stderr capture, exit handling |
-| JSON-RPC client | request/response/notification over stdio (ACP now, Codex later) |
-| Session | lifecycle, event ids, sequence numbers, timestamps, errors, plan-step attribution |
-| Adapter | build the command; pure function native message -> events; encode outgoing commands |
+### M10 More AI apps (D-76; mockup approved, build next)
 
-Every adapter passes the same conformance tests, run against recordings of the real CLI.
+Goal: more harnesses without breaking the two that work, a clean way to get each one installed and signed in, and one page that stays readable as the list grows. No Google CLIs (owner).
 
-### M2 Core service (done)
+Scope (owner, 2026-10-25), approach pending the mockup:
+- Codex through `codex app-server` and Muse Code through `muse serve`, one translator each; GitHub Copilot CLI and Cursor CLI as launch profiles on the existing ACP translator.
+- Adapters declare what the UI now hard-codes per harness: how it signs in, its version, whether it asks before acting.
+- A Providers page in the main nav (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
+- Install with the vendor's own installer when its prerequisite is here, else the copy command (D-75).
+- Verified by recordings and conformance tests; live runs only when the owner says go.
 
-`packages/service` is the long-running core. It runs many sessions at once, stores every event in SQLite before publishing it (D-15, D-30, D-31), and serves one localhost API with a per-launch token (D-17, D-32): tasks, sessions, commands, resume, results, workspaces, settings, harness catalog, store size, the blocked queue, and one event stream that does live updates, catch-up and replay alike. A session runs in a workspace: the user's own folders, or a new folder per task in Scratch (D-33, D-56). After a crash or restart, unfinished sessions are marked interrupted and can be resumed. `SessionRegistry` is the only thing that starts sessions; M4's team code drives it rather than starting harnesses itself.
-
-### M3 Desktop shell, office and agent panels (done)
-
-`apps/desktop` is the app. The Electron shell starts the core, keeps agents running in the tray (D-34) and forwards `/api` with the token (D-36). The UI has one API client, one Zustand store fed by a single live stream, and pure functions that turn events into a trace (D-37). The office (D-35; Home became the first screen in D-52): one open floor, an agent per task, walk-up, click and drag-select, and a side panel. Around it: New task, the trace view, the request card used in the trace and in Needs you, Tasks (history, replay, delete), light and dark themes. M4 builds on all of it: agent identity in `src/store/agents.ts`, the floor plan in `features/office/floor-plan.ts`, the request card in `features/requests`.
-
-### M4 Orchestration (done)
-
-Describe a goal and a team does it. A lead agent proposes a department (roles, and a harness, model and effort for each); the user edits and approves it in Needs you, and can change the team at any time from the department's settings. The lead hands work to workers on any harness through the core's own MCP tool server (D-39, D-43) and gets their results back as messages (D-44). Agents and profiles are stored records (D-42). One autonomy policy in the core guards every agent (D-45). In a git workspace each worker gets its own worktree and branch, which the lead merges (D-46). The user can send finished work to a checker outside the team (D-47, D-73). In the office each department is a room with its own panel (D-48). Team code lives in `packages/service/src/team`, `src/tools` and `src/autonomy` and starts agents only through `SessionRegistry`; the UI adds `features/departments`, `features/profiles` and the team task view. M5 grows the rooms into the command center; M7 attaches connectors through the tool server.
-
-
-### M5 Command center (done)
-
-The office runs several goals across departments at once. A standing chief (`packages/service/src/chief`) splits a goal into a plan of pieces per department; the user edits and approves it, and any re-plan, in Needs you. A scheduler starts a piece once what it waits on is done and its department is free, passes upstream results into the brief, and gives read-only access to upstream folders (D-51). Records reach the UI as `change` frames on the one stream, and the core keeps each task's state, usage and plan limits (D-50). The UI adds the board with To review, the plan card, the chief's page, plan links, door states and draggable rooms (`features/office`, `chat`, `work`, `board`, `plan`, `chief`).
-
-### Feedback rounds (done)
-
-Owner feedback after M5 reshaped the app without new modules: Home (D-52), creation flows and the Dusk look (D-53), review in the chat (D-54), your profile and templates (D-55), workspaces (D-56), Needs you (D-57), one composer (D-58), plain naming (D-59), Tasks (D-60), accounts and Usage with live plan usage (D-61), the side panel (D-62), Back/Forward and group tasks (D-63), building teams from words and the Team page (D-65).
-
-### M6 Files and Library (D-64; done)
-
-The user gives agents files, images and folders explicitly, and every one reaches the agent for real. Attachments: paperclip, drag and drop and paste in every composer; files are copied read-only, folders linked read-only; images go inline when the model can see them; the app marks each item Opened or Not opened. Library: each workspace keeps reference items given to Everyone, a department or one agent, listed in every matching task's prompt; `#` attaches one; agents add items through a team tool, and their changes go to Needs you. Code: `packages/service/src/attachments`, `src/library`, `features/attachments`, `features/library`.
-
-Out of scope: indexing and search over file contents (later, on top of this), reading Office files for the agent, editing Library files in the app.
-
-### M6.5 Onboarding and help (D-66; done)
-
-First-run setup (AI app, where work goes, about you), tutorials that run real tasks on a free or cheap model, a self-ticking Getting started list on Home, a Help page (tutorials, Display settings, What's new), and tutorials in Ctrl+K. Code: `features/onboarding`, `features/help`.
-
-Out of scope: running vendor installers from the app (setup shows the official command), an in-app terminal.
-
-### M7 Connectors (D-67, D-68; done)
-
-The user connects an app once and chooses who may use it and how freely. Key apps, programs on this computer and Add your own go through the core, which every harness reaches (`packages/service/src/connectors`): one MCP client link per connector (official SDK, client side only), re-served on the tool server at `/mcp/apps/<slug>`, plus the hub's `list_app_tools` and `use_app_tool` at `/mcp/apps` for apps granted mid-conversation. Keys stay in the OS credential store. Sign-in apps are the user's claude.ai connectors, used by Claude agents only (`connectors/claude-apps.ts`, harness `vendor-apps.ts`): the core reads them per Claude account, the harness blocks the ones an agent may not use, and the core decides each call. A conversation's apps are fixed at its first session (`connectorIds`, `vendorApps`). Every call is checked against access and the app's permission, logged (`connector_calls`), and goes ahead, waits in Needs you, or is refused. `request_app` asks the user for an app, or points to a teammate who has a Claude app. The UI adds `features/connectors`: the Connectors page with its Claude apps section, connect and Add your own sheets, the connector page with activity, asks in Needs you, logos in the trace and side panel.
-
-Out of scope: running app sign-ins in the core, writing new MCP servers, the whole public registry, per-tool switches, two accounts per app, importing the CLIs' own MCP configs, send caps, MCP resources and prompts, per-workspace connectors, connectors for guests.
-
-### After M7: feedback and optimization (done)
-
-Feedback: several workspaces per department (D-69), lists of points for every rules and notes field, sub-teams on the floor, the team tree and the run card. Optimization, from a measured goal where the lead was ~60% of the spend: usage recounted after a session (D-70), a lead stopping its workers (D-71), lean team runs with handover and a usage pause (D-72), and a check loop outside the team (D-73). Code: `packages/service/src/team` (`stop-work.ts`, `handover.ts`, `usage-pause.ts`, `checks.ts`, `check-sandbox.ts`).
-
-### M8 Outputs and preview (D-74; done)
-
-See what agents made without leaving the app, on every harness: results agents mark with `show_result`, the files they changed, and local sites they run. A viewer shows pages and sites (sandboxed, with screen sizes and versions), images, Markdown, PDF, tables and code with its changes; anything else opens in its default app. Feedback goes back to the agent, with pictures of spots marked on the page. Code: `packages/service/src/outputs` (tool, preview server, routes), `features/outputs`.
-
-Out of scope: editing outputs in the app, deploying or sharing them, starting a dev server for the agent, an app-wide Outputs page.
-
----
-
-### M9 Packaging (D-75; done)
-
-An installed app that updates itself from beta builds: a per-user installer (Windows) and AppImage (Linux) from `pnpm package`, `pnpm dev:app` running "Office Town Dev" next to it, updates on quit or on "Restart to update", a beta published on every green merge to `main`, a stable workflow run only on the owner's word, and setup installing Claude Code and OpenCode with the vendor's installer. Code: `apps/desktop/packaging`, `apps/desktop/dev/app.ts`, `electron/dev-mode.ts`, `electron/updates.ts`, `.github/workflows/beta.yml` and `release.yml`, `packages/harness/src/install.ts`, `packages/service/src/api/install-routes.ts`.
-
-Out of scope until the owner asks for the release: publishing a stable version, a Download link in the README, code signing, the intro video.
+Out of scope: Pi, Hermes, OpenClaw, Google CLIs, an unverified ACP-registry tier, WSL installs.
 
 ### Before the public release (owner's go-ahead)
 
@@ -115,4 +72,4 @@ Out of scope until the owner asks for the release: publishing a stable version, 
 
 ## Later modules (outline only)
 
-- **Deferred.** Agent memory (owner, 2026-10-23): the harnesses keep their own, so an app layer adds little; back only if the owner raises it. macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation. Codex and Antigravity adapters: one adapter each, when wanted.
+- **Deferred.** Agent memory (owner, 2026-10-23): the harnesses keep their own, so an app layer adds little; back only if the owner raises it. macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation.
