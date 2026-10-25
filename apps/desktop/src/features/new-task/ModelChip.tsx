@@ -141,7 +141,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
               }}
             >
               <Plus size={14} aria-hidden />
-              Get more AI apps
+              Providers
             </button>
           </div>
         </Popover.Content>
