@@ -14,15 +14,16 @@ import {
   type UsageLimit,
   type VendorApp,
 } from "@office-town/contract";
-import type { LaunchExtras } from "./adapter.ts";
+import type { Adapter, LaunchExtras } from "./adapter.ts";
 import { adapters, findAdapter } from "./adapters/registry.ts";
 import { readCatalog } from "./catalog.ts";
 import { type CommandResult, runIn } from "./command.ts";
 import type { Environment } from "./environment/environment.ts";
 import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
-import { canInstallHarness } from "./install.ts";
+import { installerHere } from "./install.ts";
 import { runProcess } from "./process-runner.ts";
+import { runQuery } from "./query.ts";
 import { HarnessSession, type Session } from "./session.ts";
 import { readSignInPage, readVendorApps } from "./vendor-apps.ts";
 
@@ -66,13 +67,26 @@ export function createSession(input: SessionOptions, extras: LaunchExtras = {}):
   );
 }
 
+function signInOf({ accounts }: Adapter): HarnessDescription["signIn"] {
+  if (accounts?.login !== undefined) return "browser";
+  return accounts?.keyLogin === undefined ? "none" : "key";
+}
+
 export function listHarnesses(): HarnessDescription[] {
-  return adapters.map(({ harness, name, capabilities, isolationNote }) => ({
-    harness,
-    name,
-    capabilities,
-    ...(isolationNote === undefined ? {} : { isolationNote }),
-  }));
+  return adapters.map((adapter) => {
+    const { harness, name, maker, summary, needs, capabilities, isolationNote } = adapter;
+    return {
+      harness,
+      name,
+      maker,
+      summary,
+      needs,
+      capabilities,
+      ...(isolationNote === undefined ? {} : { isolationNote }),
+      signIn: signInOf(adapter),
+      manyAccounts: adapter.accounts !== undefined,
+    };
+  });
 }
 
 export async function listEnvironments(): Promise<EnvironmentSpec[]> {
@@ -251,25 +265,36 @@ export function accountCredentials(harness: string): string | undefined {
   return findAdapter(harness).accounts?.credentials;
 }
 
+// Such as "1.4.13" from "Muse Code 1.4.13 (1.4.13-R6996.1)" or "2026.10.22-27dcf5f".
+const VERSION = /\d+(?:\.\d+)+(?:-[\w.]+)?/;
+
+// The CLI's version, or undefined when it is not installed here.
+async function readVersion(environment: Environment, install: Adapter["install"]) {
+  if (install === undefined) return "";
+  const result = await runIn(environment, install.version).catch(() => undefined);
+  if (result?.code !== 0) return undefined;
+  return VERSION.exec(result.stdout)?.[0] ?? "";
+}
+
 // Whether the CLI is on this computer and signed in, with how to install it if not.
 export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
   const { install } = findAdapter(harness);
   const environment = environmentFor({ kind: "native" });
   // At once: the first two each start the CLI, which takes most of a second.
-  const [installed, signIn, canInstall] = await Promise.all([
-    install === undefined ||
-      runIn(environment, install.version).then(
-        (result) => result.code === 0,
-        () => false,
-      ),
+  const [version, signIn, installer] = await Promise.all([
+    readVersion(environment, install),
     readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined),
-    canInstallHarness(harness),
+    installerHere(install),
   ]);
+  const installed = version !== undefined;
   const status = installed ? signIn : undefined;
   return {
     harness,
     installed,
-    canInstall,
+    ...(version ? { version } : {}),
+    canInstall: installer.found !== undefined,
+    ...(installer.found === undefined ? {} : { installWith: installer.found.needs }),
+    ...(installer.missing === undefined ? {} : { installNeeds: installer.missing }),
     ...(status === undefined ? {} : { signedIn: status.signedIn }),
     ...(install === undefined
       ? {}
@@ -280,6 +305,8 @@ export async function readHarnessStatus(harness: string): Promise<HarnessStatus>
   };
 }
 
+const STATUS_TIMEOUT_MS = 30_000;
+
 // Who is signed in on an account; undefined where the harness cannot say.
 export async function readAccountStatus(
   harness: string,
@@ -289,13 +316,10 @@ export async function readAccountStatus(
   const { accounts } = findAdapter(harness);
   if (accounts?.status === undefined) return undefined;
   const environment = environmentFor(environmentSpecSchema.parse(spec));
-  const { command, parse } = accounts.status;
-  const env = {
-    ...command.env,
-    ...(folder === undefined ? {} : accounts.env(environment.toEnvironmentPath(folder))),
-  };
-  const result = await runIn(environment, { ...command, env });
-  return parse(result.stdout);
+  return runQuery(environment, accounts.status, {
+    env: loginEnv(harness, environment, folder),
+    timeoutMs: STATUS_TIMEOUT_MS,
+  });
 }
 
 // The plan usage as the vendor has it now, for a harness that can say; undefined otherwise.
@@ -305,9 +329,16 @@ export async function readAccountLimits(
   folder: string | undefined,
 ): Promise<UsageLimit[] | undefined> {
   const { accounts } = findAdapter(harness);
-  if (accounts?.readLimits === undefined) return undefined;
-  const { credentials, home } = accounts;
   const environment = environmentSpecSchema.parse(spec);
+  if (accounts?.limits !== undefined) {
+    const where = environmentFor(environment);
+    return runQuery(where, accounts.limits, {
+      env: loginEnv(harness, where, folder),
+      timeoutMs: STATUS_TIMEOUT_MS,
+    }).catch(() => undefined);
+  }
+  if (accounts?.readLimits === undefined || accounts.credentials === undefined) return undefined;
+  const { credentials, home } = accounts;
   let text: string | undefined;
   if (folder !== undefined) {
     // An added account's folder is in the data folder, on this machine.

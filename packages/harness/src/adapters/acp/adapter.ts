@@ -5,6 +5,9 @@ export type AcpHarness = Pick<
   Adapter,
   | "harness"
   | "name"
+  | "maker"
+  | "summary"
+  | "needs"
   | "capabilities"
   | "isolationNote"
   | "catalog"
@@ -12,12 +15,16 @@ export type AcpHarness = Pick<
   | "install"
   | "recount"
   | "buildCommand"
->;
+> & {
+  // The ways the harness may prefix a tool of an MCP server the core attached, as its tool call
+  // titles show it, such as "office-town_delegate".
+  toolPrefixes: (server: string) => string[];
+};
 
 // Any harness whose own binary speaks the Agent Client Protocol only has to say how to launch it.
-export function createAcpAdapter(harness: AcpHarness): Adapter {
+export function createAcpAdapter({ toolPrefixes, ...harness }: AcpHarness): Adapter {
   return {
     ...harness,
-    createTranslator: (options) => new AcpTranslator(options),
+    createTranslator: (options) => new AcpTranslator(options, toolPrefixes),
   };
 }

@@ -128,20 +128,33 @@ export const harnessDescriptionSchema = z.object({
   capabilities: adapterCapabilitiesSchema,
   // What still loads in an isolated session, when isolation is partial.
   isolationNote: z.string().optional(),
+  // Who makes the CLI, one line on what it is, and what the user needs to use it (D-76).
+  maker: z.string().min(1),
+  summary: z.string().min(1),
+  needs: z.string().min(1),
+  // How an account signs in: in the browser, with a key the CLI saves, or not at all.
+  signIn: z.enum(["browser", "key", "none"]),
+  // The user can add more accounts, each in a login folder of its own (D-61).
+  manyAccounts: z.boolean(),
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
-// Whether a harness can run on this computer, for setup. Native only.
+// Whether a harness can run on this computer, for setup and Providers. Native only.
 export const harnessStatusSchema = z.object({
   harness: z.string().min(1),
   installed: z.boolean(),
+  // As the CLI reports it, once installed.
+  version: z.string().optional(),
   // Unset when the harness needs no sign-in to run, or cannot say.
   signedIn: z.boolean().optional(),
   // The vendor's own install command for this computer, and its page.
   installCommand: z.string().optional(),
   installPage: z.string().optional(),
-  // The app can run the vendor's installer here, from setup (D-75).
+  // The app can run the vendor's installer here (D-75), with this program, such as npm.
   canInstall: z.boolean(),
+  installWith: z.string().optional(),
+  // What this computer lacks for the app to install it, such as Node.js.
+  installNeeds: z.string().optional(),
 });
 export type HarnessStatus = z.infer<typeof harnessStatusSchema>;
 
@@ -252,6 +265,8 @@ export const settingsSchema = z.object({
   roomPositions: z.record(z.string(), roomPositionSchema).optional(),
   onboarding: onboardingSchema.optional(),
   display: displaySchema.optional(),
+  // Accounts the app saw sign in, on a harness that cannot say whether it is signed in (D-76).
+  signedInAccounts: z.array(z.string().min(1)).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 

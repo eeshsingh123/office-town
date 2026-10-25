@@ -95,7 +95,11 @@ const install: InstallSupport = {
   // Windows has no installer of its own (owner): npm or Scoop when one is here, else the command.
   installers: {
     windows: [
-      { needs: "npm", command: { binary: "npm", args: ["install", "-g", "opencode-ai"] } },
+      {
+        needs: "npm",
+        named: "Node.js",
+        command: { binary: "npm", args: ["install", "-g", "opencode-ai"] },
+      },
       { needs: "scoop", command: { binary: "scoop", args: ["install", "opencode"] } },
     ],
     unix: [
@@ -105,7 +109,7 @@ const install: InstallSupport = {
       },
     ],
   },
-  folder: ".opencode/bin",
+  folders: [".opencode/bin"],
 };
 
 // Its global config and global instructions still load (D-41).
@@ -169,8 +173,7 @@ const recount: RecountSupport = {
 // Each model is a line with its id, then indented JSON; its variants are its effort values.
 const catalog: CatalogQuery = {
   command: { binary: "opencode", args: ["models", "--verbose"] },
-  input: [],
-  parse(output) {
+  read(output) {
     const models = [];
     let id: string | undefined;
     let description: string[] = [];
@@ -198,13 +201,17 @@ const catalog: CatalogQuery = {
       id = undefined;
       description = [];
     }
-    return { models };
+    // It always lists its free models, so an empty list means it failed.
+    return models.length === 0 ? undefined : { models };
   },
 };
 
 export const opencodeAdapter = createAcpAdapter({
   harness: "opencode",
   name: "OpenCode",
+  maker: "Anomaly",
+  summary: "An open-source coding agent with free models and many providers.",
+  needs: "Has free models. No account needed",
   capabilities: {
     reasoning: true,
     plan: true,
@@ -216,6 +223,7 @@ export const opencodeAdapter = createAcpAdapter({
     isolation: "partial",
   },
   isolationNote: "OpenCode's global settings and instructions still load.",
+  toolPrefixes: (server) => [`${server}_`],
   catalog,
   accounts,
   install,

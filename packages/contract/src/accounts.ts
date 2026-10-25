@@ -53,10 +53,12 @@ export const accountStatusSchema = z.object({
 });
 export type AccountStatus = z.infer<typeof accountStatusSchema>;
 
-// A sign-in in progress. `url` is the page the CLI opened, to open again if it was closed.
+// A sign-in in progress. `url` is the page the CLI opened, to open again if it was closed;
+// `code` is one the CLI shows for the user to enter on that page.
 export const accountLoginSchema = z.object({
   state: z.enum(["waiting", "done", "failed"]),
   url: z.string().optional(),
+  code: z.string().optional(),
   message: z.string().optional(),
 });
 export type AccountLogin = z.infer<typeof accountLoginSchema>;

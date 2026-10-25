@@ -45,16 +45,19 @@ export type LaunchOptions = SessionOptions & {
   blockedApps?: string[];
 };
 
-// For a harness that prefixes server names, such as "mcp__office-town__" or "office-town_".
+// For a harness that prefixes server names, such as "mcp__office-town__" or "office-town_". The
+// longest server name is tried first, so "office-town-apps" is never read as "office-town".
 export function attachedTool(
   title: string,
   servers: readonly { name: string }[],
-  prefixOf: (server: string) => string,
+  prefixOf: (server: string) => string | string[],
 ): { server: string; name: string } | undefined {
-  for (const { name: server } of servers) {
-    const prefix = prefixOf(server);
-    if (title.startsWith(prefix) && title.length > prefix.length) {
-      return { server, name: title.slice(prefix.length) };
+  const longestFirst = servers.toSorted((a, b) => b.name.length - a.name.length);
+  for (const { name: server } of longestFirst) {
+    for (const prefix of [prefixOf(server)].flat()) {
+      if (title.startsWith(prefix) && title.length > prefix.length) {
+        return { server, name: title.slice(prefix.length) };
+      }
     }
   }
   return undefined;
@@ -93,34 +96,46 @@ export interface Translator {
   interrupt(): Translation;
 }
 
-// A command that runs to its end once its input closes, and a pure reading of its output.
-export interface CatalogQuery {
+// One question asked by running the CLI: `input` is written once it starts and `read` finds the
+// answer in its output. A CLI that answers and exits is read once it ends; a `server`, which stays
+// up until its input closes, is read line by line and stopped once it has answered.
+export interface HarnessQuery<T> {
   command: HarnessCommand;
-  input: string[];
-  parse(output: string[]): HarnessCatalog;
+  input?: string[];
+  server?: boolean;
+  // Undefined while the output does not hold the answer yet. Once the CLI has ended, the end of
+  // what it wrote to stderr comes too.
+  read(output: string[], stderr?: string): T | undefined;
 }
+
+export type CatalogQuery = HarnessQuery<HarnessCatalog>;
 
 // How a harness keeps several logins apart, each in a folder of its own (D-61).
 export interface AccountSupport {
   // Variables that point the CLI at an account's folder, as the harness's environment sees it.
   env(folder: string): Record<string, string>;
-  // The file in the folder that holds the sign-in, once there is one.
-  credentials: string;
+  // The file in the folder that holds the sign-in, once there is one; unset where the CLI may keep
+  // it in the system's credential store, so the app remembers the sign-ins it saw finish.
+  credentials?: string;
   // Signs in, printing a page to open and reading a code from stdin if the page shows one.
   login?: HarnessCommand;
   // Signs in with a key from the provider's console, read from stdin; the CLI saves it.
   keyLogin?: (provider: string) => HarnessCommand;
-  status?: { command: HarnessCommand; parse(output: string): AccountStatus };
+  status?: HarnessQuery<AccountStatus>;
   // The default login's folder, inside the home folder.
   home?: string;
   // Asks the vendor for the plan usage now, with the sign-in file's text; undefined if it cannot.
   readLimits?: (credentials: string) => Promise<UsageLimit[] | undefined>;
+  // Or asks the CLI itself, for one that reports it.
+  limits?: HarnessQuery<UsageLimit[]>;
 }
 
 // One way the vendor installs its CLI, run as is (D-6, D-75).
 export interface Installer {
-  // A program it cannot run without; the first installer whose program is here runs.
+  // A program it cannot run without; the first installer whose program is here runs. `named` is
+  // what the user installs to get it, such as Node.js for npm.
   needs: string;
+  named?: string;
   command: HarnessCommand;
 }
 
@@ -133,9 +148,9 @@ export interface InstallSupport {
   unix: string;
   page: string;
   installers: { windows: Installer[]; unix: Installer[] };
-  // Where the installer puts the CLI, under the home folder. Its PATH change reaches only new
-  // terminals, so the app adds this folder itself.
-  folder?: string;
+  // Where the installers put the CLI, under the home folder. Their PATH change reaches only new
+  // terminals, so the app adds these folders itself.
+  folders?: string[];
 }
 
 // Apps the vendor connects for a login itself, such as the user's claude.ai connectors (D-68).
@@ -162,6 +177,10 @@ export interface RecountSupport {
 export interface Adapter {
   readonly harness: string;
   readonly name: string;
+  // For the Providers page, in the user's words (D-76).
+  readonly maker: string;
+  readonly summary: string;
+  readonly needs: string;
   readonly capabilities: AdapterCapabilities;
   // What still loads in an isolated session, when isolation is partial.
   readonly isolationNote?: string;

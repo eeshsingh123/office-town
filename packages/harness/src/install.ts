@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { delimiter, join } from "node:path";
-import type { HarnessCommand, InstallSupport } from "./adapter.ts";
+import type { Installer, InstallSupport } from "./adapter.ts";
 import { adapters, findAdapter } from "./adapters/registry.ts";
 import { findBinary } from "./environment/find-binary.ts";
 import { NativeEnvironment } from "./environment/native.ts";
@@ -25,19 +25,17 @@ async function isHere(binary: string): Promise<boolean> {
   );
 }
 
-async function installerHere(
+// The first installer whose program is here; else what the user would install for the first one.
+export async function installerHere(
   install: InstallSupport | undefined,
-): Promise<HarnessCommand | undefined> {
+): Promise<{ found?: Installer; missing?: string }> {
   const installers =
-    process.platform === "win32" ? install?.installers.windows : install?.installers.unix;
-  for (const { needs, command } of installers ?? []) {
-    if (await isHere(needs)) return command;
+    (process.platform === "win32" ? install?.installers.windows : install?.installers.unix) ?? [];
+  for (const installer of installers) {
+    if (await isHere(installer.needs)) return { found: installer };
   }
-  return undefined;
-}
-
-export async function canInstallHarness(harness: string): Promise<boolean> {
-  return (await installerHere(findAdapter(harness).install)) !== undefined;
+  const first = installers[0];
+  return first === undefined ? {} : { missing: first.named ?? first.needs };
 }
 
 function addToPath(folder: string): void {
@@ -51,7 +49,7 @@ function addToPath(folder: string): void {
 // may never read, so the core adds each one it finds to its own PATH.
 export function addInstallFoldersToPath(): void {
   for (const { install } of adapters) {
-    if (install?.folder !== undefined) addToPath(join(homedir(), install.folder));
+    for (const folder of install?.folders ?? []) addToPath(join(homedir(), folder));
   }
 }
 
@@ -62,7 +60,7 @@ export async function startHarnessInstall(
   onLine: (line: string) => void,
 ): Promise<RunningInstall | undefined> {
   const { install } = findAdapter(harness);
-  const command = await installerHere(install);
+  const command = (await installerHere(install)).found?.command;
   if (command === undefined) return undefined;
   const exited = Promise.withResolvers<InstallExit>();
   const running = await runProcess(new NativeEnvironment(), command, {
