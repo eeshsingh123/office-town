@@ -1,7 +1,7 @@
-import type { EnvironmentSpec, HarnessModel } from "@office-town/contract";
+import type { EnvironmentSpec } from "@office-town/contract";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { environmentKey, readCatalog } from "../../api/catalogs.ts";
+import { environmentKey } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -9,7 +9,6 @@ import { Crumbs } from "../../ui/Crumbs.tsx";
 import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { effortName } from "../new-task/ModelChip.tsx";
 import { AccountGrid, useSpend } from "../usage/AccountGrid.tsx";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
 import { reloadAccounts, useLiveLimits } from "../usage/use-usage.ts";
@@ -18,73 +17,11 @@ import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
 import { defaultLogin, isReady, useHarnessStatuses } from "./providers.ts";
 
-const ACCESS: Record<NonNullable<HarnessModel["access"]>, string> = {
-  free: "Free",
-  plan: "In your plan",
-  paid: "Paid per use",
-};
-// Enough to see what it offers; the rest wait behind "Show all".
-const MODELS_SHOWN = 12;
-
-function modelLine(model: HarnessModel): string {
-  const first = model.efforts[0];
-  const last = model.efforts.at(-1);
-  return [
-    model.access === undefined ? undefined : ACCESS[model.access],
-    first === undefined || last === undefined
-      ? undefined
-      : first === last
-        ? `${effortName(first)} effort`
-        : `${effortName(first)} to ${effortName(last)} effort`,
-    model.inputs?.includes("image") ? "sees images" : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function Models({ harness, signedIn }: { harness: string; signedIn: boolean | undefined }) {
-  const catalog = useLoaded(`${harness}|${signedIn}`, () =>
-    readCatalog(harness, { kind: "native" }),
-  );
-  const [all, setAll] = useState(false);
-  const models = catalog.value?.models;
-  if (catalog.error !== undefined) {
-    return (
-      <p className={styles.muted}>
-        {signedIn === false
-          ? "Sign in to see its models."
-          : `Could not read its models: ${catalog.error}`}
-      </p>
-    );
-  }
-  if (models === undefined) return <p className={styles.muted}>Reading its models…</p>;
-  if (models.length === 0)
-    return <p className={styles.muted}>It lists its models once you sign in.</p>;
-  const shown = all ? models : models.slice(0, MODELS_SHOWN);
-  return (
-    <>
-      <ul className={styles.models} aria-label="Models">
-        {shown.map((model) => (
-          <li key={model.id} className={styles.modelRow}>
-            <span className={styles.modelName}>{model.name}</span>
-            <span className={styles.muted}>{modelLine(model)}</span>
-          </li>
-        ))}
-      </ul>
-      {models.length > shown.length ? (
-        <Button variant="ghost" onClick={() => setAll(true)}>
-          Show all {models.length}
-        </Button>
-      ) : null}
-    </>
-  );
-}
-
 // Where it can run: this computer, and each WSL distro, which the user installs it in by hand.
 function RunsOn({ harness }: { harness: string }) {
   const environments = useLoaded("environments", api.listEnvironments).value ?? [];
   return (
-    <ul className={styles.models} aria-label="Runs on">
+    <ul className={styles.places} aria-label="Runs on">
       {environments.map((environment) => (
         <Place key={environmentKey(environment)} harness={harness} environment={environment} />
       ))}
@@ -129,7 +66,7 @@ function Place({ harness, environment }: { harness: string; environment: Environ
 
 type Sheet = "install" | "sign-in" | "add";
 
-// One AI app: whether it is ready, its accounts, its models and where it runs (D-76).
+// One AI app: whether it is ready, its accounts and where it runs (D-76).
 export function ProviderView({ harness }: { harness: string }) {
   const description = useApp((state) => state.harnesses.find((one) => one.harness === harness));
   const accounts = useApp((state) => state.accounts);
@@ -196,31 +133,20 @@ export function ProviderView({ harness }: { harness: string }) {
         </div>
 
         {!installed ? null : (
-          <>
-            <div className={page.section}>
-              <div className={page.sectionHead}>
-                <h2 className={page.sectionTitle}>
-                  Accounts <span className={styles.count}>{mine.length}</span>
-                </h2>
-                {description.manyAccounts ? (
-                  <Button onClick={() => setSheet("add")}>
-                    <Plus size={14} aria-hidden />
-                    Add account
-                  </Button>
-                ) : null}
-              </div>
-              <AccountGrid accounts={mine} spend={spend} showLeft={false} />
+          <div className={page.section}>
+            <div className={page.sectionHead}>
+              <h2 className={page.sectionTitle}>
+                Accounts <span className={styles.count}>{mine.length}</span>
+              </h2>
+              {description.manyAccounts ? (
+                <Button onClick={() => setSheet("add")}>
+                  <Plus size={14} aria-hidden />
+                  Add account
+                </Button>
+              ) : null}
             </div>
-
-            {description.capabilities.modelList ? (
-              <div className={page.section}>
-                <div className={page.sectionHead}>
-                  <h2 className={page.sectionTitle}>Models</h2>
-                </div>
-                <Models harness={harness} signedIn={status?.signedIn} />
-              </div>
-            ) : null}
-          </>
+            <AccountGrid accounts={mine} spend={spend} showLeft={false} />
+          </div>
         )}
 
         <div className={page.section}>

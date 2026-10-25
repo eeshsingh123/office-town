@@ -18,7 +18,7 @@ import { defaultLogin, isReady, useHarnessStatuses } from "./providers.ts";
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
-function subOf(description: HarnessDescription, status: HarnessStatus, accounts: number) {
+function subOf(status: HarnessStatus, accounts: number) {
   if (status.signedIn === false) return "Installed · not signed in";
   const version = status.version ? ` · version ${status.version}` : "";
   return `${plural(accounts, "account")}${version}`;
@@ -127,9 +127,7 @@ export function ProvidersView({ install }: { install?: string }) {
                           <ProviderLogo harness={description.harness} />
                           <span className={styles.rowText}>
                             <span className={styles.rowName}>{description.name}</span>
-                            <span className={styles.rowSub}>
-                              {subOf(description, status, mine.length)}
-                            </span>
+                            <span className={styles.rowSub}>{subOf(status, mine.length)}</span>
                           </span>
                           {needsSignIn ? (
                             <span className={styles.rowSpacer} />
