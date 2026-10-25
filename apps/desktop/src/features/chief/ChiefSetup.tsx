@@ -15,6 +15,7 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
+import { useOfferedHarnesses } from "../providers/providers.ts";
 import styles from "./Chief.module.css";
 import { DepartmentList } from "./DepartmentList.tsx";
 
@@ -73,6 +74,7 @@ export function ChiefSetup() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const offered = useOfferedHarnesses(draft.harness);
   const summary = useModelLine(draft);
   const handle = toHandle(name);
   const validName = agentNameSchema.safeParse(handle).success;
@@ -252,7 +254,7 @@ export function ChiefSetup() {
                   label="AI app"
                   value={draft.harness}
                   wide
-                  options={harnesses.map((known) => ({
+                  options={offered.map((known) => ({
                     value: known.harness,
                     title: known.name,
                   }))}

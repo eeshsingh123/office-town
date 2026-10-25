@@ -340,6 +340,8 @@ export const api = {
     write("PUT", "/display", display, displaySchema),
   readHarnessStatus: (): Promise<HarnessStatus[]> =>
     read("/harnesses/status", listOf(harnessStatusSchema)),
+  readHarnessStatusIn: (harness: string, environment: EnvironmentSpec): Promise<HarnessStatus> =>
+    read(`/harnesses/${id(harness)}/status?${environmentQuery(environment)}`, harnessStatusSchema),
   saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
     send("PUT", `/room-positions/${id(roomId)}`, position),
   listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),

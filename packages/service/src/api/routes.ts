@@ -9,10 +9,13 @@ import {
   chiefTaskRequestSchema,
   connectorDraftRequestSchema,
   continueTaskRequestSchema,
+  defaultAccountId,
   departmentDraftRequestSchema,
   departmentSettingsSchema,
   displaySchema,
+  type EnvironmentSpec,
   environmentSpecSchema,
+  type HarnessStatus,
   linkFolderRequestSchema,
   MAX_ATTACHMENT_BYTES,
   newDepartmentRequestSchema,
@@ -111,6 +114,15 @@ export function apiRoutes(
   prices: PriceList,
 ): Route[] {
   const { registry, store, readCatalog } = team;
+  // A CLI that cannot say whether it is signed in counts as signed in once the app saw its
+  // default login sign in, and as not signed in before, where it signs in through the browser.
+  const withSeenSignIn = (status: HarnessStatus, environment: EnvironmentSpec) => {
+    if (!status.installed || status.signedIn !== undefined) return status;
+    const seen = rememberedSignIns(store).includes(defaultAccountId(status.harness, environment));
+    if (seen) return { ...status, signedIn: true };
+    const signIn = listHarnesses().find(({ harness }) => harness === status.harness)?.signIn;
+    return signIn === "browser" ? { ...status, signedIn: false } : status;
+  };
   return [
     ...accountRoutes(team, prices),
     ...installRoutes(),
@@ -631,17 +643,23 @@ export function apiRoutes(
       method: "GET",
       path: "/harnesses/status",
       reply: async () => {
+        const native = { kind: "native" } as const;
         const statuses = await Promise.all(
-          listHarnesses().map(({ harness }) => readHarnessStatus(harness)),
+          listHarnesses().map(({ harness }) => readHarnessStatus(harness, native)),
         );
-        // A CLI that cannot say is signed in once the app saw its default login sign in (D-76).
-        const seen = rememberedSignIns(store);
-        const json = statuses.map((status) =>
-          status.installed && status.signedIn === undefined && seen.includes(status.harness)
-            ? { ...status, signedIn: true }
-            : status,
-        );
-        return { status: 200, json };
+        return { status: 200, json: statuses.map((status) => withSeenSignIn(status, native)) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/harnesses/:harness/status",
+      reply: async ({ param, query }) => {
+        const environment = environmentSpecSchema.parse({
+          kind: query.get("environment") ?? "native",
+          distro: query.get("distro") ?? undefined,
+        });
+        const status = await readHarnessStatus(param("harness"), environment);
+        return { status: 200, json: withSeenSignIn(status, environment) };
       },
     },
     {

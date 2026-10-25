@@ -1,4 +1,5 @@
 import {
+  Bot,
   CircleHelp,
   FolderGit2,
   Gauge,
@@ -54,6 +55,7 @@ interface NavItemProps {
     | "tasks"
     | "templates"
     | "workspaces"
+    | "providers"
     | "connectors"
     | "usage"
     | "help";
@@ -63,12 +65,14 @@ interface NavItemProps {
 }
 
 export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
-  // A workspace's own page sits under Workspaces; a department's and the new one under Team.
+  // A workspace's own page sits under Workspaces, an AI app's under Providers, and a
+  // department's and the new one under Team.
   const current = useApp(
     (state) =>
       state.view.name === view ||
       (view === "workspaces" && state.view.name === "workspace") ||
       (view === "connectors" && state.view.name === "connector") ||
+      (view === "providers" && state.view.name === "provider") ||
       (view === "team" && ["department", "new-department"].includes(state.view.name)),
   );
   const rail = useRailLabel(label);
@@ -228,6 +232,7 @@ export function Sidebar() {
         <NavItem view="tasks" icon={List} label="Tasks" />
         <NavItem view="templates" icon={SwatchBook} label="Templates" />
         <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
+        <NavItem view="providers" icon={Bot} label="Providers" />
         <NavItem view="connectors" icon={Plug} label="Connectors" badge={<ConnectorDot />} />
         <NavItem view="usage" icon={Gauge} label="Usage" badge={<UsageDot />} />
         {collapsed ? null : (

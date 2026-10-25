@@ -15,6 +15,8 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import { environmentName } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
+import { CopyCommand } from "../providers/InstallSheet.tsx";
+import { checkHarnesses, useHarnessStatuses } from "../providers/providers.ts";
 import { sameEnvironment } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { reloadAccounts } from "./use-usage.ts";
@@ -33,19 +35,39 @@ const POLL_MS = 1500;
 interface AddAccountDialogProps {
   // Set to sign an account in again, which skips the first two steps.
   again?: Account | undefined;
+  // Set when the AI app is already chosen, as on its Providers page, which skips the first step.
+  harness?: string;
   onClose: () => void;
+}
+
+// A code the CLI shows, to type on its sign-in page.
+function SignInCode({ code }: { code: string }) {
+  return (
+    <div className={styles.signInCode}>
+      <CopyCommand command={code} />
+    </div>
+  );
 }
 
 const message = (failure: unknown) =>
   failure instanceof Error ? failure.message : String(failure);
 
-export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
+export function AddAccountDialog({ again, harness: preset, onClose }: AddAccountDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
+  const statuses = useHarnessStatuses();
+  // Only an app that keeps several logins apart, and is installed here.
+  const choices = harnesses.filter(
+    (known) => known.manyAccounts && (statuses === undefined || statuses[known.harness]?.installed),
+  );
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const environments = useLoaded("environments", api.listEnvironments);
-  const [step, setStep] = useState<Step>(again === undefined ? "tool" : "sign-in");
-  const [harness, setHarness] = useState(again?.harness ?? harnesses[0]?.harness ?? "claude");
+  const [step, setStep] = useState<Step>(
+    again !== undefined ? "sign-in" : preset !== undefined ? "name" : "tool",
+  );
+  const [harness, setHarness] = useState(
+    again?.harness ?? preset ?? choices[0]?.harness ?? harnesses[0]?.harness ?? "claude",
+  );
   const [environment, setEnvironment] = useState<EnvironmentSpec>(
     again?.environment ?? { kind: "native" },
   );
@@ -59,12 +81,14 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
   const [team, setTeam] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const harnessName = harnesses.find((known) => known.harness === harness)?.name ?? harness;
-  const signsInWithKey = harness === "opencode";
+  const description = harnesses.find((known) => known.harness === harness);
+  const harnessName = description?.name ?? harness;
+  const signsInWithKey = description?.signIn === "key";
 
   // "Sign in again" starts right away.
   useEffect(() => {
-    if (again === undefined || again.harness === "opencode") return;
+    const signIn = useApp.getState().harnesses.find((known) => known.harness === again?.harness);
+    if (again === undefined || signIn?.signIn === "key") return;
     api
       .startSignIn(again.id)
       .then(setLogin)
@@ -82,6 +106,7 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
           if (next.state === "done") {
             setStatus((await api.readAccountStatus(account.id)) ?? undefined);
             setStep("use");
+            void checkHarnesses({ now: true }).catch(() => {});
           }
         })
         .catch(() => {});
@@ -180,18 +205,20 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
           </Dialog.Description>
           {again === undefined ? (
             <ol className={styles.steps} aria-label="Steps">
-              {STEP_NAMES.map(([value, label]) => (
-                <li key={value} aria-current={value === step ? "step" : undefined}>
-                  {label}
-                </li>
-              ))}
+              {STEP_NAMES.filter(([value]) => preset === undefined || value !== "tool").map(
+                ([value, label]) => (
+                  <li key={value} aria-current={value === step ? "step" : undefined}>
+                    {label}
+                  </li>
+                ),
+              )}
             </ol>
           ) : null}
 
           {step === "tool" ? (
             <fieldset className={styles.choices}>
               <legend className="visually-hidden">Tool</legend>
-              {harnesses.map((known) => (
+              {choices.map((known) => (
                 <button
                   key={known.harness}
                   type="button"
@@ -202,9 +229,9 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
                   <span>
                     <strong>{known.name}</strong>
                     <small>
-                      {known.harness === "claude"
-                        ? "Pro, Max or Team plan, signed in through your browser"
-                        : "OpenCode Go or Zen, with a key from your OpenCode console"}
+                      {known.signIn === "key"
+                        ? `${known.needs}; paid plans sign in with a key from their console`
+                        : `${known.needs}, signed in through your browser`}
                     </small>
                   </span>
                 </button>
@@ -288,34 +315,41 @@ export function AddAccountDialog({ again, onClose }: AddAccountDialogProps) {
                     <strong>Finish signing in in your browser</strong>
                     <br />
                     <span>
-                      {harnessName}'s sign-in page opened. This account stays separate from your
-                      other {harnessName} sign-ins.
+                      {login?.code === undefined
+                        ? `${harnessName}'s sign-in page opened.`
+                        : "Enter this code on the page that opened."}{" "}
+                      {account?.folder === undefined
+                        ? ""
+                        : `This account stays separate from your other ${harnessName} sign-ins.`}
                     </span>
                   </div>
                 </div>
-                <label className={dialog.label}>
-                  Code, if the page shows one
-                  <div className={styles.codeRow}>
-                    <input
-                      className={dialog.input}
-                      value={code}
-                      autoComplete="off"
-                      onChange={(event) => setCode(event.target.value)}
-                    />
-                    <Button
-                      disabled={busy || code.trim() === "" || account === undefined}
-                      onClick={() =>
-                        void run(async () => {
-                          if (account === undefined) return;
-                          await api.sendSignInCode(account.id, code);
-                          setCode("");
-                        })
-                      }
-                    >
-                      Send code
-                    </Button>
-                  </div>
-                </label>
+                {login?.code === undefined ? null : <SignInCode code={login.code} />}
+                {login?.code !== undefined ? null : (
+                  <label className={dialog.label}>
+                    Code, if the page shows one
+                    <div className={styles.codeRow}>
+                      <input
+                        className={dialog.input}
+                        value={code}
+                        autoComplete="off"
+                        onChange={(event) => setCode(event.target.value)}
+                      />
+                      <Button
+                        disabled={busy || code.trim() === "" || account === undefined}
+                        onClick={() =>
+                          void run(async () => {
+                            if (account === undefined) return;
+                            await api.sendSignInCode(account.id, code);
+                            setCode("");
+                          })
+                        }
+                      >
+                        Send code
+                      </Button>
+                    </div>
+                  </label>
+                )}
               </>
             )
           ) : null}

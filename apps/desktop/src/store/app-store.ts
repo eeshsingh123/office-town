@@ -9,6 +9,7 @@ import type {
   DepartmentRecord,
   Display,
   HarnessDescription,
+  HarnessStatus,
   LibraryItem,
   Onboarding,
   OutputRecord,
@@ -46,6 +47,9 @@ export type View =
   | { name: "templates" }
   | { name: "workspaces" }
   // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
+  // `install` opens that AI app's install sheet at once.
+  | { name: "providers"; install?: string }
+  | { name: "provider"; harness: string }
   | { name: "connectors"; connect?: string; audience?: Audience }
   | { name: "connector"; connectorId: string }
   | { name: "usage" }
@@ -66,6 +70,8 @@ export interface Visit {
 export interface AppState extends Records {
   connection: StreamStatus;
   harnesses: HarnessDescription[];
+  // Whether each is installed and signed in on this computer; undefined until checked (D-76).
+  harnessStatuses: Record<string, HarnessStatus> | undefined;
   agents: Record<string, AgentRecord>;
   departments: Record<string, DepartmentRecord>;
   // Of every team task that has not ended, and each one made since.
@@ -114,6 +120,7 @@ export interface AppState extends Records {
 export const useApp = create<AppState>(() => ({
   connection: "connecting",
   harnesses: [],
+  harnessStatuses: undefined,
   agents: {},
   departments: {},
   delegations: {},

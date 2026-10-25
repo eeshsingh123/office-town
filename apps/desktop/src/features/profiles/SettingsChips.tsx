@@ -6,6 +6,7 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { environmentName } from "../../ui/format.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { ModelPicker } from "../new-task/ModelPicker.tsx";
+import { useOfferedHarnesses } from "../providers/providers.ts";
 import { fullest, percent, roomiest, sameEnvironment } from "../usage/limits.ts";
 import { useCatalog } from "./model-line.ts";
 
@@ -80,7 +81,7 @@ export function SettingsChips({
   showHarness = true,
   onChange,
 }: SettingsChipsProps) {
-  const harnesses = useApp((state) => state.harnesses);
+  const harnesses = useOfferedHarnesses(value.harness);
   const description = harnesses.find((known) => known.harness === value.harness) ?? harnesses[0];
   const environments = useLoaded("environments", api.listEnvironments);
   const catalog = useCatalog(description, value.environment);

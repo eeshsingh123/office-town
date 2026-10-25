@@ -281,15 +281,20 @@ async function readVersion(environment: Environment, install: Adapter["install"]
   return VERSION.exec(result.stdout)?.[0] ?? "";
 }
 
-// Whether the CLI is on this computer and signed in, with how to install it if not.
-export async function readHarnessStatus(harness: string): Promise<HarnessStatus> {
+// Whether the CLI is where agents run and signed in, with how to install it if not. The app runs
+// an installer on this computer only (D-75).
+export async function readHarnessStatus(
+  harness: string,
+  spec: EnvironmentSpec = { kind: "native" },
+): Promise<HarnessStatus> {
   const { install } = findAdapter(harness);
-  const environment = environmentFor({ kind: "native" });
+  const native = spec.kind === "native";
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
   // At once: the first two each start the CLI, which takes most of a second.
   const [version, signIn, installer] = await Promise.all([
     readVersion(environment, install),
-    readAccountStatus(harness, { kind: "native" }, undefined).catch(() => undefined),
-    installerHere(install),
+    readAccountStatus(harness, spec, undefined).catch(() => undefined),
+    native ? installerHere(install) : Promise.resolve({ found: undefined, missing: undefined }),
   ]);
   const installed = version !== undefined;
   const status = installed ? signIn : undefined;
@@ -304,7 +309,7 @@ export async function readHarnessStatus(harness: string): Promise<HarnessStatus>
     ...(install === undefined
       ? {}
       : {
-          installCommand: process.platform === "win32" ? install.windows : install.unix,
+          installCommand: native && process.platform === "win32" ? install.windows : install.unix,
           installPage: install.page,
         }),
   };

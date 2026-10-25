@@ -172,8 +172,11 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
         if (account.folder !== undefined) {
           return { status: 200, json: { signedIn: hasSignIn(account, store) } };
         }
-        const seen = rememberedSignIns(store).includes(account.id);
-        return { status: 200, json: seen ? { signedIn: true } : null };
+        if (rememberedSignIns(store).includes(account.id)) {
+          return { status: 200, json: { signedIn: true } };
+        }
+        const browser = descriptionOf(account.harness)?.signIn === "browser";
+        return { status: 200, json: browser ? { signedIn: false } : null };
       },
     },
     {
