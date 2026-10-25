@@ -1,6 +1,6 @@
 # Office Town (working name)
 
-Open-source desktop app where a user describes a task and a team of AI agents plans, delegates and executes it, shown as a command center of departments and employees. Agents run on the user's own CLI harness subscriptions (Claude Code, Codex, Antigravity, OpenCode).
+Open-source desktop app where a user describes a task and a team of AI agents plans, delegates and executes it, shown as a command center of departments and employees. Agents run on the user's own CLI harness subscriptions (Claude Code, OpenCode, Codex and others; no Google CLIs, whose terms risk the user's account).
 
 ## Product principles
 
@@ -30,11 +30,14 @@ Keep all four short. If a line would not change what the next session does, dele
 
 ## Build protocol
 
-When asked to build a module or sub-module:
-1. Re-read its scope in MODULES.md and the rules in RULES.md.
-2. Raise anything unclear and present the approach. Wait for the owner's go-ahead.
-3. Implement on a feature branch, verify, open a PR.
-4. Report: what was added, why, what is next.
+A module earns its place only if it adds real value; cut anything that does not.
+
+A new module goes through three stages, each waiting on the owner:
+1. Discussion: understand the ask, research references, look at the app as it is, then present the approaches, an end-to-end plan, limits and tradeoffs. Push back where there is a better way.
+2. Mockup: an artifact of how it looks in the app, with the open questions on it.
+3. Build: re-read its scope in MODULES.md and RULES.md, implement on a feature branch, verify, open a PR. Ask when something comes up mid-build. Report what was added, why, and what is next.
+
+Adding a module to MODULES.md also compresses the Built section, so it stays short as modules grow.
 
 ## Story briefs for other agents
 
