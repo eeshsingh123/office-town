@@ -20,6 +20,8 @@ import { SetupView } from "./features/onboarding/SetupView.tsx";
 import { TutorialCard } from "./features/onboarding/TutorialCard.tsx";
 import { useTutorial } from "./features/onboarding/tutorial-state.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
+import { ProvidersView } from "./features/providers/ProvidersView.tsx";
+import { ProviderView } from "./features/providers/ProviderView.tsx";
 import { HistoryRow, useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
@@ -62,6 +64,10 @@ function Main({ view }: { view: View }) {
       return <TemplatesView />;
     case "workspaces":
       return <WorkspacesView />;
+    case "providers":
+      return <ProvidersView />;
+    case "provider":
+      return <ProviderView key={view.harness} harness={view.harness} />;
     case "connectors":
       return (
         <ConnectorsView

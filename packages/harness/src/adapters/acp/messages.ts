@@ -8,9 +8,22 @@ const configOptionSchema = z.looseObject({
 });
 export type ConfigOption = z.infer<typeof configOptionSchema>;
 
+export const initializeResultSchema = z.looseObject({
+  agentCapabilities: z
+    .looseObject({
+      loadSession: z.boolean().optional(),
+      sessionCapabilities: z.looseObject({ resume: z.unknown().optional() }).nullish(),
+    })
+    .optional(),
+});
+
 // A resumed session answers without its id: it is the one that was asked for.
 export const sessionResultSchema = z.looseObject({
   sessionId: z.string().optional(),
+  configOptions: z.array(configOptionSchema).optional(),
+});
+
+export const setOptionResultSchema = z.looseObject({
   configOptions: z.array(configOptionSchema).optional(),
 });
 

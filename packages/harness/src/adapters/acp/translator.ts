@@ -13,10 +13,12 @@ import {
   type ConfigOption,
   chunkSchema,
   delegationInputSchema,
+  initializeResultSchema,
   permissionParamsSchema,
   planSchema,
   promptResultSchema,
   sessionResultSchema,
+  setOptionResultSchema,
   type ToolCall,
   todoInputSchema,
   toolCallSchema,
@@ -24,7 +26,7 @@ import {
 } from "./messages.ts";
 
 const PROTOCOL_VERSION = 1;
-const SESSION_METHODS = new Set(["session/new", "session/resume"]);
+const SESSION_METHODS = new Set(["session/new", "session/resume", "session/load"]);
 const SET_OPTION = "session/set_config_option";
 const EFFORT_CATEGORY = "thought_level";
 const NOTHING: Translation = { events: [], outgoing: [] };
@@ -60,6 +62,9 @@ function mcpServerOf(server: AttachedToolServer) {
     : { name: server.name, command: server.command, args: server.args, env: pairs(server.env) };
 }
 
+const modelOption = (options: ConfigOption[]) =>
+  options.find((option) => option.category === "model" || option.id === "model");
+
 function stepsOf(
   entries: Array<{ content: string; status: "pending" | "in_progress" | "completed" }>,
 ) {
@@ -77,21 +82,36 @@ export class AcpTranslator implements Translator {
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
+  readonly #model: string | undefined;
   readonly #effort: string | undefined;
   readonly #resumeSessionId: string | undefined;
   readonly #toolServers: AttachedToolServer[];
+  readonly #toolPrefixes: (server: string) => string[];
+  readonly #allowOwnToolAsks: boolean;
   #sessionId: string | undefined;
-  #configuring = false;
+  // The setting the harness is applying: the model first, then its effort.
+  #configuring: "model" | "effort" | undefined;
+  #options: ConfigOption[] = [];
+  // While session/load replays the conversation, whose turns the trace already has.
+  #loading = false;
   #turnActive = false;
   #stream: TextStream | undefined;
 
   constructor(
-    options: Pick<LaunchOptions, "workspacePath" | "effort" | "resumeSessionId" | "toolServers">,
+    options: Pick<
+      LaunchOptions,
+      "workspacePath" | "model" | "effort" | "resumeSessionId" | "toolServers"
+    >,
+    toolPrefixes: (server: string) => string[],
+    allowOwnToolAsks: boolean,
   ) {
     this.#cwd = options.workspacePath;
+    this.#model = options.model;
     this.#effort = options.effort;
     this.#resumeSessionId = options.resumeSessionId;
     this.#toolServers = options.toolServers;
+    this.#toolPrefixes = toolPrefixes;
+    this.#allowOwnToolAsks = allowOwnToolAsks;
   }
 
   open(): string[] {
@@ -112,11 +132,11 @@ export class AcpTranslator implements Translator {
       case "error":
         return this.#failure(incoming.method, incoming.message);
       case "notification":
-        if (incoming.method !== "session/update") return NOTHING;
+        if (incoming.method !== "session/update" || this.#loading) return NOTHING;
         return this.#updated(this.#update(incoming.params));
       case "request":
         if (incoming.method === "session/request_permission") {
-          return { events: this.#permissionRequest(incoming.id, incoming.params), outgoing: [] };
+          return this.#permissionRequest(incoming.id, incoming.params);
         }
         return {
           events: [],
@@ -169,16 +189,9 @@ export class AcpTranslator implements Translator {
   }
 
   #result(method: string, result: unknown): Translation {
-    if (method === "initialize") {
-      const location = { cwd: this.#cwd, mcpServers: this.#toolServers.map(mcpServerOf) };
-      const request =
-        this.#resumeSessionId === undefined
-          ? this.#peer.request("session/new", location)
-          : this.#peer.request("session/resume", { sessionId: this.#resumeSessionId, ...location });
-      return { events: [], outgoing: [request] };
-    }
+    if (method === "initialize") return this.#openSession(result);
     if (SESSION_METHODS.has(method)) return this.#sessionCreated(result);
-    if (method === SET_OPTION) return this.#configured([]);
+    if (method === SET_OPTION) return this.#optionSet(result);
     if (method === "session/prompt") return this.#turnEnded(result);
     return NOTHING;
   }
@@ -206,12 +219,30 @@ export class AcpTranslator implements Translator {
     return { events, outgoing: next.outgoing };
   }
 
+  // A harness that cannot resume a session loads it instead, which replays it first.
+  #openSession(result: unknown): Translation {
+    const location = { cwd: this.#cwd, mcpServers: this.#toolServers.map(mcpServerOf) };
+    if (this.#resumeSessionId === undefined) {
+      return { events: [], outgoing: [this.#peer.request("session/new", location)] };
+    }
+    const capabilities = initializeResultSchema.parse(result).agentCapabilities;
+    const resumes = capabilities?.sessionCapabilities?.resume !== undefined;
+    this.#loading = !resumes && capabilities?.loadSession === true;
+    const method = resumes || !this.#loading ? "session/resume" : "session/load";
+    const params = { sessionId: this.#resumeSessionId, ...location };
+    return { events: [], outgoing: [this.#peer.request(method, params)] };
+  }
+
   #sessionCreated(result: unknown): Translation {
+    this.#loading = false;
     const session = sessionResultSchema.parse(result);
     const sessionId = session.sessionId ?? this.#resumeSessionId;
     if (sessionId === undefined) throw new Error("The harness did not name the new session.");
     this.#sessionId = sessionId;
-    const model = session.configOptions?.find((option) => option.id === "model")?.currentValue;
+    this.#options = session.configOptions ?? [];
+    const current = modelOption(this.#options)?.currentValue;
+    const refused = this.#refusesModel();
+    const model = refused ? current : (this.#model ?? current);
     const started: AdapterEvent = {
       type: "session.started",
       payload: {
@@ -219,12 +250,53 @@ export class AcpTranslator implements Translator {
         ...(typeof model === "string" ? { model } : {}),
       },
     };
-    const effort = this.#applyEffort(session.configOptions ?? []);
-    if (this.#configuring) return { events: [started], outgoing: effort.outgoing };
-    return this.#configured([started, ...effort.events]);
+    if (!refused) return this.#configure([started], "model");
+    const message = `This AI app does not offer "${this.#model}", so it runs on its default model.`;
+    return this.#configure(
+      [started, { type: "error", payload: { message, fatal: false } }],
+      "model",
+    );
   }
 
-  // Effort is a setting of the session's model, so it can only be chosen once the session exists.
+  // The model was picked, and the harness lists its models without it.
+  #refusesModel(): boolean {
+    const setting = modelOption(this.#options);
+    if (this.#model === undefined || setting === undefined) return false;
+    if (setting.currentValue === this.#model) return false;
+    return !(setting.options ?? []).some((option) => option.value === this.#model);
+  }
+
+  // The model first, then the effort, whose values belong to the model. Both can only be chosen
+  // once the session exists.
+  #configure(events: AdapterEvent[], from: "model" | "effort"): Translation {
+    const model = from === "model" ? this.#applyModel() : undefined;
+    if (model !== undefined) {
+      this.#configuring = "model";
+      return { events, outgoing: [model] };
+    }
+    const effort = this.#applyEffort(this.#options);
+    if (effort.outgoing.length > 0) {
+      this.#configuring = "effort";
+      return { events: [...events, ...effort.events], outgoing: effort.outgoing };
+    }
+    return this.#configured([...events, ...effort.events]);
+  }
+
+  #optionSet(result: unknown): Translation {
+    if (this.#configuring !== "model") return this.#configured([]);
+    this.#options = setOptionResultSchema.parse(result).configOptions ?? this.#options;
+    return this.#configure([], "effort");
+  }
+
+  // For a harness whose command line cannot name the model; one it already runs is left alone.
+  #applyModel(): string | undefined {
+    const setting = modelOption(this.#options);
+    if (this.#model === undefined || setting === undefined) return undefined;
+    if (setting.currentValue === this.#model || this.#refusesModel()) return undefined;
+    const params = { sessionId: this.#sessionId, configId: setting.id, value: this.#model };
+    return this.#peer.request(SET_OPTION, params);
+  }
+
   #applyEffort(options: ConfigOption[]): Translation {
     if (this.#effort === undefined) return NOTHING;
     const setting = options.find((option) => option.category === EFFORT_CATEGORY);
@@ -237,13 +309,12 @@ export class AcpTranslator implements Translator {
       const message = `${reason}, so "${this.#effort}" was ignored.`;
       return { events: [{ type: "error", payload: { message, fatal: false } }], outgoing: [] };
     }
-    this.#configuring = true;
     const params = { sessionId: this.#sessionId, configId: setting.id, value: this.#effort };
     return { events: [], outgoing: [this.#peer.request(SET_OPTION, params)] };
   }
 
   #configured(events: AdapterEvent[]): Translation {
-    this.#configuring = false;
+    this.#configuring = undefined;
     const next = this.#nextPrompt();
     return { events: [...events, ...next.events], outgoing: next.outgoing };
   }
@@ -283,7 +354,9 @@ export class AcpTranslator implements Translator {
   }
 
   #nextPrompt(): Translation {
-    if (this.#sessionId === undefined || this.#configuring || this.#turnActive) return NOTHING;
+    if (this.#sessionId === undefined || this.#configuring !== undefined || this.#turnActive) {
+      return NOTHING;
+    }
     const prompt = this.#queuedPrompts.shift();
     if (prompt === undefined) return NOTHING;
     this.#turnActive = true;
@@ -376,7 +449,7 @@ export class AcpTranslator implements Translator {
     if (state.started) return [];
     state.started = true;
     const title = call.title ?? "Tool call";
-    const tool = attachedTool(title, this.#toolServers, (server) => `${server}_`);
+    const tool = attachedTool(title, this.#toolServers, this.#toolPrefixes);
     return [
       {
         type: "action.started",
@@ -392,8 +465,19 @@ export class AcpTranslator implements Translator {
     ];
   }
 
-  #permissionRequest(id: JsonRpcId, params: unknown): AdapterEvent[] {
+  // The core's own tools never ask: what they lead to is guarded where it happens. A title can be
+  // a shell command or a path, so only a tool call of kind "other" counts as one of them.
+  #permissionRequest(id: JsonRpcId, params: unknown): Translation {
     const { toolCall, options } = permissionParamsSchema.parse(params);
+    const allow = options.find((option) => option.kind === "allow_once");
+    const own =
+      this.#allowOwnToolAsks &&
+      toolCall.kind === "other" &&
+      attachedTool(toolCall.title ?? "", this.#toolServers, this.#toolPrefixes) !== undefined;
+    if (own && allow !== undefined) {
+      const outcome = { outcome: "selected", optionId: allow.optionId };
+      return { events: [], outgoing: [this.#peer.respond(id, { outcome })] };
+    }
     const requestId = `permission-${id}`;
     this.#permissions.set(requestId, id);
     const state = this.#actions.get(toolCall.toolCallId) ?? {
@@ -402,7 +486,7 @@ export class AcpTranslator implements Translator {
       output: "",
     };
     this.#actions.set(toolCall.toolCallId, state);
-    return [
+    const events: AdapterEvent[] = [
       ...this.#flush(),
       ...this.#started(toolCall, state),
       {
@@ -416,5 +500,6 @@ export class AcpTranslator implements Translator {
         },
       },
     ];
+    return { events, outgoing: [] };
   }
 }

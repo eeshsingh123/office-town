@@ -1,5 +1,6 @@
 import { Command, defaultFilter } from "cmdk";
 import {
+  Bot,
   CircleHelp,
   CornerDownLeft,
   FolderGit2,
@@ -148,6 +149,7 @@ export function CommandMenu() {
                   label="Workspaces"
                   onSelect={() => go({ name: "workspaces" })}
                 />
+                <Row icon={Bot} label="Providers" onSelect={() => go({ name: "providers" })} />
                 <Row icon={Plug} label="Connectors" onSelect={() => go({ name: "connectors" })} />
                 <Row icon={Gauge} label="Usage" onSelect={() => go({ name: "usage" })} />
                 <Row

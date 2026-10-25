@@ -503,3 +503,17 @@
   font-size: 9px;
   font-weight: 700;
 }
+
+/* Providers is where more AI apps come from (D-76). */
+.getMore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}

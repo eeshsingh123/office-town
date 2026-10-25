@@ -1,15 +1,16 @@
 import type { RoleSettings } from "@office-town/contract";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, Plus, Sparkles } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { environmentKey } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
-import { useApp } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { environmentName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { useCatalog } from "../profiles/model-line.ts";
 import { DEFAULT_MODEL, modelName } from "../profiles/model-name.ts";
+import { useOfferedHarnesses } from "../providers/providers.ts";
 import styles from "./Composer.module.css";
 import { ModelList } from "./ModelList.tsx";
 
@@ -34,8 +35,11 @@ interface ModelChipProps {
 
 // The AI app, the model, how hard it thinks and where it runs, in one menu.
 export function ModelChip({ value, recent, onChange }: ModelChipProps) {
-  const harnesses = useApp((state) => state.harnesses);
-  const description = harnesses.find((known) => known.harness === value.harness);
+  const description = useApp((state) =>
+    state.harnesses.find((known) => known.harness === value.harness),
+  );
+  // Only the apps ready here, and the one already picked (D-76).
+  const harnesses = useOfferedHarnesses(value.harness, value.environment);
   const environments = useLoaded("environments", api.listEnvironments).value ?? [];
   const { models, error } = useCatalog(description, value.environment);
   const [open, setOpen] = useState(false);
@@ -127,6 +131,19 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
               />
             </div>
           ) : null}
+          <div className={styles.menuFoot}>
+            <button
+              type="button"
+              className={`${menu.item} ${styles.getMore}`}
+              onClick={() => {
+                setOpen(false);
+                navigate({ name: "providers" });
+              }}
+            >
+              <Plus size={14} aria-hidden />
+              Providers
+            </button>
+          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

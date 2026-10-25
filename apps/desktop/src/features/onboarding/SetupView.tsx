@@ -1,13 +1,7 @@
-import type {
-  Account,
-  Autonomy,
-  HarnessInstall,
-  HarnessStatus,
-  Onboarding,
-} from "@office-town/contract";
-import { Check, Copy, LoaderCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { ApiRequestError, api } from "../../api/client.ts";
+import type { Account, Autonomy, Onboarding } from "@office-town/contract";
+import { Check } from "lucide-react";
+import { useState } from "react";
+import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { loadWorkspaces, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -19,6 +13,14 @@ import { PointsField } from "../../ui/PointsField.tsx";
 import { LATEST } from "../help/whats-new.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
+import { InstallSheet } from "../providers/InstallSheet.tsx";
+import { ProviderCard } from "../providers/ProviderCard.tsx";
+import {
+  checkHarnesses,
+  defaultLogin,
+  isReady,
+  useHarnessStatuses,
+} from "../providers/providers.ts";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
 import { DEFAULT_YOU, useYou } from "../you/you.ts";
 import { saveOnboarding } from "./onboarding.ts";
@@ -30,16 +32,6 @@ type Purpose = NonNullable<Onboarding["purpose"]>;
 type Where = "scratch" | "folder";
 
 const STEPS = ["Welcome", "AI app", "Your work", "Ready"];
-
-const HARNESS_NOTES: Record<string, string> = {
-  claude: "Needs a Claude Pro or Max plan.",
-  opencode: "Has free models. No account needed.",
-};
-
-const ready = (status: HarnessStatus) => status.installed && status.signedIn !== false;
-const INSTALL_POLL_MS = 1000;
-// Coming back to the window checks again, at most this often: each check starts every CLI.
-const RETURN_CHECK_GAP_MS = 5000;
 
 function finish(purpose: Purpose | undefined) {
   return saveOnboarding({
@@ -92,190 +84,58 @@ function Welcome(props: { purpose: Purpose | undefined; onPurpose: (purpose: Pur
   );
 }
 
-function InstallCommand({
-  command,
-  page,
-  instead,
-}: {
-  command: string;
-  page: string | undefined;
-  instead: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className={styles.install}>
-      <span className={styles.installText}>
-        {instead ? "Or run this in a terminal" : "Run this in a terminal"}, then come back here.
-        {page === undefined ? null : (
-          <>
-            {" "}
-            <a href={page} target="_blank" rel="noreferrer">
-              Other ways to install
-            </a>
-          </>
-        )}
-      </span>
-      <div className={styles.commandRow}>
-        <code className={styles.command}>{command}</code>
-        <Button
-          onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}
-        >
-          {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
-          {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-    </div>
-  );
-}
+type Sheet = { kind: "install"; harness: string } | { kind: "sign-in"; account: Account };
 
-// The vendor's own installer, run by the core (D-75); the page asks how it is going.
-function useInstalls(onEnded: (harness: string) => void) {
-  const [installs, setInstalls] = useState<Record<string, HarnessInstall>>({});
-  const ended = useRef(onEnded);
-  ended.current = onEnded;
-  const running = Object.keys(installs).filter((harness) => installs[harness]?.state === "running");
-  const runningKey = running.join(",");
-  useEffect(() => {
-    if (runningKey === "") return;
-    const timer = setInterval(() => {
-      for (const harness of runningKey.split(",")) {
-        api
-          .readHarnessInstall(harness)
-          .then((next) => {
-            setInstalls((all) => ({ ...all, [harness]: next }));
-            if (next.state === "done") ended.current(harness);
-          })
-          .catch((error: unknown) => {
-            // The core restarted and lost the installer, so the app's own check says how it ended.
-            if (!(error instanceof ApiRequestError) || error.status !== 404) return;
-            setInstalls(({ [harness]: _lost, ...others }) => others);
-            ended.current(harness);
-          });
-      }
-    }, INSTALL_POLL_MS);
-    return () => clearInterval(timer);
-  }, [runningKey]);
-  const start = (harness: string) => {
-    setInstalls((all) => ({ ...all, [harness]: { state: "running" } }));
-    api.installHarness(harness).then(
-      (install) => setInstalls((all) => ({ ...all, [harness]: install })),
-      (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        setInstalls((all) => ({ ...all, [harness]: { state: "failed", message } }));
-      },
-    );
-  };
-  return { installs, start };
-}
-
-function MissingApp(props: { install: HarnessInstall | undefined; onInstall: () => void }) {
-  if (props.install?.state === "running") {
-    return (
-      <span className={styles.missing}>
-        <LoaderCircle size={14} aria-hidden className="spin" /> Installing…
-      </span>
-    );
-  }
-  return (
-    <Button variant="primary" onClick={props.onInstall}>
-      {props.install?.state === "failed" ? "Try again" : "Install"}
-    </Button>
-  );
-}
-
-function AiApps(props: { statuses: HarnessStatus[] | undefined; onCheck: () => void }) {
+// The same cards as Providers: each app ready, to sign in, or to install (D-76).
+function AiApps() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
-  const [signingIn, setSigningIn] = useState<Account>();
-  // Once installed, an app that needs a sign-in goes straight on to it.
-  const [signInNext, setSignInNext] = useState<string>();
-  const { installs, start } = useInstalls((harness) => {
-    setSignInNext(harness);
-    props.onCheck();
-  });
-  const accountOf = (harness: string) =>
-    accounts.find((known) => known.harness === harness && known.folder === undefined);
-  useEffect(() => {
-    const status = props.statuses?.find((one) => one.harness === signInNext);
-    if (status === undefined) return;
-    setSignInNext(undefined);
-    if (status.installed && status.signedIn === false) setSigningIn(accountOf(status.harness));
-  });
-  const name = (harness: string) =>
-    harnesses.find((known) => known.harness === harness)?.name ?? harness;
+  const statuses = useHarnessStatuses({ recheckOnFocus: true });
+  const [sheet, setSheet] = useState<Sheet>();
+  const signIn = (harness: string) => {
+    const account = defaultLogin(accounts, harness);
+    setSheet(account === undefined ? undefined : { kind: "sign-in", account });
+  };
   return (
     <>
       <div className={styles.head}>
-        <h1 className={styles.title}>Connect an AI app</h1>
-        <p className={styles.lead}>Your agents run on an AI app on this computer. You need one.</p>
+        <h1 className={styles.title}>Pick your AI apps</h1>
+        <p className={styles.lead}>
+          Your agents run on an AI app on this computer. They need at least one; you can add more
+          later in Providers.
+        </p>
       </div>
-      {props.statuses === undefined ? (
+      {statuses === undefined ? (
         <p className={styles.lead}>Checking this computer…</p>
       ) : (
         <ul className={styles.apps} aria-live="polite">
-          {props.statuses.map((status) => {
-            const account = accountOf(status.harness);
-            const install = installs[status.harness];
-            return (
-              <li key={status.harness} className={styles.app}>
-                <div className={styles.appRow}>
-                  <span className={styles.appText}>
-                    <strong>{name(status.harness)}</strong>
-                    <span>{HARNESS_NOTES[status.harness]}</span>
-                  </span>
-                  {ready(status) ? (
-                    <span className={styles.ready}>
-                      <Check size={14} aria-hidden /> Ready
-                    </span>
-                  ) : status.installed ? (
-                    <Button
-                      variant="primary"
-                      disabled={account === undefined}
-                      onClick={() => setSigningIn(account)}
-                    >
-                      Sign in
-                    </Button>
-                  ) : status.canInstall ? (
-                    <MissingApp install={install} onInstall={() => start(status.harness)} />
-                  ) : (
-                    <span className={styles.missing}>Not installed</span>
-                  )}
-                </div>
-                {install?.state === "running" && install.line !== undefined ? (
-                  <p className={styles.installLine}>{install.line}</p>
-                ) : null}
-                {install?.state === "failed" ? (
-                  <p className={styles.installFailed} role="alert">
-                    {install.message}
-                  </p>
-                ) : null}
-                {status.installed ||
-                status.installCommand === undefined ||
-                install?.state === "running" ||
-                (status.canInstall && install?.state !== "failed") ? null : (
-                  <InstallCommand
-                    command={status.installCommand}
-                    page={status.installPage}
-                    instead={status.canInstall}
-                  />
-                )}
-              </li>
-            );
-          })}
+          {harnesses.map((description) => (
+            <ProviderCard
+              key={description.harness}
+              description={description}
+              status={statuses[description.harness]}
+              brief
+              onInstall={() => setSheet({ kind: "install", harness: description.harness })}
+              onSignIn={() => signIn(description.harness)}
+            />
+          ))}
         </ul>
       )}
       <div>
-        <Button onClick={props.onCheck}>Check again</Button>
+        <Button onClick={() => void checkHarnesses({ now: true }).catch(() => {})}>
+          Check again
+        </Button>
       </div>
-      {signingIn === undefined ? null : (
-        <AddAccountDialog
-          again={signingIn}
-          onClose={() => {
-            setSigningIn(undefined);
-            props.onCheck();
-          }}
+      {sheet?.kind === "install" ? (
+        <InstallSheet
+          harness={sheet.harness}
+          onSignIn={() => signIn(sheet.harness)}
+          onClose={() => setSheet(undefined)}
         />
-      )}
+      ) : null}
+      {sheet?.kind === "sign-in" ? (
+        <AddAccountDialog again={sheet.account} onClose={() => setSheet(undefined)} />
+      ) : null}
     </>
   );
 }
@@ -404,7 +264,8 @@ export function SetupView() {
   useWorkspaces();
   const [step, setStep] = useState(0);
   const [purpose, setPurpose] = useState<Purpose>();
-  const [statuses, setStatuses] = useState<HarnessStatus[]>();
+  const harnesses = useApp((state) => state.harnesses);
+  const statuses = useHarnessStatuses();
   const [work, setWork] = useState<Omit<YourWorkProps, "onChange">>({
     where: "scratch",
     folder: "",
@@ -415,34 +276,8 @@ export function SetupView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
-  const check = () => {
-    setStatuses(undefined);
-    api
-      .readHarnessStatus()
-      .then(setStatuses)
-      .catch(() => setStatuses([]));
-  };
-  useEffect(check, []);
-
-  // After running an install command in a terminal, the user comes back: one quiet check then,
-  // never a timer.
-  const missing = step === 1 && statuses !== undefined && !statuses.every(ready);
-  useEffect(() => {
-    if (!missing) return;
-    let last = Date.now();
-    const onReturn = () => {
-      if (Date.now() - last < RETURN_CHECK_GAP_MS) return;
-      last = Date.now();
-      api
-        .readHarnessStatus()
-        .then(setStatuses)
-        .catch(() => {});
-    };
-    window.addEventListener("focus", onReturn);
-    return () => window.removeEventListener("focus", onReturn);
-  }, [missing]);
-
-  const anyReady = statuses?.some(ready) ?? false;
+  const ready = harnesses.filter((known) => isReady(statuses?.[known.harness]));
+  const anyReady = ready.length > 0;
   const canContinue =
     (step !== 1 || anyReady) && (step !== 2 || work.where === "scratch" || work.folder !== "");
 
@@ -460,7 +295,7 @@ export function SetupView() {
       await loadWorkspaces();
       workspaceId = created.id;
     }
-    const harness = statuses?.find(ready)?.harness ?? loadRemembered().harness;
+    const harness = ready[0]?.harness ?? loadRemembered().harness;
     if (harness !== undefined) {
       const saved = loadRemembered().byHarness[harness] ?? DEFAULT_CHOICES;
       remember({
@@ -520,7 +355,7 @@ export function SetupView() {
       </ol>
       <div className={styles.column}>
         {step === 0 ? <Welcome purpose={purpose} onPurpose={setPurpose} /> : null}
-        {step === 1 ? <AiApps statuses={statuses} onCheck={check} /> : null}
+        {step === 1 ? <AiApps /> : null}
         {step === 2 ? (
           <YourWork {...work} onChange={(change) => setWork({ ...work, ...change })} />
         ) : null}
@@ -538,6 +373,9 @@ export function SetupView() {
           ) : (
             <Button onClick={() => setStep(step - 1)}>Back</Button>
           )}
+          {step === 1 && statuses !== undefined && anyReady ? (
+            <span className={styles.readyCount}>{ready.length} ready</span>
+          ) : null}
           {step === 1 && statuses !== undefined && !anyReady ? (
             <Button variant="ghost" className={styles.later} onClick={() => setStep(2)}>
               Skip for now

@@ -1,6 +1,6 @@
 import type { Account, AccountLimits, AccountStatus, UsageLimit } from "@office-town/contract";
-import { MoreHorizontal } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { Info, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, Tooltip } from "radix-ui";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
@@ -96,15 +96,43 @@ function Window({ limit, showLeft, now }: { limit: UsageLimit; showLeft: boolean
   );
 }
 
+const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+// What the week's tokens would cost at API prices, never what the plan charged (D-76).
+function Estimate({ dollars }: { dollars: number }) {
+  return (
+    <p className={styles.estimate}>
+      {dollars < 0.01 ? "Under " : "About "}
+      <strong>{USD.format(Math.max(dollars, 0.01))}</strong> this week at API prices
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button type="button" className={styles.tipButton} aria-label="How this is worked out">
+            <Info size={13} aria-hidden />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content className={styles.tip} sideOffset={6}>
+            Worked out by Office Town from the tokens it counted and each model's API price on
+            models.dev. Your plan may charge less, or nothing beyond its fee.
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+    </p>
+  );
+}
+
 interface AccountCardProps {
   account: Account;
   harnessName: string;
+  usagePage: string | undefined;
   reportsLimits: boolean;
   limits: AccountLimits | undefined;
   // Agents that use it, by their own pick or their last session.
   users: readonly Agent[];
   working: number;
   tokens: { today: number; week: number };
+  // This week's tokens at API prices; undefined where a model has no listed price.
+  estimate: number | undefined;
   showLeft: boolean;
   now: number;
   onRename: (account: Account) => void;
@@ -112,12 +140,9 @@ interface AccountCardProps {
   onRemove: (account: Account) => void;
 }
 
-const PLAN_NAMES: Record<string, string> = {
-  pro: "Pro plan",
-  max: "Max plan",
-  team: "Team plan",
-  enterprise: "Enterprise plan",
-};
+// A CLI's own word for the plan, such as "max" or "plus"; a name like "OpenCode Go" stays as it is.
+const planName = (plan: string) =>
+  /^[a-z]+$/.test(plan) ? `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan` : plan;
 
 export function AccountCard(props: AccountCardProps) {
   const { account, harnessName, reportsLimits, limits, users, working, tokens, showLeft, now } =
@@ -139,7 +164,7 @@ export function AccountCard(props: AccountCardProps) {
   const tone = toneOf(top);
   const added = account.folder !== undefined;
   const signedOut = status?.signedIn === false;
-  const plan = status?.plan === undefined ? undefined : (PLAN_NAMES[status.plan] ?? status.plan);
+  const plan = status?.plan === undefined ? undefined : planName(status.plan);
   const sub = [status?.email, plan].filter(Boolean).join(" · ") || `Your ${harnessName} sign-in`;
 
   return (
@@ -201,7 +226,7 @@ export function AccountCard(props: AccountCardProps) {
         ) : null}
       </div>
 
-      {signedOut && added ? (
+      {signedOut ? (
         <Button variant="primary" onClick={() => props.onSignIn(account)}>
           Sign in
         </Button>
@@ -227,13 +252,16 @@ export function AccountCard(props: AccountCardProps) {
               <span>tokens this week</span>
             </div>
           </div>
+          {props.estimate === undefined || tokens.week === 0 ? null : (
+            <Estimate dollars={props.estimate} />
+          )}
           <p className={styles.info}>
             {harnessName} doesn't share plan usage with other apps.{" "}
-            {account.harness === "opencode" ? (
-              <a href="https://opencode.ai/auth" target="_blank" rel="noreferrer">
-                See it on opencode.ai
+            {props.usagePage === undefined ? null : (
+              <a href={props.usagePage} target="_blank" rel="noreferrer">
+                See it on {new URL(props.usagePage).host}
               </a>
-            ) : null}
+            )}
           </p>
         </>
       )}

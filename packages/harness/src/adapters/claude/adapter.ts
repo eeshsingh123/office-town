@@ -110,10 +110,11 @@ const catalog: CatalogQuery = {
       request: { subtype: "initialize" },
     }),
   ],
-  parse(output) {
+  read(output) {
     const answer = output
       .map((line): unknown => JSON.parse(line))
       .find((message) => headerSchema.parse(message).type === "control_response");
+    if (answer === undefined) return undefined;
     const { models } = initializeResponseSchema.parse(answer).response.response;
     return {
       models: models.map((model) => ({
@@ -168,8 +169,8 @@ const accounts: AccountSupport = {
   login: { binary: "claude", args: ["auth", "login", "--claudeai"] },
   status: {
     command: { binary: "claude", args: ["auth", "status", "--json"] },
-    parse(output) {
-      const status = authStatusSchema.parse(JSON.parse(output));
+    read(output) {
+      const status = authStatusSchema.parse(JSON.parse(output.join("\n")));
       return {
         signedIn: status.loggedIn,
         ...(status.email === undefined ? {} : { email: status.email }),
@@ -243,12 +244,16 @@ const install: InstallSupport = {
       },
     ],
   },
-  folder: ".local/bin",
+  folders: [".local/bin"],
 };
 
 export const claudeAdapter: Adapter = {
   harness: "claude",
   name: "Claude Code",
+  maker: "Anthropic",
+  summary: "Anthropic's coding agent, with the Claude models in your plan.",
+  needs: "Works with a Claude Pro, Max, Team or Enterprise plan",
+  priceLists: ["anthropic"],
   // The CLI sends thinking blocks with their text left empty, so there is no reasoning to report.
   capabilities: {
     reasoning: false,

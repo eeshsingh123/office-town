@@ -53,10 +53,12 @@ export const accountStatusSchema = z.object({
 });
 export type AccountStatus = z.infer<typeof accountStatusSchema>;
 
-// A sign-in in progress. `url` is the page the CLI opened, to open again if it was closed.
+// A sign-in in progress. `url` is the page the CLI opened, to open again if it was closed;
+// `code` is one the CLI shows for the user to enter on that page.
 export const accountLoginSchema = z.object({
   state: z.enum(["waiting", "done", "failed"]),
   url: z.string().optional(),
+  code: z.string().optional(),
   message: z.string().optional(),
 });
 export type AccountLogin = z.infer<typeof accountLoginSchema>;
@@ -78,8 +80,17 @@ export const accountUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   cachedInputTokens: z.number().int().nonnegative(),
+  // What those tokens cost at the models' API prices, from models.dev; unset where none of its
+  // models has a listed price (D-76). Never what a plan charged.
+  estimatedUsd: z.number().nonnegative().optional(),
 });
 export type AccountUsage = z.infer<typeof accountUsageSchema>;
+
+// One task's tokens on one model, as the store keeps them; either is unset where none was recorded.
+export type TaskModelUsage = Omit<AccountUsage, "tasks" | "estimatedUsd"> & {
+  task?: number;
+  model?: string;
+};
 
 export const accountUsageQuerySchema = z.object({ since: z.iso.datetime() });
 

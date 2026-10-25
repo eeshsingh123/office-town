@@ -9,10 +9,13 @@ import {
   chiefTaskRequestSchema,
   connectorDraftRequestSchema,
   continueTaskRequestSchema,
+  defaultAccountId,
   departmentDraftRequestSchema,
   departmentSettingsSchema,
   displaySchema,
+  type EnvironmentSpec,
   environmentSpecSchema,
+  type HarnessStatus,
   linkFolderRequestSchema,
   MAX_ATTACHMENT_BYTES,
   newDepartmentRequestSchema,
@@ -32,6 +35,7 @@ import {
 } from "@office-town/contract";
 import { listEnvironments, listHarnesses, readHarnessStatus } from "@office-town/harness";
 import { z } from "zod";
+import { rememberedSignIns } from "../accounts/accounts.ts";
 import { accountRoutes } from "../accounts/routes.ts";
 import { createAgent } from "../agents/agents.ts";
 import { instructionsFor, soloMessage } from "../agents/briefs.ts";
@@ -46,6 +50,7 @@ import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
+import type { PriceList } from "../prices/prices.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
@@ -106,10 +111,20 @@ export function apiRoutes(
   pauses: UsagePauses,
   checks: Checks,
   outputs: OutputServices,
+  prices: PriceList,
 ): Route[] {
   const { registry, store, readCatalog } = team;
+  // A CLI that cannot say whether it is signed in counts as signed in once the app saw its
+  // default login sign in, and as not signed in before, where it signs in through the browser.
+  const withSeenSignIn = (status: HarnessStatus, environment: EnvironmentSpec) => {
+    if (!status.installed || status.signedIn !== undefined) return status;
+    const seen = rememberedSignIns(store).includes(defaultAccountId(status.harness, environment));
+    if (seen) return { ...status, signedIn: true };
+    const signIn = listHarnesses().find(({ harness }) => harness === status.harness)?.signIn;
+    return signIn === "browser" ? { ...status, signedIn: false } : status;
+  };
   return [
-    ...accountRoutes(team),
+    ...accountRoutes(team, prices),
     ...installRoutes(),
     {
       method: "POST",
@@ -627,10 +642,25 @@ export function apiRoutes(
     {
       method: "GET",
       path: "/harnesses/status",
-      reply: async () => ({
-        status: 200,
-        json: await Promise.all(listHarnesses().map(({ harness }) => readHarnessStatus(harness))),
-      }),
+      reply: async () => {
+        const native = { kind: "native" } as const;
+        const statuses = await Promise.all(
+          listHarnesses().map(({ harness }) => readHarnessStatus(harness, native)),
+        );
+        return { status: 200, json: statuses.map((status) => withSeenSignIn(status, native)) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/harnesses/:harness/status",
+      reply: async ({ param, query }) => {
+        const environment = environmentSpecSchema.parse({
+          kind: query.get("environment") ?? "native",
+          distro: query.get("distro") ?? undefined,
+        });
+        const status = await readHarnessStatus(param("harness"), environment);
+        return { status: 200, json: withSeenSignIn(status, environment) };
+      },
     },
     {
       method: "GET",

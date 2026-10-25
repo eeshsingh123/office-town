@@ -46,21 +46,9 @@ Each line is what later work builds on; the why lives in DECISIONS.md.
 - **After M7: feedback and optimization.** Several workspaces per department (D-69); usage recount (D-70), a lead stopping workers (D-71), lean runs with handover and usage pause (D-72), the check loop outside the team (D-73).
 - **M8 Outputs and preview (D-74).** `show_result`, changed files and local sites, viewed in a sandboxed viewer with feedback and marked spots. `service/src/outputs`, `features/outputs`.
 - **M9 Packaging (D-75).** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, a beta on every green merge, stable only on the owner's word, setup installing harnesses with the vendor's installer (`harness/src/install.ts`). Out until release: stable, Download link, signing, intro video.
+- **M10 More AI apps (D-76).** Codex and Muse Code with their own translators, GitHub Copilot CLI and Cursor CLI on the ACP translator; adapters declare sign-in, version, install and account folder. A Providers page (status, install, sign-in, accounts, where it runs) shared with setup, Usage and model pickers; an estimate at API prices where an app shares no plan usage. Out: Pi, Hermes, OpenClaw, Google CLIs, WSL installs.
 
 ## Next
-
-### M10 More AI apps (D-76; mockup approved, build next)
-
-Goal: more harnesses without breaking the two that work, a clean way to get each one installed and signed in, and one page that stays readable as the list grows. No Google CLIs (owner).
-
-Scope (owner, 2026-10-25), approach pending the mockup:
-- Codex through `codex app-server` and Muse Code through `muse serve`, one translator each; GitHub Copilot CLI and Cursor CLI as launch profiles on the existing ACP translator.
-- Adapters declare what the UI now hard-codes per harness: how it signs in, its version, whether it asks before acting.
-- A Providers page in the main nav (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
-- Install with the vendor's own installer when its prerequisite is here, else the copy command (D-75).
-- Verified by recordings and conformance tests; live runs only when the owner says go.
-
-Out of scope: Pi, Hermes, OpenClaw, Google CLIs, an unverified ACP-registry tier, WSL installs.
 
 ### Before the public release (owner's go-ahead)
 

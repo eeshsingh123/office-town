@@ -78,7 +78,7 @@ export class ClaudeApps {
   // Reads every signed-in Claude account's apps again; an account that cannot answer keeps its own.
   async #refresh(): Promise<void> {
     const accounts = allAccounts(this.#store, listHarnesses()).filter(
-      (account) => hasVendorApps(account.harness) && hasSignIn(account),
+      (account) => hasVendorApps(account.harness) && hasSignIn(account, this.#store),
     );
     await Promise.all(
       accounts.map(async (account) => {

@@ -14,6 +14,7 @@ import {
 import {
   type AccountSignIn,
   listHarnesses,
+  priceLists,
   readAccountLimits,
   readAccountStatus,
   saveAccountKey,
@@ -22,10 +23,12 @@ import {
 import { z } from "zod";
 import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
+import type { PriceList } from "../prices/prices.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
-import { allAccounts, hasSignIn } from "./accounts.ts";
+import { allAccounts, hasSignIn, rememberedSignIns, rememberSignIn } from "./accounts.ts";
+import { estimatedUsage } from "./usage.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 // A sign-in left open in a closed browser tab ends on its own.
@@ -35,13 +38,20 @@ const LIMITS_FLOOR_MS = 15_000;
 // Longer than a plan's weekly reset, so a typo cannot park an agent for good.
 const LONGEST_WAIT_MS = 8 * 24 * 3600_000;
 
+const LINK = /https:\/\/\S+/;
+// A code the CLI shows for the user to enter on its page, such as "QF4T-9KXP".
+const SIGN_IN_CODE = /\b[A-Z0-9]{4,}-[A-Z0-9]{4,}\b/;
+
+const descriptionOf = (harness: string) =>
+  listHarnesses().find((description) => description.harness === harness);
+
 interface SignIn {
   login: AccountLogin;
   process?: AccountSignIn;
 }
 
-// Routes for the accounts on the Usage page (D-61).
-export function accountRoutes(team: TeamContext): Route[] {
+// Routes for the accounts on the Providers and Usage pages (D-61, D-76).
+export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
   const { store, dataFolder } = team;
   const accountsFolder = join(dataFolder, "accounts");
   const signIns = new Map<string, SignIn>();
@@ -139,6 +149,7 @@ export function accountRoutes(team: TeamContext): Route[] {
           });
         }
         store.deleteAccount(account.id);
+        rememberSignIn(store, account.id, false);
         if (account.folder !== undefined) await removeFolder(account.folder);
         return NO_CONTENT;
       },
@@ -148,16 +159,24 @@ export function accountRoutes(team: TeamContext): Route[] {
       path: "/accounts/:id/status",
       reply: async ({ param }) => {
         const account = anyAccount(param("id"));
-        // Without a status command, an added account is signed in once its sign-in file exists.
-        if (account.harness === "opencode" && account.folder !== undefined) {
-          return { status: 200, json: { signedIn: hasSignIn(account) } };
-        }
         const status = await readAccountStatus(
           account.harness,
           account.environment,
           account.folder,
         ).catch(() => undefined);
-        return { status: 200, json: status ?? null };
+        if (status !== undefined) {
+          rememberSignIn(store, account.id, status.signedIn);
+          return { status: 200, json: status };
+        }
+        // Without a status command: an added account's sign-in file, or a sign-in the app saw.
+        if (account.folder !== undefined) {
+          return { status: 200, json: { signedIn: hasSignIn(account, store) } };
+        }
+        if (rememberedSignIns(store).includes(account.id)) {
+          return { status: 200, json: { signedIn: true } };
+        }
+        const browser = descriptionOf(account.harness)?.signIn === "browser";
+        return { status: 200, json: browser ? { signedIn: false } : null };
       },
     },
     {
@@ -165,7 +184,8 @@ export function accountRoutes(team: TeamContext): Route[] {
       path: "/accounts/:id/key",
       reply: async ({ param, body }) => {
         const account = added(param("id"));
-        if (account.folder === undefined || account.harness !== "opencode") {
+        const description = descriptionOf(account.harness);
+        if (account.folder === undefined || description?.signIn !== "key") {
           throw new RequestError(400, "invalid_request", "This account signs in another way.");
         }
         const { provider, key } = accountKeyRequestSchema.parse(await body());
@@ -176,11 +196,11 @@ export function accountRoutes(team: TeamContext): Route[] {
           provider,
           key,
         );
-        if (!saved || !hasSignIn(account)) {
+        if (!saved || !hasSignIn(account, store)) {
           throw new RequestError(
             400,
             "invalid_request",
-            "OpenCode did not take the key. Try again.",
+            `${description.name} did not take the key. Try again.`,
           );
         }
         const plan = accountProviders.find((one) => one.id === provider)?.label;
@@ -202,9 +222,13 @@ export function accountRoutes(team: TeamContext): Route[] {
           account.environment,
           account.folder,
           (line) => {
-            const url = line.match(/https:\/\/\S+/)?.[0];
+            const url = line.match(LINK)?.[0];
             if (url !== undefined && signIn.login.url === undefined) {
               signIn.login = { ...signIn.login, url };
+            }
+            const code = line.replace(LINK, "").match(SIGN_IN_CODE)?.[0];
+            if (code !== undefined && signIn.login.code === undefined) {
+              signIn.login = { ...signIn.login, code };
             }
           },
         );
@@ -216,6 +240,7 @@ export function accountRoutes(team: TeamContext): Route[] {
         const timer = setTimeout(() => void process.stop(), SIGN_IN_TIMEOUT_MS);
         void process.exited.then((code) => {
           clearTimeout(timer);
+          if (code === 0) rememberSignIn(store, account.id, true);
           signIn.login =
             code === 0
               ? { state: "done" }
@@ -274,7 +299,14 @@ export function accountRoutes(team: TeamContext): Route[] {
       path: "/usage",
       reply: ({ query }) => {
         const { since } = accountUsageQuerySchema.parse({ since: query.get("since") });
-        return { status: 200, json: store.accountUsageSince(since) };
+        const harnessOf = new Map(
+          allAccounts(store, listHarnesses()).map((account) => [account.id, account.harness]),
+        );
+        const json = estimatedUsage(store.accountUsageSince(since), (row) => {
+          const harness = harnessOf.get(row.accountId);
+          return prices.estimate(row.model, harness === undefined ? [] : priceLists(harness), row);
+        });
+        return { status: 200, json };
       },
     },
     {

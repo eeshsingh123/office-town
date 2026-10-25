@@ -679,3 +679,55 @@
   flex-direction: column;
   gap: 18px;
 }
+
+/* An estimate at API prices, under the token counts (D-76). */
+.estimate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.estimate strong {
+  color: var(--text);
+}
+
+.tipButton {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-3);
+  cursor: help;
+}
+
+.tipButton:hover,
+.tipButton:focus-visible {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.tip {
+  z-index: 40;
+  max-width: 300px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--size-meta);
+  line-height: 1.45;
+  box-shadow: var(--shadow-raised);
+}
+
+/* A code the CLI shows for its sign-in page, large enough to read across. */
+.signInCode code {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+}

@@ -9,6 +9,9 @@ import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 const passthroughAdapter: Adapter = {
   harness: "replayed",
   name: "Replayed",
+  maker: "Test",
+  summary: "Replays its input.",
+  needs: "Nothing",
   capabilities: {
     reasoning: false,
     plan: true,

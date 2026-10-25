@@ -361,7 +361,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Setup's Install: OpenCode on Windows through npm or Scoop when one is there, else the command (owner). Claude Code on Windows keeps the copy command: Defender flagged its one-line installer run hidden from the app as `Trojan:Win32/Commando.A!ml` (owner, 2026-10-23); look again once the app is signed. Setup checks again when the window regains focus, never on a timer (owner). WSL installs are not built: setup checks the native install only.
 - The core adds the vendors' install folders (`~/.local/bin`, `~/.opencode/bin`) to its PATH, which an app started from a menu does not inherit.
 
-### D-76 More AI apps — in discussion (2026-10-25)
+### D-76 More AI apps — accepted (2026-10-25)
 
 - Owner: add Codex, Muse Code (Meta) and other popular harnesses; never Google's CLIs (Gemini CLI, Antigravity), whose terms risk the user's account. Stay harness agnostic. Users will not have most CLIs installed, so getting one must be easy. Adding them must not break the existing flow, and each must work end to end.
 - In (owner, 2026-10-25): Codex, Muse Code, GitHub Copilot CLI, Cursor CLI. Out: Pi (no approvals, so outside the autonomy policy), Hermes (Python install, overlaps deferred agent memory), OpenClaw (an orchestrator over harnesses, not a worker), an unverified ACP-registry tier (not now).
@@ -375,6 +375,9 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Several accounts wherever the CLI's login folder can move: Codex `CODEX_HOME`, Copilot `COPILOT_HOME` (both in vendor docs); Cursor `CURSOR_CONFIG_DIR` and Muse (`~/.config/muse`, likely `XDG_CONFIG_HOME`) only in third-party sources, so the spike confirms them before Add account shows.
 - Plan usage: Codex reports its windows (`account/rateLimits/read`), so it gets meters. Muse has 5-hour and weekly windows, but no official feed was found; the spike checks `muse serve`. Copilot (monthly premium requests) and Cursor publish none to the CLI. Without a feed, tokens plus an estimate of their API price.
 - The estimate (owner, amends D-29 for these cards only): tokens × the model's price from models.dev (the open price list OpenCode uses; US dollars per million tokens, cached input apart), read when the app opens and cached. An info bubble says it is computed at API prices, not what the plan charged. Never a budget.
+- Built (2026-10-25). Adapters declare sign-in, version, install and account folder, so the UI no longer names harnesses. Codex (`codex app-server`) and Muse (`muse serve`) have their own translators and plan meters; Copilot (`copilot --acp`) and Cursor (`cursor-agent acp`) are ACP launch profiles with the estimate. Accounts move with `CODEX_HOME`, `COPILOT_HOME`, `CURSOR_CONFIG_DIR`, and `XDG_CONFIG_HOME` plus `XDG_DATA_HOME` for Muse (checked on 1.4.13). A CLI that keeps its sign-in in the system's credential store counts as signed in once the app saw it sign in. Prices from models.dev are kept in the data folder; a row with any unpriced model shows no estimate.
+- Install on Windows: Codex and Copilot through npm when it is there; Cursor and Muse keep the copy command, since their one-line PowerShell installers run from the app look like a trojan to Defender (D-75).
+- An app's page shows no model list (owner, 2026-10-25): only its status, accounts and where it runs. Models are picked where an agent is set up.
 
 ## Done
 

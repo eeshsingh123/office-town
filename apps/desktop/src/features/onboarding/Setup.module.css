@@ -88,7 +88,6 @@
 }
 
 .way,
-.app,
 .tutorial {
   display: flex;
   flex-direction: column;
@@ -105,7 +104,15 @@
   color: var(--text-2);
 }
 
-.apps,
+.apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .tutorials {
   display: flex;
   flex-direction: column;
@@ -115,11 +122,6 @@
   list-style: none;
 }
 
-.app {
-  gap: 14px;
-}
-
-.appRow,
 .tutorial {
   flex-direction: row;
   flex-wrap: wrap;
@@ -127,76 +129,11 @@
   gap: 12px;
 }
 
-.appRow {
-  display: flex;
-}
-
 .appText {
   display: flex;
   flex: 1 1 280px;
   flex-direction: column;
   gap: 2px;
-}
-
-.ready {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ok);
-  font-weight: 600;
-}
-
-.missing {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-2);
-  font-weight: 600;
-}
-
-.installLine {
-  margin: 0;
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--size-meta);
-  color: var(--text-3);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.installFailed {
-  margin: 0;
-  color: var(--bad);
-}
-
-.install {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  color: var(--text-2);
-}
-
-.installText {
-  line-height: 1.5;
-}
-
-.commandRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.command {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 12px;
-  overflow-x: auto;
-  border-radius: var(--radius-control);
-  background: var(--code);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--size-meta);
-  white-space: nowrap;
 }
 
 .actions {
@@ -208,6 +145,12 @@
   padding-top: 8px;
 }
 
-.later {
+.later,
+.readyCount {
   margin-left: auto;
+}
+
+.readyCount {
+  font-size: var(--size-meta);
+  color: var(--text-3);
 }
