@@ -1,0 +1,9 @@
+{"receive":{"id":1,"result":{"userAgent":"office_town/0.164.0 (Linux; x86_64)","codexHome":"/home/user/.codex","platformFamily":"unix","platformOs":"linux"}}}
+{"receive":{"id":2,"result":{"thread":{"id":"thr_1","sessionId":"thr_1","forkedFromId":null,"parentThreadId":null,"preview":"","ephemeral":false,"modelProvider":"openai","model":"gpt-6.1-sol"},"model":"gpt-6.1-sol","modelProvider":"openai","serviceTier":null,"disabledPluginIds":[],"cwd":"/workspace","instructionSources":[],"approvalPolicy":"untrusted","approvalsReviewer":"user","sandbox":{"type":"workspaceWrite"},"reasoningEffort":"low"}}}
+{"send":{"type":"prompt","text":"Pick a colour with me."}}
+{"receive":{"id":3,"result":{"turn":{"id":"turn_1","rootTurnId":"turn_1","items":[],"status":"inProgress","error":null,"startedAt":1792940000,"completedAt":null,"durationMs":null}}}}
+{"receive":{"id":0,"method":"item/tool/requestUserInput","params":{"threadId":"thr_1","turnId":"turn_1","itemId":"ask_1","isBlocking":true,"autoResolutionMs":null,"questions":[{"id":"colour","header":"Colour","question":"Which colour?","isOther":true,"isSecret":false,"options":[{"label":"Blue","description":"Calm"},{"label":"Orange","description":"Warm"}]}]}}}
+{"send":{"type":"answerQuestion","choose":"Blue"}}
+{"receive":{"method":"item/agentMessage/delta","params":{"threadId":"thr_1","turnId":"turn_1","itemId":"msg_1","delta":"Blue it is."},"emittedAtMs":1792940000000}}
+{"receive":{"method":"item/completed","params":{"threadId":"thr_1","turnId":"turn_1","item":{"type":"agentMessage","id":"msg_1","text":"Blue it is.","phase":"final","memoryCitation":null,"delivery":null,"questions":null},"completedAtMs":1792940000600},"emittedAtMs":1792940000000}}
+{"receive":{"method":"turn/completed","params":{"threadId":"thr_1","turn":{"id":"turn_1","items":[],"status":"completed","error":null}},"emittedAtMs":1792940000000}}

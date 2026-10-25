@@ -1,0 +1,10 @@
+{"receive":{"id":1,"result":{"userAgent":"office_town/0.164.0 (Linux; x86_64)","codexHome":"/home/user/.codex","platformFamily":"unix","platformOs":"linux"}}}
+{"receive":{"id":2,"result":{"thread":{"id":"thr_1","sessionId":"thr_1","forkedFromId":null,"parentThreadId":null,"preview":"","ephemeral":false,"modelProvider":"openai","model":"gpt-6.1-sol"},"model":"gpt-6.1-sol","modelProvider":"openai","serviceTier":null,"disabledPluginIds":[],"cwd":"/workspace","instructionSources":[],"approvalPolicy":"untrusted","approvalsReviewer":"user","sandbox":{"type":"workspaceWrite"},"reasoningEffort":"low"}}}
+{"send":{"type":"prompt","text":"Add notes.md."}}
+{"receive":{"id":3,"result":{"turn":{"id":"turn_1","rootTurnId":"turn_1","items":[],"status":"inProgress","error":null,"startedAt":1792940000,"completedAt":null,"durationMs":null}}}}
+{"receive":{"method":"item/started","params":{"threadId":"thr_1","turnId":"turn_1","item":{"type":"fileChange","id":"patch_1","changes":[{"path":"/workspace/notes.md","kind":{"type":"add"},"diff":"+hello\n"}],"status":"inProgress"},"startedAtMs":1792940000300},"emittedAtMs":1792940000000}}
+{"receive":{"id":0,"method":"item/fileChange/requestApproval","params":{"threadId":"thr_1","turnId":"turn_1","itemId":"patch_1","startedAtMs":1792940000300,"reason":null,"grantRoot":null}}}
+{"send":{"type":"interrupt"}}
+{"receive":{"id":4,"result":{}}}
+{"receive":{"method":"item/completed","params":{"threadId":"thr_1","turnId":"turn_1","item":{"type":"fileChange","id":"patch_1","changes":[{"path":"/workspace/notes.md","kind":{"type":"add"},"diff":"+hello\n"}],"status":"declined"},"completedAtMs":1792940000400},"emittedAtMs":1792940000000}}
+{"receive":{"method":"turn/completed","params":{"threadId":"thr_1","turn":{"id":"turn_1","items":[],"status":"interrupted","error":null}},"emittedAtMs":1792940000000}}

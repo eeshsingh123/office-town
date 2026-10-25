@@ -3,8 +3,9 @@ import { z } from "zod";
 const idSchema = z.union([z.string(), z.number()]);
 export type JsonRpcId = z.infer<typeof idSchema>;
 
+// Codex's app-server leaves the version out of every message.
 const messageSchema = z.looseObject({
-  jsonrpc: z.literal("2.0"),
+  jsonrpc: z.literal("2.0").optional(),
   id: idSchema.nullish(),
   method: z.string().optional(),
   params: z.unknown().optional(),
