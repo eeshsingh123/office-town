@@ -15,7 +15,7 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 
 ## Vocabulary
 
-- Harness: a vendor CLI (Claude Code, OpenCode, Codex and others). "Engine" in what the user reads (D-76).
+- Harness: a vendor CLI (Claude Code, OpenCode, Codex and others). "AI app" in what the user reads.
 - Session: one running conversation between the app and one harness process. Resuming starts a new session of the same agent.
 - Event: one normalized fact a session reports. The UI, storage and orchestration consume only events.
 - Environment: where a harness process is launched (native OS, WSL, later a sandbox).
@@ -49,14 +49,14 @@ Each line is what later work builds on; the why lives in DECISIONS.md.
 
 ## Next
 
-### M10 More engines (D-76; mockup approved, build next)
+### M10 More AI apps (D-76; mockup approved, build next)
 
 Goal: more harnesses without breaking the two that work, a clean way to get each one installed and signed in, and one page that stays readable as the list grows. No Google CLIs (owner).
 
 Scope (owner, 2026-10-25), approach pending the mockup:
 - Codex through `codex app-server` and Muse Code through `muse serve`, one translator each; GitHub Copilot CLI and Cursor CLI as launch profiles on the existing ACP translator.
 - Adapters declare what the UI now hard-codes per harness: how it signs in, its version, whether it asks before acting.
-- An Engines page in the main nav, and "engine" replacing "AI app" in every screen (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
+- An AI apps page in the main nav (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
 - Install with the vendor's own installer when its prerequisite is here, else the copy command (D-75).
 - Verified by recordings and conformance tests; live runs only when the owner says go.
 
