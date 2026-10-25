@@ -1,8 +1,15 @@
 import type { Adapter } from "../adapter.ts";
 import { claudeAdapter } from "./claude/adapter.ts";
+import { copilotAdapter } from "./copilot/adapter.ts";
+import { cursorAdapter } from "./cursor/adapter.ts";
 import { opencodeAdapter } from "./opencode/adapter.ts";
 
-export const adapters: readonly Adapter[] = [claudeAdapter, opencodeAdapter];
+export const adapters: readonly Adapter[] = [
+  claudeAdapter,
+  opencodeAdapter,
+  copilotAdapter,
+  cursorAdapter,
+];
 
 export class UnknownHarnessError extends Error {
   constructor(harness: string) {
