@@ -56,7 +56,7 @@ Goal: more harnesses without breaking the two that work, a clean way to get each
 Scope (owner, 2026-10-25), approach pending the mockup:
 - Codex through `codex app-server` and Muse Code through `muse serve`, one translator each; GitHub Copilot CLI and Cursor CLI as launch profiles on the existing ACP translator.
 - Adapters declare what the UI now hard-codes per harness: how it signs in, its version, whether it asks before acting.
-- An AI apps page in the main nav (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
+- A Providers page in the main nav (status, install, sign-in, accounts, models, where it runs); Add account lives there; Usage keeps the meters, with an estimated API price where an app shares no plan usage; setup reuses the same cards.
 - Install with the vendor's own installer when its prerequisite is here, else the copy command (D-75).
 - Verified by recordings and conformance tests; live runs only when the owner says go.
 
