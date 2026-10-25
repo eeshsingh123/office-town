@@ -24,7 +24,6 @@ import type {
   LibraryAudience,
   LibraryItem,
   LibraryItemChange,
-  ModelUsage,
   OutputRecord,
   OutputTarget,
   PendingRequestList,
@@ -38,6 +37,7 @@ import type {
   Settings,
   StoreSize,
   TaskChecklist,
+  TaskModelUsage,
   TaskPage,
   TaskPause,
   TaskRecord,
@@ -318,8 +318,8 @@ export interface Store {
   listLimits(): AccountLimits[];
   // The latest an account's plan usage was read, such as when the user refreshes it.
   saveLimits(entry: AccountLimits): void;
-  // Tokens per account and agent, over the turns that ended since then.
-  accountUsageSince(since: string): ModelUsage[];
+  // Tokens per account, agent, task and model, over the turns that ended since then.
+  accountUsageSince(since: string): TaskModelUsage[];
   // What a harness conversation's sessions recorded so far, over all of them.
   conversationUsage(harness: string, harnessSessionId: string): TokenUsage;
   // Sessions on the harness that ended since then and have turns not yet recounted.

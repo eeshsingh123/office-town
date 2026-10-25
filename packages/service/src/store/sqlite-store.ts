@@ -30,7 +30,6 @@ import {
   type LibraryAudience,
   type LibraryItem,
   type LibraryItemChange,
-  type ModelUsage,
   type OutputRecord,
   type OutputTarget,
   type OutputVersion,
@@ -47,6 +46,7 @@ import {
   type StoreSize,
   settingsSchema,
   type TaskChecklist,
+  type TaskModelUsage,
   type TaskPage,
   type TaskPause,
   type TaskRecord,
@@ -1450,12 +1450,16 @@ class SqliteStore implements Store {
     return all<AgentRow>(this.#statements.membersOf, ref).map(toAgent);
   }
 
-  accountUsageSince(since: string): ModelUsage[] {
-    const rows = all<ModelUsage & { model: string | null }>(
+  accountUsageSince(since: string): TaskModelUsage[] {
+    const rows = all<TaskModelUsage & { task: number | null; model: string | null }>(
       this.#statements.accountUsageSince,
       Date.parse(since),
     );
-    return rows.map(({ model, ...row }) => (model === null ? row : { ...row, model }));
+    return rows.map(({ task, model, ...row }) => ({
+      ...row,
+      ...(task === null ? {} : { task }),
+      ...(model === null ? {} : { model }),
+    }));
   }
 
   conversationUsage(harness: string, harnessSessionId: string): TokenUsage {

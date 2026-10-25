@@ -74,7 +74,7 @@ describe("signed-in accounts", () => {
 });
 
 describe("usage estimate", () => {
-  it("prices each model at its API price, cached input apart, and gives none where a model is unpriced", async () => {
+  it("counts a task once, prices each model at its API price, cached input apart, and gives none where a model is unpriced", async () => {
     const prices = new PriceList();
     const list = {
       openai: { models: { "gpt-6.1-sol": { cost: { input: 2, output: 10, cache_read: 0.1 } } } },
@@ -84,7 +84,7 @@ describe("usage estimate", () => {
     const row = (agentId: string, model?: string) => ({
       accountId: "codex",
       agentId,
-      tasks: 1,
+      task: 1,
       inputTokens: 1_000_000,
       outputTokens: 100_000,
       cachedInputTokens: 500_000,
@@ -96,6 +96,7 @@ describe("usage estimate", () => {
     );
     // 0.5M input at $2, 0.5M cached at $0.10, 0.1M output at $10, twice.
     expect(rows.find((one) => one.agentId === "a")).toMatchObject({
+      tasks: 1,
       inputTokens: 2_000_000,
       estimatedUsd: 4.1,
     });

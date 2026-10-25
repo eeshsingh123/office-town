@@ -366,9 +366,10 @@ export const queries = {
   allLimits: `
     SELECT account_id AS accountId, harness, limits, reported_at AS reportedAt
     FROM account_limits ORDER BY account_id`,
-  // By model too, chosen or else as the session reported it, so each is priced on its own.
+  // By task and model too, the model chosen or else as the session reported it, so each model is
+  // priced on its own and each task counted once.
   accountUsageSince: `
-    SELECT ${SESSION_ACCOUNT} AS accountId, a.id AS agentId, count(DISTINCT s.task_ref) AS tasks,
+    SELECT ${SESSION_ACCOUNT} AS accountId, a.id AS agentId, s.task_ref AS task,
            coalesce(s.options ->> '$.model',
              (SELECT payload ->> '$.model' FROM events
               WHERE session_ref = s.ref AND type = 'session.started')) AS model,
@@ -380,7 +381,7 @@ export const queries = {
     JOIN agents a ON a.ref = s.agent_ref
     WHERE e.type IN ('turn.ended', 'usage.recounted') AND e.timestamp >= ?
       AND e.payload ->> '$.usage' IS NOT NULL
-    GROUP BY 1, a.id, 4
+    GROUP BY 1, a.id, 3, 4
     ORDER BY outputTokens DESC`,
   conversationUsage: `
     SELECT coalesce(sum(e.payload ->> '$.usage.inputTokens'), 0) AS inputTokens,

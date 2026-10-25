@@ -86,8 +86,11 @@ export const accountUsageSchema = z.object({
 });
 export type AccountUsage = z.infer<typeof accountUsageSchema>;
 
-// The same, for one model, as the store keeps it; the model is unset where none was reported.
-export type ModelUsage = Omit<AccountUsage, "estimatedUsd"> & { model?: string };
+// One task's tokens on one model, as the store keeps them; either is unset where none was recorded.
+export type TaskModelUsage = Omit<AccountUsage, "tasks" | "estimatedUsd"> & {
+  task?: number;
+  model?: string;
+};
 
 export const accountUsageQuerySchema = z.object({ since: z.iso.datetime() });
 
