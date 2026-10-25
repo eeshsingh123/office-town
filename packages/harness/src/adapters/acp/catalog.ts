@@ -1,6 +1,7 @@
 import type { HarnessModel } from "@office-town/contract";
 import { z } from "zod";
 import type { CatalogQuery, HarnessCommand } from "../../adapter.ts";
+import { answerIn } from "../../json-rpc.ts";
 
 const optionSchema = z.looseObject({
   id: z.string(),
@@ -19,12 +20,6 @@ const sessionSchema = z.looseObject({
       ),
     })
     .nullish(),
-});
-
-const answerSchema = z.looseObject({
-  id: z.literal(2),
-  result: z.unknown().optional(),
-  error: z.looseObject({ message: z.string() }).optional(),
 });
 
 function modelsOf(result: unknown): HarnessModel[] {
@@ -73,14 +68,8 @@ export function acpCatalog(command: HarnessCommand): CatalogQuery {
       }),
     ],
     read(output) {
-      for (const line of output) {
-        if (!line.startsWith("{")) continue;
-        const answer = answerSchema.safeParse(JSON.parse(line));
-        if (!answer.success) continue;
-        if (answer.data.error !== undefined) throw new Error(answer.data.error.message);
-        return { models: modelsOf(answer.data.result) };
-      }
-      return undefined;
+      const answer = answerIn(output, 2);
+      return answer === undefined ? undefined : { models: modelsOf(answer.result) };
     },
   };
 }

@@ -184,6 +184,8 @@ export interface Adapter {
   readonly capabilities: AdapterCapabilities;
   // The models.dev providers that list its models' API prices, tried in order (D-76).
   readonly priceLists?: string[];
+  // The vendor's page with the plan usage, for an app that shares none with other apps.
+  readonly usagePage?: string;
   // What still loads in an isolated session, when isolation is partial.
   readonly isolationNote?: string;
   readonly catalog?: CatalogQuery;

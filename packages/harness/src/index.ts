@@ -74,7 +74,8 @@ function signInOf({ accounts }: Adapter): HarnessDescription["signIn"] {
 
 export function listHarnesses(): HarnessDescription[] {
   return adapters.map((adapter) => {
-    const { harness, name, maker, summary, needs, capabilities, isolationNote } = adapter;
+    const { harness, name, maker, summary, needs, capabilities, isolationNote, usagePage } =
+      adapter;
     return {
       harness,
       name,
@@ -83,6 +84,7 @@ export function listHarnesses(): HarnessDescription[] {
       needs,
       capabilities,
       ...(isolationNote === undefined ? {} : { isolationNote }),
+      ...(usagePage === undefined ? {} : { usagePage }),
       signIn: signInOf(adapter),
       manyAccounts: adapter.accounts !== undefined,
     };
@@ -105,7 +107,7 @@ export function runCommand(
   return runIn(environmentFor(environmentSpecSchema.parse(spec)), command);
 }
 
-// OpenCode names each model's provider in its id, so it needs no list of its own.
+// The models.dev providers for a harness's models; none where each model id names its provider.
 export function priceLists(harness: string): string[] {
   return findAdapter(harness).priceLists ?? [];
 }

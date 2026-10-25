@@ -21,11 +21,12 @@ function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
 }
 
 describe("codex adapter", () => {
-  it("attaches the core's tool servers without their tokens on the command line, and never asks for their tools", () => {
+  it("attaches the core's tool servers without their tokens on the command line, never asks for their tools, and writes no read-only folder", () => {
     const command = codexAdapter.buildCommand({
       ...replayOptions,
       accountFolder: "/accounts/work",
-      additionalPaths: ["/notes"],
+      additionalPaths: ["/notes", "/papers"],
+      readOnlyPaths: ["/papers"],
       toolServers: [
         {
           transport: "http",
@@ -76,6 +77,13 @@ describe("codex adapter", () => {
     expect(only(events, "limits.updated")[0]?.payload.limits.map((limit) => limit.id)).toEqual([
       "five_hour",
       "seven_day",
+    ]);
+  });
+
+  it("names the files a change touches when it asks, so read-only folders stay guarded", async () => {
+    const { events } = await replay(codexAdapter, recordings["interrupt-pending-permission"]);
+    expect(only(events, "permission.requested")[0]?.payload.locations).toEqual([
+      "/workspace/notes.md",
     ]);
   });
 });

@@ -90,6 +90,19 @@ describe("ACP launch profiles", () => {
     expect(only(events, "session.started")[0]?.payload.model).toBe("gpt-6.1-sol");
   });
 
+  it("reports the model it runs on when the picked one is not offered", async () => {
+    const recording: RecordingEntry[] = [
+      { receive: { jsonrpc: "2.0", id: 1, result: loads } },
+      { receive: { jsonrpc: "2.0", id: 2, result: { sessionId: "s1", ...models } } },
+    ];
+    const { events } = await replay(cursorAdapter, recording, {
+      ...replayOptions,
+      model: "retired-model",
+    });
+    expect(only(events, "session.started")[0]?.payload.model).toBe("auto");
+    expect(only(events, "error")[0]?.payload.message).toContain("retired-model");
+  });
+
   it("resumes a harness without session/resume by loading the session, leaving its replay out", async () => {
     const recording: RecordingEntry[] = [
       { receive: { jsonrpc: "2.0", id: 1, result: loads } },
@@ -111,33 +124,34 @@ describe("ACP launch profiles", () => {
     expect(replies.map((event) => event.payload.text)).toEqual(["A new reply"]);
   });
 
-  it("allows the core's own tools without asking", async () => {
+  it("allows the core's own tools without asking, never a command titled like one", async () => {
     const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
+    const options = [
+      { optionId: "yes", name: "Allow", kind: "allow_once" },
+      { optionId: "no", name: "Deny", kind: "reject_once" },
+    ];
+    const ask = (id: number, toolCall: object) => ({
+      receive: {
+        jsonrpc: "2.0",
+        id,
+        method: "session/request_permission",
+        params: { sessionId: "s1", toolCall, options },
+      },
+    });
     const recording: RecordingEntry[] = [
       { receive: { jsonrpc: "2.0", id: 1, result: loads } },
       { receive: { jsonrpc: "2.0", id: 2, result: { sessionId: "s1" } } },
       { send: { type: "prompt", text: "Delegate" } },
-      {
-        receive: {
-          jsonrpc: "2.0",
-          id: 7,
-          method: "session/request_permission",
-          params: {
-            sessionId: "s1",
-            toolCall: { toolCallId: "t1", title: "office-town-delegate", kind: "other" },
-            options: [
-              { optionId: "yes", name: "Allow", kind: "allow_once" },
-              { optionId: "no", name: "Deny", kind: "reject_once" },
-            ],
-          },
-        },
-      },
+      ask(7, { toolCallId: "t1", title: "office-town-delegate", kind: "other" }),
+      ask(8, { toolCallId: "t2", title: "office-town-x && rm -rf ~", kind: "execute" }),
       { receive: { jsonrpc: "2.0", id: 3, result: { stopReason: "end_turn" } } },
     ];
-    const { events, written } = await replay(copilotAdapter, recording, replayOptions, {
+    const { events, written } = await replay(cursorAdapter, recording, replayOptions, {
       toolServers: [toolServer],
     });
-    expect(only(events, "permission.requested")).toEqual([]);
+    expect(only(events, "permission.requested").map((event) => event.payload.actionId)).toEqual([
+      "t2",
+    ]);
     expect(written.map((line) => JSON.parse(line))).toContainEqual({
       jsonrpc: "2.0",
       id: 7,

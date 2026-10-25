@@ -10,6 +10,7 @@ export type AcpHarness = Pick<
   | "needs"
   | "capabilities"
   | "priceLists"
+  | "usagePage"
   | "isolationNote"
   | "catalog"
   | "accounts"
@@ -20,12 +21,18 @@ export type AcpHarness = Pick<
   // The ways the harness may prefix a tool of an MCP server the core attached, as its tool call
   // titles show it, such as "office-town_delegate".
   toolPrefixes: (server: string) => string[];
+  // Its command line cannot allow the core's tools, so their asks are allowed over ACP.
+  allowOwnToolAsks?: boolean;
 };
 
 // Any harness whose own binary speaks the Agent Client Protocol only has to say how to launch it.
-export function createAcpAdapter({ toolPrefixes, ...harness }: AcpHarness): Adapter {
+export function createAcpAdapter({
+  toolPrefixes,
+  allowOwnToolAsks = false,
+  ...harness
+}: AcpHarness): Adapter {
   return {
     ...harness,
-    createTranslator: (options) => new AcpTranslator(options, toolPrefixes),
+    createTranslator: (options) => new AcpTranslator(options, toolPrefixes, allowOwnToolAsks),
   };
 }

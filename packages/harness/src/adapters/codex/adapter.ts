@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type {
   AccountSupport,
   Adapter,
@@ -9,8 +8,9 @@ import type {
   InstallSupport,
   LaunchOptions,
 } from "../../adapter.ts";
+import { answerIn } from "../../json-rpc.ts";
 import { accountSchema, modelListSchema, rateLimitsNoticeSchema } from "./messages.ts";
-import { CodexTranslator, limitsOf } from "./translator.ts";
+import { CLIENT_INFO, CodexTranslator, limitsOf } from "./translator.ts";
 
 const APP_SERVER = { binary: "codex", args: ["app-server"] };
 
@@ -45,7 +45,9 @@ function serverConfig(server: AttachedToolServer, index: number): string[] {
 
 function buildCommand(options: LaunchOptions): HarnessCommand {
   const args = [...APP_SERVER.args, ...options.toolServers.flatMap(serverConfig)];
-  const paths = options.additionalPaths ?? [];
+  // Codex reads everywhere, so a read-only folder is left out of the folders it may write.
+  const readOnly = new Set(options.readOnlyPaths ?? []);
+  const paths = (options.additionalPaths ?? []).filter((path) => !readOnly.has(path));
   if (paths.length > 0) {
     args.push("-c", `sandbox_workspace_write.writable_roots=${JSON.stringify(paths)}`);
   }
@@ -61,12 +63,6 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     : { binary: APP_SERVER.binary, args, env };
 }
 
-const answerSchema = z.looseObject({
-  id: z.literal(2),
-  result: z.unknown().optional(),
-  error: z.looseObject({ message: z.string() }).optional(),
-});
-
 // The app-server answers one request after its handshake, without starting a turn. It quits as
 // soon as its input closes, so it is a server.
 function appServerQuery<T>(
@@ -74,24 +70,21 @@ function appServerQuery<T>(
   read: (result: unknown) => T,
   params: object = {},
 ): HarnessQuery<T> {
-  const clientInfo = { name: "office_town", title: "Office Town", version: "0.1.0" };
   return {
     command: APP_SERVER,
     server: true,
     input: [
-      JSON.stringify({ id: 1, method: "initialize", params: { clientInfo, capabilities: null } }),
+      JSON.stringify({
+        id: 1,
+        method: "initialize",
+        params: { clientInfo: CLIENT_INFO, capabilities: null },
+      }),
       JSON.stringify({ method: "initialized", params: {} }),
       JSON.stringify({ id: 2, method, params }),
     ],
     read(output) {
-      for (const line of output) {
-        if (!line.startsWith("{")) continue;
-        const answer = answerSchema.safeParse(JSON.parse(line));
-        if (!answer.success) continue;
-        if (answer.data.error !== undefined) throw new Error(answer.data.error.message);
-        return read(answer.data.result);
-      }
-      return undefined;
+      const answer = answerIn(output, 2);
+      return answer === undefined ? undefined : read(answer.result);
     },
   };
 }

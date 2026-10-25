@@ -87,6 +87,7 @@ export class AcpTranslator implements Translator {
   readonly #resumeSessionId: string | undefined;
   readonly #toolServers: AttachedToolServer[];
   readonly #toolPrefixes: (server: string) => string[];
+  readonly #allowOwnToolAsks: boolean;
   #sessionId: string | undefined;
   // The setting the harness is applying: the model first, then its effort.
   #configuring: "model" | "effort" | undefined;
@@ -102,6 +103,7 @@ export class AcpTranslator implements Translator {
       "workspacePath" | "model" | "effort" | "resumeSessionId" | "toolServers"
     >,
     toolPrefixes: (server: string) => string[],
+    allowOwnToolAsks: boolean,
   ) {
     this.#cwd = options.workspacePath;
     this.#model = options.model;
@@ -109,6 +111,7 @@ export class AcpTranslator implements Translator {
     this.#resumeSessionId = options.resumeSessionId;
     this.#toolServers = options.toolServers;
     this.#toolPrefixes = toolPrefixes;
+    this.#allowOwnToolAsks = allowOwnToolAsks;
   }
 
   open(): string[] {
@@ -238,7 +241,8 @@ export class AcpTranslator implements Translator {
     this.#sessionId = sessionId;
     this.#options = session.configOptions ?? [];
     const current = modelOption(this.#options)?.currentValue;
-    const model = this.#model ?? current;
+    const refused = this.#refusesModel();
+    const model = refused ? current : (this.#model ?? current);
     const started: AdapterEvent = {
       type: "session.started",
       payload: {
@@ -246,7 +250,20 @@ export class AcpTranslator implements Translator {
         ...(typeof model === "string" ? { model } : {}),
       },
     };
-    return this.#configure([started], "model");
+    if (!refused) return this.#configure([started], "model");
+    const message = `This AI app does not offer "${this.#model}", so it runs on its default model.`;
+    return this.#configure(
+      [started, { type: "error", payload: { message, fatal: false } }],
+      "model",
+    );
+  }
+
+  // The model was picked, and the harness lists its models without it.
+  #refusesModel(): boolean {
+    const setting = modelOption(this.#options);
+    if (this.#model === undefined || setting === undefined) return false;
+    if (setting.currentValue === this.#model) return false;
+    return !(setting.options ?? []).some((option) => option.value === this.#model);
   }
 
   // The model first, then the effort, whose values belong to the model. Both can only be chosen
@@ -274,9 +291,8 @@ export class AcpTranslator implements Translator {
   // For a harness whose command line cannot name the model; one it already runs is left alone.
   #applyModel(): string | undefined {
     const setting = modelOption(this.#options);
-    const offered = (setting?.options ?? []).flatMap((option) => option.value ?? []);
     if (this.#model === undefined || setting === undefined) return undefined;
-    if (setting.currentValue === this.#model || !offered.includes(this.#model)) return undefined;
+    if (setting.currentValue === this.#model || this.#refusesModel()) return undefined;
     const params = { sessionId: this.#sessionId, configId: setting.id, value: this.#model };
     return this.#peer.request(SET_OPTION, params);
   }
@@ -449,12 +465,16 @@ export class AcpTranslator implements Translator {
     ];
   }
 
-  // The core's own tools never ask: what they lead to is guarded where it happens.
+  // The core's own tools never ask: what they lead to is guarded where it happens. A title can be
+  // a shell command or a path, so only a tool call of kind "other" counts as one of them.
   #permissionRequest(id: JsonRpcId, params: unknown): Translation {
     const { toolCall, options } = permissionParamsSchema.parse(params);
     const allow = options.find((option) => option.kind === "allow_once");
-    const own = attachedTool(toolCall.title ?? "", this.#toolServers, this.#toolPrefixes);
-    if (own !== undefined && allow !== undefined) {
+    const own =
+      this.#allowOwnToolAsks &&
+      toolCall.kind === "other" &&
+      attachedTool(toolCall.title ?? "", this.#toolServers, this.#toolPrefixes) !== undefined;
+    if (own && allow !== undefined) {
       const outcome = { outcome: "selected", optionId: allow.optionId };
       return { events: [], outgoing: [this.#peer.respond(id, { outcome })] };
     }

@@ -78,6 +78,7 @@ export const cursorAdapter = createAcpAdapter({
   isolationNote: "Cursor's own rules and settings still load.",
   // Its tool calls name an MCP tool by its server, in one of these forms.
   toolPrefixes: (server) => [`${server}-`, `${server}/`, `${server}_`, `mcp_${server}_`],
+  allowOwnToolAsks: true,
   catalog: acpCatalog({ binary: "cursor-agent", args: ["acp"] }),
   accounts,
   install,

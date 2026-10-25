@@ -31,7 +31,7 @@ const APPROVALS = new Set([
   "item/commandExecution/requestApproval",
   "item/fileChange/requestApproval",
 ]);
-const CLIENT_INFO = { name: "office_town", title: "Office Town", version: "0.1.0" };
+export const CLIENT_INFO = { name: "office_town", title: "Office Town", version: "0.1.0" };
 
 // Codex's own answers to an approval, as the options the user picks from.
 const APPROVAL_OPTIONS: PermissionOption[] = [
@@ -130,6 +130,8 @@ export class CodexTranslator implements Translator {
   readonly #queuedPrompts: object[][] = [];
   readonly #started = new Set<string>();
   readonly #outputs = new Map<string, string>();
+  // The files each change touches, which its ask leaves out.
+  readonly #locations = new Map<string, string[]>();
   readonly #permissions = new Map<string, JsonRpcId>();
   readonly #questions = new Map<string, JsonRpcId>();
   #threadId: string | undefined;
@@ -352,6 +354,7 @@ export class CodexTranslator implements Translator {
     this.#started.add(item.id);
     const own = this.#options.toolServers.some((server) => server.name === item.server);
     const locations = (item.changes ?? []).map((change) => change.path);
+    if (locations.length > 0) this.#locations.set(item.id, locations);
     return [
       {
         type: "action.started",
@@ -386,6 +389,7 @@ export class CodexTranslator implements Translator {
     const events = this.#startAction(item);
     if (!this.#started.delete(item.id)) return { events, outgoing: [] };
     this.#outputs.delete(item.id);
+    this.#locations.delete(item.id);
     events.push({
       type: "action.ended",
       payload: {
@@ -448,6 +452,8 @@ export class CodexTranslator implements Translator {
     this.#permissions.set(requestId, id);
     const command = method === "item/commandExecution/requestApproval";
     const title = command ? (approval.command ?? "Run a command") : "Edit files";
+    // So the core can keep the change out of read-only folders.
+    const locations = this.#locations.get(approval.itemId);
     const events: AdapterEvent[] = [
       {
         type: "permission.requested",
@@ -458,6 +464,7 @@ export class CodexTranslator implements Translator {
           input: { command: approval.command, cwd: approval.cwd, reason: approval.reason },
           options: APPROVAL_OPTIONS,
           kind: command ? "execute" : "edit",
+          ...(locations === undefined ? {} : { locations }),
         },
       },
     ];

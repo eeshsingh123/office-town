@@ -21,6 +21,19 @@ export type JsonRpcIncoming =
 
 export const METHOD_NOT_FOUND = -32601;
 
+// The answer to request `id` among a server's output lines, for a one-off query; undefined until
+// it comes. An error answer throws.
+export function answerIn(lines: readonly string[], id: JsonRpcId): { result: unknown } | undefined {
+  for (const line of lines) {
+    if (!line.startsWith("{")) continue;
+    const message = messageSchema.safeParse(JSON.parse(line));
+    if (!message.success || message.data.id !== id || message.data.method !== undefined) continue;
+    if (message.data.error !== undefined) throw new Error(message.data.error.message);
+    return { result: message.data.result };
+  }
+  return undefined;
+}
+
 // Does no I/O: the caller writes the returned lines and feeds it the lines it reads.
 export class JsonRpcPeer {
   #nextId = 1;

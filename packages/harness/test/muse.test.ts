@@ -61,4 +61,27 @@ describe("muse adapter", () => {
       headers: { Authorization: "Bearer secret" },
     });
   });
+
+  it("sets the chosen approval mode and model again on a resumed session before prompting", async () => {
+    const { written } = await replay(
+      museAdapter,
+      [
+        { receive: { jsonrpc: "2.0", id: 1, result: {} } },
+        { receive: { jsonrpc: "2.0", id: 2, result: { session: { sessionId: "s1" } } } },
+        { send: { type: "prompt", text: "Carry on" } },
+        { receive: { jsonrpc: "2.0", id: 3, result: {} } },
+        { receive: { jsonrpc: "2.0", id: 4, result: {} } },
+      ],
+      { ...replayOptions, resumeSessionId: "s1", permissionMode: "ask", model: "muse-spark-1.2" },
+    );
+    const sent = written.slice(2).map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method)).toEqual([
+      "session/resume",
+      "session/setApprovalMode",
+      "session/setModel",
+      "turn/start",
+    ]);
+    expect(sent[1].params.mode).toBe("promptUnmatched");
+    expect(sent[2].params.model).toEqual({ modelId: "muse-spark-1.2" });
+  });
 });

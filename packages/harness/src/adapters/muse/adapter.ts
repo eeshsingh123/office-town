@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type {
   AccountSupport,
   Adapter,
@@ -8,6 +7,7 @@ import type {
   InstallSupport,
   LaunchOptions,
 } from "../../adapter.ts";
+import { answerIn } from "../../json-rpc.ts";
 import { modelListSchema, type Subscription, subscriptionSchema } from "./messages.ts";
 import { CLIENT_INFO, limitsOf, MuseTranslator } from "./translator.ts";
 
@@ -18,12 +18,6 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     ? { binary: "muse", args }
     : { binary: "muse", args, env: accounts.env(options.accountFolder) };
 }
-
-const answerSchema = z.looseObject({
-  id: z.literal(2),
-  result: z.unknown().optional(),
-  error: z.looseObject({ message: z.string() }).optional(),
-});
 
 // Its models are listed once signed in; before that the list is empty.
 const catalog: CatalogQuery = {
@@ -40,23 +34,18 @@ const catalog: CatalogQuery = {
     JSON.stringify({ jsonrpc: "2.0", id: 2, method: "model/list", params: {} }),
   ],
   read(output) {
-    for (const line of output) {
-      if (!line.startsWith("{")) continue;
-      const answer = answerSchema.safeParse(JSON.parse(line));
-      if (!answer.success) continue;
-      if (answer.data.error !== undefined) throw new Error(answer.data.error.message);
-      return {
-        models: modelListSchema.parse(answer.data.result).models.map((model) => ({
-          id: model.modelId,
-          name: model.displayLabel,
-          ...(model.description ? { description: model.description } : {}),
-          efforts:
-            model.reasoningEffortVariants?.map(({ tier }) => tier) ??
-            (Array.isArray(model.variants) ? model.variants : []),
-        })),
-      };
-    }
-    return undefined;
+    const answer = answerIn(output, 2);
+    if (answer === undefined) return undefined;
+    return {
+      models: modelListSchema.parse(answer.result).models.map((model) => ({
+        id: model.modelId,
+        name: model.displayLabel,
+        ...(model.description ? { description: model.description } : {}),
+        efforts:
+          model.reasoningEffortVariants?.map(({ tier }) => tier) ??
+          (Array.isArray(model.variants) ? model.variants : []),
+      })),
+    };
   },
 };
 

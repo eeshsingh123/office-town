@@ -129,6 +129,8 @@ export class MuseTranslator implements Translator {
   #sessionId: string | undefined;
   #turnId: string | undefined;
   #turnActive = false;
+  // Settings sent to a resumed session, which the first prompt waits for.
+  #settingsPending = 0;
   #requests = 0;
   #used: TokenUsage | undefined;
 
@@ -236,6 +238,9 @@ export class MuseTranslator implements Translator {
       case "session/start":
       case "session/resume":
         return this.#sessionOpened(result);
+      case "session/setApprovalMode":
+      case "session/setModel":
+        return this.#settingApplied();
       case "turn/start":
         this.#turnId = turnResultSchema.parse(result).turnId;
         return NOTHING;
@@ -276,12 +281,54 @@ export class MuseTranslator implements Translator {
       type: "session.started",
       payload: { harnessSessionId: session.sessionId, ...(model ? { model } : {}) },
     };
+    if (this.#options.resumeSessionId !== undefined) {
+      return { events: [started], outgoing: this.#reapplySettings() };
+    }
     const next = this.#nextPrompt();
     return { events: [started, ...next.events], outgoing: next.outgoing };
   }
 
+  // A resumed session keeps the approval mode and model it started with, so the ones chosen now
+  // are set again before it runs anything.
+  #reapplySettings(): string[] {
+    const { permissionMode, model } = this.#options;
+    const session = { commandId: commandId(), sessionId: this.#sessionId };
+    const outgoing = [
+      this.#peer.request("session/setApprovalMode", {
+        ...session,
+        mode: APPROVAL_MODES[permissionMode],
+      }),
+      ...(model === undefined
+        ? []
+        : [
+            this.#peer.request("session/setModel", {
+              ...session,
+              commandId: commandId(),
+              model: { modelId: model },
+            }),
+          ]),
+    ];
+    this.#settingsPending = outgoing.length;
+    return outgoing;
+  }
+
+  #settingApplied(): Translation {
+    this.#settingsPending -= 1;
+    return this.#nextPrompt();
+  }
+
   #failure(method: string, message: string): Translation {
     if (method === "turn/interrupt" || method === "userInput/answer") return NOTHING;
+    // A model it cannot switch to is reported; an approval mode it cannot set ends the session
+    // below, since it could otherwise run unasked.
+    if (method === "session/setModel") {
+      const error = `Muse kept its earlier model: ${message}`;
+      const next = this.#settingApplied();
+      return {
+        events: [{ type: "error", payload: { message: error, fatal: false } }, ...next.events],
+        outgoing: next.outgoing,
+      };
+    }
     if (method === "approval/decide") {
       const error = `Muse did not take the answer: ${message}`;
       return {
@@ -309,7 +356,9 @@ export class MuseTranslator implements Translator {
   }
 
   #nextPrompt(): Translation {
-    if (this.#sessionId === undefined || this.#turnActive) return NOTHING;
+    if (this.#sessionId === undefined || this.#turnActive || this.#settingsPending > 0) {
+      return NOTHING;
+    }
     const input = this.#queuedPrompts.shift();
     if (input === undefined) return NOTHING;
     this.#turnActive = true;

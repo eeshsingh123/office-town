@@ -212,6 +212,7 @@ export const opencodeAdapter = createAcpAdapter({
   maker: "Anomaly",
   summary: "An open-source coding agent with free models and many providers.",
   needs: "Has free models. No account needed",
+  usagePage: "https://opencode.ai/auth",
   capabilities: {
     reasoning: true,
     plan: true,

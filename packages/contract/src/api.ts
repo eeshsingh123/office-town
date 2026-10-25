@@ -136,6 +136,8 @@ export const harnessDescriptionSchema = z.object({
   signIn: z.enum(["browser", "key", "none"]),
   // The user can add more accounts, each in a login folder of its own (D-61).
   manyAccounts: z.boolean(),
+  // The vendor's page with the plan usage, for an app that shares none with other apps.
+  usagePage: z.url().optional(),
 });
 export type HarnessDescription = z.infer<typeof harnessDescriptionSchema>;
 
