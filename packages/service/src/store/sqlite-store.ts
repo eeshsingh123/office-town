@@ -7,7 +7,6 @@ import { setImmediate as yieldToEventLoop } from "node:timers/promises";
 import {
   type Account,
   type AccountLimits,
-  type AccountUsage,
   type AgentRecord,
   type AgentSettings,
   type Attachment,
@@ -31,6 +30,7 @@ import {
   type LibraryAudience,
   type LibraryItem,
   type LibraryItemChange,
+  type ModelUsage,
   type OutputRecord,
   type OutputTarget,
   type OutputVersion,
@@ -1450,8 +1450,12 @@ class SqliteStore implements Store {
     return all<AgentRow>(this.#statements.membersOf, ref).map(toAgent);
   }
 
-  accountUsageSince(since: string): AccountUsage[] {
-    return all<AccountUsage>(this.#statements.accountUsageSince, Date.parse(since));
+  accountUsageSince(since: string): ModelUsage[] {
+    const rows = all<ModelUsage & { model: string | null }>(
+      this.#statements.accountUsageSince,
+      Date.parse(since),
+    );
+    return rows.map(({ model, ...row }) => (model === null ? row : { ...row, model }));
   }
 
   conversationUsage(harness: string, harnessSessionId: string): TokenUsage {

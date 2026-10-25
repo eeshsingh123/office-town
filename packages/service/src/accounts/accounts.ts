@@ -12,11 +12,23 @@ import {
 import { accountCredentials } from "@office-town/harness";
 import type { Store } from "../store/store.ts";
 
-// An added account counts once its sign-in is saved in its folder; a default login always does.
-export function hasSignIn(account: Account): boolean {
+// An added account counts once its sign-in is saved in its folder, or, for a CLI that may keep it
+// in the system's credential store, once the app saw it sign in; a default login always does.
+export function hasSignIn(account: Account, store: Pick<Store, "readSettings">): boolean {
   if (account.folder === undefined) return true;
   const file = accountCredentials(account.harness);
-  return file !== undefined && existsSync(join(account.folder, file));
+  if (file === undefined) return rememberedSignIns(store).includes(account.id);
+  return existsSync(join(account.folder, file));
+}
+
+export function rememberedSignIns(store: Pick<Store, "readSettings">): string[] {
+  return store.readSettings().signedInAccounts ?? [];
+}
+
+// For a CLI that cannot say whether it is signed in, or keeps no file to show it (D-76).
+export function rememberSignIn(store: Store, accountId: string, signedIn: boolean): void {
+  const others = rememberedSignIns(store).filter((id) => id !== accountId);
+  store.saveSettings({ signedInAccounts: signedIn ? [...others, accountId] : others });
 }
 
 const sameEnvironment = (a: EnvironmentSpec, b: EnvironmentSpec) =>
@@ -46,7 +58,7 @@ export function allAccounts(store: Store, harnesses: readonly HarnessDescription
   const used = store.listAgents().map(({ settings }) => settings);
   const added = store
     .listAccounts()
-    .map((account) => ({ ...account, signedIn: hasSignIn(account) }));
+    .map((account) => ({ ...account, signedIn: hasSignIn(account, store) }));
   return [...defaultAccounts(harnesses, used), ...added];
 }
 
@@ -73,7 +85,7 @@ const chosen = (account: Account): ChosenAccount => ({
 export function chooseAccount(
   store: Store,
   settings: AgentSettings,
-  signedIn: (account: Account) => boolean = hasSignIn,
+  signedIn: (account: Account) => boolean = (account) => hasSignIn(account, store),
 ): ChosenAccount {
   const { harness, environment } = settings;
   const fallback = { id: defaultAccountId(harness, environment), harness, environment };

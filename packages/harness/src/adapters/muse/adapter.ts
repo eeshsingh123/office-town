@@ -113,6 +113,7 @@ export const museAdapter: Adapter = {
   maker: "Meta",
   summary: "Meta's coding agent, with Meta's own models.",
   needs: "Needs a Meta account",
+  priceLists: ["meta"],
   capabilities: {
     reasoning: true,
     plan: true,

@@ -9,6 +9,7 @@ export type AcpHarness = Pick<
   | "summary"
   | "needs"
   | "capabilities"
+  | "priceLists"
   | "isolationNote"
   | "catalog"
   | "accounts"

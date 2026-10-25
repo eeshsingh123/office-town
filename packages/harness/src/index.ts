@@ -105,6 +105,11 @@ export function runCommand(
   return runIn(environmentFor(environmentSpecSchema.parse(spec)), command);
 }
 
+// OpenCode names each model's provider in its id, so it needs no list of its own.
+export function priceLists(harness: string): string[] {
+  return findAdapter(harness).priceLists ?? [];
+}
+
 export function canRecount(harness: string): boolean {
   return findAdapter(harness).recount !== undefined;
 }

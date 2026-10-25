@@ -80,8 +80,14 @@ export const accountUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   cachedInputTokens: z.number().int().nonnegative(),
+  // What those tokens cost at the models' API prices, from models.dev; unset where none of its
+  // models has a listed price (D-76). Never what a plan charged.
+  estimatedUsd: z.number().nonnegative().optional(),
 });
 export type AccountUsage = z.infer<typeof accountUsageSchema>;
+
+// The same, for one model, as the store keeps it; the model is unset where none was reported.
+export type ModelUsage = Omit<AccountUsage, "estimatedUsd"> & { model?: string };
 
 export const accountUsageQuerySchema = z.object({ since: z.iso.datetime() });
 

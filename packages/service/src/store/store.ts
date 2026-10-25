@@ -1,7 +1,6 @@
 import type {
   Account,
   AccountLimits,
-  AccountUsage,
   AgentColour,
   AgentRecord,
   AgentSettings,
@@ -25,6 +24,7 @@ import type {
   LibraryAudience,
   LibraryItem,
   LibraryItemChange,
+  ModelUsage,
   OutputRecord,
   OutputTarget,
   PendingRequestList,
@@ -319,7 +319,7 @@ export interface Store {
   // The latest an account's plan usage was read, such as when the user refreshes it.
   saveLimits(entry: AccountLimits): void;
   // Tokens per account and agent, over the turns that ended since then.
-  accountUsageSince(since: string): AccountUsage[];
+  accountUsageSince(since: string): ModelUsage[];
   // What a harness conversation's sessions recorded so far, over all of them.
   conversationUsage(harness: string, harnessSessionId: string): TokenUsage;
   // Sessions on the harness that ended since then and have turns not yet recounted.

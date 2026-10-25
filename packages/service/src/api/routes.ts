@@ -32,6 +32,7 @@ import {
 } from "@office-town/contract";
 import { listEnvironments, listHarnesses, readHarnessStatus } from "@office-town/harness";
 import { z } from "zod";
+import { rememberedSignIns } from "../accounts/accounts.ts";
 import { accountRoutes } from "../accounts/routes.ts";
 import { createAgent } from "../agents/agents.ts";
 import { instructionsFor, soloMessage } from "../agents/briefs.ts";
@@ -46,6 +47,7 @@ import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
+import type { PriceList } from "../prices/prices.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
@@ -106,10 +108,11 @@ export function apiRoutes(
   pauses: UsagePauses,
   checks: Checks,
   outputs: OutputServices,
+  prices: PriceList,
 ): Route[] {
   const { registry, store, readCatalog } = team;
   return [
-    ...accountRoutes(team),
+    ...accountRoutes(team, prices),
     ...installRoutes(),
     {
       method: "POST",
@@ -627,10 +630,19 @@ export function apiRoutes(
     {
       method: "GET",
       path: "/harnesses/status",
-      reply: async () => ({
-        status: 200,
-        json: await Promise.all(listHarnesses().map(({ harness }) => readHarnessStatus(harness))),
-      }),
+      reply: async () => {
+        const statuses = await Promise.all(
+          listHarnesses().map(({ harness }) => readHarnessStatus(harness)),
+        );
+        // A CLI that cannot say is signed in once the app saw its default login sign in (D-76).
+        const seen = rememberedSignIns(store);
+        const json = statuses.map((status) =>
+          status.installed && status.signedIn === undefined && seen.includes(status.harness)
+            ? { ...status, signedIn: true }
+            : status,
+        );
+        return { status: 200, json };
+      },
     },
     {
       method: "GET",
