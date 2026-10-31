@@ -323,7 +323,7 @@ export async function deleteTask(context: TeamContext, taskId: string): Promise<
 }
 
 // Between turns, owed nothing, asking nothing and handed nothing: its work was finished.
-function finishedWork(store: Store, session: SessionRecord, waiting: Set<string>): boolean {
+export function finishedWork(store: Store, session: SessionRecord, waiting: Set<string>): boolean {
   if (store.latestTurn(session.id)?.ended !== true || store.owesTurn(session.id)) return false;
   return !waiting.has(session.id) && store.workingDelegation(session.id) === undefined;
 }

@@ -387,6 +387,81 @@ Testing again.`),
     expect(next?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
+  it("tries a failed worker once, then tells the lead the real error, and resume_work carries it on", async () => {
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const fail = () => {
+      worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+      worker?.emit({ type: "error", payload: { message: "The model refused", fatal: false } });
+      worker?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "failed" } });
+    };
+
+    fail();
+    await settle();
+    expect(worker?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("Your last turn failed: The model refused"),
+    });
+    expect(lastSent(0)).not.toMatchObject({ origin: { kind: "result" } });
+
+    fail();
+    await settle();
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining("The error: The model refused"),
+      origin: { kind: "result", outcome: "failed" },
+    });
+    const status = (await core.callTool(lead, "team_status", {})).text;
+    expect(status).toContain("failed on its last piece: The error: The model refused");
+
+    expect((await core.callTool(lead, "resume_work", { agent: writer })).text).toContain(
+      "carrying on",
+    );
+    expect(worker?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
+  });
+
+  it("tries a lead's failed turn once, and keeps its goal open meanwhile", async () => {
+    const { task } = await teamAtWork();
+    const lead = core.sessions[0];
+    lead?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    lead?.emit({ type: "error", payload: { message: "Overloaded", fatal: false } });
+    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "failed" } });
+    await settle();
+    expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("Overloaded") });
+    expect(core.store.getTask(task.taskId)?.state).toBe("working");
+
+    const sent = lead?.sent.length;
+    playTurn(lead, "", "failed");
+    await settle();
+    expect(lead?.sent.length).toBe(sent);
+  });
+
+  it("moves a failed worker to another model through change_worker, and the next start runs on it", async () => {
+    core.team.readCatalog = async () => ({
+      models: [{ id: "better", name: "Better", efforts: [] }],
+    });
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    playTurn(worker, "", "failed");
+    await settle();
+    playTurn(worker, "", "failed");
+    await settle();
+
+    const changed = await core.callTool(lead, "change_worker", {
+      agent: writer,
+      model: "better",
+      reason: "Its model refuses every request",
+    });
+    expect(changed.text).toContain("now runs on better");
+
+    await core.callTool(lead, "resume_work", { agent: writer });
+    const next = core.store.getSession(core.sessions.at(-1)?.id ?? "");
+    expect(next?.resumedFrom).toBe(worker?.id);
+    expect(next?.options.model).toBe("better");
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });

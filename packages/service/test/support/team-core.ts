@@ -23,12 +23,13 @@ import {
 import { openStore } from "../../src/store/sqlite-store.ts";
 import type { Store } from "../../src/store/store.ts";
 import { cachedCatalogs } from "../../src/team/catalogs.ts";
+import { changeWorker } from "../../src/team/change-worker.ts";
 import { Checks } from "../../src/team/checks.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import { Handovers } from "../../src/team/handover.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
-import { reportResults } from "../../src/team/results.ts";
+import { recoverLeads, reportResults } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { UsagePauses } from "../../src/team/usage-pause.ts";
@@ -101,7 +102,6 @@ export async function startCore(dataFolder: string): Promise<Core> {
     hub: connectors.gateway.hubTools(),
     endpointOf: (slug) => connectors.gateway.endpointOf(slug),
   });
-  taskStates.follow(registry);
   followLibraryUses(registry, store);
   const readCatalog = cachedCatalogs(async (harness) => {
     const catalog = catalogs[harness];
@@ -111,6 +111,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const team = { store, registry, readCatalog, dataFolder, createSession };
   const activity = new SessionActivity(registry);
   reportResults(team, activity);
+  recoverLeads(team, activity);
+  taskStates.follow(registry);
   const handovers = new Handovers(team);
   const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
@@ -123,6 +125,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     teamStatus(team, activity),
     stopWork(team, activity),
     resumeWork(team),
+    changeWorker(team),
     handovers.tool(),
     checks.writeChecklistTool(),
     checks.proposeChecksTool(),

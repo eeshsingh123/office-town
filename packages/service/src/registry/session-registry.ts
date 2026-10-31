@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import type {
   AgentCommand,
+  AgentRecord,
   Attachment,
   Autonomy,
   MessageOrigin,
@@ -214,6 +215,19 @@ export interface Apps {
   brief?: string;
 }
 
+// A model or effort changed since the conversation began applies from its next start. Another AI
+// app cannot continue the conversation, so it keeps the one it runs on.
+function withAgentsModel(options: SessionOptions, agent: AgentRecord | undefined): SessionOptions {
+  if (agent === undefined || agent.settings.harness !== options.harness) return options;
+  const { model: _, effort: __, ...rest } = options;
+  const { model, effort } = agent.settings;
+  return {
+    ...rest,
+    ...(model === undefined ? {} : { model }),
+    ...(effort === undefined ? {} : { effort }),
+  };
+}
+
 export class SessionRegistry {
   readonly #store: Store;
   readonly #createSession: HarnessSessionFactory;
@@ -342,7 +356,11 @@ ${text}`,
       return this.#run(session, record, { ...fresh, text });
     }
     const options = withAccess(
-      { ...earlier.options, permissionMode, resumeSessionId: conversation },
+      {
+        ...withAgentsModel(earlier.options, this.#store.getAgent(earlier.agentId)),
+        permissionMode,
+        resumeSessionId: conversation,
+      },
       message.attachments ?? [],
     );
     const session = this.#launch(options);

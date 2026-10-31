@@ -55,6 +55,7 @@ import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
+import { modelChangedByUser } from "../team/change-worker.ts";
 import type { Checks } from "../team/checks.ts";
 import {
   changeTeam,
@@ -404,15 +405,17 @@ export function apiRoutes(
         const agent = store.getAgent(param("id"));
         if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
         const { colour, purpose, settings } = agentProfileRequestSchema.parse(await body());
-        return {
-          status: 200,
-          json: store.updateAgent(agent.id, {
-            ...agent,
-            colour,
-            purpose: purpose === "" ? undefined : purpose,
-            settings,
-          }),
-        };
+        const saved = store.updateAgent(agent.id, {
+          ...agent,
+          colour,
+          purpose: purpose === "" ? undefined : purpose,
+          settings,
+        });
+        const { model, effort } = agent.settings;
+        if (settings.model !== model || settings.effort !== effort) {
+          await modelChangedByUser(team, saved);
+        }
+        return { status: 200, json: saved };
       },
     },
     {

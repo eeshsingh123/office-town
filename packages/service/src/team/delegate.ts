@@ -19,6 +19,10 @@ import type { TeamContext } from "./members.ts";
 import { workerFolders } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 80;
+const SHOWN_FAILURE = 300;
+
+const shortened = (text: string, length: number) =>
+  text.length > length ? `${text.slice(0, length)}…` : text;
 
 export interface LedTeam {
   name: string;
@@ -200,16 +204,19 @@ function stateOf(
   if (waiting.has(session.id)) return "is waiting for the user";
   if (working !== undefined) {
     const minutes = Math.round((Date.now() - Date.parse(working.createdAt)) / 60_000);
-    const piece =
-      working.brief.length > SHOWN_BRIEF
-        ? `${working.brief.slice(0, SHOWN_BRIEF)}…`
-        : working.brief;
-    return `is working on "${piece}" (for ${minutes} min)`;
+    const piece = shortened(working.brief, SHOWN_BRIEF);
+    const active = activity.of(session.id)?.lastActive;
+    const quiet = active === undefined ? 0 : Math.round((Date.now() - active) / 60_000);
+    const last = quiet === 0 ? "" : `, last active ${quiet} min ago`;
+    return `is working on "${piece}" (for ${minutes} min${last})`;
   }
   if (isOpen(session) && activity.of(session.id)?.turnOpen) return "is at work";
   const last = context.store
     .listDelegations(caller.taskId)
     .findLast((one) => one.workerAgentId === worker.id);
+  if (last?.status === "failed") {
+    return `failed on its last piece: ${shortened(last.result ?? "no reason given", SHOWN_FAILURE)}`;
+  }
   if (!isOpen(session) && last?.status === "stopped") return "was stopped before it finished";
   return session.status === "failed" ? "failed on its last piece" : "has finished its last piece";
 }
@@ -218,7 +225,9 @@ export function teamStatus(context: TeamContext, activity: SessionActivity) {
   const { store } = context;
   return defineTool({
     name: "team_status",
-    description: "List your workers, what each is doing now, and the work still out with them.",
+    description:
+      "List your workers, what each is doing now, and the work still out with them. Results " +
+      "reach you by themselves, so do not call this over and over to wait for one.",
     input: z.object({}),
     offeredTo: isLead(context),
     call(_, caller) {

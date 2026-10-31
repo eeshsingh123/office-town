@@ -176,6 +176,8 @@ describe("the chief", () => {
 
     playTurn(leadOf(piece("docs")?.pieceTaskId), "I could not write the docs.", "failed");
     await settle();
+    playTurn(leadOf(piece("docs")?.pieceTaskId), "I could not write the docs.", "failed");
+    await settle();
     expect(chief?.sent.at(-1)).toMatchObject({
       text: expect.stringContaining("propose_plan"),
       origin: { kind: "piece", outcome: "failed" },
