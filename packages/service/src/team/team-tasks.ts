@@ -191,7 +191,7 @@ export async function startTeamTask(
     return claimDepartment(context, department.id, undefined, async () => {
       const lead = store.getAgent(department.leadAgentId);
       if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
-      const folders = foldersForTask(store, workspaceId, goal);
+      const folders = foldersForTask(store, workspaceId);
       const task = store.createTask(
         goal,
         { leadAgentId: lead.id, departmentId: department.id },
@@ -221,7 +221,7 @@ export async function startTeamTask(
       });
     });
   }
-  const folders = foldersForTask(store, team.workspaceId, goal);
+  const folders = foldersForTask(store, team.workspaceId);
   const lead = createAgent(store, team.lead, { role: "Lead", autonomy: team.autonomy });
   const options = sessionOptionsFor(store, lead, withUpstream(folders));
   const task = store.createTask(
@@ -282,7 +282,7 @@ async function startGroupTask(
   }
   const release = hold(ids, undefined);
   try {
-    const folders = foldersForTask(store, team.workspaceId, goal);
+    const folders = foldersForTask(store, team.workspaceId);
     const task = store.createTask(
       goal,
       { leadAgentId: lead.id, workerAgentIds: team.workerAgentIds },

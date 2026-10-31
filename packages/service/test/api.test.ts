@@ -184,8 +184,8 @@ describe("api", () => {
     const first = await optionsOf(await start(scratchId));
     const second = await optionsOf(await start(scratchId));
     expect(dirname(first.workspacePath ?? "")).toBe(directory);
-    expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} Write a report$/);
-    expect(second.workspacePath).toBe(`${first.workspacePath} (2)`);
+    expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} \d{2}-\d{2} [0-9a-f]{8}$/);
+    expect(second.workspacePath).not.toBe(first.workspacePath);
     expect(existsSync(second.workspacePath ?? "")).toBe(true);
 
     const usage = workspaceUsageSchema

@@ -1,7 +1,7 @@
 import type { HarnessDescription, HarnessModel } from "@office-town/contract";
 import { SHOW_ASK } from "../agents/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
-import type { TaskFolders } from "../task-folders.ts";
+import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
 
 // Enough for the lead to choose from; propose_team names the valid ones if it picks another.
 const MODELS_LISTED = 12;
@@ -30,14 +30,14 @@ export function describeChoices(choices: HarnessChoices[]): string {
     .join("\n");
 }
 
-function where({ workspacePath, additionalPaths, readOnlyPaths }: TaskFolders): string {
+function where({ workspacePath, additionalPaths, readOnlyPaths, scratch }: TaskFolders): string {
   const also =
     additionalPaths.length === 0 ? "" : `, and may use ${additionalPaths.join(", ")} as freely`;
   const read =
     readOnlyPaths.length === 0
       ? ""
       : ` You may read ${readOnlyPaths.join(", ")}, but never change them.`;
-  return `You work in ${workspacePath}${also}.${read}`;
+  return `You work in ${workspacePath}${also}.${read}${scratch ? ` ${SCRATCH_ASK}` : ""}`;
 }
 
 // Whatever an agent reads is read again at each of its later steps, so long output is costly.

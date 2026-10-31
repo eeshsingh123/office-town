@@ -14,8 +14,6 @@ import { ModelChip } from "../new-task/ModelChip.tsx";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
 
-const folderName = (folder: string) => folder.split(/[\\/]/).filter(Boolean).at(-1) ?? folder;
-
 // Who the trace belongs to and what it runs on: a card in the trace's right margin, or a
 // pill that opens it when the trace has no margin to spare.
 export function RunCard({ agent }: { agent: Agent }) {
@@ -123,14 +121,14 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
           <li title={folder}>
             <Folder size={14} aria-hidden />
             {shell === undefined ? (
-              <span className={styles.text}>{folderName(folder)}</span>
+              <span className={styles.text}>{facts.folderAlias}</span>
             ) : (
               <button
                 type="button"
                 className={styles.folder}
                 onClick={() => void shell?.openFolder(folder)}
               >
-                <span className={styles.text}>{folderName(folder)}</span>
+                <span className={styles.text}>{facts.folderAlias}</span>
                 <ExternalLink size={12} aria-hidden />
               </button>
             )}

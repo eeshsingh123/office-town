@@ -83,8 +83,11 @@ export async function workerFolders(
   if (folders === undefined) throw new TeamError("The lead has no folder to share.");
   requireFolders([folders.workspacePath, ...folders.additionalPaths]);
   const main = folders.workspacePath;
-  if (!department?.branchPerWorker || !isRepository(main)) return { ...folders, branch: undefined };
   const task = context.store.getTask(taskId);
+  const workspace =
+    task?.workspaceId === undefined ? undefined : context.store.getWorkspace(task.workspaceId);
+  const shared = workspace?.kind === "scratch" ? { ...folders, scratch: true } : folders;
+  if (!department?.branchPerWorker || !isRepository(main)) return { ...shared, branch: undefined };
   const name = slug(worker.name, 40);
   const base = `office-town/${slug(task?.prompt ?? "", 24)}-${taskId.slice(0, 4)}/${name}`;
   const { environment } = worker.settings;

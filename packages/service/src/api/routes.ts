@@ -145,7 +145,7 @@ export function apiRoutes(
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
         const attachments = resolveAttachments(store, request.attachments);
-        const folders = foldersForTask(store, request.workspaceId, request.prompt);
+        const folders = foldersForTask(store, request.workspaceId);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt, undefined, {
           workspaceId: request.workspaceId,
@@ -156,7 +156,7 @@ export function apiRoutes(
             agentId: agent.id,
             options: sessionOptionsFor(store, agent, folders),
             message: {
-              ...soloMessage(request.prompt, instructionsFor(store, agent)),
+              ...soloMessage(request.prompt, instructionsFor(store, agent), folders.scratch),
               attachments,
             },
           }),
