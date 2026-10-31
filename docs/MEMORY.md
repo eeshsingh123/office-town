@@ -18,7 +18,7 @@ Last updated: 2026-11-01
 
 Worth a click when touched.
 
-- D-80: switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in).
+- D-80: switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in), the saved lists in the packaged app (only `pnpm dev:web` was run).
 - D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
 - Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
 - Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.

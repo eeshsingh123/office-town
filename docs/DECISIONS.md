@@ -413,6 +413,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - `ModelChip` is the only way to pick an AI app, model, thinking and where it runs. `SettingsChips` is that chip plus the account chip, so a form and the composer share one set of rules (an AI app change drops the model, a machine change drops the account). Chief setup lost its own AI app list, since the menu would show it twice.
 - Runs on stays in the menu's footer, unchanged in meaning: hidden on a running agent. The left pane's note only says what the catalog knows, and only OpenCode reports `access`, so Claude and the others show none for now. Adding it for them means adapters reporting it, not a label in the UI.
 - Its popover is modal: a dialog's scroll lock otherwise cancels the wheel over a menu portalled out of it. Menus sit above dialogs (z-index 22).
+- Nothing in the picker waits on the CLIs at launch (owner). A cold check takes about 9 s, held back by the slowest CLI, so the ready apps, model lists and environments are saved in the browser's storage (`api/last-known.ts`), shown at once and replaced when the fresh read ends. Only the picker reads them: Providers and setup keep showing the live check. With nothing saved, only the chosen app shows, with "Checking AI apps…": an app is added, never shown and then removed. A failed read still shows its error, not the old list. Core validation always uses a fresh catalog.
 
 ## Done
 
