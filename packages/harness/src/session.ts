@@ -112,6 +112,8 @@ export class HarnessSession implements Session {
   #plan: PlanStep[] = [];
   // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
   #idle = false;
+  // An agent closed for being idle after a failed turn did not finish its work.
+  #lastTurnFailed = false;
   readonly #tokens: string[];
 
   constructor(
@@ -458,6 +460,7 @@ export class HarnessSession implements Session {
   #endTurn(payload: Extract<AdapterEvent, { type: "turn.ended" }>["payload"]): void {
     const turnId = this.#turnId ?? randomUUID();
     this.#turnId = undefined;
+    this.#lastTurnFailed = payload.outcome === "failed";
     this.#emit({ type: "turn.ended", payload: { ...payload, turnId } });
   }
 
@@ -507,7 +510,9 @@ export class HarnessSession implements Session {
     const idle = this.#idle && reason === "stopped";
     this.#emit({
       type: "session.ended",
-      payload: idle ? { reason: "exited", exitCode, idle } : { reason, exitCode },
+      payload: idle
+        ? { reason: this.#lastTurnFailed ? "failed" : "exited", exitCode, idle }
+        : { reason, exitCode },
     });
     this.#ended.resolve();
   }

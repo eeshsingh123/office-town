@@ -100,6 +100,13 @@ describe("session", () => {
     ).rejects.toBeInstanceOf(SessionStateError);
   });
 
+  it("records an agent closed for being idle as failed when its last turn failed", async () => {
+    const { session, events, emit } = await startSession();
+    await emit({ type: "turn.started" }, { type: "turn.ended", payload: { outcome: "failed" } });
+    await session.send({ type: "stop", idle: true });
+    expect(events.at(-1)?.payload).toMatchObject({ reason: "failed", idle: true });
+  });
+
   it("numbers what the core reports in line with the harness's own events, until the session ends", async () => {
     const { session, events, emit } = await startSession();
     await emit({ type: "turn.started" });
