@@ -254,6 +254,51 @@ describe("opencode adapter", () => {
     ]);
   });
 
+  it("delivers a waiting prompt once a tool ends, by cancelling, as one turn that goes on", async () => {
+    const [initialized, created, firstPrompt] = recordings["two-turns"];
+    const update = (sessionUpdate: string, status: string) => ({
+      receive: {
+        jsonrpc: "2.0",
+        method: "session/update",
+        params: {
+          sessionId: "ses_f02f20244ffeGZ3GTsAkqcIE1h",
+          update: { sessionUpdate, toolCallId: "call-1", title: "bash", kind: "execute", status },
+        },
+      },
+    });
+    const answer = (id: number, stopReason: string, inputTokens: number) => ({
+      receive: {
+        jsonrpc: "2.0",
+        id,
+        result: { stopReason, usage: { inputTokens, outputTokens: 1 } },
+      },
+    });
+    const { events, written } = await replay(opencodeAdapter, [
+      initialized,
+      created,
+      firstPrompt,
+      update("tool_call", "in_progress"),
+      { send: { type: "prompt", text: "from the user" } },
+      update("tool_call_update", "completed"),
+      answer(3, "cancelled", 10),
+      answer(4, "end_turn", 5),
+    ] as (typeof recordings)["two-turns"]);
+
+    const sent = written.map((line) => JSON.parse(line));
+    expect(sent.map((message) => message.method).slice(-3)).toEqual([
+      "session/prompt",
+      "session/cancel",
+      "session/prompt",
+    ]);
+    expect(sent.at(-1).params.prompt[0].text).toBe("from the user");
+    const ended = only(events, "turn.ended");
+    expect(ended.map((event) => event.payload.outcome)).toEqual(["completed"]);
+    expect(ended[0]?.payload.usage?.inputTokens).toBe(15);
+    expect(events.findLast((event) => event.type === "turn.started")?.sequence).toBeGreaterThan(
+      events.findLast((event) => event.type === "message")?.sequence ?? 0,
+    );
+  });
+
   it("holds a second prompt until the turn in progress ends", async () => {
     const [initialized, created, firstPrompt, ...rest] = recordings["two-turns"];
     const { written } = await replay(opencodeAdapter, [

@@ -20,6 +20,44 @@ function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
   return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
 }
 
+const steerable = async (answer: object) => {
+  const entries = recording("command-approved");
+  const started = entries.findIndex(
+    (entry) => "receive" in entry && JSON.stringify(entry).includes('"turn":{'),
+  );
+  return replay(codexAdapter, [
+    ...entries.slice(0, started + 1),
+    { send: { type: "prompt", text: "from the user" } },
+    { receive: answer },
+  ] as typeof entries);
+};
+
+describe("a prompt during a Codex turn", () => {
+  const steerId = async () => {
+    const { written } = await steerable({ jsonrpc: "2.0", method: "noop", params: {} });
+    const sent = written.map((line) => JSON.parse(line));
+    const steer = sent.find(({ method }) => method === "turn/steer");
+    expect(steer.params.input.at(-1).text).toContain("from the user");
+    expect(steer.params.expectedTurnId).toBeTruthy();
+    return steer.id;
+  };
+  const starts = (events: SessionEvent[]) => only(events, "turn.started").length;
+
+  it("goes into the running turn and counts as taken once accepted", async () => {
+    const id = await steerId();
+    const { events } = await steerable({ jsonrpc: "2.0", id, result: {} });
+    expect(starts(events)).toBe(2);
+  });
+
+  it("waits for the turn to end if refused", async () => {
+    const id = await steerId();
+    const error = { code: -32000, message: "Not now" };
+    const { events } = await steerable({ jsonrpc: "2.0", id, error });
+    expect(starts(events)).toBe(1);
+    expect(only(events, "error")).toEqual([]);
+  });
+});
+
 describe("codex adapter", () => {
   it("attaches the core's tool servers without their tokens on the command line, never asks for their tools, and writes no read-only folder", () => {
     const command = codexAdapter.buildCommand({

@@ -128,6 +128,8 @@ export class CodexTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #options: LaunchOptions;
   readonly #queuedPrompts: object[][] = [];
+  // Sent into the running turn, oldest first, until Codex answers.
+  readonly #steering: object[][] = [];
   readonly #started = new Set<string>();
   readonly #outputs = new Map<string, string>();
   // The files each change touches, which its ask leaves out.
@@ -164,7 +166,7 @@ export class CodexTranslator implements Translator {
     }
   }
 
-  // Codex takes a prompt during a turn as a steer, so prompts wait for the turn to end instead.
+  // During a turn a prompt goes into it, once the turn's id is known; a refused one waits it out.
   prompt(text: string, images: InlineImage[]): Translation {
     this.#queuedPrompts.push([
       { type: "text", text, text_elements: [] },
@@ -173,7 +175,20 @@ export class CodexTranslator implements Translator {
         url: `data:${mimeType};base64,${data}`,
       })),
     ]);
-    return this.#nextPrompt();
+    return this.#turnActive ? this.#steer() : this.#nextPrompt();
+  }
+
+  #steer(): Translation {
+    if (this.#turnId === undefined) return NOTHING;
+    const expectedTurnId = this.#turnId;
+    const steers = this.#queuedPrompts.splice(0);
+    this.#steering.push(...steers);
+    return {
+      events: [],
+      outgoing: steers.map((input) =>
+        this.#peer.request("turn/steer", { threadId: this.#threadId, input, expectedTurnId }),
+      ),
+    };
   }
 
   answerPermission(requestId: string, option: PermissionOption): Translation {
@@ -215,7 +230,11 @@ export class CodexTranslator implements Translator {
         return this.#threadOpened(result);
       case "turn/start":
         this.#turnId = turnResultSchema.parse(result).turn.id;
-        return NOTHING;
+        return this.#steer();
+      // A new start, so the message counts as taken.
+      case "turn/steer":
+        this.#steering.shift();
+        return { events: [{ type: "turn.started" }], outgoing: [] };
       default:
         return NOTHING;
     }
@@ -246,6 +265,11 @@ export class CodexTranslator implements Translator {
 
   #failure(method: string, message: string): Translation {
     if (method === "turn/interrupt") return NOTHING;
+    if (method === "turn/steer") {
+      const refused = this.#steering.shift();
+      if (refused !== undefined) this.#queuedPrompts.unshift(refused);
+      return this.#nextPrompt();
+    }
     if (method !== "turn/start") {
       const error = `Codex rejected "${method}": ${message}`;
       return {
