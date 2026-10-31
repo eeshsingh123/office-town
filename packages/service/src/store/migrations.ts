@@ -125,6 +125,21 @@ function giveWorkspacesKinds(db: DatabaseSync): void {
   }
 }
 
+// D-56: an assistant can always start without choosing a folder; older apps let Scratch be removed.
+function restoreScratch(db: DatabaseSync): void {
+  if (db.prepare("SELECT 1 FROM workspaces WHERE kind = 'scratch'").get() !== undefined) return;
+  const folder = join(homedir(), "OfficeTown", "Scratch");
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO workspaces (id, name, kind, folders, created_at, used_at)
+    VALUES (?, 'Scratch', 'scratch', ?, ?, ?)`).run(
+    randomUUID(),
+    JSON.stringify([{ path: folder, access: "edit" }]),
+    now,
+    now,
+  );
+}
+
 // Logins of their own, each in a folder (D-61). The CLI's default login has no row.
 function addAccounts(db: DatabaseSync): void {
   db.exec(`
@@ -660,4 +675,5 @@ export const migrations: readonly Migration[] = [
   addTaskPause,
   addChecks,
   addOutputs,
+  restoreScratch,
 ];

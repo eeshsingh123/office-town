@@ -191,7 +191,7 @@ Why: the Saved assistants page had no clear purpose, mixed one agent's settings 
 - Extra folders carry access: Can edit or Read only (reuses D-51's read-only check).
 - Workspaces page in the main nav: search, filters, cards with who uses it; a detail page with folders, departments, live agents, recent tasks and worktrees. Creating one is a side sheet with two choice cards, reachable from one shared picker in New task, New department and the plan card.
 - Two departments may edit the same workspace at once, with a clear warning (owner).
-- Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner).
+- Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner) or when it is the last Scratch, so an assistant never needs a folder chosen; a migration restores Scratch where it was removed.
 - Contract: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a task names its workspace, `GET /workspaces/usage` (departments, task count, recent tasks, missing folders, git branch, worktrees). D-33's resume rule holds.
 - Workers work where their lead does (its first session's folders), so a Scratch team shares one task folder. "Working now" is read from the app's live agent states, not the usage read, so an agent that finished its turn does not count.
 - The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.

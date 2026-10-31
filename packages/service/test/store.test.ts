@@ -12,9 +12,11 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/store/database.ts";
+import { migrations } from "../src/store/migrations.ts";
 import { queries } from "../src/store/queries.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import {
+  InUseError,
   RecordNotFoundError,
   type Store,
   StoreFileError,
@@ -173,6 +175,28 @@ describe("store", () => {
     });
     const [resolved] = store.readEvents({ sessionId: session.id, after: 0, limit: 10 });
     expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
+  });
+
+  it("always keeps one Scratch workspace, restoring it where an older app removed it", () => {
+    const [scratch] = store.listWorkspaces();
+    expect(() => store.deleteWorkspace(scratch?.id ?? "")).toThrow(InUseError);
+    const second = store.createWorkspace({
+      name: "Second",
+      kind: "scratch",
+      folders: [{ path: directory, access: "edit" }],
+    });
+    store.deleteWorkspace(second.id);
+
+    store.close();
+    const old = new DatabaseSync(join(directory, "store.db"));
+    old.exec(`
+      DELETE FROM workspaces;
+      PRAGMA user_version = ${migrations.length - 1};
+    `);
+    old.close();
+
+    store = openStore(directory);
+    expect(store.listWorkspaces()).toMatchObject([{ name: "Scratch", kind: "scratch" }]);
   });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {

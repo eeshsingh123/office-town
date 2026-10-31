@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-10-31
+Last updated: 2026-11-01
 
 ## State
 
@@ -9,7 +9,7 @@ Last updated: 2026-10-31
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
 - Built: M10 More AI apps (D-76), merged as PR #71. Live runs on Codex, Copilot, Cursor and Muse wait for the owner to sign in; all four are installed on the owner's machine, not signed in. Next: the public release steps in MODULES.md. New modules go discussion, mockup, build (AGENTS.md).
 - Done: feedback after M9 (PR #67, merged): office walking speed, department focus, and the new app icon ("Late shift", picked by the owner from https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD). The icon's source is `apps/desktop/src/ui/app-icon.svg` (sidebar logo, browser tab); `electron/icon.png` (64 px, window and tray) and `packaging/icon.png` (512 px, installer) are rendered from it. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
-- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`. Its store had lost Scratch; the next beta restores it (D-56).
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
 ## Not checked yet

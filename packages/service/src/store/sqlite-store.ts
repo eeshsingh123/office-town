@@ -1581,6 +1581,10 @@ class SqliteStore implements Store {
   }
 
   deleteWorkspace(id: string): void {
+    const scratches = this.listWorkspaces().filter((workspace) => workspace.kind === "scratch");
+    if (scratches.length === 1 && scratches[0]?.id === id) {
+      throw new InUseError("Tasks need a Scratch workspace, so the last one cannot be deleted.");
+    }
     try {
       this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
     } catch (error) {
