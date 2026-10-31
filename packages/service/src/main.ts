@@ -38,6 +38,7 @@ import { removeAllSandboxes } from "./team/check-sandbox.ts";
 import { Checks } from "./team/checks.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
 import { Handovers } from "./team/handover.ts";
+import { proposeChange } from "./team/propose-change.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { recoverLeads, reportResults } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
@@ -121,6 +122,7 @@ toolServer.offer([
   stopWork(team, activity),
   resumeWork(team),
   changeWorker(team),
+  proposeChange(team),
   handovers.tool(),
   checks.writeChecklistTool(),
   checks.proposeChecksTool(),

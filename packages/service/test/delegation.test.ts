@@ -335,6 +335,46 @@ Tests pass.`,
     expect(lastSent(2)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
+  it("puts a lead's change of direction to the user and tells it the answer", async () => {
+    await teamAtWork();
+    const lead = core.sessions[0];
+    const propose = () =>
+      core.callTool(lead, "propose_change", {
+        asked: "The real game in a browser",
+        found: "Its menus stay black in the emulator",
+        change: "Build a remake instead",
+        if_declined: "Keep working on the emulator",
+      });
+    const answer = async (selected: string) => {
+      const [request] = core.store.listPendingRequests().requests;
+      await core.call("POST", `/sessions/${lead?.id}/commands`, {
+        type: "answerQuestion",
+        requestId: request?.event.payload.requestId,
+        answers: [{ questionId: "1", selected: [selected] }],
+      });
+      await settle();
+    };
+
+    expect((await propose()).text).toContain("Do not start it");
+    const [request] = core.store.listPendingRequests().requests;
+    expect(request?.event.type).toBe("question.requested");
+
+    await answer("Go ahead");
+    expect(lastSent(0)).toMatchObject({ text: expect.stringContaining("approved your change") });
+
+    await propose();
+    await answer("Keep to the goal");
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining("Do not make it. Keep to the goal as asked: Keep working"),
+    });
+
+    await propose();
+    await answer("Try the demo build first");
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining("Unless they clearly approve the change, do not make it."),
+    });
+  });
+
   it("stops a worker only once the user approves its lead's ask, and resumes it in the same conversation", async () => {
     const { writer } = await teamAtWork();
     const lead = core.sessions[0];

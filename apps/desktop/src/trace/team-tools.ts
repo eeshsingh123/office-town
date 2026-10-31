@@ -15,6 +15,7 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
     kind: "other",
     title: (input) => `Changed the model of ${words(input.agent)}`,
   },
+  propose_change: { kind: "other", title: () => "Asked you about a change of direction" },
   // Kept for traces from before D-73.
   outsource: { kind: "delegate", title: () => "Sent the work for review" },
   write_checklist: {

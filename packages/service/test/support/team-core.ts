@@ -28,6 +28,7 @@ import { Checks } from "../../src/team/checks.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import { Handovers } from "../../src/team/handover.ts";
 import type { TeamContext } from "../../src/team/members.ts";
+import { proposeChange } from "../../src/team/propose-change.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
 import { recoverLeads, reportResults } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
@@ -126,6 +127,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     stopWork(team, activity),
     resumeWork(team),
     changeWorker(team),
+    proposeChange(team),
     handovers.tool(),
     checks.writeChecklistTool(),
     checks.proposeChecksTool(),
