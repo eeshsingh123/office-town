@@ -12,10 +12,13 @@ Last updated: 2026-11-01
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`. Its store had lost Scratch; the next beta restores it (D-56).
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
+- Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. Waiting on the owner's pick of a picker layout (https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV).
+
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
 - Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
 - Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.
 - M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers, a resumed Muse session setting its approval mode and model again.
@@ -62,6 +65,7 @@ Worth a click when touched.
 
 ## Open questions for the owner
 
+- Which picker layout (D-79), whether Whole department stays the run card's default, and whether the chip names the AI app.
 - Apply to SignPath Foundation for signing now that P4 is built (D-75); reminded 2026-10-23.
 - Before the release: the intro video (a discussion), the final name.
 

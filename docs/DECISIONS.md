@@ -194,7 +194,7 @@ Why: the Saved assistants page had no clear purpose, mixed one agent's settings 
 - Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner) or when it is the last Scratch, so an assistant never needs a folder chosen; a migration restores Scratch where it was removed.
 - Contract: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a task names its workspace, `GET /workspaces/usage` (departments, task count, recent tasks, missing folders, git branch, worktrees). D-33's resume rule holds.
 - Workers work where their lead does (its first session's folders), so a Scratch team shares one task folder. "Working now" is read from the app's live agent states, not the usage read, so an agent that finished its turn does not count.
-- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.
+- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it. A task's own folder inside it is named as D-79 says.
 Why: two answers to one question, one saved and one not, three words for one idea, and no place to see, edit or share workspaces (owner feedback).
 
 ### D-57 Two everyday levels and a Needs you built for volume — accepted (2026-10-11)
@@ -388,7 +388,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The lead brief forbids waiting by sleep or polling, and gives the order: look at the reason, `resume_work` (now also for a failed piece), `change_worker`, another worker, the piece itself only as a last resort and saying why.
 - `change_worker` moves a worker to another model of its AI app. It follows the department's level: Ask me first goes to Needs you, Don't ask goes ahead and is recorded (agent's call, 2026-10-31; a failed worker has no work to cut off, so D-71's approval does not bind it, and the user can change it back). Another AI app stays with `propose_team`.
 - An agent closed for being idle after a failed turn ends as failed, not exited, so it never reads done.
-- The run card shows and changes model and effort, on the agent, so it holds in the department. Only those two: an agent at work stays on its AI app and machine. A resume takes the agent's current model and effort. An agent between turns closes so its next message resumes on them; one at work is never cut off and shows "From its next start". The lead hears.
+- The run card shows and changes model and effort, on the agent, so it holds in the department (the AI app too since D-79; the machine never). A resume takes the agent's current model and effort. An agent between turns closes so its next message resumes on them; one at work is never cut off and shows "From its next start". The lead hears.
 
 ### D-78 A lead asks before changing direction — accepted (2026-10-31)
 
@@ -396,6 +396,17 @@ Why: the owner, who built the app, still had to work out what departments and th
 - `propose_change` is a lead-only team tool. It names what was asked, what was found, the change and what happens on a no. The brief lists when to call it (dropping something the goal names, a different thing from what was asked, less than the goal) and when not to (anything that still delivers the goal), so the rule does not slow normal work. Trigger test: would the user say that is not what they asked for?
 - It is a question, not an approval: "Approve all" skips questions, and the user can answer in their own words. It goes to the user at every level, unlike `change_worker`, since a change of goal is the user's at any level.
 - The core cannot detect a change of direction, so this rests on the lead calling the tool. A named tool in its list, the brief and a live run with a free model (it asked and obeyed a no) are the evidence. If leads skip it in practice, the next step is a cheap watcher on the lead's messages, kept out for now for its cost (D-72).
+
+### D-79 One folder per Scratch task, thinking up front, the AI app on the run card — accepted (2026-11-01)
+
+- Seen on a real task: an OpenCode agent took its folder's cut-off name ("...visual learning") for a mistake and wrote to a full-name folder beside it. `show_result` refused a file outside its workspace, so nothing showed, and the agent still said it had shown it.
+- A Scratch task's folder is `YYYY-MM-DD HH-MM <8 hex>`, never the prompt's words (owner: an id plus a readable alias). The id is the task's, not the assistant's: an assistant runs many tasks and a team shares one folder. The session already records its folder. The app shows an alias, "<department or agent>'s scratch · 1 Nov, 00:13". Older folders keep their names.
+- Scratch agents are told to keep every file in that folder, and a refused `show_result` says how to fix it. Neither is enforced: under Don't ask a user may send work elsewhere on purpose. If agents still stray, the next step is an ask for writes outside the folder.
+- With nothing shown, Outputs unfolds Changed files and opens the latest document, since an agent may never call `show_result`. A file outside the task's folders stays out (D-74).
+- Thinking shows before a model is picked. Where the AI app lists no default, it offers the values at least half its models share; a value the default lacks is ignored with a note, as before. The menu stays open after a model that has levels.
+- The run card changes the AI app, model and thinking (amends D-77). Owner: it applies to the whole department, so that is the default; "Just <name>" keeps mixed teams possible. The picks wait for Apply: each change closes agents between turns, and an AI app without a model is a half-made choice. The lead hears once. Runs on stays out, as worktrees belong to their machine (D-41).
+- A conversation belongs to its CLI, so an agent on another AI app starts a new one, told its first brief, its last message and what the user said. An agent at work takes the move at its next start.
+- A better picker is open: three options on https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV (A two panes, B one list, C three chips). Recommended: A. What is built keeps today's layout until the owner picks.
 
 ## Done
 
