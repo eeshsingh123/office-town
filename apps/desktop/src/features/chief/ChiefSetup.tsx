@@ -3,9 +3,11 @@ import { ArrowRight, Check } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { clearDrafts, SETTINGS_SHAPE, shaped, useDraft } from "../../store/drafts.ts";
 import { keepAgent } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
@@ -60,15 +62,18 @@ export function ChiefSetup() {
   const harnesses = useApp((state) => state.harnesses);
   const departments = useApp((state) => Object.keys(state.departments).length);
   const editing = chief !== undefined;
-  const [step, setStep] = useState(0);
-  const [reached, setReached] = useState(editing ? STEPS.length - 1 : 0);
-  const [name, setName] = useState(chief?.name.replace(/^@/, "") ?? "chief");
-  const [draft, setDraft] = useState<AgentSettings>(
+  const scope = `chief.${chief?.id ?? "new"}`;
+  const [step, setStep] = useDraft(`${scope}.step`, 0);
+  const [reached, setReached] = useDraft(`${scope}.reached`, editing ? STEPS.length - 1 : 0);
+  const [name, setName] = useDraft(`${scope}.name`, chief?.name.replace(/^@/, "") ?? "chief");
+  const [draft, setDraft] = useDraft<AgentSettings>(
+    `${scope}.settings`,
     () =>
       chief?.settings ?? {
         harness: harnesses[0]?.harness ?? "claude",
         environment: { kind: "native" },
       },
+    shaped(SETTINGS_SHAPE),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -77,8 +82,8 @@ export function ChiefSetup() {
   const validName = agentNameSchema.safeParse(handle).success;
   const rules = draft.instructions ?? "";
   const last = step === STEPS.length - 1;
-  const [describing, setDescribing] = useState(!editing);
-  const [drafted, setDrafted] = useState(false);
+  const [describing, setDescribing] = useDraft(`${scope}.describing`, !editing);
+  const [drafted, setDrafted] = useDraft(`${scope}.drafted`, false);
 
   const describe = async (notes: string[], drafter: RoleSettings) => {
     const { instructions: _, autonomy: __, ...settings } = draft;
@@ -117,6 +122,7 @@ export function ChiefSetup() {
       let saved = await api.saveChief(trimmed ? { ...rest, instructions: trimmed } : rest);
       if (saved.name !== handle) saved = await api.renameAgent(saved.id, handle);
       keepAgent(saved);
+      clearDrafts(scope);
       useApp.setState({ chiefId: saved.id });
       navigate({ name: "chief" });
     } catch (failure) {
@@ -134,7 +140,10 @@ export function ChiefSetup() {
         }}
         title={editing ? "Chief settings" : "Set up your chief"}
         note={
-          editing ? <span className={page.hint}>Changes apply from its next goal.</span> : undefined
+          <>
+            {editing ? <span className={page.hint}>Changes apply from its next goal.</span> : null}
+            <DraftNote scope={scope} editing={editing} />
+          </>
         }
         steps={STEPS}
         step={step}
@@ -205,6 +214,7 @@ export function ChiefSetup() {
           {step === 0 && describing ? (
             <>
               <DraftBox
+                name={`${scope}.box`}
                 label="Describe your chief"
                 placeholder="For example: Call it Atlas. Use Opus 5.5. Keep plans short, prefer free models for routine work, and never create a new department without asking me."
                 action="Draft chief"

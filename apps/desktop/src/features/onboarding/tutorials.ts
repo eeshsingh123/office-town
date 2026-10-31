@@ -1,5 +1,6 @@
 import type { TaskRecord } from "@office-town/contract";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
+import { writeDraft } from "../../store/drafts.ts";
 import { defaultWorkspace } from "../../store/workspaces.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
@@ -108,6 +109,8 @@ export const TUTORIALS: Tutorial[] = [
           // The draft then uses the model the user picked before.
         }
       }
+      // Its first step points at the Describe box, wherever a draft was left.
+      writeDraft("new-department.step", 0);
       navigate({ name: "new-department" });
     },
     steps: [

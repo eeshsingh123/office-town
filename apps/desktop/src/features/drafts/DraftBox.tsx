@@ -1,6 +1,8 @@
 import type { DraftQuestion, RoleSettings } from "@office-town/contract";
 import { ArrowUp, LoaderCircle, Plus, Sparkles } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
+import { create } from "zustand";
+import { useDraft } from "../../store/drafts.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import composer from "../new-task/Composer.module.css";
@@ -14,6 +16,8 @@ export interface DraftAnswer {
 }
 
 interface DraftBoxProps {
+  // Keeps what the box holds under this name.
+  name: string;
   label: string;
   placeholder: string;
   action: string;
@@ -28,8 +32,12 @@ interface DraftBoxProps {
 
 const DRAFT_ANYWAY = "Draft it now. Choose sensibly where I did not say.";
 
+// By box name: a draft runs on while its screen is closed, and shows again when it reopens.
+const useRunning = create<Record<string, boolean>>(() => ({}));
+
 // Describe it in your own words; the model may ask what would change the draft, and suggests what was missed.
 export function DraftBox({
+  name,
   label,
   placeholder,
   action,
@@ -39,13 +47,15 @@ export function DraftBox({
   run,
 }: DraftBoxProps) {
   const [drafter, setDrafter] = useDrafter();
-  const [notes, setNotes] = useState<string[]>([]);
-  const [text, setText] = useState(initial ?? "");
-  const [busy, setBusy] = useState(false);
+  const [notes, setNotes] = useDraft<string[]>(`${name}.notes`, []);
+  const [text, setText] = useDraft(`${name}.text`, initial ?? "");
+  const busy = useRunning((running) => running[name] === true);
+  const setBusy = (running: boolean) => useRunning.setState({ [name]: running });
   const [error, setError] = useState<string>();
-  const [questions, setQuestions] = useState<DraftQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [questions, setQuestions] = useDraft<DraftQuestion[]>(`${name}.questions`, []);
+  const [answers, setAnswers] = useDraft<Record<number, string>>(`${name}.answers`, {});
+  const [suggestions, setSuggestions] = useDraft<string[]>(`${name}.suggestions`, []);
+  const [handed, setHanded] = useDraft(`${name}.handed`, "");
   const started = useRef(false);
 
   const send = async (added: string[]) => {
@@ -66,10 +76,13 @@ export function DraftBox({
     setBusy(false);
   };
 
+  // Once for each text: going back to this screen must not spend a run on it again.
   // biome-ignore lint/correctness/useExhaustiveDependencies: drafts the handed-over text once
   useEffect(() => {
     if (started.current || initial === undefined || initial.trim() === "") return;
     started.current = true;
+    if (initial === handed) return;
+    setHanded(initial);
     void send([initial]);
   }, []);
 

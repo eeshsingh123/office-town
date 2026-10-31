@@ -10,6 +10,7 @@ import type {
 import { BadgeCheck, Check, Plus } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
+import { clearDrafts, ignoreDraft, shaped, useDraft } from "../../store/drafts.ts";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import page from "../../ui/Page.module.css";
@@ -265,11 +266,17 @@ function Found({ found, tested }: { found: ConnectorFound; tested: number | unde
 
 // Describe the app and a short run finds an existing server and sets it up; or enter it by hand.
 export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddOwnSheetProps) {
-  const [own, setOwn] = useState<OwnSetup>(EMPTY);
-  const [found, setFound] = useState<ConnectorFound>();
-  const [byHand, setByHand] = useState(false);
-  const [audience, setAudience] = useState<Audience>(asked ?? EVERYONE);
-  const [permission, setPermission] = useState<ConnectorPermission>("ask");
+  // Each app asked for has its own draft. Keys are never written down, and a test goes with them.
+  const draft = describe === undefined ? "connector" : `connector-asked.${describe}`;
+  const [own, setOwn] = useDraft<OwnSetup>(`${draft}.own`, EMPTY);
+  const [found, setFound] = useDraft<ConnectorFound | undefined>(`${draft}.found`, undefined);
+  const [byHand, setByHand] = useDraft(`${draft}.byHand`, false);
+  const [audience, setAudience] = useDraft<Audience>(
+    `${draft}.audience`,
+    asked ?? EVERYONE,
+    asked === undefined ? shaped({}) : ignoreDraft,
+  );
+  const [permission, setPermission] = useDraft<ConnectorPermission>(`${draft}.permission`, "ask");
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [tested, setTested] = useState<number>();
   const [busy, setBusy] = useState(false);
@@ -307,11 +314,15 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
     }
     return reply;
   };
+  const finish = () => {
+    clearDrafts(draft);
+    onClose();
+  };
   const test = () => run(async () => setTested(await api.testConnector({ setup, keys })));
   const add = () =>
     run(async () => {
       await api.addConnector({ setup, audience, permission, keys });
-      onClose();
+      finish();
     });
 
   return (
@@ -329,7 +340,7 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
           <Button variant="ghost" className={styles.footLeft} onClick={() => setByHand(!byHand)}>
             {byHand ? "Describe it instead" : "Enter details by hand"}
           </Button>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={finish}>
             Cancel
           </Button>
           {inClaude ? (
@@ -337,7 +348,7 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
               variant="primary"
               onClick={() => {
                 openClaudeConnectors();
-                onClose();
+                finish();
               }}
             >
               Open Claude
@@ -363,6 +374,7 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
         <>
           <Field label="What should your agents be able to use?">
             <DraftBox
+              name={`${draft}.box`}
               label="What should your agents be able to use?"
               placeholder="Let my agents build 3D scenes in Blender."
               action="Find it"

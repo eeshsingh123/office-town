@@ -3,11 +3,13 @@ import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { clearDrafts, ignoreDraft, readDraft, useDraft } from "../../store/drafts.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
+import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
@@ -25,6 +27,7 @@ import {
   type DepartmentForm,
   draftOfForm,
   formOfDraft,
+  keptDepartments,
   missingIn,
   teamOf,
 } from "./team-form.ts";
@@ -32,8 +35,11 @@ import {
 const STEPS = ["Describe", "Team", "Workspaces", "Rules and permissions", "Review"] as const;
 const WORKSPACES_STEP = 2;
 const RULES_STEP = 3;
+const DRAFT = "new-department";
+const DRAFT_BOX = `${DRAFT}.box`;
 
-// Departments from the user's words or built by hand; nothing is saved until Create.
+// Departments from the user's words or built by hand; nothing is saved until Create, and what is
+// entered is kept until then, one draft at a time.
 export function NewDepartmentView({ describe, byHand }: { describe?: string; byHand: boolean }) {
   const harnesses = useApp((state) => state.harnesses);
   const workspaces = useWorkspaces() ?? [];
@@ -41,21 +47,35 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     harness: harnesses[0]?.harness ?? "claude",
     environment: { kind: "native" },
   };
-  const [forms, setForms] = useState<DepartmentForm[]>(() => [blankDepartment(defaults)]);
-  const [at, setAt] = useState(0);
-  const [selected, setSelected] = useState<Record<number, number>>({});
-  const [step, setStep] = useState(byHand ? 1 : 0);
-  const [reached, setReached] = useState(byHand ? 1 : 0);
-  const [drafted, setDrafted] = useState(false);
+  const [forms, setForms] = useDraft<DepartmentForm[]>(
+    `${DRAFT}.forms`,
+    () => [blankDepartment(defaults)],
+    keptDepartments,
+  );
+  const [at, setAt] = useDraft(`${DRAFT}.at`, 0);
+  const [selected, setSelected] = useDraft<Record<number, number>>(`${DRAFT}.selected`, {});
+  // A new description opens the Describe step, where it is drafted, wherever the draft was left.
+  const [handedOver] = useState(
+    () => describe !== undefined && describe !== readDraft(`${DRAFT_BOX}.handed`),
+  );
+  const [step, setStep] = useDraft<number>(
+    `${DRAFT}.step`,
+    byHand ? 1 : 0,
+    handedOver ? ignoreDraft : undefined,
+  );
+  const [reached, setReached] = useDraft<number>(`${DRAFT}.reached`, byHand ? 1 : 0);
+  const [drafted, setDrafted] = useDraft(`${DRAFT}.drafted`, false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
   const current = forms[at] ?? forms[0];
-  // With only one workspace there is nothing to choose.
-  const chosenOf = (one: DepartmentForm) =>
-    one.workspaceIds.length > 0 || workspaces.length !== 1
-      ? one.workspaceIds
+  // With only one workspace there is nothing to choose. A kept draft can name one removed since.
+  const chosenOf = (one: DepartmentForm) => {
+    const chosen = one.workspaceIds.filter((id) => workspaces.some((known) => known.id === id));
+    return chosen.length > 0 || workspaces.length !== 1
+      ? chosen
       : workspaces.map((known) => known.id);
+  };
   const nameOf = (one: DepartmentForm | undefined, index: number) =>
     one?.name.trim() || `Department ${index + 1}`;
   const change = (next: Partial<DepartmentForm>) =>
@@ -116,6 +136,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
         first ??= department.id;
         left.shift();
       }
+      clearDrafts(DRAFT);
       if (first !== undefined) selectRoom(first);
     } catch (failure) {
       // What was created stays created; only the rest is left to try again.
@@ -153,6 +174,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
       <StepRail
         back={{ label: "Back to Team", onClick: () => navigate({ name: "team" }) }}
         title="New department"
+        note={<DraftNote scope={DRAFT} />}
         steps={STEPS}
         step={step}
         reached={reached}
@@ -193,6 +215,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
           {step === 0 ? (
             <>
               <DraftBox
+                name={DRAFT_BOX}
                 label="Describe the team"
                 placeholder="For example: I need a team of 3 to build landing pages. A lead on Opus plans the work, a developer on a free model writes the code, and a reviewer checks it."
                 action="Draft team"
