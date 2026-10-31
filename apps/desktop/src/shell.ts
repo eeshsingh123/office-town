@@ -11,6 +11,8 @@ interface ShellBridge {
   openFile(path: string): Promise<void>;
   // A PNG of that part of the window, in page pixels, at most `width` wide.
   capture(area: Area, width?: number): Promise<Uint8Array>;
+  // A PNG of a local page the user is not looking at, at most `width` wide.
+  pictureOfPage(url: string, width: number): Promise<Uint8Array>;
   appVersion(): Promise<string>;
   // The version downloaded and waiting for a restart; null while there is none.
   updateReady(): Promise<string | null>;

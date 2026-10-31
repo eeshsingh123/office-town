@@ -17,6 +17,7 @@ import {
 import { APP_ORIGIN, registerAppScheme, serveApp } from "./app-protocol.ts";
 import { type CoreCommand, type CoreProcess, startCore } from "./core-process.ts";
 import { becomeDevApp, quitWhenDisconnected, reloadOnRebuild } from "./dev-mode.ts";
+import { pictureOfPage } from "./page-picture.ts";
 import { createTray } from "./tray.ts";
 import { followUpdates, type Updates } from "./updates.ts";
 import { createWindow, showWindow } from "./window.ts";
@@ -265,6 +266,13 @@ function registerBridge(): void {
         ? image.resize({ width: target })
         : image;
     return sized.toPNG();
+  });
+  ipcMain.handle("picture-of-page", (event, url: unknown, width: unknown) => {
+    fromApp(event);
+    if (typeof url !== "string" || typeof width !== "number" || width <= 0) {
+      throw new Error("A picture needs an address and a width.");
+    }
+    return pictureOfPage(url, width);
   });
   ipcMain.handle("show-window", (event) => {
     fromApp(event);

@@ -43,6 +43,7 @@ import {
   viewKindOf,
 } from "./kinds.ts";
 import styles from "./Outputs.module.css";
+import { PICTURE_WIDTH, pictureIsCurrent, toBlob } from "./use-page-picture.ts";
 
 export type Shown =
   | { kind: "result"; output: OutputRecord }
@@ -59,7 +60,6 @@ const SIZES = [
 type Size = (typeof SIZES)[number]["value"];
 // Wide enough to read what the marked spot is.
 const SPOT_AREA = { width: 520, height: 340 };
-const PICTURE_WIDTH = 480;
 const PICTURE_DELAY_MS = 1500;
 const FRAME_SANDBOX =
   "allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads";
@@ -83,8 +83,6 @@ function agentIdOf(shown: Shown): string {
   if (shown.kind === "spotted") return shown.site.agentId;
   return shown.file.agentId;
 }
-
-const toBlob = (png: Uint8Array) => new Blob([png as BlobPart], { type: "image/png" });
 
 export function Viewer({
   taskId,
@@ -420,7 +418,7 @@ function FrameStage({
     const output = pictureOf;
     const box = frame.current?.getBoundingClientRect();
     if (output === undefined || box === undefined || pictured.current) return;
-    if (output.picturedAt !== undefined && output.picturedAt >= output.updatedAt) return;
+    if (pictureIsCurrent(output)) return;
     pictured.current = true;
     setTimeout(() => {
       const now = frame.current?.getBoundingClientRect();
