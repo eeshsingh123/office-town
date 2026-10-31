@@ -245,18 +245,6 @@
   overflow-y: auto;
 }
 
-.menuApps .rowLabel {
-  padding: 6px 10px;
-}
-
-.menuApps .getMore {
-  flex: none;
-  min-height: 36px;
-  margin-top: auto;
-  padding: 6px 10px;
-  font-size: var(--size-meta);
-}
-
 .appRow {
   flex: none;
   min-height: 44px;
@@ -295,10 +283,6 @@
 .menuModels [cmdk-list] {
   flex: 0 1 316px;
   max-height: none;
-}
-
-.menuModels .menuNote {
-  flex: 0 1 360px;
 }
 
 .menuThinking {
@@ -619,4 +603,20 @@
 
 .getMore:hover {
   background: var(--hover);
+}
+
+.menuApps .rowLabel {
+  padding: 6px 10px;
+}
+
+.menuApps .getMore {
+  flex: none;
+  min-height: 36px;
+  margin-top: auto;
+  padding: 6px 10px;
+  font-size: var(--size-meta);
+}
+
+.menuModels .menuNote {
+  flex: 0 1 360px;
 }
