@@ -12,12 +12,13 @@ Last updated: 2026-11-01
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`. Its store had lost Scratch; the next beta restores it (D-56).
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
-- Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. Waiting on the owner's pick of a picker layout (https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV).
+- Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. The two-pane picker (D-80) is on the same PR.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-80: switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in).
 - D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
 - Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
 - Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.
@@ -51,7 +52,7 @@ Worth a click when touched.
 - `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
 - `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
 - In Git Bash, set `MSYS_NO_PATHCONV=1` before calling the core, or it rewrites `/tasks` into a Windows path. Windows arguments also lose doubled backslashes, so build JSON with Windows paths inside Node, not in the shell.
-- Live checks use the cheapest models only (owner): `--model claude-haiku-5-5 --effort low` for Claude (never Haiku 4.5); OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Space Bunny is no longer free.
+- Live checks use the cheapest models only (owner): `--model claude-haiku-5-5 --effort low` for Claude (never Haiku 4.5); OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Space Bunny is no longer free. Beam Free refused a run with more than 128 tools (2026-11-01).
 - New recording: the CLI's stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}` per line). Remove machine paths, account details and the user's skill and command lists.
 
 ## Owner requirements not yet built
@@ -65,7 +66,7 @@ Worth a click when touched.
 
 ## Open questions for the owner
 
-- Which picker layout (D-79), whether Whole department stays the run card's default, and whether the chip names the AI app.
+- Whether Whole department stays the run card's default (D-79).
 - Apply to SignPath Foundation for signing now that P4 is built (D-75); reminded 2026-10-23.
 - Before the release: the intro video (a discussion), the final name.
 

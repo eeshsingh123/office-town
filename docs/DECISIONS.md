@@ -406,7 +406,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Thinking shows before a model is picked. Where the AI app lists no default, it offers the values at least half its models share; a value the default lacks is ignored with a note, as before. The menu stays open after a model that has levels.
 - The run card changes the AI app, model and thinking (amends D-77). Owner: it applies to the whole department, so that is the default; "Just <name>" keeps mixed teams possible. The picks wait for Apply: each change closes agents between turns, and an AI app without a model is a half-made choice. The lead hears once. Runs on stays out, as worktrees belong to their machine (D-41).
 - A conversation belongs to its CLI, so an agent on another AI app starts a new one, told its first brief, its last message and what the user said. An agent at work takes the move at its next start.
-- A better picker is open: three options on https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV (A two panes, B one list, C three chips). Recommended: A. What is built keeps today's layout until the owner picks.
+
+### D-80 One model picker, in two panes — accepted (2026-11-01)
+
+- Owner picked A of https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV: AI apps on the left; search, models and Thinking on the right.
+- `ModelChip` is the only way to pick an AI app, model, thinking and where it runs. `SettingsChips` is that chip plus the account chip, so a form and the composer share one set of rules (an AI app change drops the model, a machine change drops the account). Chief setup lost its own AI app list, since the menu would show it twice.
+- Runs on stays in the menu's footer, unchanged in meaning: hidden on a running agent. The left pane's note only says what the catalog knows, and only OpenCode reports `access`, so Claude and the others show none for now. Adding it for them means adapters reporting it, not a label in the UI.
+- Its popover is modal: a dialog's scroll lock otherwise cancels the wheel over a menu portalled out of it. Menus sit above dialogs (z-index 22).
 
 ## Done
 
