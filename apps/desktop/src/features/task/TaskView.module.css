@@ -43,6 +43,7 @@
   display: inline-flex;
   flex: none;
   align-items: center;
+  gap: 5px;
   height: 22px;
   padding: 0 9px;
   border: 1px solid var(--border);
@@ -80,43 +81,13 @@
   color: var(--text-2);
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 28px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  font-size: 12.5px;
-}
-
-.status > * {
-  flex: none;
-}
-
-.status > .statusText {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.strong {
-  font-weight: 500;
-}
-
-.waitingText {
-  color: var(--warn);
-  font-weight: 500;
-}
-
 .jump {
-  margin-left: auto;
+  flex: none;
   padding: 0;
   border: 0;
   background: none;
   color: var(--accent-text);
+  font-size: var(--size-meta);
   font-weight: 500;
   cursor: pointer;
 }
