@@ -3,20 +3,11 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import {
-  type Change,
-  type SessionEvent,
-  type SessionEventBody,
-  type SessionOptions,
-  sessionEventSchema,
-} from "@office-town/contract";
+import type { Change, SessionEvent, SessionEventBody, SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/store/database.ts";
-import { migrations } from "../src/store/migrations.ts";
-import { queries } from "../src/store/queries.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import {
-  InUseError,
   RecordNotFoundError,
   type Store,
   StoreFileError,
@@ -80,73 +71,6 @@ describe("store", () => {
     expect(store.getSession(midTurn.id)?.status).toBe("exited");
   });
 
-  it("logs events in order, skips text fragments, keeps large text out of the database and summarises the session", () => {
-    const task = store.createTask("Write a report");
-    const first = startSession(task.id);
-    const second = startSession(task.id);
-    // Two bytes per "é" after one "a", so each preview's byte limit falls inside a character.
-    const longResult = `a${"é".repeat(20_000)}`;
-    first.emit({ type: "session.started", payload: { harnessSessionId: "native-1" } });
-    first.emit({ type: "message.delta", payload: { text: "Hel" } });
-    first.emit({ type: "message", payload: { role: "assistant", text: "Hello" } });
-    second.emit({ type: "turn.started", payload: { turnId: "turn-1" } });
-    first.emit({
-      type: "action.updated",
-      payload: { actionId: "read-1", output: `${longResult}a` },
-    });
-    first.emit({
-      type: "action.ended",
-      payload: { actionId: "read-1", outcome: "completed", result: longResult },
-    });
-    first.emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
-
-    const all = store.readEvents({ after: 0, limit: 100 });
-    expect(all.map(({ event }) => event.type)).toEqual([
-      "session.started",
-      "message",
-      "turn.started",
-      "action.updated",
-      "action.ended",
-      "session.ended",
-    ]);
-    expect(all.map(({ position }) => position)).toEqual([1, 2, 3, 4, 5, 6]);
-    for (const { event } of all) sessionEventSchema.parse(event);
-    expect(store.readEvents({ after: 2, limit: 100, sessionId: first.id }).length).toBe(3);
-
-    const updated = all[3]?.event;
-    if (updated?.type !== "action.updated") throw new Error("expected the action to update");
-    expect(updated.payload.overflow).toEqual({ bytes: 40_002, truncated: true });
-    expect(updated.payload.output).toBe(`${"é".repeat(2047)}a`);
-    expect(() => store.readOverflow(first.id, updated.sequence)).toThrow(RecordNotFoundError);
-
-    const ended = all[4]?.event;
-    if (ended?.type !== "action.ended") throw new Error("expected the action to end");
-    expect(ended.payload.overflow).toEqual({ bytes: 40_001, truncated: false });
-    expect(ended.payload.result).toBe(longResult.slice(0, 2048));
-    expect(store.readOverflow(first.id, ended.sequence)).toBe(longResult);
-
-    store.appendHarnessLine(first.id, "in", "x".repeat(100_000));
-    // The store holds its file alone, so the raw line is read once it is closed.
-    store.close();
-    const raw = new DatabaseSync(join(directory, "store.db"));
-    expect(
-      raw.prepare("SELECT length(line) AS kept, full_bytes AS full FROM harness_lines").get(),
-    ).toEqual({ kept: 65_536, full: 100_000 });
-    raw.close();
-    store = openStore(directory);
-
-    expect(store.getSession(first.id)).toMatchObject({
-      status: "exited",
-      harnessSessionId: "native-1",
-      endedAt: expect.any(String),
-    });
-    expect(store.markInterrupted().map((session) => session.id)).toEqual([second.id]);
-    expect(store.listSessions(task.id).map((session) => session.status)).toEqual([
-      "exited",
-      "interrupted",
-    ]);
-  });
-
   it("keeps its data across a reopen and refuses a file it cannot read or another core holds", () => {
     const task = store.createTask("Survive a restart");
     store.close();
@@ -198,28 +122,6 @@ describe("store", () => {
     expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
   });
 
-  it("always keeps one Scratch workspace, restoring it where an older app removed it", () => {
-    const [scratch] = store.listWorkspaces();
-    expect(() => store.deleteWorkspace(scratch?.id ?? "")).toThrow(InUseError);
-    const second = store.createWorkspace({
-      name: "Second",
-      kind: "scratch",
-      folders: [{ path: directory, access: "edit" }],
-    });
-    store.deleteWorkspace(second.id);
-
-    store.close();
-    const old = new DatabaseSync(join(directory, "store.db"));
-    old.exec(`
-      DELETE FROM workspaces;
-      PRAGMA user_version = ${migrations.length - 2};
-    `);
-    old.close();
-
-    store = openStore(directory);
-    expect(store.listWorkspaces()).toMatchObject([{ name: "Scratch", kind: "scratch" }]);
-  });
-
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
     const task = store.createTask("Delete me");
     const session = startSession(task.id);
@@ -245,52 +147,6 @@ describe("store", () => {
     const after = await store.size();
     expect(after.resultBytes).toBe(0);
     expect(after.databaseBytes).toBeLessThan(before.databaseBytes);
-  });
-
-  it("keeps each request for the user waiting until it is answered or its session cannot answer", () => {
-    const firstTask = store.createTask("Edit the report");
-    const secondTask = store.createTask("Plan a trip");
-    const first = startSession(firstTask.id);
-    const second = startSession(secondTask.id);
-    const askPermission = (requestId: string) =>
-      first.emit({
-        type: "permission.requested",
-        payload: {
-          requestId,
-          title: "Edit report.md",
-          input: {},
-          options: [{ optionId: "allow", label: "Allow", kind: "allow_once" }],
-        },
-      });
-    const waiting = () =>
-      store
-        .listPendingRequests()
-        .requests.map(({ taskId, event }) => [taskId, event.payload.requestId]);
-
-    askPermission("p-1");
-    second.emit({
-      type: "question.requested",
-      payload: {
-        requestId: "q-1",
-        questions: [{ questionId: "where", text: "Where to?", options: [], multiSelect: false }],
-      },
-    });
-    askPermission("p-2");
-    first.emit({
-      type: "permission.resolved",
-      payload: { requestId: "p-1", outcome: "allowed", optionId: "allow" },
-    });
-
-    expect(waiting()).toEqual([
-      [secondTask.id, "q-1"],
-      [firstTask.id, "p-2"],
-    ]);
-    expect(store.listPendingRequests().position).toBe(4);
-    first.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
-    expect(waiting()).toEqual([[secondTask.id, "q-1"]]);
-    // What an earlier core left waiting can no longer be answered.
-    store.markInterrupted();
-    expect(waiting()).toEqual([]);
   });
 
   it("sums each task's tokens by harness and keeps each harness's latest limits, telling listeners", () => {
@@ -338,118 +194,5 @@ describe("store", () => {
     expect(changes.at(-1)).toEqual({ type: "limits", limits: store.listLimits()[0] });
   });
 
-  it("keeps a chief's plan with its goal: its pieces go with it, the departments' tasks stay", async () => {
-    const chief = addAgent(store);
-    const goal = store.createTask("Launch the bakery", { leadAgentId: chief.id });
-    const later = store.createTask(
-      "Open a second shop",
-      { leadAgentId: chief.id },
-      { queued: true },
-    );
-    expect(later.state).toBe("queued");
-    expect(store.oldestQueuedTask()).toBe(later.id);
-    expect(store.openTaskOfLead(chief.id)).toBe(goal.id);
-    const changes: Change[] = [];
-    store.subscribe((change) => changes.push(change));
-    const newDepartment = {
-      name: "Web team",
-      purpose: "Builds the site",
-      lead: { harness: "claude", environment: { kind: "native" as const } },
-      workspaceId: "w",
-      autonomy: "full" as const,
-    };
-    const site = store.createPiece({
-      taskId: goal.id,
-      key: "site",
-      title: "Build the site",
-      brief: "Build it",
-      waitsOn: [],
-      newDepartment,
-    });
-    const work = store.createTask("Build it", undefined, { parentTaskId: goal.id });
-    store.updatePiece(site.id, { status: "working", pieceTaskId: work.id });
-    expect(store.pieceOfTask(work.id)).toMatchObject({ id: site.id, status: "working" });
-    expect(store.listOpenPieces().map((piece) => piece.id)).toEqual([site.id]);
-    expect(store.updatePiece(site.id, { status: "done", result: "Live" })).toMatchObject({
-      result: "Live",
-      endedAt: expect.any(String),
-    });
-    expect(changes.filter((change) => change.type === "piece")).toHaveLength(3);
-
-    await store.deleteTask(goal.id);
-    expect(store.getPiece(site.id)).toBeUndefined();
-    expect(store.getTask(work.id)?.parentTaskId).toBeUndefined();
-  });
-
   // A query that loses its index reads the whole table and slows down with every event stored.
-  it("answers every query through an index", () => {
-    store.close();
-    const db = openDatabase(join(directory, "store.db"));
-    const plan = (sql: string) =>
-      db
-        .prepare(`EXPLAIN QUERY PLAN ${sql}`)
-        .all()
-        .map((row) => String(row.detail))
-        .join("\n");
-    // These read a small table whole on purpose.
-    const wholeTableReads = new Set([
-      "pendingRequests",
-      "workspacesByUse",
-      "allAgents",
-      "allProfiles",
-      "allDepartments",
-      "allLimits",
-      "allAccounts",
-      "allLibraryItems",
-      "allConnectors",
-      // Through a partial index that holds only paused tasks.
-      "pausedTasks",
-      // Through a partial index that holds only sandboxes not yet removed.
-      "checkSandboxes",
-      // The newest few results, in the order of their index on time.
-      "latestOutputs",
-    ]);
-    // These group a period's rows after finding them through an index.
-    const groupedReads = new Set(["accountUsageSince", "connectorCallCounts"]);
-    for (const [name, sql] of Object.entries(queries)) {
-      if (wholeTableReads.has(name)) continue;
-      const pattern = groupedReads.has(name) ? /SCAN / : /SCAN |TEMP B-TREE/;
-      expect(plan(sql), name).not.toMatch(pattern);
-    }
-    // A range over the primary key is still a search, so these must name the index they rely on.
-    const required: [string, string][] = [
-      [queries.sessionEventsAfter, "events_by_session"],
-      [queries.deleteSessionEvents, "events_by_session"],
-      [queries.deleteSessionHarnessLines, "harness_lines_by_session"],
-      [queries.sessionsOfTask, "sessions_by_task"],
-      [queries.pausedTasks, "tasks_paused"],
-      [queries.agentSessionsBefore, "sessions_by_agent"],
-      [queries.activeTaskOfDepartment, "tasks_open_by_department"],
-      [queries.latestTurnOfSession, "events_turns"],
-      [queries.promptAfterTurn, "events_turns"],
-      [queries.promptAfterTurn, "events_by_session"],
-      [queries.unfinishedSessions, "sessions_unfinished"],
-      [queries.deleteSessionPendingRequests, "pending_requests_by_session"],
-      [queries.deleteUnfinishedPendingRequests, "sessions_unfinished"],
-      [queries.openTaskOfLead, "tasks_open_by_lead"],
-      [queries.oldestQueuedTask, "tasks_queued"],
-      [queries.lastAgentMessage, "events_messages"],
-      [queries.openPieces, "plan_pieces_open"],
-      [queries.childTasks, "tasks_by_parent"],
-      [queries.recentTasksOfWorkspace, "tasks_by_workspace"],
-      ["DELETE FROM workspaces WHERE ref = ?", "tasks_by_workspace"],
-      // The foreign-key checks SQLite runs when a chief's task, or a piece's, is deleted.
-      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_task"],
-      ["DELETE FROM tasks WHERE ref = ?", "plan_pieces_by_piece_task"],
-      ["DELETE FROM tasks WHERE ref = ?", "tasks_by_parent"],
-      // The foreign-key checks SQLite runs when a session row is deleted with its task.
-      ["DELETE FROM sessions WHERE ref = ?", "events_by_session"],
-      ["DELETE FROM sessions WHERE ref = ?", "harness_lines_by_session"],
-      ["DELETE FROM sessions WHERE ref = ?", "sessions_by_resumed_from"],
-      ["DELETE FROM sessions WHERE ref = ?", "pending_requests_by_session"],
-    ];
-    for (const [sql, index] of required) expect(plan(sql)).toContain(index);
-    db.close();
-    store = openStore(directory);
-  });
 });

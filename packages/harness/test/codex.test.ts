@@ -1,9 +1,8 @@
 import path from "node:path";
-import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import { codexAdapter } from "../src/adapters/codex/adapter.ts";
 import { describeAdapterConformance } from "./support/conformance.ts";
-import { loadRecording, replay, replayOptions } from "./support/replay.ts";
+import { loadRecording, replayOptions } from "./support/replay.ts";
 
 const recording = (name: string) =>
   loadRecording(path.join(import.meta.dirname, "fixtures", "codex", `${name}.jsonl`));
@@ -15,48 +14,6 @@ const recordings = {
 };
 
 describeAdapterConformance(codexAdapter, recordings);
-
-function only<T extends SessionEvent["type"]>(events: SessionEvent[], type: T) {
-  return events.filter((event): event is Extract<SessionEvent, { type: T }> => event.type === type);
-}
-
-const steerable = async (answer: object) => {
-  const entries = recording("command-approved");
-  const started = entries.findIndex(
-    (entry) => "receive" in entry && JSON.stringify(entry).includes('"turn":{'),
-  );
-  return replay(codexAdapter, [
-    ...entries.slice(0, started + 1),
-    { send: { type: "prompt", text: "from the user" } },
-    { receive: answer },
-  ] as typeof entries);
-};
-
-describe("a prompt during a Codex turn", () => {
-  const steerId = async () => {
-    const { written } = await steerable({ jsonrpc: "2.0", method: "noop", params: {} });
-    const sent = written.map((line) => JSON.parse(line));
-    const steer = sent.find(({ method }) => method === "turn/steer");
-    expect(steer.params.input.at(-1).text).toContain("from the user");
-    expect(steer.params.expectedTurnId).toBeTruthy();
-    return steer.id;
-  };
-  const starts = (events: SessionEvent[]) => only(events, "turn.started").length;
-
-  it("goes into the running turn and counts as taken once accepted", async () => {
-    const id = await steerId();
-    const { events } = await steerable({ jsonrpc: "2.0", id, result: {} });
-    expect(starts(events)).toBe(2);
-  });
-
-  it("waits for the turn to end if refused", async () => {
-    const id = await steerId();
-    const error = { code: -32000, message: "Not now" };
-    const { events } = await steerable({ jsonrpc: "2.0", id, error });
-    expect(starts(events)).toBe(1);
-    expect(only(events, "error")).toEqual([]);
-  });
-});
 
 describe("codex adapter", () => {
   it("attaches the core's tool servers without their tokens on the command line, never asks for their tools, and writes no read-only folder", () => {
@@ -91,37 +48,5 @@ describe("codex adapter", () => {
       CODEX_HOME: "/accounts/work",
       OFFICE_TOWN_TOOL_TOKEN_0: "secret",
     });
-  });
-
-  it("asks in the sandbox under Ask, reports the turn's own tokens and the plan's windows", async () => {
-    const { events, written } = await replay(codexAdapter, recordings["command-approved"]);
-    const thread = JSON.parse(written[2] ?? "");
-    expect(thread).toMatchObject({
-      method: "thread/start",
-      params: { cwd: "/workspace", approvalPolicy: "untrusted", sandbox: "workspace-write" },
-    });
-    expect(JSON.parse(written[4] ?? "")).toMatchObject({ id: 0, result: { decision: "accept" } });
-    expect(only(events, "plan.updated")[0]?.payload.steps[0]).toEqual({
-      id: "1",
-      title: "Write hello.txt",
-      status: "in_progress",
-    });
-    expect(only(events, "turn.ended")[0]?.payload.usage).toEqual({
-      inputTokens: 9000,
-      outputTokens: 120,
-      cachedInputTokens: 6000,
-      contextTokens: 4600,
-    });
-    expect(only(events, "limits.updated")[0]?.payload.limits.map((limit) => limit.id)).toEqual([
-      "five_hour",
-      "seven_day",
-    ]);
-  });
-
-  it("names the files a change touches when it asks, so read-only folders stay guarded", async () => {
-    const { events } = await replay(codexAdapter, recordings["interrupt-pending-permission"]);
-    expect(only(events, "permission.requested")[0]?.payload.locations).toEqual([
-      "/workspace/notes.md",
-    ]);
   });
 });

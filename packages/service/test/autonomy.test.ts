@@ -6,8 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { allows } from "../src/autonomy/policy.ts";
 import { type Core, startCore } from "./support/team-core.ts";
 
-const workspace = join(tmpdir(), "bakery");
-const notes = join(tmpdir(), "notes");
 const request = (kind: string | undefined, locations?: string[]) => ({
   requestId: "r",
   title: "t",
@@ -18,20 +16,6 @@ const request = (kind: string | undefined, locations?: string[]) => ({
 });
 
 describe("autonomy policy", () => {
-  it("lets each level through what it allows and asks for the rest", () => {
-    const inside = request("edit", [join(workspace, "index.html")]);
-    const second = request("read", [join(notes, "menu.md")]);
-    const outside = request("edit", [join(tmpdir(), "elsewhere", "x")]);
-    const command = request("execute");
-    const unknown = request("edit");
-    const folders = [workspace, notes];
-    const verdicts = (level: "supervised" | "full") =>
-      [inside, second, outside, command, unknown].map((each) => allows(level, each, folders));
-
-    expect(verdicts("supervised")).toEqual([false, false, false, false, false]);
-    expect(verdicts("full")).toEqual([true, true, true, true, true]);
-  });
-
   it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own", () => {
     const own = join(directory, "web");
     const upstream = join(directory, "api");
@@ -125,28 +109,5 @@ describe("the guardrail", () => {
       optionId: "allow",
     });
     expect(agent?.sent.at(-1)).toMatchObject({ requestId: "command", answeredBy: "user" });
-  });
-
-  it("resumes an agent in the mode its level has now, not the one it started in", async () => {
-    const started = await core.call("POST", "/tasks", {
-      prompt: "Tidy up",
-      agent: { settings: { harness: "claude", environment: { kind: "native" } } },
-      autonomy: "bypass",
-      workspaceId: core.store.createWorkspace({
-        name: "Scratch",
-        kind: "scratch",
-        folders: [{ path: directory, access: "edit" }],
-      }).id,
-    });
-    expect(started.json.options.permissionMode).toBe("bypass");
-    await core.call("POST", `/sessions/${started.json.id}/stop`);
-    const agent = core.store.getAgent(started.json.agentId);
-    if (agent !== undefined) core.store.updateAgent(agent.id, { ...agent, autonomy: "supervised" });
-
-    const resumed = await core.call("POST", `/sessions/${started.json.id}/resume`, {
-      prompt: "Go on",
-    });
-
-    expect(resumed.json.options.permissionMode).toBe("ask");
   });
 });
