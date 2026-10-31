@@ -48,6 +48,8 @@ Each line is what later work builds on; the why lives in DECISIONS.md.
 - **M9 Packaging (D-75).** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, a beta on every green merge, stable only on the owner's word, setup installing harnesses with the vendor's installer (`harness/src/install.ts`). Out until release: stable, Download link, signing, intro video.
 - **M10 More AI apps (D-76).** Codex and Muse Code with their own translators, GitHub Copilot CLI and Cursor CLI on the ACP translator; adapters declare sign-in, version, install and account folder. A Providers page (status, install, sign-in, accounts, where it runs) shared with setup, Usage and model pickers; an estimate at API prices where an app shares no plan usage. Out: Pi, Hermes, OpenClaw, Google CLIs, WSL installs.
 
+- **After M10: teams recover from failures (D-77).** Messages reach agents during a turn, one automatic retry, the real error to the lead, `change_worker`, model and effort on the run card.
+
 ## Next
 
 ### Before the public release (owner's go-ahead)

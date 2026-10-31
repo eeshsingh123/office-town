@@ -379,6 +379,17 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Install on Windows: Codex and Copilot through npm when it is there; Cursor and Muse keep the copy command, since their one-line PowerShell installers run from the app look like a trojan to Defender (D-75).
 - An app's page shows no model list (owner, 2026-10-25): only its status, accounts and where it runs. Models are picked where an agent is set up.
 
+### D-77 A team recovers from failures — accepted (2026-10-31)
+
+- Measured on a real goal (OpenCode lead, two workers on a model that refused every request): the lead could not hear anything during its turn, since ACP prompts waited for the turn's end. It slept and polled for 7 minutes, then worked alone for 78 minutes in one turn; the owner's message never reached it. team_status called the failed workers finished, and the lead never saw the error.
+- A message reaches an agent during its turn on every harness. Codex and Muse: `turn/steer`; a refused steer waits for the turn's end. ACP: once a tool ends with none at work, a waiting message cancels the turn and goes out at once, as one turn that goes on. Never mid-tool, so no work is cut. Why not a second `session/prompt`: OpenCode 1.19.5 takes it but never answers either prompt, so the turn would never end (probed).
+- A mid-turn message emits a new `turn.started` after it, or the "owes a turn" rule (D-50) would hold the task at working.
+- A failed turn or a failed process gets one automatic retry from the core, for a worker before the lead hears and for a lead, which has no one above it. It costs the lead nothing if the failure was passing. Then the lead gets the real error. A lead that failed is resumed by the next message to it; a stopped one is still left alone.
+- The lead brief forbids waiting by sleep or polling, and gives the order: look at the reason, `resume_work` (now also for a failed piece), `change_worker`, another worker, the piece itself only as a last resort and saying why.
+- `change_worker` moves a worker to another model of its AI app. It follows the department's level: Ask me first goes to Needs you, Don't ask goes ahead and is recorded (agent's call, 2026-10-31; a failed worker has no work to cut off, so D-71's approval does not bind it, and the user can change it back). Another AI app stays with `propose_team`.
+- An agent closed for being idle after a failed turn ends as failed, not exited, so it never reads done.
+- The run card shows and changes model and effort, on the agent, so it holds in the department. Only those two: an agent at work stays on its AI app and machine. A resume takes the agent's current model and effort. An agent between turns closes so its next message resumes on them; one at work is never cut off and shows "From its next start". The lead hears.
+
 ## Done
 
 All accepted and built.

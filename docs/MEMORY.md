@@ -1,13 +1,13 @@
 # Memory
 
-Last updated: 2026-10-25
+Last updated: 2026-10-31
 
 ## State
 
 - Built and merged to `main`: M1 to M9, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #66 (2026-10-23).
 - The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
 - M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Built: M10 More AI apps (D-76) on `feat/m10-more-ai-apps`, PR open for the owner. Live runs on Codex, Copilot, Cursor and Muse wait for the owner to sign in; all four are installed on the owner's machine, not signed in. Next: the public release steps in MODULES.md. New modules go discussion, mockup, build (AGENTS.md).
+- Built: M10 More AI apps (D-76), merged as PR #71. Live runs on Codex, Copilot, Cursor and Muse wait for the owner to sign in; all four are installed on the owner's machine, not signed in. Next: the public release steps in MODULES.md. New modules go discussion, mockup, build (AGENTS.md).
 - Done: feedback after M9 (PR #67, merged): office walking speed, department focus, and the new app icon ("Late shift", picked by the owner from https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD). The icon's source is `apps/desktop/src/ui/app-icon.svg` (sidebar logo, browser tab); `electron/icon.png` (64 px, window and tray) and `packaging/icon.png` (512 px, installer) are rendered from it. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`.
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
@@ -16,6 +16,7 @@ Last updated: 2026-10-25
 
 Worth a click when touched.
 
+- Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.
 - M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers, a resumed Muse session setting its approval mode and model again.
 - Packaging (D-75): the Linux AppImage (built only in CI), an update from one real GitHub beta to the next (`v0.1.0-beta.1` is the first; the update was tested with a local feed), Restart to update with agents open, an installed app's WSL task from the UI (tested on the packaged core), the setup Install progress line live (the API was run end to end with OpenCode through npm), the install folders on Linux.
 - Outputs (D-74): a team worker's result after its merge (tested in the core, not live), an OpenCode or WSL agent calling `show_result`, a PDF in the app's frame, a version's page loading its styles, a stopped site restarted fresh, Open with default app, light mode on the Outputs tab.
@@ -51,6 +52,7 @@ Worth a click when touched.
 
 ## Owner requirements not yet built
 
+- Recovery gaps from D-77: a lead that fails twice has no Needs you card; a message waiting on one long tool shows as sent; a message still waiting when a session ends is lost; a hung worker is only visible as "last active N min ago"; results that end while a team lead is stopped are not replayed on resume.
 - "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked in D-57.
 - Telling the user a CLI is out of date (D-58; needs a contract change).
 - Voice input, parked by the owner (2026-10-24): shipping it to users is too much work for now (a native speech engine in the installer, a model download of several hundred MB, mic permissions). The owner may add it later, for themself first. The plan (on-device sherpa-onnx with Parakeet) is on closed PR #68.
