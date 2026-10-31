@@ -35,7 +35,13 @@ import { selectAgent } from "../office/office-state.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { AskChip } from "./AskChip.tsx";
 import styles from "./Composer.module.css";
-import { DEFAULT_CHOICES, type HarnessChoices, loadRemembered, remember } from "./choices.ts";
+import {
+  DEFAULT_CHOICES,
+  type HarnessChoices,
+  keepChoices,
+  loadRemembered,
+  remember,
+} from "./choices.ts";
 import { DepartmentWorkspaceChip } from "./DepartmentWorkspaceChip.tsx";
 import { GoesToChip, targetIcon } from "./GoesToChip.tsx";
 import { ModelChip } from "./ModelChip.tsx";
@@ -278,6 +284,7 @@ export function Composer({ home = false }: ComposerProps) {
 
   const changeSettings = (next: RoleSettings) => {
     if (next.harness !== settings?.harness) {
+      if (settings !== undefined) keepChoices(settings.harness, choices);
       setHarness(next.harness);
       setChoices(loadRemembered().byHarness[next.harness] ?? DEFAULT_CHOICES);
       return;

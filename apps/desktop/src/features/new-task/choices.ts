@@ -54,6 +54,20 @@ export function loadRemembered(): Remembered {
   }
 }
 
+function save(remembered: Remembered): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(remembered));
+  } catch (error) {
+    console.warn("Could not save the last choices.", error);
+  }
+}
+
+// Leaving an AI app keeps what was picked on it, for when the user comes back.
+export function keepChoices(harness: string, choices: HarnessChoices): void {
+  const remembered = loadRemembered();
+  save({ ...remembered, byHarness: { ...remembered.byHarness, [harness]: choices } });
+}
+
 interface Started {
   harness: string;
   choices: HarnessChoices;
@@ -81,9 +95,5 @@ export function remember({ harness, choices, target, workspaceId, profileId }: S
   else next.workspaceId = workspaceId;
   if (profileId === undefined) delete next.profileId;
   else next.profileId = profileId;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(next));
-  } catch (error) {
-    console.warn("Could not save the last choices.", error);
-  }
+  save(next);
 }
