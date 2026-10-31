@@ -11,6 +11,7 @@ import {
   continueTaskRequestSchema,
   defaultAccountId,
   departmentDraftRequestSchema,
+  departmentModelRequestSchema,
   departmentSettingsSchema,
   displaySchema,
   type EnvironmentSpec,
@@ -55,7 +56,7 @@ import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
-import { modelChangedByUser } from "../team/change-worker.ts";
+import { modelChangedByUser, moveDepartment } from "../team/change-worker.ts";
 import type { Checks } from "../team/checks.ts";
 import {
   changeTeam,
@@ -411,8 +412,12 @@ export function apiRoutes(
           purpose: purpose === "" ? undefined : purpose,
           settings,
         });
-        const { model, effort } = agent.settings;
-        if (settings.model !== model || settings.effort !== effort) {
+        const { harness, model, effort } = agent.settings;
+        if (
+          settings.harness !== harness ||
+          settings.model !== model ||
+          settings.effort !== effort
+        ) {
           await modelChangedByUser(team, saved);
         }
         return { status: 200, json: saved };
@@ -512,6 +517,14 @@ export function apiRoutes(
         status: 200,
         json: await changeTeam(team, param("id"), teamSchema.parse(await body())),
       }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id/model",
+      reply: async ({ param, body }) => {
+        await moveDepartment(team, param("id"), departmentModelRequestSchema.parse(await body()));
+        return NO_CONTENT;
+      },
     },
     {
       method: "POST",

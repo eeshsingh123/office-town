@@ -8,8 +8,10 @@ import {
   type EnvironmentSpec,
   type HarnessDescription,
   type SessionOptions,
+  type SessionRecord,
 } from "@office-town/contract";
 import { accountCredentials } from "@office-town/harness";
+import { eventsOf, userMessages } from "../store/session-events.ts";
 import type { Store } from "../store/store.ts";
 
 // An added account counts once its sign-in is saved in its folder, or, for a CLI that may keep it
@@ -126,4 +128,21 @@ export function handover(lastMessage: string | undefined, text: string): string 
       ? ""
       : `\n\nYour last message there was:\n\n${lastMessage.slice(0, 4000)}`;
   return `Your earlier conversation on this task ran out of plan usage, so this is a new conversation on another account. Check the work folder for what is already done before you carry on.${earlier}\n\n${text}`;
+}
+
+// Another AI app knows nothing of the conversation, so the brief that started it comes along.
+export function handoverToApp(store: Store, earlier: SessionRecord, text: string): string {
+  const brief = store
+    .listSessions(earlier.taskId)
+    .filter((session) => session.agentId === earlier.agentId)
+    .flatMap((session) => userMessages(eventsOf(store, session.id)))
+    .find(({ origin }) => origin?.kind === "brief")?.text;
+  const last = store.lastMessage(earlier.id);
+  const parts = [
+    "The user moved you to another AI app, so this is a new conversation. Check the work folder for what is already done before you carry on.",
+    ...(brief === undefined ? [] : [`What you were given to do:\n\n${brief}`]),
+    ...(last === undefined ? [] : [`Your last message there was:\n\n${last.slice(0, 4000)}`]),
+    text,
+  ];
+  return parts.join("\n\n");
 }

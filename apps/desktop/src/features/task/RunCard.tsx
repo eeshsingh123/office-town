@@ -7,10 +7,12 @@ import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { Button } from "../../ui/Button.tsx";
 import { clockTime, compactCount } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
-import { ModelChip } from "../new-task/ModelChip.tsx";
+import chip from "../new-task/Composer.module.css";
+import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
 
@@ -47,33 +49,77 @@ export function RunCard({ agent }: { agent: Agent }) {
   );
 }
 
-// Saved on the agent, so it holds in its department too; a session at work takes it at its next start.
+// Saved on the agent, or on everyone in its department; a session at work takes it at its next
+// start. The picks wait for Apply, as each change closes agents between their turns.
 function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
   const { record, latest } = agent;
+  const { departmentId } = record;
+  const [draft, setDraft] = useState<RoleSettings>();
+  const [wholeDepartment, setWholeDepartment] = useState(true);
   const [error, setError] = useState<string>();
   const save = (next: RoleSettings) => {
+    if (departmentId !== undefined && wholeDepartment) {
+      const { harness, model, effort } = next;
+      return api.moveDepartment(departmentId, {
+        harness,
+        ...(model === undefined ? {} : { model }),
+        ...(effort === undefined ? {} : { effort }),
+      });
+    }
+    const { model: _, effort: __, accountId: ___, ...kept } = record.settings;
+    return api.updateAgent(record.id, {
+      colour: record.colour,
+      purpose: record.purpose ?? "",
+      settings: { ...kept, ...next },
+    });
+  };
+  const apply = (close: () => void) => {
+    if (draft === undefined) return;
     setError(undefined);
-    api
-      .updateAgent(record.id, {
-        colour: record.colour,
-        purpose: record.purpose ?? "",
-        settings: { ...record.settings, ...next },
-      })
+    save(draft)
+      .then(close)
       .catch((failure: unknown) => {
         setError(failure instanceof Error ? failure.message : String(failure));
       });
   };
-  const { model, effort } = record.settings;
-  const later = working && (model !== latest.options.model || effort !== latest.options.effort);
+  const { harness, model, effort } = record.settings;
+  const { options } = latest;
+  const later =
+    working &&
+    (harness !== options.harness || model !== options.model || effort !== options.effort);
   return (
-    <li title="Model and effort" className={styles.modelRow}>
+    <li title="AI app, model and thinking" className={styles.modelRow}>
       <Cpu size={14} aria-hidden />
       <span className={styles.modelChange}>
         <ModelChip
-          value={record.settings}
+          value={draft ?? record.settings}
           recent={[]}
-          onChange={save}
-          modelOnly
+          onChange={setDraft}
+          draft={{
+            onDiscard: () => setDraft(undefined),
+            footer: (close) => (
+              <div className={`${chip.menuRow} ${chip.menuFoot} ${styles.applyRow}`}>
+                {departmentId === undefined ? null : (
+                  <Segments
+                    label="Change it for"
+                    value={wholeDepartment ? "all" : "one"}
+                    options={[
+                      { value: "all", label: "Whole department" },
+                      { value: "one", label: `Just ${agent.name}` },
+                    ]}
+                    onChange={(next) => setWholeDepartment(next === "all")}
+                  />
+                )}
+                <Button
+                  variant="primary"
+                  disabled={draft === undefined}
+                  onClick={() => apply(close)}
+                >
+                  Apply
+                </Button>
+              </div>
+            ),
+          }}
           triggerClassName={styles.modelButton}
         />
         {later ? <span className={styles.muted}>From its next start</span> : null}

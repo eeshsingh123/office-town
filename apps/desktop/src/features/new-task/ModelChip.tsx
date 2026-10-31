@@ -1,7 +1,7 @@
 import type { RoleSettings } from "@office-town/contract";
 import { ChevronDown, Plus, Sparkles } from "lucide-react";
 import { Popover } from "radix-ui";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { environmentKey } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -31,8 +31,8 @@ interface ModelChipProps {
   // Newest first.
   recent: readonly string[];
   onChange: (next: RoleSettings) => void;
-  // An agent at work stays on its AI app and machine: only its model and effort change.
-  modelOnly?: boolean;
+  // On a running agent: it stays on its machine, and the picks wait for the footer's Apply.
+  draft?: { footer: (close: () => void) => ReactNode; onDiscard: () => void } | undefined;
   triggerClassName?: string | undefined;
 }
 
@@ -41,7 +41,7 @@ export function ModelChip({
   value,
   recent,
   onChange,
-  modelOnly = false,
+  draft,
   triggerClassName = styles.chip,
 }: ModelChipProps) {
   const description = useApp((state) =>
@@ -58,6 +58,10 @@ export function ModelChip({
     ? (modelName(models, value.model) ?? "Default model")
     : (description?.name ?? value.harness);
 
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    if (!next) draft?.onDiscard();
+  };
   const chooseModel = (model: string | undefined) => {
     const nextEfforts = description?.capabilities.effort ? effortsOf(models, model) : [];
     const { model: _, effort, ...rest } = value;
@@ -67,7 +71,7 @@ export function ModelChip({
       ...(effort !== undefined && nextEfforts.includes(effort) ? { effort } : {}),
     });
     // Open while its thinking is still to pick, so one visit sets both.
-    if (nextEfforts.length === 0) setOpen(false);
+    if (nextEfforts.length === 0 && draft === undefined) setOpen(false);
   };
   const chooseEffort = (effort: string | undefined) => {
     const { effort: _, ...rest } = value;
@@ -75,11 +79,11 @@ export function ModelChip({
   };
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root open={open} onOpenChange={changeOpen}>
       <Popover.Trigger className={triggerClassName} aria-label={`Model: ${name}`}>
-        {modelOnly ? null : <Sparkles size={14} aria-hidden />}
+        {draft === undefined ? <Sparkles size={14} aria-hidden /> : null}
         <span className={styles.chipText}>{name}</span>
-        {value.effort === undefined && !modelOnly ? null : (
+        {value.effort === undefined && draft === undefined ? null : (
           <span className={styles.chipMuted}>
             · {value.effort === undefined ? "Default" : effortName(value.effort)} effort
           </span>
@@ -92,7 +96,7 @@ export function ModelChip({
           align="start"
           sideOffset={6}
         >
-          {harnesses.length > 1 && !modelOnly ? (
+          {harnesses.length > 1 ? (
             <div className={styles.menuRow}>
               <span className={styles.rowLabel}>AI app</span>
               <Segments
@@ -124,7 +128,7 @@ export function ModelChip({
               />
             </div>
           ) : null}
-          {environments.length > 1 && !modelOnly ? (
+          {environments.length > 1 && draft === undefined ? (
             <div className={`${styles.menuRow} ${styles.menuFoot}`}>
               <span className={styles.rowLabel}>Runs on</span>
               <Segments
@@ -141,26 +145,30 @@ export function ModelChip({
               />
             </div>
           ) : null}
-          <div className={styles.menuFoot} hidden={modelOnly}>
-            <button
-              type="button"
-              className={`${menu.item} ${styles.getMore}`}
-              onClick={() => {
-                setOpen(false);
-                navigate({ name: "providers" });
-              }}
-            >
-              <Plus size={14} aria-hidden />
-              Providers
-            </button>
-          </div>
+          {draft === undefined ? (
+            <div className={styles.menuFoot}>
+              <button
+                type="button"
+                className={`${menu.item} ${styles.getMore}`}
+                onClick={() => {
+                  setOpen(false);
+                  navigate({ name: "providers" });
+                }}
+              >
+                <Plus size={14} aria-hidden />
+                Providers
+              </button>
+            </div>
+          ) : (
+            draft.footer(() => changeOpen(false))
+          )}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
   );
 }
 
-function Segments(props: {
+export function Segments(props: {
   label: string;
   value: string;
   options: readonly { value: string; label: string }[];

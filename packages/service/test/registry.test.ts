@@ -165,6 +165,27 @@ describe("session registry", () => {
     await registry.close();
   });
 
+  it("carries on in a new conversation, with its brief, on the AI app the user moved the agent to", async () => {
+    const registry = openRegistry();
+    const first = await start(registry, "Write a report");
+    sessions[0]?.emit({ type: "message", payload: { role: "assistant", text: "Half done." } });
+    sessions[0]?.emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
+    const agent = store.getAgent(first.agentId);
+    if (agent === undefined) throw new Error("expected the agent");
+    const settings = { ...agent.settings, harness: "opencode", model: "opencode/big-pickle" };
+    store.updateAgent(agent.id, { ...agent, settings });
+
+    const next = await registry.resume(first.id, { text: "Carry on" });
+    expect(next.options).toMatchObject({ harness: "opencode", model: "opencode/big-pickle" });
+    expect(next.options.resumeSessionId).toBeUndefined();
+    const prompt = sessions[1]?.sent.at(-1);
+    const text = prompt?.type === "prompt" ? prompt.text : "";
+    expect(text).toContain("another AI app");
+    expect(text).toContain("Half done.");
+    expect(text.endsWith("Carry on")).toBe(true);
+    await registry.close();
+  });
+
   it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {
     const first = await start(openRegistry(), "Write a report");
 

@@ -185,6 +185,10 @@
   background: var(--hover);
 }
 
+.applyRow {
+  justify-content: space-between;
+}
+
 .modelError {
   color: var(--bad);
   font-size: var(--size-small);

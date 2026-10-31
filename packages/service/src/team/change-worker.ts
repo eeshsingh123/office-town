@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { AgentRecord } from "@office-town/contract";
+import type { AgentRecord, DepartmentModelRequest } from "@office-town/contract";
 import { z } from "zod";
 import { levelOf } from "../autonomy/policy.ts";
 import { AnswerError } from "../registry/session-registry.ts";
+import { RecordNotFoundError } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { isLead, NOT_YET, teamOf } from "./delegate.ts";
 import { noteLead } from "./direct-message.ts";
@@ -36,13 +37,47 @@ export async function modelChangedByUser(context: TeamContext, agent: AgentRecor
   await applyModelChange(context, agent.id);
   const [latest] = context.store.listAgentSessions(agent.id, { limit: 1 }).sessions;
   if (latest === undefined) return;
-  const model = agent.settings.model ?? "its default model";
+  const { harness, model = "the default model" } = agent.settings;
   await noteLead(
     context,
     agent,
     latest.taskId,
-    `The user moved ${agent.name} to ${model}. If its last piece failed, call resume_work to have it carry on.`,
+    `The user moved ${agent.name} to ${model} on ${harness}. If its last piece failed, call resume_work to have it carry on.`,
     `The user changed the model of ${agent.name}`,
+  );
+}
+
+// One pick for everyone, from the run card. The lead hears once, not once per worker.
+export async function moveDepartment(
+  context: TeamContext,
+  departmentId: string,
+  { harness, model, effort }: DepartmentModelRequest,
+) {
+  const { store } = context;
+  const department = store.getDepartment(departmentId);
+  if (department === undefined) throw new RecordNotFoundError("department", departmentId);
+  const members = store.listMembers(departmentId);
+  for (const agent of members) {
+    const { accountId, ...settings } = changed(agent, model, effort);
+    // An account belongs to its AI app.
+    const account =
+      accountId === undefined || agent.settings.harness !== harness ? {} : { accountId };
+    const saved = store.updateAgent(agent.id, {
+      ...agent,
+      settings: { ...settings, ...account, harness },
+    });
+    await applyModelChange(context, saved.id);
+  }
+  const worker = members.find((member) => member.id !== department.leadAgentId);
+  if (worker === undefined) return;
+  const [latest] = store.listAgentSessions(worker.id, { limit: 1 }).sessions;
+  if (latest === undefined) return;
+  await noteLead(
+    context,
+    worker,
+    latest.taskId,
+    `The user moved everyone in ${department.name} to ${model ?? "the default model"} on ${harness}. If a piece failed, call resume_work to have its worker carry on.`,
+    `The user changed the model of ${department.name}`,
   );
 }
 

@@ -27,6 +27,7 @@ import {
   type ChosenAccount,
   chooseAccount,
   handover,
+  handoverToApp,
   sessionAccountId,
 } from "../accounts/accounts.ts";
 import { forPrompt, hasAccess, withAccess } from "../attachments/attachments.ts";
@@ -219,13 +220,17 @@ export interface Apps {
 // app cannot continue the conversation, so it keeps the one it runs on.
 function withAgentsModel(options: SessionOptions, agent: AgentRecord | undefined): SessionOptions {
   if (agent === undefined || agent.settings.harness !== options.harness) return options;
-  const { model: _, effort: __, ...rest } = options;
   const { model, effort } = agent.settings;
   return {
-    ...rest,
+    ...withoutModel(options),
     ...(model === undefined ? {} : { model }),
     ...(effort === undefined ? {} : { effort }),
   };
+}
+
+function withoutModel(options: SessionOptions): Omit<SessionOptions, "model" | "effort"> {
+  const { model: _, effort: __, ...rest } = options;
+  return rest;
 }
 
 export class SessionRegistry {
@@ -329,9 +334,10 @@ ${text}`,
     requireSessionFolders(earlier.options);
     const permissionMode =
       this.#permissionModeOf?.(earlier.agentId) ?? earlier.options.permissionMode;
-    const moved = this.#movedAccount(earlier);
-    if (moved !== undefined) {
-      // A conversation stays with its login, so another account starts a new one (D-61).
+    const app = this.#movedApp(earlier);
+    const account = app === undefined ? this.#movedAccount(earlier) : undefined;
+    if (app !== undefined || account !== undefined) {
+      // A conversation stays with its CLI and its login, so either move starts a new one (D-61).
       const {
         resumeSessionId: _,
         accountId: __,
@@ -340,20 +346,27 @@ ${text}`,
         vendorApps: _____,
         ...rest
       } = earlier.options;
+      const next = app === undefined ? { ...rest, ...account } : { ...withoutModel(rest), ...app };
       const { message: fresh, apps } = this.#firstMessage(
         earlier.taskId,
         earlier.agentId,
         message,
-        {
-          ...rest,
-          ...moved,
-        },
+        next,
       );
-      const options = withAccess({ ...rest, ...moved, permissionMode, ...apps }, filesOf(fresh));
+      const options = withAccess({ ...next, permissionMode, ...apps }, filesOf(fresh));
       const session = this.#launch(options);
       const record = { id: session.id, taskId: earlier.taskId, agentId: earlier.agentId, options };
-      const text = handover(this.#store.lastMessage(sessionId), message.text);
-      return this.#run(session, record, { ...fresh, text });
+      return this.#run(
+        session,
+        record,
+        app === undefined
+          ? { ...fresh, text: handover(this.#store.lastMessage(sessionId), message.text) }
+          : {
+              ...fresh,
+              text: handoverToApp(this.#store, earlier, message.text),
+              origin: { kind: "brief", summary: "Moved to another AI app" },
+            },
+      );
     }
     const options = withAccess(
       {
@@ -372,6 +385,20 @@ ${text}`,
       resumedFrom: sessionId,
     };
     return this.#run(session, record, message);
+  }
+
+  // The AI app the user moved the agent to since. It stays on its machine, where its folders are.
+  #movedApp({ agentId, options }: SessionRecord) {
+    const agent = this.#store.getAgent(agentId);
+    if (agent === undefined || agent.settings.harness === options.harness) return undefined;
+    const { harness, model, effort } = agent.settings;
+    const { environment } = options;
+    return {
+      harness,
+      ...(model === undefined ? {} : { model }),
+      ...(effort === undefined ? {} : { effort }),
+      ...chooseAccount(this.#store, { ...agent.settings, environment }),
+    };
   }
 
   // Another account for the agent, once the one its conversation is on has run out.

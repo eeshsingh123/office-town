@@ -6,6 +6,7 @@ import { environmentPath } from "@office-town/harness";
 import { z } from "zod";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { AnswerError, type Message } from "../registry/session-registry.ts";
+import { eventsOf, userMessages } from "../store/session-events.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { LEAD_BRIEF_SUMMARY } from "./briefs.ts";
@@ -15,7 +16,6 @@ import type { TeamContext } from "./members.ts";
 
 // Owner: suggested past this, never done on its own (D-72).
 export const SUGGEST_AT_TOKENS = 400_000;
-const PAGE = 1_000;
 const SHOWN_BRIEF = 600;
 
 interface Handover {
@@ -24,22 +24,6 @@ interface Handover {
   next: string;
   files: string[];
 }
-
-export function eventsOf(store: Store, sessionId: string): SessionEvent[] {
-  const events: SessionEvent[] = [];
-  let after = 0;
-  for (;;) {
-    const page = store.readEvents({ after, limit: PAGE, sessionId });
-    events.push(...page.map((stored) => stored.event));
-    if (page.length < PAGE) return events;
-    after = page.at(-1)?.position ?? after;
-  }
-}
-
-export const userMessages = (events: SessionEvent[]) =>
-  events.flatMap((event) =>
-    event.type === "message" && event.payload.role === "user" ? [event.payload] : [],
-  );
 
 const TRAFFIC = new Set(["result", "notice", "piece"]);
 

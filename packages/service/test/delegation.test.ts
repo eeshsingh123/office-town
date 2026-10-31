@@ -502,6 +502,24 @@ Testing again.`),
     expect(next?.options.model).toBe("better");
   });
 
+  it("moves a whole department to another AI app, telling the lead once", async () => {
+    const { task, writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const departmentId = core.store.getTask(task.taskId)?.departmentId ?? "";
+
+    const moved = await core.call("PUT", `/departments/${departmentId}/model`, {
+      harness: "opencode",
+      model: "free",
+      effort: "high",
+    });
+    expect(moved.status).toBe(204);
+    for (const member of core.store.listMembers(departmentId)) {
+      expect(member.settings).toMatchObject({ harness: "opencode", model: "free", effort: "high" });
+    }
+    expect(JSON.stringify(lead?.sent).split("moved everyone")).toHaveLength(2);
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });
