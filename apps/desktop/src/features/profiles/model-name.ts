@@ -30,18 +30,20 @@ function readableId(id: string): string {
     .join(" ");
 }
 
-// The one name a model goes by in the app, for a picked alias ("haiku") and for the full id a
-// running session reports ("claude-haiku-5-5") alike. Undefined means the AI app's own default
-// when it does not say which model that is.
+// By a picked alias ("haiku") or the full id a running session reports ("claude-haiku-5-5").
+export const findModel = (models: readonly HarnessModel[], id: string) =>
+  models.find((model) => model.id === id) ??
+  models.find((model) => model.resolvedId === id && model.id !== DEFAULT_MODEL);
+
+// The one name a model goes by in the app. Undefined means the AI app's own default when it does
+// not say which model that is.
 export function modelName(
   models: readonly HarnessModel[] | undefined,
   id: string | undefined,
 ): string | undefined {
   const list = models ?? [];
   if (id === undefined || id === DEFAULT_MODEL) return defaultName(list);
-  const found =
-    list.find((model) => model.id === id) ??
-    list.find((model) => model.resolvedId === id && model.id !== DEFAULT_MODEL);
+  const found = findModel(list, id);
   if (found !== undefined) return found.name;
   if (list.some((model) => model.id === DEFAULT_MODEL && model.resolvedId === id)) {
     return defaultName(list) ?? readableId(id);
