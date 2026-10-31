@@ -31,10 +31,19 @@ interface ModelChipProps {
   // Newest first.
   recent: readonly string[];
   onChange: (next: RoleSettings) => void;
+  // An agent at work stays on its AI app and machine: only its model and effort change.
+  modelOnly?: boolean;
+  triggerClassName?: string | undefined;
 }
 
 // The AI app, the model, how hard it thinks and where it runs, in one menu.
-export function ModelChip({ value, recent, onChange }: ModelChipProps) {
+export function ModelChip({
+  value,
+  recent,
+  onChange,
+  modelOnly = false,
+  triggerClassName = styles.chip,
+}: ModelChipProps) {
   const description = useApp((state) =>
     state.harnesses.find((known) => known.harness === value.harness),
   );
@@ -44,7 +53,11 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
   const { models, error } = useCatalog(description, value.environment);
   const [open, setOpen] = useState(false);
   const listsModels = description?.capabilities.modelList === true;
-  const current = models?.find((known) => known.id === (value.model ?? DEFAULT_MODEL));
+  const picked = value.model ?? DEFAULT_MODEL;
+  // A running session reports the full id, which may be what was saved.
+  const current =
+    models?.find((known) => known.id === picked) ??
+    models?.find((known) => known.resolvedId === picked);
   const efforts = description?.capabilities.effort ? (current?.efforts ?? []) : [];
   const name = listsModels
     ? (modelName(models, value.model) ?? "Default model")
@@ -68,11 +81,13 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger className={styles.chip} aria-label={`Model: ${name}`}>
-        <Sparkles size={14} aria-hidden />
+      <Popover.Trigger className={triggerClassName} aria-label={`Model: ${name}`}>
+        {modelOnly ? null : <Sparkles size={14} aria-hidden />}
         <span className={styles.chipText}>{name}</span>
-        {value.effort === undefined ? null : (
-          <span className={styles.chipMuted}>· {effortName(value.effort)}</span>
+        {value.effort === undefined && !modelOnly ? null : (
+          <span className={styles.chipMuted}>
+            · {value.effort === undefined ? "Default" : effortName(value.effort)} effort
+          </span>
         )}
         <ChevronDown size={13} aria-hidden />
       </Popover.Trigger>
@@ -82,7 +97,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
           align="start"
           sideOffset={6}
         >
-          {harnesses.length > 1 ? (
+          {harnesses.length > 1 && !modelOnly ? (
             <div className={styles.menuRow}>
               <span className={styles.rowLabel}>AI app</span>
               <Segments
@@ -114,7 +129,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
               />
             </div>
           ) : null}
-          {environments.length > 1 ? (
+          {environments.length > 1 && !modelOnly ? (
             <div className={`${styles.menuRow} ${styles.menuFoot}`}>
               <span className={styles.rowLabel}>Runs on</span>
               <Segments
@@ -131,7 +146,7 @@ export function ModelChip({ value, recent, onChange }: ModelChipProps) {
               />
             </div>
           ) : null}
-          <div className={styles.menuFoot}>
+          <div className={styles.menuFoot} hidden={modelOnly}>
             <button
               type="button"
               className={`${menu.item} ${styles.getMore}`}

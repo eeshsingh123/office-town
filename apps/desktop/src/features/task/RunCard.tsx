@@ -1,5 +1,8 @@
+import type { RoleSettings } from "@office-town/contract";
 import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder, ShieldCheck } from "lucide-react";
 import { Popover } from "radix-ui";
+import { useState } from "react";
+import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -7,6 +10,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime, compactCount } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { ModelChip } from "../new-task/ModelChip.tsx";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
 
@@ -45,6 +49,42 @@ export function RunCard({ agent }: { agent: Agent }) {
   );
 }
 
+// Saved on the agent, so it holds in its department too; a session at work takes it at its next start.
+function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
+  const { record, latest } = agent;
+  const [error, setError] = useState<string>();
+  const save = (next: RoleSettings) => {
+    setError(undefined);
+    api
+      .updateAgent(record.id, {
+        colour: record.colour,
+        purpose: record.purpose ?? "",
+        settings: { ...record.settings, ...next },
+      })
+      .catch((failure: unknown) => {
+        setError(failure instanceof Error ? failure.message : String(failure));
+      });
+  };
+  const { model, effort } = record.settings;
+  const later = working && (model !== latest.options.model || effort !== latest.options.effort);
+  return (
+    <li title="Model and effort" className={styles.modelRow}>
+      <Cpu size={14} aria-hidden />
+      <span className={styles.modelChange}>
+        <ModelChip
+          value={record.settings}
+          recent={[]}
+          onChange={save}
+          modelOnly
+          triggerClassName={styles.modelButton}
+        />
+        {later ? <span className={styles.muted}>From its next start</span> : null}
+        {error === undefined ? null : <span className={styles.modelError}>{error}</span>}
+      </span>
+    </li>
+  );
+}
+
 function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
   const traces = useApp((state) => state.traces);
   const waiting = useWaitingSessions().has(agent.latest.id);
@@ -67,15 +107,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
         </span>
       </div>
       <ul className={styles.facts}>
-        <li title="Model">
-          <Cpu size={14} aria-hidden />
-          <span className={styles.text}>
-            {facts.model}
-            {facts.effort === undefined ? null : (
-              <span className={styles.muted}> · {facts.effort}</span>
-            )}
-          </span>
-        </li>
+        <ModelRow agent={agent} working={state === "working" || state === "starting"} />
         <li title="AI app and where it runs">
           <AppWindow size={14} aria-hidden />
           <span className={styles.text}>
