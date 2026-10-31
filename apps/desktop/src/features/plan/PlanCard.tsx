@@ -4,6 +4,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useSessionAgent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
+import { clearDrafts, shaped, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
@@ -84,9 +85,10 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
   const departments = useApp((state) => state.departments);
   const plan = usePlan(chief?.taskId);
   const minutes = useMinutesSince(event.timestamp);
-  const [rows, setRows] = useState(() => toRows(pieces));
-  const [editing, setEditing] = useState(!replan);
-  const [note, setNote] = useState("");
+  const draft = `request.${event.id}`;
+  const [rows, setRows] = useDraft<PlanRow[]>(`${draft}.rows`, () => toRows(pieces), shaped([]));
+  const [editing, setEditing] = useDraft(`${draft}.editing`, !replan);
+  const [note, setNote] = useDraft(`${draft}.note`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -104,6 +106,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
     setError(undefined);
     try {
       await api.command(event.sessionId, { type: "answerPlan", requestId, answer: decision });
+      clearDrafts(draft);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
       setSending(false);

@@ -4,11 +4,18 @@ import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useSessionAgent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { MemberEditor } from "../departments/MemberEditor.tsx";
-import { blankPerson, personOfRole, rolesOf, type TeamForm } from "../departments/team-form.ts";
+import {
+  blankPerson,
+  keptTeam,
+  personOfRole,
+  rolesOf,
+  type TeamForm,
+} from "../departments/team-form.ts";
 import styles from "./ProposalCard.module.css";
 import card from "./RequestCard.module.css";
 import { useMinutesSince } from "./RequestCard.tsx";
@@ -22,25 +29,33 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
   const agents = useApp((state) => state.agents);
   const harnesses = useApp((state) => state.harnesses);
   const minutes = useMinutesSince(event.timestamp);
-  const [name, setName] = useState(team.name);
-  const [people, setPeople] = useState<TeamForm>(() => {
-    const options = lead?.latest.options;
-    const settings: RoleSettings = {
-      harness: options?.harness ?? harnesses[0]?.harness ?? "claude",
-      environment: options?.environment ?? { kind: "native" },
-      ...(options?.model === undefined ? {} : { model: options.model }),
-      ...(options?.effort === undefined ? {} : { effort: options.effort }),
-    };
-    return {
-      lead: {
-        ...blankPerson(settings, lead?.record.role ?? "Lead", lead?.record.purpose ?? ""),
-        ...(lead === undefined ? {} : { agentId: lead.id }),
-      },
-      members: team.roles.map((role) => personOfRole(role, agents, settings)),
-    };
-  });
-  const [selected, setSelected] = useState(people.members[0]?.key ?? people.lead.key);
-  const [note, setNote] = useState("");
+  const draft = `request.${event.id}`;
+  const [name, setName] = useDraft(`${draft}.name`, team.name);
+  const [people, setPeople] = useDraft<TeamForm>(
+    `${draft}.people`,
+    () => {
+      const options = lead?.latest.options;
+      const settings: RoleSettings = {
+        harness: options?.harness ?? harnesses[0]?.harness ?? "claude",
+        environment: options?.environment ?? { kind: "native" },
+        ...(options?.model === undefined ? {} : { model: options.model }),
+        ...(options?.effort === undefined ? {} : { effort: options.effort }),
+      };
+      return {
+        lead: {
+          ...blankPerson(settings, lead?.record.role ?? "Lead", lead?.record.purpose ?? ""),
+          ...(lead === undefined ? {} : { agentId: lead.id }),
+        },
+        members: team.roles.map((role) => personOfRole(role, agents, settings)),
+      };
+    },
+    keptTeam,
+  );
+  const [selected, setSelected] = useDraft(
+    `${draft}.selected`,
+    people.members[0]?.key ?? people.lead.key,
+  );
+  const [note, setNote] = useDraft(`${draft}.note`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const changing = departmentId !== undefined;
@@ -51,6 +66,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
     setError(undefined);
     try {
       await action();
+      clearDrafts(draft);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
       setSending(false);

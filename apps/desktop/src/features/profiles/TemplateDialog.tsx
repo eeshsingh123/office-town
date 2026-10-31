@@ -8,6 +8,7 @@ import {
 import { Dialog } from "radix-ui";
 import { type FormEvent, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { clearDrafts, ignoreDraft, SETTINGS_SHAPE, shaped, useDraft } from "../../store/drafts.ts";
 import { saveTemplate } from "../../store/templates.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -29,6 +30,8 @@ export interface TemplateDraft {
   autonomy: Autonomy | undefined;
   settings: ChipSettings;
 }
+
+const DRAFT_SHAPE = { name: "", job: "", colour: "", notes: "", settings: SETTINGS_SHAPE };
 
 export function draftOf(template: ProfileRecord): TemplateDraft {
   const { instructions = "", autonomy, ...settings } = template.settings;
@@ -73,10 +76,13 @@ interface TemplateDialogProps {
 
 export function TemplateDialog({ template, start, open, onOpenChange }: TemplateDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
-  const [draft, setDraft] = useState<TemplateDraft>(
+  const scope = `template.${template?.id ?? "new"}`;
+  const [draft, setDraft] = useDraft<TemplateDraft>(
+    scope,
     () =>
       start ??
       (template === undefined ? blankDraft(harnesses[0]?.harness ?? "claude") : draftOf(template)),
+    start === undefined ? shaped(DRAFT_SHAPE) : ignoreDraft,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -93,6 +99,7 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
         colour: draft.colour,
         settings: settingsOfDraft(draft),
       });
+      clearDrafts(scope);
       onOpenChange(false);
       showToast(
         template === undefined ? `Saved “${saved.name}” as a template.` : `Saved “${saved.name}”.`,
@@ -183,7 +190,9 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
             )}
             <div className={form.actions}>
               <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
+                <Button variant="ghost" onClick={() => clearDrafts(scope)}>
+                  Cancel
+                </Button>
               </Dialog.Close>
               <Button type="submit" variant="primary" disabled={saving || draft.name.trim() === ""}>
                 {template === undefined ? "Save template" : "Save changes"}

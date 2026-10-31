@@ -3,9 +3,11 @@ import { Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
+import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
@@ -13,6 +15,8 @@ import { showToast } from "../../ui/Toast.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import styles from "./YouView.module.css";
 import { ANSWER_PICKS, useYou, youPreview } from "./you.ts";
+
+const DRAFT = "you";
 
 function Switch({
   label,
@@ -72,7 +76,7 @@ function Appearance() {
 
 export function YouView() {
   const saved = useYou();
-  const [draft, setDraft] = useState<UserProfile>(saved);
+  const [draft, setDraft] = useDraft<UserProfile>(DRAFT, saved);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const set = (change: Partial<UserProfile>) => setDraft({ ...draft, ...change });
@@ -84,6 +88,7 @@ export function YouView() {
     try {
       const you = await api.saveYou(draft);
       useApp.setState({ you });
+      clearDrafts(DRAFT);
       showToast("Saved. Your agents will use this from their next task.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -207,6 +212,7 @@ export function YouView() {
               </p>
             )}
             <div className={`${form.actions} ${form.sticky}`}>
+              <DraftNote scope={DRAFT} editing />
               <Button variant="primary" disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save"}
               </Button>
