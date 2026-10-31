@@ -27,6 +27,10 @@ type Model = z.infer<typeof modelSchema>;
 // OpenCode Go is OpenCode's own subscription; its models list a price but cost nothing beyond it.
 const PLAN_PROVIDER = "opencode-go";
 
+// OpenCode does not say what it would run, so the app names its default itself: free, and thinking
+// as hard as it can. Free models come and go, so this applies only while OpenCode lists it.
+const PREFERRED = { model: "opencode/deepseek-v4.1-flash-free", effort: "max" };
+
 function inputsOf({ capabilities }: Model): HarnessModel["inputs"] {
   const input = capabilities?.input;
   if (input === undefined) return undefined;
@@ -202,7 +206,17 @@ const catalog: CatalogQuery = {
       description = [];
     }
     // It always lists its free models, so an empty list means it failed.
-    return models.length === 0 ? undefined : { models };
+    if (models.length === 0) return undefined;
+    const preferred = models.find((model) => model.id === PREFERRED.model);
+    if (preferred === undefined) return { models };
+    const fallback = {
+      ...preferred,
+      id: "default",
+      name: "Default",
+      description: `${preferred.name} · Max thinking`,
+      resolvedId: preferred.id,
+    };
+    return { models: [fallback, ...models] };
   },
 };
 
@@ -225,6 +239,7 @@ export const opencodeAdapter = createAcpAdapter({
   },
   isolationNote: "OpenCode's global settings and instructions still load.",
   toolPrefixes: (server) => [`${server}_`],
+  preferred: PREFERRED,
   catalog,
   accounts,
   install,

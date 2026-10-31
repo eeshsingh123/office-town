@@ -164,6 +164,62 @@ describe("opencode adapter", () => {
     });
   });
 
+  it("runs a new session with nothing picked on the preferred model at max thinking, only while it is listed", () => {
+    const preferred = "opencode/deepseek-v4.1-flash-free";
+    const started = (listed: string[], options = replayOptions) => {
+      const translator = opencodeAdapter.createTranslator(options);
+      translator.open();
+      const reply = (id: number, result: object) =>
+        translator.receive(JSON.stringify({ jsonrpc: "2.0", id, result })).outgoing;
+      const configOptions = [
+        {
+          id: "model",
+          category: "model",
+          currentValue: "opencode/big-pickle",
+          options: listed.map((value) => ({ value, name: value })),
+        },
+        {
+          id: "effort",
+          category: "thought_level",
+          currentValue: "low",
+          options: [{ value: "max", name: "Max" }],
+        },
+      ];
+      reply(1, {});
+      const sent = reply(2, { sessionId: "ses_1", configOptions });
+      return { sent: sent.map((line) => JSON.parse(line)), reply, configOptions };
+    };
+
+    const { sent, reply, configOptions } = started([preferred]);
+    expect(sent[0].params).toMatchObject({ configId: "model", value: preferred });
+    const effort = JSON.parse(reply(3, { configOptions })[0] ?? "");
+    expect(effort.params).toMatchObject({ configId: "effort", value: "max" });
+
+    expect(started(["opencode/big-pickle"]).sent.map((message) => message.method)).toEqual([]);
+    const resumed = started([preferred], { ...replayOptions, resumeSessionId: "ses_1" });
+    expect(resumed.sent.map((message) => message.method)).toEqual([]);
+  });
+
+  it("names the preferred model as its default in the catalog", () => {
+    const listed = (id: string, name: string) => [
+      id,
+      "{",
+      JSON.stringify({ name, variants: { low: {}, max: {} } }).slice(1, -1),
+      "}",
+    ];
+    const read = opencodeAdapter.catalog?.read;
+    const models = read?.(listed("opencode/deepseek-v4.1-flash-free", "DeepSeek"))?.models;
+    expect(models?.[0]).toMatchObject({
+      id: "default",
+      description: "DeepSeek · Max thinking",
+      resolvedId: "opencode/deepseek-v4.1-flash-free",
+      efforts: ["low", "max"],
+    });
+    expect(read?.(listed("opencode/big-pickle", "Big Pickle"))?.models.map(({ id }) => id)).toEqual(
+      ["opencode/big-pickle"],
+    );
+  });
+
   it("starts an action once its input is known, passes the options through, fails it once denied, and counts thinking as output", async () => {
     const { events, written } = await replay(opencodeAdapter, recordings["write-allowed"]);
 

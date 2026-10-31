@@ -108,6 +108,11 @@ function addUsage(earlier: TokenUsage | undefined, next: TokenUsage | undefined)
   };
 }
 
+export interface PreferredModel {
+  model: string;
+  effort: string;
+}
+
 export class AcpTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #cwd: string;
@@ -115,8 +120,9 @@ export class AcpTranslator implements Translator {
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
-  readonly #model: string | undefined;
-  readonly #effort: string | undefined;
+  #model: string | undefined;
+  #effort: string | undefined;
+  readonly #preferred: PreferredModel | undefined;
   readonly #resumeSessionId: string | undefined;
   readonly #toolServers: AttachedToolServer[];
   readonly #toolPrefixes: (server: string) => string[];
@@ -141,7 +147,9 @@ export class AcpTranslator implements Translator {
     >,
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
+    preferred?: PreferredModel,
   ) {
+    this.#preferred = preferred;
     this.#cwd = options.workspacePath;
     this.#model = options.model;
     this.#effort = options.effort;
@@ -306,6 +314,7 @@ export class AcpTranslator implements Translator {
     if (sessionId === undefined) throw new Error("The harness did not name the new session.");
     this.#sessionId = sessionId;
     this.#options = session.configOptions ?? [];
+    this.#usePreferred();
     const current = modelOption(this.#options)?.currentValue;
     const refused = this.#refusesModel();
     const model = refused ? current : (this.#model ?? current);
@@ -322,6 +331,17 @@ export class AcpTranslator implements Translator {
       [started, { type: "error", payload: { message, fatal: false } }],
       "model",
     );
+  }
+
+  // A resumed session stays on the model it ran on.
+  #usePreferred(): void {
+    const preferred = this.#preferred;
+    if (preferred === undefined) return;
+    if (this.#model !== undefined || this.#resumeSessionId !== undefined) return;
+    const offered = modelOption(this.#options)?.options ?? [];
+    if (!offered.some((option) => option.value === preferred.model)) return;
+    this.#model = preferred.model;
+    this.#effort ??= preferred.effort;
   }
 
   // The model was picked, and the harness lists its models without it.
