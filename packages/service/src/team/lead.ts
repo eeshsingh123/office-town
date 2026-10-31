@@ -42,7 +42,7 @@ export function latestSession(
   return store.listSessions(taskId).findLast((session) => session.agentId === agentId);
 }
 
-// A lead the user stopped, that failed or was cut off is left alone; what it missed waits in the records.
+// A lead the user stopped or that was cut off is left alone; what it missed waits in the records.
 export async function tellLead(
   context: TeamContext,
   taskId: string,
@@ -55,7 +55,7 @@ export async function tellLead(
     const session = latestSession(context, taskId, task.leadAgentId);
     if (session === undefined) return false;
     if (!isOpen(session)) {
-      if (session.status !== "exited") return false;
+      if (session.status !== "exited" && session.status !== "failed") return false;
       await context.registry.resume(session.id, message);
       return true;
     }

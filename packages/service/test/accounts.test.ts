@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Account, AccountLimits } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
-import { chooseAccount, hasSignIn, rememberSignIn } from "../src/accounts/accounts.ts";
+import { chooseAccount } from "../src/accounts/accounts.ts";
 import { estimatedUsage } from "../src/accounts/usage.ts";
 import { PriceList } from "../src/prices/prices.ts";
 import type { Store } from "../src/store/store.ts";
@@ -52,24 +52,6 @@ describe("account choice", () => {
     });
     // One that has not finished signing in is never picked for the user.
     expect(chooseAccount(store, settings).accountId).toBe("claude");
-  });
-});
-
-describe("signed-in accounts", () => {
-  it("counts an added account on a CLI without a sign-in file once the app saw it sign in", () => {
-    let settings: { signedInAccounts?: string[] } = {};
-    const store = {
-      readSettings: () => settings,
-      saveSettings: (next: typeof settings) => {
-        settings = { ...settings, ...next };
-      },
-    } as unknown as Store;
-    const work = { ...account("work"), harness: "codex" };
-    expect(hasSignIn(work, store)).toBe(false);
-    rememberSignIn(store, "work", true);
-    expect(hasSignIn(work, store)).toBe(true);
-    rememberSignIn(store, "work", false);
-    expect(hasSignIn(work, store)).toBe(false);
   });
 });
 

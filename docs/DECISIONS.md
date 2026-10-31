@@ -41,7 +41,7 @@ The app shows each provider's own usage limit; no budgets or dollar tracking in 
 - Store, then publish; listeners get the stored event. Text fragments are published without a `position` and never stored.
 - The registry changes sessions; reads go straight to the store.
 - Resuming needs a prompt. Any ended session with a harness session id can be resumed; the new session joins its task.
-- A shutdown is recorded like a crash (interrupted), so "stopped" means the user stopped it, unless the end names a lead (D-71).
+- A shutdown is recorded like a crash (interrupted), so "stopped" means the user stopped it, unless the end names a lead (D-71). A session whose work had finished ends as done instead, like one stopped for being idle (owner).
 - If the store fails, the agent is stopped with a fatal `error` (owner: work that cannot be recorded cannot be traced), and its end is saved once more as `failed`.
 - Partial raw lines are flagged by the adapter and not stored.
 
@@ -191,10 +191,10 @@ Why: the Saved assistants page had no clear purpose, mixed one agent's settings 
 - Extra folders carry access: Can edit or Read only (reuses D-51's read-only check).
 - Workspaces page in the main nav: search, filters, cards with who uses it; a detail page with folders, departments, live agents, recent tasks and worktrees. Creating one is a side sheet with two choice cards, reachable from one shared picker in New task, New department and the plan card.
 - Two departments may edit the same workspace at once, with a clear warning (owner).
-- Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner).
+- Removing a workspace only takes it off the list, never touches files, and is refused while a department uses it (owner) or when it is the last Scratch, so an assistant never needs a folder chosen; a migration restores Scratch where it was removed.
 - Contract: `kind`, per-folder `access`, `startTask` takes only `workspaceId`, a task names its workspace, `GET /workspaces/usage` (departments, task count, recent tasks, missing folders, git branch, worktrees). D-33's resume rule holds.
 - Workers work where their lead does (its first session's folders), so a Scratch team shares one task folder. "Working now" is read from the app's live agent states, not the usage read, so an agent that finished its turn does not count.
-- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it.
+- The default Scratch folder is `~/OfficeTown/Scratch`, made when a task first needs it. A task's own folder inside it is named as D-79 says.
 Why: two answers to one question, one saved and one not, three words for one idea, and no place to see, edit or share workspaces (owner feedback).
 
 ### D-57 Two everyday levels and a Needs you built for volume — accepted (2026-10-11)
@@ -337,7 +337,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - An agent's page is untrusted code and must never reach the app's token. Pages and PDFs load from the core's preview server, a separate loopback port that serves only folders it was granted, never hidden files or anything outside the task's folders. The app's own origin refuses `/api` calls from any other origin, and pages get no device permissions. Pages may load from the internet (owner).
 - Showing a result again adds a version. Files up to 10 MB keep a copy in `outputs/<id>/`; the latest version is the live file, and its copy once the file is gone. The viewer follows each new version unless an older one was picked.
 - A worker's worktree is removed once merged, so its results and changed files are read from the same place in the lead's folder (`team/worktrees.ts` `mergedPath`); its stopped site starts in a fresh conversation there.
-- Light on the app (owner): nothing loads until opened, one preview runs at a time, and the list re-reads every 15 s only while the task's agents work. The desktop app takes a page's or site's picture once per version, the first time it shows at desktop size; images are their own picture, other kinds show an icon.
+- Light on the app (owner): nothing loads until opened, one preview runs at a time, and the list re-reads every 15 s only while the task's agents work. The one exception is a page's or site's picture (owner): the desktop app takes it once per version in a hidden window as soon as its card appears, and the viewer takes it at desktop size if that failed; images are their own picture, other kinds show an icon.
 - Mark a spot works in the desktop app only (owner). Its picture is taken when the spot is marked and goes with the message as an attachment.
 - A stopped site: "Ask to start it" continues the agent's conversation. Past 100k context tokens the user may pick a fresh conversation instead, briefed from the records, including the command that printed the address. It is cheaper than D-72's handover, because starting a server needs no history (owner asked for the option).
 - Where it shows: an Outputs tab on the task page (switching tabs replaces the view, so Back leaves the task), result cards in the trace and chat, Latest result on an agent's panel, Outputs on a department's panel, and results on the To review and done cards. No app-wide Outputs page (owner).
@@ -378,6 +378,46 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Built (2026-10-25). Adapters declare sign-in, version, install and account folder, so the UI no longer names harnesses. Codex (`codex app-server`) and Muse (`muse serve`) have their own translators and plan meters; Copilot (`copilot --acp`) and Cursor (`cursor-agent acp`) are ACP launch profiles with the estimate. Accounts move with `CODEX_HOME`, `COPILOT_HOME`, `CURSOR_CONFIG_DIR`, and `XDG_CONFIG_HOME` plus `XDG_DATA_HOME` for Muse (checked on 1.4.13). A CLI that keeps its sign-in in the system's credential store counts as signed in once the app saw it sign in. Prices from models.dev are kept in the data folder; a row with any unpriced model shows no estimate.
 - Install on Windows: Codex and Copilot through npm when it is there; Cursor and Muse keep the copy command, since their one-line PowerShell installers run from the app look like a trojan to Defender (D-75).
 - An app's page shows no model list (owner, 2026-10-25): only its status, accounts and where it runs. Models are picked where an agent is set up.
+
+### D-77 A team recovers from failures — accepted (2026-10-31)
+
+- Measured on a real goal (OpenCode lead, two workers on a model that refused every request): the lead could not hear anything during its turn, since ACP prompts waited for the turn's end. It slept and polled for 7 minutes, then worked alone for 78 minutes in one turn; the owner's message never reached it. team_status called the failed workers finished, and the lead never saw the error.
+- A message reaches an agent during its turn on every harness. Codex and Muse: `turn/steer`; a refused steer waits for the turn's end. ACP: once a tool ends with none at work, a waiting message cancels the turn and goes out at once, as one turn that goes on. Never mid-tool, so no work is cut. Why not a second `session/prompt`: OpenCode 1.19.5 takes it but never answers either prompt, so the turn would never end (probed).
+- A mid-turn message emits a new `turn.started` after it, or the "owes a turn" rule (D-50) would hold the task at working.
+- A failed turn or a failed process gets one automatic retry from the core, for a worker before the lead hears and for a lead, which has no one above it. It costs the lead nothing if the failure was passing. Then the lead gets the real error. A lead that failed is resumed by the next message to it; a stopped one is still left alone.
+- The lead brief forbids waiting by sleep or polling, and gives the order: look at the reason, `resume_work` (now also for a failed piece), `change_worker`, another worker, the piece itself only as a last resort and saying why.
+- `change_worker` moves a worker to another model of its AI app. It follows the department's level: Ask me first goes to Needs you, Don't ask goes ahead and is recorded (agent's call, 2026-10-31; a failed worker has no work to cut off, so D-71's approval does not bind it, and the user can change it back). Another AI app stays with `propose_team`.
+- An agent closed for being idle after a failed turn ends as failed, not exited, so it never reads done.
+- The run card shows and changes model and effort, on the agent, so it holds in the department (the AI app too since D-79; the machine never). A resume takes the agent's current model and effort. An agent between turns closes so its next message resumes on them; one at work is never cut off and shows "From its next start". The lead hears.
+
+### D-78 A lead asks before changing direction — accepted (2026-10-31)
+
+- Owner: on a real goal the lead dropped the actual game for a remake after 44 minutes of failed tries, and never called `ask_user`. The brief only said to ask when it "cannot go on", and it could.
+- `propose_change` is a lead-only team tool. It names what was asked, what was found, the change and what happens on a no. The brief lists when to call it (dropping something the goal names, a different thing from what was asked, less than the goal) and when not to (anything that still delivers the goal), so the rule does not slow normal work. Trigger test: would the user say that is not what they asked for?
+- It is a question, not an approval: "Approve all" skips questions, and the user can answer in their own words. It goes to the user at every level, unlike `change_worker`, since a change of goal is the user's at any level.
+- The core cannot detect a change of direction, so this rests on the lead calling the tool. A named tool in its list, the brief and a live run with a free model (it asked and obeyed a no) are the evidence. If leads skip it in practice, the next step is a cheap watcher on the lead's messages, kept out for now for its cost (D-72).
+
+### D-79 One folder per Scratch task, thinking up front, the AI app on the run card — accepted (2026-11-01)
+
+- Seen on a real task: an OpenCode agent took its folder's cut-off name ("...visual learning") for a mistake and wrote to a full-name folder beside it. `show_result` refused a file outside its workspace, so nothing showed, and the agent still said it had shown it.
+- A Scratch task's folder is `YYYY-MM-DD HH-MM <8 hex>`, never the prompt's words (owner: an id plus a readable alias). The id is the task's, not the assistant's: an assistant runs many tasks and a team shares one folder. The session already records its folder. The app shows an alias, "<department or agent>'s scratch · 1 Nov, 00:13". Older folders keep their names.
+- Scratch agents are told to keep every file in that folder, and a refused `show_result` says how to fix it. Neither is enforced: under Don't ask a user may send work elsewhere on purpose. If agents still stray, the next step is an ask for writes outside the folder.
+- With nothing shown, Outputs unfolds Changed files and opens the latest document, since an agent may never call `show_result`. A file outside the task's folders stays out (D-74).
+- Thinking shows before a model is picked. Where the AI app lists no default, it offers the values at least half its models share; a value the default lacks is ignored with a note, as before. The menu stays open after a model that has levels.
+- The run card changes the AI app, model and thinking (amends D-77). Owner: it applies to the whole department, so that is the default; "Just <name>" keeps mixed teams possible. The picks wait for Apply: each change closes agents between turns, and an AI app without a model is a half-made choice. The lead hears once. Runs on stays out, as worktrees belong to their machine (D-41).
+- A conversation belongs to its CLI, so an agent on another AI app starts a new one, told its first brief, its last message and what the user said. An agent at work takes the move at its next start.
+
+### D-80 One model picker, in two panes — accepted (2026-11-01)
+
+- Owner picked A of https://claude.ai/artifact/8iEXtivHGG72ZRFF24xZLV: AI apps on the left; search, models and Thinking on the right.
+- `ModelChip` is the only way to pick an AI app, model, thinking and where it runs. `SettingsChips` is that chip plus the account chip, so a form and the composer share one set of rules (an AI app change drops the model, a machine change drops the account). Chief setup lost its own AI app list, since the menu would show it twice.
+- Runs on stays in the menu's footer, unchanged in meaning: hidden on a running agent. The left pane's note only says what the catalog knows, and only OpenCode reports `access`, so Claude and the others show none for now. Adding it for them means adapters reporting it, not a label in the UI.
+- Its popover is modal: a dialog's scroll lock otherwise cancels the wheel over a menu portalled out of it. Menus sit above dialogs (z-index 22).
+- The picked model is pinned first, above Default, so it never hides behind "N more" (owner). It is held for the visit: a model with thinking levels keeps the menu open, and a row must not move from under the pointer. The search box takes focus, or the first AI app would, and Enter would switch to it.
+- A task's state shows once, in the title's pill, with its spinner (owner). The bar under the header is gone: Steps and the trace already show the step and the action, which stay as the pill's tooltip. An ask names itself in the pill, with Jump to it beside it.
+- Nothing in the picker waits on the CLIs at launch (owner). A cold check takes about 9 s, held back by the slowest CLI, so the ready apps, model lists and environments are saved in the browser's storage (`api/last-known.ts`), shown at once and replaced when the fresh read ends. Only the picker reads them: Providers and setup keep showing the live check. With nothing saved, only the chosen app shows, with "Checking AI apps…": an app is added, never shown and then removed. A failed read still shows its error, not the old list. Core validation always uses a fresh catalog.
+- The composer saves an AI app's picks when the user leaves that app, not only when a task starts, so coming back finds them (owner). Forms keep D-80's rule: an AI app change drops the model.
+- With nothing picked, a new OpenCode session runs on DeepSeek V4.1 Flash Free at max thinking (owner), because OpenCode does not say what its own default is. It lives in the adapter (`preferred`, shown as a `default` catalog row), so every agent gets it. A resumed session stays on its model, and if OpenCode stops listing the model, its own default applies again. It overrides a `model` set in the user's OpenCode config, which ACP cannot tell apart from OpenCode's own choice.
 
 ## Done
 

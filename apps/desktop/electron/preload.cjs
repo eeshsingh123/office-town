@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld("officeTown", {
   showFile: (path) => ipcRenderer.invoke("show-file", path),
   openFile: (path) => ipcRenderer.invoke("open-file", path),
   capture: (area, width) => ipcRenderer.invoke("capture", area, width),
+  pictureOfPage: (url, width) => ipcRenderer.invoke("picture-of-page", url, width),
   appVersion: () => ipcRenderer.invoke("app-version"),
   updateReady: () => ipcRenderer.invoke("update-ready"),
   onUpdateReady: (listener) => {

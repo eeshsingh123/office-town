@@ -15,12 +15,14 @@ export interface GroupedModels {
 
 const RECENT = 5;
 
-// No hand-made list of popular models. Each model is listed once.
+// No hand-made list of popular models. Each model is listed once, so the pinned one, shown above
+// the groups, is left out of them.
 export function groupModels(
   all: readonly HarnessModel[],
   recentIds: readonly string[],
+  pinnedId?: string,
 ): GroupedModels {
-  const models = all.filter((model) => model.id !== DEFAULT_MODEL);
+  const models = all.filter((model) => model.id !== DEFAULT_MODEL && model.id !== pinnedId);
   const byId = new Map(models.map((model) => [model.id, model]));
   const recent = recentIds.flatMap((id) => byId.get(id) ?? []).slice(0, RECENT);
   const listed = new Set(recent.map((model) => model.id));

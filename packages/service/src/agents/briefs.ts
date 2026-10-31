@@ -1,6 +1,7 @@
 import type { AgentRecord, ConnectorPermission, ConnectorRecord } from "@office-town/contract";
 import type { Message } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
+import { SCRATCH_ASK } from "../task-folders.ts";
 
 function section(title: string, lines: (string | undefined)[]): string | undefined {
   const body = lines.map((line) => line?.trim() ?? "").filter((line) => line !== "");
@@ -35,8 +36,13 @@ export const SHOW_ASK =
   "When you make something the user should look at, such as a page, mockup, image, document or a running site, show it to them with show_result.";
 
 // The user's words as they are, after what the agent reads first, if anything.
-export function soloMessage(prompt: string, instructions: string | undefined): Message {
-  const task = `Your task:\n${prompt}\n\n${SHOW_ASK} ${CHECKLIST_ASK}`;
+export function soloMessage(
+  prompt: string,
+  instructions: string | undefined,
+  scratch = false,
+): Message {
+  const asks = [...(scratch ? [SCRATCH_ASK] : []), SHOW_ASK, CHECKLIST_ASK];
+  const task = `Your task:\n${prompt}\n\n${asks.join(" ")}`;
   if (instructions === undefined) {
     return { text: task, origin: { kind: "brief", summary: "The task, then its checklist" } };
   }

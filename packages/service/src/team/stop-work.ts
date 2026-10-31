@@ -137,10 +137,10 @@ export function resumeWork(context: TeamContext) {
   return defineTool({
     name: "resume_work",
     description:
-      "Have a stopped worker carry on with the piece it was stopped on, from where it left " +
-      "off, with its conversation kept. For new or changed work, use delegate instead.",
+      "Have a stopped or failed worker carry on with its last piece, from where it left off, " +
+      "with its conversation kept. For new or changed work, use delegate instead.",
     input: z.object({
-      agent: z.string().min(1).describe("The stopped worker's name, such as @ben-1042."),
+      agent: z.string().min(1).describe("The worker's name, such as @ben-1042."),
     }),
     offeredTo: isLead(context),
     async call({ agent }, caller: Caller) {
@@ -148,12 +148,12 @@ export function resumeWork(context: TeamContext) {
       if (team === undefined) throw new ToolError(NOT_YET);
       const [worker] = workersNamed(team, [agent]);
       if (worker === undefined) throw new ToolError(`${agent} is not on your team.`);
-      const stopped = store
+      const last = store
         .listDelegations(caller.taskId)
         .findLast((one) => one.workerAgentId === worker.id);
-      if (stopped?.status !== "stopped") {
+      if (last?.status !== "stopped" && last?.status !== "failed") {
         throw new ToolError(
-          `${worker.name} has no stopped piece to carry on. Use delegate to give it work.`,
+          `${worker.name} has no stopped or failed piece to carry on. Use delegate to give it work.`,
         );
       }
       const earlier = latestSession(context, caller.taskId, worker.id);
@@ -162,8 +162,8 @@ export function resumeWork(context: TeamContext) {
         throw new ToolError(`${worker.name} is busy on another task. Try again once it is free.`);
       }
       const work =
-        "You were stopped before you finished. Carry on with the same piece from where you " +
-        `left off. The piece, as briefed:\n${stopped.brief}`;
+        "Your work was cut off before you finished. Carry on with the same piece from where " +
+        `you left off. The piece, as briefed:\n${last.brief}`;
       const session = await startWork(context, team, caller, worker, work, []);
       if (!isOpen(session)) {
         throw new ToolError(`${worker.name} could not start. Its trace says why.`);
@@ -172,7 +172,7 @@ export function resumeWork(context: TeamContext) {
         taskId: caller.taskId,
         workerAgentId: worker.id,
         workerSessionId: session.id,
-        brief: stopped.brief,
+        brief: last.brief,
       });
       return `${worker.name} is carrying on. Its result will reach you as a message when it finishes.`;
     },

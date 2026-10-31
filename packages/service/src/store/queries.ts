@@ -175,6 +175,7 @@ export const queries = {
     ${SESSION_SELECT} WHERE s.agent_ref = ? AND s.ref < ? ORDER BY s.ref DESC LIMIT ?`,
   unfinishedInTask: `SELECT 1 FROM sessions WHERE task_ref = ? AND ${UNFINISHED} LIMIT 1`,
   unfinishedSessions: `${SESSION_SELECT} WHERE s.${UNFINISHED}`,
+  interruptedSessions: `${SESSION_SELECT} WHERE s.status = 'interrupted'`,
   interruptUnfinished: `UPDATE sessions SET status = 'interrupted' WHERE ${UNFINISHED}`,
   sessionStarted: "UPDATE sessions SET status = 'running', harness_session_id = ? WHERE ref = ?",
   sessionEnded: "UPDATE sessions SET status = ?, ended_at = ? WHERE ref = ?",

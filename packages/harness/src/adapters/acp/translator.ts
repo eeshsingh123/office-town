@@ -1,4 +1,10 @@
-import { type ActionKind, actionKindSchema, type PermissionOption } from "@office-town/contract";
+import {
+  type ActionKind,
+  actionKindSchema,
+  type PermissionOption,
+  type TokenUsage,
+} from "@office-town/contract";
+import type { z } from "zod";
 import {
   type AdapterEvent,
   type AttachedToolServer,
@@ -75,6 +81,38 @@ function stepsOf(
   }));
 }
 
+type ReportedUsage = z.infer<typeof promptResultSchema>["usage"];
+
+function usageOf(usage: ReportedUsage): TokenUsage | undefined {
+  if (usage === undefined) return undefined;
+  const cached = usage.cachedReadTokens ?? 0;
+  const input = (usage.inputTokens ?? 0) + cached + (usage.cachedWriteTokens ?? 0);
+  // Thinking is billed as output but reported apart.
+  const output = (usage.outputTokens ?? 0) + (usage.thoughtTokens ?? 0);
+  return {
+    inputTokens: input,
+    outputTokens: output,
+    cachedInputTokens: cached,
+    // OpenCode reports only the turn's last model step, which is the conversation's length.
+    contextTokens: input + output,
+  };
+}
+
+function addUsage(earlier: TokenUsage | undefined, next: TokenUsage | undefined) {
+  if (earlier === undefined || next === undefined) return next ?? earlier;
+  return {
+    ...next,
+    inputTokens: earlier.inputTokens + next.inputTokens,
+    outputTokens: earlier.outputTokens + next.outputTokens,
+    cachedInputTokens: (earlier.cachedInputTokens ?? 0) + (next.cachedInputTokens ?? 0),
+  };
+}
+
+export interface PreferredModel {
+  model: string;
+  effort: string;
+}
+
 export class AcpTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #cwd: string;
@@ -82,8 +120,9 @@ export class AcpTranslator implements Translator {
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
-  readonly #model: string | undefined;
-  readonly #effort: string | undefined;
+  #model: string | undefined;
+  #effort: string | undefined;
+  readonly #preferred: PreferredModel | undefined;
   readonly #resumeSessionId: string | undefined;
   readonly #toolServers: AttachedToolServer[];
   readonly #toolPrefixes: (server: string) => string[];
@@ -95,6 +134,10 @@ export class AcpTranslator implements Translator {
   // While session/load replays the conversation, whose turns the trace already has.
   #loading = false;
   #turnActive = false;
+  // A waiting message has cancelled the turn, and goes out when the cancel is answered.
+  #steering = false;
+  // What the cancelled part of a turn used, counted when the turn ends.
+  #carriedUsage: TokenUsage | undefined;
   #stream: TextStream | undefined;
 
   constructor(
@@ -104,7 +147,9 @@ export class AcpTranslator implements Translator {
     >,
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
+    preferred?: PreferredModel,
   ) {
+    this.#preferred = preferred;
     this.#cwd = options.workspacePath;
     this.#model = options.model;
     this.#effort = options.effort;
@@ -150,10 +195,37 @@ export class AcpTranslator implements Translator {
     const partial =
       events.length > 0 &&
       events.every((event) => event.type === "message.delta" || event.type === "reasoning.delta");
-    return { events, outgoing: [], partial };
+    return { events, outgoing: this.#steer(events), partial };
   }
 
-  // ACP allows one prompt at a time, so later prompts wait for the turn in progress to end.
+  // ACP has no way into a running turn, and OpenCode never answers a second prompt sent during one.
+  // So once a tool ends with none at work, a waiting message cancels the turn and goes out at once.
+  #steer(events: AdapterEvent[]): string[] {
+    const toolEnded = events.some((event) => event.type === "action.ended");
+    if (!toolEnded || this.#steering || !this.#turnActive) return [];
+    if (this.#actions.size > 0 || this.#queuedPrompts.length === 0) return [];
+    this.#steering = true;
+    return [this.#peer.notify("session/cancel", { sessionId: this.#sessionId })];
+  }
+
+  // To the rest of the app the turn goes on; a new start means the message counts as taken.
+  #steered(): Translation {
+    this.#steering = false;
+    const cut: AdapterEvent[] = [...this.#actions]
+      .filter(([, action]) => action.started)
+      .map(([actionId]) => ({
+        type: "action.ended",
+        payload: { actionId, outcome: "failed", result: "Cancelled to deliver a message." },
+      }));
+    this.#actions.clear();
+    const params = { sessionId: this.#sessionId, prompt: this.#queuedPrompts.splice(0).flat() };
+    return {
+      events: [...this.#flush(), ...cut, { type: "turn.started" }],
+      outgoing: [this.#peer.request("session/prompt", params)],
+    };
+  }
+
+  // Later prompts wait for the turn in progress to end, or for the next tool to end.
   prompt(text: string, images: InlineImage[]): Translation {
     this.#queuedPrompts.push([
       ...images.map(({ mimeType, data }) => ({ type: "image", mimeType, data })),
@@ -177,6 +249,7 @@ export class AcpTranslator implements Translator {
 
   interrupt(): Translation {
     if (!this.#turnActive) return NOTHING;
+    this.#steering = false;
     const events: AdapterEvent[] = [];
     const outgoing = [this.#peer.notify("session/cancel", { sessionId: this.#sessionId })];
     // The protocol requires every pending permission request to be answered as cancelled.
@@ -208,6 +281,7 @@ export class AcpTranslator implements Translator {
         outgoing: [],
       };
     }
+    if (this.#steering) return this.#steered();
     this.#turnActive = false;
     const next = this.#nextPrompt();
     const events: AdapterEvent[] = [
@@ -240,6 +314,7 @@ export class AcpTranslator implements Translator {
     if (sessionId === undefined) throw new Error("The harness did not name the new session.");
     this.#sessionId = sessionId;
     this.#options = session.configOptions ?? [];
+    this.#usePreferred();
     const current = modelOption(this.#options)?.currentValue;
     const refused = this.#refusesModel();
     const model = refused ? current : (this.#model ?? current);
@@ -256,6 +331,17 @@ export class AcpTranslator implements Translator {
       [started, { type: "error", payload: { message, fatal: false } }],
       "model",
     );
+  }
+
+  // A resumed session stays on the model it ran on.
+  #usePreferred(): void {
+    const preferred = this.#preferred;
+    if (preferred === undefined) return;
+    if (this.#model !== undefined || this.#resumeSessionId !== undefined) return;
+    const offered = modelOption(this.#options)?.options ?? [];
+    if (!offered.some((option) => option.value === preferred.model)) return;
+    this.#model = preferred.model;
+    this.#effort ??= preferred.effort;
   }
 
   // The model was picked, and the harness lists its models without it.
@@ -321,6 +407,13 @@ export class AcpTranslator implements Translator {
 
   #turnEnded(result: unknown): Translation {
     const { stopReason, usage } = promptResultSchema.parse(result);
+    const used = addUsage(this.#carriedUsage, usageOf(usage));
+    if (this.#steering && stopReason === "cancelled") {
+      this.#carriedUsage = used;
+      return this.#steered();
+    }
+    this.#steering = false;
+    this.#carriedUsage = undefined;
     this.#turnActive = false;
     const events = this.#flush();
     const failed = stopReason !== "end_turn" && stopReason !== "cancelled";
@@ -328,25 +421,11 @@ export class AcpTranslator implements Translator {
       const message = `The turn stopped early (${stopReason}).`;
       events.push({ type: "error", payload: { message, fatal: false } });
     }
-    const cached = usage?.cachedReadTokens ?? 0;
-    const input = (usage?.inputTokens ?? 0) + cached + (usage?.cachedWriteTokens ?? 0);
-    // Thinking is billed as output but reported apart.
-    const output = (usage?.outputTokens ?? 0) + (usage?.thoughtTokens ?? 0);
     events.push({
       type: "turn.ended",
       payload: {
         outcome: stopReason === "cancelled" ? "interrupted" : failed ? "failed" : "completed",
-        ...(usage === undefined
-          ? {}
-          : {
-              usage: {
-                inputTokens: input,
-                outputTokens: output,
-                cachedInputTokens: cached,
-                // OpenCode reports only the turn's last model step, which is the conversation's length.
-                contextTokens: input + output,
-              },
-            }),
+        ...(used === undefined ? {} : { usage: used }),
       },
     });
     const next = this.#nextPrompt();

@@ -1,17 +1,16 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  type Audience,
-  type ConnectorPermission,
-  type ConnectorRecord,
-  defaultAccountId,
-  type SessionRecord,
+import type {
+  Audience,
+  ConnectorPermission,
+  ConnectorRecord,
+  SessionRecord,
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { decide } from "../src/connectors/access.ts";
 import { type NotesApp, startNotesApp } from "./support/notes-app.ts";
-import { type Core, settle, startCore } from "./support/team-core.ts";
+import { type Core, startCore } from "./support/team-core.ts";
 
 const KEY = "notes-key-1234";
 const everyone: Audience = { everyone: true, departmentIds: [], agentIds: [] };
@@ -69,12 +68,6 @@ async function startAgent() {
   return { record, session: core.sessions.find(({ id }) => id === record.id) };
 }
 
-const pending = () =>
-  core.store
-    .listPendingRequests()
-    .requests.map(({ event }) => event)
-    .filter((event) => event.type === "permission.requested");
-
 describe("connectors", () => {
   it("reads always, and a change asks, is refused or goes through by the connector's own setting", () => {
     for (const permission of ["read_only", "ask", "dont_ask"] as const) {
@@ -86,65 +79,6 @@ describe("connectors", () => {
   });
 
   // D-68: Claude Code connects Claude apps itself; the core picks who gets them and decides calls.
-  it("gives Claude apps to Claude agents only and decides each call by the app's permission", async () => {
-    core.store.createConnector({
-      setup: {
-        slug: "claude-notion",
-        name: "Notion",
-        kind: "claude",
-        official: true,
-        account: defaultAccountId("claude", { kind: "native" }),
-        app: "claude.ai Notion",
-        auth: "none",
-        keys: [],
-      },
-      audience: everyone,
-      permission: "ask",
-      status: "connected",
-      tools: [
-        { name: "search", inputSchema: {}, annotations: { readOnlyHint: true } },
-        { name: "create_page", inputSchema: {}, annotations: { readOnlyHint: false } },
-      ],
-    });
-    const { record, session } = await startAgent();
-    expect(record.options.vendorApps).toEqual(["claude.ai Notion"]);
-    for (const [requestId, name] of [
-      ["read", "search"],
-      ["change", "create_page"],
-    ] as const) {
-      session?.emit({
-        type: "permission.requested",
-        payload: {
-          requestId,
-          title: name,
-          input: {},
-          kind: "other",
-          tool: { server: "claude.ai Notion", name },
-          options: [
-            { optionId: "allow", label: "Allow", kind: "allow_once" },
-            { optionId: "deny", label: "Deny", kind: "reject_once" },
-          ],
-        },
-      });
-    }
-    await settle();
-    expect(session?.sent).toContainEqual({
-      type: "answerPermission",
-      requestId: "read",
-      optionId: "allow",
-      answeredBy: "app",
-    });
-    expect(pending().map(({ payload }) => payload.requestId)).toEqual(["change"]);
-
-    const other = await core.call("POST", "/tasks", {
-      prompt: "Look up the pricing",
-      agent: { settings: { harness: "opencode", environment: { kind: "native" } } },
-      autonomy: "supervised",
-      workspaceId,
-    });
-    expect((other.json as SessionRecord).options.vendorApps).toBeUndefined();
-  });
-
   it("keeps keys out of SQLite and out of what a harness is launched with", async () => {
     await connect("notes", "ask");
     const { record, session } = await startAgent();

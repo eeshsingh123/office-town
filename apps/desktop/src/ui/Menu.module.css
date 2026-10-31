@@ -26,8 +26,9 @@
   color: var(--text-3);
 }
 
+/* Above dialogs and side sheets, since a menu can open from inside one. */
 .surface {
-  z-index: 10;
+  z-index: 22;
   min-width: 220px;
   max-width: 360px;
   padding: 6px;

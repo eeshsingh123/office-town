@@ -11,6 +11,7 @@ import {
   continueTaskRequestSchema,
   defaultAccountId,
   departmentDraftRequestSchema,
+  departmentModelRequestSchema,
   departmentSettingsSchema,
   displaySchema,
   type EnvironmentSpec,
@@ -55,6 +56,7 @@ import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
 import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
+import { modelChangedByUser, moveDepartment } from "../team/change-worker.ts";
 import type { Checks } from "../team/checks.ts";
 import {
   changeTeam,
@@ -144,7 +146,7 @@ export function apiRoutes(
       reply: async ({ body }) => {
         const request = startTaskRequestSchema.parse(await body());
         const attachments = resolveAttachments(store, request.attachments);
-        const folders = foldersForTask(store, request.workspaceId, request.prompt);
+        const folders = foldersForTask(store, request.workspaceId);
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt, undefined, {
           workspaceId: request.workspaceId,
@@ -155,7 +157,7 @@ export function apiRoutes(
             agentId: agent.id,
             options: sessionOptionsFor(store, agent, folders),
             message: {
-              ...soloMessage(request.prompt, instructionsFor(store, agent)),
+              ...soloMessage(request.prompt, instructionsFor(store, agent), folders.scratch),
               attachments,
             },
           }),
@@ -404,15 +406,21 @@ export function apiRoutes(
         const agent = store.getAgent(param("id"));
         if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
         const { colour, purpose, settings } = agentProfileRequestSchema.parse(await body());
-        return {
-          status: 200,
-          json: store.updateAgent(agent.id, {
-            ...agent,
-            colour,
-            purpose: purpose === "" ? undefined : purpose,
-            settings,
-          }),
-        };
+        const saved = store.updateAgent(agent.id, {
+          ...agent,
+          colour,
+          purpose: purpose === "" ? undefined : purpose,
+          settings,
+        });
+        const { harness, model, effort } = agent.settings;
+        if (
+          settings.harness !== harness ||
+          settings.model !== model ||
+          settings.effort !== effort
+        ) {
+          await modelChangedByUser(team, saved);
+        }
+        return { status: 200, json: saved };
       },
     },
     {
@@ -509,6 +517,14 @@ export function apiRoutes(
         status: 200,
         json: await changeTeam(team, param("id"), teamSchema.parse(await body())),
       }),
+    },
+    {
+      method: "PUT",
+      path: "/departments/:id/model",
+      reply: async ({ param, body }) => {
+        await moveDepartment(team, param("id"), departmentModelRequestSchema.parse(await body()));
+        return NO_CONTENT;
+      },
     },
     {
       method: "POST",

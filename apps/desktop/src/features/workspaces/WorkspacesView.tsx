@@ -43,7 +43,13 @@ export function WorkspaceMenu({
   usage: WorkspaceUsage | undefined;
   onEdit: () => void;
 }) {
-  const used = (usage?.departmentIds.length ?? 0) > 0;
+  const scratches = (useWorkspaces() ?? []).filter((known) => known.kind === "scratch");
+  const blocked =
+    (usage?.departmentIds.length ?? 0) > 0
+      ? "a department works here"
+      : workspace.kind === "scratch" && scratches.length === 1
+        ? "tasks need one Scratch"
+        : undefined;
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -58,10 +64,10 @@ export function WorkspaceMenu({
           </DropdownMenu.Item>
           <DropdownMenu.Item
             className={menu.item}
-            disabled={used}
+            disabled={blocked !== undefined}
             onSelect={() => void removeFromList(workspace)}
           >
-            {used ? "Remove (a department works here)" : "Remove from list"}
+            {blocked === undefined ? "Remove from list" : `Remove (${blocked})`}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

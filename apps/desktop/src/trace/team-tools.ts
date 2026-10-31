@@ -11,6 +11,11 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   propose_team: { kind: "other", title: () => "Proposed a team" },
   delegate: { kind: "delegate", title: (input) => `Delegated to ${words(input.agent)}` },
   team_status: { kind: "other", title: () => "Checked on the team" },
+  change_worker: {
+    kind: "other",
+    title: (input) => `Changed the model of ${words(input.agent)}`,
+  },
+  propose_change: { kind: "other", title: () => "Asked you about a change of direction" },
   // Kept for traces from before D-73.
   outsource: { kind: "delegate", title: () => "Sent the work for review" },
   write_checklist: {

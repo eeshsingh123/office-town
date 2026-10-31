@@ -64,6 +64,14 @@ export const departmentRecordSchema = z.object({
 });
 export type DepartmentRecord = z.infer<typeof departmentRecordSchema>;
 
+// One AI app, model and thinking level for every member.
+export const departmentModelRequestSchema = agentSettingsSchema.pick({
+  harness: true,
+  model: true,
+  effort: true,
+});
+export type DepartmentModelRequest = z.infer<typeof departmentModelRequestSchema>;
+
 export const departmentSettingsSchema = departmentRecordSchema.pick({
   name: true,
   workspaceIds: true,

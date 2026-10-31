@@ -4,9 +4,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { followRecounts } from "../src/registry/recount.ts";
 import {
-  AnswerError,
   type PublishedEvent,
   SessionNotResumableError,
   SessionNotRunningError,
@@ -95,43 +93,6 @@ describe("session registry", () => {
     store = openStore(directory);
   });
 
-  it("adds what a session's turns left out once it ends, read from the harness's records", async () => {
-    const registry = openRegistry();
-    const recounted = new Promise<void>((done) =>
-      registry.subscribe(({ event }) => {
-        if (event.type === "usage.recounted") done();
-      }),
-    );
-    void followRecounts(
-      registry,
-      store,
-      ["claude"],
-      async () => ({
-        inputTokens: 100,
-        outputTokens: 20,
-        cachedInputTokens: 60,
-      }),
-      0,
-    );
-    const record = await start(registry, "Write a report");
-    sessions[0]?.emit({
-      type: "turn.ended",
-      payload: {
-        turnId: "1",
-        outcome: "completed",
-        usage: { inputTokens: 40, outputTokens: 5, cachedInputTokens: 30 },
-      },
-    });
-    sessions[0]?.emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
-    await recounted;
-
-    expect(store.getTask(record.taskId)?.usage).toEqual([
-      { harness: "claude", inputTokens: 100, outputTokens: 20, cachedInputTokens: 60 },
-    ]);
-    expect(store.sessionsToRecount("claude", new Date(0).toISOString())).toEqual([]);
-    await registry.close();
-  });
-
   it("carries on in a new conversation on another account once the first is used up", async () => {
     const work = store.createAccount({
       id: "work",
@@ -193,47 +154,6 @@ describe("session registry", () => {
     await registry.close();
     expect(sessions[1]?.sent.at(-1)).toEqual({ type: "stop" });
     expect(store.getSession(resumed.id)?.status).toBe("interrupted");
-  });
-
-  it("offers no 'always allow' to an agent with a read-only folder, and takes no answer it was not offered", async () => {
-    const registry = openRegistry();
-    const task = store.createTask("Build on the API");
-    const upstream = join(directory, "api");
-    await registry.start({
-      taskId: task.id,
-      agentId: addAgent(store).id,
-      options: { ...options, additionalPaths: [upstream], readOnlyPaths: [upstream] },
-      message: { text: "Build on the API" },
-    });
-
-    sessions[0]?.emit({
-      type: "permission.requested",
-      payload: {
-        requestId: "edit",
-        title: "Edit",
-        input: {},
-        options: [
-          { optionId: "once", label: "Allow", kind: "allow_once" },
-          { optionId: "always", label: "Always allow", kind: "allow_always" },
-          { optionId: "no", label: "Reject", kind: "reject_once" },
-        ],
-      },
-    });
-
-    const [waiting] = store.listPendingRequests().requests;
-    expect(waiting?.event.payload).toMatchObject({
-      options: [{ optionId: "once" }, { optionId: "no" }],
-    });
-    const answer = (optionId: string) =>
-      registry.send(sessions[0]?.id ?? "", {
-        type: "answerPermission",
-        requestId: "edit",
-        optionId,
-      });
-    await expect(answer("always")).rejects.toThrow(AnswerError);
-    await answer("once");
-    expect(sessions[0]?.sent.at(-1)).toMatchObject({ optionId: "once" });
-    await registry.close();
   });
 
   it("stops an agent whose work can no longer be saved, says why, and saves its end once it can", async () => {

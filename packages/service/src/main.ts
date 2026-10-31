@@ -33,12 +33,14 @@ import { followRecounts } from "./registry/recount.ts";
 import { SessionRegistry } from "./registry/session-registry.ts";
 import { openStore } from "./store/sqlite-store.ts";
 import { cachedCatalogs } from "./team/catalogs.ts";
+import { changeWorker } from "./team/change-worker.ts";
 import { removeAllSandboxes } from "./team/check-sandbox.ts";
 import { Checks } from "./team/checks.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
 import { Handovers } from "./team/handover.ts";
+import { proposeChange } from "./team/propose-change.ts";
 import { proposeTeam } from "./team/propose-team.ts";
-import { reportResults } from "./team/results.ts";
+import { recoverLeads, reportResults } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
 import { TaskStates } from "./team/task-state.ts";
 import { UsagePauses } from "./team/usage-pause.ts";
@@ -86,7 +88,6 @@ toolServer.offerApps({
   hub: connectors.gateway.hubTools(),
   endpointOf: (slug) => connectors.gateway.endpointOf(slug),
 });
-taskStates.follow(registry);
 followLibraryUses(registry, store);
 const team = { store, registry, readCatalog, dataFolder, createSession };
 const activity = new SessionActivity(registry);
@@ -103,6 +104,8 @@ void followRecounts(
 );
 const stopIdle = stopIdleAgents(registry, store, activity);
 reportResults(team, activity);
+recoverLeads(team, activity);
+taskStates.follow(registry);
 const handovers = new Handovers(team);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
@@ -118,6 +121,8 @@ toolServer.offer([
   teamStatus(team, activity),
   stopWork(team, activity),
   resumeWork(team),
+  changeWorker(team),
+  proposeChange(team),
   handovers.tool(),
   checks.writeChecklistTool(),
   checks.proposeChecksTool(),

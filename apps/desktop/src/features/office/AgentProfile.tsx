@@ -2,6 +2,7 @@ import type { AgentRecord, AgentSettings, Autonomy } from "@office-town/contract
 import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
+import { agentOf, stateOf } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
@@ -57,13 +58,16 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
   const department = useApp((state) =>
     agent.departmentId === undefined ? undefined : state.departments[agent.departmentId],
   );
-  const working = useApp((state) =>
-    Object.values(state.sessions).some(
-      (session) =>
-        session.agentId === agent.id &&
-        (session.status === "starting" || session.status === "running"),
-    ),
-  );
+  // By the state its panel shows: a session stays "running" after its turn, while the agent is done.
+  const working = useApp((state) => {
+    const current = agentOf(state, agent.id);
+    if (current === undefined) return false;
+    const asking = Object.values(state.waiting).some(
+      ({ event }) => event.sessionId === current.latest.id,
+    );
+    const now = stateOf(current, state.traces, asking);
+    return now === "starting" || now === "working" || now === "waiting";
+  });
   const you = useYou();
   const leads = department?.leadAgentId === agent.id;
   const [draft, setDraft] = useState(() => draftOf(agent));

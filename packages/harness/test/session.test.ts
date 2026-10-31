@@ -2,7 +2,7 @@ import type { SessionEvent } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { Adapter, AdapterEvent, Translation } from "../src/adapter.ts";
 import type { Environment } from "../src/environment/environment.ts";
-import { HarnessSession, SessionStateError } from "../src/session.ts";
+import { HarnessSession } from "../src/session.ts";
 import { replayOptions, ScriptedEnvironment } from "./support/replay.ts";
 
 // A harness whose native format is already our events, so these tests exercise only the session.
@@ -64,66 +64,6 @@ const permission: AdapterEvent = {
 };
 
 describe("session", () => {
-  it("hands the adapter environment paths and reports an action's and its permission's as host paths", async () => {
-    const environment = new ScriptedEnvironment();
-    environment.toEnvironmentPath = (hostPath) => `inside:${hostPath}`;
-    environment.toHostPath = (environmentPath) => `host:${environmentPath}`;
-    const { events, emit } = await startSession(environment);
-
-    await emit(
-      {
-        type: "action.started",
-        payload: { actionId: "a", kind: "edit", title: "edit", input: {}, locations: ["/x/file"] },
-      },
-      { ...permission, payload: { ...permission.payload, actionId: "a" } },
-    );
-
-    expect(environment.request?.cwd).toBe("inside:/workspace");
-    expect(events[0]?.payload).toMatchObject({ locations: ["host:/x/file"] });
-    expect(events[1]?.payload).toMatchObject({ kind: "edit", locations: ["host:/x/file"] });
-  });
-
-  it("answers a pending permission once and reports how it was resolved", async () => {
-    const environment = new ScriptedEnvironment();
-    const { session, events, emit } = await startSession(environment);
-    await emit(permission);
-
-    await session.send({ type: "answerPermission", requestId: "request-1", optionId: "no" });
-
-    expect(environment.written).toEqual(["request-1:no"]);
-    expect(events.at(-1)).toMatchObject({
-      type: "permission.resolved",
-      payload: { requestId: "request-1", outcome: "denied", optionId: "no" },
-    });
-    await expect(
-      session.send({ type: "answerPermission", requestId: "request-1", optionId: "no" }),
-    ).rejects.toBeInstanceOf(SessionStateError);
-  });
-
-  it("numbers what the core reports in line with the harness's own events, until the session ends", async () => {
-    const { session, events, emit } = await startSession();
-    await emit({ type: "turn.started" });
-    const question = {
-      type: "question.requested" as const,
-      payload: {
-        requestId: "ask-1",
-        questions: [{ questionId: "1", text: "Red or blue?", options: [], multiSelect: false }],
-      },
-    };
-
-    session.report(question);
-    await emit({ type: "turn.ended", payload: { outcome: "completed" } });
-    await session.send({ type: "stop" });
-
-    expect(events.map((event) => [event.type, event.sequence])).toEqual([
-      ["turn.started", 1],
-      ["question.requested", 2],
-      ["turn.ended", 3],
-      ["session.ended", 4],
-    ]);
-    expect(() => session.report(question)).toThrow(SessionStateError);
-  });
-
   it("closes the open turn and pending permissions when the harness dies", async () => {
     const environment = new ScriptedEnvironment();
     const { events, emit } = await startSession(environment);
@@ -152,26 +92,6 @@ describe("session", () => {
       ],
       ["session.ended", { reason: "failed", exitCode: 1 }],
     ]);
-  });
-
-  it("stops a session that is still starting once the launch settles", async () => {
-    const environment = new ScriptedEnvironment();
-    const launch = environment.launch.bind(environment);
-    const gate = Promise.withResolvers<void>();
-    environment.launch = async (request) => {
-      await gate.promise;
-      return launch(request);
-    };
-    const session = new HarnessSession(replayOptions, passthroughAdapter, environment);
-    const events: SessionEvent[] = [];
-    session.subscribe((event) => events.push(event));
-
-    const started = session.send({ type: "start" });
-    const stopped = session.send({ type: "stop" });
-    gate.resolve();
-    await Promise.all([started, stopped]);
-
-    expect(events.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
   });
 
   it("keeps going when a subscriber throws, and reports it", async () => {

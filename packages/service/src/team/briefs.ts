@@ -1,7 +1,7 @@
 import type { HarnessDescription, HarnessModel } from "@office-town/contract";
 import { SHOW_ASK } from "../agents/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
-import type { TaskFolders } from "../task-folders.ts";
+import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
 
 // Enough for the lead to choose from; propose_team names the valid ones if it picks another.
 const MODELS_LISTED = 12;
@@ -30,14 +30,14 @@ export function describeChoices(choices: HarnessChoices[]): string {
     .join("\n");
 }
 
-function where({ workspacePath, additionalPaths, readOnlyPaths }: TaskFolders): string {
+function where({ workspacePath, additionalPaths, readOnlyPaths, scratch }: TaskFolders): string {
   const also =
     additionalPaths.length === 0 ? "" : `, and may use ${additionalPaths.join(", ")} as freely`;
   const read =
     readOnlyPaths.length === 0
       ? ""
       : ` You may read ${readOnlyPaths.join(", ")}, but never change them.`;
-  return `You work in ${workspacePath}${also}.${read}`;
+  return `You work in ${workspacePath}${also}.${read}${scratch ? ` ${SCRATCH_ASK}` : ""}`;
 }
 
 // Whatever an agent reads is read again at each of its later steps, so long output is costly.
@@ -154,6 +154,12 @@ Your team:
 ${input.roster}
 
 Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on.
+
+Results and messages reach you by themselves. Never wait for them with sleep, by polling team_status or by watching for files: if you have nothing else to do, end your turn with a short line, and the next message wakes you. Read every message from the user and answer it first.
+
+A failed turn was already tried again once. When a worker still fails, its message gives the reason. Look at it first, then fix it: if it looks temporary, have it carry on with resume_work; if its model or AI app refused the work, move it to another model with change_worker and then call resume_work; or hand the piece to another worker with delegate. Do the piece yourself only when none of these works, and tell the user why. If only the user can fix it, ask with ask_user.
+
+The goal belongs to the user. Call propose_change and wait for the answer before you drop or replace something the goal names, deliver a different thing from what was asked, or finish with less than the goal. The test: would the user look at the result and say that is not what they asked for? This holds when you are sure, and when the goal as asked looks impossible: a blocker goes to the user, not around them. Everything that still delivers the goal is your call and needs no asking: tools, libraries, approaches, retries, moving work between workers, fixes.
 
 You plan, decide and put the results together; your workers do the work. Everything you read stays in your conversation and is read again at each of your later steps, so keep it small:
 - Look at the workspace only enough to plan. For a deeper look, have a worker study it and report briefly.

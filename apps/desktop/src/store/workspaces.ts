@@ -2,6 +2,7 @@ import type { WorkspaceRecord, WorkspaceRequest, WorkspaceUsage } from "@office-
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.ts";
 import type { AgentState } from "../trace/progress.ts";
+import { clockTime } from "../ui/format.ts";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "./agents.ts";
 import { useApp } from "./app-store.ts";
 import { isOpen } from "./records.ts";
@@ -119,3 +120,14 @@ export function defaultWorkspace(
 export const mainPath = (workspace: WorkspaceRecord) => workspace.folders[0]?.path ?? "";
 
 export const folderName = (path: string) => path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+
+// How the core names a Scratch task's folder (`task-folders.ts`).
+const SCRATCH_FOLDER = /^\d{4}-\d{2}-\d{2} \d{2}-\d{2} [0-9a-f]{8}$/;
+
+// A Scratch folder's name is a time and an id, so the app calls it after who works in it.
+export function scratchAlias(folder: string, owner: string, startedAt: string): string {
+  const name = folderName(folder);
+  if (!SCRATCH_FOLDER.test(name)) return name;
+  const day = new Date(startedAt).toLocaleDateString([], { day: "numeric", month: "short" });
+  return `${owner}'s scratch · ${day}, ${clockTime(startedAt)}`;
+}

@@ -122,6 +122,8 @@ export class MuseTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #options: LaunchOptions;
   readonly #queuedPrompts: object[][] = [];
+  // Sent into the running turn, oldest first, until Muse answers.
+  readonly #steering: object[][] = [];
   readonly #kinds = new Map<string, string>();
   readonly #started = new Set<string>();
   readonly #permissions = new Map<string, Approval>();
@@ -156,7 +158,7 @@ export class MuseTranslator implements Translator {
     }
   }
 
-  // A prompt during a turn would steer it, so prompts wait for the turn to end instead.
+  // During a turn a prompt goes into it, once the turn's id is known; a refused one waits it out.
   prompt(text: string, images: InlineImage[]): Translation {
     this.#queuedPrompts.push([
       ...images.map(({ mimeType, data }) => ({
@@ -166,7 +168,25 @@ export class MuseTranslator implements Translator {
       })),
       { type: "text", text },
     ]);
-    return this.#nextPrompt();
+    return this.#turnActive ? this.#steer() : this.#nextPrompt();
+  }
+
+  #steer(): Translation {
+    if (this.#turnId === undefined) return NOTHING;
+    const expectedTurnId = this.#turnId;
+    const steers = this.#queuedPrompts.splice(0);
+    this.#steering.push(...steers);
+    return {
+      events: [],
+      outgoing: steers.map((input) =>
+        this.#peer.request("turn/steer", {
+          commandId: commandId(),
+          sessionId: this.#sessionId,
+          expectedTurnId,
+          input,
+        }),
+      ),
+    };
   }
 
   answerPermission(requestId: string, option: PermissionOption): Translation {
@@ -243,7 +263,11 @@ export class MuseTranslator implements Translator {
         return this.#settingApplied();
       case "turn/start":
         this.#turnId = turnResultSchema.parse(result).turnId;
-        return NOTHING;
+        return this.#steer();
+      // A new start, so the message counts as taken.
+      case "turn/steer":
+        this.#steering.shift();
+        return { events: [{ type: "turn.started" }], outgoing: [] };
       default:
         return NOTHING;
     }
@@ -319,6 +343,11 @@ export class MuseTranslator implements Translator {
 
   #failure(method: string, message: string): Translation {
     if (method === "turn/interrupt" || method === "userInput/answer") return NOTHING;
+    if (method === "turn/steer") {
+      const refused = this.#steering.shift();
+      if (refused !== undefined) this.#queuedPrompts.unshift(refused);
+      return this.#nextPrompt();
+    }
     // A model it cannot switch to is reported; an approval mode it cannot set ends the session
     // below, since it could otherwise run unasked.
     if (method === "session/setModel") {

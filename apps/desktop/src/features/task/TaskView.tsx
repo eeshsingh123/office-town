@@ -5,7 +5,7 @@ import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, progressOf } from "../../trace/progress.ts";
+import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
@@ -27,10 +27,19 @@ import { TeamTaskView } from "./TeamTaskView.tsx";
 // A solo task with a plan this long is offered a review once it is done.
 const LONG_TASK_STEPS = 3;
 
+const isBusy = (state: AgentState) => state === "working" || state === "starting";
+
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
-  return state === "working" || state === "starting" ? styles.pillWorking : undefined;
+  return isBusy(state) ? styles.pillWorking : undefined;
 }
+
+// The step, or else what it is doing right now, for the pill's tooltip.
+function doingNow(progress: Progress | undefined): string | undefined {
+  if (progress?.step === undefined) return progress?.current?.title;
+  return `Step ${progress.step.number} of ${progress.stepCount}: ${progress.step.title}`;
+}
+
 // A solo agent's task shows as a team once a guest joins it.
 export function TaskView({ taskId }: { taskId: string }) {
   const several = useApp((state) => {
@@ -69,6 +78,13 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const state = stateOf(agent, traces, waitingSessions.has(latest.id));
   const progress = trace === undefined ? undefined : progressOf(trace);
   const live = isOpen(latest);
+  const busy = isBusy(state);
+  const asked =
+    waiting === undefined
+      ? undefined
+      : waiting.event.type === "permission.requested"
+        ? "Needs your approval"
+        : "Has a question for you";
   // A resumed session reports no plan until it changes, so the latest known one shows.
   const plan = agent.sessions
     .map((session) => traces[session.id]?.plan ?? [])
@@ -86,43 +102,15 @@ function SoloTaskView({ taskId }: { taskId: string }) {
           />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(agent.task.prompt)}</h1>
-            <span className={`${styles.pill} ${pillStyle(state) ?? ""}`}>
-              {state === "waiting" ? "Waiting for you" : STATE_LABELS[state]}
+            <span
+              className={`${styles.pill} ${pillStyle(state) ?? ""}`}
+              role="status"
+              title={busy ? doingNow(progress) : undefined}
+            >
+              {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
+              {asked ?? (state === "waiting" ? "Waiting for you" : STATE_LABELS[state])}
             </span>
-          </div>
-        </div>
-        <TaskTabs taskId={taskId} />
-        {plan === undefined || tab.outputs ? null : <StepsButton plan={plan} />}
-        {live ? (
-          <Button onClick={() => void api.stop(latest.id)}>
-            <Square size={12} aria-hidden />
-            Stop
-          </Button>
-        ) : null}
-      </header>
-
-      {state === "working" || state === "starting" || state === "waiting" ? (
-        <div className={styles.status} role="status">
-          <LoaderCircle size={14} className={`${styles.running} spin`} aria-hidden />
-          {progress?.step === undefined ? (
-            <span className={styles.statusText}>
-              {progress?.current?.title ?? STATE_LABELS[state]}
-            </span>
-          ) : (
-            <>
-              <span className={styles.faint}>
-                Step {progress.step.number} of {progress.stepCount}
-              </span>
-              <span className={`${styles.strong} ${styles.statusText}`}>{progress.step.title}</span>
-            </>
-          )}
-          {waiting === undefined ? null : (
-            <>
-              <span className={styles.waitingText}>
-                {waiting.event.type === "permission.requested"
-                  ? "Needs your approval"
-                  : "Has a question for you"}
-              </span>
+            {waiting === undefined ? null : (
               <button
                 type="button"
                 className={styles.jump}
@@ -134,10 +122,18 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               >
                 Jump to it
               </button>
-            </>
-          )}
+            )}
+          </div>
         </div>
-      ) : null}
+        <TaskTabs taskId={taskId} />
+        {plan === undefined || tab.outputs ? null : <StepsButton plan={plan} />}
+        {live ? (
+          <Button onClick={() => void api.stop(latest.id)}>
+            <Square size={12} aria-hidden />
+            Stop
+          </Button>
+        ) : null}
+      </header>
 
       {tab.outputs ? (
         <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />

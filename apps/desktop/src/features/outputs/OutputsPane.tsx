@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { ago } from "../../ui/format.ts";
-import { fileName, KIND_LABELS, shownPath, viewKindOf } from "./kinds.ts";
+import { fileName, KIND_LABELS, latestDocument, shownPath, viewKindOf } from "./kinds.ts";
 import styles from "./Outputs.module.css";
 import { KindIcon, Picture } from "./Picture.tsx";
 import { useTaskOutputs } from "./use-task-outputs.ts";
@@ -32,7 +32,7 @@ export function OutputsPane({
   const { results, outputs, failed, read } = useTaskOutputs(taskId);
   const agents = useApp((state) => state.agents);
   const [picked, setPicked] = useState<Shown>();
-  const [changedOpen, setChangedOpen] = useState(false);
+  const [foldedByUser, setFoldedByUser] = useState<boolean>();
   const [changedShown, setChangedShown] = useState(CHANGED_PAGE);
   const roots = outputs?.roots ?? [];
   const running = new Set(outputs?.running);
@@ -41,6 +41,8 @@ export function OutputsPane({
     ({ url }) => new URL(url).origin !== window.location.origin,
   );
   const changed = outputs?.changed ?? [];
+  // Unfolded while it is all there is to see.
+  const changedOpen = foldedByUser === undefined ? results.length === 0 : !foldedByUser;
 
   // From the latest read, so a file changed again shows its new state.
   const current = ((): Shown | undefined => {
@@ -56,7 +58,9 @@ export function OutputsPane({
     }
     // A site may have stopped and open on its restart offer, so anything else opens first.
     const first = results.find((output) => output.target.kind !== "site") ?? results[0];
-    return first === undefined ? undefined : { kind: "result", output: first };
+    if (first !== undefined) return { kind: "result", output: first };
+    const file = latestDocument(changed);
+    return file === undefined ? undefined : { kind: "file", file };
   })();
   const choose = (shown: Shown) => {
     setPicked(shown);
@@ -131,7 +135,7 @@ export function OutputsPane({
               type="button"
               className={styles.changedHead}
               aria-expanded={changedOpen}
-              onClick={() => setChangedOpen(!changedOpen)}
+              onClick={() => setFoldedByUser(changedOpen)}
             >
               <ChevronDown
                 size={14}

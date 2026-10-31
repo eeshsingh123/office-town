@@ -45,6 +45,7 @@ import {
   type DelegationRecord,
   type DepartmentDraftReply,
   type DepartmentDraftRequest,
+  type DepartmentModelRequest,
   type DepartmentRecord,
   type DepartmentSettings,
   type Display,
@@ -313,6 +314,8 @@ export const api = {
     write("PUT", `/departments/${id(departmentId)}`, settings, departmentRecordSchema),
   changeTeam: (departmentId: string, team: Team) =>
     write("PUT", `/departments/${id(departmentId)}/team`, team, departmentRecordSchema),
+  moveDepartment: (departmentId: string, choice: DepartmentModelRequest): Promise<void> =>
+    send("PUT", `/departments/${id(departmentId)}/model`, choice),
   removeDepartment: (departmentId: string, withHistory: boolean): Promise<void> =>
     send("DELETE", `/departments/${id(departmentId)}${withHistory ? "?history=delete" : ""}`),
   listHarnesses: (): Promise<HarnessDescription[]> =>

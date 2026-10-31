@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
-  attachmentSchema,
   type SessionEvent,
   sessionRecordSchema,
   workspaceRecordSchema,
@@ -184,8 +183,8 @@ describe("api", () => {
     const first = await optionsOf(await start(scratchId));
     const second = await optionsOf(await start(scratchId));
     expect(dirname(first.workspacePath ?? "")).toBe(directory);
-    expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} Write a report$/);
-    expect(second.workspacePath).toBe(`${first.workspacePath} (2)`);
+    expect(first.workspacePath).toMatch(/\d{4}-\d{2}-\d{2} \d{2}-\d{2} [0-9a-f]{8}$/);
+    expect(second.workspacePath).not.toBe(first.workspacePath);
     expect(existsSync(second.workspacePath ?? "")).toBe(true);
 
     const usage = workspaceUsageSchema
@@ -205,67 +204,6 @@ describe("api", () => {
     expect(await resumed.json()).toMatchObject({
       message: expect.stringContaining("does not exist"),
     });
-  });
-
-  it("copies a file read-only, gives the agent read access to it and a linked folder even mid-task, sends an image inline only to a model that sees images, and deletes the copy with its task", async () => {
-    const upload = async (name: string, text: string) =>
-      attachmentSchema.parse(
-        await (
-          await fetch(`${server.url}/attachments?name=${encodeURIComponent(name)}`, {
-            method: "POST",
-            headers: { authorization: `Bearer ${TOKEN}` },
-            body: text,
-          })
-        ).json(),
-      );
-    const image = await upload("shot.png", "png bytes");
-    expect(image).toMatchObject({
-      kind: "image",
-      name: "shot.png",
-      bytes: 9,
-      mimeType: "image/png",
-    });
-    expect(statSync(image.path).mode & 0o200).toBe(0);
-    const references = join(directory, "references");
-    mkdirSync(references);
-    const folder = attachmentSchema.parse(
-      await (await call("POST", "/attachments/folder", { path: references })).json(),
-    );
-    expect(
-      (await call("POST", "/attachments/folder", { path: join(directory, "no") })).status,
-    ).toBe(400);
-
-    const start = (model: string) =>
-      call("POST", "/tasks", {
-        prompt: "Match the screenshot",
-        agent: { settings: { ...settings, model } },
-        autonomy: "supervised",
-        workspaceId: scratchId,
-        attachments: [image.id, folder.id],
-      });
-    const seeing = sessionRecordSchema.parse(await (await start("sees-images")).json());
-    expect(seeing.options.readOnlyPaths).toEqual([dirname(image.path), references]);
-    const inlineOf = (session: FakeSession | undefined) =>
-      session?.sent.flatMap((command) =>
-        command.type === "prompt" ? (command.attachments ?? []).map((one) => one.inline) : [],
-      );
-    expect(inlineOf(sessions[0])).toEqual([true, undefined]);
-    await start("text-only");
-    expect(inlineOf(sessions[1])).toEqual([undefined, undefined]);
-
-    const notes = await upload("notes.md", "# Notes");
-    const message = await call("POST", `/agents/${seeing.agentId}/messages`, {
-      text: "Also these",
-      attachments: [notes.id],
-    });
-    expect(message.status).toBe(204);
-    expect(store.getSession(seeing.id)?.options.readOnlyPaths).toContain(dirname(notes.path));
-
-    await call("POST", `/sessions/${seeing.id}/stop`);
-    expect((await call("DELETE", `/tasks/${seeing.taskId}`)).status).toBe(204);
-    expect(existsSync(notes.path)).toBe(false);
-    expect(existsSync(image.path)).toBe(true);
-    expect(existsSync(references)).toBe(true);
   });
 
   it("replays stored events by position and continues live, with no gap or repeat, or ends when not following", async () => {

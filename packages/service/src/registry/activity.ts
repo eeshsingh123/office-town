@@ -4,6 +4,8 @@ export interface Activity {
   turnOpen: boolean;
   // A worker's result.
   lastMessage: string | undefined;
+  // What went wrong in this turn, for whoever has to deal with it.
+  lastError: string | undefined;
   lastActive: number;
 }
 
@@ -23,12 +25,16 @@ export class SessionActivity {
       const activity = this.#sessions.get(event.sessionId) ?? {
         turnOpen: false,
         lastMessage: undefined,
+        lastError: undefined,
         lastActive: Date.now(),
       };
       activity.lastActive = Date.now();
       if (event.type === "turn.started") {
         activity.turnOpen = true;
         activity.lastMessage = undefined;
+        activity.lastError = undefined;
+      } else if (event.type === "error") {
+        activity.lastError = event.payload.message;
       } else if (event.type === "turn.ended") {
         activity.turnOpen = false;
       } else if (

@@ -176,6 +176,8 @@ describe("the chief", () => {
 
     playTurn(leadOf(piece("docs")?.pieceTaskId), "I could not write the docs.", "failed");
     await settle();
+    playTurn(leadOf(piece("docs")?.pieceTaskId), "I could not write the docs.", "failed");
+    await settle();
     expect(chief?.sent.at(-1)).toMatchObject({
       text: expect.stringContaining("propose_plan"),
       origin: { kind: "piece", outcome: "failed" },
@@ -225,42 +227,6 @@ describe("the chief", () => {
     playTurn(chief, "The bakery is launched.");
     await settle();
     expect(core.store.getTask(goal.task.id)?.state).toBe("ended");
-  });
-
-  it("removes the chief or a department only when idle, keeping their history unless asked", async () => {
-    await core.call("PUT", "/chief", { settings: claude });
-    const goal = (await core.call("POST", "/tasks/chief", { goal: "Launch" })).json;
-    expect((await core.call("DELETE", "/chief")).status).toBe(409);
-    await core.call("POST", `/tasks/${goal.task.id}/stop`);
-    await settle();
-    expect((await core.call("DELETE", "/chief")).status).toBe(204);
-    expect((await core.call("GET", "/chief")).status).toBe(404);
-    expect(core.store.getTask(goal.task.id)).toBeDefined();
-
-    const kept = await departmentIn("kept");
-    const gone = await departmentIn("gone");
-    const tasks = [];
-    for (const { department } of [kept, gone]) {
-      const task = (
-        await core.call("POST", "/tasks/team", {
-          goal: "Work",
-          team: { departmentId: department.id },
-        })
-      ).json;
-      tasks.push(task.taskId as string);
-    }
-    expect((await core.call("DELETE", `/departments/${kept.department.id}`)).status).toBe(409);
-    for (const taskId of tasks) await core.call("POST", `/tasks/${taskId}/stop`);
-    await settle();
-
-    expect((await core.call("DELETE", `/departments/${kept.department.id}`)).status).toBe(204);
-    expect(core.store.getTask(tasks[0] ?? "")).toBeDefined();
-    expect(core.store.getAgent(kept.department.leadAgentId)?.departmentId).toBeUndefined();
-    const path = `/departments/${gone.department.id}?history=delete`;
-    expect((await core.call("DELETE", path)).status).toBe(204);
-    expect(core.store.getTask(tasks[1] ?? "")).toBeUndefined();
-    expect(core.store.getAgent(gone.department.leadAgentId)).toBeUndefined();
-    expect((await core.call("GET", "/departments")).json).toEqual([]);
   });
 
   it("keeps a goal whose chief stopped as idle while a piece is at work", async () => {

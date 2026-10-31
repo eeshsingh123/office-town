@@ -36,21 +36,19 @@ async function deliver(
 }
 
 // Only if the lead is at work: resuming it would spend a turn on a note.
-async function noteLead(
+export async function noteLead(
   context: TeamContext,
   agent: AgentRecord,
   taskId: string,
   text: string,
+  summary: string,
 ): Promise<void> {
   const leadId = context.store.getTask(taskId)?.leadAgentId;
   if (leadId === undefined || leadId === agent.id) return;
   const lead = latestSession(context, taskId, leadId);
   if (lead === undefined || !isOpen(lead)) return;
   try {
-    await context.registry.tell(lead.id, {
-      text: `The user told ${agent.name} directly: "${text}"`,
-      origin: { kind: "notice", summary: `The user messaged ${agent.name}` },
-    });
+    await context.registry.tell(lead.id, { text, origin: { kind: "notice", summary } });
   } catch (error) {
     if (!(error instanceof SessionNotRunningError)) throw error;
   }
@@ -72,5 +70,11 @@ export async function messageAgent(
       : [latestSession(context, taskId, agentId)];
   if (latest === undefined) throw new NeverStartedError(agent.name);
   await deliver(context, latest, attachments.length === 0 ? { text } : { text, attachments });
-  await noteLead(context, agent, latest.taskId, text);
+  await noteLead(
+    context,
+    agent,
+    latest.taskId,
+    `The user told ${agent.name} directly: "${text}"`,
+    `The user messaged ${agent.name}`,
+  );
 }

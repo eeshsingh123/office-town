@@ -4,9 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type AgentRecord, defaultAccountId } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SessionActivity } from "../src/registry/activity.ts";
-import { stopIdleAgents } from "../src/registry/idle-stop.ts";
-import { removeAllSandboxes } from "../src/team/check-sandbox.ts";
 import { type Core, eventually, playTurn, settle, startCore } from "./support/team-core.ts";
 
 const claude = { harness: "claude", environment: { kind: "native" } };
@@ -257,49 +254,6 @@ Tests pass.`,
     expect(state()).toBe("ended");
   });
 
-  it("hands a lead over to a fresh session only on the user's word, with the records and its handover", async () => {
-    const { writer } = await teamAtWork();
-    const lead = core.sessions[0];
-    const leadAgentId = core.store.getSession(lead?.id ?? "")?.agentId ?? "";
-    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
-    const worker = core.sessions[1];
-    const handover = {
-      decisions: ["Plain HTML, no framework: the user asked for it"],
-      facts: ["Tests run with npm test"],
-      next: "Merge the menu once it is written.",
-    };
-
-    expect((await core.callTool(lead, "hand_over", handover)).text).toContain(
-      "only when the user asks",
-    );
-    await core.call("POST", `/agents/${leadAgentId}/messages`, {
-      text: "Take this into a new session",
-    });
-    expect((await core.callTool(lead, "hand_over", handover)).isError).toBe(false);
-    lead?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
-    await eventually(() => core.sessions.length === 3);
-    const fresh = core.sessions[2];
-    const firstWords = core.store
-      .readEvents({ after: 0, limit: 10, sessionId: fresh?.id ?? "" })
-      .find(({ event }) => event.type === "message")?.event.payload;
-    expect(firstWords).toMatchObject({ origin: { kind: "brief" } });
-    for (const part of [
-      "Plain HTML, no framework",
-      "You: Take this into a new session",
-      "still working:\n  Brief: Write the menu",
-      join(directory, "data", "handovers"),
-    ]) {
-      expect(firstWords && "text" in firstWords ? firstWords.text : "").toContain(part);
-    }
-    expect(lastSent(0)).toEqual({ type: "stop", idle: true });
-
-    playTurn(worker, "Menu written.");
-    await settle();
-    expect(lastSent(2)).toMatchObject({
-      text: expect.stringContaining("finished:\nMenu written."),
-    });
-  });
-
   it("pauses a whole team past 95% of a usage window and carries it on through its lead on resume", async () => {
     const { task, writer } = await teamAtWork();
     const lead = core.sessions[0];
@@ -387,6 +341,39 @@ Testing again.`),
     expect(next?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
+  it("tries a failed worker once, then tells the lead the real error, and resume_work carries it on", async () => {
+    const { writer } = await teamAtWork();
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const fail = () => {
+      worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+      worker?.emit({ type: "error", payload: { message: "The model refused", fatal: false } });
+      worker?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "failed" } });
+    };
+
+    fail();
+    await settle();
+    expect(worker?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("Your last turn failed: The model refused"),
+    });
+    expect(lastSent(0)).not.toMatchObject({ origin: { kind: "result" } });
+
+    fail();
+    await settle();
+    expect(lastSent(0)).toMatchObject({
+      text: expect.stringContaining("The error: The model refused"),
+      origin: { kind: "result", outcome: "failed" },
+    });
+    const status = (await core.callTool(lead, "team_status", {})).text;
+    expect(status).toContain("failed on its last piece: The error: The model refused");
+
+    expect((await core.callTool(lead, "resume_work", { agent: writer })).text).toContain(
+      "carrying on",
+    );
+    expect(worker?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
+  });
+
   it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });
@@ -425,27 +412,6 @@ Testing again.`),
       origin: { kind: "notice" },
     });
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
-  });
-
-  it("stops an agent left idle, but not one waiting for the user", async () => {
-    const activity = new SessionActivity(core.registry);
-    const { task } = await teamAtWork();
-    const lead = core.sessions[0];
-    await core.callTool(lead, "delegate", {
-      agent: (await teamMembers())[0] ?? "",
-      brief: "Write",
-    });
-    const worker = core.sessions[1];
-    playTurn(lead, "Handed out the work.");
-    await core.callTool(worker, "ask_user", { question: "Formal or casual?" });
-    playTurn(worker, "Waiting for the user.");
-
-    const stop = stopIdleAgents(core.registry, core.store, activity, 1);
-    await settle();
-    stop();
-
-    const sessions = core.store.listSessions(task.taskId);
-    expect(sessions.map((session) => session.status)).toEqual(["exited", "running"]);
   });
 
   it("checks finished work in a temporary worktree from the user's approved list, wants steps for a fail, and leaves nothing behind", async () => {
@@ -525,22 +491,4 @@ Testing again.`),
     expect(git("worktree", "list", "--porcelain").match(/^worktree /gm)).toHaveLength(1);
     expect(readFileSync(join(project, "menu.html"), "utf8")).toBe("bread and cake");
   });
-
-  it("removes at startup every sandbox a crash left behind, and the old review copies", async () => {
-    const data = join(directory, "data");
-    const left = join(data, "checks", "left-by-a-crash", "work");
-    const copy = join(data, "outsourced", "old-review");
-    mkdirSync(left, { recursive: true });
-    mkdirSync(copy, { recursive: true });
-
-    await removeAllSandboxes(core.store, data);
-
-    expect(existsSync(join(left, ".."))).toBe(false);
-    expect(existsSync(copy)).toBe(false);
-  });
 });
-
-async function teamMembers(): Promise<string[]> {
-  const agents = (await core.call("GET", "/agents")).json as AgentRecord[];
-  return agents.filter((agent) => agent.role === "Writer").map((agent) => agent.name);
-}

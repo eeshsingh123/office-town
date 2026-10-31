@@ -1,19 +1,21 @@
+import { randomUUID } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionOptions, WorkspaceRecord } from "@office-town/contract";
 import type { Store } from "./store/store.ts";
-
-// Characters Windows refuses in a file name, and control characters.
-const UNSAFE_IN_NAME = /[<>:"/\\|?*\p{Cc}]/gu;
-const NAME_WORDS = 6;
-const NAME_LENGTH = 50;
 
 // Where a task's agents work: the first folder, then the others they may edit, then read only.
 export interface TaskFolders {
   workspacePath: string;
   additionalPaths: string[];
   readOnlyPaths: string[];
+  // The first folder is this task's own, made for it in a Scratch workspace.
+  scratch?: boolean;
 }
+
+// In what a Scratch task's agents read first, so one folder stays one folder.
+export const SCRATCH_ASK =
+  "This task has its own folder, the one you start in. Put every file in it: never make a folder beside it or write outside it.";
 
 export class FolderNotFoundError extends Error {
   constructor(folder: string) {
@@ -58,7 +60,7 @@ export function requireWorkspaceFolders({
 
 // Scratch gives each task a new folder, so tasks never overwrite each other; its parent is made if
 // missing, as the default one is only made when first needed.
-export function foldersForTask(store: Store, workspaceId: string, prompt: string): TaskFolders {
+export function foldersForTask(store: Store, workspaceId: string): TaskFolders {
   const { kind, folders } = store.useWorkspace(workspaceId);
   const [main, ...others] = folders;
   if (main === undefined) throw new FolderNotFoundError(workspaceId);
@@ -66,36 +68,20 @@ export function foldersForTask(store: Store, workspaceId: string, prompt: string
   if (kind === "scratch") mkdirSync(main.path, { recursive: true });
   else requireFolders([main.path]);
   return {
-    workspacePath: kind === "scratch" ? createTaskFolder(main.path, prompt, new Date()) : main.path,
+    workspacePath: kind === "scratch" ? createTaskFolder(main.path, new Date()) : main.path,
     additionalPaths: others.filter((folder) => folder.access === "edit").map((f) => f.path),
     readOnlyPaths: others.filter((folder) => folder.access === "read").map((f) => f.path),
+    ...(kind === "scratch" ? { scratch: true } : {}),
   };
 }
 
-// Named by the day and the prompt's first words, so the user can tell the folders apart.
-function createTaskFolder(parent: string, prompt: string, now: Date): string {
-  const day = [now.getFullYear(), now.getMonth() + 1, now.getDate()]
-    .map((part) => String(part).padStart(2, "0"))
-    .join("-");
-  const words = prompt
-    .replace(UNSAFE_IN_NAME, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, NAME_WORDS)
-    .join(" ");
-  // By character, so an emoji is never split. Windows drops a trailing dot or space from a name.
-  const short = Array.from(words)
-    .slice(0, NAME_LENGTH)
-    .join("")
-    .replace(/[. ]+$/, "");
-  const name = short === "" ? day : `${day} ${short}`;
-  for (let copy = 1; ; copy += 1) {
-    const folder = join(parent, copy === 1 ? name : `${name} (${copy})`);
-    try {
-      mkdirSync(folder);
-      return folder;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    }
-  }
+// The time and an id, never the prompt: an agent took a cut-off sentence for a wrong name and made
+// the full one beside it. The app shows an alias (`scratchAlias`).
+function createTaskFolder(parent: string, now: Date): string {
+  const two = (part: number) => String(part).padStart(2, "0");
+  const day = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+  const time = `${two(now.getHours())}-${two(now.getMinutes())}`;
+  const folder = join(parent, `${day} ${time} ${randomUUID().slice(0, 8)}`);
+  mkdirSync(folder);
+  return folder;
 }

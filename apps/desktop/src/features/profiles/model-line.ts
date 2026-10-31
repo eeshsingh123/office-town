@@ -1,12 +1,15 @@
-import type {
-  AgentSettings,
-  EnvironmentSpec,
-  HarnessCatalog,
-  HarnessDescription,
-  HarnessModel,
+import {
+  type AgentSettings,
+  type EnvironmentSpec,
+  environmentListSchema,
+  type HarnessCatalog,
+  type HarnessDescription,
+  type HarnessModel,
 } from "@office-town/contract";
 import { useEffect, useState } from "react";
-import { environmentKey, readCatalog } from "../../api/catalogs.ts";
+import { environmentKey, lastCatalog, readCatalog } from "../../api/catalogs.ts";
+import { api } from "../../api/client.ts";
+import { loadLastKnown, saveLastKnown } from "../../api/last-known.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { modelLine, modelName } from "./model-name.ts";
@@ -24,8 +27,25 @@ export function useCatalog(
     description === undefined || !description.capabilities.modelList
       ? undefined
       : catalogKey({ harness: description.harness, environment });
-  const catalog = useLoaded(key, () => readCatalog(description?.harness ?? "", environment));
-  return { models: catalog.value?.models, error: catalog.error };
+  const harness = description?.harness ?? "";
+  const catalog = useLoaded(key, () => readCatalog(harness, environment));
+  if (catalog.error !== undefined) return { models: undefined, error: catalog.error };
+  const known = key === undefined ? undefined : lastCatalog(harness, environment);
+  return { models: catalog.value?.models ?? known?.models, error: undefined };
+}
+
+const ENVIRONMENTS_NAME = "environments";
+
+const lastEnvironments =
+  loadLastKnown(ENVIRONMENTS_NAME, (stored) => environmentListSchema.safeParse(stored).data) ?? [];
+
+export function useEnvironments(): readonly EnvironmentSpec[] {
+  const loaded = useLoaded(ENVIRONMENTS_NAME, async () => {
+    const environments = await api.listEnvironments();
+    saveLastKnown(ENVIRONMENTS_NAME, environments);
+    return environments;
+  });
+  return loaded.value ?? lastEnvironments;
 }
 
 function useModelsOf(settings: Pick<Settings, "harness" | "environment"> | undefined) {
@@ -80,5 +100,6 @@ export function useModels(
       current = false;
     };
   }, [wanted]);
-  return (settings) => catalogs[catalogKey(settings)]?.models;
+  return (settings) =>
+    (catalogs[catalogKey(settings)] ?? lastCatalog(settings.harness, settings.environment))?.models;
 }

@@ -6,6 +6,7 @@ import { ago } from "../../ui/format.ts";
 import { KIND_LABELS, viewKindOf } from "./kinds.ts";
 import styles from "./Outputs.module.css";
 import { Picture, pictureSource } from "./Picture.tsx";
+import { usePagePicture } from "./use-page-picture.ts";
 import { useResults } from "./use-task-outputs.ts";
 
 export const openOutput = (output: OutputRecord) =>
@@ -25,6 +26,7 @@ export function ResultCard({
   output: OutputRecord;
   primary?: boolean;
 }) {
+  usePagePicture(output);
   // Without a picture yet, a row: a large empty frame says nothing.
   const pictured = pictureSource(output) !== undefined;
   return (

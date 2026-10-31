@@ -902,7 +902,36 @@ class SqliteStore implements Store {
     return one<{ text: string }>(this.#statements.lastAgentMessage, ref)?.text;
   }
 
+  // Its turn completed, it is owed and asks nothing, and its task has nothing out: its work was done.
+  #hadFinished(row: SessionRow, asking: Set<string>): boolean {
+    if (this.latestTurn(row.id)?.outcome !== "completed") return false;
+    if (asking.has(row.id) || this.owesTurn(row.id)) return false;
+    const pieces = this.listPieces(row.taskId);
+    return (
+      !this.listDelegations(row.taskId).some(({ status }) => status === "working") &&
+      !pieces.some(({ status }) => ["waiting", "queued", "working"].includes(status))
+    );
+  }
+
+  // Ended like one stopped for being idle, when its turn did. Includes those an earlier restart cut off.
+  #endFinished(rows: SessionRow[]): void {
+    const asking = new Set(this.listPendingRequests().requests.map(({ event }) => event.sessionId));
+    for (const row of rows.filter((one) => this.#hadFinished(one, asking))) {
+      this.append({
+        id: randomUUID(),
+        sessionId: row.id,
+        sequence: this.nextSequence(row.id),
+        timestamp: this.latestTurn(row.id)?.at ?? new Date().toISOString(),
+        type: "session.ended",
+        payload: { reason: "exited", exitCode: null, idle: true },
+      });
+    }
+  }
+
   markInterrupted(): SessionRecord[] {
+    const open = all<SessionRow>(this.#statements.unfinishedSessions);
+    const cutOff = all<SessionRow>(this.#statements.interruptedSessions);
+    this.#endFinished([...open, ...cutOff]);
     const { sessions, delegations } = transaction(this.#db, () => {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
       const delegations = all<DelegationRow>(this.#statements.workingDelegations);
@@ -918,7 +947,8 @@ class SqliteStore implements Store {
       });
     }
     // The tasks' records are unchanged, but whoever keeps their state reads them again.
-    for (const taskId of new Set(sessions.map((row) => row.taskId))) this.#publishTask(taskId);
+    const taskIds = new Set([...open, ...cutOff].map((row) => row.taskId));
+    for (const taskId of taskIds) this.#publishTask(taskId);
     return sessions.map((row) => ({ ...toSession(row), status: "interrupted" as const }));
   }
 
@@ -1581,6 +1611,10 @@ class SqliteStore implements Store {
   }
 
   deleteWorkspace(id: string): void {
+    const scratches = this.listWorkspaces().filter((workspace) => workspace.kind === "scratch");
+    if (scratches.length === 1 && scratches[0]?.id === id) {
+      throw new InUseError("Tasks need a Scratch workspace, so the last one cannot be deleted.");
+    }
     try {
       this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
     } catch (error) {
