@@ -41,7 +41,7 @@ The app shows each provider's own usage limit; no budgets or dollar tracking in 
 - Store, then publish; listeners get the stored event. Text fragments are published without a `position` and never stored.
 - The registry changes sessions; reads go straight to the store.
 - Resuming needs a prompt. Any ended session with a harness session id can be resumed; the new session joins its task.
-- A shutdown is recorded like a crash (interrupted), so "stopped" means the user stopped it, unless the end names a lead (D-71).
+- A shutdown is recorded like a crash (interrupted), so "stopped" means the user stopped it, unless the end names a lead (D-71). A session whose work had finished ends as done instead, like one stopped for being idle (owner).
 - If the store fails, the agent is stopped with a fatal `error` (owner: work that cannot be recorded cannot be traced), and its end is saved once more as `failed`.
 - Partial raw lines are flagged by the adapter and not stored.
 

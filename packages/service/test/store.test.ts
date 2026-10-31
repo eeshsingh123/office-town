@@ -59,6 +59,27 @@ afterEach(() => {
 });
 
 describe("store", () => {
+  it("ends a session that had finished its work as done at a restart, and repairs one already cut off", () => {
+    const task = store.createTask("Write a report");
+    const midTurn = startSession(task.id);
+    midTurn.emit({ type: "turn.started", payload: { turnId: "turn-1" } });
+    const finished = startSession(task.id);
+    const turnEnded = { turnId: "turn-1", outcome: "completed" } as const;
+    finished.emit({ type: "turn.started", payload: { turnId: "turn-1" } });
+    finished.emit({ type: "turn.ended", payload: turnEnded });
+
+    expect(store.markInterrupted().map((session) => session.id)).toEqual([midTurn.id]);
+    expect(store.getSession(finished.id)?.status).toBe("exited");
+    const [ended] = store
+      .readEvents({ after: 0, limit: 100, sessionId: finished.id })
+      .filter(({ event }) => event.type === "session.ended");
+    expect(ended?.event.payload).toMatchObject({ reason: "exited", idle: true });
+
+    midTurn.emit({ type: "turn.ended", payload: turnEnded });
+    store.markInterrupted();
+    expect(store.getSession(midTurn.id)?.status).toBe("exited");
+  });
+
   it("logs events in order, skips text fragments, keeps large text out of the database and summarises the session", () => {
     const task = store.createTask("Write a report");
     const first = startSession(task.id);
@@ -191,7 +212,7 @@ describe("store", () => {
     const old = new DatabaseSync(join(directory, "store.db"));
     old.exec(`
       DELETE FROM workspaces;
-      PRAGMA user_version = ${migrations.length - 1};
+      PRAGMA user_version = ${migrations.length - 2};
     `);
     old.close();
 

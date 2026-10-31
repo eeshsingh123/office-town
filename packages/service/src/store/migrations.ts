@@ -676,4 +676,5 @@ export const migrations: readonly Migration[] = [
   addChecks,
   addOutputs,
   restoreScratch,
+  "CREATE INDEX IF NOT EXISTS sessions_interrupted ON sessions (status) WHERE status = 'interrupted';",
 ];
