@@ -59,8 +59,10 @@ function ModelRow(props: {
 export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
-  // Held for the visit, so a row does not move from under the pointer when it is picked.
-  const [pinned] = useState(() => pinnedModel(models, value));
+  // Held for the visit, so a row does not move from under the pointer when it is picked. Only the
+  // id is held: the list can change under it, and the first one after a switch is the old app's.
+  const [held] = useState(value);
+  const pinned = pinnedModel(models, held);
   const pinnedId = pinned?.id;
   const groups = useMemo(() => groupModels(models, recent, pinnedId), [models, recent, pinnedId]);
   const all = [...groups.first, ...groups.more];
