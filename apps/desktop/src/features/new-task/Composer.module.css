@@ -227,9 +227,10 @@
   flex: none;
 }
 
+/* A fixed height, so loading or moving between AI apps does not resize the menu. */
 .menuPanes {
   display: grid;
-  flex: 0 1 auto;
+  flex: 0 1 448px;
   grid-template-columns: 190px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
@@ -279,10 +280,19 @@
   min-height: 120px;
 }
 
-/* A fixed height, so moving between AI apps does not resize the menu. */
 .menuModels [cmdk-list] {
-  flex: 0 1 316px;
+  flex: 1 1 0;
   max-height: none;
+}
+
+.menuChecking {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  font-size: var(--size-meta);
+  color: var(--text-3);
 }
 
 .menuThinking {
@@ -618,5 +628,10 @@
 }
 
 .menuModels .menuNote {
-  flex: 0 1 360px;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
 }

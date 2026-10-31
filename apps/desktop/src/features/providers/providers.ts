@@ -6,7 +6,9 @@ import type {
 } from "@office-town/contract";
 import { useEffect } from "react";
 import { api } from "../../api/client.ts";
+import { loadLastKnown, saveLastKnown } from "../../api/last-known.ts";
 import { useApp } from "../../store/app-store.ts";
+import { offeredHarnesses } from "./offered.ts";
 
 // Each logo is named by its harness; OpenCode has none, so it gets its first letter.
 const FILES = import.meta.glob<string>("./logos/*.svg", {
@@ -33,6 +35,12 @@ export const defaultLogin = (accounts: readonly Account[], harness: string) =>
 export const isReady = (status: HarnessStatus | undefined): boolean =>
   status?.installed === true && status.signedIn !== false;
 
+const READY_NAME = "ready-harnesses";
+
+const lastReady = loadLastKnown(READY_NAME, (stored) =>
+  Array.isArray(stored) ? stored.map(String) : undefined,
+);
+
 // Each check starts every CLI, so one soon after the last is skipped.
 const CHECK_GAP_MS = 5000;
 let checking: Promise<void> | undefined;
@@ -46,6 +54,10 @@ export function checkHarnesses({ now = false } = {}): Promise<void> {
     .then((statuses) => {
       const byHarness = Object.fromEntries(statuses.map((status) => [status.harness, status]));
       useApp.setState({ harnessStatuses: byHarness });
+      saveLastKnown(
+        READY_NAME,
+        statuses.filter((status) => isReady(status)).map((status) => status.harness),
+      );
     })
     .finally(() => {
       checking = undefined;
@@ -70,17 +82,22 @@ export function useHarnessStatuses({
   return statuses;
 }
 
-// The AI apps an agent can be put on: the ones ready here, and the one already chosen. Every one
-// until the check is in, so nothing disappears while it runs, and every one in WSL, where the app
-// does not check installs (D-75).
+// The AI apps an agent can be put on: the ones ready here, as the last launch found them until
+// this one's check is in, and the one already chosen. Every one in WSL, where the app does not
+// check installs (D-75).
 export function useOfferedHarnesses(
   current: string | undefined,
   environment: EnvironmentSpec | undefined,
-): HarnessDescription[] {
+): { offered: HarnessDescription[]; checking: boolean } {
   const harnesses = useApp((state) => state.harnesses);
   const statuses = useHarnessStatuses();
-  if (statuses === undefined || environment?.kind === "wsl") return harnesses;
-  return harnesses.filter(
-    (description) => description.harness === current || isReady(statuses[description.harness]),
-  );
+  if (environment?.kind === "wsl") return { offered: [...harnesses], checking: false };
+  const ready =
+    statuses === undefined
+      ? lastReady
+      : harnesses.flatMap(({ harness }) => (isReady(statuses[harness]) ? [harness] : []));
+  return {
+    offered: offeredHarnesses(harnesses, ready, current),
+    checking: ready === undefined,
+  };
 }

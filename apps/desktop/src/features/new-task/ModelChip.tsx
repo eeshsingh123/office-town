@@ -1,14 +1,12 @@
 import type { HarnessDescription, RoleSettings } from "@office-town/contract";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, LoaderCircle, Plus } from "lucide-react";
 import { Popover } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { environmentKey } from "../../api/catalogs.ts";
-import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { environmentName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
-import { useLoaded } from "../../ui/use-loaded.ts";
-import { useCatalog, useModels } from "../profiles/model-line.ts";
+import { useCatalog, useEnvironments, useModels } from "../profiles/model-line.ts";
 import { accessNote, effortLabel, effortsOf, modelName } from "../profiles/model-name.ts";
 import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import { useOfferedHarnesses } from "../providers/providers.ts";
@@ -69,8 +67,8 @@ export function ModelChip({
     state.harnesses.find((known) => known.harness === value.harness),
   );
   // Only the apps ready here, and the one already picked (D-76).
-  const harnesses = useOfferedHarnesses(value.harness, value.environment);
-  const environments = useLoaded("environments", api.listEnvironments).value ?? [];
+  const { offered, checking } = useOfferedHarnesses(value.harness, value.environment);
+  const environments = useEnvironments();
   const { models, error } = useCatalog(description, value.environment);
   const [open, setOpen] = useState(false);
   const listsModels = description?.capabilities.modelList === true;
@@ -134,7 +132,13 @@ export function ModelChip({
           <div className={styles.menuPanes}>
             <div className={styles.menuApps}>
               <span className={styles.rowLabel}>AI app</span>
-              <AppRows harnesses={harnesses} value={value} onPick={chooseApp} />
+              <AppRows harnesses={offered} value={value} onPick={chooseApp} />
+              {checking ? (
+                <span className={styles.menuChecking} role="status">
+                  <LoaderCircle size={14} className="spin" aria-hidden />
+                  Checking AI apps…
+                </span>
+              ) : null}
               {draft === undefined ? (
                 <button
                   type="button"
@@ -153,7 +157,10 @@ export function ModelChip({
               {!listsModels ? null : error !== undefined ? (
                 <p className={styles.menuNote}>Could not read the models: {error}</p>
               ) : models === undefined ? (
-                <p className={styles.menuNote}>Reading the models…</p>
+                <p className={styles.menuNote} role="status">
+                  <LoaderCircle size={14} className="spin" aria-hidden />
+                  Reading the models…
+                </p>
               ) : (
                 <ModelList
                   key={value.harness}
