@@ -50,7 +50,9 @@ export function showResult({ store, dataFolder }: TeamContext) {
       const file = session === undefined ? undefined : hostPathOf(session, path ?? "");
       const roots = taskRoots(store, caller.taskId);
       if (file === undefined || rootOf(roots, file) === undefined) {
-        throw new ToolError("Show a file inside your workspace.");
+        throw new ToolError(
+          "The user cannot see that file: it is outside the folder you started in. Move it into that folder and call show_result again.",
+        );
       }
       const found = await stat(file).catch(() => undefined);
       if (found === undefined || !found.isFile()) throw new ToolError(`No file at ${path}.`);

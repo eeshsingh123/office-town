@@ -1,7 +1,12 @@
 import type { SessionEvent, SessionEventBody } from "@office-town/contract";
 import { describe, expect, it } from "vitest";
 import type { StreamedEvent } from "../src/api/event-stream.ts";
-import { parseTable, shownPath, viewKindOf } from "../src/features/outputs/kinds.ts";
+import {
+  latestDocument,
+  parseTable,
+  shownPath,
+  viewKindOf,
+} from "../src/features/outputs/kinds.ts";
 import { toBlocks } from "../src/trace/blocks.ts";
 import { applyEvents, emptyTrace } from "../src/trace/trace.ts";
 
@@ -41,6 +46,13 @@ describe("outputs", () => {
     expect(viewKindOf({ kind: "file", path: "C:\\work\\Dockerfile" })).toBe("code");
     expect(viewKindOf({ kind: "file", path: "design.FIG" })).toBe("other");
     expect(viewKindOf({ kind: "site", url: "http://localhost:5173/" })).toBe("site");
+  });
+
+  it("opens the latest document when no agent showed a result, never a code or deleted file", () => {
+    const file = (path: string, deleted = false) => ({ path, agentId: "a", deleted, at: "" });
+    const changed = [file("gone.md", true), file("main.ts"), file("guide.md"), file("old.pdf")];
+    expect(latestDocument(changed)?.path).toBe("guide.md");
+    expect(latestDocument([file("main.ts")])).toBeUndefined();
   });
 
   it("stands a shown result on its own in the trace, with what was shown, between runs of work", () => {

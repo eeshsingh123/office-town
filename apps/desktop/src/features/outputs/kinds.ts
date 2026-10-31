@@ -1,4 +1,4 @@
-import type { OutputTarget } from "@office-town/contract";
+import type { ChangedFile, OutputTarget } from "@office-town/contract";
 
 // How the viewer shows a file (M8); "other" opens in its default app.
 export type ViewKind = "page" | "site" | "image" | "pdf" | "markdown" | "table" | "code" | "other";
@@ -39,6 +39,12 @@ export function viewKindOf(target: OutputTarget): ViewKind {
   if (extension === "" && NAMED.has(fileName(target.path).toLowerCase())) return "code";
   return BY_EXTENSION[extension] ?? "other";
 }
+
+const DOCUMENTS = new Set<ViewKind>(["page", "pdf", "markdown", "image", "table"]);
+
+// What opens when no agent showed a result: one may finish without ever calling show_result.
+export const latestDocument = (changed: readonly ChangedFile[]) =>
+  changed.find((file) => !file.deleted && DOCUMENTS.has(viewKindOf({ kind: "file", ...file })));
 
 export const KIND_LABELS: Record<ViewKind, string> = {
   page: "Page",
