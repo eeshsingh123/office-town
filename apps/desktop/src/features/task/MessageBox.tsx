@@ -3,6 +3,7 @@ import { type FormEvent, type KeyboardEvent, type ReactNode, useId, useState } f
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -18,7 +19,7 @@ interface MessageBoxProps {
 // A team's lead cut off by a restart continues the team, so it hears which work was cut off.
 export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const id = useId();
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(`message.${agent.id}`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const canResume = useApp(

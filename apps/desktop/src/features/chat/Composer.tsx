@@ -3,6 +3,7 @@ import { ArrowUp, Info } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
 import fileStyles from "../attachments/Attachments.module.css";
@@ -55,10 +56,10 @@ export function Composer({
   // A follow-up goes to the goal it was opened from, not to a newer one.
   const [followUp, setFollowUp] = useState<string>();
   const lead = useLead(agent);
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(`chat.${agent.id}.text`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
-  const attached = useAttachments();
+  const attached = useAttachments(`chat.${agent.id}.files`);
   const { harness, environment, model } = agent.settings;
   const seesImages = useSeesImages({ harness, environment, ...(model ? { model } : {}) });
   const library = useLibrary(useWorkspaceOf(agent));

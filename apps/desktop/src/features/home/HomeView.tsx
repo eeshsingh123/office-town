@@ -1,6 +1,6 @@
 import type { TaskState } from "@office-town/contract";
 import { ArrowRight, Check, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import {
   type Agent,
   stateOf,
@@ -10,6 +10,7 @@ import {
   useWaitingSessions,
 } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
@@ -333,9 +334,11 @@ function Step(props: {
 
 // Until there is a chief or a department: say what you need, or set one up step by step.
 function BuildTeam() {
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("build-team", "");
   const draft = () => {
-    if (text.trim() !== "") navigate({ name: "new-department", describe: text.trim() });
+    if (text.trim() === "") return;
+    setText("");
+    navigate({ name: "new-department", describe: text.trim() });
   };
   return (
     <section className={`${styles.card} ${styles.build}`} aria-labelledby="build-title">

@@ -5,9 +5,10 @@ import {
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS,
 } from "@office-town/contract";
-import { type ClipboardEvent, type DragEvent, useState } from "react";
+import { type ClipboardEvent, type DragEvent, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
+import { fits, readDraft, writeDraft } from "../../store/drafts.ts";
 import { isImage } from "./kinds.ts";
 
 // A file or folder the user picked; the core keeps it once `attachment` is set.
@@ -29,10 +30,21 @@ function pastedName(): string {
   return `Pasted image ${time}.png`;
 }
 
+const keptFiles = (saved: unknown) =>
+  fits(saved, [{ key: "", name: "", kind: "", attachment: {} }]) ? (saved as Picked[]) : [];
+
 // Each file is sent to the core as soon as it is picked, so Send waits only for what is left.
-export function useAttachments() {
-  const [picked, setPicked] = useState<Picked[]>([]);
+// Those the core holds are kept under `draft`; one still on its way could never finish.
+export function useAttachments(draft: string) {
+  const [picked, setPicked] = useState<Picked[]>(() => keptFiles(readDraft(draft)));
   const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    writeDraft(
+      draft,
+      picked.filter((one) => one.attachment !== undefined && one.error === undefined),
+    );
+  }, [draft, picked]);
 
   const update = (key: string, change: Partial<Picked>) =>
     setPicked((list) => list.map((one) => (one.key === key ? { ...one, ...change } : one)));

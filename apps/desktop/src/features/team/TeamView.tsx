@@ -2,6 +2,7 @@ import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { ChevronDown, Lock, Network, Plus, Search, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
@@ -224,7 +225,7 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
 
 // The first step on an empty Team page: describe a department, or build it by hand.
 function Starter() {
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("first-department", "");
   const describe = text.trim();
   return (
     <section className={styles.starter} aria-labelledby="starter-title">
@@ -241,7 +242,9 @@ function Starter() {
         className={styles.composer}
         onSubmit={(event) => {
           event.preventDefault();
-          if (describe !== "") navigate({ name: "new-department", describe });
+          if (describe === "") return;
+          setText("");
+          navigate({ name: "new-department", describe });
         }}
       >
         <label htmlFor="team-describe" className="visually-hidden">

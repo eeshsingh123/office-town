@@ -16,6 +16,7 @@ import {
 } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp, type View } from "../../store/app-store.ts";
+import { clearDrafts, fits, ignoreDraft, useDraft } from "../../store/drafts.ts";
 import { track } from "../../store/live.ts";
 import { useTemplates } from "../../store/templates.ts";
 import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
@@ -30,6 +31,7 @@ import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useChief } from "../chief/use-chief.ts";
+import { keptLevel } from "../departments/team-form.ts";
 import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
@@ -50,6 +52,14 @@ import { CHIEF, type Mention, mentionAt, PROPOSE, SOLO, withoutMention } from ".
 import { useBusyDepartments } from "./use-targets.ts";
 
 const MAX_HEIGHT = 320;
+const DRAFT = "task";
+
+// Bypass never comes back without its warning.
+function keptChoices(saved: unknown): HarnessChoices | undefined {
+  if (!fits(saved, { environment: { kind: "" }, recentModels: [] })) return undefined;
+  const { autonomy, ...choices } = saved as HarnessChoices;
+  return autonomy === undefined ? choices : { ...choices, autonomy: keptLevel(autonomy) };
+}
 
 type Handed = Extract<View, { name: "new-task" }>;
 
@@ -85,22 +95,44 @@ export function Composer({ home = false }: ComposerProps) {
   const departments = useApp((state) => state.departments);
   const handed = useApp((state) => (state.view.name === "new-task" ? state.view : undefined));
   const [remembered] = useState(loadRemembered);
-  const [chosen, setChosen] = useState(() => handedTarget(handed) ?? remembered.target ?? SOLO);
-  const [harness, setHarness] = useState(remembered.harness);
-  const [profileId, setProfileId] = useState(handed?.templateId ?? remembered.profileId);
-  const [choices, setChoices] = useState<HarnessChoices>(
-    (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
+  // What another page handed over wins over what was left in the box.
+  const handedTo = handedTarget(handed);
+  const [chosen, setChosen] = useDraft(
+    `${DRAFT}.target`,
+    handedTo ?? remembered.target ?? SOLO,
+    handedTo === undefined ? undefined : ignoreDraft,
   );
-  const [teamAutonomy, setTeamAutonomy] = useState<Autonomy>("full");
-  const [prompt, setPrompt] = useState(handed?.prompt ?? "");
-  const [workspaceId, setWorkspaceId] = useState(remembered.workspaceId);
-  const [departmentWorkspaceId, setDepartmentWorkspaceId] = useState<string>();
+  const [harness, setHarness] = useDraft(`${DRAFT}.harness`, remembered.harness);
+  const [profileId, setProfileId] = useDraft(
+    `${DRAFT}.profileId`,
+    handed?.templateId ?? remembered.profileId,
+  );
+  const [choices, setChoices] = useDraft<HarnessChoices>(
+    `${DRAFT}.choices`,
+    (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
+    keptChoices,
+  );
+  const [teamAutonomy, setTeamAutonomy] = useDraft<Autonomy>(
+    `${DRAFT}.teamAutonomy`,
+    "full",
+    (saved) => (typeof saved === "string" ? keptLevel(saved as Autonomy) : undefined),
+  );
+  const [prompt, setPrompt] = useDraft(
+    `${DRAFT}.prompt`,
+    handed?.prompt ?? "",
+    handed?.prompt === undefined ? undefined : ignoreDraft,
+  );
+  const [workspaceId, setWorkspaceId] = useDraft(`${DRAFT}.workspaceId`, remembered.workspaceId);
+  const [departmentWorkspaceId, setDepartmentWorkspaceId] = useDraft<string | undefined>(
+    `${DRAFT}.departmentWorkspaceId`,
+    undefined,
+  );
   const [mention, setMention] = useState<Mention>();
   const [highlight, setHighlight] = useState(0);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
   const box = useRef<HTMLTextAreaElement>(null);
-  const attached = useAttachments();
+  const attached = useAttachments(`${DRAFT}.files`);
   const agents = useApp((state) => state.agents);
 
   const chief = useChief();
@@ -199,6 +231,7 @@ export function Composer({ home = false }: ComposerProps) {
     setError(undefined);
     try {
       const keep = () => {
+        clearDrafts(DRAFT);
         if (description === undefined) return;
         remember({
           harness: description.harness,

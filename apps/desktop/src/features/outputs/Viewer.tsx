@@ -27,6 +27,7 @@ import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "re
 import { api, fileAddress } from "../../api/client.ts";
 import { type Area, shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
@@ -873,7 +874,7 @@ function AskBox({
   onRemoveSpot: (number: number) => void;
   onSent: () => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft(`ask.${taskId}`, "");
   const [sending, setSending] = useState(false);
   const ready = text.trim() !== "" && spots.every((spot) => spot.png !== undefined);
   const send = async () => {
