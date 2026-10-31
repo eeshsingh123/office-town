@@ -6,7 +6,6 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { keepAgent } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { OptionRows } from "../../ui/Choice.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
@@ -15,7 +14,6 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
-import { useOfferedHarnesses } from "../providers/providers.ts";
 import styles from "./Chief.module.css";
 import { DepartmentList } from "./DepartmentList.tsx";
 
@@ -74,7 +72,6 @@ export function ChiefSetup() {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const offered = useOfferedHarnesses(draft.harness, draft.environment);
   const summary = useModelLine(draft);
   const handle = toHandle(name);
   const validName = agentNameSchema.safeParse(handle).success;
@@ -246,43 +243,23 @@ export function ChiefSetup() {
           ) : null}
 
           {step === 1 ? (
-            <>
-              <section className={page.section}>
-                <h3 className={page.sectionTitle}>AI app</h3>
-                <OptionRows
-                  name="chief-harness"
-                  label="AI app"
-                  value={draft.harness}
-                  wide
-                  options={offered.map((known) => ({
-                    value: known.harness,
-                    title: known.name,
-                  }))}
-                  onChange={(harness) => {
-                    const { model: _, effort: __, ...rest } = draft;
-                    setDraft({ ...rest, harness });
+            <section className={page.section}>
+              <h3 className={page.sectionTitle}>AI app and model</h3>
+              <div className={styles.chips}>
+                <SettingsChips
+                  value={{
+                    harness: draft.harness,
+                    environment: draft.environment,
+                    ...(draft.model === undefined ? {} : { model: draft.model }),
+                    ...(draft.effort === undefined ? {} : { effort: draft.effort }),
+                  }}
+                  onChange={(next) => {
+                    const { harness, environment, model, effort, ...others } = draft;
+                    setDraft({ ...others, ...next });
                   }}
                 />
-              </section>
-              <section className={page.section}>
-                <h3 className={page.sectionTitle}>Model</h3>
-                <div className={styles.chips}>
-                  <SettingsChips
-                    showHarness={false}
-                    value={{
-                      harness: draft.harness,
-                      environment: draft.environment,
-                      ...(draft.model === undefined ? {} : { model: draft.model }),
-                      ...(draft.effort === undefined ? {} : { effort: draft.effort }),
-                    }}
-                    onChange={(next) => {
-                      const { harness, environment, model, effort, ...others } = draft;
-                      setDraft({ ...others, ...next });
-                    }}
-                  />
-                </div>
-              </section>
-            </>
+              </div>
+            </section>
           ) : null}
 
           {step === 2 ? (

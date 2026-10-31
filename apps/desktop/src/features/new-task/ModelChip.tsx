@@ -1,5 +1,5 @@
-import type { RoleSettings } from "@office-town/contract";
-import { ChevronDown, Plus, Sparkles } from "lucide-react";
+import type { HarnessDescription, RoleSettings } from "@office-town/contract";
+import { ChevronDown, Plus } from "lucide-react";
 import { Popover } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { environmentKey } from "../../api/catalogs.ts";
@@ -8,23 +8,12 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { environmentName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { useCatalog } from "../profiles/model-line.ts";
-import { effortsOf, modelName } from "../profiles/model-name.ts";
+import { useCatalog, useModels } from "../profiles/model-line.ts";
+import { accessNote, effortLabel, effortsOf, modelName } from "../profiles/model-name.ts";
+import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import { useOfferedHarnesses } from "../providers/providers.ts";
 import styles from "./Composer.module.css";
 import { ModelList } from "./ModelList.tsx";
-
-const EFFORT_NAMES: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra high",
-  max: "Max",
-};
-
-// The harness's own word when it has one we don't know.
-export const effortName = (effort: string) =>
-  EFFORT_NAMES[effort] ?? effort.charAt(0).toUpperCase() + effort.slice(1);
 
 interface ModelChipProps {
   value: RoleSettings;
@@ -36,7 +25,39 @@ interface ModelChipProps {
   triggerClassName?: string | undefined;
 }
 
-// The AI app, the model, how hard it thinks and where it runs, in one menu.
+// A part of its own so the other AI apps' model lists are read only once the menu opens.
+function AppRows({
+  harnesses,
+  value,
+  onPick,
+}: {
+  harnesses: readonly HarnessDescription[];
+  value: RoleSettings;
+  onPick: (harness: string) => void;
+}) {
+  const { environment } = value;
+  const modelsOf = useModels(harnesses.map(({ harness }) => ({ harness, environment })));
+  return harnesses.map(({ harness, name }) => {
+    const note = accessNote(modelsOf({ harness, environment }));
+    return (
+      <button
+        key={harness}
+        type="button"
+        className={`${menu.item} ${styles.appRow}`}
+        aria-pressed={harness === value.harness}
+        onClick={() => onPick(harness)}
+      >
+        <ProviderLogo harness={harness} size="sm" />
+        <span className={menu.itemText}>
+          <span className={styles.appName}>{name}</span>
+          {note === undefined ? null : <span className={menu.itemDescription}>{note}</span>}
+        </span>
+      </button>
+    );
+  });
+}
+
+// The one way to pick an AI app, its model, how hard it thinks and where it runs.
 export function ModelChip({
   value,
   recent,
@@ -57,10 +78,20 @@ export function ModelChip({
   const name = listsModels
     ? (modelName(models, value.model) ?? "Default model")
     : (description?.name ?? value.harness);
+  const thinking =
+    value.effort !== undefined
+      ? effortLabel(value.effort)
+      : draft === undefined
+        ? undefined
+        : "Default";
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
     if (!next) draft?.onDiscard();
+  };
+  // A model and an account belong to their AI app, so only where it runs carries over.
+  const chooseApp = (harness: string) => {
+    if (harness !== value.harness) onChange({ harness, environment: value.environment });
   };
   const chooseModel = (model: string | undefined) => {
     const nextEfforts = description?.capabilities.effort ? effortsOf(models, model) : [];
@@ -77,17 +108,21 @@ export function ModelChip({
     const { effort: _, ...rest } = value;
     onChange(effort === undefined ? rest : { ...rest, effort });
   };
+  const chooseEnvironment = (key: string) => {
+    const environment = environments.find((known) => environmentKey(known) === key);
+    if (environment === undefined) return;
+    // An account belongs to where it runs.
+    const { accountId: _, ...rest } = value;
+    onChange({ ...rest, environment });
+  };
 
   return (
-    <Popover.Root open={open} onOpenChange={changeOpen}>
+    // Modal, so the list still scrolls inside a dialog, whose scroll lock would cancel the wheel.
+    <Popover.Root modal open={open} onOpenChange={changeOpen}>
       <Popover.Trigger className={triggerClassName} aria-label={`Model: ${name}`}>
-        {draft === undefined ? <Sparkles size={14} aria-hidden /> : null}
+        {draft === undefined ? <ProviderLogo harness={value.harness} size="sm" /> : null}
         <span className={styles.chipText}>{name}</span>
-        {value.effort === undefined && draft === undefined ? null : (
-          <span className={styles.chipMuted}>
-            · {value.effort === undefined ? "Default" : effortName(value.effort)} effort
-          </span>
-        )}
+        {thinking === undefined ? null : <span className={styles.chipMuted}>· {thinking}</span>}
         <ChevronDown size={13} aria-hidden />
       </Popover.Trigger>
       <Popover.Portal>
@@ -96,38 +131,58 @@ export function ModelChip({
           align="start"
           sideOffset={6}
         >
-          {harnesses.length > 1 ? (
-            <div className={styles.menuRow}>
+          <div className={styles.menuPanes}>
+            <div className={styles.menuApps}>
               <span className={styles.rowLabel}>AI app</span>
-              <Segments
-                label="AI app"
-                value={value.harness}
-                options={harnesses.map((known) => ({ value: known.harness, label: known.name }))}
-                onChange={(harness) => onChange({ harness, environment: value.environment })}
-              />
+              <AppRows harnesses={harnesses} value={value} onPick={chooseApp} />
+              {draft === undefined ? (
+                <button
+                  type="button"
+                  className={`${menu.item} ${styles.getMore}`}
+                  onClick={() => {
+                    setOpen(false);
+                    navigate({ name: "providers" });
+                  }}
+                >
+                  <Plus size={14} aria-hidden />
+                  Providers
+                </button>
+              ) : null}
             </div>
-          ) : null}
-          {!listsModels ? null : error !== undefined ? (
-            <p className={styles.menuNote}>Could not read the models: {error}</p>
-          ) : models === undefined ? (
-            <p className={styles.menuNote}>Reading the models…</p>
-          ) : (
-            <ModelList models={models} value={value.model} recent={recent} onChoose={chooseModel} />
-          )}
-          {efforts.length > 0 ? (
-            <div className={`${styles.menuRow} ${styles.menuFoot}`}>
-              <span className={styles.rowLabel}>Thinking</span>
-              <Segments
-                label="Thinking"
-                value={value.effort ?? ""}
-                options={[
-                  { value: "", label: "Default" },
-                  ...efforts.map((effort) => ({ value: effort, label: effortName(effort) })),
-                ]}
-                onChange={(effort) => chooseEffort(effort === "" ? undefined : effort)}
-              />
+            <div className={styles.menuModels}>
+              {!listsModels ? null : error !== undefined ? (
+                <p className={styles.menuNote}>Could not read the models: {error}</p>
+              ) : models === undefined ? (
+                <p className={styles.menuNote}>Reading the models…</p>
+              ) : (
+                <ModelList
+                  key={value.harness}
+                  models={models}
+                  value={value.model}
+                  recent={recent}
+                  onChoose={chooseModel}
+                />
+              )}
+              {models === undefined ? null : (
+                <div className={styles.menuThinking}>
+                  <span className={styles.rowLabel}>Thinking</span>
+                  {efforts.length > 0 ? (
+                    <Segments
+                      label="Thinking"
+                      value={value.effort ?? ""}
+                      options={[
+                        { value: "", label: "Default" },
+                        ...efforts.map((effort) => ({ value: effort, label: effortLabel(effort) })),
+                      ]}
+                      onChange={(effort) => chooseEffort(effort === "" ? undefined : effort)}
+                    />
+                  ) : (
+                    <span className={styles.oneSetting}>This model has one setting</span>
+                  )}
+                </div>
+              )}
             </div>
-          ) : null}
+          </div>
           {environments.length > 1 && draft === undefined ? (
             <div className={`${styles.menuRow} ${styles.menuFoot}`}>
               <span className={styles.rowLabel}>Runs on</span>
@@ -138,30 +193,11 @@ export function ModelChip({
                   value: environmentKey(environment),
                   label: environmentName(environment),
                 }))}
-                onChange={(key) => {
-                  const environment = environments.find((known) => environmentKey(known) === key);
-                  if (environment !== undefined) onChange({ ...value, environment });
-                }}
+                onChange={chooseEnvironment}
               />
             </div>
           ) : null}
-          {draft === undefined ? (
-            <div className={styles.menuFoot}>
-              <button
-                type="button"
-                className={`${menu.item} ${styles.getMore}`}
-                onClick={() => {
-                  setOpen(false);
-                  navigate({ name: "providers" });
-                }}
-              >
-                <Plus size={14} aria-hidden />
-                Providers
-              </button>
-            </div>
-          ) : (
-            draft.footer(() => changeOpen(false))
-          )}
+          {draft?.footer(() => changeOpen(false))}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

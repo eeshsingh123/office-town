@@ -100,15 +100,18 @@ function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
             footer: (close) => (
               <div className={`${chip.menuRow} ${chip.menuFoot} ${styles.applyRow}`}>
                 {departmentId === undefined ? null : (
-                  <Segments
-                    label="Change it for"
-                    value={wholeDepartment ? "all" : "one"}
-                    options={[
-                      { value: "all", label: "Whole department" },
-                      { value: "one", label: `Just ${agent.name}` },
-                    ]}
-                    onChange={(next) => setWholeDepartment(next === "all")}
-                  />
+                  <div className={styles.applyScope}>
+                    <span className={chip.rowLabel}>Change it for</span>
+                    <Segments
+                      label="Change it for"
+                      value={wholeDepartment ? "all" : "one"}
+                      options={[
+                        { value: "all", label: "Whole department" },
+                        { value: "one", label: `Just ${agent.name}` },
+                      ]}
+                      onChange={(next) => setWholeDepartment(next === "all")}
+                    />
+                  </div>
                 )}
                 <Button
                   variant="primary"

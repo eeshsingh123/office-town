@@ -21,6 +21,8 @@ const MORE_VALUE = "~more";
 // Enough for the current models of a harness; older ones wait behind "more".
 const SHOWN = 8;
 
+const rowClass = (picked: boolean) => `${menu.item} ${styles.model} ${picked ? styles.picked : ""}`;
+
 export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -40,7 +42,7 @@ export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
   const defaultName = modelName(models, undefined);
 
   return (
-    <Command label="Models" loop>
+    <Command label="Models" loop defaultValue={value ?? DEFAULT_VALUE}>
       <div className={styles.search}>
         <Search size={14} aria-hidden />
         <Command.Input value={search} onValueChange={setSearch} placeholder="Search models" />
@@ -50,10 +52,10 @@ export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
         {search === "" ? (
           <Command.Item
             value={DEFAULT_VALUE}
-            className={menu.item}
+            className={rowClass(value === undefined)}
             onSelect={() => onChoose(undefined)}
           >
-            <span className={menu.itemText}>
+            <span className={`${menu.itemText} ${styles.modelName}`}>
               {defaultName === undefined ? "Default model" : `Default · ${defaultName}`}
             </span>
             {value === undefined ? <Check size={14} className={menu.check} /> : null}
@@ -66,11 +68,11 @@ export function ModelList({ models, value, recent, onChoose }: ModelListProps) {
                 key={model.id}
                 value={model.id}
                 keywords={[model.name, model.id, group.heading]}
-                className={menu.item}
+                className={rowClass(model.id === value)}
                 onSelect={() => onChoose(model.id)}
               >
                 <span className={menu.itemText}>
-                  {model.name}
+                  <span className={styles.modelName}>{model.name}</span>
                   {model.description === undefined ? null : (
                     <span className={menu.itemDescription}>{model.description}</span>
                   )}

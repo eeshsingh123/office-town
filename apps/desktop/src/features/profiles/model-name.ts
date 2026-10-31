@@ -67,8 +67,27 @@ export function effortsOf(
   return [...new Set(thinking.flatMap((model) => model.efforts))].filter(shared);
 }
 
+const EFFORT_LABELS: Record<string, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+};
+
+// The harness's own word when it has one we don't know.
+export const effortLabel = (effort: string) =>
+  EFFORT_LABELS[effort] ?? `${effort[0]?.toUpperCase() ?? ""}${effort.slice(1)}`;
+
 export function effortName(effort: string): string {
-  return `${effort[0]?.toUpperCase() ?? ""}${effort.slice(1)} effort`;
+  return `${effortLabel(effort)} effort`;
+}
+
+// Free comes first, so an AI app with free models reads as one you can use at no cost.
+export function accessNote(models: readonly HarnessModel[] | undefined): string | undefined {
+  if (models?.some((model) => model.access === "free")) return "Free models";
+  if (models?.some((model) => model.access === "plan")) return "In your plan";
+  return undefined;
 }
 
 // Such as "Sonnet 5.5 · Claude Code · Medium effort".
