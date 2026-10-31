@@ -9,6 +9,7 @@ import { ModelPicker } from "../new-task/ModelPicker.tsx";
 import { useOfferedHarnesses } from "../providers/providers.ts";
 import { fullest, percent, roomiest, sameEnvironment } from "../usage/limits.ts";
 import { useCatalog } from "./model-line.ts";
+import { effortsOf } from "./model-name.ts";
 
 export type ChipSettings = RoleSettings;
 
@@ -86,8 +87,7 @@ export function SettingsChips({
   const environments = useLoaded("environments", api.listEnvironments);
   const catalog = useCatalog(description, value.environment);
   const models = catalog.models;
-  const model = models?.find((known) => known.id === value.model);
-  const efforts = description?.capabilities.effort ? (model?.efforts ?? []) : [];
+  const efforts = description?.capabilities.effort ? effortsOf(models, value.model) : [];
   const environmentChoices = (environments.value ?? [value.environment]).map((environment) => ({
     value: environmentKey(environment),
     label: environmentName(environment),
@@ -123,7 +123,7 @@ export function SettingsChips({
           value={value.model}
           recent={recentModels}
           onChange={(next) => {
-            const nextEfforts = models?.find((known) => known.id === next)?.efforts ?? [];
+            const nextEfforts = effortsOf(models, next);
             const { model: _, effort, ...rest } = value;
             onChange({
               ...rest,

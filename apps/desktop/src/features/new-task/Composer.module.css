@@ -212,11 +212,26 @@
   max-width: calc(100vw - 32px);
 }
 
+/* The list gives way in a short window, so Thinking is never cut off. */
 .modelMenu {
+  display: flex;
+  flex-direction: column;
   width: 380px;
   max-width: calc(100vw - 32px);
+  max-height: var(--radix-popover-content-available-height);
   padding: 0;
   overflow: hidden;
+}
+
+.modelMenu > :not([cmdk-root]) {
+  flex: none;
+}
+
+.modelMenu > [cmdk-root] {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 120px;
 }
 
 .menuHeading {

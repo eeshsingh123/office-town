@@ -49,6 +49,24 @@ export function modelName(
   return readableId(id);
 }
 
+// With nothing picked, an AI app that does not say what its default is (OpenCode) offers the values
+// most of its models share; a value its default lacks is ignored at the start, with a note.
+export function effortsOf(
+  models: readonly HarnessModel[] | undefined,
+  id: string | undefined,
+): readonly string[] {
+  const list = models ?? [];
+  const picked = id ?? DEFAULT_MODEL;
+  const found =
+    list.find((model) => model.id === picked) ?? list.find((model) => model.resolvedId === picked);
+  if (found !== undefined) return found.efforts;
+  if (id !== undefined) return [];
+  const thinking = list.filter((model) => model.efforts.length > 0);
+  const shared = (effort: string) =>
+    thinking.filter((model) => model.efforts.includes(effort)).length * 2 >= thinking.length;
+  return [...new Set(thinking.flatMap((model) => model.efforts))].filter(shared);
+}
+
 export function effortName(effort: string): string {
   return `${effort[0]?.toUpperCase() ?? ""}${effort.slice(1)} effort`;
 }

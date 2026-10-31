@@ -9,7 +9,7 @@ import { environmentName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { useCatalog } from "../profiles/model-line.ts";
-import { DEFAULT_MODEL, modelName } from "../profiles/model-name.ts";
+import { effortsOf, modelName } from "../profiles/model-name.ts";
 import { useOfferedHarnesses } from "../providers/providers.ts";
 import styles from "./Composer.module.css";
 import { ModelList } from "./ModelList.tsx";
@@ -53,26 +53,21 @@ export function ModelChip({
   const { models, error } = useCatalog(description, value.environment);
   const [open, setOpen] = useState(false);
   const listsModels = description?.capabilities.modelList === true;
-  const picked = value.model ?? DEFAULT_MODEL;
-  // A running session reports the full id, which may be what was saved.
-  const current =
-    models?.find((known) => known.id === picked) ??
-    models?.find((known) => known.resolvedId === picked);
-  const efforts = description?.capabilities.effort ? (current?.efforts ?? []) : [];
+  const efforts = description?.capabilities.effort ? effortsOf(models, value.model) : [];
   const name = listsModels
     ? (modelName(models, value.model) ?? "Default model")
     : (description?.name ?? value.harness);
 
   const chooseModel = (model: string | undefined) => {
-    const nextEfforts =
-      models?.find((known) => known.id === (model ?? DEFAULT_MODEL))?.efforts ?? [];
+    const nextEfforts = description?.capabilities.effort ? effortsOf(models, model) : [];
     const { model: _, effort, ...rest } = value;
     onChange({
       ...rest,
       ...(model === undefined ? {} : { model }),
       ...(effort !== undefined && nextEfforts.includes(effort) ? { effort } : {}),
     });
-    setOpen(false);
+    // Open while its thinking is still to pick, so one visit sets both.
+    if (nextEfforts.length === 0) setOpen(false);
   };
   const chooseEffort = (effort: string | undefined) => {
     const { effort: _, ...rest } = value;
