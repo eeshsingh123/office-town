@@ -1,0 +1,19 @@
+.note {
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.action {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.action:hover {
+  color: var(--text);
+}

@@ -419,6 +419,17 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The composer saves an AI app's picks when the user leaves that app, not only when a task starts, so coming back finds them (owner). Forms keep D-80's rule: an AI app change drops the model.
 - With nothing picked, a new OpenCode session runs on DeepSeek V4.1 Flash Free at max thinking (owner), because OpenCode does not say what its own default is. It lives in the adapter (`preferred`, shown as a `default` catalog row), so every agent gets it. A resumed session stays on its model, and if OpenCode stops listing the model, its own default applies again. It overrides a `model` set in the user's OpenCode config, which ACP cannot tell apart from OpenCode's own choice.
 
+### D-81 What is typed outlives the screen and the app — accepted (2026-11-01)
+
+- A screen is destroyed when it is left, so forms keep what the user changed in `store/drafts.ts` through `useDraft`, a drop-in for `useState`. Saved in the browser's storage, so a restart or a crash loses nothing (owner). Finished forms clear theirs; one untouched for 30 days goes.
+- Not React's `Activity` (one file, keeps hidden screens alive): it would lose everything on a restart, miss dialogs and the agent panel, and keep a hidden team that a later Save would write back.
+- A draft is written only once the user changes something, so an edit form with none still opens on the saved record.
+- Saving a team replaces it, so a kept team goes through `teamSince`: whoever joined since stays and whoever left does not come back. Its `roster` is saved beside it to tell the two apart.
+- Bypass never comes back from a draft without its warning: it reads as Ask me first, or the department's own level.
+- A draft from before its form changed is dropped by `fits`, so it cannot break the form. Its shape lists required fields only, as an optional one is often missing.
+- Throwing a draft away is always offered (owner): Start over and Discard, confirmed, on screens; Cancel in a dialog, where Esc or a click outside keeps it. One new department at a time, which every New department button resumes. Something handed over wins: a prompt or target fills the task box, and a new description goes into the existing department draft as a change.
+- A drafter run outlives its screen and shows as running on return; going back never runs a handed-over description again. Not kept: pasted keys (never written to disk), so a connector's test goes too; searches; account sign-in, which is tied to a live login; spots marked on an output; setup and renaming an agent inline.
+
 ## Done
 
 All accepted and built.

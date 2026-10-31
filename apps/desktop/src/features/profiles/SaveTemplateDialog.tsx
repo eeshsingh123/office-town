@@ -2,6 +2,7 @@ import type { AgentColour, AgentSettings } from "@office-town/contract";
 import { Dialog } from "radix-ui";
 import { type FormEvent, useState } from "react";
 import { navigate } from "../../store/app-store.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { saveTemplate } from "../../store/templates.ts";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
@@ -26,10 +27,11 @@ interface SaveTemplateDialogProps {
 }
 
 export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateDialogProps) {
-  const [name, setName] = useState(source.name);
+  const { who } = source;
+  const draft = `save-template.${who}`;
+  const [name, setName] = useDraft(draft, source.name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
-  const { who } = source;
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
@@ -42,6 +44,7 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
         colour: source.colour,
         settings: source.settings,
       });
+      clearDrafts(draft);
       onOpenChange(false);
       showToast(`Saved “${saved.name}” as a template.`, {
         label: "See templates",
@@ -92,7 +95,9 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
             )}
             <div className={form.actions}>
               <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
+                <Button variant="ghost" onClick={() => clearDrafts(draft)}>
+                  Cancel
+                </Button>
               </Dialog.Close>
               <Button type="submit" variant="primary" disabled={saving || name.trim() === ""}>
                 Save template

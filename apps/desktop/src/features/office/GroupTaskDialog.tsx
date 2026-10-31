@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { track } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -57,7 +58,7 @@ export function GroupTaskDialog({ members, onOpenChange }: GroupTaskDialogProps)
       ? undefined
       : departments[agent.record.departmentId]?.workspaceId) ?? agent?.task.workspaceId;
   const [workspaceId, setWorkspaceId] = useState(() => leadWorkspace(lead));
-  const [goal, setGoal] = useState("");
+  const [goal, setGoal] = useDraft("group-task", "");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string>();
   const ready =
@@ -82,6 +83,7 @@ export function GroupTaskDialog({ members, onOpenChange }: GroupTaskDialogProps)
         },
       });
       await track(session.taskId);
+      setGoal("");
       onOpenChange(false);
       navigate({ name: "task", taskId: session.taskId });
     } catch (failure) {
@@ -131,7 +133,9 @@ export function GroupTaskDialog({ members, onOpenChange }: GroupTaskDialogProps)
             )}
             <div className={dialog.actions}>
               <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
+                <Button variant="ghost" onClick={() => setGoal("")}>
+                  Cancel
+                </Button>
               </Dialog.Close>
               <Button type="submit" variant="primary" disabled={!ready || starting}>
                 {starting ? "Starting…" : "Start task"}

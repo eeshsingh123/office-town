@@ -7,6 +7,7 @@ import type {
 import { FolderGit2, Plus, Sparkles, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { type FormEvent, useState } from "react";
+import { clearDrafts, shaped, useDraft } from "../../store/drafts.ts";
 import { folderName, saveWorkspace } from "../../store/workspaces.ts";
 import { Button } from "../../ui/Button.tsx";
 import { FolderField } from "../../ui/FolderField.tsx";
@@ -68,10 +69,18 @@ export function AccessChoice({
 }
 
 export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: WorkspaceSheetProps) {
-  const [kind, setKind] = useState<WorkspaceKind>(workspace?.kind ?? "folders");
-  const [main, setMain] = useState<string | undefined>(workspace?.folders[0]?.path);
-  const [extras, setExtras] = useState<Extra[]>(workspace?.folders.slice(1) ?? []);
-  const [name, setName] = useState(workspace?.name ?? "");
+  const draft = `workspace.${workspace?.id ?? "new"}`;
+  const [kind, setKind] = useDraft<WorkspaceKind>(`${draft}.kind`, workspace?.kind ?? "folders");
+  const [main, setMain] = useDraft<string | undefined>(
+    `${draft}.main`,
+    workspace?.folders[0]?.path,
+  );
+  const [extras, setExtras] = useDraft<Extra[]>(
+    `${draft}.extras`,
+    workspace?.folders.slice(1) ?? [],
+    shaped([]),
+  );
+  const [name, setName] = useDraft(`${draft}.name`, workspace?.name ?? "");
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   // Named after its main folder until the user types a name.
@@ -92,6 +101,7 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
         kind,
         folders: [{ path: main, access: "edit" }, ...chosen],
       });
+      clearDrafts(draft);
       onSaved?.(saved);
       onOpenChange(false);
     } catch (failure) {
@@ -218,7 +228,9 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
             )}
             <div className={styles.sheetActions}>
               <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
+                <Button variant="ghost" onClick={() => clearDrafts(draft)}>
+                  Cancel
+                </Button>
               </Dialog.Close>
               <Button type="submit" variant="primary" disabled={!ready || saving}>
                 {saving ? "Saving…" : workspace === undefined ? "Create workspace" : "Save"}

@@ -287,6 +287,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </div>
               <div className={`${styles.traceWidth} ${styles.dock}`}>
                 <MessageBox
+                  key={shown.id}
                   agent={shown}
                   actions={
                     shown.record.guest ? undefined : (

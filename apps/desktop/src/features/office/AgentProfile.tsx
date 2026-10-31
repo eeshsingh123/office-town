@@ -4,9 +4,11 @@ import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { agentOf, stateOf } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { clearDrafts, SETTINGS_SHAPE, shaped, useDraft } from "../../store/drafts.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
+import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import { LineField } from "../../ui/LineField.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
@@ -26,6 +28,8 @@ interface Draft {
   autonomy: Autonomy | undefined;
   settings: ChipSettings;
 }
+
+const DRAFT_SHAPE = { name: "", colour: "", job: "", notes: "", settings: SETTINGS_SHAPE };
 
 function draftOf(agent: AgentRecord): Draft {
   const { instructions = "", autonomy, ...settings } = agent.settings;
@@ -70,7 +74,8 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
   });
   const you = useYou();
   const leads = department?.leadAgentId === agent.id;
-  const [draft, setDraft] = useState(() => draftOf(agent));
+  const scope = `agent.${agent.id}`;
+  const [draft, setDraft] = useDraft<Draft>(scope, () => draftOf(agent), shaped(DRAFT_SHAPE));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -88,6 +93,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         purpose: draft.job,
         settings: settingsOf(draft),
       });
+      clearDrafts(scope);
       showToast("Saved. Changes apply from the next task.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
@@ -232,6 +238,14 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         </p>
       )}
       <div className={`${form.actions} ${form.sticky}`}>
+        <DraftNote
+          scope={scope}
+          editing
+          onDiscard={() => {
+            setDraft(draftOf(agent));
+            clearDrafts(scope);
+          }}
+        />
         <Button onClick={() => setSavingTemplate(true)}>Save as template</Button>
         <Button variant="primary" disabled={saving} onClick={() => void save()}>
           {saving ? "Saving…" : "Save changes"}

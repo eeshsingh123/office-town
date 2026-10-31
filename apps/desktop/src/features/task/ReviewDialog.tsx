@@ -6,6 +6,7 @@ import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { approvedList, keepChecks, useChecks } from "../../store/checks.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { track } from "../../store/live.ts";
 import { useTemplates } from "../../store/templates.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -73,7 +74,7 @@ function ListPreview({ agent }: { agent: Agent }) {
 export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDialogProps) {
   const harnesses = useApp((state) => state.harnesses);
   const templates = useTemplates() ?? [];
-  const [ask, setAsk] = useState("");
+  const [ask, setAsk] = useDraft(`review.${agent.id}`, "");
   const [reviewer, setReviewer] = useState(SAME);
   const [error, setError] = useState<string>();
   const [starting, setStarting] = useState(false);
@@ -165,7 +166,9 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
             )}
             <div className={dialog.actions}>
               <Dialog.Close asChild>
-                <Button variant="ghost">Cancel</Button>
+                <Button variant="ghost" onClick={() => setAsk("")}>
+                  Cancel
+                </Button>
               </Dialog.Close>
               <Button type="submit" variant="primary" disabled={starting}>
                 Send for review

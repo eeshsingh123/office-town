@@ -3,6 +3,7 @@ import { ListChecks, Plus, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useSessionAgent } from "../../store/agents.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskTitle } from "../../ui/format.ts";
@@ -32,7 +33,8 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
   const { requestId } = event.payload;
   const checker = useSessionAgent(event.sessionId);
   const minutes = useMinutesSince(event.timestamp);
-  const [items, setItems] = useState(event.payload.items);
+  const draft = `request.${event.id}`;
+  const [items, setItems] = useDraft<CheckItem[]>(`${draft}.items`, event.payload.items);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -59,6 +61,7 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
             }
           : { outcome: "declined" },
       });
+      clearDrafts(draft);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
       setSending(false);

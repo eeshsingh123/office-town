@@ -2,6 +2,7 @@ import type { PermissionOption, Question, UserRequestEvent } from "@office-town/
 import { CircleHelp, ShieldCheck } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChecklistCard } from "../checks/ChecklistCard.tsx";
@@ -144,8 +145,9 @@ function QuestionField({
 function QuestionBody({ event, context }: { event: QuestionEvent; context: ReactNode }) {
   const { sending, error, run } = useAnswer();
   const { requestId, questions } = event.payload;
-  const [picked, setPicked] = useState<Record<string, string[]>>({});
-  const [own, setOwn] = useState<Record<string, string>>({});
+  const draft = `request.${event.id}`;
+  const [picked, setPicked] = useDraft<Record<string, string[]>>(`${draft}.picked`, {});
+  const [own, setOwn] = useDraft<Record<string, string>>(`${draft}.own`, {});
   // A pick of "your own answer" counts once its words are typed.
   const answers = questions.map((question) => ({
     questionId: question.questionId,
@@ -157,13 +159,14 @@ function QuestionBody({ event, context }: { event: QuestionEvent; context: React
   const submit = (submitted: FormEvent) => {
     submitted.preventDefault();
     if (!complete) return;
-    void run(() =>
-      api.command(event.sessionId, {
+    void run(async () => {
+      await api.command(event.sessionId, {
         type: "answerQuestion",
         requestId,
         answers,
-      }),
-    );
+      });
+      clearDrafts(draft);
+    });
   };
   return (
     <form className={styles.body} onSubmit={submit}>

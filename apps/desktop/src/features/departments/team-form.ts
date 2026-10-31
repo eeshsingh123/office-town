@@ -9,6 +9,7 @@ import {
   type Team,
   type TeamRole,
 } from "@office-town/contract";
+import { fits, SETTINGS_SHAPE } from "../../store/drafts.ts";
 
 // One person on the team while it is edited; the lead is one too.
 export interface PersonForm {
@@ -41,8 +42,8 @@ export interface DepartmentForm extends TeamForm {
   autonomy: Autonomy;
 }
 
-// Keys only need to be unique on one screen.
-let lastKey = 0;
+// Unique on one screen, where a kept draft can bring back keys from an earlier launch.
+let lastKey = Date.now();
 export const nextKey = () => {
   lastKey += 1;
   return lastKey;
@@ -92,6 +93,35 @@ export function blankDepartment(settings: RoleSettings): DepartmentForm {
     members: [],
   };
 }
+
+const PERSON_SHAPE = {
+  key: 0,
+  role: "",
+  purpose: "",
+  instructions: "",
+  settings: SETTINGS_SHAPE,
+};
+const TEAM_SHAPE = { lead: PERSON_SHAPE, members: [PERSON_SHAPE] };
+const DEPARTMENT_SHAPE = {
+  ...TEAM_SHAPE,
+  key: 0,
+  name: "",
+  purpose: "",
+  rules: "",
+  workspaceIds: [],
+  autonomy: "",
+};
+
+// Bypass turns every guard off, so a kept draft never brings it back without its warning.
+export const keptLevel = (level: Autonomy): Autonomy => (level === "bypass" ? "supervised" : level);
+
+export const keptTeam = (saved: unknown) =>
+  fits(saved, TEAM_SHAPE) ? (saved as TeamForm) : undefined;
+
+export const keptDepartments = (saved: unknown) =>
+  fits(saved, [DEPARTMENT_SHAPE])
+    ? (saved as DepartmentForm[]).map((one) => ({ ...one, autonomy: keptLevel(one.autonomy) }))
+    : undefined;
 
 const personOfDraft = (person: DraftPerson): PersonForm => ({
   key: nextKey(),
@@ -173,6 +203,30 @@ export function formOfDepartment(
       .filter((agent) => agent.departmentId === department.id && agent.id !== lead?.id)
       .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))
       .map(personOfAgent),
+  };
+}
+
+export const rosterOf = ({ members }: TeamForm) => members.flatMap((one) => one.agentId ?? []);
+
+// Unsaved edits, caught up with the team as it is now: saving replaces the whole team, so someone
+// who joined since `roster` was taken must stay, and someone who left must not come back.
+export function teamSince(
+  saved: unknown,
+  roster: unknown,
+  now: DepartmentForm,
+): DepartmentForm | undefined {
+  if (!fits(saved, DEPARTMENT_SHAPE) || !fits(roster, [""])) return undefined;
+  const draft = saved as DepartmentForm;
+  const known = roster as string[];
+  const current = rosterOf(now);
+  return {
+    ...draft,
+    autonomy: draft.autonomy === "bypass" ? now.autonomy : draft.autonomy,
+    lead: draft.lead.agentId === now.lead.agentId ? draft.lead : now.lead,
+    members: [
+      ...draft.members.filter((one) => one.agentId === undefined || current.includes(one.agentId)),
+      ...now.members.filter((one) => one.agentId !== undefined && !known.includes(one.agentId)),
+    ],
   };
 }
 

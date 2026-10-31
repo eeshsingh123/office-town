@@ -3,11 +3,13 @@ import { CircleHelp } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { clearDrafts, ignoreDraft, readDraft, useDraft } from "../../store/drafts.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
+import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import { LineField } from "../../ui/LineField.tsx";
@@ -26,22 +28,35 @@ import {
   formOfDepartment,
   formOfDraft,
   missingIn,
+  rosterOf,
   teamOf,
+  teamSince,
 } from "./team-form.ts";
 
-// The team editor opens on the member the view names, or a new one.
+// The team editor opens on what was left unsaved, on the member the view names, or a new one.
 function startingForm(
   department: DepartmentRecord,
   agents: ReturnType<typeof useApp.getState>["agents"],
   member: string | undefined,
+  draft: string,
 ) {
-  const loaded = formOfDepartment(department, agents);
+  const saved = formOfDepartment(department, agents);
+  const roster = rosterOf(saved);
+  const loaded =
+    teamSince(readDraft(`${draft}.team`), readDraft(`${draft}.roster`), saved) ?? saved;
   if (member !== "new") {
     const picked = loaded.members.find((one) => one.agentId === member);
-    return { loaded, selected: picked?.key ?? loaded.lead.key };
+    return { loaded, roster, selected: picked?.key ?? loaded.lead.key };
   }
+  // Opening "new" again goes back to the one left blank, not a second one.
+  const blank = loaded.members.find((one) => one.agentId === undefined && one.role.trim() === "");
+  if (blank !== undefined) return { loaded, roster, selected: blank.key };
   const added = blankPerson(loaded.lead.settings);
-  return { loaded: { ...loaded, members: [...loaded.members, added] }, selected: added.key };
+  return {
+    loaded: { ...loaded, members: [...loaded.members, added] },
+    roster,
+    selected: added.key,
+  };
 }
 
 function RemoveDepartment({ department }: { department: DepartmentRecord }) {
@@ -111,14 +126,24 @@ function Settings({
   member: string | undefined;
 }) {
   const agents = useApp((state) => state.agents);
-  const [start] = useState(() => startingForm(department, agents, member));
-  const [team, setTeam] = useState<DepartmentForm>(start.loaded);
+  const draft = `department.${department.id}`;
+  const [start] = useState(() => startingForm(department, agents, member, draft));
+  const [team, setTeam] = useDraft<DepartmentForm>(`${draft}.team`, start.loaded, ignoreDraft);
+  const [, setRoster] = useDraft(`${draft}.roster`, start.roster, ignoreDraft);
   const [selected, setSelected] = useState(start.selected);
-  const [branchPerWorker, setBranchPerWorker] = useState(department.branchPerWorker);
-  const [codeFlow, setCodeFlow] = useState(department.codeFlow);
+  const [branchPerWorker, setBranchPerWorker] = useDraft(
+    `${draft}.branchPerWorker`,
+    department.branchPerWorker,
+  );
+  const [codeFlow, setCodeFlow] = useDraft(`${draft}.codeFlow`, department.codeFlow);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ error: boolean; text: string }>();
-  const change = (next: Partial<DepartmentForm>) => setTeam({ ...team, ...next });
+  // The roster goes with the team, to tell who joins or leaves later from a change made here.
+  const keepTeam = (next: DepartmentForm) => {
+    setTeam(next);
+    setRoster(start.roster);
+  };
+  const change = (next: Partial<DepartmentForm>) => keepTeam({ ...team, ...next });
   const gate = useBypassGate(team.autonomy, (autonomy) => change({ autonomy }), department.name);
   const missing = missingIn(team);
 
@@ -129,10 +154,10 @@ function Settings({
       departmentId: department.id,
       current: [draftOfForm(team)],
     });
-    const [draft] = reply.departments;
-    if (draft !== undefined) {
-      const next = formOfDraft({ ...draft, departmentId: department.id }, team);
-      setTeam(next);
+    const [redrafted] = reply.departments;
+    if (redrafted !== undefined) {
+      const next = formOfDraft({ ...redrafted, departmentId: department.id }, team);
+      keepTeam(next);
       setSelected(next.lead.key);
       setMessage({ error: false, text: "Draft applied. Check the changes, then Save." });
     }
@@ -155,6 +180,7 @@ function Settings({
         purpose: team.purpose.trim(),
       });
       await api.changeTeam(department.id, teamOf(team));
+      clearDrafts(draft);
       setMessage({ error: false, text: "Saved. Changes apply from the next task." });
     } catch (failure) {
       setMessage({
@@ -171,6 +197,7 @@ function Settings({
       <section className={page.section}>
         <h2 className={page.sectionTitle}>Change with words</h2>
         <DraftBox
+          name={`${draft}.box`}
           label="Describe a change to the team"
           placeholder=""
           action="Update draft"
@@ -314,6 +341,7 @@ function Settings({
           </p>
         )}
         {missing === undefined ? null : <span className={form.hint}>{missing}</span>}
+        <DraftNote scope={draft} editing />
         <Button type="submit" variant="primary" disabled={saving || missing !== undefined}>
           {saving ? "Saving…" : "Save"}
         </Button>

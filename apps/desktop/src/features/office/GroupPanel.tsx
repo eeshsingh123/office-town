@@ -2,6 +2,7 @@ import { ArrowUp, Pin, PinOff, Users } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { select, useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -40,7 +41,7 @@ function Summary({ members }: { members: FloorAgent[] }) {
 
 // No "approve all": each ask is read and answered on its own.
 export function GroupPanel({ members }: { members: FloorAgent[] }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useDraft("message-all", "");
   const [error, setError] = useState<string>();
   const [giving, setGiving] = useState(false);
   const chiefId = useApp((state) => state.chiefId);

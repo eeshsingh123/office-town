@@ -33,6 +33,7 @@ import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
 import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
 import { YouView } from "./features/you/YouView.tsx";
 import { navigate, useApp, type View } from "./store/app-store.ts";
+import { useDraftRound } from "./store/drafts.ts";
 import { Toaster } from "./ui/Toast.tsx";
 
 function Main({ view }: { view: View }) {
@@ -112,6 +113,7 @@ export function App() {
     (state) => state.onboarding === undefined && state.connection !== "offline",
   );
   const tutorial = useTutorial((state) => state.run !== undefined);
+  const draftRound = useDraftRound();
   useDisplay();
   useWaitingKeys();
   useHistoryKeys();
@@ -142,7 +144,7 @@ export function App() {
         <main className={styles.main}>
           <HistoryRow />
           <div className={styles.view}>
-            <Main view={view} />
+            <Main key={draftRound} view={view} />
           </div>
           <PinnedStrip />
         </main>

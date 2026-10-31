@@ -3,6 +3,7 @@ import { CircleHelp, Settings, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useDraft } from "../../store/drafts.ts";
 import { track } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -27,7 +28,7 @@ const GOAL_STATE: Record<TaskState, string> = {
 };
 
 function GoalBox({ name }: { name: string }) {
-  const [goal, setGoal] = useState("");
+  const [goal, setGoal] = useDraft("chief-goal", "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const give = async (event: FormEvent) => {
