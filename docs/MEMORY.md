@@ -16,6 +16,7 @@ Last updated: 2026-10-31
 
 Worth a click when touched.
 
+- Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
 - Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.
 - M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers, a resumed Muse session setting its approval mode and model again.
 - Packaging (D-75): the Linux AppImage (built only in CI), an update from one real GitHub beta to the next (`v0.1.0-beta.1` is the first; the update was tested with a local feed), Restart to update with agents open, an installed app's WSL task from the UI (tested on the packaged core), the setup Install progress line live (the API was run end to end with OpenCode through npm), the install folders on Linux.

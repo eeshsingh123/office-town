@@ -49,6 +49,7 @@ Each line is what later work builds on; the why lives in DECISIONS.md.
 - **M10 More AI apps (D-76).** Codex and Muse Code with their own translators, GitHub Copilot CLI and Cursor CLI on the ACP translator; adapters declare sign-in, version, install and account folder. A Providers page (status, install, sign-in, accounts, where it runs) shared with setup, Usage and model pickers; an estimate at API prices where an app shares no plan usage. Out: Pi, Hermes, OpenClaw, Google CLIs, WSL installs.
 
 - **After M10: teams recover from failures (D-77).** Messages reach agents during a turn, one automatic retry, the real error to the lead, `change_worker`, model and effort on the run card.
+- **After M10: a lead asks before changing direction (D-78).** `propose_change`, a lead-only question in Needs you at every level.
 
 ## Next
 

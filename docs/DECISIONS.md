@@ -390,6 +390,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - An agent closed for being idle after a failed turn ends as failed, not exited, so it never reads done.
 - The run card shows and changes model and effort, on the agent, so it holds in the department. Only those two: an agent at work stays on its AI app and machine. A resume takes the agent's current model and effort. An agent between turns closes so its next message resumes on them; one at work is never cut off and shows "From its next start". The lead hears.
 
+### D-78 A lead asks before changing direction — accepted (2026-10-31)
+
+- Owner: on a real goal the lead dropped the actual game for a remake after 44 minutes of failed tries, and never called `ask_user`. The brief only said to ask when it "cannot go on", and it could.
+- `propose_change` is a lead-only team tool. It names what was asked, what was found, the change and what happens on a no. The brief lists when to call it (dropping something the goal names, a different thing from what was asked, less than the goal) and when not to (anything that still delivers the goal), so the rule does not slow normal work. Trigger test: would the user say that is not what they asked for?
+- It is a question, not an approval: "Approve all" skips questions, and the user can answer in their own words. It goes to the user at every level, unlike `change_worker`, since a change of goal is the user's at any level.
+- The core cannot detect a change of direction, so this rests on the lead calling the tool. A named tool in its list, the brief and a live run with a free model (it asked and obeyed a no) are the evidence. If leads skip it in practice, the next step is a cheap watcher on the lead's messages, kept out for now for its cost (D-72).
+
 ## Done
 
 All accepted and built.
