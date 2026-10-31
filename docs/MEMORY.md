@@ -13,11 +13,13 @@ Last updated: 2026-11-01
 - Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
 
 - Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. The two-pane picker (D-80) is on the same PR.
+- Form drafts (D-81): what is typed outlives the screen and the app. New forms use `useDraft` in place of `useState`.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-81: a real drafter run (the reply was stubbed), drafts in the packaged app (`pnpm dev:web` only), the request cards with a live request, Add your own and the workspace sheet, reopening after a reload with attachments (a remount was run), Start over while a draft is running (a late reply fills the form again).
 - D-80: OpenCode's preferred default in a real task from the app (only `dev:run` was run), switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in), the saved lists in the packaged app (only `pnpm dev:web` was run).
 - D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
 - Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
