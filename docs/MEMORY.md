@@ -86,6 +86,7 @@ Worth a click when touched.
 - `gh` is at `C:\Program Files\GitHub CLI\gh.exe`; call it by full path if it is not on PATH.
 - Installed, not signed in (2026-10-25): codex-cli 0.164.0, GitHub Copilot CLI 1.0.103 (npm), Cursor CLI (`%LOCALAPPDATA%\cursor-agent`), Muse Code 1.4.13 (`%LOCALAPPDATA%\Programs\muse`). Git Bash does not see the last two; PowerShell does.
 - Missing: Node inside WSL Ubuntu.
+- Explorer remembers a taskbar icon per app ID and does not re-read the window's. The dev app showed Electron's until its ID in `electron/main.ts` changed (2026-11-02).
 - The app's Terminal panel tab does not reach a prompt, so a real Ctrl+C cannot be sent from here.
 - The browser pane does not draw while the Claude window is covered; `out/capture` is the fallback.
 - Defender flags PowerShell running `irm … | iex` from a hidden process (`Commando.A!ml`) and refuses the start (`spawn EPERM`). Never run a vendor's one-line installer hidden.
