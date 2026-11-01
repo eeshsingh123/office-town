@@ -215,6 +215,12 @@ Tests pass.`,
     ).toEqual(["exited", "exited"]);
     expect(state(first.task.taskId)).toBe("ended");
     expect(state(second.taskId)).toBe("working");
+    // Everyone starts it in a new conversation, the lead and a worker it hands work to.
+    const newLead = core.sessions.at(-1);
+    await core.callTool(newLead, "delegate", { agent: first.writer, brief: "Write again" });
+    expect(
+      core.store.listSessions(second.taskId).map(({ options }) => options.resumeSessionId),
+    ).toEqual([undefined, undefined]);
     await core.close();
     core = await startCore(join(directory, "data"));
     expect(state(second.taskId)).toBe("idle");
@@ -430,7 +436,7 @@ Testing again.`),
   });
 
   it("checks finished work in a temporary worktree from the user's approved list, wants steps for a fail, and leaves nothing behind", async () => {
-    const { task } = await teamAtWork();
+    const { task, department } = await teamAtWork();
     const project = join(directory, "bakery");
     const git = (...args: string[]) =>
       execFileSync("git", ["-C", project, "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
@@ -457,6 +463,11 @@ Testing again.`),
     });
     expect(started.json).toMatchObject({ status: "drafting", sandbox: "worktree", round: 1 });
     const checker = core.sessions.at(-1);
+    // Everyone is done, but a check holds the department, even between the checker's turns.
+    const newGoal = { goal: "Next goal", team: { departmentId: department.id } };
+    checker?.emit({ type: "turn.started", payload: { turnId: "1" } });
+    checker?.emit({ type: "turn.ended", payload: { turnId: "1", outcome: "completed" } });
+    expect((await core.call("POST", "/tasks/team", newGoal)).status).toBe(409);
     const work = core.store.getSession(started.json.checkerSessionId)?.options.workspacePath ?? "";
     // Uncommitted and new files reach the checker; the owner's folder is never touched.
     expect(readFileSync(join(work, "menu.html"), "utf8")).toBe("bread and cake");
@@ -505,5 +516,12 @@ Testing again.`),
     });
     expect(git("worktree", "list", "--porcelain").match(/^worktree /gm)).toHaveLength(1);
     expect(readFileSync(join(project, "menu.html"), "utf8")).toBe("bread and cake");
+
+    // The check is over, so the department is free; old work is not checked during new work.
+    expect((await core.call("POST", "/tasks/team", newGoal)).status).toBe(201);
+    const again = await core.call("POST", `/tasks/${task.taskId}/checks`, {
+      reviewer: { settings: claude },
+    });
+    expect(again.status).toBe(409);
   });
 });

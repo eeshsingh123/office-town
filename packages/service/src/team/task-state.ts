@@ -2,6 +2,7 @@ import type { SessionEvent, SessionRecord, TaskRecord, TaskState } from "@office
 import { isBlocked } from "../chief/plan-graph.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
+import { OPEN_CHECK } from "./checks.ts";
 
 const STATE_EVENTS = new Set<SessionEvent["type"]>([
   "session.started",
@@ -39,7 +40,11 @@ const piecesOut: WorkOut = (store, taskId) => {
   );
 };
 
-const workOutChecks: WorkOut[] = [delegationsOut, piecesOut];
+// Its department waits too, as a new task would change the work under the checker (D-84).
+const checkOpen: WorkOut = (store, taskId) =>
+  store.listChecks(taskId).some(({ status }) => OPEN_CHECK.has(status));
+
+const workOutChecks: WorkOut[] = [delegationsOut, piecesOut, checkOpen];
 
 // The store's turn record covers open and cut-off sessions, and is current whichever listener runs first.
 function isWorking(store: Store, session: SessionRecord): boolean {
@@ -85,6 +90,7 @@ export class TaskStates {
       if (change.type === "task") this.#update(change.task.id);
       if (change.type === "delegation") this.#update(change.delegation.taskId);
       if (change.type === "piece") this.#update(change.piece.taskId);
+      if (change.type === "check") this.#update(change.check.taskId);
     });
   }
 
