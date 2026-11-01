@@ -430,6 +430,12 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Throwing a draft away is always offered (owner): Start over and Discard, confirmed, on screens; Cancel in a dialog, where Esc or a click outside keeps it. One new department at a time, which every New department button resumes. Something handed over wins: a prompt or target fills the task box, and a new description goes into the existing department draft as a change.
 - A drafter run outlives its screen and shows as running on return; going back never runs a handed-over description again. Not kept: pasted keys (never written to disk), so a connector's test goes too; searches; account sign-in, which is tied to a live login; spots marked on an output; setup and renaming an agent inline.
 
+### D-82 Scratch is the fallback, and the level shows once — accepted (2026-11-02)
+
+- A department with no folder works in Scratch, so New department no longer stops at "Not chosen" (owner). The first folder replaces Scratch and the last one leaving brings it back, in `DepartmentWorkspaces`, the one place a department's list changes. A folder department's picker hides Scratch. Every workspace of kind `scratch` counts, a user's own "Start empty" ones too, as nothing marks the default one. A one-time migration drops Scratch from departments that also had a folder; a goal keeps the workspace it started in.
+- A task shows its permission level once, in a chip beside Send for review, and it left the run card (owner). The chip saves on the department, or on an agent with none (`autonomy` on the agent profile request), so it reaches everyone there; the core reads the level at each request, so agents at work take it at once. The exception is a change to or from No safety checks, which a harness only takes at its next start (D-45), and the chip says so. A member capped on its profile stays capped.
+- A request the level let through is not drawn, because the action row already shows the call. It stays in the store. A top-level one no longer splits a run of actions.
+
 ## Done
 
 All accepted and built.

@@ -2,6 +2,7 @@ import {
   Bot,
   CircleHelp,
   Eye,
+  LayoutGrid,
   LifeBuoy,
   ListChecks,
   type LucideIcon,
@@ -19,6 +20,21 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-02",
+    title: "Tidier task pages and departments",
+    icon: LayoutGrid,
+    changes: [
+      "New department shows the team across the page: the lead on top, with people who share a role grouped together",
+      "The task header has more room, and the working and waiting counts stand out",
+      "Stop team is red and asks you to confirm before it stops anyone",
+      "The permission setting shows once, beside Send for review. Change it there and it applies to the whole department",
+      'Chats no longer repeat "Allowed by your setting" on every action',
+      "Each agent's chat stays where you left it when you switch between agents",
+      "Scratch is only for a department with no folder. Adding a folder replaces it, and departments that had both no longer list Scratch",
+      "Home greets you by name, with a different line now and then",
+    ],
+  },
   {
     date: "2026-11-01",
     title: "Teams that recover, and drafts",

@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-01
+Last updated: 2026-11-02
 
 ## State
 
@@ -14,11 +14,13 @@ Last updated: 2026-11-01
 
 - Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. The two-pane picker (D-80) is on the same PR.
 - Form drafts (D-81): what is typed outlives the screen and the app. New forms use `useDraft` in place of `useState`.
+- Task page feedback (D-82): the org chart on Describe and Review (mockup https://claude.ai/artifact/15etZWBFsxzzJ4YTr5pCua), one permission chip under the message box, Scratch only for a department with no folder, a scroll place per chat, Stop team confirms.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-82: real mouse scrolling between agents (the test pane was hidden, so scroll events were sent by hand), the permission chip on a solo agent in the app (only its API was run), a level change reaching an agent at work, a capped member's note, the chart in light mode, the Scratch clean-up on a real store (tested on a test store). A group the user opened folds back when they switch agents, so a place in a long chat can shift a little.
 - D-81: a real drafter run (the reply was stubbed), drafts in the packaged app (`pnpm dev:web` only), the request cards with a live request, Add your own and the workspace sheet, reopening after a reload with attachments (a remount was run), Start over while a draft is running (a late reply fills the form again).
 - D-80: OpenCode's preferred default in a real task from the app (only `dev:run` was run), switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in), the saved lists in the packaged app (only `pnpm dev:web` was run).
 - D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
