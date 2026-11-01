@@ -37,6 +37,9 @@ export const RELEASES: Release[] = [
       "A lead can now send an update to a busy agent. It waits with a queued icon and reaches the agent when its current tool call ends",
       'Agents are asked to keep their steps up to date, and one that stops no longer shows an old "Step 1 of 10": you see what it is doing now',
       "A Claude task you messaged mid-work now finishes on time, where it could stay working and hold its department for up to 10 minutes",
+      "A department is free for a new task as soon as all its agents are done, with no 10 minute wait. The new task starts everyone in a fresh conversation",
+      "A department stays busy while its finished work is being checked, and work is not checked while the department is on a new task",
+      "After you send a message, the chat shows where it stands: Starting the AI app, Waiting for the model, then Thinking, with the thinking as it comes",
     ],
   },
   {

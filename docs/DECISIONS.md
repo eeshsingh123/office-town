@@ -444,6 +444,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - A brief can miss the turn it was sent in. The piece ends as normal, and a turn that starts on such a brief gets its own delegation (`results.ts`), so the lead hears both.
 - D-77's rule that a taken message emits `turn.started` did not hold on Claude: it folds a message into the turn with no new `system/init` (probed on 2.1.316), so the agent owed a turn forever. A goal with a Claude lead read working, and held its department and agents, until the idle stop 10 minutes later (reproduced on a solo agent). `--replay-user-messages` echoes a prompt as the CLI takes it, so the adapter emits the start from the echo of a prompt sent during the open turn. An echo after a new `system/init` needs none. Conformance now checks it on every harness, so the next adapter cannot miss it, and a start with no end before it is allowed.
 
+### D-84 A department is free once its task ends — accepted (2026-11-02)
+
+- The New task screen kept a department Busy while any agent's process was open, so a team showing Done stayed greyed out for the 10 to 11 minutes until the idle stop. The core already called it free at the task's end and stopped the leftover processes itself. The screen now reads the task's state, the core's rule, so the two cannot disagree. The 10 minute idle stop stays (owner).
+- A new task starts everyone in a fresh conversation (owner), as it already did: the lead is started, and a worker's earlier session is looked up within the task. So one long-lived team does not grow its context or its cost across tasks. Agents see the old task only through the files it left; they cannot read the app's store.
+- An open check keeps its task unended, so it holds the department (owner): a new task would change the folder the checker reads. Starting a check takes the department's claim too, so old work is not checked while a new task runs. A task waiting for the user's review holds nothing.
+- A turn names where it stands before its first output (owner): Starting the AI app, Waiting for the model, Thinking, with the thinking as it comes. Only the first wait of a turn counts: every tool ends in a short one, and the line would flicker. Claude sends no thinking text, so it goes straight from waiting to its first output.
+
 ## Done
 
 All accepted and built.
