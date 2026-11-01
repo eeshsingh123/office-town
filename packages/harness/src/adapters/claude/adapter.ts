@@ -63,6 +63,8 @@ function buildCommand(options: LaunchOptions): HarnessCommand {
     ...STREAM_ARGS,
     // Adds the text of a reply as it is produced, ahead of the whole message.
     "--include-partial-messages",
+    // Echoes each prompt when it is taken, the only sign that a mid-turn one was.
+    "--replay-user-messages",
     // Routes permission prompts to us as control requests on stdout.
     "--permission-prompt-tool",
     "stdio",

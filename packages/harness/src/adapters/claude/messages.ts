@@ -80,6 +80,8 @@ export const userSchema = z.looseObject({
   parent_tool_use_id: z.string().nullish(),
   // The CLI's own record of the tool call the message answers.
   tool_use_result: z.unknown().optional(),
+  // One of our prompts, echoed as the CLI takes it.
+  isReplay: z.boolean().optional(),
 });
 
 export const taskStartedSchema = z.looseObject({
