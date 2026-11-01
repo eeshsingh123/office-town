@@ -269,12 +269,24 @@
   text-overflow: ellipsis;
   transform: translateX(-50%);
   pointer-events: none;
+  z-index: 1;
 }
 
 .bubbleWaiting {
   border-color: var(--warn-border);
   background: var(--warn-soft);
   color: var(--warn);
+}
+
+/* Only for the agent the user points at or walks up to, so a busy floor stays clear. */
+.bubbleWork {
+  opacity: 0;
+  transition: opacity var(--motion);
+}
+
+.seat:has(.agent:hover, .agent:focus-visible) .bubbleWork,
+.bubbleNear {
+  opacity: 1;
 }
 
 .you {
