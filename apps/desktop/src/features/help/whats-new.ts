@@ -1,6 +1,8 @@
 import {
+  Bot,
   CircleHelp,
   Eye,
+  LifeBuoy,
   ListChecks,
   type LucideIcon,
   PackageCheck,
@@ -17,6 +19,32 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-01",
+    title: "Teams that recover, and drafts",
+    icon: LifeBuoy,
+    changes: [
+      "What you type stays as a draft when you change screens or restart: forms, the task box, every message box and your answers to requests",
+      "In a dialog, Cancel throws the draft away; Esc or a click outside keeps it",
+      "Your messages now reach an agent while it is working",
+      "A failed agent is tried again once, then its lead sees the real error and can move the work on",
+      "A lead asks you in Needs you before changing direction from your goal",
+      "Change an agent's model and effort from its run card",
+      "Scratch always exists, and comes back if it was removed",
+    ],
+  },
+  {
+    date: "2026-10-25",
+    title: "More AI apps",
+    icon: Bot,
+    changes: [
+      "Run agents on Codex, Muse Code, GitHub Copilot CLI and Cursor CLI",
+      "The Providers page shows each app's status, and installs it, signs it in and manages its accounts",
+      "Model pickers offer only apps that are ready, with Get more AI apps for the rest",
+      "Where an app shares no plan usage, Usage shows an estimate at API prices",
+      "A new app icon, faster walking in the office, and leaving a room closes its panel",
+    ],
+  },
   {
     date: "2026-10-23",
     title: "Install and updates",
