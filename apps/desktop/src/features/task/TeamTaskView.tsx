@@ -168,28 +168,30 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(task.prompt)}</h1>
-          </div>
-          <div className={styles.chips}>
-            {task.leadAgentId === undefined ? null : (
+            <div className={styles.chips}>
+              {/* A department is already named in the breadcrumb just above. */}
+              {task.leadAgentId === undefined ||
+              (department !== undefined && task.workerAgentIds === undefined) ? null : (
+                <span className={styles.chip}>
+                  <span className={team.dot} aria-hidden />
+                  {task.workerAgentIds !== undefined
+                    ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
+                    : "Proposing a team"}
+                </span>
+              )}
               <span className={styles.chip}>
-                <span className={team.dot} aria-hidden />
-                {task.workerAgentIds !== undefined
-                  ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
-                  : (department?.name ?? "Proposing a team")}
+                <span className={`${styles.count} ${working === 0 ? styles.countIdle : ""}`}>
+                  {working}
+                </span>
+                working
               </span>
-            )}
-            <span className={styles.chip}>
-              <span className={`${styles.count} ${working === 0 ? styles.countIdle : ""}`}>
-                {working}
-              </span>
-              working
-            </span>
-            {waitingCount === 0 ? null : (
-              <span className={styles.chip}>
-                <span className={`${styles.count} ${styles.countWaiting}`}>{waitingCount}</span>
-                waiting for you
-              </span>
-            )}
+              {waitingCount === 0 ? null : (
+                <span className={styles.chip}>
+                  <span className={`${styles.count} ${styles.countWaiting}`}>{waitingCount}</span>
+                  waiting for you
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <TaskTabs taskId={taskId} />

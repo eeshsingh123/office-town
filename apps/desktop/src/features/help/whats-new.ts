@@ -26,7 +26,7 @@ export const RELEASES: Release[] = [
     icon: LayoutGrid,
     changes: [
       "New department shows the team across the page: the lead on top, with people who share a role grouped together",
-      "The task header has more room, and the working and waiting counts stand out",
+      "The task header is shorter and tidier, and the working and waiting counts stand out",
       "Stop team is red and asks you to confirm before it stops anyone",
       "The permission setting shows once, beside Send for review. Change it there and it applies to the whole department",
       'Chats no longer repeat "Allowed by your setting" on every action',
