@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, ignoreDraft, readDraft, useDraft } from "../../store/drafts.ts";
-import { useWorkspaces } from "../../store/workspaces.ts";
+import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -69,12 +69,11 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   const [error, setError] = useState<string>();
 
   const current = forms[at] ?? forms[0];
-  // With only one workspace there is nothing to choose. A kept draft can name one removed since.
+  // With none picked it works in Scratch. A kept draft can name a workspace removed since.
   const chosenOf = (one: DepartmentForm) => {
     const chosen = one.workspaceIds.filter((id) => workspaces.some((known) => known.id === id));
-    return chosen.length > 0 || workspaces.length !== 1
-      ? chosen
-      : workspaces.map((known) => known.id);
+    const scratch = defaultWorkspace(workspaces, undefined);
+    return chosen.length > 0 || scratch === undefined ? chosen : [scratch.id];
   };
   const nameOf = (one: DepartmentForm | undefined, index: number) =>
     one?.name.trim() || `Department ${index + 1}`;
