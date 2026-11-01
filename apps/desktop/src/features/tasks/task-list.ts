@@ -1,7 +1,7 @@
 import type { PlanPiece, TaskRecord } from "@office-town/contract";
-import { type Agent, agentsInTask, taskStateOf } from "../../store/agents.ts";
+import { type Agent, agentsInTask, stateOf, taskStateOf } from "../../store/agents.ts";
 import type { AppState } from "../../store/app-store.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { progressOf, stageOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { requestSummary } from "../requests/summary.ts";
@@ -142,6 +142,8 @@ function statusOf(task: TaskRecord, agents: Agent[], known: Known, waiting: Set<
 function workLine(agents: Agent[], known: Known): Line | undefined {
   for (const agent of agents) {
     const trace = known.traces[agent.latest.id];
+    const stage = stageOf(stateOf(agent, known.traces, false), trace);
+    if (stage !== undefined) return { text: stage, tone: "quiet" };
     if (trace === undefined) continue;
     const progress = progressOf(trace);
     if (progress.step !== undefined) {

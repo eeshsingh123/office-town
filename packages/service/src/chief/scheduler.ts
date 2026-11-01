@@ -11,14 +11,15 @@ import { startTeamTask } from "../team/team-tasks.ts";
 import { handOff, type PieceEnding, pieceResult } from "./briefs.ts";
 import { isChiefTask } from "./chief.ts";
 import { startQueuedGoal } from "./goals.ts";
-import { departmentNameOf, readOnlyFolders } from "./piece-folders.ts";
+import { departmentNameOf, readOnlyFolders, workspaceOf } from "./piece-folders.ts";
 
 const OPEN = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
 
 // A new department's lead first proposes its team.
-function teamOf(piece: PlanPiece): StartTeamTaskRequest["team"] {
+function teamOf(store: Store, piece: PlanPiece): StartTeamTaskRequest["team"] {
   if (piece.departmentId !== undefined) {
-    const { departmentId, workspaceId } = piece;
+    const { departmentId } = piece;
+    const workspaceId = workspaceOf(store, piece);
     return workspaceId === undefined ? { departmentId } : { departmentId, workspaceId };
   }
   if (piece.newDepartment === undefined) throw new RecordNotFoundError("department", piece.id);
@@ -174,7 +175,7 @@ export class Scheduler {
     try {
       await startTeamTask(
         this.#context,
-        { goal: piece.brief, team: teamOf(piece) },
+        { goal: piece.brief, team: teamOf(store, piece) },
         {
           parentTaskId: goal.id,
           attachments: store.taskAttachments(goal.id),

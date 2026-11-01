@@ -5,7 +5,7 @@ import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -25,6 +25,7 @@ import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
+import { settingsOf } from "./team-form.ts";
 import { totalOf } from "./usage.ts";
 
 interface Member {
@@ -70,11 +71,12 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const doing =
     state === undefined
       ? (lastWork ?? "Free")
-      : state === "working" && step !== undefined
-        ? `Step ${step.number} · ${step.title}`
-        : state === "waiting"
-          ? "Waiting for you"
-          : STATE_LABELS[state];
+      : (stageOf(state, trace) ??
+        (state === "working" && step !== undefined
+          ? `Step ${step.number} · ${step.title}`
+          : state === "waiting"
+            ? "Waiting for you"
+            : STATE_LABELS[state]));
   return (
     <button type="button" className={styles.member} onClick={() => select([record.id])}>
       <Avatar name={record.name} colour={record.colour} size={26} />
@@ -193,16 +195,9 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
   const [failure, setFailure] = useState<string>();
   const setWorkspaces = async (workspaceIds: string[]) => {
-    const {
-      id: _,
-      createdAt: _at,
-      workspaceId: _default,
-      leadAgentId: _lead,
-      ...settings
-    } = department;
     setFailure(undefined);
     try {
-      await api.updateDepartment(department.id, { ...settings, workspaceIds });
+      await api.updateDepartment(department.id, { ...settingsOf(department), workspaceIds });
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));
     }
@@ -248,7 +243,6 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
           departmentName={department.name}
           departmentId={department.id}
           goalWorkspaceId={working ? task?.workspaceId : undefined}
-          keepOne
           compact
         />
         {working ? <p className={styles.note}>Changes apply from the next goal.</p> : null}

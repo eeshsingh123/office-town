@@ -1,5 +1,5 @@
 import type { HarnessDescription, HarnessModel } from "@office-town/contract";
-import { SHOW_ASK } from "../agents/briefs.ts";
+import { PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
 
@@ -102,7 +102,7 @@ ${where_}
 Your piece of work, from ${input.lead.name}:
 ${input.work}
 
-Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${SHOW_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
+Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${PLAN_ASK} ${SHOW_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
@@ -117,6 +117,17 @@ ${work}
 
 If you work on a branch of your own, commit your work there. ${RESULT_ASK}`,
     origin: { kind: "brief", summary: `New work from ${lead.name}`, from: lead.id },
+  };
+}
+
+// For a worker still on a piece: it reads this between tools, so it says what to do with it.
+export function pieceUpdate(lead: { id: string; name: string }, work: string): Message {
+  return {
+    text: `An update from ${lead.name} on the work you are doing:
+${work}
+
+Work this into what you are doing now. ${RESULT_ASK}`,
+    origin: { kind: "brief", summary: `An update from ${lead.name}`, from: lead.id },
   };
 }
 
@@ -169,6 +180,7 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - Fix small things yourself, such as a merge conflict or a line or two.
 - The app shows the user every worker's state, so do not keep a progress board or commit only to record progress.
 - When the goal is done, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run the work, and what changed. The user can have a fresh agent outside the team run it.
+- ${PLAN_ASK}
 - ${SHOW_ASK}
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 

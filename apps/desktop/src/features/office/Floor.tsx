@@ -634,7 +634,7 @@ export function Floor(props: FloorProps) {
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
-          <div key={id}>
+          <div key={id} className={styles.seat}>
             {tokens === undefined ? null : (
               <div
                 className={styles.tokens}
@@ -646,7 +646,7 @@ export function Floor(props: FloorProps) {
             )}
             {bubble === undefined ? null : (
               <div
-                className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : ""}`}
+                className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : styles.bubbleWork} ${id === near?.id ? styles.bubbleNear : ""}`}
                 // Above the token count, when there is one.
                 style={{ left: position.x, top: position.y - (tokens === undefined ? 46 : 88) }}
               >
@@ -693,7 +693,8 @@ export function Floor(props: FloorProps) {
                 </button>
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content className={styles.tooltip} sideOffset={6}>
+                {/* Below, as the work bubble shows above the agent at the same moment. */}
+                <Tooltip.Content className={styles.tooltip} side="bottom" sideOffset={6}>
                   {detail}
                 </Tooltip.Content>
               </Tooltip.Portal>

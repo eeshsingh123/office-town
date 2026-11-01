@@ -9,11 +9,23 @@ export function departmentNameOf(store: Store, piece: PlanPiece): string {
   return department?.name ?? piece.newDepartment?.name ?? "A department";
 }
 
+// Where a piece runs. Before it starts, a folder added since the plan may have replaced Scratch
+// (D-82), so a piece named for Scratch follows its department rather than fail.
+export function workspaceOf(store: Store, piece: PlanPiece): string | undefined {
+  const started =
+    piece.pieceTaskId === undefined ? undefined : store.getTask(piece.pieceTaskId)?.workspaceId;
+  if (started !== undefined) return started;
+  if (piece.departmentId === undefined) return piece.newDepartment?.workspaceId;
+  const department = store.getDepartment(piece.departmentId);
+  const { workspaceId } = piece;
+  if (workspaceId === undefined) return department?.workspaceId;
+  const kept = department?.workspaceIds.includes(workspaceId) === true;
+  const replaced = !kept && store.getWorkspace(workspaceId)?.kind === "scratch";
+  return replaced ? department?.workspaceId : workspaceId;
+}
+
 function foldersOf(store: Store, piece: PlanPiece): string[] {
-  const workspaceId =
-    piece.departmentId === undefined
-      ? piece.newDepartment?.workspaceId
-      : (piece.workspaceId ?? store.getDepartment(piece.departmentId)?.workspaceId);
+  const workspaceId = workspaceOf(store, piece);
   return workspaceId === undefined ? [] : workspacePaths(store, workspaceId);
 }
 

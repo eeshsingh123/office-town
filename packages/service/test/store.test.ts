@@ -95,7 +95,7 @@ describe("store", () => {
   });
 
   // Rewinding the version reruns every later migration, so each one must be rerunnable.
-  it("reruns its migrations over existing data, turning every stored Trusted level into Full", () => {
+  it("reruns its migrations over existing data: Trusted becomes Full, Scratch leaves a folder's side", () => {
     const agent = addAgent(store);
     const task = store.createTask("Edit the report");
     const session = startSession(task.id, { agentId: agent.id });
@@ -103,6 +103,24 @@ describe("store", () => {
       type: "permission.resolved",
       payload: { requestId: "r", outcome: "allowed", answeredBy: { autonomy: "full" } },
     });
+    const scratch = store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
+    if (scratch === undefined) throw new Error("Scratch always exists.");
+    const folder = store.createWorkspace({
+      name: "Site",
+      kind: "folders",
+      folders: [{ path: directory, access: "edit" }],
+    });
+    const departmentIn = (name: string, workspaceIds: string[]) =>
+      store.createDepartment({
+        name,
+        workspaceIds,
+        autonomy: "full",
+        leadAgentId: addAgent(store).id,
+        branchPerWorker: false,
+        codeFlow: false,
+      });
+    const mixed = departmentIn("Mixed", [scratch.id, folder.id]);
+    const empty = departmentIn("Empty", [scratch.id]);
     store.close();
     const old = new DatabaseSync(join(directory, "store.db"));
     old.exec(`
@@ -120,6 +138,8 @@ describe("store", () => {
     });
     const [resolved] = store.readEvents({ sessionId: session.id, after: 0, limit: 10 });
     expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
+    expect(store.getDepartment(mixed.id)?.workspaceIds).toEqual([folder.id]);
+    expect(store.getDepartment(empty.id)?.workspaceIds).toEqual([scratch.id]);
   });
 
   it("deletes a finished task with its sessions, events, harness lines and result files", async () => {

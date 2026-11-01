@@ -1,3 +1,4 @@
+import type { WorkspaceRecord } from "@office-town/contract";
 import { GitBranch, MoreHorizontal, Plus, TriangleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -15,8 +16,6 @@ interface DepartmentWorkspacesProps {
   departmentName: string;
   // Left out of "also works here".
   departmentId?: string | undefined;
-  // A saved department always keeps one.
-  keepOne?: boolean;
   // Marks the workspace the department's open goal runs in.
   goalWorkspaceId?: string | undefined;
   compact?: boolean;
@@ -27,7 +26,6 @@ export function DepartmentWorkspaces({
   onChange,
   departmentName,
   departmentId,
-  keepOne = false,
   goalWorkspaceId,
   compact = false,
 }: DepartmentWorkspacesProps) {
@@ -39,6 +37,23 @@ export function DepartmentWorkspaces({
     (usage?.[workspaceId]?.departmentIds ?? [])
       .filter((id) => id !== departmentId)
       .flatMap((id) => departments[id]?.name ?? []);
+  const scratchIds = (among: readonly WorkspaceRecord[]) =>
+    among.filter((known) => known.kind === "scratch").map((known) => known.id);
+  // Scratch stands in for a department with no folders: the first folder replaces it, and it
+  // comes back when the last one goes.
+  const hasFolders = chosen.some((workspace) => workspace.kind === "folders");
+  const add = (workspaceId: string) => {
+    // One just made in the picker is in the store, but not yet in this render.
+    const scratch = scratchIds(useApp.getState().workspaces ?? []);
+    const kept = scratch.includes(workspaceId)
+      ? value
+      : value.filter((id) => !scratch.includes(id));
+    onChange([...kept, workspaceId]);
+  };
+  const remove = (workspaceId: string) => {
+    const left = value.filter((id) => id !== workspaceId);
+    onChange(left.length > 0 ? left : scratchIds(workspaces).slice(0, 1));
+  };
 
   return (
     <div className={`${styles.list} ${compact ? styles.compact : ""}`}>
@@ -107,8 +122,8 @@ export function DepartmentWorkspaces({
                       </DropdownMenu.Item>
                       <DropdownMenu.Item
                         className={menu.item}
-                        disabled={keepOne && value.length === 1}
-                        onSelect={() => onChange(value.filter((id) => id !== workspace.id))}
+                        disabled={value.length === 1 && workspace.kind === "scratch"}
+                        onSelect={() => remove(workspace.id)}
                       >
                         Remove from {departmentName}
                       </DropdownMenu.Item>
@@ -122,8 +137,8 @@ export function DepartmentWorkspaces({
       )}
       <WorkspacePicker
         value={undefined}
-        exclude={value}
-        onChange={(workspaceId) => onChange([...value, workspaceId])}
+        exclude={hasFolders ? [...value, ...scratchIds(workspaces)] : value}
+        onChange={add}
         trigger={
           <Button>
             <Plus size={15} aria-hidden />

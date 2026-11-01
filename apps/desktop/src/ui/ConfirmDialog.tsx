@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel: string;
+  danger?: boolean;
   // Closes the dialog once it resolves; a failure is shown in it.
   onConfirm: () => Promise<void>;
   children?: ReactNode;
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  danger = false,
   onConfirm,
   children,
 }: ConfirmDialogProps) {
@@ -61,7 +63,7 @@ export function ConfirmDialog({
             <AlertDialog.Cancel asChild>
               <Button variant="ghost">Cancel</Button>
             </AlertDialog.Cancel>
-            <Button variant="primary" onClick={confirm} disabled={busy}>
+            <Button variant={danger ? "dangerFilled" : "primary"} onClick={confirm} disabled={busy}>
               {busy ? `${confirmLabel}…` : confirmLabel}
             </Button>
           </div>

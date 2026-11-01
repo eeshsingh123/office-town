@@ -57,6 +57,18 @@
   color: var(--on-accent);
 }
 
+/* The last press, in a dialog that confirms it. */
+.dangerFilled {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: var(--on-accent);
+}
+
+.dangerFilled:hover:not(:disabled) {
+  background: var(--bad);
+  filter: brightness(1.08);
+}
+
 .icon {
   width: 36px;
   padding: 0;

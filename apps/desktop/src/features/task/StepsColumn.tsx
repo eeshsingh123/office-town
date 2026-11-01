@@ -1,5 +1,5 @@
 import type { PlanStep } from "@office-town/contract";
-import { Check, CircleDashed, ListChecks, LoaderCircle, X } from "lucide-react";
+import { Check, CircleDashed, CircleDot, ListChecks, LoaderCircle, X } from "lucide-react";
 import { create } from "zustand";
 import { Button } from "../../ui/Button.tsx";
 import { type PaneSize, savedFlag, saveFlag, usePaneWidth } from "../../ui/pane.ts";
@@ -16,9 +16,12 @@ function setHidden(hidden: boolean) {
   saveFlag(HIDDEN, hidden);
 }
 
-function StepIcon({ step }: { step: PlanStep }) {
+function StepIcon({ step, stale }: { step: PlanStep; stale: boolean }) {
   if (step.status === "completed")
     return <Check size={14} className={styles.ok} aria-label="Done" />;
+  if (step.status === "in_progress" && stale) {
+    return <CircleDot size={14} className={styles.quiet} aria-label="Last step reported" />;
+  }
   if (step.status === "in_progress") {
     return <LoaderCircle size={14} className={`${styles.running} spin`} aria-label="In progress" />;
   }
@@ -39,7 +42,7 @@ export function StepsButton({ plan }: { plan: readonly PlanStep[] }) {
   );
 }
 
-export function StepsColumn({ plan }: { plan: readonly PlanStep[] }) {
+export function StepsColumn({ plan, stale }: { plan: readonly PlanStep[]; stale: boolean }) {
   const hidden = useSteps((state) => state.hidden);
   const [width, resize] = usePaneWidth("steps", SIZE);
   if (hidden) return null;
@@ -65,13 +68,14 @@ export function StepsColumn({ plan }: { plan: readonly PlanStep[] }) {
         <div className={styles.bar}>
           <i style={{ width: `${(done / plan.length) * 100}%` }} />
         </div>
+        {stale ? <p className={styles.stepsNote}>Not updated for a while</p> : null}
         <ol className={styles.plan}>
           {plan.map((step) => (
             <li
               key={step.id}
-              className={step.status === "in_progress" ? styles.current : undefined}
+              className={step.status === "in_progress" && !stale ? styles.current : undefined}
             >
-              <StepIcon step={step} />
+              <StepIcon step={step} stale={stale} />
               {step.title}
             </li>
           ))}
