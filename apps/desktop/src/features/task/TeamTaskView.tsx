@@ -124,7 +124,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const tab = useTaskTab(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
-  const follow = useFollow(`${shown?.id}:${trace?.position}:${trace?.streaming[""]?.length}`);
+  const follow = useFollow(
+    `${taskId}:${shown?.id}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}`,
+  );
   if (task === undefined || lead === undefined || shown === undefined) {
     return <p className={styles.loading}>Loading the task…</p>;
   }

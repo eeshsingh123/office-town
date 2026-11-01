@@ -1,22 +1,27 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useState } from "react";
 
 // How close to the end, in pixels, still counts as reading the latest.
 const FOLLOW_SLACK = 80;
 
-// Stays put once the reader scrolls up.
-export function useFollow(dependency: unknown) {
-  const ref = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
+// Where the reader left each chat; a chat left at its end is not here, and follows new content.
+const places = new Map<string, number>();
+
+// One scroller can show many chats, so each keeps its own place under `chat`.
+export function useFollow(chat: string, content: unknown) {
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const place = places.get(chat);
+    if (element !== null && place !== undefined) element.scrollTop = place;
+  }, [element, chat]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs again whenever the content grows
   useLayoutEffect(() => {
-    const element = ref.current;
-    if (element !== null && following.current) element.scrollTop = element.scrollHeight;
-  }, [dependency]);
+    if (element !== null && !places.has(chat)) element.scrollTop = element.scrollHeight;
+  }, [element, chat, content]);
   const onScroll = () => {
-    const element = ref.current;
     if (element === null) return;
-    following.current =
-      element.scrollHeight - element.scrollTop - element.clientHeight < FOLLOW_SLACK;
+    const left = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (left < FOLLOW_SLACK) places.delete(chat);
+    else places.set(chat, element.scrollTop);
   };
-  return { ref, onScroll };
+  return { ref: setElement, onScroll };
 }

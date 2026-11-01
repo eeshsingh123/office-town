@@ -65,7 +65,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
     Object.values(state.waiting).find(({ event }) => event.sessionId === agent?.latest.id),
   );
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
-  const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
+  const follow = useFollow(
+    `${taskId}:${agent?.id}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}`,
+  );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
 

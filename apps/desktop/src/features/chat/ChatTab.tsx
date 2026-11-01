@@ -1,5 +1,5 @@
 import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -164,7 +164,8 @@ export function ChatTab({ agentId, named }: { agentId: string; named: boolean })
   const lastPosition = useApp((state) =>
     last === undefined ? undefined : state.traces[last.id]?.position,
   );
-  const follow = useFollow(`${goals.length}:${lastPosition}`);
+  // The conversation is read afresh each time the tab opens, so there is no place to return to.
+  const follow = useFollow(useId(), `${goals.length}:${lastPosition}`);
   if (agent === undefined) return null;
   const role =
     department === undefined
