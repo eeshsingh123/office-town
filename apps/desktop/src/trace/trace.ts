@@ -99,6 +99,8 @@ export interface Trace {
   // Top-level only; nested items hang off their action.
   order: string[];
   plan: PlanStep[];
+  // Top-level actions since the agent last touched its plan.
+  actionsSincePlan: number;
   // By action id ("" for the agent itself).
   streaming: Record<string, string>;
   turnOpen: boolean;
@@ -115,6 +117,7 @@ export function emptyTrace(sessionId: string): Trace {
     items: new Map(),
     order: [],
     plan: [],
+    actionsSincePlan: 0,
     streaming: {},
     turnOpen: false,
     usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
@@ -224,6 +227,7 @@ function apply(trace: Trace, event: SessionEvent): void {
       return;
     case "plan.updated":
       trace.plan = event.payload.steps;
+      trace.actionsSincePlan = 0;
       return;
     case "action.started": {
       const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
@@ -250,6 +254,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         ...(planStepId === undefined ? {} : { planStepId }),
       });
       place(trace, actionId, parentActionId);
+      if (parentActionId === undefined) trace.actionsSincePlan += 1;
       return;
     }
     case "action.updated": {
@@ -270,14 +275,14 @@ function apply(trace: Trace, event: SessionEvent): void {
         result,
         endedAt: event.timestamp,
         ...(overflow === undefined ? {} : { overflow, resultSequence: event.sequence }),
+        ...(action.actionKind === "delegate" && result.startsWith(queuedDelegation)
+          ? { queued: true, title: queuedTitle(action.input) }
+          : {}),
       }));
       return;
     }
     case "permission.requested":
     case "question.requested": {
-        ...(action.actionKind === "delegate" && result.startsWith(queuedDelegation)
-          ? { queued: true, title: queuedTitle(action.input) }
-          : {}),
       const { requestId, actionId } = event.payload;
       const id = requestKey(requestId);
       trace.items.set(id, { kind: "request", id, event });

@@ -13,7 +13,7 @@ export type AgentState =
   | "interrupted";
 
 export interface Progress {
-  // The step in progress, or else the first one not done.
+  // The step in progress, or else the first one not done. None once the plan goes stale.
   step?: { number: number; title: string };
   stepCount: number;
   stepsDone: number;
@@ -24,6 +24,8 @@ export interface Progress {
 }
 
 const RECENT = 3;
+// Past this, an agent has stopped keeping its plan, so the step it names is no longer true.
+const STALE_PLAN_ACTIONS = 25;
 const cache = new WeakMap<Trace, Progress>();
 
 export function progressOf(trace: Trace): Progress {
@@ -33,7 +35,7 @@ export function progressOf(trace: Trace): Progress {
   const index = trace.plan.findIndex((step) => step.status === "in_progress");
   const stepIndex =
     index === -1 ? trace.plan.findIndex((step) => step.status !== "completed") : index;
-  const step = trace.plan[stepIndex];
+  const step = trace.actionsSincePlan > STALE_PLAN_ACTIONS ? undefined : trace.plan[stepIndex];
   const current = actions.findLast((action) => action.status === "running");
   const progress: Progress = {
     stepCount: trace.plan.length,
