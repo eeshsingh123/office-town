@@ -24,6 +24,7 @@ import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { describeActions, settledByLevel } from "../../trace/blocks.ts";
+import { agentState, stageOf } from "../../trace/progress.ts";
 import type { TraceAction, TraceItem, TraceMessage, TraceRequest } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { byteSize, elapsed } from "../../ui/format.ts";
@@ -72,6 +73,28 @@ export function Streaming({ place, parent = "" }: { place: Place; parent?: strin
     <div className={styles.text} aria-live="polite">
       <Markdown text={text} />
       <span className={styles.caret} aria-hidden />
+    </div>
+  );
+}
+
+// The end of its thinking, as the whole of it folds into a line once it is done.
+const THINKING_SHOWN = 400;
+
+export function Stage({ place }: { place: Place }) {
+  const session = useApp((state) => state.sessions[place.sessionId]);
+  const trace = useApp((state) => state.traces[place.sessionId]);
+  const stage =
+    session === undefined ? undefined : stageOf(agentState(session, trace, false), trace);
+  if (stage === undefined) return null;
+  return (
+    <div className={styles.stage} role="status">
+      <div className={styles.stageLine}>
+        <LoaderCircle size={14} className={`${styles.running} spin`} aria-hidden />
+        <span className={`${styles.rowTitle} ${styles.summary}`}>{stage}</span>
+      </div>
+      {trace?.thinking === undefined ? null : (
+        <p className={styles.thinking}>{trace.thinking.slice(-THINKING_SHOWN)}</p>
+      )}
     </div>
   );
 }

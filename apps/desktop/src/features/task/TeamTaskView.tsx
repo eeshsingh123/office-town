@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, progressOf } from "../../trace/progress.ts";
+import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
@@ -48,11 +48,12 @@ function MemberRow({
   const progress = trace === undefined ? undefined : progressOf(trace);
   const step = progress?.step;
   const doing =
-    state === "working" && step !== undefined
+    stageOf(state, trace) ??
+    (state === "working" && step !== undefined
       ? `Step ${step.number} of ${progress?.stepCount} · ${step.title}`
       : state === "waiting"
         ? "Waiting for you"
-        : STATE_LABELS[state];
+        : STATE_LABELS[state]);
   const role = agent.record.role?.trim();
   const classes = [
     team.member,
@@ -127,7 +128,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
   const follow = useFollow(
     `${taskId}:${shown?.id}`,
-    `${trace?.position}:${trace?.streaming[""]?.length}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}:${trace?.thinking?.length}`,
   );
   if (task === undefined || lead === undefined || shown === undefined) {
     return <p className={styles.loading}>Loading the task…</p>;

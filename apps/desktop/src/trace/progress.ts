@@ -48,6 +48,14 @@ export function progressOf(trace: Trace): Progress {
   return progress;
 }
 
+// Where a turn stands before its first output, as a restart and a big session can take a minute.
+export function stageOf(state: AgentState, trace: Trace | undefined): string | undefined {
+  if (state === "starting") return "Starting the AI app";
+  if (state !== "working" || trace === undefined || !trace.turnOpen) return undefined;
+  if (trace.thinking !== undefined) return "Thinking";
+  return trace.answered ? undefined : "Waiting for the model";
+}
+
 export function agentState(
   session: SessionRecord,
   trace: Trace | undefined,

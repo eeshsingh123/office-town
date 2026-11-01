@@ -103,7 +103,11 @@ export interface Trace {
   actionsSincePlan: number;
   // By action id ("" for the agent itself).
   streaming: Record<string, string>;
+  // Its thinking as it comes, until the whole text arrives.
+  thinking?: string;
   turnOpen: boolean;
+  // The model has shown something in this turn.
+  answered: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
   model?: string;
@@ -120,6 +124,7 @@ export function emptyTrace(sessionId: string): Trace {
     actionsSincePlan: 0,
     streaming: {},
     turnOpen: false,
+    answered: false,
     usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   };
 }
@@ -175,14 +180,17 @@ function apply(trace: Trace, event: SessionEvent): void {
       trace.ended = event.payload;
       trace.turnOpen = false;
       trace.streaming = {};
+      delete trace.thinking;
       return;
     case "turn.started":
       trace.turnOpen = true;
+      trace.answered = false;
       return;
     case "turn.ended": {
       const { outcome, usage } = event.payload;
       trace.turnOpen = false;
       trace.lastTurn = outcome;
+      delete trace.thinking;
       if (usage !== undefined) addUsage(trace, usage);
       if (outcome !== "completed") {
         const text = outcome === "interrupted" ? "Turn interrupted" : "Turn failed";
@@ -198,6 +206,7 @@ function apply(trace: Trace, event: SessionEvent): void {
     case "message": {
       const { role, text, parentActionId, origin, attachments } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
+      if (role === "assistant") trace.answered = true;
       if (text.trim() === "") return;
       trace.items.set(event.id, {
         kind: "message",
@@ -213,6 +222,8 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "reasoning": {
       const { text, parentActionId } = event.payload;
+      trace.answered = true;
+      delete trace.thinking;
       if (text.trim() === "") return;
       trace.items.set(event.id, { kind: "reasoning", id: event.id, text });
       place(trace, event.id, parentActionId);
@@ -220,10 +231,16 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "message.delta": {
       const key = event.payload.parentActionId ?? "";
+      trace.answered = true;
       trace.streaming[key] = (trace.streaming[key] ?? "") + event.payload.text;
       return;
     }
+    // A sub-agent's thinking stays inside its action.
     case "reasoning.delta":
+      trace.answered = true;
+      if (event.payload.parentActionId === undefined) {
+        trace.thinking = (trace.thinking ?? "") + event.payload.text;
+      }
       return;
     case "plan.updated":
       trace.plan = event.payload.steps;
@@ -238,6 +255,7 @@ function apply(trace: Trace, event: SessionEvent): void {
           ? shownInput(input)
           : undefined;
       const app = tool === undefined ? undefined : appAction(tool, input);
+      trace.answered = true;
       trace.items.set(actionId, {
         kind: "action",
         id: actionId,

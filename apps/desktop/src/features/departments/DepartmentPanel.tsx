@@ -5,7 +5,7 @@ import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -71,11 +71,12 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const doing =
     state === undefined
       ? (lastWork ?? "Free")
-      : state === "working" && step !== undefined
-        ? `Step ${step.number} · ${step.title}`
-        : state === "waiting"
-          ? "Waiting for you"
-          : STATE_LABELS[state];
+      : (stageOf(state, trace) ??
+        (state === "working" && step !== undefined
+          ? `Step ${step.number} · ${step.title}`
+          : state === "waiting"
+            ? "Waiting for you"
+            : STATE_LABELS[state]));
   return (
     <button type="button" className={styles.member} onClick={() => select([record.id])}>
       <Avatar name={record.name} colour={record.colour} size={26} />

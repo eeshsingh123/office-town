@@ -5,7 +5,7 @@ import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
+import { type AgentState, type Progress, progressOf, stageOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
@@ -68,7 +68,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
   const follow = useFollow(
     `${taskId}:${agent?.id}`,
-    `${trace?.position}:${trace?.streaming[""]?.length}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}:${trace?.thinking?.length}`,
   );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
@@ -107,7 +107,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               title={busy ? doingNow(progress) : undefined}
             >
               {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
-              {asked ?? (state === "waiting" ? "Waiting for you" : STATE_LABELS[state])}
+              {asked ??
+                (state === "waiting"
+                  ? "Waiting for you"
+                  : (stageOf(state, trace) ?? STATE_LABELS[state]))}
             </span>
             {waiting === undefined ? null : (
               <button
