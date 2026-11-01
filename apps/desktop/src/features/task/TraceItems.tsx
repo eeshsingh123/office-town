@@ -19,12 +19,14 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
+import { loadTrace } from "../../store/live.ts";
 import { describeActions, settledByLevel } from "../../trace/blocks.ts";
 import { agentState, stageOf } from "../../trace/progress.ts";
+import { delegatedTo } from "../../trace/team-tools.ts";
 import type { TraceAction, TraceItem, TraceMessage, TraceRequest } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { byteSize, elapsed } from "../../ui/format.ts";
@@ -99,8 +101,39 @@ export function Stage({ place }: { place: Place }) {
   );
 }
 
-function ActionStatus({ action, live }: { action: TraceAction; live: boolean }) {
-  if (action.queued) return <Clock size={14} className={styles.quiet} aria-label="Queued" />;
+// A queued update has reached its worker once a turn of the worker's starts after it was sent.
+function useUpdateTaken(action: TraceAction, sessionId: string): boolean {
+  const workerSessions = useApp(
+    useShallow((state) => {
+      if (!action.queued) return [];
+      const name = delegatedTo(action.input);
+      const worker = Object.values(state.agents).find((agent) => agent.name === name);
+      const taskId = state.sessions[sessionId]?.taskId;
+      return Object.values(state.sessions)
+        .filter((session) => session.agentId === worker?.id && session.taskId === taskId)
+        .map((session) => session.id);
+    }),
+  );
+  useEffect(() => {
+    for (const id of workerSessions) loadTrace(id);
+  }, [workerSessions]);
+  return useApp((state) =>
+    workerSessions.some((id) => (state.traces[id]?.turnStartedAt ?? "") >= action.startedAt),
+  );
+}
+
+function ActionStatus({
+  action,
+  live,
+  taken,
+}: {
+  action: TraceAction;
+  live: boolean;
+  taken: boolean;
+}) {
+  if (action.queued && !taken) {
+    return <Clock size={14} className={styles.quiet} aria-label="Queued" />;
+  }
   if (action.status === "completed")
     return <Check size={14} className={styles.ok} aria-label="Done" />;
   if (action.status === "failed") return <X size={14} className={styles.bad} aria-label="Failed" />;
@@ -176,6 +209,7 @@ const ActionRow = memo(function ActionRow({
   place: Place;
 }) {
   const [open, setOpen] = useState(false);
+  const taken = useUpdateTaken(action, place.sessionId);
   const Icon = KIND_ICONS[action.actionKind];
   return (
     <div>
@@ -190,11 +224,13 @@ const ActionRow = memo(function ActionRow({
         ) : (
           <AppLogo app={action.app} size="sm" />
         )}
-        <span className={styles.rowTitle}>{action.title}</span>
+        <span className={styles.rowTitle}>
+          {taken ? `Sent to ${delegatedTo(action.input)}` : action.title}
+        </span>
         {action.endedAt === undefined ? null : (
           <span className={styles.meta}>{elapsed(action.startedAt, action.endedAt)}</span>
         )}
-        <ActionStatus action={action} live={place.live} />
+        <ActionStatus action={action} live={place.live} taken={taken} />
       </button>
       {action.actionKind === "delegate" ? (
         <div className={styles.under}>
@@ -265,7 +301,7 @@ function RequestLine({ request, live }: { request: TraceRequest; live: boolean }
 
 function WorkerLink({ input }: { input: unknown }) {
   const show = useMemberLinks();
-  const name = (input as { agent?: unknown } | null)?.agent;
+  const name = delegatedTo(input);
   const worker = useApp((state) =>
     Object.values(state.agents).find((agent) => agent.name === name),
   );

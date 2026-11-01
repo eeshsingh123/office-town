@@ -106,6 +106,7 @@ export interface Trace {
   // Its thinking as it comes, until the whole text arrives.
   thinking?: string;
   turnOpen: boolean;
+  turnStartedAt?: string;
   // The model has shown something in this turn.
   answered: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
@@ -184,6 +185,7 @@ function apply(trace: Trace, event: SessionEvent): void {
       return;
     case "turn.started":
       trace.turnOpen = true;
+      trace.turnStartedAt = event.timestamp;
       trace.answered = false;
       return;
     case "turn.ended": {

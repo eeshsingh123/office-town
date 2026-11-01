@@ -47,9 +47,12 @@ export function teamToolAction(name: string, input: unknown) {
   return { kind: tool.kind, title: tool.title(fields) };
 }
 
+export function delegatedTo(input: unknown): string {
+  return words(input !== null && typeof input === "object" ? (input as Input).agent : undefined);
+}
+
 export function queuedTitle(input: unknown): string {
-  const agent = input !== null && typeof input === "object" ? (input as Input).agent : undefined;
-  return `${queuedDelegation}${words(agent)}`;
+  return `${queuedDelegation}${delegatedTo(input)}`;
 }
 
 // "create_page" reads as "Create page"; a short text it was given is quoted after it.
