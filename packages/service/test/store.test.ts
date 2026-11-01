@@ -6,7 +6,6 @@ import { DatabaseSync } from "node:sqlite";
 import type { Change, SessionEvent, SessionEventBody, SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase } from "../src/store/database.ts";
-import { migrations } from "../src/store/migrations.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import {
   RecordNotFoundError,
@@ -96,7 +95,7 @@ describe("store", () => {
   });
 
   // Rewinding the version reruns every later migration, so each one must be rerunnable.
-  it("reruns its migrations over existing data, turning every stored Trusted level into Full", () => {
+  it("reruns its migrations over existing data: Trusted becomes Full, Scratch leaves a folder's side", () => {
     const agent = addAgent(store);
     const task = store.createTask("Edit the report");
     const session = startSession(task.id, { agentId: agent.id });
@@ -104,26 +103,6 @@ describe("store", () => {
       type: "permission.resolved",
       payload: { requestId: "r", outcome: "allowed", answeredBy: { autonomy: "full" } },
     });
-    store.close();
-    const old = new DatabaseSync(join(directory, "store.db"));
-    old.exec(`
-      UPDATE agents SET autonomy = 'trusted',
-        settings = json_set(settings, '$.autonomy', 'trusted');
-      UPDATE events SET payload = replace(payload, '"full"', '"trusted"');
-      PRAGMA user_version = 11;
-    `);
-    old.close();
-
-    store = openStore(directory);
-    expect(store.getAgent(agent.id)).toMatchObject({
-      autonomy: "full",
-      settings: { autonomy: "full" },
-    });
-    const [resolved] = store.readEvents({ sessionId: session.id, after: 0, limit: 10 });
-    expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
-  });
-
-  it("drops Scratch from a department that has a folder, and leaves one that has none", () => {
     const scratch = store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
     if (scratch === undefined) throw new Error("Scratch always exists.");
     const folder = store.createWorkspace({
@@ -144,10 +123,21 @@ describe("store", () => {
     const empty = departmentIn("Empty", [scratch.id]);
     store.close();
     const old = new DatabaseSync(join(directory, "store.db"));
-    old.exec(`PRAGMA user_version = ${migrations.length - 1};`);
+    old.exec(`
+      UPDATE agents SET autonomy = 'trusted',
+        settings = json_set(settings, '$.autonomy', 'trusted');
+      UPDATE events SET payload = replace(payload, '"full"', '"trusted"');
+      PRAGMA user_version = 11;
+    `);
     old.close();
 
     store = openStore(directory);
+    expect(store.getAgent(agent.id)).toMatchObject({
+      autonomy: "full",
+      settings: { autonomy: "full" },
+    });
+    const [resolved] = store.readEvents({ sessionId: session.id, after: 0, limit: 10 });
+    expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
     expect(store.getDepartment(mixed.id)?.workspaceIds).toEqual([folder.id]);
     expect(store.getDepartment(empty.id)?.workspaceIds).toEqual([scratch.id]);
   });
