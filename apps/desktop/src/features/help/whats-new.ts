@@ -33,6 +33,9 @@ export const RELEASES: Release[] = [
       "Each agent's chat stays where you left it when you switch between agents",
       "Scratch is only for a department with no folder. Adding a folder replaces it, and departments that had both no longer list Scratch",
       "Home greets you by name, with a different line now and then",
+      "The office stays clear: what an agent is working on shows when you hover over it or walk up to it. Requests that need you stay visible",
+      "A lead can now send an update to a busy agent. It waits with a queued icon and reaches the agent when its current tool call ends",
+      'Agents are asked to keep their steps up to date, and one that stops no longer shows an old "Step 1 of 10": you see what it is doing now',
     ],
   },
   {

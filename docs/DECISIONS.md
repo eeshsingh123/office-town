@@ -436,6 +436,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - A task shows its permission level once, in a chip beside Send for review, and it left the run card (owner). The chip saves on the department, or on an agent with none (`autonomy` on the agent profile request), so it reaches everyone there; the core reads the level at each request, so agents at work take it at once. The exception is a change to or from No safety checks, which a harness only takes at its next start (D-45), and the chip says so. A member capped on its profile stays capped.
 - A request the level let through is not drawn, because the action row already shows the call. It stays in the store. A top-level one no longer splits a run of actions.
 
+### D-83 Honest progress and a real queue for a busy worker — accepted (2026-11-02)
+
+- Owner: on a real run every worker stayed on "Step 1 of 10". The adapters are fine: the models wrote their list once and ran 360 to 510 more tools without touching it (OpenCode's records). A brief line now asks for it (`PLAN_ASK`, solo, worker, lead), and it cannot be forced, so after 25 top-level actions with no plan change `progressOf` drops `step` and every surface falls back to the current action. The step returns when the list moves. 25 is generous: a long honest step only shows its action for a while. The Steps column still shows the list as written.
+- The floor shows work only for the agent under the pointer, in keyboard focus or within reach (owner). Requests stay visible, as a hidden ask is the waiting agent nobody notices. The agent's tooltip moved below it, as the bubble now shows at the same moment.
+- `delegate` used to refuse a busy worker: the red cross was true, and the brief was lost (three updates to one worker on that run), while the lead told the user it was queued. It now goes through `registry.tell`, so it reaches the worker when its current tool ends (D-77) and folds into its piece (owner, over holding it until the piece ends: that piece ran 3 hours). The answer starts with `queuedDelegation`, which is how a trace marks it, with a clock in place of the tick. The marker stays after delivery: the app cannot see the moment it was read.
+- A brief can miss the turn it was sent in. The core cannot hold the result for it, as harnesses differ: OpenCode, Codex and Muse start a new turn for a mid-turn message, Claude folds it into the same turn with none (probed on 2.1.316), and holding would hang a Claude worker. So the piece ends as normal, and a turn that starts on such a brief gets its own delegation (`results.ts`), so the lead hears both.
+
 ## Done
 
 All accepted and built.
