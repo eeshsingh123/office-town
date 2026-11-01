@@ -149,8 +149,8 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   if (current === undefined) return null;
   // The team card sits beside the steps that do not show the team themselves.
   const withCard = step === WORKSPACES_STEP || step === RULES_STEP;
-  // The team and the review lay out several cards across the whole width.
-  const wide = step === 1 || step === STEPS.length - 1;
+  // The team, a drafted team and the review use the whole width.
+  const wide = (step === 0 && drafted) || step === 1 || step === STEPS.length - 1;
   const switcher =
     forms.length < 2 ? null : (
       <div className={styles.switcher}>
@@ -225,7 +225,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
               {drafted ? (
                 <div className={styles.drafts}>
                   {forms.map((one) => (
-                    <TeamCard key={one.key} form={one} />
+                    <TeamCard key={one.key} form={one} chart />
                   ))}
                 </div>
               ) : null}
@@ -328,22 +328,18 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                   <TeamCard
                     key={one.key}
                     form={one}
+                    chart
                     footer={
                       <dl className={styles.facts}>
-                        <div className={chosen.length === 0 ? styles.missing : undefined}>
+                        <div>
                           <dt>Workspaces</dt>
                           <dd>
-                            {chosen.length === 0
-                              ? "Not chosen"
-                              : chosen
-                                  .map((name, place) => (place === 0 ? `${name} (default)` : name))
-                                  .join(", ")}
+                            {chosen
+                              .map((name, place) => (place === 0 ? `${name} (default)` : name))
+                              .join(", ")}
                           </dd>
-                          <Button
-                            variant={chosen.length === 0 ? "primary" : "ghost"}
-                            onClick={edit(WORKSPACES_STEP)}
-                          >
-                            {chosen.length === 0 ? "Choose" : "Change"}
+                          <Button variant="ghost" onClick={edit(WORKSPACES_STEP)}>
+                            Change
                           </Button>
                         </div>
                         <div>
