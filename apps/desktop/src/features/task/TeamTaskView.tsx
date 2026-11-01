@@ -14,6 +14,7 @@ import { useModelName } from "../profiles/model-line.ts";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
+import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -302,7 +303,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                   agent={shown}
                   actions={
                     shown.record.guest ? undefined : (
-                      <ReviewAction onClick={() => setAsking(true)} />
+                      <>
+                        <ReviewAction onClick={() => setAsking(true)} />
+                        <PermissionChip agent={shown} />
+                      </>
                     )
                   }
                 />

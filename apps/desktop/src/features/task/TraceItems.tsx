@@ -22,10 +22,9 @@ import { memo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
-import { describeActions } from "../../trace/blocks.ts";
+import { describeActions, settledByLevel } from "../../trace/blocks.ts";
 import type { TraceAction, TraceItem, TraceMessage, TraceRequest } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
@@ -205,9 +204,9 @@ function resolutionText(request: TraceRequest): string | undefined {
       (candidate) => "optionId" in resolution && candidate.optionId === resolution.optionId,
     );
     if (resolution.outcome === "allowed") {
-      const by = "answeredBy" in resolution ? resolution.answeredBy : undefined;
-      if (typeof by === "object") return `Allowed by your setting · ${AUTONOMY[by.autonomy].label}`;
-      if (by === "app") return "Allowed by the app's setting";
+      if ("answeredBy" in resolution && resolution.answeredBy === "app") {
+        return "Allowed by the app's setting";
+      }
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
     if (resolution.outcome !== "denied") return "Cancelled";
@@ -228,6 +227,7 @@ const PROPOSAL_OUTCOMES = {
 
 // Once answered it shrinks to one line.
 function RequestLine({ request, live }: { request: TraceRequest; live: boolean }) {
+  if (settledByLevel(request)) return null;
   const resolved = resolutionText(request);
   if (resolved === undefined && live) return <RequestCard event={request.event} />;
   return (

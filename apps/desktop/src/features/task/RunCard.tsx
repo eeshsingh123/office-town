@@ -1,5 +1,5 @@
 import type { RoleSettings } from "@office-town/contract";
-import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder, ShieldCheck } from "lucide-react";
+import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -161,10 +161,6 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
             {facts.harness}
             <span className={styles.muted}> · {facts.machine}</span>
           </span>
-        </li>
-        <li title={facts.permissions.description}>
-          <ShieldCheck size={14} aria-hidden />
-          <span className={styles.text}>{facts.permissions.label}</span>
         </li>
         {folder === undefined ? null : (
           <li title={folder}>

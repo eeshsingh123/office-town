@@ -15,6 +15,7 @@ import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
+import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -162,7 +163,12 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <div className={`${styles.traceWidth} ${styles.dock}`}>
               <MessageBox
                 agent={agent}
-                actions={<ReviewAction onClick={() => setAsking(true)} />}
+                actions={
+                  <>
+                    <ReviewAction onClick={() => setAsking(true)} />
+                    <PermissionChip agent={agent} />
+                  </>
+                }
               />
             </div>
           </div>

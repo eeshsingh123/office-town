@@ -209,6 +209,8 @@
 
 .composerActions {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 4px;
   margin-top: 6px;
 }

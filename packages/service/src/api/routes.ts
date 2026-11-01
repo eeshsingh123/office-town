@@ -405,12 +405,15 @@ export function apiRoutes(
       reply: async ({ param, body }) => {
         const agent = store.getAgent(param("id"));
         if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
-        const { colour, purpose, settings } = agentProfileRequestSchema.parse(await body());
+        const { colour, purpose, settings, autonomy } = agentProfileRequestSchema.parse(
+          await body(),
+        );
         const saved = store.updateAgent(agent.id, {
           ...agent,
           colour,
           purpose: purpose === "" ? undefined : purpose,
           settings,
+          ...(autonomy === undefined ? {} : { autonomy }),
         });
         const { harness, model, effort } = agent.settings;
         if (

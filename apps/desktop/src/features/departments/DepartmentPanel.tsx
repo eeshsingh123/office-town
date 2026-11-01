@@ -25,6 +25,7 @@ import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopTeamButton.tsx";
 import styles from "./DepartmentPanel.module.css";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
+import { settingsOf } from "./team-form.ts";
 import { totalOf } from "./usage.ts";
 
 interface Member {
@@ -193,16 +194,9 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
   const [failure, setFailure] = useState<string>();
   const setWorkspaces = async (workspaceIds: string[]) => {
-    const {
-      id: _,
-      createdAt: _at,
-      workspaceId: _default,
-      leadAgentId: _lead,
-      ...settings
-    } = department;
     setFailure(undefined);
     try {
-      await api.updateDepartment(department.id, { ...settings, workspaceIds });
+      await api.updateDepartment(department.id, { ...settingsOf(department), workspaceIds });
     } catch (error) {
       setFailure(error instanceof Error ? error.message : String(error));
     }
@@ -248,7 +242,6 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
           departmentName={department.name}
           departmentId={department.id}
           goalWorkspaceId={working ? task?.workspaceId : undefined}
-          keepOne
           compact
         />
         {working ? <p className={styles.note}>Changes apply from the next goal.</p> : null}

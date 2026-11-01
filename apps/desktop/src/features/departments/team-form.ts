@@ -4,6 +4,7 @@ import {
   agentColours,
   type DepartmentDraft,
   type DepartmentRecord,
+  type DepartmentSettings,
   type DraftPerson,
   type RoleSettings,
   type Team,
@@ -52,6 +53,17 @@ export const nextKey = () => {
 export const LEAD_COLOUR = agentColours[3]?.value ?? "#3A6EA5";
 export const memberColour = (index: number) =>
   agentColours[(index + 4) % agentColours.length]?.value ?? LEAD_COLOUR;
+
+export function settingsOf(department: DepartmentRecord): DepartmentSettings {
+  const {
+    id: _,
+    createdAt: _at,
+    workspaceId: _default,
+    leadAgentId: _lead,
+    ...settings
+  } = department;
+  return settings;
+}
 
 // "Developer 2" works in the same role as "Developer"; older drafts numbered people that way.
 export const baseRole = (role: string) => role.trim().replace(/\s*#?\d+$/, "") || role.trim();
