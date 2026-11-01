@@ -68,7 +68,11 @@ describe("delegation", () => {
     });
     expect(JSON.stringify(lastSent(1))).toContain("Build a bakery site");
     const busy = await core.callTool(lead, "delegate", { agent: writer, brief: "And more" });
-    expect(busy).toMatchObject({ isError: true, text: expect.stringContaining("still working") });
+    expect(busy.text).toContain(`Queued for ${writer}`);
+    expect(lastSent(1)).toMatchObject({
+      text: expect.stringContaining("And more"),
+      origin: { kind: "brief", from: leadAgentId },
+    });
     const stranger = await core.callTool(lead, "delegate", { agent: "@nobody", brief: "Help" });
     expect(stranger).toMatchObject({ isError: true, text: expect.stringContaining(writer) });
     // Workers cannot hire.
@@ -109,6 +113,17 @@ describe("delegation", () => {
     expect(resumed?.sent.at(-1)).toMatchObject({
       text: `${tester} finished:\nThe page works in Chrome.`,
     });
+
+    // A brief that misses the worker's turn starts its own, and its result still reaches the lead.
+    const worker = core.sessions[1];
+    await core.callTool(resumed, "delegate", { agent: writer, brief: "Add prices" });
+    worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    await core.callTool(resumed, "delegate", { agent: writer, brief: "Add hours" });
+    worker?.emit({ type: "message", payload: { role: "assistant", text: "Prices are in." } });
+    worker?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    playTurn(worker, "Hours are in.");
+    await settle();
+    expect(resumed?.sent.at(-1)).toMatchObject({ text: `${writer} finished:\nHours are in.` });
   });
 
   it("hands an idle lead every result that comes at once, in order", async () => {

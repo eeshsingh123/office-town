@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleAlert,
   CircleMinus,
+  Clock,
   FileText,
   Globe,
   Lightbulb,
@@ -76,6 +77,7 @@ export function Streaming({ place, parent = "" }: { place: Place; parent?: strin
 }
 
 function ActionStatus({ action, live }: { action: TraceAction; live: boolean }) {
+  if (action.queued) return <Clock size={14} className={styles.quiet} aria-label="Queued" />;
   if (action.status === "completed")
     return <Check size={14} className={styles.ok} aria-label="Done" />;
   if (action.status === "failed") return <X size={14} className={styles.bad} aria-label="Failed" />;

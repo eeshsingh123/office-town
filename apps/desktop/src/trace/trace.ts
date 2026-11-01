@@ -8,9 +8,15 @@ import type {
   TokenUsage,
   UserRequestEvent,
 } from "@office-town/contract";
-import { teamToolServer } from "@office-town/contract";
+import { queuedDelegation, teamToolServer } from "@office-town/contract";
 import type { StreamedEvent } from "../api/event-stream.ts";
-import { appAction, type ShownInput, shownInput, teamToolAction } from "./team-tools.ts";
+import {
+  appAction,
+  queuedTitle,
+  type ShownInput,
+  shownInput,
+  teamToolAction,
+} from "./team-tools.ts";
 
 export interface TraceAction {
   kind: "action";
@@ -30,6 +36,8 @@ export interface TraceAction {
   app?: string;
   // What it showed the user with show_result, as the agent named it (M8).
   shows?: ShownInput;
+  // A delegate to a busy worker, which reads it when its current tool ends.
+  queued?: true;
   startedAt: string;
   endedAt?: string;
   // In order.
@@ -267,6 +275,9 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "permission.requested":
     case "question.requested": {
+        ...(action.actionKind === "delegate" && result.startsWith(queuedDelegation)
+          ? { queued: true, title: queuedTitle(action.input) }
+          : {}),
       const { requestId, actionId } = event.payload;
       const id = requestKey(requestId);
       trace.items.set(id, { kind: "request", id, event });

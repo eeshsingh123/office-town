@@ -120,6 +120,17 @@ If you work on a branch of your own, commit your work there. ${RESULT_ASK}`,
   };
 }
 
+// For a worker still on a piece: it reads this between tools, so it says what to do with it.
+export function pieceUpdate(lead: { id: string; name: string }, work: string): Message {
+  return {
+    text: `An update from ${lead.name} on the work you are doing:
+${work}
+
+Work this into what you are doing now. ${RESULT_ASK}`,
+    origin: { kind: "brief", summary: `An update from ${lead.name}`, from: lead.id },
+  };
+}
+
 export const LEAD_BRIEF_SUMMARY = "The goal and your team";
 
 export function leadBrief(input: {
