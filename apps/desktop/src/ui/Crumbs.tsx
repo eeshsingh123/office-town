@@ -8,7 +8,7 @@ export interface Crumb {
   view?: View;
 }
 
-// Each part is a way up; the last names the page.
+// Each part is a way up; the last names the page, unless the page's title sits right under it.
 export function Crumbs({ items }: { items: Crumb[] }) {
   return (
     <nav aria-label="Breadcrumb" className={styles.crumbs}>

@@ -163,7 +163,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 : task.leadAgentId !== undefined && task.leadAgentId === chiefId
                   ? [{ label: "Chief", view: { name: "chief" } as const }]
                   : []),
-              { label: taskTitle(task.prompt) },
             ]}
           />
           <div className={styles.titleLine}>
@@ -179,8 +178,17 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </span>
             )}
             <span className={styles.chip}>
-              {working} working{waitingCount === 0 ? "" : ` · ${waitingCount} waiting for you`}
+              <span className={`${styles.count} ${working === 0 ? styles.countIdle : ""}`}>
+                {working}
+              </span>
+              working
             </span>
+            {waitingCount === 0 ? null : (
+              <span className={styles.chip}>
+                <span className={`${styles.count} ${styles.countWaiting}`}>{waitingCount}</span>
+                waiting for you
+              </span>
+            )}
           </div>
         </div>
         <TaskTabs taskId={taskId} />

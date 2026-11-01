@@ -97,12 +97,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
         <div className={styles.heading}>
-          <Crumbs
-            items={[
-              { label: "Tasks", view: { name: "tasks" } },
-              { label: taskTitle(agent.task.prompt) },
-            ]}
-          />
+          <Crumbs items={[{ label: "Tasks", view: { name: "tasks" } }]} />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(agent.task.prompt)}</h1>
             <span
