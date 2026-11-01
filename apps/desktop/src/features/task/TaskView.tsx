@@ -5,7 +5,13 @@ import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, type Progress, progressOf, stageOf } from "../../trace/progress.ts";
+import {
+  type AgentState,
+  type Progress,
+  planIsStale,
+  progressOf,
+  stageOf,
+} from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
@@ -90,9 +96,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         ? "Needs your approval"
         : "Has a question for you";
   // A resumed session reports no plan until it changes, so the latest known one shows.
-  const plan = agent.sessions
-    .map((session) => traces[session.id]?.plan ?? [])
-    .findLast((steps) => steps.length > 0);
+  const planned = agent.sessions
+    .map((session) => traces[session.id])
+    .findLast((trace) => trace !== undefined && trace.plan.length > 0);
+  const plan = planned?.plan;
 
   return (
     <section className={styles.view} aria-labelledby="task-title">
@@ -175,7 +182,9 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               />
             </div>
           </div>
-          {plan === undefined ? null : <StepsColumn plan={plan} />}
+          {planned === undefined ? null : (
+            <StepsColumn plan={planned.plan} stale={planIsStale(planned)} />
+          )}
         </div>
       )}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />

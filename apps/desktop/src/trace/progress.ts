@@ -28,6 +28,13 @@ const RECENT = 3;
 const STALE_PLAN_ACTIONS = 25;
 const cache = new WeakMap<Trace, Progress>();
 
+export function planIsStale(trace: Trace): boolean {
+  return (
+    trace.actionsSincePlan > STALE_PLAN_ACTIONS &&
+    trace.plan.some((step) => step.status !== "completed")
+  );
+}
+
 export function progressOf(trace: Trace): Progress {
   const cached = cache.get(trace);
   if (cached !== undefined) return cached;
@@ -35,7 +42,7 @@ export function progressOf(trace: Trace): Progress {
   const index = trace.plan.findIndex((step) => step.status === "in_progress");
   const stepIndex =
     index === -1 ? trace.plan.findIndex((step) => step.status !== "completed") : index;
-  const step = trace.actionsSincePlan > STALE_PLAN_ACTIONS ? undefined : trace.plan[stepIndex];
+  const step = planIsStale(trace) ? undefined : trace.plan[stepIndex];
   const current = actions.findLast((action) => action.status === "running");
   const progress: Progress = {
     stepCount: trace.plan.length,
