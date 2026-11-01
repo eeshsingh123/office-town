@@ -36,6 +36,7 @@ export const RELEASES: Release[] = [
       "The office stays clear: what an agent is working on shows when you hover over it or walk up to it. Requests that need you stay visible",
       "A lead can now send an update to a busy agent. It waits with a queued icon and reaches the agent when its current tool call ends",
       'Agents are asked to keep their steps up to date, and one that stops no longer shows an old "Step 1 of 10": you see what it is doing now',
+      "A Claude task you messaged mid-work now finishes on time, where it could stay working and hold its department for up to 10 minutes",
     ],
   },
   {
