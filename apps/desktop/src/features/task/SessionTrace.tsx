@@ -8,7 +8,7 @@ import { toBlocks } from "../../trace/blocks.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import styles from "./Trace.module.css";
-import { ActionGroup, ItemView, type Place, Streaming } from "./TraceItems.tsx";
+import { ActionGroup, ItemView, type Place, Stage, Streaming } from "./TraceItems.tsx";
 
 function StepHeading({ trace, stepId }: { trace: Trace; stepId: string }) {
   const index = trace.plan.findIndex((step) => step.id === stepId);
@@ -106,6 +106,7 @@ export function SessionTrace({ session }: { session: SessionRecord }) {
           </div>
         ),
       )}
+      <Stage place={place} />
       <Streaming place={place} />
       <SessionEnd session={session} trace={trace} />
     </div>

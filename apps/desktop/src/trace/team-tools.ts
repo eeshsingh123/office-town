@@ -1,4 +1,9 @@
-import { type ActionKind, appsToolServer, teamToolServer } from "@office-town/contract";
+import {
+  type ActionKind,
+  appsToolServer,
+  queuedDelegation,
+  teamToolServer,
+} from "@office-town/contract";
 
 type Input = Record<string, unknown>;
 
@@ -40,6 +45,14 @@ export function teamToolAction(name: string, input: unknown) {
   if (tool === undefined) return undefined;
   const fields = input !== null && typeof input === "object" ? (input as Input) : {};
   return { kind: tool.kind, title: tool.title(fields) };
+}
+
+export function delegatedTo(input: unknown): string {
+  return words(input !== null && typeof input === "object" ? (input as Input).agent : undefined);
+}
+
+export function queuedTitle(input: unknown): string {
+  return `${queuedDelegation}${delegatedTo(input)}`;
 }
 
 // "create_page" reads as "Create page"; a short text it was given is quoted after it.

@@ -9,10 +9,13 @@ interface AskChipProps {
   value: Autonomy;
   // Goes through the bypass gate, which warns before turning every check off.
   onChoose: (level: Autonomy) => void;
+  align?: "start" | "end";
+  // Under the levels, such as who a change reaches.
+  note?: string;
 }
 
 // How much it may do without asking; the harness's bypass sits last, apart, with its warning.
-export function AskChip({ value, onChoose }: AskChipProps) {
+export function AskChip({ value, onChoose, align = "start", note }: AskChipProps) {
   const item = (level: Autonomy) => (
     <DropdownMenu.RadioItem value={level} className={menu.item}>
       <span className={menu.itemText}>
@@ -37,7 +40,7 @@ export function AskChip({ value, onChoose }: AskChipProps) {
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           className={`${menu.surface} ${styles.menu}`}
-          align="start"
+          align={align}
           sideOffset={6}
         >
           <DropdownMenu.RadioGroup
@@ -52,6 +55,12 @@ export function AskChip({ value, onChoose }: AskChipProps) {
             <DropdownMenu.Separator className={styles.separator} />
             {item("bypass")}
           </DropdownMenu.RadioGroup>
+          {note === undefined ? null : (
+            <>
+              <DropdownMenu.Separator className={styles.separator} />
+              <p className={`${menu.itemDescription} ${styles.menuNote}`}>{note}</p>
+            </>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

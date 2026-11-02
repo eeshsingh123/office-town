@@ -212,6 +212,11 @@
   max-width: calc(100vw - 32px);
 }
 
+.menuNote {
+  margin: 0;
+  padding: 2px 10px 6px;
+}
+
 /* The list gives way in a short window, so Thinking is never cut off. */
 .modelMenu {
   display: flex;

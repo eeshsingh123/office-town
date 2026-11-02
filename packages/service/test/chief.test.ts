@@ -185,8 +185,17 @@ describe("the chief", () => {
     expect(piece("review")?.status).toBe("waiting");
     expect(core.store.getTask(goal.task.id)?.state).toBe("working");
 
-    // The chief retries the docs; the review that waited on them is planned again.
-    await plan([{ ...docsPiece, brief: "Write shorter docs" }, review]);
+    // The chief retries the docs; the review that waited on them is planned again, this time in
+    // Scratch, which a folder replaces before the review starts.
+    const folders = api.department.workspaceIds;
+    const scratch = core.store.listWorkspaces().find((each) => each.kind === "scratch");
+    const workIn = (workspaceIds: (string | undefined)[]) =>
+      core.call("PUT", `/departments/${api.department.id}`, { ...api.department, workspaceIds });
+    await workIn([...folders, scratch?.id]);
+    await plan([
+      { ...docsPiece, brief: "Write shorter docs" },
+      { ...review, workspace: "Scratch" },
+    ]);
     expect(waitingPlan().payload.replan).toBe(true);
     await approve();
     await settle();
@@ -198,6 +207,7 @@ describe("the chief", () => {
       ["docs", "working"],
       ["review", "waiting"],
     ]);
+    await workIn(folders);
 
     // A new department's piece is done only once its team was approved.
     const docsLead = leadOf(piece("docs")?.pieceTaskId);
@@ -218,6 +228,7 @@ describe("the chief", () => {
     playTurn(leadOf(webTask), "The site is up.");
     playTurn(docsLead, "The docs are in docs/.");
     await settle();
+    expect(core.store.getTask(piece("review")?.pieceTaskId ?? "")?.workspaceId).toBe(folders[0]);
     playTurn(leadOf(piece("review")?.pieceTaskId), "The docs read well.");
     await settle();
     expect(chief?.sent.at(-1)).toMatchObject({

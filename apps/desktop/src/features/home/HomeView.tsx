@@ -30,6 +30,7 @@ import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
 import { UsagePauses } from "../usage/UsagePauses.tsx";
+import { useGreeting } from "./greeting.ts";
 import styles from "./Home.module.css";
 
 const SHOWN_REQUESTS = 3;
@@ -42,13 +43,6 @@ const GOAL_STATE: Record<TaskState, string> = {
   idle: "Idle",
   ended: "Done",
 };
-
-function greeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
 
 function openBoard() {
   showMode("board");
@@ -460,6 +454,7 @@ function GettingStarted() {
 
 // The screen the app opens on: what is happening, what needs you, and a box to start more.
 export function HomeView() {
+  const greeting = useGreeting();
   const { working, order } = useCounts();
   const anyTask = useApp((state) => Object.keys(state.tasks).length > 0);
   const hasTeam = useApp(
@@ -478,7 +473,7 @@ export function HomeView() {
     <section className={styles.page} aria-labelledby="home-title">
       <div className={styles.column}>
         <h1 id="home-title" className={styles.title}>
-          {greeting()}
+          {greeting}
         </h1>
         <p className={styles.summary}>{summary}</p>
         <Composer home />

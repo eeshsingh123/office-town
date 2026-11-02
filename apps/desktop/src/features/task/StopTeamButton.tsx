@@ -2,29 +2,26 @@ import { Square } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { Button } from "../../ui/Button.tsx";
-import styles from "./TaskView.module.css";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 
+// A stray click must not end a long run, so this always asks.
 export function StopTeamButton({ taskId, label }: { taskId: string; label: string }) {
-  const [error, setError] = useState<string>();
-  const stop = async () => {
-    setError(undefined);
-    try {
-      await api.stopTeam(taskId);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
-    }
-  };
+  const [asking, setAsking] = useState(false);
   return (
     <>
-      <Button onClick={() => void stop()}>
+      <Button variant="danger" onClick={() => setAsking(true)}>
         <Square size={12} aria-hidden />
         {label}
       </Button>
-      {error === undefined ? null : (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        title="Stop everyone on this task?"
+        description="They stop right away, even in the middle of a step. Work already done stays. Send a message to carry on later."
+        confirmLabel={label}
+        danger
+        onConfirm={() => api.stopTeam(taskId)}
+      />
     </>
   );
 }

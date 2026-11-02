@@ -18,6 +18,7 @@ const recordings = {
   "question-answered": recording("question-answered"),
   "resumed-streamed": recording("resumed-streamed"),
   "team-tool": recording("team-tool"),
+  "mid-turn-message": recording("mid-turn-message"),
 };
 
 const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };

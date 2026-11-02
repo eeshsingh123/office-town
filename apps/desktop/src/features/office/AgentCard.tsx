@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { type Agent, stateOf, useAgent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
-import { type AgentState, progressOf } from "../../trace/progress.ts";
+import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -53,6 +53,8 @@ function lineOf(
   const title = taskTitle(agent.task.prompt);
   if (request !== undefined) return requestLabel(request);
   if (state === "working" || state === "starting") {
+    const stage = stageOf(state, trace);
+    if (stage !== undefined) return stage;
     const progress = trace === undefined ? undefined : progressOf(trace);
     if (progress?.step !== undefined) {
       return `Step ${progress.step.number} of ${progress.stepCount} · ${progress.step.title}`;

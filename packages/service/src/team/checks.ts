@@ -30,8 +30,9 @@ import { type MadeSandbox, makeSandbox, removeSandbox } from "./check-sandbox.ts
 import { transcriptOf } from "./handover.ts";
 import { isOpen, latestSession } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
+import { claimDepartment } from "./team-tasks.ts";
 
-const OPEN = new Set<CheckRecord["status"]>(["drafting", "approving", "running"]);
+export const OPEN_CHECK = new Set<CheckRecord["status"]>(["drafting", "approving", "running"]);
 // Owner: a short list the user can read through; they add more in the card if they want.
 const MAX_ITEMS = 10;
 
@@ -224,9 +225,15 @@ export class Checks {
     });
   }
 
-  async start(taskId: string, request: CheckRequest): Promise<CheckRecord> {
+  // Its department must be free of other work: a check reads the folder that work would change.
+  start(taskId: string, request: CheckRequest): Promise<CheckRecord> {
+    const departmentId = this.#context.store.getTask(taskId)?.departmentId;
+    return claimDepartment(this.#context, departmentId, taskId, () => this.#start(taskId, request));
+  }
+
+  async #start(taskId: string, request: CheckRequest): Promise<CheckRecord> {
     const { store, dataFolder } = this.#context;
-    if (store.listChecks(taskId).some((check) => OPEN.has(check.status))) {
+    if (store.listChecks(taskId).some((check) => OPEN_CHECK.has(check.status))) {
       throw new TeamError("A check of this work is already under way.");
     }
     const ownerAgentId = ownerOf(store, taskId, request.agentId);
@@ -527,7 +534,7 @@ export class Checks {
     const check = store.checkOfSession(sessionId);
     if (check === undefined) return;
     this.#reminded.delete(sessionId);
-    if (OPEN.has(check.status)) {
+    if (OPEN_CHECK.has(check.status)) {
       store.updateCheck(check.id, { status: reason === "failed" ? "failed" : "stopped" });
     }
     const left = store.checkSandboxes(check.taskId).find(({ checkId }) => checkId === check.id);

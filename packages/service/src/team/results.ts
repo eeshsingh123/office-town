@@ -84,7 +84,34 @@ export function reportResults(context: TeamContext, activity: SessionActivity): 
     });
   };
 
+  // A brief told to a busy worker. Taken mid-turn, it ends with that turn. One that missed the
+  // turn starts its own, after the piece ended, and the lead is owed that result too.
+  const updates = new Map<string, string>();
+
+  const followUpdates = (event: SessionEvent) => {
+    const { sessionId } = event;
+    if (event.type === "message" && event.payload.role === "user") {
+      const told = event.payload.origin?.kind === "brief";
+      if (told && store.workingDelegation(sessionId) !== undefined) {
+        updates.set(sessionId, event.payload.text);
+      } else {
+        updates.delete(sessionId);
+      }
+    } else if (event.type === "session.ended") {
+      updates.delete(sessionId);
+    } else if (event.type === "turn.started") {
+      const brief = updates.get(sessionId);
+      const session = store.getSession(sessionId);
+      updates.delete(sessionId);
+      if (brief === undefined || session === undefined) return;
+      if (store.workingDelegation(sessionId) !== undefined) return;
+      const { taskId, agentId } = session;
+      store.createDelegation({ taskId, workerAgentId: agentId, workerSessionId: sessionId, brief });
+    }
+  };
+
   const onEvent = (event: SessionEvent) => {
+    followUpdates(event);
     if (event.type !== "turn.ended" && event.type !== "session.ended") return;
     const delegation = store.workingDelegation(event.sessionId);
     if (delegation === undefined) return;

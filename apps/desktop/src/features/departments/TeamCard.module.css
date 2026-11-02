@@ -99,6 +99,141 @@
   border-color: var(--border-strong);
 }
 
+.chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chart ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chart .top {
+  width: min(380px, 100%);
+}
+
+.chart .rows {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  align-items: start;
+  gap: 16px;
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1.5px solid var(--border-strong);
+  border-radius: 8px 8px 0 0;
+}
+
+/* From the lead down to the line over the team. */
+.rows::before {
+  content: "";
+  position: absolute;
+  top: -21.5px;
+  left: 50%;
+  height: 20px;
+  border-left: 1.5px solid var(--border-strong);
+}
+
+.chart .lead,
+.chart .member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: center;
+  margin-left: 0;
+  padding: 14px 16px;
+}
+
+.chart .member::before,
+.chart .member::after {
+  content: none;
+}
+
+/* Role beside the face; what they do and the model take the card's whole width. */
+.chart .text {
+  display: contents;
+}
+
+.chart .text span,
+.chart .model {
+  grid-column: 1 / -1;
+}
+
+.chart .model {
+  justify-self: start;
+  max-width: 100%;
+  margin-left: 0;
+  white-space: normal;
+}
+
+.group {
+  display: flex;
+  grid-column: span var(--span);
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
+.groupName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.groupCount {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  font-size: var(--size-small);
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.chart .groupPeople {
+  display: grid;
+  grid-template-columns: repeat(var(--span), minmax(0, 1fr));
+  gap: 12px;
+}
+
+.groupPeople .member {
+  background: var(--surface);
+}
+
+@container (max-width: 960px) {
+  .chart .rows {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .group {
+    grid-column: 1 / -1;
+  }
+
+  .chart .groupPeople {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@container (max-width: 640px) {
+  .chart .rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* In a narrow card, such as the side preview, the model sits under the role. */
 @container (max-width: 420px) {
   .lead,

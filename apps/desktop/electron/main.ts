@@ -58,7 +58,7 @@ if (app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  app.setAppUserModelId(app.isPackaged ? "town.office.desktop" : "town.office.desktop.dev");
+  app.setAppUserModelId(app.isPackaged ? "town.office.desktop" : "town.office.desktop.development");
   core = await startCore(coreCommand, { onCrash });
   serveApp(UI_FOLDER, () => {
     if (core === undefined) throw new Error("The core is not running.");

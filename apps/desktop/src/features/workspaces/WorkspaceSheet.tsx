@@ -165,7 +165,7 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
                 hint={
                   kind === "scratch"
                     ? "Each task gets a new folder in here."
-                    : "Agents start here. In a git repository, each worker gets its own copy."
+                    : "Agents work in this folder."
                 }
               />
             </div>

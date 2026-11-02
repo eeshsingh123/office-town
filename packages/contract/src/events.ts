@@ -60,6 +60,8 @@ export const questionAnswerSchema = z.object({
 export type QuestionAnswer = z.infer<typeof questionAnswerSchema>;
 
 export const teamToolServer = "office-town";
+// How `delegate` answers for a busy worker, so a trace can tell it from a hand-off.
+export const queuedDelegation = "Queued for ";
 
 // Why the core, not the user, sent an agent a message.
 export const messageOriginSchema = z.discriminatedUnion("kind", [

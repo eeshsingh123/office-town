@@ -159,6 +159,9 @@ export class ClaudeTranslator implements Translator {
   readonly #vendorApps: readonly { name: string }[];
   #sessionStarted = false;
   #interrupts = 0;
+  #turnOpen = false;
+  // Prompts sent during the open turn that the CLI has not taken yet.
+  #sentInTurn = 0;
   #steps: PlanStep[] = [];
   // The main conversation's length at its latest model call; sub-agents have their own.
   #contextTokens = 0;
@@ -196,6 +199,7 @@ export class ClaudeTranslator implements Translator {
   }
 
   prompt(text: string, images: InlineImage[]): Translation {
+    if (this.#turnOpen) this.#sentInTurn += 1;
     const content =
       images.length === 0
         ? text
@@ -285,6 +289,8 @@ export class ClaudeTranslator implements Translator {
   // The CLI reports init at the start of every turn, not only the first.
   #init(message: unknown): Translation {
     const init = initSchema.parse(message);
+    this.#turnOpen = true;
+    this.#sentInTurn = 0;
     const events: AdapterEvent[] = [];
     if (!this.#sessionStarted) {
       this.#sessionStarted = true;
@@ -367,8 +373,17 @@ export class ClaudeTranslator implements Translator {
     ];
   }
 
+  // A message taken mid-turn folds into it with no new init, so its echo is the sign a new start
+  // gives on other harnesses: without it, the agent would owe a turn it will never start (D-50).
+  #promptTaken(): Translation {
+    if (this.#sentInTurn === 0) return translated([]);
+    this.#sentInTurn -= 1;
+    return translated([{ type: "turn.started" }]);
+  }
+
   #user(message: unknown): Translation {
-    const { message: body, tool_use_result: recorded } = userSchema.parse(message);
+    const { message: body, tool_use_result: recorded, isReplay } = userSchema.parse(message);
+    if (isReplay === true) return this.#promptTaken();
     if (typeof body.content === "string") return translated([]);
     const events: AdapterEvent[] = [];
     for (const block of body.content) {
@@ -538,6 +553,7 @@ export class ClaudeTranslator implements Translator {
 
   #result(message: unknown): Translation {
     const result = resultSchema.parse(message);
+    this.#turnOpen = false;
     const interrupted = result.terminal_reason?.startsWith("aborted") ?? false;
     const failed = result.is_error && !interrupted;
     const events: AdapterEvent[] = [];

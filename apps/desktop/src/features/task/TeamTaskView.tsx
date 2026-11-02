@@ -2,7 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, progressOf } from "../../trace/progress.ts";
+import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskTitle } from "../../ui/format.ts";
@@ -14,6 +14,7 @@ import { useModelName } from "../profiles/model-line.ts";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
+import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -47,11 +48,12 @@ function MemberRow({
   const progress = trace === undefined ? undefined : progressOf(trace);
   const step = progress?.step;
   const doing =
-    state === "working" && step !== undefined
+    stageOf(state, trace) ??
+    (state === "working" && step !== undefined
       ? `Step ${step.number} of ${progress?.stepCount} · ${step.title}`
       : state === "waiting"
         ? "Waiting for you"
-        : STATE_LABELS[state];
+        : STATE_LABELS[state]);
   const role = agent.record.role?.trim();
   const classes = [
     team.member,
@@ -124,7 +126,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const tab = useTaskTab(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
-  const follow = useFollow(`${shown?.id}:${trace?.position}:${trace?.streaming[""]?.length}`);
+  const follow = useFollow(
+    `${taskId}:${shown?.id}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}:${trace?.thinking?.length}`,
+  );
   if (task === undefined || lead === undefined || shown === undefined) {
     return <p className={styles.loading}>Loading the task…</p>;
   }
@@ -160,24 +165,34 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 : task.leadAgentId !== undefined && task.leadAgentId === chiefId
                   ? [{ label: "Chief", view: { name: "chief" } as const }]
                   : []),
-              { label: taskTitle(task.prompt) },
             ]}
           />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(task.prompt)}</h1>
-          </div>
-          <div className={styles.chips}>
-            {task.leadAgentId === undefined ? null : (
+            <div className={styles.chips}>
+              {/* A department is already named in the breadcrumb just above. */}
+              {task.leadAgentId === undefined ||
+              (department !== undefined && task.workerAgentIds === undefined) ? null : (
+                <span className={styles.chip}>
+                  <span className={team.dot} aria-hidden />
+                  {task.workerAgentIds !== undefined
+                    ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
+                    : "Proposing a team"}
+                </span>
+              )}
               <span className={styles.chip}>
-                <span className={team.dot} aria-hidden />
-                {task.workerAgentIds !== undefined
-                  ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
-                  : (department?.name ?? "Proposing a team")}
+                <span className={`${styles.count} ${working === 0 ? styles.countIdle : ""}`}>
+                  {working}
+                </span>
+                working
               </span>
-            )}
-            <span className={styles.chip}>
-              {working} working{waitingCount === 0 ? "" : ` · ${waitingCount} waiting for you`}
-            </span>
+              {waitingCount === 0 ? null : (
+                <span className={styles.chip}>
+                  <span className={`${styles.count} ${styles.countWaiting}`}>{waitingCount}</span>
+                  waiting for you
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <TaskTabs taskId={taskId} />
@@ -291,7 +306,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                   agent={shown}
                   actions={
                     shown.record.guest ? undefined : (
-                      <ReviewAction onClick={() => setAsking(true)} />
+                      <>
+                        <ReviewAction onClick={() => setAsking(true)} />
+                        <PermissionChip agent={shown} />
+                      </>
                     )
                   }
                 />

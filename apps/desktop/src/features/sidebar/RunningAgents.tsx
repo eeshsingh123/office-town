@@ -1,7 +1,7 @@
 import { taskStateOf, useTasksWithAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { progressOf, stageOf } from "../../trace/progress.ts";
 import { taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { WorkerName } from "../tasks/WorkerName.tsx";
@@ -26,10 +26,13 @@ export function RunningAgents() {
         if (first === undefined || state === undefined) return null;
         const trace = traces[first.latest.id];
         const step = trace === undefined ? undefined : progressOf(trace).step;
+        const stage = others.length === 0 ? stageOf(state, trace) : undefined;
         const detail =
-          state === "working" && step !== undefined && others.length === 0
-            ? `step ${step.number} of ${trace?.plan.length}`
-            : STATE_LABELS[state].toLowerCase();
+          stage !== undefined
+            ? stage.charAt(0).toLowerCase() + stage.slice(1)
+            : state === "working" && step !== undefined && others.length === 0
+              ? `step ${step.number} of ${trace?.plan.length}`
+              : STATE_LABELS[state].toLowerCase();
         const current = view.name === "task" && view.taskId === task.id;
         return (
           <button

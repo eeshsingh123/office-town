@@ -1,8 +1,9 @@
-import type {
-  AgentRecord,
-  Attachment,
-  DepartmentRecord,
-  SessionRecord,
+import {
+  type AgentRecord,
+  type Attachment,
+  type DepartmentRecord,
+  queuedDelegation,
+  type SessionRecord,
 } from "@office-town/contract";
 import { environmentPath } from "@office-town/harness";
 import { z } from "zod";
@@ -13,7 +14,7 @@ import type { SessionActivity } from "../registry/activity.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { nextWork, workerBrief } from "./briefs.ts";
+import { nextWork, pieceUpdate, workerBrief } from "./briefs.ts";
 import { busyAgents, groupName, isOpen, latestSession, leadsTeam } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
 import { workerFolders } from "./worktrees.ts";
@@ -118,6 +119,27 @@ export async function startWork(
   });
 }
 
+// The harness holds it until the worker's current tool ends (D-77), so no work is cut off.
+async function queueForWorker(
+  { registry }: TeamContext,
+  team: LedTeam,
+  session: SessionRecord,
+  worker: AgentRecord,
+  work: string,
+  attachments: Attachment[],
+): Promise<string> {
+  const given = attachments.length === 0 ? {} : { attachments };
+  try {
+    await registry.tell(session.id, { ...pieceUpdate(team.lead, work), ...given });
+  } catch (error) {
+    if (!(error instanceof SessionNotRunningError)) throw error;
+    throw new ToolError(
+      `${worker.name} just stopped, so this did not reach it. Delegate it again once its result reaches you.`,
+    );
+  }
+  return `${queuedDelegation}${worker.name}. It reads this when its current tool call ends and works it into what it is doing. Its result will reach you as a message.`;
+}
+
 // The lead names files from its own list, by path as it sees them or by name.
 function filesToPass(context: TeamContext, caller: Caller, wanted: string[]): Attachment[] {
   const { store } = context;
@@ -146,8 +168,10 @@ export function delegate(context: TeamContext) {
     description:
       "Hand one of your workers a piece of work. The brief must stand alone: the worker knows " +
       "the team's goal but nothing of your conversation. It returns at once; the worker's " +
-      "result reaches you later as a message. Workers run at the same time. To pass on files " +
-      "the user gave you, list them in files; the worker gets them read-only.",
+      "result reaches you later as a message. Workers run at the same time. A worker still on a " +
+      "piece gets this when its current tool call ends and works it into that piece, so you " +
+      "can send it updates this way. To pass on files the user gave you, list them in files; " +
+      "the worker gets them read-only.",
     input: z.object({
       agent: z.string().min(1).describe("The worker's name, such as @ben-1042."),
       brief: z.string().min(1).describe("What to do, what to hand back, and any constraints."),
@@ -172,9 +196,7 @@ export function delegate(context: TeamContext) {
         throw new ToolError(`${worker.name} is busy on another task. Try again once it is free.`);
       }
       if (earlier !== undefined && store.workingDelegation(earlier.id) !== undefined) {
-        throw new ToolError(
-          `${worker.name} is still working on its last piece. Its result will reach you as a message.`,
-        );
+        return queueForWorker(context, team, earlier, worker, brief, attachments);
       }
       const session = await startWork(context, team, caller, worker, brief, attachments);
       if (!isOpen(session)) {

@@ -1,4 +1,11 @@
-import type { Trace, TraceAction } from "./trace.ts";
+import type { Trace, TraceAction, TraceItem } from "./trace.ts";
+
+// A request the permission level let through only repeats the action beside it, and the level
+// shows once, under the message box.
+export function settledByLevel(item: TraceItem | undefined): boolean {
+  if (item?.kind !== "request" || item.resolution === undefined) return false;
+  return "answeredBy" in item.resolution && typeof item.resolution.answeredBy === "object";
+}
 
 // Single items, and runs of actions in the same plan step; a step's heading shows where its work begins.
 export type TraceBlock =
@@ -12,6 +19,7 @@ export function toBlocks(trace: Trace): TraceBlock[] {
   let shut = false;
   for (const id of trace.order) {
     const item = trace.items.get(id);
+    if (settledByLevel(item)) continue;
     if (item?.kind !== "action") {
       blocks.push({ kind: "item", id });
       continue;

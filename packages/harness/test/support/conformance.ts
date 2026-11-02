@@ -23,14 +23,23 @@ function expectOneSessionEndedLast(events: SessionEvent[]): void {
   expect(events.at(-1)?.type).toBe("session.ended");
 }
 
-function expectTurnsInPairs(events: SessionEvent[]): void {
-  const turns = events.filter((e) => e.type === "turn.started" || e.type === "turn.ended");
-  expect(turns.length % 2).toBe(0);
-  for (let index = 0; index < turns.length; index += 2) {
-    expect(turns[index]?.type).toBe("turn.started");
-    expect(turns[index + 1]?.type).toBe("turn.ended");
-    expect(turns[index + 1]?.payload.turnId).toBe(turns[index]?.payload.turnId);
+// A message taken mid-turn starts again with no end in between (D-77).
+function expectTurnsClosed(events: SessionEvent[]): void {
+  let open: string | undefined;
+  for (const event of events) {
+    if (event.type === "turn.started") open = event.payload.turnId;
+    if (event.type !== "turn.ended") continue;
+    expect(event.payload.turnId).toBe(open);
+    open = undefined;
   }
+  expect(open).toBeUndefined();
+}
+
+// With none after it, the core waits for a turn that never comes (D-50).
+function expectEveryMessageTaken(events: SessionEvent[]): void {
+  const sent = events.findLastIndex((e) => e.type === "message" && e.payload.role === "user");
+  const started = events.findLastIndex((e) => e.type === "turn.started");
+  expect(started).toBeGreaterThanOrEqual(sent);
 }
 
 function expectActionsStartedBeforeUse(events: SessionEvent[]): void {
@@ -81,7 +90,8 @@ async function expectEventRules(adapter: Adapter, lines: RecordingEntry[]): Prom
 
   expectValidEventsInSequence(events);
   expectOneSessionEndedLast(events);
-  expectTurnsInPairs(events);
+  expectTurnsClosed(events);
+  expectEveryMessageTaken(events);
   expectActionsStartedBeforeUse(events);
   expectEveryRequestResolved(events);
   expectFragmentsToAddUp(events);

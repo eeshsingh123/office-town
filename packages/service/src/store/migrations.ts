@@ -140,6 +140,36 @@ function restoreScratch(db: DatabaseSync): void {
   );
 }
 
+// Scratch stands in for a department with no folders (D-82), so it goes where one has any. The
+// first folder becomes the default if Scratch was. A goal keeps the workspace it started in.
+function dropScratchBesideFolders(db: DatabaseSync): void {
+  db.exec(`
+  UPDATE departments SET workspace_ref = (
+    SELECT extra.workspace_ref
+    FROM department_workspaces extra JOIN workspaces folder ON folder.ref = extra.workspace_ref
+    WHERE extra.department_ref = departments.ref AND folder.kind = 'folders'
+    ORDER BY extra.position LIMIT 1
+  )
+  WHERE workspace_ref IN (SELECT ref FROM workspaces WHERE kind = 'scratch')
+    AND ref IN (
+      SELECT extra.department_ref
+      FROM department_workspaces extra JOIN workspaces folder ON folder.ref = extra.workspace_ref
+      WHERE folder.kind = 'folders'
+    );
+
+  DELETE FROM department_workspaces
+  WHERE workspace_ref = (SELECT workspace_ref FROM departments WHERE ref = department_ref)
+    OR (
+      workspace_ref IN (SELECT ref FROM workspaces WHERE kind = 'scratch')
+      AND department_ref IN (
+        SELECT department.ref
+        FROM departments department JOIN workspaces main ON main.ref = department.workspace_ref
+        WHERE main.kind = 'folders'
+      )
+    );
+  `);
+}
+
 // Logins of their own, each in a folder (D-61). The CLI's default login has no row.
 function addAccounts(db: DatabaseSync): void {
   db.exec(`
@@ -677,4 +707,5 @@ export const migrations: readonly Migration[] = [
   addOutputs,
   restoreScratch,
   "CREATE INDEX IF NOT EXISTS sessions_interrupted ON sessions (status) WHERE status = 'interrupted';",
+  dropScratchBesideFolders,
 ];

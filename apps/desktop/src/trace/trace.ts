@@ -8,9 +8,15 @@ import type {
   TokenUsage,
   UserRequestEvent,
 } from "@office-town/contract";
-import { teamToolServer } from "@office-town/contract";
+import { queuedDelegation, teamToolServer } from "@office-town/contract";
 import type { StreamedEvent } from "../api/event-stream.ts";
-import { appAction, type ShownInput, shownInput, teamToolAction } from "./team-tools.ts";
+import {
+  appAction,
+  queuedTitle,
+  type ShownInput,
+  shownInput,
+  teamToolAction,
+} from "./team-tools.ts";
 
 export interface TraceAction {
   kind: "action";
@@ -30,6 +36,8 @@ export interface TraceAction {
   app?: string;
   // What it showed the user with show_result, as the agent named it (M8).
   shows?: ShownInput;
+  // A delegate to a busy worker, which reads it when its current tool ends.
+  queued?: true;
   startedAt: string;
   endedAt?: string;
   // In order.
@@ -91,9 +99,16 @@ export interface Trace {
   // Top-level only; nested items hang off their action.
   order: string[];
   plan: PlanStep[];
+  // Top-level actions since the agent last touched its plan.
+  actionsSincePlan: number;
   // By action id ("" for the agent itself).
   streaming: Record<string, string>;
+  // Its thinking as it comes, until the whole text arrives.
+  thinking?: string;
   turnOpen: boolean;
+  turnStartedAt?: string;
+  // The model has shown something in this turn.
+  answered: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
   model?: string;
@@ -107,8 +122,10 @@ export function emptyTrace(sessionId: string): Trace {
     items: new Map(),
     order: [],
     plan: [],
+    actionsSincePlan: 0,
     streaming: {},
     turnOpen: false,
+    answered: false,
     usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   };
 }
@@ -164,14 +181,18 @@ function apply(trace: Trace, event: SessionEvent): void {
       trace.ended = event.payload;
       trace.turnOpen = false;
       trace.streaming = {};
+      delete trace.thinking;
       return;
     case "turn.started":
       trace.turnOpen = true;
+      trace.turnStartedAt = event.timestamp;
+      trace.answered = false;
       return;
     case "turn.ended": {
       const { outcome, usage } = event.payload;
       trace.turnOpen = false;
       trace.lastTurn = outcome;
+      delete trace.thinking;
       if (usage !== undefined) addUsage(trace, usage);
       if (outcome !== "completed") {
         const text = outcome === "interrupted" ? "Turn interrupted" : "Turn failed";
@@ -187,6 +208,7 @@ function apply(trace: Trace, event: SessionEvent): void {
     case "message": {
       const { role, text, parentActionId, origin, attachments } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
+      if (role === "assistant") trace.answered = true;
       if (text.trim() === "") return;
       trace.items.set(event.id, {
         kind: "message",
@@ -202,6 +224,8 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "reasoning": {
       const { text, parentActionId } = event.payload;
+      trace.answered = true;
+      delete trace.thinking;
       if (text.trim() === "") return;
       trace.items.set(event.id, { kind: "reasoning", id: event.id, text });
       place(trace, event.id, parentActionId);
@@ -209,13 +233,20 @@ function apply(trace: Trace, event: SessionEvent): void {
     }
     case "message.delta": {
       const key = event.payload.parentActionId ?? "";
+      trace.answered = true;
       trace.streaming[key] = (trace.streaming[key] ?? "") + event.payload.text;
       return;
     }
+    // A sub-agent's thinking stays inside its action.
     case "reasoning.delta":
+      trace.answered = true;
+      if (event.payload.parentActionId === undefined) {
+        trace.thinking = (trace.thinking ?? "") + event.payload.text;
+      }
       return;
     case "plan.updated":
       trace.plan = event.payload.steps;
+      trace.actionsSincePlan = 0;
       return;
     case "action.started": {
       const { actionId, kind, title, input, locations, parentActionId, planStepId, tool } =
@@ -226,6 +257,7 @@ function apply(trace: Trace, event: SessionEvent): void {
           ? shownInput(input)
           : undefined;
       const app = tool === undefined ? undefined : appAction(tool, input);
+      trace.answered = true;
       trace.items.set(actionId, {
         kind: "action",
         id: actionId,
@@ -242,6 +274,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         ...(planStepId === undefined ? {} : { planStepId }),
       });
       place(trace, actionId, parentActionId);
+      if (parentActionId === undefined) trace.actionsSincePlan += 1;
       return;
     }
     case "action.updated": {
@@ -262,6 +295,9 @@ function apply(trace: Trace, event: SessionEvent): void {
         result,
         endedAt: event.timestamp,
         ...(overflow === undefined ? {} : { overflow, resultSequence: event.sequence }),
+        ...(action.actionKind === "delegate" && result.startsWith(queuedDelegation)
+          ? { queued: true, title: queuedTitle(action.input) }
+          : {}),
       }));
       return;
     }

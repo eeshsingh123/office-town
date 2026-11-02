@@ -5,7 +5,13 @@ import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
+import {
+  type AgentState,
+  type Progress,
+  planIsStale,
+  progressOf,
+  stageOf,
+} from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
@@ -15,6 +21,7 @@ import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
+import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -65,7 +72,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
     Object.values(state.waiting).find(({ event }) => event.sessionId === agent?.latest.id),
   );
   const trace = agent === undefined ? undefined : traces[agent.latest.id];
-  const follow = useFollow(`${trace?.position}:${trace?.streaming[""]?.length}`);
+  const follow = useFollow(
+    `${taskId}:${agent?.id}`,
+    `${trace?.position}:${trace?.streaming[""]?.length}:${trace?.thinking?.length}`,
+  );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
 
@@ -86,20 +96,16 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         ? "Needs your approval"
         : "Has a question for you";
   // A resumed session reports no plan until it changes, so the latest known one shows.
-  const plan = agent.sessions
-    .map((session) => traces[session.id]?.plan ?? [])
-    .findLast((steps) => steps.length > 0);
+  const planned = agent.sessions
+    .map((session) => traces[session.id])
+    .findLast((trace) => trace !== undefined && trace.plan.length > 0);
+  const plan = planned?.plan;
 
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
         <div className={styles.heading}>
-          <Crumbs
-            items={[
-              { label: "Tasks", view: { name: "tasks" } },
-              { label: taskTitle(agent.task.prompt) },
-            ]}
-          />
+          <Crumbs items={[{ label: "Tasks", view: { name: "tasks" } }]} />
           <div className={styles.titleLine}>
             <h1 id="task-title">{taskTitle(agent.task.prompt)}</h1>
             <span
@@ -108,7 +114,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               title={busy ? doingNow(progress) : undefined}
             >
               {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
-              {asked ?? (state === "waiting" ? "Waiting for you" : STATE_LABELS[state])}
+              {asked ??
+                (state === "waiting"
+                  ? "Waiting for you"
+                  : (stageOf(state, trace) ?? STATE_LABELS[state]))}
             </span>
             {waiting === undefined ? null : (
               <button
@@ -164,11 +173,18 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <div className={`${styles.traceWidth} ${styles.dock}`}>
               <MessageBox
                 agent={agent}
-                actions={<ReviewAction onClick={() => setAsking(true)} />}
+                actions={
+                  <>
+                    <ReviewAction onClick={() => setAsking(true)} />
+                    <PermissionChip agent={agent} />
+                  </>
+                }
               />
             </div>
           </div>
-          {plan === undefined ? null : <StepsColumn plan={plan} />}
+          {planned === undefined ? null : (
+            <StepsColumn plan={planned.plan} stale={planIsStale(planned)} />
+          )}
         </div>
       )}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />

@@ -240,7 +240,6 @@ function Settings({
           onChange={(workspaceIds) => change({ workspaceIds })}
           departmentName={department.name}
           departmentId={department.id}
-          keepOne
         />
       </section>
 

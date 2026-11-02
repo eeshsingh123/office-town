@@ -2,6 +2,7 @@ import {
   Bot,
   CircleHelp,
   Eye,
+  LayoutGrid,
   LifeBuoy,
   ListChecks,
   type LucideIcon,
@@ -19,6 +20,29 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-02",
+    title: "Tidier task pages and departments",
+    icon: LayoutGrid,
+    changes: [
+      "New department shows the team across the page: the lead on top, with people who share a role grouped together",
+      "The task header is shorter and tidier, and the working and waiting counts stand out",
+      "Stop team is red and asks you to confirm before it stops anyone",
+      "The permission setting shows once, beside Send for review. Change it there and it applies to the whole department",
+      'Chats no longer repeat "Allowed by your setting" on every action',
+      "Each agent's chat stays where you left it when you switch between agents",
+      "Scratch is only for a department with no folder. Adding a folder replaces it, and departments that had both no longer list Scratch",
+      "Home greets you by name, with a different line now and then",
+      "The office stays clear: what an agent is working on shows when you hover over it or walk up to it. Requests that need you stay visible",
+      "A lead can now send an update to a busy agent. It shows as queued until the agent's current tool call ends, then as sent",
+      'Agents are asked to keep their steps up to date, and one that stops no longer shows an old "Step 1 of 10": you see what it is doing now, and the Steps list says it has not been updated for a while',
+      "A chief's plan no longer stops if a folder replaces Scratch in a department before its work starts: the work moves to that folder",
+      "A Claude task you messaged mid-work now finishes on time, where it could stay working and hold its department for up to 10 minutes",
+      "A department is free for a new task as soon as all its agents are done, with no 10 minute wait. The new task starts everyone in a fresh conversation",
+      "A department stays busy while its finished work is being checked, and work is not checked while the department is on a new task",
+      "After you send a message, the chat shows where it stands: Starting the AI app, Waiting for the model, then Thinking, with the thinking as it comes",
+    ],
+  },
   {
     date: "2026-11-01",
     title: "Teams that recover, and drafts",

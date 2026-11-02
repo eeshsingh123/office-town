@@ -81,6 +81,26 @@
   background: var(--hover);
 }
 
+.stage {
+  padding-left: 26px;
+}
+
+.stageLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
+.thinking {
+  margin: 0 8px 6px 32px;
+  color: var(--text-3);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .rowTitle {
   flex: 1;
   min-width: 0;

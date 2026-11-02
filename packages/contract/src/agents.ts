@@ -97,6 +97,8 @@ export const agentProfileRequestSchema = z.object({
   colour: agentColourSchema,
   purpose: z.string().trim(),
   settings: agentSettingsSchema,
+  // The level of an agent with no department; left out, it stays as it is.
+  autonomy: autonomySchema.optional(),
 });
 export type AgentProfileRequest = z.infer<typeof agentProfileRequestSchema>;
 
