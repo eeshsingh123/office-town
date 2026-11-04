@@ -451,6 +451,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - An open check keeps its task unended, so it holds the department (owner): a new task would change the folder the checker reads. Starting a check takes the department's claim too, so old work is not checked while a new task runs. A task waiting for the user's review holds nothing.
 - A turn names where it stands before its first output (owner): Starting the AI app, Waiting for the model, Thinking, with the thinking as it comes. Only the first wait of a turn counts: every tool ends in a short one, and the line would flicker. Claude sends no thinking text, so it goes straight from waiting to its first output.
 
+### D-85 Task names, an answer box that grows, the open chat marked, thinking that reads — accepted (2026-11-04)
+
+- A task the user starts (solo, team, group, chief goal) gets a title from a short draft run beside it (`drafts/title.ts`, `task.title`), and the prompt names it until then (`taskName` in the UI). The writer is OpenCode's free default at low thinking when OpenCode is installed, else the task's app at its cheapest (Haiku on Claude, or a model its catalog marks free) (owner). With neither, there is no run: a paid plan is not spent on a title. Plan pieces and checks keep their prompts, which the chief writes short. Naming is an optional core dependency (`ApiOptions.nameTask`, like `prices`), so the test core starts no extra sessions.
+- A question's own answer is a textarea that grows, as the composers do (owner); Enter sends it, Shift+Enter adds a line. The team drafter's own answer grows the same way.
+- The open chat in the team tree has an accent fill and bar. The lead's card stays a card, so it no longer reads as selected while a worker is open (owner).
+- Thinking as it comes (D-84) kept, not removed (owner): showing it costs no model time, since the CLI streams it either way and deltas are not stored. It jumbled because the last 400 characters were shown, so every chunk cut the front and re-wrapped every line. It is now the whole text (from a line break, past 4000 characters) in a box of 5 lines pinned to the bottom, with the top fading once lines leave.
+
 ## Done
 
 All accepted and built.
