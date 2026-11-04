@@ -13,11 +13,14 @@ import {
 import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { departmentMenu } from "../departments/department-menu.tsx";
 import { useYou } from "../you/you.ts";
+import { agentMenu } from "./agent-menu.tsx";
 import { Character } from "./Character.tsx";
 import { DoorChips } from "./DoorChips.tsx";
 import type { DoorChip } from "./doors.ts";
@@ -500,7 +503,7 @@ export function Floor(props: FloorProps) {
           open ? styles.roomOpen : "",
           lifted ? styles.roomLifted : "",
         ];
-        return (
+        const roomBox = (
           <div
             key={id}
             id={`room-${id}`}
@@ -549,6 +552,13 @@ export function Floor(props: FloorProps) {
               </div>
             )}
           </div>
+        );
+        return kind === "department" ? (
+          <ContextMenu key={id} menu={() => departmentMenu(id)}>
+            {roomBox}
+          </ContextMenu>
+        ) : (
+          roomBox
         );
       })}
       {rooms.flatMap((one) =>
@@ -654,44 +664,46 @@ export function Floor(props: FloorProps) {
               </div>
             )}
             <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  type="button"
-                  className={`${styles.agent} ${finished ? styles.finished : ""}`}
-                  style={{ left: position.x - 40, top: position.y - 18 }}
-                  aria-pressed={selected}
-                  aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}`}
-                  onClick={(event) => {
-                    const adding = event.shiftKey || event.ctrlKey || event.metaKey;
-                    if (!adding) onSelect([id]);
-                    else if (selected) onSelect(selection.filter((one) => one !== id));
-                    else onSelect([...selection, id]);
-                  }}
-                  onDoubleClick={(event) => {
-                    if (event.shiftKey || event.ctrlKey || event.metaKey) return;
-                    onOpenChat(id, id === chief?.id ? "chief" : "agent");
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" || !selected || selection.length > 1) return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onOpenChat(id, id === chief?.id ? "chief" : "agent");
-                  }}
-                >
-                  <Character
-                    name={name}
-                    colour={colour}
-                    state={state}
-                    selected={selected}
-                    square={id === chief?.id}
-                    focused={id === focused?.id && request !== undefined}
-                  />
-                  <span className={styles.nameTag}>
-                    {name}
-                    {finished ? ` · ${STATE_LABELS[state].toLowerCase()}` : ""}
-                  </span>
-                </button>
-              </Tooltip.Trigger>
+              <ContextMenu menu={() => agentMenu(id)}>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    className={`${styles.agent} ${finished ? styles.finished : ""}`}
+                    style={{ left: position.x - 40, top: position.y - 18 }}
+                    aria-pressed={selected}
+                    aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}`}
+                    onClick={(event) => {
+                      const adding = event.shiftKey || event.ctrlKey || event.metaKey;
+                      if (!adding) onSelect([id]);
+                      else if (selected) onSelect(selection.filter((one) => one !== id));
+                      else onSelect([...selection, id]);
+                    }}
+                    onDoubleClick={(event) => {
+                      if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+                      onOpenChat(id, id === chief?.id ? "chief" : "agent");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || !selected || selection.length > 1) return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onOpenChat(id, id === chief?.id ? "chief" : "agent");
+                    }}
+                  >
+                    <Character
+                      name={name}
+                      colour={colour}
+                      state={state}
+                      selected={selected}
+                      square={id === chief?.id}
+                      focused={id === focused?.id && request !== undefined}
+                    />
+                    <span className={styles.nameTag}>
+                      {name}
+                      {finished ? ` · ${STATE_LABELS[state].toLowerCase()}` : ""}
+                    </span>
+                  </button>
+                </Tooltip.Trigger>
+              </ContextMenu>
               <Tooltip.Portal>
                 {/* Below, as the work bubble shows above the agent at the same moment. */}
                 <Tooltip.Content className={styles.tooltip} side="bottom" sideOffset={6}>

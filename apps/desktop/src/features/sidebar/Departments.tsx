@@ -2,7 +2,9 @@ import { ArrowRight, LoaderCircle, Network, Plus, Users } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { teamAtWork } from "../../store/records.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import menu from "../../ui/Menu.module.css";
+import { departmentMenu } from "../departments/department-menu.tsx";
 import styles from "./Sidebar.module.css";
 
 // Shown once a chief exists; it spins while one of its goals is at work.
@@ -141,22 +143,23 @@ export function Departments() {
           (agent) => agent.departmentId === department.id,
         ).length;
         return (
-          <button
-            key={department.id}
-            type="button"
-            className={styles.nav}
-            onClick={() => navigate({ name: "office", room: department.id })}
-          >
-            <span
-              className={`${styles.dot} ${working.has(department.id) ? styles.dotWorking : ""}`}
-              aria-hidden
-            />
-            {department.name}
-            <span className={styles.members}>
-              {members}
-              <span className="visually-hidden"> members</span>
-            </span>
-          </button>
+          <ContextMenu key={department.id} menu={() => departmentMenu(department.id)}>
+            <button
+              type="button"
+              className={styles.nav}
+              onClick={() => navigate({ name: "office", room: department.id })}
+            >
+              <span
+                className={`${styles.dot} ${working.has(department.id) ? styles.dotWorking : ""}`}
+                aria-hidden
+              />
+              {department.name}
+              <span className={styles.members}>
+                {members}
+                <span className="visually-hidden"> members</span>
+              </span>
+            </button>
+          </ContextMenu>
         );
       })}
     </>
