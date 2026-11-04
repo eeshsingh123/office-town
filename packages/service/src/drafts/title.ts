@@ -1,9 +1,8 @@
-import type { EnvironmentSpec, HarnessModel, RoleSettings } from "@office-town/contract";
+import type { RoleSettings } from "@office-town/contract";
 import { z } from "zod";
 import type { TeamContext } from "../team/members.ts";
-import { askForJson } from "./run.ts";
+import { askForJson, draftSettings, NATIVE } from "./run.ts";
 
-const NATIVE: EnvironmentSpec = { kind: "native" };
 const PROMPT_SHOWN = 4000;
 
 const titleSchema = z.object({
@@ -14,15 +13,6 @@ const titleSchema = z.object({
     .pipe(z.string().min(1).max(80)),
 });
 
-function settingsOf(harness: string, model: HarnessModel): RoleSettings {
-  return {
-    harness,
-    environment: NATIVE,
-    model: model.resolvedId ?? model.id,
-    ...(model.efforts.includes("low") ? { effort: "low" } : {}),
-  };
-}
-
 // A few words need no strong model: OpenCode's free one first (owner), else the task's app at its cheapest.
 async function writerFor(
   { readCatalog }: TeamContext,
@@ -31,13 +21,13 @@ async function writerFor(
   // A failed read means OpenCode is not installed here, which only moves the title to the task's app.
   const opencode = await readCatalog("opencode", NATIVE).catch(() => undefined);
   const free = opencode?.models.find((model) => model.access === "free");
-  if (free !== undefined) return settingsOf("opencode", free);
+  if (free !== undefined) return draftSettings("opencode", free);
   const { models } = await readCatalog(harness, NATIVE);
   // Claude's catalog prices nothing, so its cheapest model is named.
   const cheap =
     models.find((model) => model.access === "free") ?? models.find((model) => model.id === "haiku");
   // With no cheap model known, a paid plan is not spent on a title.
-  return cheap === undefined ? undefined : settingsOf(harness, cheap);
+  return cheap === undefined ? undefined : draftSettings(harness, cheap);
 }
 
 function titlePrompt(prompt: string): string {

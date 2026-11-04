@@ -1,12 +1,31 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { ActionKind, RoleSettings, SessionEvent } from "@office-town/contract";
+import type {
+  ActionKind,
+  EnvironmentSpec,
+  HarnessModel,
+  RoleSettings,
+  SessionEvent,
+} from "@office-town/contract";
 import type { Session } from "@office-town/harness";
 import { type ZodType, z } from "zod";
 import { chooseAccount } from "../accounts/accounts.ts";
+import type { PromptAttachment } from "../attachments/attachments.ts";
 import type { TeamContext } from "../team/members.ts";
 
 const TIMEOUT_MS = 4 * 60 * 1000;
+
+export const NATIVE: EnvironmentSpec = { kind: "native" };
+
+// A small job on a cheap model, at low thinking where it has that.
+export function draftSettings(harness: string, model: HarnessModel): RoleSettings {
+  return {
+    harness,
+    environment: NATIVE,
+    model: model.resolvedId ?? model.id,
+    ...(model.efforts.includes("low") ? { effort: "low" } : {}),
+  };
+}
 
 export class DraftError extends Error {
   constructor(message: string) {
@@ -45,12 +64,14 @@ function refuse(session: Session, event: SessionEvent, allowed: readonly ActionK
 
 // One short run outside any task: nothing is stored, and the session ends with the reply.
 export function askForJson<T>(
-  { store, dataFolder, createSession }: TeamContext,
+  { store, dataFolder, createSession }: Pick<TeamContext, "store" | "dataFolder" | "createSession">,
   drafter: RoleSettings,
   prompt: string,
   schema: ZodType<T>,
   // Such as web search and fetch, for a draft that looks things up (D-67).
   allowed: readonly ActionKind[] = [],
+  // Given to the model with the prompt, such as an image to describe.
+  attachments: PromptAttachment[] = [],
 ): Promise<T> {
   const folder = join(dataFolder, "drafts");
   mkdirSync(folder, { recursive: true });
@@ -96,7 +117,15 @@ export function askForJson<T>(
   });
   session
     .send({ type: "start" })
-    .then(() => (settled ? undefined : session.send({ type: "prompt", text: prompt })))
+    .then(() =>
+      settled
+        ? undefined
+        : session.send({
+            type: "prompt",
+            text: prompt,
+            ...(attachments.length === 0 ? {} : { attachments }),
+          }),
+    )
     .catch((error: unknown) => fail(error instanceof Error ? error.message : String(error)));
   return promise;
 }
