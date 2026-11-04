@@ -34,6 +34,7 @@ export const RELEASES: Release[] = [
       "The message box on a task page takes files, images, folders and Library files (#), as New task does. A message to a worker there is noted to its lead, as in the Office chat",
       "Adding files or a long message under a chat no longer hides its latest lines",
       "An image sent to a model that cannot see images now comes with a written description, by a free or cheap model that can. The agent gets both, and the chip says so",
+      "An agent's Office chat shows each task under its own header. Earlier tasks fold into a card with Done and a message count; click one to open it. The open task's header stays at the top while you scroll, and the line above the message box says which task your message goes to",
     ],
   },
   {

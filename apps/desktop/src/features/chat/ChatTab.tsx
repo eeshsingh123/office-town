@@ -1,4 +1,6 @@
 import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
+import { ChevronRight } from "lucide-react";
+import { Tooltip } from "radix-ui";
 import { useEffect, useId, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
@@ -98,21 +100,30 @@ function dayAndTime(iso: string): string {
   const day = new Date(iso);
   const today = new Date();
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  if (day.toDateString() === today.toDateString()) return `today ${clockTime(iso)}`;
-  if (day.toDateString() === yesterday.toDateString()) return `yesterday ${clockTime(iso)}`;
+  if (day.toDateString() === today.toDateString()) return `Today ${clockTime(iso)}`;
+  if (day.toDateString() === yesterday.toDateString()) return `Yesterday ${clockTime(iso)}`;
   return day.toLocaleDateString([], { day: "numeric", month: "short" });
 }
 
+const MESSAGES = new Set(["user", "agent", "passed"]);
+
+// One header per goal (D-88). An open goal's header stays in view while its chat scrolls.
 function GoalChat({
   goal,
   task,
   speaker,
   noted,
+  current,
+  open,
+  onToggle,
 }: {
   goal: Goal;
   task: TaskRecord | undefined;
   speaker: AgentRecord;
   noted: ReadonlySet<string>;
+  current: boolean;
+  open: boolean;
+  onToggle: () => void;
 }) {
   const traces = useApp(
     useShallow((state) => goal.sessions.map((session) => state.traces[session.id])),
@@ -133,24 +144,58 @@ function GoalChat({
     };
   }, [agents, traces, delegations, ended, goal.taskId, goal.sessions.length]);
   const start = goal.sessions[0]?.createdAt ?? "";
+  const name = task === undefined ? "A goal" : taskName(task);
+  const messages = items.filter((item) => MESSAGES.has(item.kind)).length;
   return (
-    <section aria-label={task === undefined ? "A goal" : taskName(task)}>
-      <div className={styles.divider}>
-        <span>
-          {task === undefined ? "A goal" : taskName(task)}
-          {task?.parentTaskId === undefined ? "" : ` · from ${chiefName}`}
-          {` · ${dayAndTime(start)}`}
-        </span>
-      </div>
-      {waiting ? <p className={styles.quiet}>Loading…</p> : null}
-      {items.map((item) => (
-        <ChatEntry key={item.id} item={item} speaker={speaker} noted={noted} goalId={goal.taskId} />
-      ))}
+    <section
+      aria-label={name}
+      className={`${styles.goal} ${current && open ? styles.current : styles.card} ${open ? styles.opened : ""}`}
+    >
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
+          <button
+            type="button"
+            className={`${styles.goalHead} ${open ? styles.pinned : ""}`}
+            aria-expanded={open}
+            onClick={onToggle}
+          >
+            <ChevronRight size={14} aria-hidden className={open ? styles.turned : undefined} />
+            <span className={styles.goalText}>
+              <span className={styles.goalName}>{name}</span>
+              <span className={styles.goalMeta}>
+                {dayAndTime(start)}
+                {task?.parentTaskId === undefined ? "" : ` · from ${chiefName}`}
+                {open ? "" : ` · ${messages} ${messages === 1 ? "message" : "messages"}`}
+              </span>
+            </span>
+            {/* The panel's own status already speaks for the latest goal. */}
+            {ended && !current ? <span className={styles.done}>Done</span> : null}
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Portal>
+          <Tooltip.Content className={styles.tip} side="bottom" sideOffset={6}>
+            A new conversation: {speaker.name} started this task without the earlier ones in its
+            context.
+          </Tooltip.Content>
+        </Tooltip.Portal>
+      </Tooltip.Root>
+      {open && waiting ? <p className={styles.quiet}>Loading…</p> : null}
+      {open
+        ? items.map((item) => (
+            <ChatEntry
+              key={item.id}
+              item={item}
+              speaker={speaker}
+              noted={noted}
+              goalId={goal.taskId}
+            />
+          ))
+        : null}
     </section>
   );
 }
 
-// A divider at each goal (D-49).
+// A header at each goal (D-49); earlier goals fold until the user opens them (D-88).
 // `named` shows who the chat goes to, where the panel is about someone else, such as a department.
 export function ChatTab({ agentId, named }: { agentId: string; named: boolean }) {
   const agent = useApp((state) => state.agents[agentId]);
@@ -160,6 +205,9 @@ export function ChatTab({ agentId, named }: { agentId: string; named: boolean })
   const { goals, more, loading, error, loadEarlier } = useConversation(agentId);
   const tasks = useTasks(goals.map((goal) => goal.taskId));
   const [noted, setNoted] = useState<ReadonlySet<string>>(new Set());
+  // Only the user's own folding is kept, so a goal that stops being the latest folds again.
+  const [folding, setFolding] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const latestGoal = goals.at(-1)?.taskId;
   const last = goals.at(-1)?.sessions.at(-1);
   const lastPosition = useApp((state) =>
     last === undefined ? undefined : state.traces[last.id]?.position,
@@ -195,17 +243,32 @@ export function ChatTab({ agentId, named }: { agentId: string; named: boolean })
           </p>
         )}
         {!loading && goals.length === 0 ? <p className={styles.quiet}>No messages yet.</p> : null}
-        {goals.map((goal) => (
-          <GoalChat
-            key={goal.taskId}
-            goal={goal}
-            task={tasks[goal.taskId]}
-            speaker={agent}
-            noted={noted}
-          />
-        ))}
+        {goals.map((goal) => {
+          const current = goal.taskId === latestGoal;
+          const open = folding.get(goal.taskId) ?? current;
+          return (
+            <GoalChat
+              key={goal.taskId}
+              goal={goal}
+              task={tasks[goal.taskId]}
+              speaker={agent}
+              noted={noted}
+              current={current}
+              open={open}
+              onToggle={() => setFolding(new Map([...folding, [goal.taskId, !open]]))}
+            />
+          );
+        })}
       </div>
-      <Composer agent={agent} onNoted={(text) => setNoted(new Set([...noted, text]))} />
+      <Composer
+        agent={agent}
+        latestGoal={latestGoal}
+        nameOf={(taskId) => {
+          const task = tasks[taskId];
+          return task === undefined ? undefined : taskName(task);
+        }}
+        onNoted={(text) => setNoted(new Set([...noted, text]))}
+      />
     </>
   );
 }

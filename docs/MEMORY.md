@@ -20,6 +20,7 @@ Last updated: 2026-11-04
 - Chat feedback (D-85), branch `fix/chat-feedback`: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
 - A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends. The task page's box now takes files, images, folders and Library files (the Office chat already did); a chat at its end stays there when the box grows.
 - Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
+- Office chat task headers (D-88), same PR: earlier tasks fold, the open header stays in view, the message box names its task.
 
 ## Not checked yet
 

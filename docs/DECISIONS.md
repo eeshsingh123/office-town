@@ -464,6 +464,11 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Stop team, the department's working chip and dot, and the room sign read `teamAtWork`: task not ended and a process open. A done team's agents idle for up to 10 minutes (D-84) with nothing left to stop.
 - The task page's message box sends through `messageAgent` like the Office chat, so it takes attachments (D-64) with no contract change, and a message to a worker is noted to its lead (D-49), which the box used to skip. The client's `resume` call went with it; the core's route stays.
 
+### D-88 One header per task in an agent's Office chat — accepted (2026-11-04)
+
+- A worker on a new task always starts a new conversation: its earlier sessions are looked up in the same task only (`latestSession`), and resume never crosses tasks. Only a message the user sends to a finished task continues that task's conversation (D-49).
+- The chat stays one stream per agent (owner chose this over a task picker). Each task has a header (name, date, Done); earlier tasks fold to a card with a message count and open on a click, the latest stays open. An open header stays in view while its chat scrolls. "New conversation" is a hover bubble on the header, not a label (owner). The line above the message box names the task a message goes to. UI only, no contract change. Mockup: https://claude.ai/artifact/B5pVzKQ9dTsUG9etVLgXUy.
+
 ### D-87 An image for a model that cannot see it is described — accepted (2026-11-04)
 
 - Replaces D-64's path only (owner chose this over path only, switching the agent's model, and blocking). Before the message reaches a model whose catalog says it cannot see images, a cheap model that can writes a description of each image (`drafts/image-description.ts`): an OpenCode free model with image input first, else the agent's app at its cheapest (Haiku on Claude), never a paid plan, as for task titles (D-85).
