@@ -464,6 +464,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Stop team, the department's working chip and dot, and the room sign read `teamAtWork`: task not ended and a process open. A done team's agents idle for up to 10 minutes (D-84) with nothing left to stop.
 - The task page's message box sends through `messageAgent` like the Office chat, so it takes attachments (D-64) with no contract change, and a message to a worker is noted to its lead (D-49), which the box used to skip. The client's `resume` call went with it; the core's route stays.
 
+### D-87 An image for a model that cannot see it is described — accepted (2026-11-04)
+
+- Replaces D-64's path only (owner chose this over path only, switching the agent's model, and blocking). Before the message reaches a model whose catalog says it cannot see images, a cheap model that can writes a description of each image (`drafts/image-description.ts`): an OpenCode free model with image input first, else the agent's app at its cheapest (Haiku on Claude), never a paid plan, as for task titles (D-85).
+- The description is a read-only file sent beside the image (`<name> description.md`), so it reaches the agent like any attachment, shows in the trace with Opened, and needs no contract or adapter change. It quotes visible text and says which model wrote it.
+- The message waits for it, up to 90 s; a failure, a slow describer or no describer leaves the path alone, as before. One description per image while its file lasts. Library reference images and images over 5 MB are not described. The chip says "Sent as a written description", the reason on hover.
+- Run live: Big Pickle (no image input) got a test image with its description from DeepSeek V4.1 Flash Free and quoted its text exactly. OpenCode's catalog (2026-11-04) marks DeepSeek V4.1 Flash as seeing images; V4 Pro, GLM 5.3, Big Pickle and LongCat 2.0 do not.
+
 ## Done
 
 All accepted and built.

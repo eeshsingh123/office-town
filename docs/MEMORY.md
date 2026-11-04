@@ -19,12 +19,13 @@ Last updated: 2026-11-04
 - Free departments and turn stages (D-84), on the same PR: a department is free once its task ends, held only by an open check; a turn shows Starting the AI app, Waiting for the model, Thinking.
 - Chat feedback (D-85), branch `fix/chat-feedback`: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
 - A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends. The task page's box now takes files, images, folders and Library files (the Office chat already did); a chat at its end stays there when the box grows.
-- Open with the owner: images for a model that cannot see them (D-64 sends the path only). OpenCode's catalog says DeepSeek V4.1 Flash sees images; V4 Pro, GLM 5.3, Big Pickle and LongCat 2.0 do not.
+- Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-87: a description written by Claude's Haiku (no OpenCode; only OpenCode's free model was run), a describer that fails or is slow (the path alone goes), a live session told an image mid-turn, a description reused for a second agent.
 - D-86: a real restart mid-task, then a message to the lead from its chat (tested on the test core); a task already stuck this way freeing at its lead's next message; Stop team hiding live.
 - D-85: a title written by Claude's Haiku (no OpenCode) and a chief goal's title (an OpenCode team task was run live), the drafter's own-answer box, a long thinking past 4000 characters, the thinking box in light mode.
 - D-84: a check holding a department in the app (tested on a fake session; the free department, the fresh second task and the three stages were run live on OpenCode), the stages on Claude and in light mode.

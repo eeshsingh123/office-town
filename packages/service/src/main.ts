@@ -20,6 +20,7 @@ import { ConnectorHub } from "./connectors/hub.ts";
 import { AppRequests } from "./connectors/request-app.ts";
 import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
+import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
@@ -80,6 +81,7 @@ const registry = new SessionRegistry(store, {
   guard: autonomyGuard(store),
   permissionModeOf: (agentId) => permissionModeOf(store, agentId),
   seesImages: imageSight(readCatalog),
+  describeImages: imageDescriber({ store, readCatalog, dataFolder, createSession }),
   referenceOf: referenceOf(store),
   appsOf: appsOf(store),
   appGuard: (session, request) => connectors.claudeApps.decide(session, request),

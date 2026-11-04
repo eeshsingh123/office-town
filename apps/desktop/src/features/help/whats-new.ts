@@ -33,6 +33,7 @@ export const RELEASES: Release[] = [
       "Stop team goes away once the team is done, instead of staying until its idle agents close",
       "The message box on a task page takes files, images, folders and Library files (#), as New task does. A message to a worker there is noted to its lead, as in the Office chat",
       "Adding files or a long message under a chat no longer hides its latest lines",
+      "An image sent to a model that cannot see images now comes with a written description, by a free or cheap model that can. The agent gets both, and the chip says so",
     ],
   },
   {
