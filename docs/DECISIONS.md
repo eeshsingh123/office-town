@@ -462,6 +462,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 
 - Owner's run: after a restart the user messaged the lead from its chat, which resumed it directly, so the two cut-off delegations stayed `interrupted`. They count as work out (D-77), so the task never ended and the department read Busy for good; the lead's `resume_work` refused them too, so it delegated afresh. Now the core decides (`resumeInTask`): a lead the user messages, from any box, goes on through `continueTeam`, which tells it what was cut off and closes that work. Work its worker was handed again since is closed without a notice, which frees tasks already stuck this way at the next message to their lead.
 - Stop team, the department's working chip and dot, and the room sign read `teamAtWork`: task not ended and a process open. A done team's agents idle for up to 10 minutes (D-84) with nothing left to stop.
+- The task page's message box sends through `messageAgent` like the Office chat, so it takes attachments (D-64) with no contract change, and a message to a worker is noted to its lead (D-49), which the box used to skip. The client's `resume` call went with it; the core's route stays.
 
 ## Done
 

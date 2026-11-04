@@ -18,7 +18,8 @@ Last updated: 2026-11-04
 - Honest progress (D-83), on the same PR: steps that stop moving give way to the current action, the floor's work bubble shows on hover or reach, a brief to a busy worker reaches it at its next tool end with a queued icon that turns to sent once the worker takes it. A stale step list says so in the Steps column.
 - Free departments and turn stages (D-84), on the same PR: a department is free once its task ends, held only by an open check; a turn shows Starting the AI app, Waiting for the model, Thinking.
 - Chat feedback (D-85), branch `fix/chat-feedback`: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
-- A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends.
+- A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends. The task page's box now takes files, images, folders and Library files (the Office chat already did); a chat at its end stays there when the box grows.
+- Open with the owner: images for a model that cannot see them (D-64 sends the path only). OpenCode's catalog says DeepSeek V4.1 Flash sees images; V4 Pro, GLM 5.3, Big Pickle and LongCat 2.0 do not.
 
 ## Not checked yet
 

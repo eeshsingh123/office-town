@@ -254,13 +254,6 @@ export const api = {
   deleteTask: (taskId: string): Promise<void> => send("DELETE", `/tasks/${id(taskId)}`),
   getSession: (sessionId: string): Promise<SessionRecord> =>
     read(`/sessions/${id(sessionId)}`, sessionRecordSchema),
-  resume: (sessionId: string, prompt: string, attachments?: string[]): Promise<SessionRecord> =>
-    write(
-      "POST",
-      `/sessions/${id(sessionId)}/resume`,
-      { prompt, ...withFiles(attachments) },
-      sessionRecordSchema,
-    ),
   command: (sessionId: string, command: AgentCommand): Promise<void> =>
     send("POST", `/sessions/${id(sessionId)}/commands`, command),
   stop: (sessionId: string): Promise<void> => send("POST", `/sessions/${id(sessionId)}/stop`),

@@ -179,11 +179,16 @@
   padding: 8px 28px 18px;
 }
 
+.picked {
+  margin-bottom: 8px;
+}
+
 .messageBox {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 6px 6px 6px 14px;
+  padding: 6px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-card);
   background: var(--surface);
