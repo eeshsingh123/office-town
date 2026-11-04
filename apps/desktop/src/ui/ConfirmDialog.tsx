@@ -1,7 +1,34 @@
 import { AlertDialog } from "radix-ui";
 import { type ReactNode, useState } from "react";
-import { Button } from "./Button.tsx";
+import { Button, type ButtonProps } from "./Button.tsx";
 import dialog from "./Dialog.module.css";
+
+// What a Stop or a Delete asks before it runs.
+export interface Ask {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  run: () => Promise<void>;
+}
+
+// A button whose action asks first: a stray click must not end work.
+export function ConfirmButton({ ask, ...button }: { ask: Ask } & Omit<ButtonProps, "onClick">) {
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <Button {...button} onClick={() => setAsking(true)} />
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        title={ask.title}
+        description={ask.description}
+        confirmLabel={ask.confirmLabel}
+        danger
+        onConfirm={ask.run}
+      />
+    </>
+  );
+}
 
 interface ConfirmDialogProps {
   open: boolean;

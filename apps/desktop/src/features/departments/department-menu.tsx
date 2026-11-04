@@ -6,7 +6,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { taskName } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { pin, unpin, usePins } from "../office/pins.ts";
-import { stopTeamAsk } from "../task/StopTeamButton.tsx";
+import { stopTeamAsk } from "../task/stop-asks.ts";
 
 // Read when the menu opens; Stop team asks first, as on the department's panel.
 export function departmentMenu(departmentId: string): MenuContent | undefined {

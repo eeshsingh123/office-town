@@ -1,6 +1,5 @@
 import type { AgentRecord } from "@office-town/contract";
 import { Eye, Pin, PinOff, Square, SquareArrowOutUpRight, UserRound } from "lucide-react";
-import { api } from "../../api/client.ts";
 import { agentOf, stateOf } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
@@ -8,15 +7,8 @@ import { confirmed, type MenuAction, type MenuContent, MenuHeader } from "../../
 import { Avatar } from "../../ui/Avatar.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
+import { stopAgentAsk } from "../task/stop-asks.ts";
 import { pin, unpin, usePins } from "./pins.ts";
-
-// Shared with the agent's panel, so Stop asks the same way from both.
-export const stopAgentAsk = (name: string, sessionId: string) => ({
-  title: `Stop ${name}?`,
-  description: `${name} stops right away, even in the middle of a step. Work already done stays. Send a message to carry on later.`,
-  confirmLabel: "Stop",
-  run: () => api.stop(sessionId),
-});
 
 // A member that has not worked yet has no task to open, only its profile.
 function newMemberMenu(record: AgentRecord | undefined): MenuContent | undefined {

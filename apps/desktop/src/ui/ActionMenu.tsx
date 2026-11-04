@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { Button } from "./Button.tsx";
-import { ConfirmDialog } from "./ConfirmDialog.tsx";
+import { type Ask, ConfirmDialog } from "./ConfirmDialog.tsx";
 import styles from "./Menu.module.css";
 import { showToast } from "./Toast.tsx";
 
@@ -44,7 +44,7 @@ const errorText = (failure: unknown) =>
 // For a Stop or Delete: a stray click must not end work.
 export function confirmed(
   action: Omit<MenuAction, "run" | "dialog" | "danger">,
-  ask: { title: string; description: string; confirmLabel: string; run: () => Promise<void> },
+  ask: Ask,
 ): MenuAction {
   return {
     ...action,

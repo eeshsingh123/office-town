@@ -7,7 +7,7 @@ import { progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
 import { AgentConnectors } from "../connectors/AgentConnectors.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
@@ -16,8 +16,8 @@ import { useResults } from "../outputs/use-task-outputs.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { tokenLine, useRunFacts } from "../task/run-facts.ts";
+import { stopAgentAsk } from "../task/stop-asks.ts";
 import { AgentName } from "./AgentName.tsx";
-import { stopAgentAsk } from "./agent-menu.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
 import { pin, unpin, usePins } from "./pins.ts";
@@ -155,8 +155,6 @@ export function AgentNow({ member }: { member: FloorAgent }) {
 export function AgentFooter({ member }: { member: FloorAgent }) {
   const { agent } = member;
   const [asking, setAsking] = useState(false);
-  const [stopping, setStopping] = useState(false);
-  const stop = stopAgentAsk(agent.name, agent.latest.id);
   const pinned = usePins((state) => state.pinned.includes(agent.id));
   return (
     <>
@@ -172,20 +170,11 @@ export function AgentFooter({ member }: { member: FloorAgent }) {
         {pinned ? "Unpin" : "Pin"}
       </Button>
       {isOpen(agent.latest) ? (
-        <Button variant="ghost" onClick={() => setStopping(true)}>
+        <ConfirmButton variant="ghost" ask={stopAgentAsk(agent.name, agent.latest.id)}>
           Stop
-        </Button>
+        </ConfirmButton>
       ) : null}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
-      <ConfirmDialog
-        open={stopping}
-        onOpenChange={setStopping}
-        title={stop.title}
-        description={stop.description}
-        confirmLabel={stop.confirmLabel}
-        danger
-        onConfirm={stop.run}
-      />
     </>
   );
 }
