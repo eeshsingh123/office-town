@@ -157,8 +157,9 @@ export function DraftBox({
                   </button>
                 ))}
               </div>
-              <input
-                className={form.input}
+              <textarea
+                className={`${form.input} ${form.line}`}
+                rows={1}
                 aria-label={`Your own answer to: ${question.question}`}
                 placeholder="Or write your own answer"
                 value={

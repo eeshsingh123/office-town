@@ -126,8 +126,9 @@ function QuestionField({
         />
         <span className={styles.choiceText}>
           <span className={styles.choiceLabel}>Your own answer</span>
-          <input
+          <textarea
             className={styles.own}
+            rows={1}
             aria-label={`Your own answer to: ${question.text}`}
             placeholder="Type an answer"
             value={own}
@@ -135,6 +136,11 @@ function QuestionField({
               if (!picked.includes(OWN_ANSWER)) toggle(OWN_ANSWER, true);
             }}
             onChange={(change) => onOwn(change.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.shiftKey) return;
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }}
           />
         </span>
       </label>
