@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { type FileUse, fileUses } from "../../trace/file-uses.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { clockTime } from "../../ui/format.ts";
 import styles from "./Attachments.module.css";
+import { fileMenu } from "./file-menu.ts";
 import { sizeText, typeLabel } from "./kinds.ts";
 
 type Status = "ok" | "no" | "idle";
@@ -43,16 +45,18 @@ export function SentFiles({ uses }: { uses: readonly FileUse[] | undefined }) {
               : sizeText(attachment.bytes);
         const detail = attachment.reference ? `${size} · from the Library` : size;
         return (
-          <li key={attachment.id} className={styles.sentRow} title={attachment.path}>
-            <span className={styles.tile} aria-hidden>
-              {typeLabel(attachment.name, attachment.kind)}
-            </span>
-            <span className={styles.sentName}>
-              {attachment.name}
-              <small>{detail}</small>
-            </span>
-            <span className={`${styles.status} ${styles[status.ok]}`}>{status.text}</span>
-          </li>
+          <ContextMenu key={attachment.id} menu={() => fileMenu(attachment.path, attachment.kind)}>
+            <li className={styles.sentRow} title={attachment.path}>
+              <span className={styles.tile} aria-hidden>
+                {typeLabel(attachment.name, attachment.kind)}
+              </span>
+              <span className={styles.sentName}>
+                {attachment.name}
+                <small>{detail}</small>
+              </span>
+              <span className={`${styles.status} ${styles[status.ok]}`}>{status.text}</span>
+            </li>
+          </ContextMenu>
         );
       })}
     </ul>

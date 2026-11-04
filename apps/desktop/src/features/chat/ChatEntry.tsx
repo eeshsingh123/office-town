@@ -5,6 +5,7 @@ import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { clockTime } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import menu from "../../ui/Menu.module.css";
 import { SentFiles } from "../attachments/SentFiles.tsx";
 import { ShownResult } from "../outputs/OutputCards.tsx";
 import { DELEGATION_STATUS } from "../work/delegation-status.ts";
@@ -13,6 +14,7 @@ import { usePlan } from "../work/use-plan.ts";
 import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
 import styles from "./Chat.module.css";
 import type { ChatItem, DelegationThread, ThreadState } from "./chat-items.ts";
+import { MessageMenu } from "./MessageMenu.tsx";
 
 function Said({
   who,
@@ -177,9 +179,11 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
     case "user":
       return (
         <div className={styles.mine}>
-          <div className={styles.bubble}>
-            <Markdown text={item.text} />
-          </div>
+          <MessageMenu text={item.text}>
+            <div className={styles.bubble}>
+              <Markdown text={item.text} />
+            </div>
+          </MessageMenu>
           <SentFiles uses={item.files} />
           <span className={`${styles.meta} ${styles.mineMeta}`}>
             <strong>{yourName}</strong> · {clockTime(item.at)}
@@ -196,7 +200,11 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
     case "agent":
       return (
         <Said who={speaker} meta={` · ${clockTime(item.at)}`}>
-          <Markdown text={item.text} />
+          <MessageMenu text={item.text}>
+            <div className={menu.contents}>
+              <Markdown text={item.text} />
+            </div>
+          </MessageMenu>
         </Said>
       );
     case "passed":
@@ -205,7 +213,11 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
           who={from}
           meta={`${from === undefined ? "" : " · "}${item.brief ? "brief" : "message"} · ${clockTime(item.at)}`}
         >
-          {item.brief ? <Brief text={item.text} /> : <Markdown text={item.text} />}
+          <MessageMenu text={item.text}>
+            <div className={menu.contents}>
+              {item.brief ? <Brief text={item.text} /> : <Markdown text={item.text} />}
+            </div>
+          </MessageMenu>
           <SentFiles uses={item.files} />
         </Said>
       );
