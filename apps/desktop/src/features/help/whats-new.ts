@@ -29,6 +29,8 @@ export const RELEASES: Release[] = [
       "Your own answer to a question grows with what you type. Enter sends it, Shift Enter adds a line",
       "The chat you have open is marked in the team list, so the lead and a worker no longer both look selected",
       "Thinking as it comes reads smoothly: new words land on the last line and older lines move up, with no cut-off words",
+      "A department frees up for a new task after Office Town restarts mid-task, even when you message its lead from the chat. The lead hears which work was cut off",
+      "Stop team goes away once the team is done, instead of staying until its idle agents close",
     ],
   },
   {

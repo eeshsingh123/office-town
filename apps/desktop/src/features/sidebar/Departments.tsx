@@ -1,7 +1,7 @@
 import { ArrowRight, LoaderCircle, Network, Plus, Users } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { isOpen } from "../../store/records.ts";
+import { teamAtWork } from "../../store/records.ts";
 import menu from "../../ui/Menu.module.css";
 import styles from "./Sidebar.module.css";
 
@@ -112,11 +112,8 @@ export function Departments() {
   const list = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
   const working = new Set(
     Object.values(tasks).flatMap(({ task, sessionIds }) => {
-      const open = sessionIds.some((id) => {
-        const session = sessions[id];
-        return session !== undefined && isOpen(session);
-      });
-      return open && task.departmentId !== undefined ? [task.departmentId] : [];
+      const open = sessionIds.flatMap((id) => sessions[id] ?? []);
+      return teamAtWork(task, open) && task.departmentId !== undefined ? [task.departmentId] : [];
     }),
   );
   return (

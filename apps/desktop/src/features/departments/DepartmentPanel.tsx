@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
-import { isOpen } from "../../store/records.ts";
+import { teamAtWork } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -144,7 +144,8 @@ function useDepartmentGoal(department: DepartmentRecord) {
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);
-    return { task, members, goalSessions, working: goalSessions.some(isOpen) };
+    const working = task !== undefined && teamAtWork(task, goalSessions);
+    return { task, members, goalSessions, working };
   }, [agents, tasks, sessions, department]);
 }
 

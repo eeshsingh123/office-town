@@ -400,10 +400,18 @@ export async function continueTeam(
   if (lead === undefined) throw new TeamError("This task's lead never started.");
   if (isOpen(lead)) throw new TeamError("The lead is already at work.");
   return claimDepartment(context, task.departmentId, taskId, async () => {
-    const cut = store.listDelegations(taskId).filter((one) => one.status === "interrupted");
+    const delegations = store.listDelegations(taskId);
+    const cut = delegations.filter((one) => one.status === "interrupted");
+    // Work its worker was handed again since was not lost (stores from before every resume continued).
+    const lost = cut.filter(
+      (one) =>
+        !delegations.some(
+          (later) => later.workerAgentId === one.workerAgentId && later.createdAt > one.createdAt,
+        ),
+    );
     const missed = missedResults(store, taskId, lead);
     const notices = [
-      ...(cut.length === 0 ? [] : [cutOffNotice(store, cut, by)]),
+      ...(lost.length === 0 ? [] : [cutOffNotice(store, lost, by)]),
       ...(missed.length === 0
         ? []
         : [
@@ -412,8 +420,8 @@ export async function continueTeam(
     ];
     const added = prompt === undefined || prompt === "" ? "" : `\n\nThe user adds: ${prompt}`;
     const summary =
-      cut.length > 0
-        ? `${CUT_OFF[by].summary}: ${cut.length}`
+      lost.length > 0
+        ? `${CUT_OFF[by].summary}: ${lost.length}`
         : `Results that came while you were not running: ${missed.length}`;
     const message: Message = {
       ...(notices.length === 0
@@ -426,4 +434,20 @@ export async function continueTeam(
     for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
     return resumed;
   });
+}
+
+// The user's word to an agent that is not running. A lead always goes on as Continue does, so it
+// hears which work a restart cut off and that work stops holding the department.
+export async function resumeInTask(
+  context: TeamContext,
+  session: SessionRecord,
+  message: Message,
+): Promise<SessionRecord> {
+  const task = context.store.getTask(session.taskId);
+  if (task !== undefined && task.leadAgentId === session.agentId) {
+    return continueTeam(context, task.id, message.text, message.attachments);
+  }
+  return claimDepartment(context, task?.departmentId, session.taskId, () =>
+    context.registry.resume(session.id, message),
+  );
 }

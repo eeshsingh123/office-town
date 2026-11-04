@@ -59,6 +59,11 @@ export function waitingFrom(requests: readonly PendingRequest[]): Record<string,
 export const isOpen = (session: SessionRecord) =>
   session.status === "starting" || session.status === "running";
 
+// A team is at work, and can be stopped, until its task ends; idle processes left open after
+// that hold nothing, as the department is free (D-84).
+export const teamAtWork = (task: TaskRecord, sessions: readonly SessionRecord[]) =>
+  task.state !== "ended" && sessions.some(isOpen);
+
 // A status only moves forward, so a replayed event changes nothing; an unchanged map is returned as is.
 export function applyToRecords(records: Records, events: readonly StreamedEvent[]): Records {
   let sessions = records.sessions;

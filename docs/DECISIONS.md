@@ -458,6 +458,11 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The open chat in the team tree has an accent fill and bar. The lead's card stays a card, so it no longer reads as selected while a worker is open (owner).
 - Thinking as it comes (D-84) kept, not removed (owner): showing it costs no model time, since the CLI streams it either way and deltas are not stored. It jumbled because the last 400 characters were shown, so every chunk cut the front and re-wrapped every line. It is now the whole text (from a line break, past 4000 characters) in a box of 5 lines pinned to the bottom, with the top fading once lines leave.
 
+### D-86 Every way back to a lead is Continue — accepted (2026-11-04)
+
+- Owner's run: after a restart the user messaged the lead from its chat, which resumed it directly, so the two cut-off delegations stayed `interrupted`. They count as work out (D-77), so the task never ended and the department read Busy for good; the lead's `resume_work` refused them too, so it delegated afresh. Now the core decides (`resumeInTask`): a lead the user messages, from any box, goes on through `continueTeam`, which tells it what was cut off and closes that work. Work its worker was handed again since is closed without a notice, which frees tasks already stuck this way at the next message to their lead.
+- Stop team, the department's working chip and dot, and the room sign read `teamAtWork`: task not ended and a process open. A done team's agents idle for up to 10 minutes (D-84) with nothing left to stop.
+
 ## Done
 
 All accepted and built.

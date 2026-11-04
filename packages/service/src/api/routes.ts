@@ -68,9 +68,9 @@ import {
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
 import {
-  claimDepartment,
   continueTeam,
   deleteTask,
+  resumeInTask,
   startTeamTask,
   stopTeam,
 } from "../team/team-tasks.ts";
@@ -319,12 +319,9 @@ export function apiRoutes(
       reply: async ({ param, body }) => {
         const { prompt, attachments } = resumeSessionRequestSchema.parse(await body());
         const given = resolveAttachments(store, attachments);
-        const taskId = store.getSession(param("id"))?.taskId;
-        const resume = () => registry.resume(param("id"), { text: prompt, attachments: given });
-        const json =
-          taskId === undefined
-            ? await resume()
-            : await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId, resume);
+        const session = store.getSession(param("id"));
+        if (session === undefined) throw new RecordNotFoundError("session", param("id"));
+        const json = await resumeInTask(team, session, { text: prompt, attachments: given });
         return { status: 201, json };
       },
     },

@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
-import { isOpen, type WaitingRequest } from "../../store/records.ts";
+import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -197,7 +197,7 @@ function layOut(layout: Layout) {
   for (const department of departments) {
     const goal = goals.get(department.id);
     const task = goal?.task;
-    const working = task !== undefined && (goal?.sessions ?? []).some(isOpen);
+    const working = task !== undefined && teamAtWork(task, goal?.sessions ?? []);
     const apps = (task?.usage ?? [])
       .map((one) => ({ name: harnessName(one.harness), tokens: newTokens(one) }))
       .filter((one) => one.tokens > 0);

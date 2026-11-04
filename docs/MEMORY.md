@@ -18,11 +18,13 @@ Last updated: 2026-11-04
 - Honest progress (D-83), on the same PR: steps that stop moving give way to the current action, the floor's work bubble shows on hover or reach, a brief to a busy worker reaches it at its next tool end with a queued icon that turns to sent once the worker takes it. A stale step list says so in the Steps column.
 - Free departments and turn stages (D-84), on the same PR: a department is free once its task ends, held only by an open check; a turn shows Starting the AI app, Waiting for the model, Thinking.
 - Chat feedback (D-85), branch `fix/chat-feedback`: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
+- A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-86: a real restart mid-task, then a message to the lead from its chat (tested on the test core); a task already stuck this way freeing at its lead's next message; Stop team hiding live.
 - D-85: a title written by Claude's Haiku (no OpenCode) and a chief goal's title (an OpenCode team task was run live), the drafter's own-answer box, a long thinking past 4000 characters, the thinking box in light mode.
 - D-84: a check holding a department in the app (tested on a fake session; the free department, the fresh second task and the three stages were run live on OpenCode), the stages on Claude and in light mode.
 - D-83: the queue on a Codex or Muse worker (OpenCode and Claude were run), a brief missing its turn live (tested on a fake session), the stale rule in a real long run (the sent row and the stale Steps column were run on seeded events), the bubble in light mode, keyboard focus on an agent. After a resume the Steps column only counts actions of the session that wrote the list.

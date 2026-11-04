@@ -16,7 +16,7 @@ interface MessageBoxProps {
   actions?: ReactNode;
 }
 
-// A team's lead cut off by a restart continues the team, so it hears which work was cut off.
+// A team's lead cut off by a restart continues the team in the core, so it hears which work was cut off.
 export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const id = useId();
   const [text, setText] = useDraft(`message.${agent.id}`, "");
@@ -39,9 +39,6 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
     try {
       if (live) {
         await api.command(agent.latest.id, { type: "prompt", text: prompt });
-      } else if (agent.task.leadAgentId === agent.id && agent.latest.status === "interrupted") {
-        await api.continueTask(agent.taskId, prompt);
-        await track(agent.taskId);
       } else {
         await api.resume(agent.latest.id, prompt);
         await track(agent.taskId);

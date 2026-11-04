@@ -395,7 +395,7 @@ Testing again.`),
     expect(worker?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
-  it("stops a whole team without waking its lead, and after a restart continues it with the work that was cut off", async () => {
+  it("stops a whole team without waking its lead, and after a restart a message to its lead continues it with the work that was cut off", async () => {
     const first = await teamAtWork("First goal");
     await core.callTool(core.sessions[0], "delegate", { agent: first.writer, brief: "Write" });
     expect((await core.call("POST", `/tasks/${first.task.taskId}/stop`)).status).toBe(204);
@@ -426,10 +426,15 @@ Testing again.`),
       "interrupted",
     ]);
 
-    const continued = await core.call("POST", `/tasks/${second.taskId}/continue`, {});
-    expect(continued.status).toBe(201);
+    // From the lead's chat, not Continue: the cut-off work must not hold the department forever.
+    const leadId = core.store.getTask(second.taskId)?.leadAgentId;
+    const told = await core.call("POST", `/agents/${leadId}/messages`, {
+      text: "Go on",
+      taskId: second.taskId,
+    });
+    expect(told.status).toBe(204);
     expect(core.sessions[0]?.sent.at(-1)).toMatchObject({
-      text: expect.stringContaining(`- ${first.writer}: Write the second menu`),
+      text: expect.stringMatching(new RegExp(`- ${first.writer}: Write the second menu[^]*Go on$`)),
       origin: { kind: "notice" },
     });
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
