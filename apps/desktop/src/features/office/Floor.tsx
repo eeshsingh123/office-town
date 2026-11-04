@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
+  type SyntheticEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -327,6 +328,11 @@ function useWalkFromAnywhere(
   }, [floor]);
 }
 
+// A right-click menu, or the dialog it opens, is drawn outside the floor, yet React still passes
+// its clicks and keys up to here. Those belong to the menu, so the floor leaves them alone.
+const outsideFloor = (event: SyntheticEvent) =>
+  !(event.target instanceof Node && event.currentTarget.contains(event.target));
+
 export function Floor(props: FloorProps) {
   const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
   const { onSelect, onOpenRoom, onOpenChat } = props;
@@ -391,6 +397,7 @@ export function Floor(props: FloorProps) {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
+    if (outsideFloor(event)) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
     if (key in DIRECTIONS) {
       event.preventDefault();
@@ -407,7 +414,8 @@ export function Floor(props: FloorProps) {
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest("button") !== null) return;
+    if (event.button !== 0 || outsideFloor(event)) return;
+    if ((event.target as HTMLElement).closest("button") !== null) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.focus();
     const at = pointOf(event);
