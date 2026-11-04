@@ -93,10 +93,26 @@
   padding: 4px 8px;
 }
 
+/* Anchored to the bottom: new words land on the last line and older lines leave at the top. */
 .thinking {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: calc(5 * 1.5em);
   margin: 0 8px 6px 32px;
+  overflow: hidden;
   color: var(--text-3);
   font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.thinking[data-clipped="true"] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2.5em);
+}
+
+.thinking p {
+  flex: none;
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
