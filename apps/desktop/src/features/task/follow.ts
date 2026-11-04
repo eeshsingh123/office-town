@@ -17,6 +17,15 @@ export function useFollow(chat: string, content: unknown) {
   useLayoutEffect(() => {
     if (element !== null && !places.has(chat)) element.scrollTop = element.scrollHeight;
   }, [element, chat, content]);
+  // Files or a long message grow the box under the chat; a reader at the end stays there.
+  useLayoutEffect(() => {
+    if (element === null) return;
+    const observer = new ResizeObserver(() => {
+      if (!places.has(chat)) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [element, chat]);
   const onScroll = () => {
     if (element === null) return;
     const left = element.scrollHeight - element.scrollTop - element.clientHeight;
