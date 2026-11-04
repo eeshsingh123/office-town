@@ -4,9 +4,10 @@ import { api } from "../../api/client.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 
-// Shared with a department's right-click menu, so both ask the same way.
-export const stopTeamAsk = (taskId: string, label: string) => ({
-  title: "Stop everyone on this task?",
+// Shared with a department's right-click menu, so both ask the same way. Away from the task's
+// own page, the title names the task.
+export const stopTeamAsk = (taskId: string, label: string, title?: string) => ({
+  title: title === undefined ? "Stop everyone on this task?" : `Stop everyone on “${title}”?`,
   description:
     "They stop right away, even in the middle of a step. Work already done stays. Send a message to carry on later.",
   confirmLabel: label,

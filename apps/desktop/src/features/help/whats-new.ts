@@ -29,8 +29,9 @@ export const RELEASES: Release[] = [
       "Right-click a text box to cut, copy, paste or select all, and a misspelled word for suggestions. Right-click selected text or a link to copy it",
       "Right-click an agent, on the floor or on its card, to open its task, send it for review, pin it or stop it",
       "Right-click a department, in the sidebar or its room, to open it, give it a new task, change its settings, pin its agents or stop its team",
-      "Right-click a task to open it, show it in the office, copy its name or delete it. A message copies as it was written, and a file opens, shows in its folder or copies its path",
-      "Stop and Delete always ask first",
+      "Right-click a task to open it, show it in the office, copy its title or delete it",
+      "Right-click a message to copy it as written, or a link or selected text in it. Right-click a file to open it, show it in its folder or copy its path",
+      "Stop asks first, from a right-click menu or an agent's panel, as Delete does",
     ],
   },
   {

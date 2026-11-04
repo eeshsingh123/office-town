@@ -1,6 +1,13 @@
 import { type LucideIcon, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, ContextMenu as RightClick } from "radix-ui";
-import { type ComponentType, Fragment, type ReactElement, type ReactNode, useState } from "react";
+import {
+  type ComponentType,
+  Fragment,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 import { Button } from "./Button.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import styles from "./Menu.module.css";
@@ -157,12 +164,13 @@ function useActionDialog() {
 }
 
 // Built on the click, so a long list of rows costs nothing until then. With nothing to offer
-// (the object is gone) no menu opens, rather than an empty one.
+// (the object is gone) no menu opens, rather than an empty one. The click says what was under
+// the pointer, such as a link inside a message.
 export function ContextMenu({
   menu,
   children,
 }: {
-  menu: () => MenuContent | undefined;
+  menu: (click: MouseEvent<HTMLElement>) => MenuContent | undefined;
   children: ReactElement;
 }) {
   const { open, dialog } = useActionDialog();
@@ -177,7 +185,7 @@ export function ContextMenu({
         <RightClick.Trigger
           asChild
           onContextMenu={(event) => {
-            const next = menu();
+            const next = menu(event);
             // Radix opens only when the event is not prevented; preventing it also keeps the
             // shell's text menu away.
             if (next === undefined || next.actions.length === 0) event.preventDefault();

@@ -3,6 +3,7 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { teamAtWork } from "../../store/records.ts";
 import { confirmed, type MenuAction, type MenuContent, MenuHeader } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { taskName } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { pin, unpin, usePins } from "../office/pins.ts";
 import { stopTeamAsk } from "../task/StopTeamButton.tsx";
@@ -28,7 +29,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
     );
 
   const actions: MenuAction[] = [
-    { label: "Open in office", icon: LayoutGrid, run: () => selectRoom(departmentId) },
+    { label: "Open", icon: LayoutGrid, run: () => selectRoom(departmentId) },
     {
       label: "New task here",
       icon: Plus,
@@ -49,7 +50,10 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
   }
   if (working) {
     actions.push(
-      confirmed({ label: "Stop team", icon: Square }, stopTeamAsk(latest.id, "Stop team")),
+      confirmed(
+        { label: "Stop team", icon: Square },
+        stopTeamAsk(latest.id, "Stop team", taskName(latest)),
+      ),
     );
   }
   const lead = agents[department.leadAgentId];

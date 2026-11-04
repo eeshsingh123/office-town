@@ -10,6 +10,14 @@ import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { pin, unpin, usePins } from "./pins.ts";
 
+// Shared with the agent's panel, so Stop asks the same way from both.
+export const stopAgentAsk = (name: string, sessionId: string) => ({
+  title: `Stop ${name}?`,
+  description: `${name} stops right away, even in the middle of a step. Work already done stays. Send a message to carry on later.`,
+  confirmLabel: "Stop",
+  run: () => api.stop(sessionId),
+});
+
 // A member that has not worked yet has no task to open, only its profile.
 function newMemberMenu(record: AgentRecord | undefined): MenuContent | undefined {
   const departmentId = record?.departmentId;
@@ -62,17 +70,7 @@ export function agentMenu(agentId: string): MenuContent | undefined {
     run: () => (pinned ? unpin([agentId]) : pin([agentId])),
   });
   if (isOpen(latest)) {
-    actions.push(
-      confirmed(
-        { label: "Stop", icon: Square },
-        {
-          title: `Stop ${name}?`,
-          description: `${name} stops right away, even in the middle of a step. Work already done stays. Send a message to carry on later.`,
-          confirmLabel: "Stop",
-          run: () => api.stop(latest.id),
-        },
-      ),
-    );
+    actions.push(confirmed({ label: "Stop", icon: Square }, stopAgentAsk(name, latest.id)));
   }
   return {
     header: (
