@@ -52,11 +52,6 @@
   background: var(--hover);
 }
 
-.member[aria-current="true"] {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border);
-}
-
 .lead {
   gap: 12px;
   padding: 12px;
@@ -70,8 +65,12 @@
   box-shadow: 0 0 0 1px var(--border-strong);
 }
 
-.lead[aria-current="true"] {
-  box-shadow: 0 0 0 1px var(--border-strong);
+/* The open chat, lead or worker: the lead's card alone is not a selection. */
+.member[aria-current="true"] {
+  background: var(--accent-soft);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    0 0 0 1px var(--border-strong);
 }
 
 .memberText {
