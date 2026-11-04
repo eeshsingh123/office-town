@@ -8,7 +8,10 @@ import styles from "./Attachments.module.css";
 import { isOffice, sizeText, typeLabel } from "./kinds.ts";
 import type { Attachments, Picked } from "./use-attachments.ts";
 
-function noteOf(one: Picked, seesImages: boolean | undefined): { text: string; warn: boolean } {
+function noteOf(
+  one: Picked,
+  seesImages: boolean | undefined,
+): { text: string; warn: boolean; why?: string } {
   if (one.error !== undefined) return { text: one.error, warn: true };
   if (one.attachment === undefined) return { text: "Adding…", warn: false };
   if (one.kind === "folder") {
@@ -19,7 +22,11 @@ function noteOf(one: Picked, seesImages: boolean | undefined): { text: string; w
   }
   const size = one.bytes === undefined ? "" : sizeText(one.bytes);
   if (one.kind === "image" && seesImages === false) {
-    return { text: "This model cannot see images · it gets the path", warn: true };
+    return {
+      text: "Sent as a written description",
+      warn: true,
+      why: "This model cannot see images, so a model that can describes it in writing",
+    };
   }
   if (isOffice(one.name)) return { text: `${size} · may not be readable`, warn: true };
   const kind = one.kind === "image" ? "Image" : "File";
@@ -48,7 +55,7 @@ export function PickedFiles({
             </span>
             <span className={styles.chipText}>
               <b title={one.name}>{one.name}</b>
-              <span>{note.text}</span>
+              <span title={note.why}>{note.text}</span>
             </span>
             <button
               type="button"

@@ -43,11 +43,16 @@ function leadAtWork(leadId: string): boolean {
 }
 
 // A worker's lead hears of it (D-49).
+// `latestGoal` is where a message goes unless it follows up an older goal (D-88).
 export function Composer({
   agent,
+  latestGoal,
+  nameOf,
   onNoted,
 }: {
   agent: AgentRecord;
+  latestGoal: string | undefined;
+  nameOf: (taskId: string) => string | undefined;
   onNoted: (text: string) => void;
 }) {
   const id = useId();
@@ -97,6 +102,8 @@ export function Composer({
       setSending(false);
     }
   };
+  const target = followUp ?? latestGoal;
+  const to = target === undefined ? undefined : nameOf(target);
   const onKeyDown = (event: KeyboardEvent) => {
     if (picker.onKeyDown(event)) return;
     // Enter while an input method composes picks a word; it does not send.
@@ -111,6 +118,11 @@ export function Composer({
       onSubmit={send}
       {...attached.dropHandlers}
     >
+      {to === undefined ? null : (
+        <p className={styles.to}>
+          To <strong>{to}</strong>
+        </p>
+      )}
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
           {error}

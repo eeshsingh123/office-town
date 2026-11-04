@@ -3,7 +3,7 @@ import { type Agent, agentsInTask, stateOf, taskStateOf } from "../../store/agen
 import type { AppState } from "../../store/app-store.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { requestSummary } from "../requests/summary.ts";
 
 export type RowStatus = "needs" | "working" | "queued" | "review" | "done" | "failed" | "stopped";
@@ -203,7 +203,7 @@ function taskItem(task: TaskRecord, known: Known, waiting: Set<string>, now: num
   return {
     id: task.id,
     task,
-    title: taskTitle(task.prompt),
+    title: taskName(task),
     status,
     team: teamOf(task, known),
     agents,

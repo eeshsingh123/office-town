@@ -2,7 +2,6 @@ import { Check, ChevronDown, Network, Plus, User, Users, UsersRound } from "luci
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { taskTitle } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { teamLine } from "../departments/team-line.ts";
 import styles from "./Composer.module.css";
@@ -79,7 +78,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
                   note={
                     busyWith === undefined
                       ? teamLine(workers(department.id))
-                      : `Busy with "${taskTitle(busyWith)}"`
+                      : `Busy with "${busyWith}"`
                   }
                   disabled={busyWith !== undefined}
                 />

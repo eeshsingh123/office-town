@@ -8,7 +8,7 @@ import { progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { AgentConnectors } from "../connectors/AgentConnectors.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { ResultCard } from "../outputs/OutputCards.tsx";
@@ -87,7 +87,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
           className={styles.taskLink}
           onClick={() => navigate({ name: "task", taskId: agent.taskId })}
         >
-          {taskTitle(agent.task.prompt)}
+          {taskName(agent.task)}
           <ArrowUpRight size={14} aria-hidden />
         </button>
         {busy ? (

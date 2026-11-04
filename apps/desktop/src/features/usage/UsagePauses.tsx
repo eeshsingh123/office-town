@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { showToast } from "../../ui/Toast.tsx";
 import { accountName, clock, inTime } from "./limits.ts";
 import styles from "./Usage.module.css";
@@ -57,7 +57,7 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
       setBusy(false);
     }
   };
-  const names = tasks.map((task) => taskTitle(task.prompt)).join(", ");
+  const names = tasks.map((task) => taskName(task)).join(", ");
   return (
     <li className={styles.stop}>
       <Pause size={22} aria-hidden="true" />

@@ -54,6 +54,8 @@ export const taskRecordSchema = z.object({
   paused: taskPauseSchema.optional(),
   // The lead's or solo agent's, for a check (D-73).
   checklist: taskChecklistSchema.optional(),
+  // Written by a cheap model once the task starts; the prompt names the task until then.
+  title: z.string().min(1).optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
 });

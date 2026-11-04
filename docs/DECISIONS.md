@@ -451,6 +451,31 @@ Why: the owner, who built the app, still had to work out what departments and th
 - An open check keeps its task unended, so it holds the department (owner): a new task would change the folder the checker reads. Starting a check takes the department's claim too, so old work is not checked while a new task runs. A task waiting for the user's review holds nothing.
 - A turn names where it stands before its first output (owner): Starting the AI app, Waiting for the model, Thinking, with the thinking as it comes. Only the first wait of a turn counts: every tool ends in a short one, and the line would flicker. Claude sends no thinking text, so it goes straight from waiting to its first output.
 
+### D-85 Task names, an answer box that grows, the open chat marked, thinking that reads — accepted (2026-11-04)
+
+- A task the user starts (solo, team, group, chief goal) gets a title from a short draft run beside it (`drafts/title.ts`, `task.title`), and the prompt names it until then (`taskName` in the UI). The writer is OpenCode's free default at low thinking when OpenCode is installed, else the task's app at its cheapest (Haiku on Claude, or a model its catalog marks free) (owner). With neither, there is no run: a paid plan is not spent on a title. Plan pieces and checks keep their prompts, which the chief writes short. Naming is an optional core dependency (`ApiOptions.nameTask`, like `prices`), so the test core starts no extra sessions.
+- A question's own answer is a textarea that grows, as the composers do (owner); Enter sends it, Shift+Enter adds a line. The team drafter's own answer grows the same way.
+- The open chat in the team tree has an accent fill and bar. The lead's card stays a card, so it no longer reads as selected while a worker is open (owner).
+- Thinking as it comes (D-84) kept, not removed (owner): showing it costs no model time, since the CLI streams it either way and deltas are not stored. It jumbled because the last 400 characters were shown, so every chunk cut the front and re-wrapped every line. It is now the whole text (from a line break, past 4000 characters) in a box of 5 lines pinned to the bottom, with the top fading once lines leave.
+
+### D-86 Every way back to a lead is Continue — accepted (2026-11-04)
+
+- Owner's run: after a restart the user messaged the lead from its chat, which resumed it directly, so the two cut-off delegations stayed `interrupted`. They count as work out (D-77), so the task never ended and the department read Busy for good; the lead's `resume_work` refused them too, so it delegated afresh. Now the core decides (`resumeInTask`): a lead the user messages, from any box, goes on through `continueTeam`, which tells it what was cut off and closes that work. Work its worker was handed again since is closed without a notice, which frees tasks already stuck this way at the next message to their lead.
+- Stop team, the department's working chip and dot, and the room sign read `teamAtWork`: task not ended and a process open. A done team's agents idle for up to 10 minutes (D-84) with nothing left to stop.
+- The task page's message box sends through `messageAgent` like the Office chat, so it takes attachments (D-64) with no contract change, and a message to a worker is noted to its lead (D-49), which the box used to skip. The client's `resume` call went with it; the core's route stays.
+
+### D-88 One header per task in an agent's Office chat — accepted (2026-11-04)
+
+- A worker on a new task always starts a new conversation: its earlier sessions are looked up in the same task only (`latestSession`), and resume never crosses tasks. Only a message the user sends to a finished task continues that task's conversation (D-49).
+- The chat stays one stream per agent (owner chose this over a task picker). Each task has a header (name, date, Done); earlier tasks fold to a card with a message count and open on a click, the latest stays open. An open header stays in view while its chat scrolls. "New conversation" is a hover bubble on the header, not a label (owner). The line above the message box names the task a message goes to. UI only, no contract change. Mockup: https://claude.ai/artifact/B5pVzKQ9dTsUG9etVLgXUy.
+
+### D-87 An image for a model that cannot see it is described — accepted (2026-11-04)
+
+- Replaces D-64's path only (owner chose this over path only, switching the agent's model, and blocking). Before the message reaches a model whose catalog says it cannot see images, a cheap model that can writes a description of each image (`drafts/image-description.ts`): an OpenCode free model with image input first, else the agent's app at its cheapest (Haiku on Claude), never a paid plan, as for task titles (D-85).
+- The description is a read-only file sent beside the image (`<name> description.md`), so it reaches the agent like any attachment, shows in the trace with Opened, and needs no contract or adapter change. It quotes visible text and says which model wrote it.
+- The message waits for it, up to 90 s; a failure, a slow describer or no describer leaves the path alone, as before. One description per image while its file lasts. Library reference images and images over 5 MB are not described. The chip says "Sent as a written description", the reason on hover.
+- Run live: Big Pickle (no image input) got a test image with its description from DeepSeek V4.1 Flash Free and quoted its text exactly. OpenCode's catalog (2026-11-04) marks DeepSeek V4.1 Flash as seeing images; V4 Pro, GLM 5.3, Big Pickle and LongCat 2.0 do not.
+
 ## Done
 
 All accepted and built.

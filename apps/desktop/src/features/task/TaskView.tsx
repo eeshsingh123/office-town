@@ -15,7 +15,7 @@ import {
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
@@ -107,7 +107,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         <div className={styles.heading}>
           <Crumbs items={[{ label: "Tasks", view: { name: "tasks" } }]} />
           <div className={styles.titleLine}>
-            <h1 id="task-title">{taskTitle(agent.task.prompt)}</h1>
+            <h1 id="task-title">{taskName(agent.task)}</h1>
             <span
               className={`${styles.pill} ${pillStyle(state) ?? ""}`}
               role="status"

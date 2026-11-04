@@ -28,6 +28,11 @@ export function taskTitle(prompt: string): string {
   return `${space > TITLE_LENGTH / 2 ? cut.slice(0, space) : cut}…`;
 }
 
+// The title a model wrote for the task, else one from its prompt.
+export function taskName(task: { prompt: string; title?: string | undefined }): string {
+  return task.title ?? taskTitle(task.prompt);
+}
+
 export function elapsed(from: string, to: string): string {
   const seconds = Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 1000));
   if (seconds < 60) return `${seconds}s`;

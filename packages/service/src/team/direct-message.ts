@@ -4,7 +4,7 @@ import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { isOpen, latestSession } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
-import { claimDepartment } from "./team-tasks.ts";
+import { resumeInTask } from "./team-tasks.ts";
 
 export class NeverStartedError extends Error {
   constructor(name: string) {
@@ -19,7 +19,7 @@ async function deliver(
   session: SessionRecord,
   message: Message,
 ): Promise<void> {
-  const { store, registry } = context;
+  const { registry } = context;
   if (isOpen(session)) {
     try {
       await registry.tell(session.id, message);
@@ -29,10 +29,7 @@ async function deliver(
       if (!(error instanceof SessionNotRunningError)) throw error;
     }
   }
-  const departmentId = store.getTask(session.taskId)?.departmentId;
-  await claimDepartment(context, departmentId, session.taskId, () =>
-    registry.resume(session.id, message),
-  );
+  await resumeInTask(context, session, message);
 }
 
 // Only if the lead is at work: resuming it would spend a turn on a note.

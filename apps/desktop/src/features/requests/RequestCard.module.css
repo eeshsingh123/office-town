@@ -141,14 +141,19 @@
   color: var(--text-3);
 }
 
+/* Grows with the answer, as the composers do, instead of scrolling sideways. */
 .own {
   width: 100%;
-  height: 30px;
+  min-height: 30px;
+  max-height: 200px;
   margin-top: 6px;
-  padding: 0 10px;
+  padding: 5px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
+  line-height: 1.45;
+  resize: none;
+  field-sizing: content;
 }
 
 .error {

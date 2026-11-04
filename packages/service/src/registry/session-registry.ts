@@ -204,6 +204,8 @@ export interface RegistryOptions {
   permissionModeOf?: (agentId: string) => PermissionMode;
   // Whether the session's model can see an image sent inline.
   seesImages?: (options: SessionOptions) => Promise<boolean>;
+  // Written files describing the images, for a model that cannot see them; none if it fails.
+  describeImages?: (images: readonly Attachment[], harness: string) => Promise<Attachment[]>;
   // The Library items an agent gets in a task (D-64).
   referenceOf?: (taskId: string, agentId: string) => Attachment[];
   // The apps a new conversation gets on its login, and the lines that tell the agent (D-68).
@@ -241,6 +243,10 @@ export class SessionRegistry {
   readonly #appGuard: AppGuard | undefined;
   readonly #permissionModeOf: ((agentId: string) => PermissionMode) | undefined;
   readonly #seesImages: (options: SessionOptions) => Promise<boolean>;
+  readonly #describeImages: (
+    images: readonly Attachment[],
+    harness: string,
+  ) => Promise<Attachment[]>;
   readonly #referenceOf: (taskId: string, agentId: string) => Attachment[];
   readonly #appsOf: (agentId: string, options: SessionOptions) => Apps;
   readonly #live = new Map<string, LiveSession>();
@@ -259,6 +265,7 @@ export class SessionRegistry {
       appGuard,
       permissionModeOf,
       seesImages = async () => false,
+      describeImages = async () => [],
       referenceOf = () => [],
       appsOf = () => ({ connectorIds: [], vendorApps: [] }),
     }: RegistryOptions = {},
@@ -270,6 +277,7 @@ export class SessionRegistry {
     this.#appGuard = appGuard;
     this.#permissionModeOf = permissionModeOf;
     this.#seesImages = seesImages;
+    this.#describeImages = describeImages;
     this.#referenceOf = referenceOf;
     this.#appsOf = appsOf;
     store.markInterrupted();
@@ -469,8 +477,10 @@ ${text}`,
       ? stored
       : this.#store.updateSessionOptions(sessionId, withAccess(stored.options, attachments));
     if (attachments.length > 0) live.readOnly = true;
-    const sees = hasImage(attachments) ? await this.#seesImages(record.options) : false;
-    await this.#running(sessionId).session.send(this.#prompt(record, message, sees));
+    const { given, sees } = hasImage(attachments)
+      ? await this.#withSight(record, message)
+      : { given: message, sees: false };
+    await this.#running(sessionId).session.send(this.#prompt(record, given, sees));
   }
 
   // The answer goes to `onAnswer` instead of the harness; it lasts as long as the session.
@@ -580,8 +590,10 @@ ${text}`,
       await session.send({ type: "start" });
       // A start that failed has already ended the session.
       if (this.#live.has(session.id)) {
-        const sees = hasImage(message.attachments) ? await this.#seesImages(record.options) : false;
-        await session.send(this.#prompt(record, message, sees));
+        const { given, sees } = hasImage(message.attachments)
+          ? await this.#withSight(record, message)
+          : { given: message, sees: false };
+        await session.send(this.#prompt(record, given, sees));
       }
     } finally {
       live.firstMessage = undefined;
@@ -590,6 +602,24 @@ ${text}`,
     const stored = this.#store.getSession(session.id);
     if (stored === undefined) throw new RecordNotFoundError("session", session.id);
     return stored;
+  }
+
+  // Only for a message with an image, so no other message waits an extra turn of the event loop.
+  // A model that cannot see images gets a description of each, read-only like the image (D-87).
+  async #withSight(
+    session: Pick<SessionRecord, "id" | "options">,
+    message: Message,
+  ): Promise<{ given: Message; sees: boolean }> {
+    const attachments = message.attachments ?? [];
+    if (await this.#seesImages(session.options)) return { given: message, sees: true };
+    const described = await this.#describeImages(attachments, session.options.harness);
+    if (described.length === 0) return { given: message, sees: false };
+    const stored = this.#store.getSession(session.id);
+    if (stored === undefined) throw new RecordNotFoundError("session", session.id);
+    if (!hasAccess(stored.options, described)) {
+      this.#store.updateSessionOptions(session.id, withAccess(stored.options, described));
+    }
+    return { given: { ...message, attachments: [...attachments, ...described] }, sees: false };
   }
 
   // Sent in the task, so the files go with it when it is deleted.

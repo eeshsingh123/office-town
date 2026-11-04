@@ -15,7 +15,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import form from "../../ui/Form.module.css";
-import { ago, taskTitle } from "../../ui/format.ts";
+import { ago, taskName } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
@@ -65,7 +65,7 @@ function CallRow({ call }: { call: ConnectorCall }) {
           <span className={styles.actWhat}>{callTitle(call.tool, call.input)}</span>
           <span className={styles.sub}>
             {agent?.name ?? "An agent"}
-            {task === undefined ? "" : ` · ${taskTitle(task.prompt)}`}
+            {task === undefined ? "" : ` · ${taskName(task)}`}
           </span>
         </span>
         <span className={styles.when}>

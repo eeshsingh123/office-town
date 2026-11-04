@@ -2,7 +2,7 @@ import { ArrowUpRight } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import office from "../office/Office.module.css";
 import {
   Facts,
@@ -69,7 +69,7 @@ export function ChiefNow({ chiefId }: { chiefId: string }) {
             className={office.taskLink}
             onClick={() => navigate({ name: "task", taskId: current.id })}
           >
-            {taskTitle(current.prompt)}
+            {taskName(current)}
             <ArrowUpRight size={14} aria-hidden />
           </button>
         ) : (
@@ -80,7 +80,7 @@ export function ChiefNow({ chiefId }: { chiefId: string }) {
         <PanelSection title={`Queue · ${queue.length}`}>
           <ol className={styles.panelQueue}>
             {queue.map((task) => (
-              <li key={task.id}>{taskTitle(task.prompt)}</li>
+              <li key={task.id}>{taskName(task)}</li>
             ))}
           </ol>
         </PanelSection>

@@ -19,7 +19,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -79,8 +79,32 @@ export function Streaming({ place, parent = "" }: { place: Place; parent?: strin
   );
 }
 
-// The end of its thinking, as the whole of it folds into a line once it is done.
-const THINKING_SHOWN = 400;
+// Enough to fill the box many times over; the cut is at a line break, so no shown line re-wraps.
+const THINKING_KEPT = 4000;
+
+function thinkingTail(text: string): string {
+  if (text.length <= THINKING_KEPT) return text;
+  const start = text.indexOf("\n", text.length - THINKING_KEPT);
+  return start === -1 ? text : text.slice(start + 1);
+}
+
+// The thinking as it comes, pinned to its newest line; the whole of it folds into a line once done.
+function Thinking({ text }: { text: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const shown = useRef<HTMLParagraphElement>(null);
+  // The top fades only once older lines have scrolled out of view.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measured again whenever the text grows
+  useLayoutEffect(() => {
+    if (box.current === null || shown.current === null) return;
+    const clipped = shown.current.offsetHeight > box.current.clientHeight;
+    box.current.dataset.clipped = String(clipped);
+  }, [text]);
+  return (
+    <div ref={box} className={styles.thinking}>
+      <p ref={shown}>{thinkingTail(text)}</p>
+    </div>
+  );
+}
 
 export function Stage({ place }: { place: Place }) {
   const session = useApp((state) => state.sessions[place.sessionId]);
@@ -94,9 +118,7 @@ export function Stage({ place }: { place: Place }) {
         <LoaderCircle size={14} className={`${styles.running} spin`} aria-hidden />
         <span className={`${styles.rowTitle} ${styles.summary}`}>{stage}</span>
       </div>
-      {trace?.thinking === undefined ? null : (
-        <p className={styles.thinking}>{trace.thinking.slice(-THINKING_SHOWN)}</p>
-      )}
+      {trace?.thinking === undefined ? null : <Thinking text={trace.thinking} />}
     </div>
   );
 }

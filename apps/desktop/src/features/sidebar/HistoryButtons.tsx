@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect } from "react";
 import { type AppState, goBack, goForward, useApp, type Visit } from "../../store/app-store.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import styles from "./Sidebar.module.css";
 import { useSidebar } from "./sidebar-state.ts";
 
@@ -33,8 +33,8 @@ export function visitLabel({ view, selection }: Visit, state: AppState): string 
       return ["Office", room, agent].filter(Boolean).join(" · ");
     }
     case "task": {
-      const prompt = state.tasks[view.taskId]?.task.prompt;
-      return prompt === undefined ? "Task" : taskTitle(prompt);
+      const task = state.tasks[view.taskId]?.task;
+      return task === undefined ? "Task" : taskName(task);
     }
     case "department":
       return state.departments[view.departmentId]?.name ?? "Department";

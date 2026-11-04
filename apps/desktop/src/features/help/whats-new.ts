@@ -21,6 +21,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-04",
+    title: "Clearer chats and task names",
+    icon: Eye,
+    changes: [
+      "Each task gets a short name that says what it is about, written by a free OpenCode model, or by your AI app's cheapest model without OpenCode. Your prompt names it until then",
+      "Your own answer to a question grows with what you type. Enter sends it, Shift Enter adds a line",
+      "The chat you have open is marked in the team list, so the lead and a worker no longer both look selected",
+      "Thinking as it comes reads smoothly: new words land on the last line and older lines move up, with no cut-off words",
+      "A department frees up for a new task after Office Town restarts mid-task, even when you message its lead from the chat. The lead hears which work was cut off",
+      "Stop team goes away once the team is done, instead of staying until its idle agents close",
+      "The message box on a task page takes files, images, folders and Library files (#), as New task does. A message to a worker there is noted to its lead, as in the Office chat",
+      "Adding files or a long message under a chat no longer hides its latest lines",
+      "An image sent to a model that cannot see images now comes with a written description, by a free or cheap model that can. The agent gets both, and the chip says so",
+      "An agent's Office chat shows each task under its own header. Earlier tasks fold into a card with Done and a message count; click one to open it. The open task's header stays at the top while you scroll, and the line above the message box says which task your message goes to",
+    ],
+  },
+  {
     date: "2026-11-02",
     title: "Tidier task pages and departments",
     icon: LayoutGrid,

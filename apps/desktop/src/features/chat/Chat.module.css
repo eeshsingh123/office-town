@@ -33,29 +33,109 @@
   justify-content: center;
 }
 
-.divider {
+/* A goal's header, then its chat (D-88). An earlier goal is a card; the latest sits under a line. */
+.goal {
+  --head-bg: var(--surface);
+}
+
+.card {
+  --head-bg: var(--bg);
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.card.opened {
+  padding-bottom: 14px;
+}
+
+.current {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.goalHead {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
-  font-size: var(--size-small);
-  font-weight: 500;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  background: var(--head-bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.goalHead > svg:first-child {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--motion);
+}
+
+/* Stays at the top while its own chat scrolls under it. */
+.pinned {
+  position: sticky;
+  top: -12px;
+  z-index: 1;
+}
+
+.goalText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.goalName {
+  overflow: hidden;
+  font-size: var(--size-ui);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.goalMeta {
+  font-size: var(--size-meta);
   color: var(--text-3);
 }
 
-.divider::before,
-.divider::after {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-  content: "";
+.done {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: var(--size-small);
+  font-weight: 600;
 }
 
-.divider span {
-  max-width: 80%;
+.tip {
+  z-index: 40;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--size-meta);
+  line-height: 1.45;
+  box-shadow: var(--shadow-raised);
+}
+
+.to {
   overflow: hidden;
+  margin: 0 0 2px;
+  font-size: var(--size-meta);
+  color: var(--text-3);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.to strong {
+  font-weight: 600;
+  color: var(--text-2);
 }
 
 .said {

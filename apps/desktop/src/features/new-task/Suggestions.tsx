@@ -1,6 +1,6 @@
 import { taskStateOf, useTasksWithAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import styles from "./Composer.module.css";
 import { CHIEF, SOLO } from "./targets.ts";
@@ -105,7 +105,7 @@ export function Suggestions({ onUse }: SuggestionsProps) {
           return (
             <li key={task.id} className={styles.recentRow}>
               <span className={styles.recentText}>
-                <strong>{taskTitle(task.prompt)}</strong>
+                <strong>{taskName(task)}</strong>
                 <span>
                   {[who, state === undefined ? undefined : STATE_LABELS[state]]
                     .filter(Boolean)

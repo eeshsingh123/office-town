@@ -8,7 +8,7 @@ import { track } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
@@ -173,7 +173,7 @@ function ChiefHome() {
               ) : (
                 <>
                   <div className={styles.goalHead}>
-                    <span className={page.panelTitle}>{taskTitle(current.prompt)}</span>
+                    <span className={page.panelTitle}>{taskName(current)}</span>
                     <span className={page.hint}>{GOAL_STATE[current.state]}</span>
                   </div>
                   {waiting === undefined ? null : (
@@ -195,7 +195,7 @@ function ChiefHome() {
                 <ol className={styles.queue}>
                   {queue.map((task) => (
                     <li key={task.id}>
-                      <span>{taskTitle(task.prompt)}</span>
+                      <span>{taskName(task)}</span>
                       <span className={page.hint}>Waiting its turn</span>
                     </li>
                   ))}

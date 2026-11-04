@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
 import type { ConnectorHub } from "../connectors/hub.ts";
+import type { NameTask } from "../drafts/title.ts";
 import type { OutputServices } from "../outputs/routes.ts";
 import { PriceList } from "../prices/prices.ts";
 import type { Checks } from "../team/checks.ts";
@@ -23,6 +24,8 @@ export interface ApiOptions {
   outputs: OutputServices;
   // API prices for the usage estimate; without them no estimate is given.
   prices?: PriceList;
+  // Names each task the user starts, beside it; without it the prompt names every task.
+  nameTask?: NameTask;
   // Anything on this machine can reach the port, but not the token.
   token: string;
   // 0 picks a free port.
@@ -110,7 +113,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
-  const routes = apiRoutes(team, connectors, pauses, checks, outputs, prices);
+  const routes = apiRoutes(team, connectors, pauses, checks, outputs, prices, options.nameTask);
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");

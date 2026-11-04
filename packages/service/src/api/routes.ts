@@ -49,6 +49,7 @@ import { connectorRoutes } from "../connectors/routes.ts";
 import { draftChief } from "../drafts/chief.ts";
 import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
+import type { NameTask } from "../drafts/title.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
 import type { PriceList } from "../prices/prices.ts";
@@ -67,9 +68,9 @@ import {
 import { messageAgent } from "../team/direct-message.ts";
 import type { TeamContext } from "../team/members.ts";
 import {
-  claimDepartment,
   continueTeam,
   deleteTask,
+  resumeInTask,
   startTeamTask,
   stopTeam,
 } from "../team/team-tasks.ts";
@@ -114,6 +115,7 @@ export function apiRoutes(
   checks: Checks,
   outputs: OutputServices,
   prices: PriceList,
+  nameTask: NameTask = () => undefined,
 ): Route[] {
   const { registry, store, readCatalog } = team;
   // A CLI that cannot say whether it is signed in counts as signed in once the app saw its
@@ -162,26 +164,28 @@ export function apiRoutes(
             },
           }),
         );
+        nameTask(task.id, agent.settings.harness);
         return { status: 201, json: session };
       },
     },
     {
       method: "POST",
       path: "/tasks/team",
-      reply: async ({ body }) => ({
-        status: 201,
-        json: await startTeamTask(team, startTeamTaskRequestSchema.parse(await body())),
-      }),
+      reply: async ({ body }) => {
+        const session = await startTeamTask(team, startTeamTaskRequestSchema.parse(await body()));
+        nameTask(session.taskId, session.options.harness);
+        return { status: 201, json: session };
+      },
     },
     {
       method: "POST",
       path: "/tasks/chief",
       reply: async ({ body }) => {
         const { goal, attachments } = chiefTaskRequestSchema.parse(await body());
-        return {
-          status: 201,
-          json: await startChiefGoal(team, goal, resolveAttachments(store, attachments)),
-        };
+        const detail = await startChiefGoal(team, goal, resolveAttachments(store, attachments));
+        const chief = chiefOf(store);
+        if (chief !== undefined) nameTask(detail.task.id, chief.settings.harness);
+        return { status: 201, json: detail };
       },
     },
     {
@@ -315,12 +319,9 @@ export function apiRoutes(
       reply: async ({ param, body }) => {
         const { prompt, attachments } = resumeSessionRequestSchema.parse(await body());
         const given = resolveAttachments(store, attachments);
-        const taskId = store.getSession(param("id"))?.taskId;
-        const resume = () => registry.resume(param("id"), { text: prompt, attachments: given });
-        const json =
-          taskId === undefined
-            ? await resume()
-            : await claimDepartment(team, store.getTask(taskId)?.departmentId, taskId, resume);
+        const session = store.getSession(param("id"));
+        if (session === undefined) throw new RecordNotFoundError("session", param("id"));
+        const json = await resumeInTask(team, session, { text: prompt, attachments: given });
         return { status: 201, json };
       },
     },

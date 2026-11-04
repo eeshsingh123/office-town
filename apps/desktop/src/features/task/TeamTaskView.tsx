@@ -1,11 +1,11 @@
 import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
-import { isOpen } from "../../store/records.ts";
+import { teamAtWork } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
@@ -147,7 +147,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const groups = byRole(workers, (worker) => worker.record.role);
   const working = states.filter((state) => state === "working" || state === "starting").length;
   const waitingCount = states.filter((state) => state === "waiting").length;
-  const open = members.some((member) => isOpen(member.latest));
+  const open = teamAtWork(
+    task,
+    members.map((member) => member.latest),
+  );
   return (
     <section className={styles.view} aria-labelledby="task-title">
       <header className={styles.header}>
@@ -168,7 +171,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
             ]}
           />
           <div className={styles.titleLine}>
-            <h1 id="task-title">{taskTitle(task.prompt)}</h1>
+            <h1 id="task-title">{taskName(task)}</h1>
             <div className={styles.chips}>
               {/* A department is already named in the breadcrumb just above. */}
               {task.leadAgentId === undefined ||

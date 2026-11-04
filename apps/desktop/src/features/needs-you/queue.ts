@@ -6,7 +6,7 @@ import type {
   WorkspaceRecord,
 } from "@office-town/contract";
 import type { TaskEntry, WaitingRequest } from "../../store/records.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 
 export type AskKind = "plan" | "team" | "checklist" | "question" | "approval";
 export type TypeFilter = "all" | "decisions" | "question" | "approval";
@@ -179,7 +179,7 @@ export function buildAsks(sources: QueueSources): Ask[] {
         ...describe(event),
         askedAt: Date.parse(event.timestamp),
         taskId: session?.taskId,
-        taskName: task === undefined ? "Unknown task" : taskTitle(task.prompt),
+        taskName: task === undefined ? "Unknown task" : taskName(task),
         agentId: agent?.id,
         agentName: agent?.name ?? "Unknown agent",
         agentColour: agent?.colour,

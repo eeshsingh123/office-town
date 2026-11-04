@@ -24,7 +24,7 @@ import { useEffect, useState } from "react";
 import { useTasksWithAgents } from "../../store/agents.ts";
 import { navigate, useApp, type View } from "../../store/app-store.ts";
 import dialog from "../../ui/Dialog.module.css";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
 import { useConnectors } from "../connectors/connectors.ts";
@@ -213,7 +213,7 @@ export function CommandMenu() {
                     <Row
                       key={task.id}
                       icon={List}
-                      label={taskTitle(task.prompt)}
+                      label={taskName(task)}
                       value={`task ${task.id}`}
                       onSelect={() => go({ name: "task", taskId: task.id })}
                     />

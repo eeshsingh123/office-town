@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused, t.checklist,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
@@ -146,6 +146,7 @@ export const queries = {
   taskReviewed: "UPDATE tasks SET reviewed_at = ? WHERE ref = ?",
   setTaskPause: "UPDATE tasks SET paused = ? WHERE ref = ?",
   setTaskChecklist: "UPDATE tasks SET checklist = ? WHERE ref = ?",
+  setTaskTitle: "UPDATE tasks SET title = ? WHERE ref = ?",
   pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",
   usageOfTask: `
     SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,

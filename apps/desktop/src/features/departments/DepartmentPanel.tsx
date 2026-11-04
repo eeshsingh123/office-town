@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
-import { isOpen } from "../../store/records.ts";
+import { teamAtWork } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
-import { ago, taskTitle } from "../../ui/format.ts";
+import { ago, taskName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import office from "../office/Office.module.css";
 import {
@@ -48,9 +48,10 @@ function useLastWork(agentId: string): string | undefined {
     const brief = Object.values(delegations)
       .filter((delegation) => delegation.workerSessionId === latest.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.brief;
-    const what = brief ?? tasks[latest.taskId]?.task.prompt;
+    const task = tasks[latest.taskId]?.task;
+    const what = brief === undefined ? task && taskName(task) : taskTitle(brief);
     if (what === undefined) return undefined;
-    return `Last: ${taskTitle(what)} · ${ago(latest.endedAt ?? latest.createdAt)}`;
+    return `Last: ${what} · ${ago(latest.endedAt ?? latest.createdAt)}`;
   }, [agentId, sessions, tasks, delegations]);
 }
 
@@ -143,7 +144,8 @@ function useDepartmentGoal(department: DepartmentRecord) {
     const goalSessions = (task === undefined ? [] : (tasks[task.id]?.sessionIds ?? []))
       .flatMap((id) => sessions[id] ?? [])
       .filter((session) => agents[session.agentId]?.guest !== true);
-    return { task, members, goalSessions, working: goalSessions.some(isOpen) };
+    const working = task !== undefined && teamAtWork(task, goalSessions);
+    return { task, members, goalSessions, working };
   }, [agents, tasks, sessions, department]);
 }
 
@@ -214,7 +216,7 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
             className={office.taskLink}
             onClick={() => navigate({ name: "task", taskId: task.id })}
           >
-            {taskTitle(task.prompt)}
+            {taskName(task)}
             <ArrowUpRight size={14} aria-hidden />
           </button>
         )}
