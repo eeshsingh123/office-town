@@ -2,7 +2,7 @@ import { taskStateOf, useTasksWithAgents, useWaitingSessions } from "../../store
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import styles from "./Sidebar.module.css";
@@ -44,7 +44,7 @@ export function RunningAgents() {
           >
             <span className={styles.taskTitle}>
               <StatusIcon state={state} />
-              <span>{taskTitle(task.prompt)}</span>
+              <span>{taskName(task)}</span>
             </span>
             <span className={styles.taskMeta}>
               <WorkerName agent={first} others={others.length} /> · {detail}

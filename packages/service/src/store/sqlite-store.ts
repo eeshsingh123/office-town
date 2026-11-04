@@ -123,6 +123,7 @@ interface TaskRow {
   reviewedAt: number | null;
   paused: string | null;
   checklist: string | null;
+  title: string | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -354,6 +355,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.reviewedAt === null ? {} : { reviewedAt: iso(row.reviewedAt) }),
     ...(row.paused === null ? {} : { paused: JSON.parse(row.paused) as TaskPause }),
     ...(row.checklist === null ? {} : { checklist: JSON.parse(row.checklist) as TaskChecklist }),
+    ...(row.title === null ? {} : { title: row.title }),
     usage,
   };
 }
@@ -748,6 +750,11 @@ class SqliteStore implements Store {
 
   setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord {
     this.#statements.setTaskChecklist.run(JSON.stringify(checklist), this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskTitle(taskId: string, title: string): TaskRecord {
+    this.#statements.setTaskTitle.run(title, this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
   }
 

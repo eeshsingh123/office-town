@@ -21,6 +21,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-04",
+    title: "Clearer chats and task names",
+    icon: Eye,
+    changes: [
+      "Each task gets a short name that says what it is about, written by a free OpenCode model, or by your AI app's cheapest model without OpenCode. Your prompt names it until then",
+      "Your own answer to a question grows with what you type. Enter sends it, Shift Enter adds a line",
+      "The chat you have open is marked in the team list, so the lead and a worker no longer both look selected",
+      "Thinking as it comes reads smoothly: new words land on the last line and older lines move up, with no cut-off words",
+    ],
+  },
+  {
     date: "2026-11-02",
     title: "Tidier task pages and departments",
     icon: LayoutGrid,

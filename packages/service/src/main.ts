@@ -20,6 +20,7 @@ import { ConnectorHub } from "./connectors/hub.ts";
 import { AppRequests } from "./connectors/request-app.ts";
 import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
+import { titlesFor } from "./drafts/title.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
@@ -147,6 +148,7 @@ const server = await startApiServer({
   checks,
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
+  nameTask: titlesFor(team),
   token,
   port,
 });

@@ -23,7 +23,7 @@ import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import fileStyles from "../attachments/Attachments.module.css";
 import { sizeText, typeLabel } from "../attachments/kinds.ts";
@@ -437,8 +437,8 @@ export function Composer({ home = false }: ComposerProps) {
     plan =
       chief === undefined ? null : chief.busy && chief.current !== undefined ? (
         <>
-          <b>{chief.record.name}</b> is busy with "{taskTitle(chief.current.prompt)}". This goal
-          starts after it.
+          <b>{chief.record.name}</b> is busy with "{taskName(chief.current)}". This goal starts
+          after it.
         </>
       ) : (
         <>You approve the plan before any work starts.</>

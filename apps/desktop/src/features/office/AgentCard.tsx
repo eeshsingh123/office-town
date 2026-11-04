@@ -7,7 +7,7 @@ import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
 import styles from "./AgentCard.module.css";
@@ -50,7 +50,7 @@ function lineOf(
   request: WaitingRequest | undefined,
   trace: Trace | undefined,
 ): string {
-  const title = taskTitle(agent.task.prompt);
+  const title = taskName(agent.task);
   if (request !== undefined) return requestLabel(request);
   if (state === "working" || state === "starting") {
     const stage = stageOf(state, trace);

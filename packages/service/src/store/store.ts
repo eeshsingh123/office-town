@@ -258,6 +258,7 @@ export interface Store {
   markReviewed(taskId: string): TaskRecord;
   setTaskPause(taskId: string, pause: TaskPause | undefined): TaskRecord;
   setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord;
+  setTaskTitle(taskId: string, title: string): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;

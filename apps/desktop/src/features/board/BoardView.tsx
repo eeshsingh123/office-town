@@ -5,7 +5,7 @@ import { api } from "../../api/client.ts";
 import { type AppState, useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { Button } from "../../ui/Button.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
 import { ReviewResults } from "../outputs/OutputCards.tsx";
@@ -128,7 +128,7 @@ function NoteLine({ note, task }: { note: CardNote | undefined; task?: TaskRecor
 function PartOf({ taskId }: { taskId: string | undefined }) {
   const goal = useApp((state) => (taskId === undefined ? undefined : state.tasks[taskId]?.task));
   if (goal === undefined) return null;
-  return <span className={styles.note}>Part of {taskTitle(goal.prompt)}</span>;
+  return <span className={styles.note}>Part of {taskName(goal)}</span>;
 }
 
 // By task id: the agent's name and its oldest request.
@@ -210,7 +210,7 @@ const TaskCard = memo(function TaskCard({
           {column === "review" ? (
             <span role="img" className={styles.unread} aria-label="Not reviewed" />
           ) : null}
-          <strong>{taskTitle(task.prompt)}</strong>
+          <strong>{taskName(task)}</strong>
         </span>
         <span className={styles.owner}>
           {owner.who}

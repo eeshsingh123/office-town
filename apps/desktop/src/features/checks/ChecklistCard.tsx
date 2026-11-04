@@ -6,7 +6,7 @@ import { useSessionAgent } from "../../store/agents.ts";
 import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { LineField } from "../../ui/LineField.tsx";
 import card from "../requests/RequestCard.module.css";
 import { useMinutesSince } from "../requests/RequestCard.tsx";
@@ -73,7 +73,7 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
       <div className={card.head}>
         <ListChecks size={16} aria-hidden />
         Checklist from {checker?.name ?? "the checker"}
-        {checker === undefined ? "" : ` · ${taskTitle(checker.task.prompt)}`}
+        {checker === undefined ? "" : ` · ${taskName(checker.task)}`}
         <span className={card.since}>{minutes === 0 ? "just now" : `waiting ${minutes} min`}</span>
       </div>
       <div className={card.body}>

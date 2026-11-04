@@ -17,7 +17,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Composer } from "../new-task/Composer.tsx";
@@ -154,7 +154,7 @@ function nowLine(agent: Agent, waiting: boolean, traces: Record<string, Trace>) 
   if (progress?.step !== undefined) {
     return `Step ${progress.step.number} of ${progress.stepCount} · ${progress.step.title}`;
   }
-  return progress?.current?.title ?? taskTitle(agent.task.prompt);
+  return progress?.current?.title ?? taskName(agent.task);
 }
 
 function Team() {
@@ -205,7 +205,7 @@ function Team() {
           <TeamRow
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name={records[chiefId]?.name ?? "Chief"}
-            line={chiefGoal === undefined ? "No goal in progress" : taskTitle(chiefGoal.prompt)}
+            line={chiefGoal === undefined ? "No goal in progress" : taskName(chiefGoal)}
             state={chiefGoal === undefined ? undefined : GOAL_STATE[chiefGoal.state]}
             onOpen={() => navigate({ name: "chief" })}
           />
@@ -223,7 +223,7 @@ function Team() {
               line={
                 goal === undefined
                   ? `${members} ${members === 1 ? "member" : "members"} · no goal in progress`
-                  : taskTitle(goal.prompt)
+                  : taskName(goal)
               }
               state={goal === undefined ? undefined : GOAL_STATE[goal.state]}
               onOpen={() => selectRoom(department.id)}
@@ -284,7 +284,7 @@ function Recent() {
               >
                 {state === undefined ? null : <StatusIcon state={state} />}
                 <span className={styles.rowText}>
-                  <span className={styles.rowName}>{taskTitle(entry.task.prompt)}</span>
+                  <span className={styles.rowName}>{taskName(entry.task)}</span>
                   <span className={styles.rowLine}>
                     {entry.agents[0] === undefined ? null : <WorkerName agent={entry.agents[0]} />}
                     {` · ${clockTime(entry.task.createdAt)}`}

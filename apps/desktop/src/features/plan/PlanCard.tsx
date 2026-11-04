@@ -7,7 +7,7 @@ import { useApp } from "../../store/app-store.ts";
 import { clearDrafts, shaped, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import card from "../requests/RequestCard.module.css";
 import { useMinutesSince } from "../requests/RequestCard.tsx";
 import { departmentName, usePlan } from "../work/use-plan.ts";
@@ -121,7 +121,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
         <Network size={16} aria-hidden />
         {replan ? "Changed plan from " : "Plan from "}
         {chief?.name ?? "the chief"}
-        {chief === undefined ? "" : ` · ${taskTitle(chief.task.prompt)}`}
+        {chief === undefined ? "" : ` · ${taskName(chief.task)}`}
         <span className={card.since}>{minutes === 0 ? "just now" : `waiting ${minutes} min`}</span>
       </div>
       <div className={card.body}>

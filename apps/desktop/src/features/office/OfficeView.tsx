@@ -8,7 +8,7 @@ import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
 import { newTokens, usageByPerson } from "../departments/usage.ts";
@@ -207,7 +207,7 @@ function layOut(layout: Layout) {
       lines:
         task === undefined
           ? ["No goal in progress"]
-          : [working ? taskTitle(task.prompt) : `Last goal · ${taskTitle(task.prompt)}`],
+          : [working ? taskName(task) : `Last goal · ${taskName(task)}`],
       ...(apps.length === 0
         ? {}
         : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),

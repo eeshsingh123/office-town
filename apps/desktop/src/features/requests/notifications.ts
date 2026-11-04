@@ -2,7 +2,7 @@ import { shell } from "../../shell.ts";
 import { workOf } from "../../store/agents.ts";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import type { WaitingRequest } from "../../store/records.ts";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { DEFAULT_YOU } from "../you/you.ts";
 import { requestSummary } from "./summary.ts";
 
@@ -58,7 +58,7 @@ export function notifyFinishedTasks(): void {
     if (Notification.permission !== "granted") return;
     for (const task of ended) {
       const notification = new Notification("A task is finished", {
-        body: taskTitle(task.prompt),
+        body: taskName(task),
         tag: `ended:${task.id}`,
       });
       notification.onclick = () => {

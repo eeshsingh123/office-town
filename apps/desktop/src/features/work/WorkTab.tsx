@@ -9,7 +9,7 @@ import { isOpen } from "../../store/records.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { type ActivityGroup, activityOf } from "../../trace/activity.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName, taskTitle } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { DELEGATION_STATUS } from "./delegation-status.ts";
 import { PieceIcon } from "./PieceIcon.tsx";
@@ -80,7 +80,7 @@ export function ChiefWork({ chiefId }: { chiefId: string }) {
         <p className={styles.quiet}>The chief has no goal yet.</p>
       ) : (
         <section aria-label="Plan">
-          <h3 className={styles.goal}>{taskTitle(current.prompt)}</h3>
+          <h3 className={styles.goal}>{taskName(current)}</h3>
           <p className={styles.meta}>
             Started {clockTime(current.createdAt)}
             {plan.length === 0
@@ -101,7 +101,7 @@ export function ChiefWork({ chiefId }: { chiefId: string }) {
             {queue.map((task, index) => (
               <li key={task.id} className={styles.queued}>
                 <PieceIcon status="queued" />
-                {taskTitle(task.prompt)}
+                {taskName(task)}
                 {index === 0 ? <span className={styles.meta}> · starts next</span> : null}
               </li>
             ))}
@@ -138,8 +138,7 @@ function PieceOfGoal({ piece, department }: { piece: PlanPiece; department: Depa
     <>
       <p className={styles.meta}>
         Piece {index + 1} of {plan.length}
-        {goal === undefined ? "" : ` in ${taskTitle(goal.prompt)}`} · from{" "}
-        {chief?.name ?? "the chief"}
+        {goal === undefined ? "" : ` in ${taskName(goal)}`} · from {chief?.name ?? "the chief"}
       </p>
       {direct.map((one) => (
         <p key={one.id} className={styles.result}>
@@ -186,7 +185,7 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
           <p className={styles.quiet}>No goal yet.</p>
         ) : (
           <>
-            <p className={styles.goal}>{taskTitle(task.prompt)}</p>
+            <p className={styles.goal}>{taskName(task)}</p>
             {piece === undefined ? null : <PieceOfGoal piece={piece} department={department} />}
           </>
         )}
@@ -229,7 +228,7 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
                     <strong>{one.title}</strong>
                     <span className={styles.meta}>
                       From the chief
-                      {goal === undefined ? "" : ` · ${taskTitle(goal.prompt)}`} · {one.status}
+                      {goal === undefined ? "" : ` · ${taskName(goal)}`} · {one.status}
                     </span>
                   </span>
                 </li>

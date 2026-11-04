@@ -8,7 +8,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import form from "../../ui/Form.module.css";
-import { ago, taskTitle } from "../../ui/format.ts";
+import { ago, taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { LibraryTab } from "../library/LibraryTab.tsx";
@@ -147,7 +147,7 @@ export function WorkspaceView({
                                 {agent.name}
                                 {agent.record.role === undefined ? "" : ` · ${agent.record.role}`}
                               </strong>
-                              <span className={styles.path}>{taskTitle(agent.task.prompt)}</span>
+                              <span className={styles.path}>{taskName(agent.task)}</span>
                             </span>
                             <span className={styles.state}>
                               <StatusIcon state={state} />
@@ -174,7 +174,7 @@ export function WorkspaceView({
                             onClick={() => navigate({ name: "task", taskId: task.id })}
                           >
                             <span className={styles.optionText}>
-                              <strong>{taskTitle(task.prompt)}</strong>
+                              <strong>{taskName(task)}</strong>
                               <span className={form.hint}>
                                 {[
                                   task.departmentId === undefined

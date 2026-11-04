@@ -2,7 +2,7 @@ import { useSessionAgent } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { progressOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { taskTitle } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import styles from "./RequestCard.module.css";
 
 export function RequestContext({ sessionId }: { sessionId: string }) {
@@ -21,7 +21,7 @@ export function RequestContext({ sessionId }: { sessionId: string }) {
         className={styles.taskLink}
         onClick={() => navigate({ name: "task", taskId: agent.taskId })}
       >
-        {taskTitle(agent.task.prompt)}
+        {taskName(agent.task)}
       </button>
       <span className={styles.separator} />
       <span>

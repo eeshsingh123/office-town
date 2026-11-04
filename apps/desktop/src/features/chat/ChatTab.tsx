@@ -6,7 +6,7 @@ import { useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { clockTime, taskTitle } from "../../ui/format.ts";
+import { clockTime, taskName } from "../../ui/format.ts";
 import { useFollow } from "../task/follow.ts";
 import styles from "./Chat.module.css";
 import { ChatEntry } from "./ChatEntry.tsx";
@@ -134,10 +134,10 @@ function GoalChat({
   }, [agents, traces, delegations, ended, goal.taskId, goal.sessions.length]);
   const start = goal.sessions[0]?.createdAt ?? "";
   return (
-    <section aria-label={task === undefined ? "A goal" : taskTitle(task.prompt)}>
+    <section aria-label={task === undefined ? "A goal" : taskName(task)}>
       <div className={styles.divider}>
         <span>
-          {task === undefined ? "A goal" : taskTitle(task.prompt)}
+          {task === undefined ? "A goal" : taskName(task)}
           {task?.parentTaskId === undefined ? "" : ` · from ${chiefName}`}
           {` · ${dayAndTime(start)}`}
         </span>

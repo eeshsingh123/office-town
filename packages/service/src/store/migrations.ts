@@ -227,6 +227,12 @@ function addTaskPause(db: DatabaseSync): void {
   db.exec("CREATE INDEX IF NOT EXISTS tasks_paused ON tasks (ref) WHERE paused IS NOT NULL");
 }
 
+// A short name for a task, written after it starts.
+function addTaskTitle(db: DatabaseSync): void {
+  const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'title'");
+  if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN title TEXT");
+}
+
 // A lead's checklist on its task, and the rounds of checking it (D-73).
 function addChecks(db: DatabaseSync): void {
   const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'checklist'");
@@ -708,4 +714,5 @@ export const migrations: readonly Migration[] = [
   restoreScratch,
   "CREATE INDEX IF NOT EXISTS sessions_interrupted ON sessions (status) WHERE status = 'interrupted';",
   dropScratchBesideFolders,
+  addTaskTitle,
 ];
