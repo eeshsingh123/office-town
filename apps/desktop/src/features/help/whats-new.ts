@@ -6,6 +6,7 @@ import {
   LifeBuoy,
   ListChecks,
   type LucideIcon,
+  MousePointerClick,
   PackageCheck,
   Paperclip,
   Plug,
@@ -20,6 +21,18 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-05",
+    title: "Right-click menus",
+    icon: MousePointerClick,
+    changes: [
+      "Right-click a text box to cut, copy, paste or select all, and a misspelled word for suggestions. Right-click selected text or a link to copy it",
+      "Right-click an agent, on the floor or on its card, to open its task, send it for review, pin it or stop it",
+      "Right-click a department, in the sidebar or its room, to open it, give it a new task, change its settings, pin its agents or stop its team",
+      "Right-click a task to open it, show it in the office, copy its name or delete it. A message copies as it was written, and a file opens, shows in its folder or copies its path",
+      "Stop and Delete always ask first",
+    ],
+  },
   {
     date: "2026-11-04",
     title: "Clearer chats and task names",
