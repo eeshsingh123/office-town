@@ -1,6 +1,5 @@
 import { LoaderCircle, Square } from "lucide-react";
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { api } from "../../api/client.ts";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
@@ -13,7 +12,7 @@ import {
   stageOf,
 } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
-import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
@@ -27,6 +26,7 @@ import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { SessionTrace } from "./SessionTrace.tsx";
 import { StepsButton, StepsColumn } from "./StepsColumn.tsx";
+import { stopAgentAsk } from "./stop-asks.ts";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
@@ -137,10 +137,10 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         <TaskTabs taskId={taskId} />
         {plan === undefined || tab.outputs ? null : <StepsButton plan={plan} />}
         {live ? (
-          <Button onClick={() => void api.stop(latest.id)}>
+          <ConfirmButton ask={stopAgentAsk(agent.name, latest.id)}>
             <Square size={12} aria-hidden />
             Stop
-          </Button>
+          </ConfirmButton>
         ) : null}
       </header>
 

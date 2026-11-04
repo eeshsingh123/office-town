@@ -83,3 +83,33 @@
   font-weight: 600;
   color: var(--text-3);
 }
+
+.itemIcon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.danger,
+.danger .itemIcon {
+  color: var(--bad);
+}
+
+.separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border);
+}
+
+/* Says who or what a right-click menu is for. */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  font-size: 12.5px;
+}
+
+/* Wraps a right-click area without changing its layout. */
+.contents {
+  display: contents;
+}

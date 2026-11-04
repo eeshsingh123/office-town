@@ -5,11 +5,13 @@ import { type DragEvent, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { showToast } from "../../ui/Toast.tsx";
+import { fileMenu } from "../attachments/file-menu.ts";
 import { sizeText, typeLabel } from "../attachments/kinds.ts";
 import { GivenToMenu, useHolders } from "./GivenToMenu.tsx";
 import styles from "./Library.module.css";
@@ -99,20 +101,22 @@ function Row({ item }: { item: LibraryItem }) {
       : `Added by ${adder.name} ${ago(item.createdAt)}`,
   ];
   return (
-    <li className={styles.row}>
-      <span className={styles.nameCell}>
-        <span className={styles.tile} aria-hidden>
-          {typeLabel(file.name, file.kind)}
+    <ContextMenu menu={() => fileMenu(file.path, file.kind)}>
+      <li className={styles.row}>
+        <span className={styles.nameCell}>
+          <span className={styles.tile} aria-hidden>
+            {typeLabel(file.name, file.kind)}
+          </span>
+          <span className={styles.nameText}>
+            <b title={file.path}>{file.name}</b>
+            <span>{meta.join(" · ")}</span>
+          </span>
         </span>
-        <span className={styles.nameText}>
-          <b title={file.path}>{file.name}</b>
-          <span>{meta.join(" · ")}</span>
-        </span>
-      </span>
-      <GivenToMenu item={item} />
-      <span className={styles.used}>{usedText(item)}</span>
-      <ItemMenu item={item} />
-    </li>
+        <GivenToMenu item={item} />
+        <span className={styles.used}>{usedText(item)}</span>
+        <ItemMenu item={item} />
+      </li>
+    </ContextMenu>
   );
 }
 

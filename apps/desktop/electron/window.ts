@@ -1,5 +1,6 @@
 import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import { APP_ORIGIN } from "./app-protocol.ts";
+import { addTextMenu } from "./context-menu.ts";
 
 export interface WindowOptions {
   icon: string;
@@ -37,6 +38,7 @@ export function createWindow({ icon, preload, isQuitting }: WindowOptions): Brow
   window.webContents.on("will-navigate", (event, url) => {
     if (!url.startsWith(`${APP_ORIGIN}/`)) event.preventDefault();
   });
+  addTextMenu(window);
   void window.loadURL(`${APP_ORIGIN}/`);
   return window;
 }

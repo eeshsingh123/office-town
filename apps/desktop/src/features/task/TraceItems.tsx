@@ -32,6 +32,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { byteSize, elapsed } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
+import { MessageMenu } from "../chat/MessageMenu.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { ShownResult } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
@@ -357,7 +358,9 @@ function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: strin
     <div className={styles.user}>
       <div className={styles.userSaid}>
         <span className={styles.userName}>{name}</span>
-        <div className={styles.userBubble}>{item.text}</div>
+        <MessageMenu text={item.text}>
+          <div className={styles.userBubble}>{item.text}</div>
+        </MessageMenu>
         <MessageFiles item={item} sessionId={sessionId} />
       </div>
       <YouAvatar size={24} />
@@ -493,9 +496,11 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       }
       if (item.role === "user") return <UserMessage item={item} sessionId={place.sessionId} />;
       return (
-        <div className={styles.text}>
-          <Markdown text={item.text} />
-        </div>
+        <MessageMenu text={item.text}>
+          <div className={styles.text}>
+            <Markdown text={item.text} />
+          </div>
+        </MessageMenu>
       );
   }
 });

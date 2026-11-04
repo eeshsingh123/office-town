@@ -8,6 +8,7 @@ import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { MemberEditor } from "../departments/MemberEditor.tsx";
 import {
   blankPerson,
@@ -16,6 +17,7 @@ import {
   rolesOf,
   type TeamForm,
 } from "../departments/team-form.ts";
+import { stopProposalAsk } from "../task/stop-asks.ts";
 import styles from "./ProposalCard.module.css";
 import card from "./RequestCard.module.css";
 import { useMinutesSince } from "./RequestCard.tsx";
@@ -171,13 +173,15 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
               Decline
             </Button>
           ) : (
-            <Button
+            <ConfirmButton
               variant="ghost"
               disabled={sending}
-              onClick={() => void run(() => api.stop(event.sessionId))}
+              ask={stopProposalAsk(lead?.name ?? "The lead", () =>
+                run(() => api.stop(event.sessionId)),
+              )}
             >
               Stop the task
-            </Button>
+            </ConfirmButton>
           )}
         </div>
         {error === undefined ? null : (

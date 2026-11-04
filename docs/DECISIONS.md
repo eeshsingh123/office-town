@@ -476,6 +476,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - The message waits for it, up to 90 s; a failure, a slow describer or no describer leaves the path alone, as before. One description per image while its file lasts. Library reference images and images over 5 MB are not described. The chip says "Sent as a written description", the reason on hover.
 - Run live: Big Pickle (no image input) got a test image with its description from DeepSeek V4.1 Flash Free and quoted its text exactly. OpenCode's catalog (2026-11-04) marks DeepSeek V4.1 Flash as seeing images; V4 Pro, GLM 5.3, Big Pickle and LongCat 2.0 do not.
 
+### D-89 Right-click menus in two layers — accepted (2026-11-05)
+
+- Electron shows no menu of its own, so the app had none, not even Copy and Paste. The shell adds the text menu Windows users expect (`electron/context-menu.ts`): spelling suggestions and Add to dictionary, Copy link, Copy image, Cut, Copy, Paste, Select all, and Inspect in the Dev app. It shows only where the page opened no menu of its own.
+- Agents, departments, tasks, messages and files get the app's own menu (`ui/ActionMenu.tsx`), on Radix ContextMenu. It only repeats actions that already exist on that thing, plus copying. Each object's actions are written once (`agentMenu`, `departmentMenu`, `taskMenu`, `fileMenu`, `MessageMenu`) and the same list draws its "…" button; a menu is built on the click, not per row. Owner: a name row on agent and department menus, icons in right-click menus only (the "…" menus stay text), Copy message copies Markdown, Stop always asks (Stop team's dialog, shared), only agents are pinned. UI only, no contract change. Mockup: https://claude.ai/artifact/J9qdwoMZfnCER1bMzesvfh.
+- A message's menu covers the whole message, so the shell's menu never shows there; it adds Copy link and Copy selection itself, from what was under the pointer. Owner: every Stop asks first, menus and buttons alike (`ConfirmButton` in `ui/ConfirmDialog.tsx`, the words once in `task/stop-asks.ts`).
+- A menu and the dialog it opens are drawn outside their area, yet React passes their clicks and keys up through it. An area with its own pointer or key handlers (the office floor) ignores events that did not happen inside it.
+
 ## Done
 
 All accepted and built.

@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
 ## State
 
@@ -17,15 +17,17 @@ Last updated: 2026-11-04
 - Task page feedback (D-82): the org chart on Describe and Review (mockup https://claude.ai/artifact/15etZWBFsxzzJ4YTr5pCua), one permission chip under the message box, Scratch only for a department with no folder, a scroll place per chat, Stop team confirms.
 - Honest progress (D-83), on the same PR: steps that stop moving give way to the current action, the floor's work bubble shows on hover or reach, a brief to a busy worker reaches it at its next tool end with a queued icon that turns to sent once the worker takes it. A stale step list says so in the Steps column.
 - Free departments and turn stages (D-84), on the same PR: a department is free once its task ends, held only by an open check; a turn shows Starting the AI app, Waiting for the model, Thinking.
-- Chat feedback (D-85), branch `fix/chat-feedback`: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
+- Chat feedback (D-85), merged as PR #76: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
 - A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends. The task page's box now takes files, images, folders and Library files (the Office chat already did); a chat at its end stays there when the box grows.
 - Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
-- Office chat task headers (D-88), same PR: earlier tasks fold, the open header stays in view, the message box names its task.
+- Office chat task headers (D-88), merged as PR #76: earlier tasks fold, the open header stays in view, the message box names its task.
+- Right-click menus (D-89), branch `feat/right-click`: the shell's text menu, and app menus on agents, departments, tasks, messages and files built from one action list per object.
 
 ## Not checked yet
 
 Worth a click when touched.
 
+- D-89: the shell's text menu (spelling, Copy link, Copy image) in the packaged app; Send for review and Stop from an agent's menu on a live run; the menus in light mode.
 - D-87: a description written by Claude's Haiku (no OpenCode; only OpenCode's free model was run), a describer that fails or is slow (the path alone goes), a live session told an image mid-turn, a description reused for a second agent.
 - D-86: a real restart mid-task, then a message to the lead from its chat (tested on the test core); a task already stuck this way freeing at its lead's next message; Stop team hiding live.
 - D-85: a title written by Claude's Haiku (no OpenCode) and a chief goal's title (an OpenCode team task was run live), the drafter's own-answer box, a long thinking past 4000 characters, the thinking box in light mode.

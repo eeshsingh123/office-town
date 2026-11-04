@@ -1,6 +1,5 @@
 import { ArrowUpRight, Check, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { loadTrace } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
@@ -8,6 +7,7 @@ import { progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
 import { AgentConnectors } from "../connectors/AgentConnectors.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
@@ -16,6 +16,7 @@ import { useResults } from "../outputs/use-task-outputs.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { tokenLine, useRunFacts } from "../task/run-facts.ts";
+import { stopAgentAsk } from "../task/stop-asks.ts";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
@@ -169,9 +170,9 @@ export function AgentFooter({ member }: { member: FloorAgent }) {
         {pinned ? "Unpin" : "Pin"}
       </Button>
       {isOpen(agent.latest) ? (
-        <Button variant="ghost" onClick={() => void api.stop(agent.latest.id)}>
+        <ConfirmButton variant="ghost" ask={stopAgentAsk(agent.name, agent.latest.id)}>
           Stop
-        </Button>
+        </ConfirmButton>
       ) : null}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />
     </>

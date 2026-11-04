@@ -6,6 +6,8 @@ import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
+import { stopPickedAsk } from "../task/stop-asks.ts";
 import { AgentCard, STATE_ORDER, toReview } from "./AgentCard.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import { GroupTaskDialog } from "./GroupTaskDialog.tsx";
@@ -139,9 +141,9 @@ export function GroupPanel({ members }: { members: FloorAgent[] }) {
             {allPinned ? "Unpin" : "Pin"}
           </Button>
           {atWork.length === 0 ? null : (
-            <Button variant="ghost" onClick={() => void stopAll()}>
+            <ConfirmButton variant="ghost" ask={stopPickedAsk(atWork.length, stopAll)}>
               Stop {atWork.length} at work
-            </Button>
+            </ConfirmButton>
           )}
         </div>
         {error === undefined ? null : (

@@ -1,18 +1,13 @@
-import { ChevronDown, Clock, MoreHorizontal } from "lucide-react";
-import { AlertDialog, DropdownMenu } from "radix-ui";
-import { useState } from "react";
+import { ChevronDown, Clock } from "lucide-react";
 import { navigate } from "../../store/app-store.ts";
-import { deleteTask } from "../../store/live.ts";
-import { isOpen } from "../../store/records.ts";
+import { ContextMenu, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import dialog from "../../ui/Dialog.module.css";
 import { ago } from "../../ui/format.ts";
-import menu from "../../ui/Menu.module.css";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
-import { selectAgent, selectRoom } from "../office/office-state.ts";
 import styles from "./TasksView.module.css";
 import { type Item, type RowStatus, STATUS_LABELS } from "./task-list.ts";
+import { taskMenu } from "./task-menu.ts";
 import { WorkerName } from "./WorkerName.tsx";
 
 export interface Team {
@@ -129,89 +124,6 @@ function When({ item, now }: { item: Item; now: number }) {
   );
 }
 
-function RowMenu({ item, team }: { item: Item; team: Team }) {
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string>();
-  const running = item.agents.some((agent) => isOpen(agent.latest));
-  const task = item.task;
-  if (task === undefined) return <span className={styles.menuSpace} />;
-  const lead = item.agents[0];
-  const openInOffice = () => {
-    if (team.key !== "chief" && team.key !== "solo") selectRoom(team.key);
-    else if (lead !== undefined) selectAgent(lead.id);
-  };
-  const confirm = async () => {
-    try {
-      await deleteTask(task.id);
-      setConfirming(false);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
-    }
-  };
-  return (
-    <>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button variant="ghost" icon aria-label={`More for ${item.title}`}>
-            <MoreHorizontal size={14} aria-hidden />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-            {lead === undefined ? null : (
-              <DropdownMenu.Item className={menu.item} onSelect={openInOffice}>
-                Show in office
-              </DropdownMenu.Item>
-            )}
-            <DropdownMenu.Item
-              className={menu.item}
-              disabled={running}
-              onSelect={() => setConfirming(true)}
-            >
-              <span className={menu.itemText}>
-                Delete task
-                {running ? (
-                  <span className={menu.itemDescription}>Stop its agents first</span>
-                ) : null}
-              </span>
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
-      <AlertDialog.Root
-        open={confirming}
-        onOpenChange={(next) => {
-          setConfirming(next);
-          setError(undefined);
-        }}
-      >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className={dialog.overlay} />
-          <AlertDialog.Content className={dialog.content}>
-            <AlertDialog.Title className={dialog.title}>Delete this task?</AlertDialog.Title>
-            <AlertDialog.Description className={dialog.description}>
-              Its history is deleted. Files the agent made stay in the folder.
-            </AlertDialog.Description>
-            {error === undefined ? null : (
-              <p className={dialog.error} role="alert">
-                {error}
-              </p>
-            )}
-            <div className={dialog.actions}>
-              <AlertDialog.Cancel asChild>
-                <Button variant="ghost">Cancel</Button>
-              </AlertDialog.Cancel>
-              <Button variant="primary" onClick={confirm}>
-                Delete task
-              </Button>
-            </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
-    </>
-  );
-}
-
 interface TaskRowProps {
   item: Item;
   team: Team;
@@ -261,7 +173,7 @@ export function TaskRow(props: TaskRowProps) {
     </>
   );
 
-  return (
+  const row = (
     <li
       className={`${styles.row} ${item.status === "needs" && !goal ? styles.needs : ""} ${nested ? styles.nested : ""}`}
     >
@@ -294,7 +206,12 @@ export function TaskRow(props: TaskRowProps) {
           </Button>
         )}
       </span>
-      <RowMenu item={item} team={team} />
+      {task === undefined ? (
+        <span className={styles.menuSpace} />
+      ) : (
+        <MoreMenu menu={() => taskMenu(task.id)} label={`More for ${item.title}`} />
+      )}
     </li>
   );
+  return task === undefined ? row : <ContextMenu menu={() => taskMenu(task.id)}>{row}</ContextMenu>;
 }

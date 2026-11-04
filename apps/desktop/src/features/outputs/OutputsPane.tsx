@@ -2,8 +2,10 @@ import type { AgentRecord, ChangedFile, OutputRecord, SpottedSite } from "@offic
 import { ChevronDown, Globe } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { ago } from "../../ui/format.ts";
+import { fileMenu } from "../attachments/file-menu.ts";
 import { fileName, KIND_LABELS, latestDocument, shownPath, viewKindOf } from "./kinds.ts";
 import styles from "./Outputs.module.css";
 import { KindIcon, Picture } from "./Picture.tsx";
@@ -283,7 +285,7 @@ function FileItem({
   onChoose: () => void;
 }) {
   const path = shownPath(file.path, roots);
-  return (
+  const row = (
     <button
       type="button"
       className={`${styles.file} ${chosen ? styles.fileChosen : ""}`}
@@ -299,4 +301,6 @@ function FileItem({
       {file.deleted ? <span className={styles.deleted}>Deleted</span> : null}
     </button>
   );
+  if (file.deleted) return row;
+  return <ContextMenu menu={() => fileMenu(file.path, "file")}>{row}</ContextMenu>;
 }

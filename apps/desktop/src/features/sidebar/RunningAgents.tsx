@@ -2,8 +2,10 @@ import { taskStateOf, useTasksWithAgents, useWaitingSessions } from "../../store
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { taskMenu } from "../tasks/task-menu.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import styles from "./Sidebar.module.css";
 
@@ -35,21 +37,22 @@ export function RunningAgents() {
               : STATE_LABELS[state].toLowerCase();
         const current = view.name === "task" && view.taskId === task.id;
         return (
-          <button
-            key={task.id}
-            type="button"
-            className={styles.task}
-            aria-current={current ? "page" : undefined}
-            onClick={() => navigate({ name: "task", taskId: task.id })}
-          >
-            <span className={styles.taskTitle}>
-              <StatusIcon state={state} />
-              <span>{taskName(task)}</span>
-            </span>
-            <span className={styles.taskMeta}>
-              <WorkerName agent={first} others={others.length} /> · {detail}
-            </span>
-          </button>
+          <ContextMenu key={task.id} menu={() => taskMenu(task.id)}>
+            <button
+              type="button"
+              className={styles.task}
+              aria-current={current ? "page" : undefined}
+              onClick={() => navigate({ name: "task", taskId: task.id })}
+            >
+              <span className={styles.taskTitle}>
+                <StatusIcon state={state} />
+                <span>{taskName(task)}</span>
+              </span>
+              <span className={styles.taskMeta}>
+                <WorkerName agent={first} others={others.length} /> · {detail}
+              </span>
+            </button>
+          </ContextMenu>
         );
       })}
     </>

@@ -5,12 +5,14 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
+import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
 import styles from "./AgentCard.module.css";
+import { agentMenu } from "./agent-menu.tsx";
 import { selectAgent } from "./office-state.ts";
 
 // Those that need the user come first.
@@ -110,31 +112,33 @@ export function AgentCard({ agentId, where, onUnpin }: AgentCardProps) {
   if (status === undefined) return null;
   const { agent, state, line } = status;
   return (
-    <div className={`${styles.card} ${state === "waiting" ? styles.needsYou : ""}`}>
-      <button
-        type="button"
-        className={styles.open}
-        onClick={() => selectAgent(agent.id)}
-        aria-label={`${agent.name}: ${line}`}
-      >
-        <Avatar name={agent.name} colour={agent.colour} size={24} />
-        <span className={styles.text}>
-          <strong>{agent.name}</strong>
-          <span>{where === undefined ? line : `${line} · ${where}`}</span>
-        </span>
-      </button>
-      <MainAction status={status} />
-      {onUnpin === undefined ? null : (
+    <ContextMenu menu={() => agentMenu(agent.id)}>
+      <div className={`${styles.card} ${state === "waiting" ? styles.needsYou : ""}`}>
         <button
           type="button"
-          className={styles.unpin}
-          onClick={onUnpin}
-          aria-label={`Unpin ${agent.name}`}
-          title="Unpin"
+          className={styles.open}
+          onClick={() => selectAgent(agent.id)}
+          aria-label={`${agent.name}: ${line}`}
         >
-          <X size={13} aria-hidden />
+          <Avatar name={agent.name} colour={agent.colour} size={24} />
+          <span className={styles.text}>
+            <strong>{agent.name}</strong>
+            <span>{where === undefined ? line : `${line} · ${where}`}</span>
+          </span>
         </button>
-      )}
-    </div>
+        <MainAction status={status} />
+        {onUnpin === undefined ? null : (
+          <button
+            type="button"
+            className={styles.unpin}
+            onClick={onUnpin}
+            aria-label={`Unpin ${agent.name}`}
+            title="Unpin"
+          >
+            <X size={13} aria-hidden />
+          </button>
+        )}
+      </div>
+    </ContextMenu>
   );
 }
