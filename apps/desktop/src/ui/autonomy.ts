@@ -5,17 +5,17 @@ export const AUTONOMY: Record<Autonomy, { label: string; short: string; descript
   supervised: {
     label: "Ask me first",
     short: "Asks first",
-    description: "Asks before it edits a file, runs a command or searches the web.",
+    description: "Asks before editing files, running commands or using the web.",
   },
   full: {
     label: "Don't ask",
     short: "Doesn't ask",
     description:
-      "Edits files, runs commands and searches the web without asking. Still asks before changing a read-only folder.",
+      "Edits files, runs commands and uses the web without asking. Still asks before changing a read-only folder.",
   },
   bypass: {
     label: "No safety checks",
     short: "No safety checks",
-    description: "Turns off every check, read-only folders included.",
+    description: "No checks at all, read-only folders included.",
   },
 };
