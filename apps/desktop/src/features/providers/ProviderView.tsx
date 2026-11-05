@@ -80,7 +80,7 @@ export function ProviderView({ harness }: { harness: string }) {
   if (description === undefined) {
     return (
       <section className={page.page}>
-        <p className={styles.muted}>This AI app is not known here.</p>
+        <p className={styles.muted}>This provider is not known here.</p>
       </section>
     );
   }

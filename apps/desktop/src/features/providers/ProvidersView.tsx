@@ -91,7 +91,7 @@ export function ProvidersView() {
           <h1 id="providers-title" className={page.title}>
             Providers
           </h1>
-          <p className={page.lead}>The AI apps your agents run on, and your accounts on them.</p>
+          <p className={page.lead}>The providers your agents run on, and your accounts on them.</p>
         </header>
 
         {statuses === undefined ? (
@@ -101,13 +101,13 @@ export function ProvidersView() {
             <div className={page.section}>
               <div className={page.sectionHead}>
                 <h2 className={page.sectionTitle}>
-                  Your AI apps <span className={styles.count}>{installed.length}</span>
+                  Your providers <span className={styles.count}>{installed.length}</span>
                 </h2>
               </div>
               {installed.length === 0 ? (
                 <p className={styles.muted}>None yet. Install one below to get started.</p>
               ) : (
-                <ul className={styles.list} aria-label="Your AI apps">
+                <ul className={styles.list} aria-label="Your providers">
                   {installed.map((description) => {
                     const status = statusOf(description.harness);
                     if (status === undefined) return null;
@@ -159,7 +159,7 @@ export function ProvidersView() {
                     Get more <span className={styles.count}>{missing.length}</span>
                   </h2>
                 </div>
-                <ul className={styles.grid} aria-label="AI apps to install">
+                <ul className={styles.grid} aria-label="Providers to install">
                   {missing.map((description) => (
                     <ProviderCard
                       key={description.harness}

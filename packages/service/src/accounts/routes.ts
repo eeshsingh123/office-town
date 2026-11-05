@@ -109,7 +109,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
       reply: async ({ body }) => {
         const request = newAccountRequestSchema.parse(await body());
         if (!listHarnesses().some(({ harness }) => harness === request.harness)) {
-          throw new RequestError(400, "invalid_request", `Unknown AI app: ${request.harness}.`);
+          throw new RequestError(400, "invalid_request", `Unknown provider: ${request.harness}.`);
         }
         const id = randomUUID();
         const folder = join(accountsFolder, id);

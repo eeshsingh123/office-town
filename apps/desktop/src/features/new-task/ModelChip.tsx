@@ -131,12 +131,12 @@ export function ModelChip({
         >
           <div className={styles.menuPanes}>
             <div className={styles.menuApps}>
-              <span className={styles.rowLabel}>AI app</span>
+              <span className={styles.rowLabel}>Provider</span>
               <AppRows harnesses={offered} value={value} onPick={chooseApp} />
               {checking ? (
                 <span className={styles.menuChecking} role="status">
                   <LoaderCircle size={14} className="spin" aria-hidden />
-                  Checking AI apps…
+                  Checking providers…
                 </span>
               ) : null}
               {draft === undefined ? (

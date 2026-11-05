@@ -26,7 +26,7 @@ function isolationLine(harness: HarnessDescription | undefined): string {
     case "partial":
       return harness.isolationNote ?? "Some of your own settings still load.";
     default:
-      return "This AI app loads your own settings.";
+      return "This provider loads your own settings.";
   }
 }
 

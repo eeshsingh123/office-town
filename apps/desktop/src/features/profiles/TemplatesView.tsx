@@ -206,7 +206,7 @@ export function TemplatesView() {
             />
           </label>
           <fieldset className={`${form.row} ${form.group}`}>
-            <legend className="visually-hidden">Filter by AI app</legend>
+            <legend className="visually-hidden">Filter by provider</legend>
             {filters.map((choice) => (
               <button
                 key={choice.value}
@@ -308,7 +308,7 @@ export function TemplatesView() {
                     <tr>
                       <th>Template</th>
                       <th>Model</th>
-                      <th>App</th>
+                      <th>Provider</th>
                       <th>Used for</th>
                       <th>
                         <span className="visually-hidden">Actions</span>

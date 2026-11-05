@@ -372,7 +372,7 @@ ${text}`,
           : {
               ...fresh,
               text: handoverToApp(this.#store, earlier, message.text),
-              origin: { kind: "brief", summary: "Moved to another AI app" },
+              origin: { kind: "brief", summary: "Moved to another provider" },
             },
       );
     }

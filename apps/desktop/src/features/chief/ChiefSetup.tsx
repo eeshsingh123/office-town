@@ -254,7 +254,7 @@ export function ChiefSetup() {
 
           {step === 1 ? (
             <section className={page.section}>
-              <h3 className={page.sectionTitle}>AI app and model</h3>
+              <h3 className={page.sectionTitle}>Provider and model</h3>
               <div className={styles.chips}>
                 <SettingsChips
                   value={{

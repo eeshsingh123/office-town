@@ -433,7 +433,7 @@ export function NeedsYouView() {
                 onChange={(departmentId) => update({ departmentId })}
               />
               <FilterSelect
-                label="AI app"
+                label="Provider"
                 value={filters.harness}
                 options={harnessOptions}
                 onChange={(harness) => update({ harness })}

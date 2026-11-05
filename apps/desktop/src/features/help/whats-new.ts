@@ -82,7 +82,7 @@ export const RELEASES: Release[] = [
       "Fixed: messaging a Claude agent during a task could keep its department busy for up to 10 minutes",
       "A department is free for a new task as soon as all its agents finish. Each new task starts every agent in a new chat",
       "A department stays busy while its work is being reviewed, so a new task can't start in the middle of a review",
-      "After you send a message, the chat shows what is happening: Starting the AI app, Waiting for the model, then Thinking",
+      "After you send a message, the chat shows what is happening: Starting the provider, Waiting for the model, then Thinking",
     ],
   },
   {
@@ -101,13 +101,13 @@ export const RELEASES: Release[] = [
   },
   {
     date: "2026-10-25",
-    title: "More AI apps",
+    title: "More providers",
     icon: Bot,
     changes: [
       "Run agents on Codex, Muse Code, GitHub Copilot CLI and Cursor CLI",
       "The Providers page shows each app's status, and installs it, signs it in and manages its accounts",
-      "The model menu lists only AI apps that are ready to use. Get more shows the rest",
-      "If an AI app doesn't report your plan usage, Usage shows an estimated cost instead",
+      "The model menu lists only providers that are ready to use. Get more shows the rest",
+      "If a provider doesn't report your plan usage, Usage shows an estimated cost instead",
       "A new app icon, faster walking in the office, and leaving a room closes its panel",
     ],
   },
@@ -173,7 +173,7 @@ export const RELEASES: Release[] = [
     icon: ListChecks,
     changes: [
       "Back and Forward between screens",
-      "Several accounts per AI app, and a Usage page",
+      "Several accounts per provider, and a Usage page",
       "Tasks grouped by team, with search and filters",
       "Home and New task use the same box to start a task",
     ],
