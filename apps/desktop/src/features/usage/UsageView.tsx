@@ -201,7 +201,7 @@ export function UsageView() {
             />
           </label>
           <ChoiceMenu
-            label="AI app"
+            label="Provider"
             value={tool}
             choices={[
               { value: "all", label: "All" },

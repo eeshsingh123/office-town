@@ -26,7 +26,7 @@ export const RELEASES: Release[] = [
     title: "Plainer words",
     icon: CircleHelp,
     changes: [
-      "One name for each thing across the app: task, part, Idle, AI app, and Allow or Deny for requests",
+      "One name for each thing across the app: task, part, Idle, Provider, and Allow or Deny for requests",
       "Shorter hints, warnings and safety check text",
       "Errors say what happened in plain words, with no internal names",
     ],

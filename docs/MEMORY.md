@@ -22,7 +22,7 @@ Last updated: 2026-11-05
 - Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
 - Office chat task headers (D-88), merged as PR #76: earlier tasks fold, the open header stays in view, the message box names its task.
 - Right-click menus (D-89), merged as PR #77: the shell's text menu, and app menus on agents, departments, tasks, messages and files built from one action list per object.
-- Plain copy, branch `fix/plain-copy`: one name per thing (task for a department, goal for the chief; part; Idle; AI app; Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
+- Plain copy, branch `fix/plain-copy`: one name per thing (task for a department, goal for the chief; part; Idle; Provider for the Usage filter and Add account (AI app elsewhere); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
 
 ## Not checked yet
 
