@@ -546,7 +546,7 @@ export function Floor(props: FloorProps) {
                   <span key={line}>{line}</span>
                 ))}
                 {sign.usage === undefined ? null : (
-                  <ul className={styles.roomUsage} aria-label="Tokens on this goal">
+                  <ul className={styles.roomUsage} aria-label="Tokens on this task">
                     <li className={styles.usageTotal}>
                       <strong>{compactCount(sign.usage.total)}</strong> tokens
                     </li>
@@ -657,7 +657,7 @@ export function Floor(props: FloorProps) {
               <div
                 className={styles.tokens}
                 style={{ left: position.x, top: position.y - TOKENS_ABOVE }}
-                title={`${name} used ${compactCount(tokens)} tokens on this goal`}
+                title={`${name} used ${compactCount(tokens)} tokens on this task`}
               >
                 {compactCount(tokens)}
               </div>

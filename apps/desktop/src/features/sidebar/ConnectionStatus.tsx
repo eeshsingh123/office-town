@@ -8,7 +8,7 @@ export function ConnectionStatus() {
   return (
     <p className={styles.status} role="status">
       <span className={styles.dot} aria-hidden />
-      {connection === "connecting" ? "Connecting to the core…" : "Reconnecting to the core…"}
+      {connection === "connecting" ? "Connecting…" : "Reconnecting…"}
     </p>
   );
 }

@@ -331,7 +331,7 @@ function WorkerLink({ input }: { input: unknown }) {
   if (show === undefined || worker === undefined) return null;
   return (
     <button type="button" className={styles.link} onClick={() => show(worker.id)}>
-      Open {worker.name}'s trace
+      Open {worker.name}'s activity
     </button>
   );
 }
@@ -342,7 +342,7 @@ function LeadLink({ agentId }: { agentId: string }) {
   if (show === undefined || lead === undefined) return null;
   return (
     <button type="button" className={styles.link} onClick={() => show(lead.id)}>
-      Open {lead.name}'s trace
+      Open {lead.name}'s activity
     </button>
   );
 }
@@ -481,7 +481,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         const { from, summary } = item.origin;
         return (
           <>
-            <FromOffice summary={`Brief · ${summary}`} text={item.text} />
+            <FromOffice summary={`Task · ${summary}`} text={item.text} />
             <MessageFiles item={item} sessionId={place.sessionId} />
             {from === undefined ? null : <LeadLink agentId={from} />}
           </>

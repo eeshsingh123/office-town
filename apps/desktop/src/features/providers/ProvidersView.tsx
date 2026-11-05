@@ -41,7 +41,7 @@ function Side(props: { description: HarnessDescription; accounts: Account[]; spe
         <span className={styles.rowSideLine}>
           <span>
             {windowLabel(top)}
-            {accounts.length > 1 ? ", fullest account" : ""}
+            {accounts.length > 1 ? ", account with the least left" : ""}
           </span>
           <span>{percent(top.usedFraction)}</span>
         </span>

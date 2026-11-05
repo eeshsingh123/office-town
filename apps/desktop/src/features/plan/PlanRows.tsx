@@ -148,7 +148,7 @@ function WaitsOn({
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             className={styles.add}
-            aria-label={`Add a piece for ${row.title.trim() || "this piece"} to wait on`}
+            aria-label={`Add a part for ${row.title.trim() || "this part"} to wait on`}
           >
             <Plus size={12} aria-hidden />
             Add
@@ -213,9 +213,9 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
 
   return (
     <>
-      <ol className={styles.rows} aria-label="Pieces">
+      <ol className={styles.rows} aria-label="Parts">
         {rows.map((row, index) => {
-          const name = row.title.trim() || `piece ${index + 1}`;
+          const name = row.title.trim() || `part ${index + 1}`;
           return (
             <li key={row.key} className={styles.row}>
               <div className={styles.rowHead}>
@@ -284,7 +284,7 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
               />
               <textarea
                 className={styles.input}
-                aria-label="Brief"
+                aria-label="What to do"
                 placeholder="What the department is to do and hand back"
                 rows={2}
                 value={row.brief}

@@ -125,7 +125,7 @@ function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
           }}
           triggerClassName={styles.modelButton}
         />
-        {later ? <span className={styles.muted}>From its next start</span> : null}
+        {later ? <span className={styles.muted}>From its next task</span> : null}
         {error === undefined ? null : <span className={styles.modelError}>{error}</span>}
       </span>
     </li>
@@ -197,7 +197,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
         </div>
       </div>
       {cachedInputTokens === 0 ? null : (
-        <p className={styles.cached}>Plus {compactCount(cachedInputTokens)} read from cache</p>
+        <p className={styles.cached}>Plus {compactCount(cachedInputTokens)} reused from earlier</p>
       )}
     </>
   );

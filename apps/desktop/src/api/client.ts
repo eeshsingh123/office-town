@@ -150,9 +150,7 @@ async function call(method: string, path: string, body?: unknown): Promise<Respo
   const error = apiErrorSchema.safeParse(await response.json().catch(() => undefined));
   throw new ApiRequestError(
     response.status,
-    error.success
-      ? error.data
-      : { error: "internal", message: `The core answered ${response.status}.` },
+    error.success ? error.data : { error: "internal", message: "Something went wrong. Try again." },
   );
 }
 

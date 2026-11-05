@@ -79,8 +79,7 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
       <div className={card.body}>
         {context}
         <p className={styles.lead}>
-          Edit, add or remove checks, then approve. The checker runs every one, and the list stays
-          as approved for every later round.
+          Edit the checks, then approve. The checker runs all of them, every round.
         </p>
         <ol className={styles.items}>
           {items.map((item, index) => (

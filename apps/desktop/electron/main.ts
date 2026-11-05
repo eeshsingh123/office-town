@@ -89,7 +89,7 @@ function failToStart(error: unknown): void {
 async function onCrash(log: string): Promise<void> {
   const { response } = await dialog.showMessageBox({
     type: "error",
-    message: "The Office Town core stopped unexpectedly.",
+    message: "Office Town stopped working. Restart it to continue.",
     detail: log.trim().split("\n").slice(-12).join("\n"),
     buttons: ["Restart", "Quit"],
     defaultId: 0,
@@ -122,17 +122,18 @@ async function openAgents(): Promise<number> {
 }
 
 function quitQuestion(open: number | undefined): string {
-  if (open === undefined) return "The core is not answering, so open agents cannot be counted.";
-  return open === 1 ? "An agent is still open." : `${open} agents are still open.`;
+  if (open === undefined)
+    return "Office Town is not responding, so it can't tell which agents are still working.";
+  return open === 1 ? "An agent is still working." : `${open} agents are still working.`;
 }
 
 const STOP_QUESTIONS = {
   quit: {
-    detail: "Quitting stops any open agent. It is marked interrupted and can be continued later.",
+    detail: "Quitting stops your working agents. You can continue their work later.",
     button: "Quit",
   },
   update: {
-    detail: "Restarting stops any open agent. You can continue it after the update.",
+    detail: "Restarting stops your working agents. You can continue their work after the update.",
     button: "Restart",
   },
 };

@@ -71,7 +71,7 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const step = trace === undefined ? undefined : progressOf(trace).step;
   const doing =
     state === undefined
-      ? (lastWork ?? "Free")
+      ? (lastWork ?? "Idle")
       : (stageOf(state, trace) ??
         (state === "working" && step !== undefined
           ? `Step ${step.number} · ${step.title}`
@@ -106,11 +106,11 @@ function OpenDelegations({ task, members }: { task: TaskRecord; members: Member[
   if (open.length === 0) return null;
   const names = new Map(members.map(({ record }) => [record.id, record.name]));
   return (
-    <PanelSection title="Open delegations">
+    <PanelSection title="Handed out">
       <ul className={styles.delegations}>
         {open.map((delegation) => (
           <li key={delegation.id}>
-            <strong>{names.get(delegation.workerAgentId) ?? "A guest"}</strong>
+            <strong>{names.get(delegation.workerAgentId) ?? "The checker"}</strong>
             <span className={styles.brief}>{taskTitle(delegation.brief)}</span>
           </li>
         ))}
@@ -209,7 +209,7 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
     <>
       <PanelSection title="Working on">
         {task === undefined ? (
-          <p className={styles.faint}>No goal yet</p>
+          <p className={styles.faint}>No task yet</p>
         ) : (
           <button
             type="button"
@@ -247,7 +247,7 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
           goalWorkspaceId={working ? task?.workspaceId : undefined}
           compact
         />
-        {working ? <p className={styles.note}>Changes apply from the next goal.</p> : null}
+        {working ? <p className={styles.note}>Changes apply from the next task.</p> : null}
         {failure === undefined ? null : (
           <p className={styles.failure} role="alert">
             {failure}
@@ -271,7 +271,7 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
       </PanelSection>
 
       {goalSessions.length === 0 ? null : (
-        <PanelSection title="Usage on this goal">
+        <PanelSection title="Usage on this task">
           <p className={styles.usage}>{tokenLine(usage)}</p>
         </PanelSection>
       )}

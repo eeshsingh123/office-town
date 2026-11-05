@@ -47,7 +47,7 @@ function Stop({ stop, now }: { stop: LimitStop; now: number }) {
             variant="primary"
             disabled={busy}
             onClick={() =>
-              void act(() => continueElsewhere(stop), `${agent.name} carries on on ${next.name}`)
+              void act(() => continueElsewhere(stop), `${agent.name} continues on ${next.name}`)
             }
           >
             Continue on {next.name}

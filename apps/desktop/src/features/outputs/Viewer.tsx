@@ -295,7 +295,7 @@ export function Viewer({
               title="It cannot reach the app, or files outside this task's folders"
             >
               <Lock size={13} aria-hidden />
-              Sandboxed
+              Safe mode
             </span>
           ) : null}
         </div>
@@ -452,7 +452,7 @@ function FrameStage({
         };
         void capture(area)
           .then((png) => (png === undefined ? undefined : onSpotPicture(number, png)))
-          .catch(() => showToast("The spot's picture could not be taken."));
+          .catch(() => showToast("Could not take a picture of the marked spot."));
       }),
     );
   };
@@ -579,19 +579,19 @@ function StoppedSite({
       title="This site is not running"
       text={
         freshOnly
-          ? `${agentName}'s work was merged into the lead's folder, so ${agentName} starts it from there in a fresh conversation, told how it was started. It opens here once it answers.`
+          ? `${agentName}'s work is now in the lead's folder. ${agentName} will start the site from there in a new chat. It opens here when ready.`
           : long
-            ? `${agentName}'s conversation is ${compactCount(tokens ?? 0)} tokens long, and continuing it reads all of it again at every step. A fresh conversation starts small and is told how the site was started.`
-            : `Ask ${agentName} to start it again. It opens here once it answers.`
+            ? `${agentName}'s chat is long (${compactCount(tokens ?? 0)} tokens), so continuing it costs more. A new chat costs less and still knows how to start the site.`
+            : `Ask ${agentName} to start it again. It opens here when ready.`
       }
     >
       {output === undefined ? null : (
         <div className={styles.noteActions}>
           {long ? (
             <>
-              <Button onClick={() => restart(false)}>Continue the conversation</Button>
+              <Button onClick={() => restart(false)}>Continue the chat</Button>
               <Button variant="primary" onClick={() => restart(true)}>
-                Start in a fresh conversation
+                Start a new chat
               </Button>
             </>
           ) : (

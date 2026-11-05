@@ -253,7 +253,7 @@ function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void })
           );
         })}
       </ul>
-      <p className={styles.lead}>Tutorials stay in Help.</p>
+      <p className={styles.lead}>You can find tutorials later in Help.</p>
     </>
   );
 }

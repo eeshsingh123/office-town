@@ -144,7 +144,7 @@ function GoalChat({
     };
   }, [agents, traces, delegations, ended, goal.taskId, goal.sessions.length]);
   const start = goal.sessions[0]?.createdAt ?? "";
-  const name = task === undefined ? "A goal" : taskName(task);
+  const name = task === undefined ? "A task" : taskName(task);
   const messages = items.filter((item) => MESSAGES.has(item.kind)).length;
   return (
     <section
@@ -174,8 +174,7 @@ function GoalChat({
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content className={styles.tip} side="bottom" sideOffset={6}>
-            A new conversation: {speaker.name} started this task without the earlier ones in its
-            context.
+            {speaker.name} started this task in a new chat and doesn't remember earlier messages.
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>

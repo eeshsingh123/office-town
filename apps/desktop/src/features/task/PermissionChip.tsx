@@ -39,7 +39,7 @@ export function PermissionChip({ agent }: { agent: Agent }) {
   const note = [
     `Applies to ${department === undefined ? agent.name : `everyone in ${department.name}`}.`,
     level === saved ? "" : `${agent.name}'s profile keeps it at ${AUTONOMY[level].label}.`,
-    waitsForStart ? "Agents at work change at their next start." : "",
+    waitsForStart ? "Agents already working switch on their next task." : "",
   ]
     .filter(Boolean)
     .join(" ");

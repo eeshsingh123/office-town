@@ -191,8 +191,8 @@ export function DepartmentWork({ department }: { department: DepartmentRecord })
         )}
       </section>
       {handed.length === 0 ? null : (
-        <section aria-label="Delegations">
-          <h3 className={styles.title}>Delegations</h3>
+        <section aria-label="Handed out">
+          <h3 className={styles.title}>Handed out</h3>
           <ul className={styles.list}>
             {handed.map((one) => {
               const worker = agents[one.workerAgentId];

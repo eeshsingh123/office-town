@@ -24,7 +24,7 @@ import { reloadAccounts } from "./use-usage.ts";
 type Step = "tool" | "name" | "sign-in" | "use";
 
 const STEP_NAMES: [Step, string][] = [
-  ["tool", "Tool"],
+  ["tool", "AI app"],
   ["name", "Name"],
   ["sign-in", "Sign in"],
   ["use", "Use it for"],
@@ -217,7 +217,7 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
 
           {step === "tool" ? (
             <fieldset className={styles.choices}>
-              <legend className="visually-hidden">Tool</legend>
+              <legend className="visually-hidden">AI app</legend>
               {choices.map((known) => (
                 <button
                   key={known.harness}

@@ -61,10 +61,10 @@ function ListPreview({ agent }: { agent: Agent }) {
       ))}
       <p className={styles.note}>
         {approved !== undefined
-          ? "The list stays as you approved it, so every round is measured the same way."
+          ? "Every round uses the same list you approved."
           : items.length > 0
-            ? "The checker adds edge cases and boundaries; you approve the whole list before it runs."
-            : `${agent.name} wrote no checklist, so the checker writes one; you approve it before it runs.`}
+            ? "The checker adds tricky cases to try. You approve the list before it runs."
+            : `${agent.name} wrote no checklist, so the checker writes one. You approve it before it runs.`}
       </p>
     </fieldset>
   );
@@ -128,8 +128,8 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
         <Dialog.Content className={`${dialog.content} ${styles.content}`}>
           <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            A fresh agent checks {agent.name}'s work on a temporary copy of the folder, removed when
-            it finishes. Your files are not changed.
+            A new agent checks {agent.name}'s work on a temporary copy of the folder. Your files are
+            not changed.
           </Dialog.Description>
           <form onSubmit={submit} className={dialog.form}>
             {open ? <ListPreview agent={agent} /> : null}

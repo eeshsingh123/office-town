@@ -62,7 +62,7 @@ export function DepartmentWorkspaceChip({
                 </span>
                 <span className={menu.itemDescription}>
                   {workspace.kind === "scratch"
-                    ? "A new folder for each goal"
+                    ? "A new folder for each task"
                     : mainPath(workspace)}
                 </span>
               </span>

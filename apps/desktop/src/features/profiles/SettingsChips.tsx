@@ -45,7 +45,7 @@ function AccountChip({
           label: "Automatic",
           ...(best === undefined
             ? {}
-            : { description: `The one with the most room, now ${best.name}` }),
+            : { description: `The account with the most usage left (now ${best.name})` }),
         },
         ...mine.map((account) => {
           const description = room(account.id);

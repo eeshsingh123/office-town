@@ -300,9 +300,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
         <strong>
           {unfinished ? "The last check did not finish." : "Done. Get this work checked?"}
         </strong>
-        <span>
-          A fresh agent outside the team runs a checklist you approve, on a temporary copy.
-        </span>
+        <span>A new agent outside the team runs a checklist you approve, on a temporary copy.</span>
       </p>
       <ReviewResults taskId={agent.taskId} />
       <div className={styles.actions}>

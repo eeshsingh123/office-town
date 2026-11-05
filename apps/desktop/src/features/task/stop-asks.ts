@@ -31,7 +31,7 @@ export const stopPickedAsk = (count: number, run: () => Promise<void>): Ask => (
 // A lead waiting on its proposed team; `run` shows a failure on the card.
 export const stopProposalAsk = (lead: string, run: () => Promise<void>): Ask => ({
   title: "Stop this task?",
-  description: `${lead} stops right away and the proposed team is not made. ${AFTER}`,
+  description: `${lead} stops right away and the proposed team is not created. ${AFTER}`,
   confirmLabel: "Stop the task",
   run,
 });

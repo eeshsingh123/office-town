@@ -44,17 +44,17 @@ export function BulkConfirm({ answer, send, onCancel, onDone }: BulkConfirmProps
   if (answer === undefined) return null;
   const { decision, asks, scope } = answer;
   const count = asks.length;
-  const verb = decision === "allow" ? "Approve" : "Reject";
+  const verb = decision === "allow" ? "Allow" : "Deny";
   const tasks = new Set(asks.map((ask) => ask.taskId)).size;
   const departments = [
     ...new Set(asks.flatMap((ask) => (ask.departmentId === undefined ? [] : [ask.departmentName]))),
   ];
   const where =
     scope === "filtered"
-      ? "Every approval that matches your filters."
+      ? "Every request that matches your filters."
       : scope === "selected"
-        ? "The approvals you selected."
-        : `Every approval waiting in ${scope}.`;
+        ? "The requests you selected."
+        : `Every request waiting in ${scope}.`;
   const confirm = async () => {
     setSending(true);
     setError(undefined);

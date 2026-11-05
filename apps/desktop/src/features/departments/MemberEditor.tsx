@@ -305,7 +305,7 @@ export function MemberEditor({
           ) : null}
           {leaving.length === 0 ? null : (
             <p className={form.hint}>
-              Leaves the team: {leaving.map((one) => one.name).join(", ")}
+              Will be removed from the team: {leaving.map((one) => one.name).join(", ")}
             </p>
           )}
         </div>
@@ -414,7 +414,7 @@ export function MemberEditor({
                   <span className={form.hint}>
                     {isLead
                       ? "How to split the work, and what to check before handing it back. Read before every task."
-                      : "How they work, what to avoid, what to hand back. Read before every task."}
+                      : "How they work, what to avoid and what to hand back. They read this before every task."}
                   </span>
                   <PointsField
                     key={person.key}
@@ -440,7 +440,7 @@ export function MemberEditor({
                   </div>
                   {person.modelGuessed ? (
                     <span className={styles.guessed}>
-                      Picked by the draft. Check it suits the job.
+                      Chosen by the draft. Make sure it fits the job.
                     </span>
                   ) : null}
                 </div>

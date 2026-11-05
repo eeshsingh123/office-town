@@ -163,7 +163,7 @@ export function Composer({
       {lead === undefined ? null : (
         <p className={styles.hint}>
           <Info size={12} aria-hidden />
-          Your message is also noted to {lead.name} (lead).
+          {lead.name}, the lead, also sees your message.
         </p>
       )}
     </form>

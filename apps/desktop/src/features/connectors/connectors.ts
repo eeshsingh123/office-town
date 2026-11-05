@@ -13,7 +13,7 @@ import { useApp } from "../../store/app-store.ts";
 export const PERMISSIONS: { value: ConnectorPermission; title: string; description: string }[] = [
   { value: "read_only", title: "Read only", description: "Never changes anything" },
   { value: "ask", title: "Ask me first", description: "Asks before it changes anything" },
-  { value: "dont_ask", title: "Don't ask", description: "Goes ahead with everything" },
+  { value: "dont_ask", title: "Don't ask", description: "Never asks first" },
 ];
 
 export const permissionTitle = (permission: ConnectorPermission) =>

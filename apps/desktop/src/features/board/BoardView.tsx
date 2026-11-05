@@ -98,7 +98,7 @@ function NoteLine({ note, task }: { note: CardNote | undefined; task?: TaskRecor
       const goal = task;
       return (
         <span className={styles.note}>
-          cut off by a restart
+          Stopped when the app restarted
           {goal?.leadAgentId === undefined ? null : (
             <>
               {" · "}
