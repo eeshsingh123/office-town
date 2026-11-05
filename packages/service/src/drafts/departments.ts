@@ -58,10 +58,10 @@ function personOf(agent: AgentRecord): DraftPerson {
 // The department as it is now, to change in words.
 function draftOfDepartment({ store }: TeamContext, departmentId: string): DepartmentDraft {
   const department = store.getDepartment(departmentId);
-  if (department === undefined) throw new RecordNotFoundError("department", departmentId);
+  if (department === undefined) throw new RecordNotFoundError("department");
   const members = store.listMembers(departmentId);
   const lead = members.find((member) => member.id === department.leadAgentId);
-  if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
+  if (lead === undefined) throw new RecordNotFoundError("agent");
   const { agentId: _, ...leadPerson } = personOf(lead);
   return {
     departmentId,

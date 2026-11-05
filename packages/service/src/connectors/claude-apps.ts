@@ -102,7 +102,7 @@ export class ClaudeApps {
   // Claude's page where the user signs the app in; it works from the agent's next conversation.
   async signInPage(id: string): Promise<string> {
     const connector = this.#store.getConnector(id);
-    if (connector === undefined) throw new RecordNotFoundError("connector", id);
+    if (connector === undefined) throw new RecordNotFoundError("connector");
     const { account: accountId, app, name } = connector.setup;
     const account = allAccounts(this.#store, listHarnesses()).find(({ id }) => id === accountId);
     if (account === undefined || app === undefined)

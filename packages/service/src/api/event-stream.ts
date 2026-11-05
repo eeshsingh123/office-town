@@ -52,7 +52,7 @@ export async function streamEvents(
   { after, session, follow }: StreamQuery,
 ): Promise<void> {
   if (session !== undefined && store.getSession(session) === undefined) {
-    throw new RecordNotFoundError("session", session);
+    throw new RecordNotFoundError("session");
   }
   let sent = after ?? 0;
   let held: Frame[] | undefined = after === undefined && follow ? undefined : [];

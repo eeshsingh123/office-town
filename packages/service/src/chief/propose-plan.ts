@@ -95,7 +95,7 @@ function problemWith(store: Store, pieces: PlannedPiece[], kept: PlanPiece[]): s
   );
   const shared = newNames.find((name, index) => newNames.indexOf(name) !== index);
   if (shared !== undefined) {
-    return `The new department ${shared} has two pieces. Give it one; it can take more in a changed plan once it exists.`;
+    return `${shared} is new, so it can take only one part in this plan. Give it more in a later change.`;
   }
   const departments = store.listDepartments();
   const taken = newNames.find((name) => departments.some((known) => known.name === name));
@@ -126,7 +126,7 @@ async function resolvePieces(
 ): Promise<ProposedPiece[]> {
   const { store } = context;
   const environment = store.getSession(caller.sessionId)?.options.environment;
-  if (environment === undefined) throw new RecordNotFoundError("session", caller.sessionId);
+  if (environment === undefined) throw new RecordNotFoundError("session");
   const departments = store.listDepartments();
   const resolved: ProposedPiece[] = [];
   for (const piece of pieces) {

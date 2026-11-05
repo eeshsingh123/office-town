@@ -117,15 +117,15 @@ export interface Launch {
 type SessionEndedEvent = Extract<SessionEvent, { type: "session.ended" }>;
 
 export class SessionNotRunningError extends Error {
-  constructor(id: string) {
-    super(`Session "${id}" is not running.`);
+  constructor() {
+    super("This agent has stopped.");
     this.name = "SessionNotRunningError";
   }
 }
 
 export class SessionNotResumableError extends Error {
-  constructor(id: string, reason: string) {
-    super(`Session "${id}" cannot be resumed: ${reason}`);
+  constructor(reason: string) {
+    super(`This agent's work can't be continued: ${reason}`);
     this.name = "SessionNotResumableError";
   }
 }
@@ -331,13 +331,13 @@ ${text}`,
 
   async resume(sessionId: string, message: Message): Promise<SessionRecord> {
     const earlier = this.#store.getSession(sessionId);
-    if (earlier === undefined) throw new RecordNotFoundError("session", sessionId);
+    if (earlier === undefined) throw new RecordNotFoundError("session");
     if (earlier.harnessSessionId === undefined) {
-      throw new SessionNotResumableError(sessionId, "its harness never started a conversation.");
+      throw new SessionNotResumableError("it never started.");
     }
     const conversation = earlier.harnessSessionId;
     if ([...this.#live.values()].some((live) => live.conversation === conversation)) {
-      throw new SessionNotResumableError(sessionId, "its conversation is already running.");
+      throw new SessionNotResumableError("it is already working.");
     }
     requireSessionFolders(earlier.options);
     const permissionMode =
@@ -467,10 +467,10 @@ ${text}`,
     if (live.firstMessage !== undefined) await live.firstMessage;
     if (live.stopping) {
       await live.ended.promise;
-      throw new SessionNotRunningError(sessionId);
+      throw new SessionNotRunningError();
     }
     const stored = this.#store.getSession(sessionId);
-    if (stored === undefined) throw new RecordNotFoundError("session", sessionId);
+    if (stored === undefined) throw new RecordNotFoundError("session");
     const attachments = message.attachments ?? [];
     // The harness was started without these folders; the policy and a later resume read them here.
     const record = hasAccess(stored.options, attachments)
@@ -600,7 +600,7 @@ ${text}`,
       ready.resolve();
     }
     const stored = this.#store.getSession(session.id);
-    if (stored === undefined) throw new RecordNotFoundError("session", session.id);
+    if (stored === undefined) throw new RecordNotFoundError("session");
     return stored;
   }
 
@@ -615,7 +615,7 @@ ${text}`,
     const described = await this.#describeImages(attachments, session.options.harness);
     if (described.length === 0) return { given: message, sees: false };
     const stored = this.#store.getSession(session.id);
-    if (stored === undefined) throw new RecordNotFoundError("session", session.id);
+    if (stored === undefined) throw new RecordNotFoundError("session");
     if (!hasAccess(stored.options, described)) {
       this.#store.updateSessionOptions(session.id, withAccess(stored.options, described));
     }
@@ -662,9 +662,9 @@ ${text}`,
     const live = this.#live.get(sessionId);
     if (live !== undefined) return live;
     if (this.#store.getSession(sessionId) === undefined) {
-      throw new RecordNotFoundError("session", sessionId);
+      throw new RecordNotFoundError("session");
     }
-    throw new SessionNotRunningError(sessionId);
+    throw new SessionNotRunningError();
   }
 
   #record(live: LiveSession, received: SessionEvent): void {

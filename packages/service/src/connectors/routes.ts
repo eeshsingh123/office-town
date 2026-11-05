@@ -16,10 +16,10 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function requireAudience(store: Store, audience: Audience): void {
   for (const id of audience.departmentIds) {
-    if (store.getDepartment(id) === undefined) throw new RecordNotFoundError("department", id);
+    if (store.getDepartment(id) === undefined) throw new RecordNotFoundError("department");
   }
   for (const id of audience.agentIds) {
-    if (store.getAgent(id) === undefined) throw new RecordNotFoundError("agent", id);
+    if (store.getAgent(id) === undefined) throw new RecordNotFoundError("agent");
   }
 }
 

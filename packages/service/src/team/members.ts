@@ -82,7 +82,7 @@ export function checkTeam(
   const workers = department === undefined ? [] : workersOf(store, department);
   for (const role of team.roles) {
     if (role.profileId !== undefined && store.getProfile(role.profileId) === undefined) {
-      throw new RecordNotFoundError("profile", role.profileId);
+      throw new RecordNotFoundError("profile");
     }
     if (role.agentId !== undefined && !workers.some((worker) => worker.id === role.agentId)) {
       throw new TeamError("A kept role names an agent that is not in this department.");
@@ -159,7 +159,7 @@ export function applyTeam(store: Store, department: DepartmentRecord, team: Team
 // The lead's own row: its name in the team, what it does, its notes and its AI.
 export function applyLead(store: Store, department: DepartmentRecord, lead: LeadRole): void {
   const agent = store.getAgent(department.leadAgentId);
-  if (agent === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
+  if (agent === undefined) throw new RecordNotFoundError("agent");
   store.updateAgent(agent.id, {
     ...agent,
     role: lead.role,

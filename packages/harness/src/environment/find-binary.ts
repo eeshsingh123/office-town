@@ -5,7 +5,9 @@ export class BinaryNotFoundError extends Error {
   readonly binary: string;
 
   constructor(binary: string, searched = "PATH") {
-    super(`"${binary}" was not found on ${searched}. Is it installed?`);
+    super(
+      `Office Town can't find ${binary} ${searched === "PATH" ? "on this computer" : `in ${searched}`}. Install it from Providers.`,
+    );
     this.name = "BinaryNotFoundError";
     this.binary = binary;
   }

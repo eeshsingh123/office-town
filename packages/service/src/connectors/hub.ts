@@ -123,7 +123,7 @@ export class ConnectorHub {
 
   #require(id: string): ConnectorRecord {
     const connector = this.#store.getConnector(id);
-    if (connector === undefined) throw new RecordNotFoundError("connector", id);
+    if (connector === undefined) throw new RecordNotFoundError("connector");
     return connector;
   }
 }

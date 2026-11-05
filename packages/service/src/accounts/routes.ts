@@ -80,13 +80,13 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
 
   const added = (id: string): Account => {
     const account = store.getAccount(id);
-    if (account?.folder === undefined) throw new RecordNotFoundError("account", id);
+    if (account?.folder === undefined) throw new RecordNotFoundError("account");
     return account;
   };
 
   const anyAccount = (id: string): Account => {
     const account = allAccounts(store, listHarnesses()).find((one) => one.id === id);
-    if (account === undefined) throw new RecordNotFoundError("account", id);
+    if (account === undefined) throw new RecordNotFoundError("account");
     return account;
   };
 
@@ -109,7 +109,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
       reply: async ({ body }) => {
         const request = newAccountRequestSchema.parse(await body());
         if (!listHarnesses().some(({ harness }) => harness === request.harness)) {
-          throw new RequestError(400, "invalid_request", `Unknown tool "${request.harness}".`);
+          throw new RequestError(400, "invalid_request", `Unknown AI app: ${request.harness}.`);
         }
         const id = randomUUID();
         const folder = join(accountsFolder, id);
@@ -254,7 +254,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
       path: "/accounts/:id/sign-in",
       reply: ({ param }) => {
         const signIn = signIns.get(param("id"));
-        if (signIn === undefined) throw new RecordNotFoundError("account", param("id"));
+        if (signIn === undefined) throw new RecordNotFoundError("account");
         return { status: 200, json: signIn.login };
       },
     },
@@ -314,7 +314,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
       path: "/agents/:id/resume-at",
       reply: async ({ param, body }) => {
         const agentId = param("id");
-        if (store.getAgent(agentId) === undefined) throw new RecordNotFoundError("agent", agentId);
+        if (store.getAgent(agentId) === undefined) throw new RecordNotFoundError("agent");
         const { at } = resumeAtRequestSchema.parse(await body());
         // A minute late, so the plan has surely reset.
         const wait = Math.min(LONGEST_WAIT_MS, Math.max(0, Date.parse(at) + 60_000 - Date.now()));

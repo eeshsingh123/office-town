@@ -50,7 +50,7 @@ function topAgentOf(store: Store, taskId: string): string | undefined {
 // The agent named, such as a worker in its own worktree, else the task's lead or solo agent.
 function ownerOf(store: Store, taskId: string, agentId: string | undefined): string {
   const owner = agentId ?? topAgentOf(store, taskId);
-  if (owner === undefined) throw new RecordNotFoundError("task", taskId);
+  if (owner === undefined) throw new RecordNotFoundError("task");
   return owner;
 }
 
@@ -81,7 +81,7 @@ interface Background {
 // Everything the records hold about the work, so the checker needs no one's memory (owner, D-73).
 function backgroundOf(store: Store, taskId: string, owner: AgentRecord): Background {
   const task = store.getTask(taskId);
-  if (task === undefined) throw new RecordNotFoundError("task", taskId);
+  if (task === undefined) throw new RecordNotFoundError("task");
   const parent = task.parentTaskId === undefined ? undefined : store.getTask(task.parentTaskId);
   const sessions = store.listSessions(taskId).filter((session) => session.agentId === owner.id);
   const events = sessions.map((session) => eventsOf(store, session.id));
@@ -239,7 +239,7 @@ export class Checks {
     const ownerAgentId = ownerOf(store, taskId, request.agentId);
     const owner = store.getAgent(ownerAgentId);
     const main = latestSession(this.#context, taskId, ownerAgentId)?.options.workspacePath;
-    if (owner === undefined) throw new RecordNotFoundError("agent", ownerAgentId);
+    if (owner === undefined) throw new RecordNotFoundError("agent");
     if (main === undefined) throw new TeamError("This work has no folder to check.");
     const earlier = approvedBefore(store, taskId);
     // A checker works only in its sandbox, so it never needs more than Full.

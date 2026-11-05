@@ -796,7 +796,7 @@ class SqliteStore implements Store {
   async deleteTask(id: string): Promise<void> {
     const task = this.#taskRow(id);
     if (one(this.#statements.unfinishedInTask, task.ref) !== undefined) {
-      throw new TaskActiveError(id);
+      throw new TaskActiveError();
     }
     this.#deleting.add(id);
     try {
@@ -836,7 +836,7 @@ class SqliteStore implements Store {
   }
 
   createSession({ id, taskId, agentId, options, resumedFrom }: NewSession): SessionRecord {
-    if (this.#deleting.has(taskId)) throw new RecordNotFoundError("task", taskId);
+    if (this.#deleting.has(taskId)) throw new RecordNotFoundError("task");
     const taskRef = this.#taskRow(taskId).ref;
     const agentRef = this.#agentRow(agentId).ref;
     const resumedFromRef = resumedFrom === undefined ? null : this.#sessionRef(resumedFrom);
@@ -863,7 +863,7 @@ class SqliteStore implements Store {
   updateSessionOptions(id: string, options: SessionOptions): SessionRecord {
     this.#statements.updateSessionOptions.run(JSON.stringify(options), id);
     const session = this.getSession(id);
-    if (session === undefined) throw new RecordNotFoundError("session", id);
+    if (session === undefined) throw new RecordNotFoundError("session");
     return session;
   }
 
@@ -1056,7 +1056,7 @@ class SqliteStore implements Store {
 
   updateCheck(id: string, change: CheckChange): CheckRecord {
     const row = one<CheckRow>(this.#statements.checkById, id);
-    if (row === undefined) throw new RecordNotFoundError("check", id);
+    if (row === undefined) throw new RecordNotFoundError("check");
     const next = { ...toCheck(row), ...change };
     const ended = ENDED_CHECK.has(next.status);
     const endedAt = row.endedAt ?? (ended ? Date.now() : null);
@@ -1144,7 +1144,7 @@ class SqliteStore implements Store {
       output.target.kind,
       target,
     );
-    if (saved === undefined) throw new RecordNotFoundError("output", target);
+    if (saved === undefined) throw new RecordNotFoundError("output");
     const record = toOutput(saved);
     this.#publish({ type: "output", output: record });
     return record;
@@ -1165,7 +1165,7 @@ class SqliteStore implements Store {
 
   outputPictured(id: string): OutputRecord {
     const row = one<OutputRow>(this.#statements.outputById, id);
-    if (row === undefined) throw new RecordNotFoundError("output", id);
+    if (row === undefined) throw new RecordNotFoundError("output");
     const picturedAt = Date.now();
     this.#statements.setOutputPicture.run(picturedAt, row.ref);
     const record = toOutput({ ...row, picturedAt });
@@ -1315,7 +1315,7 @@ class SqliteStore implements Store {
     // An unknown session is reported as such, not as a missing file.
     this.#sessionRef(sessionId);
     const text = this.#results.read(sessionId, sequence);
-    if (text === undefined) throw new RecordNotFoundError("result", `${sessionId}/${sequence}`);
+    if (text === undefined) throw new RecordNotFoundError("result");
     return text;
   }
 
@@ -1547,7 +1547,7 @@ class SqliteStore implements Store {
 
   renameAccount(id: string, name: string): Account {
     const account = this.getAccount(id);
-    if (account === undefined) throw new RecordNotFoundError("account", id);
+    if (account === undefined) throw new RecordNotFoundError("account");
     this.#statements.renameAccount.run(name, id);
     return { ...account, name };
   }
@@ -1620,7 +1620,9 @@ class SqliteStore implements Store {
   deleteWorkspace(id: string): void {
     const scratches = this.listWorkspaces().filter((workspace) => workspace.kind === "scratch");
     if (scratches.length === 1 && scratches[0]?.id === id) {
-      throw new InUseError("Tasks need a Scratch workspace, so the last one cannot be deleted.");
+      throw new InUseError(
+        "You need at least one Scratch workspace, so this one can't be removed.",
+      );
     }
     try {
       this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
@@ -1788,7 +1790,7 @@ class SqliteStore implements Store {
   // An uploaded file not yet in the Library; one item per file, so Replace never moves another's.
   #freeFile(attachmentId: string): AttachmentRow {
     const file = one<AttachmentRow>(this.#statements.attachmentById, attachmentId);
-    if (file === undefined) throw new RecordNotFoundError("attachment", attachmentId);
+    if (file === undefined) throw new RecordNotFoundError("attachment");
     if (one(this.#statements.libraryItemOfFile, file.ref) !== undefined) {
       throw new InUseError("That file is already in the Library.");
     }
@@ -1805,7 +1807,7 @@ class SqliteStore implements Store {
 
   #libraryRow(id: string): LibraryRow {
     const row = one<LibraryRow>(this.#statements.libraryItemById, id);
-    if (row === undefined) throw new RecordNotFoundError("library item", id);
+    if (row === undefined) throw new RecordNotFoundError("library item");
     return row;
   }
 
@@ -1868,7 +1870,7 @@ class SqliteStore implements Store {
 
   connectorTools(id: string): ConnectorTool[] {
     const row = one<{ tools: string }>(this.#statements.connectorTools, id);
-    if (row === undefined) throw new RecordNotFoundError("connector", id);
+    if (row === undefined) throw new RecordNotFoundError("connector");
     return JSON.parse(row.tools) as ConnectorTool[];
   }
 
@@ -1883,7 +1885,7 @@ class SqliteStore implements Store {
 
   recordConnectorCall(call: NewConnectorCall): ConnectorCall {
     const session = this.getSession(call.sessionId);
-    if (session === undefined) throw new RecordNotFoundError("session", call.sessionId);
+    if (session === undefined) throw new RecordNotFoundError("session");
     const departmentId = this.getAgent(session.agentId)?.departmentId;
     const id = randomUUID();
     this.#statements.insertConnectorCall.run(
@@ -1898,7 +1900,7 @@ class SqliteStore implements Store {
       Date.now(),
     );
     const row = one<ConnectorCallRow>(this.#statements.connectorCallById, id);
-    if (row === undefined) throw new RecordNotFoundError("connector", call.connectorId);
+    if (row === undefined) throw new RecordNotFoundError("connector");
     return toConnectorCall(row);
   }
 
@@ -1937,7 +1939,7 @@ class SqliteStore implements Store {
 
   #connectorRow(id: string): ConnectorRow {
     const row = one<ConnectorRow>(this.#statements.connectorById, id);
-    if (row === undefined) throw new RecordNotFoundError("connector", id);
+    if (row === undefined) throw new RecordNotFoundError("connector");
     return row;
   }
 
@@ -2040,49 +2042,49 @@ class SqliteStore implements Store {
 
   #taskRow(id: string): TaskRow {
     const row = one<TaskRow>(this.#statements.taskById, id);
-    if (row === undefined) throw new RecordNotFoundError("task", id);
+    if (row === undefined) throw new RecordNotFoundError("task");
     return row;
   }
 
   #pieceRow(id: string): PieceRow {
     const row = one<PieceRow>(this.#statements.pieceById, id);
-    if (row === undefined) throw new RecordNotFoundError("piece", id);
+    if (row === undefined) throw new RecordNotFoundError("piece");
     return row;
   }
 
   #delegationRow(id: string): DelegationRow {
     const row = one<DelegationRow>(this.#statements.delegationById, id);
-    if (row === undefined) throw new RecordNotFoundError("delegation", id);
+    if (row === undefined) throw new RecordNotFoundError("delegation");
     return row;
   }
 
   #departmentRow(id: string): DepartmentRow {
     const row = one<DepartmentRow>(this.#statements.departmentById, id);
-    if (row === undefined) throw new RecordNotFoundError("department", id);
+    if (row === undefined) throw new RecordNotFoundError("department");
     return row;
   }
 
   #agentRow(id: string): AgentRow {
     const row = one<AgentRow>(this.#statements.agentById, id);
-    if (row === undefined) throw new RecordNotFoundError("agent", id);
+    if (row === undefined) throw new RecordNotFoundError("agent");
     return row;
   }
 
   #profileRow(id: string): ProfileRow {
     const row = one<ProfileRow>(this.#statements.profileById, id);
-    if (row === undefined) throw new RecordNotFoundError("profile", id);
+    if (row === undefined) throw new RecordNotFoundError("profile");
     return row;
   }
 
   #workspaceRow(id: string): WorkspaceRow {
     const row = one<WorkspaceRow>(this.#statements.workspaceById, id);
-    if (row === undefined) throw new RecordNotFoundError("workspace", id);
+    if (row === undefined) throw new RecordNotFoundError("workspace");
     return row;
   }
 
   #sessionRef(id: string): number {
     const row = one<{ ref: number }>(this.#statements.sessionRef, id);
-    if (row === undefined) throw new RecordNotFoundError("session", id);
+    if (row === undefined) throw new RecordNotFoundError("session");
     return row.ref;
   }
 
@@ -2152,7 +2154,7 @@ class SqliteStore implements Store {
       this.#statements.sessionTaskAndHarness,
       sessionRef,
     );
-    if (row === undefined) throw new RecordNotFoundError("session", String(sessionRef));
+    if (row === undefined) throw new RecordNotFoundError("session");
     return row;
   }
 

@@ -416,34 +416,52 @@ export interface Store {
   close(): void;
 }
 
+type RecordKind =
+  | "task"
+  | "session"
+  | "result"
+  | "workspace"
+  | "agent"
+  | "attachment"
+  | "library item"
+  | "profile"
+  | "department"
+  | "account"
+  | "output"
+  | "delegation"
+  | "check"
+  | "piece"
+  | "connector";
+
+// The user reads these, so each kind is named the way the app names it.
+const RECORD_WORDS: Record<RecordKind, string> = {
+  task: "task",
+  session: "agent run",
+  result: "result",
+  workspace: "workspace",
+  agent: "agent",
+  attachment: "file",
+  "library item": "Library file",
+  profile: "profile",
+  department: "department",
+  account: "account",
+  output: "output",
+  delegation: "handed-out work",
+  check: "check",
+  piece: "part of the plan",
+  connector: "app",
+};
+
 export class RecordNotFoundError extends Error {
-  constructor(
-    kind:
-      | "task"
-      | "session"
-      | "result"
-      | "workspace"
-      | "agent"
-      | "attachment"
-      | "library item"
-      | "profile"
-      | "department"
-      | "account"
-      | "output"
-      | "delegation"
-      | "check"
-      | "piece"
-      | "connector",
-    id: string,
-  ) {
-    super(`No ${kind} "${id}".`);
+  constructor(kind: RecordKind) {
+    super(`This ${RECORD_WORDS[kind]} no longer exists.`);
     this.name = "RecordNotFoundError";
   }
 }
 
 export class TaskActiveError extends Error {
-  constructor(id: string) {
-    super(`Task "${id}" still has a running session. Stop it before deleting the task.`);
+  constructor() {
+    super("This task's agents are still working. Stop them before you delete the task.");
     this.name = "TaskActiveError";
   }
 }

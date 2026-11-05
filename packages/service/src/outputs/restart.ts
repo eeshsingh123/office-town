@@ -23,9 +23,9 @@ export async function restartSite(
   command: string | undefined,
 ): Promise<void> {
   const { store, registry } = context;
-  if (output.target.kind !== "site") throw new RecordNotFoundError("output", output.id);
+  if (output.target.kind !== "site") throw new RecordNotFoundError("output");
   const agent = store.getAgent(output.agentId);
-  if (agent === undefined) throw new RecordNotFoundError("agent", output.agentId);
+  if (agent === undefined) throw new RecordNotFoundError("agent");
   const { title, target } = output;
   const how =
     command === undefined
@@ -33,7 +33,7 @@ export async function restartSite(
       : `Start its server again; last time you ran \`${command}\``;
   const ask = `${how}, keep it running in the background, and call show_result with the title "${title}" and its address once it answers.`;
   const latest = latestSession(context, output.taskId, agent.id);
-  if (latest === undefined) throw new RecordNotFoundError("session", output.sessionId);
+  if (latest === undefined) throw new RecordNotFoundError("session");
   const gone = folderGone(latest);
   if (!fresh && !gone) {
     await messageAgent(
@@ -46,7 +46,7 @@ export async function restartSite(
   }
   const folders = gone ? leadFolders(store, output.taskId) : latest.options;
   if (folders?.workspacePath === undefined) {
-    throw new RecordNotFoundError("session", output.sessionId);
+    throw new RecordNotFoundError("session");
   }
   const { workspacePath, additionalPaths = [], readOnlyPaths = [] } = folders;
   const where = gone ? " Your work was merged into the lead's folder, where you are now." : "";

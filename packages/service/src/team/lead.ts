@@ -49,7 +49,7 @@ export async function tellLead(
   message: Message,
 ): Promise<boolean> {
   const task = context.store.getTask(taskId);
-  if (task?.leadAgentId === undefined) throw new RecordNotFoundError("task", taskId);
+  if (task?.leadAgentId === undefined) throw new RecordNotFoundError("task");
   // A second look, for a lead that was being stopped for being idle when the message came.
   for (let look = 0; look < 2; look += 1) {
     const session = latestSession(context, taskId, task.leadAgentId);

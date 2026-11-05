@@ -54,7 +54,7 @@ async function startChief(
 ): Promise<SessionRecord> {
   const { store, registry, dataFolder } = context;
   const task = store.getTask(taskId);
-  if (task === undefined) throw new RecordNotFoundError("task", taskId);
+  if (task === undefined) throw new RecordNotFoundError("task");
   return startFirstAgent(store, taskId, async () => {
     const folder = chiefFolder(dataFolder);
     const options = sessionOptionsFor(store, chief, {
@@ -100,7 +100,7 @@ export async function startChiefGoal(
   );
   if (!waits) await startChief(context, chief, task.id);
   const started = store.getTask(task.id);
-  if (started === undefined) throw new RecordNotFoundError("task", task.id);
+  if (started === undefined) throw new RecordNotFoundError("task");
   return { task: started, sessions: store.listSessions(task.id) };
 }
 

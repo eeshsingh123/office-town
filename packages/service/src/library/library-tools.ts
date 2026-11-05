@@ -65,7 +65,7 @@ const inside = (folder: string, path: string) => {
 // opens up anything the agent could not already read.
 function keepFile({ store }: TeamContext, caller: Caller, given: string): Attachment {
   const options = store.getSession(caller.sessionId)?.options;
-  if (options === undefined) throw new RecordNotFoundError("session", caller.sessionId);
+  if (options === undefined) throw new RecordNotFoundError("session");
   const base = options.workspacePath ?? "";
   // A relative path is from where the agent works; a POSIX one may be WSL's view of a host path.
   const path = given.startsWith("/")

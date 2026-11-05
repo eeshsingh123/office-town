@@ -22,7 +22,7 @@ function teamOf(store: Store, piece: PlanPiece): StartTeamTaskRequest["team"] {
     const workspaceId = workspaceOf(store, piece);
     return workspaceId === undefined ? { departmentId } : { departmentId, workspaceId };
   }
-  if (piece.newDepartment === undefined) throw new RecordNotFoundError("department", piece.id);
+  if (piece.newDepartment === undefined) throw new RecordNotFoundError("department");
   const { lead, workspaceId, autonomy } = piece.newDepartment;
   return { lead: { settings: lead }, workspaceId, autonomy };
 }
@@ -156,7 +156,7 @@ export class Scheduler {
   async #start(piece: PlanPiece, pieces: PlanPiece[], goal: TaskRecord): Promise<void> {
     const { store } = this.#context;
     const chief = goal.leadAgentId === undefined ? undefined : store.getAgent(goal.leadAgentId);
-    if (chief === undefined) throw new RecordNotFoundError("agent", goal.leadAgentId ?? "");
+    if (chief === undefined) throw new RecordNotFoundError("agent");
     const readOnlyPaths = readOnlyFolders(store, piece, pieces);
     const upstream = pieces.filter((each) => piece.waitsOn.includes(each.id));
     const text = handOff({
