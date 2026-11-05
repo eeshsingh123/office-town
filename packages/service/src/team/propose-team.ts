@@ -97,10 +97,10 @@ function placeOf(
 function approve(context: TeamContext, caller: Caller, team: Team): DepartmentRecord {
   const { store } = context;
   const task = store.getTask(caller.taskId);
-  if (task === undefined) throw new RecordNotFoundError("task", caller.taskId);
+  if (task === undefined) throw new RecordNotFoundError("task");
   if (task.departmentId !== undefined) {
     const department = store.getDepartment(task.departmentId);
-    if (department === undefined) throw new RecordNotFoundError("department", task.departmentId);
+    if (department === undefined) throw new RecordNotFoundError("department");
     checkTeam(store, department, team);
     const named = store.updateDepartment(department.id, { ...department, name: team.name });
     applyTeam(store, named, team);
@@ -198,7 +198,7 @@ export function proposeTeam(context: TeamContext) {
       if (waiting) throw new ToolError("Your last proposal is still with the user.");
       const { place, department } = placeOf(context, caller);
       const environment = store.getSession(caller.sessionId)?.options.environment;
-      if (environment === undefined) throw new RecordNotFoundError("session", caller.sessionId);
+      if (environment === undefined) throw new RecordNotFoundError("session");
       const members = department === undefined ? [] : store.listMembers(department.id);
       const team: Team = { name, roles: [] };
       for (const proposed of roles) {

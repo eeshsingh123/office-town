@@ -154,7 +154,7 @@ export class WslEnvironment implements Environment {
       .map((line) => ALIAS_TARGET.exec(line)?.[1] ?? line)
       .findLast((line) => line.startsWith("/"));
     if (found === undefined) {
-      throw new BinaryNotFoundError(binary, `the PATH of the WSL distro "${this.#distro}"`);
+      throw new BinaryNotFoundError(binary, `WSL ${this.#distro}`);
     }
     return found;
   }

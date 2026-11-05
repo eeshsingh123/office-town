@@ -63,7 +63,7 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
       <Pause size={22} aria-hidden="true" />
       <div className={styles.stopText}>
         <strong>
-          Paused at {Math.round(pause.usedFraction * 100)}% of the {pause.window} window
+          Paused at {Math.round(pause.usedFraction * 100)}% of the {pause.window} limit
         </strong>
         <span>
           {accountName(accounts, harnessName, accountId)}: {names}.
@@ -87,7 +87,7 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
         <Button
           variant={resumeAt === undefined && resetsAt !== undefined ? "secondary" : "primary"}
           disabled={busy}
-          onClick={() => void resume(undefined, "Carrying on now")}
+          onClick={() => void resume(undefined, "Continuing now")}
         >
           Resume now
         </Button>

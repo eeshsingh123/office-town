@@ -46,9 +46,9 @@ export function WorkspaceMenu({
   const scratches = (useWorkspaces() ?? []).filter((known) => known.kind === "scratch");
   const blocked =
     (usage?.departmentIds.length ?? 0) > 0
-      ? "a department works here"
+      ? "Can't remove: a department works here"
       : workspace.kind === "scratch" && scratches.length === 1
-        ? "tasks need one Scratch"
+        ? "Can't remove: you need at least one Scratch workspace"
         : undefined;
   return (
     <DropdownMenu.Root>
@@ -67,7 +67,7 @@ export function WorkspaceMenu({
             disabled={blocked !== undefined}
             onSelect={() => void removeFromList(workspace)}
           >
-            {blocked === undefined ? "Remove from list" : `Remove (${blocked})`}
+            {blocked === undefined ? "Remove from list" : blocked}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

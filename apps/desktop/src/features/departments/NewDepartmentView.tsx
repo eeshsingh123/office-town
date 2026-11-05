@@ -204,7 +204,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 : step === 1
                   ? "The lead splits each task among the members. Pick a person to set their role, instructions and model."
                   : step === WORKSPACES_STEP
-                    ? "Choose the folders this team can edit. New goals use the default. You can pick another when you start a goal."
+                    ? "Choose the folders this team can edit. New tasks use the default. You can pick another when you start a task."
                     : step === RULES_STEP
                       ? "The rules every member follows, and what it may do without asking you."
                       : "Nothing is created until you press Create."}

@@ -86,7 +86,7 @@ function Thread({
         <div className={styles.threadBody}>
           {brief === "" ? null : (
             <div>
-              <div className={styles.label}>Brief</div>
+              <div className={styles.label}>What to do</div>
               <Markdown text={brief} />
             </div>
           )}
@@ -123,7 +123,7 @@ function DelegationEntry({ thread }: { thread: DelegationThread }) {
           {worker === undefined ? null : (
             <Avatar name={worker.name} colour={worker.colour} size={18} />
           )}
-          Brief to {name}
+          Task for {name}
           {thread.result === undefined ? "" : " · Result"}
         </>
       }
@@ -192,7 +192,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
           {noted.has(item.text.trim()) && lead !== undefined ? (
             <span className={styles.noted}>
               <CornerDownRight size={12} aria-hidden />
-              Noted to {lead.name}
+              Also sent to {lead.name}
             </span>
           ) : null}
         </div>
@@ -211,7 +211,7 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
       return (
         <Said
           who={from}
-          meta={`${from === undefined ? "" : " · "}${item.brief ? "brief" : "message"} · ${clockTime(item.at)}`}
+          meta={`${from === undefined ? "" : " · "}${item.brief ? "task" : "message"} · ${clockTime(item.at)}`}
         >
           <MessageMenu text={item.text}>
             <div className={menu.contents}>

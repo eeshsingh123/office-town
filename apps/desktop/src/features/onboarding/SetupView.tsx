@@ -31,7 +31,7 @@ import { TUTORIALS } from "./tutorials.ts";
 type Purpose = NonNullable<Onboarding["purpose"]>;
 type Where = "scratch" | "folder";
 
-const STEPS = ["Welcome", "AI app", "Your work", "Ready"];
+const STEPS = ["Welcome", "Provider", "Your work", "Ready"];
 
 function finish(purpose: Purpose | undefined) {
   return saveOnboarding({
@@ -99,10 +99,10 @@ function AiApps() {
   return (
     <>
       <div className={styles.head}>
-        <h1 className={styles.title}>Pick your AI apps</h1>
+        <h1 className={styles.title}>Pick your providers</h1>
         <p className={styles.lead}>
-          Your agents run on an AI app on this computer. They need at least one; you can add more
-          later in Providers.
+          Your agents run on a provider installed on this computer. They need at least one; you can
+          add more later in Providers.
         </p>
       </div>
       {statuses === undefined ? (
@@ -253,7 +253,7 @@ function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void })
           );
         })}
       </ul>
-      <p className={styles.lead}>Tutorials stay in Help.</p>
+      <p className={styles.lead}>You can find tutorials later in Help.</p>
     </>
   );
 }

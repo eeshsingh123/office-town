@@ -60,7 +60,7 @@ export async function messageAgent(
   attachments: Attachment[] = [],
 ): Promise<void> {
   const agent = context.store.getAgent(agentId);
-  if (agent === undefined) throw new RecordNotFoundError("agent", agentId);
+  if (agent === undefined) throw new RecordNotFoundError("agent");
   const [latest] =
     taskId === undefined
       ? context.store.listAgentSessions(agentId, { limit: 1 }).sessions

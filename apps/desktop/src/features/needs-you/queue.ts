@@ -189,7 +189,7 @@ export function buildAsks(sources: QueueSources): Ask[] {
           "No department",
         workspaceId: workspace?.id,
         workspaceName: workspace?.name ?? "No workspace",
-        harness: session === undefined ? "Unknown AI app" : harnessName(session.options.harness),
+        harness: session === undefined ? "Unknown provider" : harnessName(session.options.harness),
       };
     })
     .sort(byUrgency);
@@ -255,7 +255,7 @@ function metaOf(asks: readonly Ask[], by: GroupBy): string {
   const parts: [GroupBy | undefined, (ask: Ask) => string, string][] = [
     ["department", (ask) => ask.departmentName, "departments"],
     ["workspace", (ask) => ask.workspaceName, "workspaces"],
-    [undefined, (ask) => ask.harness, "AI apps"],
+    [undefined, (ask) => ask.harness, "Providers"],
   ];
   return parts
     .filter(([dimension]) => dimension !== by)

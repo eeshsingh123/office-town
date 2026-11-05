@@ -213,7 +213,7 @@ export function apiRoutes(
       reply: ({ param }) => {
         const id = param("id");
         const task = store.getTask(id);
-        if (task === undefined) throw new RecordNotFoundError("task", id);
+        if (task === undefined) throw new RecordNotFoundError("task");
         return { status: 200, json: { task, sessions: store.listSessions(id) } };
       },
     },
@@ -226,7 +226,7 @@ export function apiRoutes(
           .listPieces(param("id"))
           .flatMap((piece) => piece.pieceTaskId ?? []);
         if ([param("id"), ...pieceTasks].some((id) => store.listSessions(id).some(isRunning))) {
-          throw new TaskActiveError(param("id"));
+          throw new TaskActiveError();
         }
         await deleteTask(team, param("id"));
         return NO_CONTENT;
@@ -269,7 +269,7 @@ export function apiRoutes(
       path: "/tasks/:id/reviewed",
       reply: ({ param }) => {
         const task = store.getTask(param("id"));
-        if (task === undefined) throw new RecordNotFoundError("task", param("id"));
+        if (task === undefined) throw new RecordNotFoundError("task");
         if (task.state !== "ended") {
           throw new RequestError(409, "conflict", "Only a finished goal can be marked reviewed.");
         }
@@ -309,7 +309,7 @@ export function apiRoutes(
       path: "/sessions/:id",
       reply: ({ param }) => {
         const session = store.getSession(param("id"));
-        if (session === undefined) throw new RecordNotFoundError("session", param("id"));
+        if (session === undefined) throw new RecordNotFoundError("session");
         return { status: 200, json: session };
       },
     },
@@ -320,7 +320,7 @@ export function apiRoutes(
         const { prompt, attachments } = resumeSessionRequestSchema.parse(await body());
         const given = resolveAttachments(store, attachments);
         const session = store.getSession(param("id"));
-        if (session === undefined) throw new RecordNotFoundError("session", param("id"));
+        if (session === undefined) throw new RecordNotFoundError("session");
         const json = await resumeInTask(team, session, { text: prompt, attachments: given });
         return { status: 201, json };
       },
@@ -372,7 +372,7 @@ export function apiRoutes(
       path: "/agents/:id",
       reply: ({ param }) => {
         const agent = store.getAgent(param("id"));
-        if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent");
         return { status: 200, json: agent };
       },
     },
@@ -405,7 +405,7 @@ export function apiRoutes(
       path: "/agents/:id",
       reply: async ({ param, body }) => {
         const agent = store.getAgent(param("id"));
-        if (agent === undefined) throw new RecordNotFoundError("agent", param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent");
         const { colour, purpose, settings, autonomy } = agentProfileRequestSchema.parse(
           await body(),
         );
@@ -440,7 +440,7 @@ export function apiRoutes(
       path: "/chief",
       reply: () => {
         const chief = chiefOf(store);
-        if (chief === undefined) throw new RecordNotFoundError("agent", "chief");
+        if (chief === undefined) throw new RecordNotFoundError("agent");
         return { status: 200, json: chief };
       },
     },
@@ -636,7 +636,7 @@ export function apiRoutes(
       reply: async ({ param, body }) => {
         const roomId = param("roomId");
         if (roomId !== "chief" && store.getDepartment(roomId) === undefined) {
-          throw new RecordNotFoundError("department", roomId);
+          throw new RecordNotFoundError("department");
         }
         const position = roomPositionSchema.parse(await body());
         const positions = store.readSettings().roomPositions ?? {};

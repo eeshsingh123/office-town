@@ -21,7 +21,7 @@ import { deleteTask, isClaimed } from "./team-tasks.ts";
 
 function departmentOf({ store }: TeamContext, id: string): DepartmentRecord {
   const department = store.getDepartment(id);
-  if (department === undefined) throw new RecordNotFoundError("department", id);
+  if (department === undefined) throw new RecordNotFoundError("department");
   return department;
 }
 

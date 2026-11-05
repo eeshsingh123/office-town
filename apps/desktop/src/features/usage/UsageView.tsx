@@ -176,12 +176,14 @@ export function UsageView() {
               <span className={styles.tileNumber}>
                 {withData.length - atLimit.length - near.length}
               </span>
-              <span className={styles.tileLabel}>with room</span>
+              <span className={styles.tileLabel}>with usage left</span>
             </div>
             <div className={styles.tile}>
               <span className={styles.tileName}>{best?.name ?? "None"}</span>
               <span className={styles.tileLabel}>
-                {best === undefined ? "most room now" : `${nameOf(best.harness)} · most room now`}
+                {best === undefined
+                  ? "most usage left"
+                  : `${nameOf(best.harness)} · most usage left`}
               </span>
             </div>
           </div>
@@ -199,7 +201,7 @@ export function UsageView() {
             />
           </label>
           <ChoiceMenu
-            label="Tool"
+            label="Provider"
             value={tool}
             choices={[
               { value: "all", label: "All" },
@@ -234,7 +236,7 @@ export function UsageView() {
         <section className={page.section} aria-labelledby="spend-title">
           <div className={page.sectionHead}>
             <h2 id="spend-title" className={page.sectionTitle}>
-              Where it went
+              Usage by team
             </h2>
             <ChoiceMenu
               label="Period"

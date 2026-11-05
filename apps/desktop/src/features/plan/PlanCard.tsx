@@ -71,8 +71,8 @@ function ChangeList({ event, rows }: { event: PlanEvent; rows: PlanRow[] }) {
       {changes.doneUnchanged === 0 ? null : (
         <p className={styles.hint}>
           {changes.doneUnchanged === 1
-            ? "1 done piece unchanged"
-            : `${changes.doneUnchanged} done pieces unchanged`}
+            ? "1 done part unchanged"
+            : `${changes.doneUnchanged} done parts unchanged`}
         </p>
       )}
     </div>

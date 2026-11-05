@@ -26,7 +26,7 @@ export interface CoreProcess {
 
 export class CoreStartError extends Error {
   constructor(log: string) {
-    super(log.trim() === "" ? "The core exited before it was ready." : log.trim());
+    super(log.trim() === "" ? "Try opening it again." : log.trim());
     this.name = "CoreStartError";
   }
 }
@@ -79,7 +79,7 @@ export async function startCore(
   const ready = parseReady(String(first[0]));
   if (ready === undefined) {
     child.kill();
-    throw new CoreStartError(`The core printed an unexpected first line: ${first[0]}`);
+    throw new CoreStartError(`Try opening it again. It printed: ${first[0]}`);
   }
   state = "running";
 

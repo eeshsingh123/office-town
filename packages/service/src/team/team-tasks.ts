@@ -183,14 +183,14 @@ export async function startTeamTask(
   }
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
-    if (department === undefined) throw new RecordNotFoundError("department", team.departmentId);
+    if (department === undefined) throw new RecordNotFoundError("department");
     const workspaceId = team.workspaceId ?? department.workspaceId;
     if (!department.workspaceIds.includes(workspaceId)) {
       throw new TeamError(`${department.name} does not work in that workspace.`);
     }
     return claimDepartment(context, department.id, undefined, async () => {
       const lead = store.getAgent(department.leadAgentId);
-      if (lead === undefined) throw new RecordNotFoundError("agent", department.leadAgentId);
+      if (lead === undefined) throw new RecordNotFoundError("agent");
       const folders = foldersForTask(store, workspaceId);
       const task = store.createTask(
         goal,
@@ -253,7 +253,7 @@ function groupOf(store: Store, { leadAgentId, workerAgentIds }: GroupTeam) {
   if (new Set(ids).size !== ids.length) throw new TeamError("Each agent can be picked once.");
   const agents = ids.map((id) => {
     const agent = store.getAgent(id);
-    if (agent === undefined) throw new RecordNotFoundError("agent", id);
+    if (agent === undefined) throw new RecordNotFoundError("agent");
     return agent;
   });
   const chiefId = store.readSettings().chiefAgentId;
@@ -261,7 +261,7 @@ function groupOf(store: Store, { leadAgentId, workerAgentIds }: GroupTeam) {
     throw new TeamError("The chief and reviewers cannot join a group task.");
   }
   const [lead, ...workers] = agents;
-  if (lead === undefined) throw new RecordNotFoundError("agent", leadAgentId);
+  if (lead === undefined) throw new RecordNotFoundError("agent");
   return { lead, workers };
 }
 
@@ -394,7 +394,7 @@ export async function continueTeam(
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const task = store.getTask(taskId);
-  if (task === undefined) throw new RecordNotFoundError("task", taskId);
+  if (task === undefined) throw new RecordNotFoundError("task");
   if (task.leadAgentId === undefined) throw new TeamError("This task has no team to continue.");
   const lead = latestSession(context, taskId, task.leadAgentId);
   if (lead === undefined) throw new TeamError("This task's lead never started.");

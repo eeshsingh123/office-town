@@ -45,7 +45,7 @@ function startTitle(message: TraceMessage): string | undefined {
       return `You asked: ${asked}`;
     case "brief":
       // Without a sender it is the user's own task, sent with their profile.
-      return message.origin.from === undefined ? `You asked: ${asked}` : `Brief: ${asked}`;
+      return message.origin.from === undefined ? `You asked: ${asked}` : `Task: ${asked}`;
     case "message":
       return `Message: ${asked}`;
     default:

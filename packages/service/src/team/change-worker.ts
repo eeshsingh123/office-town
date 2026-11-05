@@ -55,7 +55,7 @@ export async function moveDepartment(
 ) {
   const { store } = context;
   const department = store.getDepartment(departmentId);
-  if (department === undefined) throw new RecordNotFoundError("department", departmentId);
+  if (department === undefined) throw new RecordNotFoundError("department");
   const members = store.listMembers(departmentId);
   for (const agent of members) {
     const { accountId, ...settings } = changed(agent, model, effort);

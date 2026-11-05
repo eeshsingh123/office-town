@@ -31,7 +31,7 @@ export function fileKindOf(name: string): { kind: "file" | "image"; mimeType?: s
 export function resolveAttachments(store: Store, ids: readonly string[] = []): Attachment[] {
   return [...new Set(ids)].map((id) => {
     const attachment = store.getAttachment(id);
-    if (attachment === undefined) throw new RecordNotFoundError("attachment", id);
+    if (attachment === undefined) throw new RecordNotFoundError("attachment");
     return attachment;
   });
 }

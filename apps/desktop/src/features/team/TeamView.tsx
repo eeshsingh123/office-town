@@ -184,7 +184,7 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
           </span>
         </span>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Ready"}
+          {working ? "Working" : "Idle"}
         </span>
       </button>
     );
@@ -198,7 +198,7 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
         <span className={styles.text}>
           <strong>Chief</strong>
           <span>
-            Optional. Splits one big goal across departments. Opens once you have a department.
+            Optional. Splits one big goal across departments. Available once you have a department.
           </span>
         </span>
       </div>
@@ -329,7 +329,7 @@ export function TeamView() {
             <h1 id="team-title" className={page.title}>
               Team
             </h1>
-            <p className={page.lead}>Who works for you, and who plans for whom.</p>
+            <p className={page.lead}>Your departments, their people and your chief.</p>
           </div>
           {empty ? null : (
             <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>

@@ -82,7 +82,7 @@ function Window({ limit, showLeft, now }: { limit: UsageLimit; showLeft: boolean
       </div>
       <Meter usedFraction={limit.usedFraction} tick={pace?.elapsed} />
       {full && resetsAt !== undefined ? (
-        <span className={`${styles.pace} ${styles.paceHigh}`}>Back {inTime(resetsAt, now)}</span>
+        <span className={`${styles.pace} ${styles.paceHigh}`}>Resets {inTime(resetsAt, now)}</span>
       ) : pace?.runsOutAt !== undefined ? (
         <span
           className={`${styles.pace} ${toneOf(limit.usedFraction) === "calm" ? "" : styles.paceHigh}`}
@@ -112,8 +112,8 @@ function Estimate({ dollars }: { dollars: number }) {
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content className={styles.tip} sideOffset={6}>
-            Worked out by Office Town from the tokens it counted and each model's API price on
-            models.dev. Your plan may charge less, or nothing beyond its fee.
+            An estimate from the tokens counted and each model's API price on models.dev. Your plan
+            may cost less.
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>

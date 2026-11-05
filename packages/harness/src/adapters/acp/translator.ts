@@ -326,7 +326,7 @@ export class AcpTranslator implements Translator {
       },
     };
     if (!refused) return this.#configure([started], "model");
-    const message = `This AI app does not offer "${this.#model}", so it runs on its default model.`;
+    const message = `This provider does not offer "${this.#model}", so it runs on its default model.`;
     return this.#configure(
       [started, { type: "error", payload: { message, fatal: false } }],
       "model",

@@ -62,7 +62,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
       <MenuHeader
         face={<Avatar name={department.name} colour={lead?.colour ?? "var(--text-3)"} size={22} />}
         title={department.name}
-        detail={`${members.length} ${members.length === 1 ? "agent" : "agents"} · ${working ? "Working" : "Free"}`}
+        detail={`${members.length} ${members.length === 1 ? "agent" : "agents"} · ${working ? "Working" : "Idle"}`}
       />
     ),
     actions,

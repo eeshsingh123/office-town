@@ -37,6 +37,15 @@ type PromptCommand = Extract<SessionCommand, { type: "prompt" }>;
 
 type SessionState = "created" | "starting" | "active" | "stopping" | "failing" | "ended";
 
+const STATE_WORDS: Record<SessionState, string> = {
+  created: "is still starting",
+  starting: "is still starting",
+  active: "is working",
+  stopping: "is stopping",
+  failing: "has stopped",
+  ended: "has ended",
+};
+
 export type SessionListener = (event: SessionEvent) => void;
 
 // A line exactly as it crossed the harness's stdio, for an audit copy.
@@ -170,7 +179,7 @@ export class HarnessSession implements Session {
         this.#answerQuestion(command.requestId, command.answers);
         return;
       case "interrupt":
-        this.#requireActive("interrupt");
+        this.#requireActive("stop");
         this.#apply(this.#translator.interrupt());
         return;
       case "stop":
@@ -181,7 +190,7 @@ export class HarnessSession implements Session {
   // The agent is told the paths it sees where it runs; the stream keeps host paths, as for actions.
   // An image goes inline only if the harness can carry it.
   #prompt(command: PromptCommand): void {
-    this.#requireActive("prompt");
+    this.#requireActive("take a message");
     const images: InlineImage[] = [];
     const sent = (command.attachments ?? []).map((attachment): SentAttachment => {
       const inline = attachment.inline === true && this.capabilities.images;
@@ -347,7 +356,9 @@ export class HarnessSession implements Session {
 
   #requireActive(action: string): void {
     if (this.#state !== "active") {
-      throw new SessionStateError(`Cannot ${action} while the session is ${this.#state}.`);
+      throw new SessionStateError(
+        `This agent can't ${action} right now, because it ${STATE_WORDS[this.#state]}.`,
+      );
     }
   }
 

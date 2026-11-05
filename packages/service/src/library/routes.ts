@@ -17,7 +17,7 @@ function requireAudience(store: Store, workspaceId: string, givenTo: LibraryAudi
     }
   }
   for (const id of givenTo.agentIds) {
-    if (store.getAgent(id) === undefined) throw new RecordNotFoundError("agent", id);
+    if (store.getAgent(id) === undefined) throw new RecordNotFoundError("agent");
   }
 }
 
@@ -45,7 +45,7 @@ export function libraryRoutes(store: Store): Route[] {
       reply: async ({ param, body }) => {
         const change = libraryItemChangeSchema.parse(await body());
         const item = store.getLibraryItem(param("id"));
-        if (item === undefined) throw new RecordNotFoundError("library item", param("id"));
+        if (item === undefined) throw new RecordNotFoundError("library item");
         if (change.givenTo !== undefined) requireAudience(store, item.workspaceId, change.givenTo);
         return { status: 200, json: await store.changeLibraryItem(item.id, change) };
       },

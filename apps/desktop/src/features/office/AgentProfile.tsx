@@ -152,7 +152,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           onChange={(event) => set({ name: event.target.value })}
         />
         <span className={form.hint}>
-          Teammates use this name to hand {who} work. It starts with @ and uses lowercase letters,
+          Teammates use this name to give {who} work. It starts with @ and uses lowercase letters,
           numbers and dashes.
         </span>
       </label>

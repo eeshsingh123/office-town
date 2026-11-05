@@ -414,7 +414,7 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
             <div className={styles.account}>
               <span className={styles.accountText}>
                 {tested === undefined ? (
-                  <span className={styles.sub}>Connects once and lists what it offers.</span>
+                  <span className={styles.sub}>Connects once and lists what it can do.</span>
                 ) : (
                   <span className={styles.tested}>
                     <Check size={14} aria-hidden />

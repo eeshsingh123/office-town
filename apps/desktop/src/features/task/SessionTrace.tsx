@@ -85,7 +85,7 @@ export function SessionTrace({ session }: { session: SessionRecord }) {
     if (error === undefined) return <p className={styles.notice}>Loading…</p>;
     return (
       <p className={`${styles.notice} ${styles.error}`}>
-        This part of the trace could not be loaded: {error}
+        This part of the activity could not be loaded: {error}
         <Button variant="ghost" onClick={() => loadTrace(session.id)}>
           Try again
         </Button>

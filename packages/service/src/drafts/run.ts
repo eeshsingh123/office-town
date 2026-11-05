@@ -105,7 +105,7 @@ export function askForJson<T>(
   const unsubscribe = session.subscribe((event) => {
     refuse(session, event, allowed);
     if (event.type === "message" && event.payload.role === "assistant") reply = event.payload.text;
-    if (event.type === "session.ended") fail("The AI app stopped before the draft was ready.");
+    if (event.type === "session.ended") fail("The provider stopped before the draft was ready.");
     if (event.type !== "turn.ended") return;
     if (event.payload.outcome !== "completed") return fail("The draft could not be written.");
     const read = readJson(reply, schema);

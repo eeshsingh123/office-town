@@ -114,7 +114,7 @@ function ChiefHome() {
   const rules = (record.settings.instructions ?? "")
     .split("\n")
     .filter((line) => line.trim() !== "");
-  const status = waiting !== undefined ? "Needs you" : busy ? "Working" : "Ready";
+  const status = waiting !== undefined ? "Needs you" : busy ? "Working" : "Idle";
 
   return (
     <section className={page.page} aria-labelledby="chief-title">

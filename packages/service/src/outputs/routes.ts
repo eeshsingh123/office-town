@@ -43,7 +43,7 @@ export interface OutputServices {
 
 function outputOf(context: TeamContext, outputId: string): OutputRecord {
   const output = context.store.getOutput(outputId);
-  if (output === undefined) throw new RecordNotFoundError("output", outputId);
+  if (output === undefined) throw new RecordNotFoundError("output");
   return output;
 }
 

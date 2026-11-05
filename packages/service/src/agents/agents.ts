@@ -34,7 +34,7 @@ export function createAgent(store: Store, agent: NewAgent, place: AgentPlace): A
     return store.createAgent({ ...identity, ...named, settings });
   }
   const profile = store.getProfile(agent.profileId ?? "");
-  if (profile === undefined) throw new RecordNotFoundError("profile", agent.profileId ?? "");
+  if (profile === undefined) throw new RecordNotFoundError("profile");
   return store.createAgent({
     name: identity.name,
     colour: profile.colour,

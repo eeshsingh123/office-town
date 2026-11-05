@@ -222,7 +222,7 @@ function Team() {
               name={department.name}
               line={
                 goal === undefined
-                  ? `${members} ${members === 1 ? "member" : "members"} · no goal in progress`
+                  ? `${members} ${members === 1 ? "member" : "members"} · no task in progress`
                   : taskName(goal)
               }
               state={goal === undefined ? undefined : GOAL_STATE[goal.state]}
@@ -462,7 +462,7 @@ export function HomeView() {
   );
   const summary =
     working === 0 && order.length === 0
-      ? "Your office is quiet."
+      ? "No agents are working."
       : [
           working > 0 ? `${working} ${working === 1 ? "agent is" : "agents are"} working` : "",
           order.length > 0 ? `${order.length} waiting for you` : "",

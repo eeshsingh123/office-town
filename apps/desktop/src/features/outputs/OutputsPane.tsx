@@ -115,7 +115,7 @@ export function OutputsPane({
         {spotted.length === 0 ? null : (
           <section className={styles.group}>
             <h2 className={styles.groupLabel}>
-              Spotted running <span>{spotted.length}</span>
+              Running <span>{spotted.length}</span>
             </h2>
             <ul className={styles.items}>
               {spotted.map((site) => (
@@ -266,7 +266,7 @@ function SpottedItem({
       <span className={styles.itemText}>
         <strong>{new URL(site.url).host}</strong>
         <span className={styles.meta}>
-          <span>{agentName === undefined ? "Seen running" : `In ${agentName}'s output`}</span>
+          <span>{agentName === undefined ? "Running" : `In ${agentName}'s output`}</span>
         </span>
       </span>
     </button>

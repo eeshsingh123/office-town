@@ -1,7 +1,6 @@
 import type { Autonomy } from "@office-town/contract";
 import { AlertDialog } from "radix-ui";
 import { useState } from "react";
-import { AUTONOMY } from "./autonomy.ts";
 import { Button } from "./Button.tsx";
 import dialog from "./Dialog.module.css";
 
@@ -9,22 +8,13 @@ interface BypassDialogProps {
   open: boolean;
   // Such as "Web team" or "this agent".
   who: string;
-  // The level kept if the user backs out.
-  keepLabel: string;
   onBypass: () => void;
   onFull: () => void;
   onKeep: () => void;
 }
 
 // Full is offered instead, since it still records every action (D-40).
-export function BypassDialog({
-  open,
-  who,
-  keepLabel,
-  onBypass,
-  onFull,
-  onKeep,
-}: BypassDialogProps) {
+export function BypassDialog({ open, who, onBypass, onFull, onKeep }: BypassDialogProps) {
   const [understood, setUnderstood] = useState(false);
   // Every way out clears the box, so the next warning is read afresh.
   const settle = (then: () => void) => () => {
@@ -46,16 +36,15 @@ export function BypassDialog({
           </AlertDialog.Title>
           <AlertDialog.Description asChild>
             <div className={dialog.description}>
-              <p>The agents will not ask before they:</p>
+              <p>Agents won't ask before they:</p>
               <ul>
-                <li>run any command on this computer</li>
-                <li>change or delete files in any folder, not only the workspace</li>
+                <li>run any command</li>
+                <li>change or delete files in any folder</li>
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>
-                Office Town cannot see these actions before they happen, so none of them reach Needs
-                you. With "Don't ask", agents can also do all of this, but Office Town records each
-                action and you can change the setting at any time.
+                Office Town can't see these actions first, so you won't be asked. "Don't ask" allows
+                the same, but still records each action.
               </p>
             </div>
           </AlertDialog.Description>
@@ -65,12 +54,12 @@ export function BypassDialog({
               checked={understood}
               onChange={(change) => setUnderstood(change.target.checked)}
             />
-            I understand that nothing will be checked
+            I understand nothing will be checked
           </label>
           <div className={dialog.actions}>
             <Button onClick={settle(onFull)}>Use "Don't ask" instead</Button>
             <AlertDialog.Cancel asChild>
-              <Button variant="ghost">Keep {keepLabel}</Button>
+              <Button variant="ghost">Cancel</Button>
             </AlertDialog.Cancel>
             <Button variant="primary" disabled={!understood} onClick={settle(onBypass)}>
               Turn off safety checks
@@ -97,7 +86,6 @@ export function useBypassGate(level: Autonomy, setLevel: (level: Autonomy) => vo
     <BypassDialog
       open={asking}
       who={who}
-      keepLabel={AUTONOMY[level].label}
       onBypass={() => settle("bypass")}
       onFull={() => settle("full")}
       onKeep={() => setAsking(false)}

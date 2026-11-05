@@ -37,8 +37,8 @@ export function ClaudeSteps({ setup }: { setup: ConnectorSetup }) {
   return (
     <>
       <p className={styles.note}>
-        {setup.name} connects in Claude, which signs you in and keeps the sign-in. Your Claude
-        agents use it.
+        {setup.name} connects through Claude. Claude handles the sign-in, and only your Claude
+        agents can use it.
       </p>
       <ol className={styles.steps}>
         <li>Open Claude's connectors page and add {setup.name}.</li>

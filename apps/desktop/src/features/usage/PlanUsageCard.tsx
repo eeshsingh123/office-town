@@ -53,7 +53,7 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
                   .join(" ")}
               >
                 {full && window.resetsAt !== undefined
-                  ? `Back ${clock(Date.parse(window.resetsAt), now)}`
+                  ? `Resets ${clock(Date.parse(window.resetsAt), now)}`
                   : percent(window.usedFraction)}
               </span>
             </div>

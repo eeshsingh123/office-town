@@ -77,7 +77,7 @@ export function FilesSection({
                     <span className={menu.itemText}>
                       {item.file.name}
                       <span className={menu.itemDescription}>
-                        Now: {audienceNames(item.givenTo, departments, agents)}
+                        Given to: {audienceNames(item.givenTo, departments, agents)}
                       </span>
                     </span>
                   </DropdownMenu.Item>

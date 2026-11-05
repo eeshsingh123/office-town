@@ -278,7 +278,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
         open={confirming}
         onOpenChange={setConfirming}
         title={`Disconnect ${setup.name}?`}
-        description="Agents lose it at once, and its key is deleted from this computer."
+        description="Agents can't use it any more, and its key is deleted from this computer."
         confirmLabel="Disconnect"
         onConfirm={async () => {
           await api.removeConnector(connector.id);

@@ -23,9 +23,9 @@ const STEPS = ["Name", "Model", "Planning rules", "Departments"] as const;
 
 const SUGGESTED_RULES = [
   "Prefer free models when you set up a new department.",
-  "Keep each plan to 4 pieces or fewer.",
+  "Keep each plan to 4 parts or fewer.",
   "Ask me before creating a new department.",
-  "Say in one line why each department gets its piece.",
+  "Say in one line why each department gets its part.",
 ];
 
 // Names are handles such as "@ada"; this turns what was typed into one.
@@ -254,7 +254,7 @@ export function ChiefSetup() {
 
           {step === 1 ? (
             <section className={page.section}>
-              <h3 className={page.sectionTitle}>AI app and model</h3>
+              <h3 className={page.sectionTitle}>Provider and model</h3>
               <div className={styles.chips}>
                 <SettingsChips
                   value={{

@@ -195,7 +195,7 @@ function apply(trace: Trace, event: SessionEvent): void {
       delete trace.thinking;
       if (usage !== undefined) addUsage(trace, usage);
       if (outcome !== "completed") {
-        const text = outcome === "interrupted" ? "Turn interrupted" : "Turn failed";
+        const text = outcome === "interrupted" ? "Reply interrupted" : "Reply failed";
         trace.items.set(event.id, { kind: "notice", id: event.id, tone: "quiet", text });
         trace.order.push(event.id);
       }

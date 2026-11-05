@@ -204,10 +204,10 @@ function GroupSection(props: GroupSectionProps) {
               variant="ghost"
               onClick={() => onBulk({ decision: "reject", asks: group.approvals, scope })}
             >
-              Reject all
+              Deny all
             </Button>
             <Button onClick={() => onBulk({ decision: "allow", asks: group.approvals, scope })}>
-              Approve all {approvals}
+              Allow all {approvals}
             </Button>
           </div>
         )}
@@ -331,11 +331,11 @@ export function NeedsYouView() {
   const answered = (decision: BulkAnswer["decision"], count: number, skipped: number) => {
     setBulk(undefined);
     setPicked(new Set());
-    const verb = decision === "allow" ? "Approved" : "Rejected";
+    const verb = decision === "allow" ? "Allowed" : "Denied";
     setNotice(
       skipped === 0
         ? `${verb} ${plural(count, "request", "requests")}.`
-        : `${verb} ${count}. ${plural(skipped, "was", "were")} already answered or its agent had stopped.`,
+        : `${verb} ${count}. ${skipped} ${skipped === 1 ? "was" : "were"} skipped: already answered, or their agent had stopped.`,
     );
   };
 
@@ -385,7 +385,7 @@ export function NeedsYouView() {
                 <input
                   type="search"
                   value={filters.query}
-                  placeholder="Search asks, tasks, agents, commands"
+                  placeholder="Search requests, tasks, agents, commands"
                   aria-label="Search what needs you"
                   onChange={(event) => update({ query: event.target.value })}
                 />
@@ -433,7 +433,7 @@ export function NeedsYouView() {
                 onChange={(departmentId) => update({ departmentId })}
               />
               <FilterSelect
-                label="AI app"
+                label="Provider"
                 value={filters.harness}
                 options={harnessOptions}
                 onChange={(harness) => update({ harness })}
@@ -459,7 +459,7 @@ export function NeedsYouView() {
                       setBulk({ decision: "reject", asks: visibleApprovals, scope: "filtered" })
                     }
                   >
-                    Reject {visibleApprovals.length}
+                    Deny {visibleApprovals.length}
                   </Button>
                   <Button
                     variant="primary"
@@ -467,7 +467,7 @@ export function NeedsYouView() {
                       setBulk({ decision: "allow", asks: visibleApprovals, scope: "filtered" })
                     }
                   >
-                    Approve {visibleApprovals.length} filtered
+                    Allow {visibleApprovals.length} filtered
                   </Button>
                 </div>
               </div>
@@ -530,13 +530,13 @@ export function NeedsYouView() {
           <Button
             onClick={() => setBulk({ decision: "reject", asks: selected, scope: "selected" })}
           >
-            Reject {selected.length}
+            Deny {selected.length}
           </Button>
           <Button
             variant="primary"
             onClick={() => setBulk({ decision: "allow", asks: selected, scope: "selected" })}
           >
-            Approve {selected.length}
+            Allow {selected.length}
           </Button>
         </section>
       )}

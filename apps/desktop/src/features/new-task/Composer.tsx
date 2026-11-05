@@ -210,7 +210,7 @@ export function Composer({ home = false }: ComposerProps) {
           ? `${department.name} is busy with another task. It takes one at a time.`
           : undefined
         : description === undefined
-          ? "No AI app is installed yet."
+          ? "No provider is installed yet."
           : workspace === undefined
             ? "Choose a workspace."
             : undefined;

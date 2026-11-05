@@ -124,7 +124,7 @@ function ClaudeAppsSection({ connectors }: { connectors: ConnectorRecord[] }) {
         return (
           <div key={accountId} className={styles.group}>
             {named ? <p className={styles.groupLabel}>{name}</p> : null}
-            <ul className={styles.list} aria-label={`Claude apps of ${name}`}>
+            <ul className={styles.list} aria-label={`${name}'s Claude apps`}>
               {apps.map((connector) => (
                 <ConnectedRow key={connector.id} connector={connector} />
               ))}

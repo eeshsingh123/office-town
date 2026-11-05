@@ -73,20 +73,20 @@ export function planProblem(
   kept: readonly KeptPiece[] = [],
   departmentNames: readonly string[] = [],
 ): string | undefined {
-  if (rows.length === 0) return "Add a piece to approve the plan.";
+  if (rows.length === 0) return "Add a part to approve the plan.";
   if (rows.some((row) => row.title.trim() === "" || row.brief.trim() === "")) {
-    return "Every piece needs a title and a brief.";
+    return "Every part needs a title and what to do.";
   }
   const keys = rows.map((row) => row.key);
   if (keys.some((key, index) => keys.indexOf(key) !== index)) {
-    return "Two pieces share a key; remove one and add it again.";
+    return "Two parts are the same. Remove one and add it again.";
   }
   const known = new Set([...rows.map((row) => row.key), ...kept.map((piece) => piece.key)]);
   if (rows.some((row) => row.waitsOn.some((key) => !known.has(key)))) {
-    return "A piece waits on one that is no longer in the plan.";
+    return "A part waits on one that is no longer in the plan.";
   }
   if (rows.some((row) => row.waitsOn.some((key) => reaches(rows, key, row.key)))) {
-    return "The pieces wait on each other in a circle.";
+    return "The parts wait on each other in a circle.";
   }
   for (const { department } of rows) {
     if (!("newDepartment" in department)) continue;
@@ -97,7 +97,7 @@ export function planProblem(
   const names = newDepartmentNames(rows);
   const twice = names.find((name, index) => names.indexOf(name) !== index);
   if (twice !== undefined) {
-    return `The new department ${twice} has two pieces. Give it one; it can take more in a changed plan once it exists.`;
+    return `${twice} is new, so it can take only one part in this plan. Give it more in a later change.`;
   }
   const taken = names.find((name) => departmentNames.includes(name));
   if (taken !== undefined) return `A department called ${taken} exists already.`;
@@ -154,7 +154,7 @@ export function guardWarnings(
     if (upstream.length === 0) return [];
     const folders = `${[...new Set(upstream)].join(" or ")} folder`;
     return placed.autonomy === "bypass"
-      ? [`${placed.name} has no safety checks, so it could change ${folders}.`]
+      ? [`${placed.name} doesn't ask before acting, so it could change ${folders}.`]
       : [
           `${placed.name} doesn't ask first. It cannot edit ${folders} directly, but its commands could still change it.`,
         ];

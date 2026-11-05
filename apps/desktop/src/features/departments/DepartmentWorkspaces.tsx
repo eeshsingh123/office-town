@@ -72,13 +72,13 @@ export function DepartmentWorkspaces({
                     <strong>{workspace.name}</strong>
                     {index === 0 ? <span className={styles.badge}>Default</span> : null}
                     {workspace.id === goalWorkspaceId ? (
-                      <span className={styles.goal}>This goal</span>
+                      <span className={styles.goal}>This task</span>
                     ) : null}
                   </span>
                   <span className={styles.meta}>
                     <span className={workspace.kind === "folders" ? styles.path : undefined}>
                       {workspace.kind === "scratch"
-                        ? "A new folder for each goal"
+                        ? "A new folder for each task"
                         : mainPath(workspace)}
                     </span>
                     {branch === undefined || compact ? null : (

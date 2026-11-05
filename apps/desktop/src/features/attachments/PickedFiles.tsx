@@ -25,7 +25,7 @@ function noteOf(
     return {
       text: "Sent as a written description",
       warn: true,
-      why: "This model cannot see images, so a model that can describes it in writing",
+      why: "This model can't see images, so another model describes the image in words first",
     };
   }
   if (isOffice(one.name)) return { text: `${size} · may not be readable`, warn: true };
@@ -134,7 +134,7 @@ export function AttachButton({
                 <FolderOpen size={14} aria-hidden />
                 <span className={menu.itemText}>
                   Folder
-                  <span className={menu.itemDescription}>Linked read-only</span>
+                  <span className={menu.itemDescription}>Folder (read-only)</span>
                 </span>
               </DropdownMenu.Item>
             )}

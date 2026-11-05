@@ -67,7 +67,7 @@ function RemoveDepartment({ department }: { department: DepartmentRecord }) {
       <div className={styles.dangerText}>
         <strong id="remove-title">Remove department</strong>
         <span className={form.hint}>
-          Not while it works on a task. You choose what happens to its agents and tasks.
+          You can remove it once its task is done. You choose what happens to its agents and tasks.
         </span>
       </div>
       <Button variant="danger" onClick={() => setOpen(true)}>
@@ -232,7 +232,7 @@ function Settings({
         <div>
           <h2 className={page.sectionTitle}>Workspaces</h2>
           <p className={form.hint}>
-            Folders this team can edit. New goals use the default. Changes apply from the next goal.
+            Folders this team can edit. New tasks use the default. Changes apply from the next task.
           </p>
         </div>
         <DepartmentWorkspaces

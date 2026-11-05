@@ -87,7 +87,7 @@ export const TUTORIALS: Tutorial[] = [
       },
       {
         title: "Allow the file",
-        text: "The assistant asks before it saves a file. Press Allow once when it does.",
+        text: "The assistant asks before it saves a file. Press Allow when it does.",
         done: (state, run) =>
           newTasks(state, run).some((task) => task.state === "idle" || task.state === "ended"),
       },
@@ -182,7 +182,7 @@ export const TUTORIALS: Tutorial[] = [
       },
       {
         title: "Choose who gets it",
-        text: "Use Given to if only one department or agent should see it.",
+        text: "To share it with only one department or agent, use Given to.",
       },
     ],
   },
