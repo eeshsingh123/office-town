@@ -349,9 +349,12 @@ export const api = {
     read(`/harnesses/${id(harness)}/status?${environmentQuery(environment)}`, harnessStatusSchema),
   saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
     send("PUT", `/room-positions/${id(roomId)}`, position),
-  listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
-  getAgent: (agentId: string): Promise<AgentRecord> =>
-    read(`/agents/${id(agentId)}`, agentRecordSchema),
+  // Without ids, the standing team: department members and the chief.
+  listAgents: (ids: readonly string[] = []): Promise<AgentRecord[]> =>
+    read(
+      `/agents${ids.length === 0 ? "" : `?ids=${ids.map(id).join(",")}`}`,
+      listOf(agentRecordSchema),
+    ),
   listAgentSessions: (agentId: string, before?: string): Promise<SessionPage> =>
     read(
       `/agents/${id(agentId)}/sessions${before === undefined ? "" : `?before=${id(before)}`}`,

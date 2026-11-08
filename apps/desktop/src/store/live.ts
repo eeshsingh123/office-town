@@ -119,9 +119,18 @@ async function readAll(
   );
   const reread = await Promise.all([...stale].map(readTask));
   const tasks = [...page.tasks, ...active.tasks, ...reread];
-  const [delegations, pieces] = await Promise.all([
+  // Launch reads the standing team; the rest only as loaded records name them.
+  const standing = new Set(agents.map((agent) => agent.id));
+  const named = [
+    ...agentsOf(tasks),
+    ...outputs.map((output) => output.agentId),
+    ...library.flatMap((item) => item.givenTo.agentIds),
+    ...connectors.flatMap((connector) => connector.audience.agentIds),
+  ].filter((id) => !standing.has(id));
+  const [delegations, pieces, more] = await Promise.all([
     readDelegations(tasks),
     readPlans(tasks, settings.chiefAgentId),
+    readAgents(named),
   ]);
   useApp.setState((state) => ({
     harnesses,
@@ -131,7 +140,7 @@ async function readAll(
     // Someone who used the app before setup existed has nothing to set up.
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
-    agents: byId(agents),
+    agents: { ...state.agents, ...byId(more), ...byId(agents) },
     departments: byId(departments),
     delegations: byId(delegations),
     pieces: byId(pieces),
@@ -179,12 +188,22 @@ async function readTask(taskId: string): Promise<TaskSummary> {
   return { ...task, sessions };
 }
 
-// Agents the app does not know yet, such as one just made.
-async function readAgents(tasks: readonly TaskSummary[]): Promise<AgentRecord[]> {
+// So a long list of ids still fits in one address.
+const AGENTS_PER_READ = 100;
+
+// Those named that the app does not know yet, such as one just made or one of an older task.
+async function readAgents(ids: Iterable<string>): Promise<AgentRecord[]> {
   const known = useApp.getState().agents;
-  const missing = new Set(tasks.flatMap((task) => task.sessions.map((session) => session.agentId)));
-  return Promise.all([...missing].filter((id) => known[id] === undefined).map(api.getAgent));
+  const missing = [...new Set(ids)].filter((id) => known[id] === undefined);
+  const reads: Promise<AgentRecord[]>[] = [];
+  for (let start = 0; start < missing.length; start += AGENTS_PER_READ) {
+    reads.push(api.listAgents(missing.slice(start, start + AGENTS_PER_READ)));
+  }
+  return (await Promise.all(reads)).flat();
 }
+
+const agentsOf = (tasks: readonly TaskSummary[]) =>
+  tasks.flatMap((task) => task.sessions.map((session) => session.agentId));
 
 export function keepAgent(agent: AgentRecord): void {
   useApp.setState((state) => ({ agents: { ...state.agents, [agent.id]: agent } }));
@@ -202,7 +221,7 @@ function watchActive(tasks: readonly TaskSummary[]): void {
 // Such as one it just started.
 export async function track(taskId: string): Promise<void> {
   const summary = await readTask(taskId);
-  const agents = await readAgents([summary]);
+  const agents = await readAgents(agentsOf([summary]));
   useApp.setState((state) => ({
     ...addTasks(state, [summary]),
     agents: { ...state.agents, ...byId(agents) },
@@ -234,7 +253,9 @@ export async function deleteTask(taskId: string): Promise<void> {
 export async function searchTasks(search: Partial<TaskSearch>): Promise<TaskSearchResult> {
   const result = await api.searchTasks(search);
   const known = useApp.getState().tasks;
-  const agents = await readAgents(result.tasks.filter((task) => known[task.id] === undefined));
+  const agents = await readAgents(
+    agentsOf(result.tasks.filter((task) => known[task.id] === undefined)),
+  );
   useApp.setState((state) => ({
     ...addTasks(
       state,

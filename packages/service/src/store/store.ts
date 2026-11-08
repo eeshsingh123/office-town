@@ -342,6 +342,8 @@ export interface Store {
   getAgent(id: string): AgentRecord | undefined;
   isNameTaken(name: string): boolean;
   listAgents(): AgentRecord[];
+  listStandingAgents(): AgentRecord[];
+  getAgents(ids: readonly string[]): AgentRecord[];
   renameAgent(id: string, name: string): AgentRecord;
   updateAgent(id: string, change: AgentChange): AgentRecord;
   createDepartment(department: NewDepartment): DepartmentRecord;

@@ -1386,6 +1386,15 @@ class SqliteStore implements Store {
     return all<AgentRow>(this.#statements.allAgents).map(toAgent);
   }
 
+  listStandingAgents(): AgentRecord[] {
+    const chiefId = this.readSettings().chiefAgentId ?? null;
+    return all<AgentRow>(this.#statements.standingAgents, chiefId).map(toAgent);
+  }
+
+  getAgents(ids: readonly string[]): AgentRecord[] {
+    return all<AgentRow>(this.#statements.agentsByIds, JSON.stringify(ids)).map(toAgent);
+  }
+
   renameAgent(id: string, name: string): AgentRecord {
     const row = this.#agentRow(id);
     try {

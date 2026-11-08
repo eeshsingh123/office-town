@@ -219,8 +219,11 @@ export const queries = {
   membersOf: `${AGENT_SELECT} WHERE a.department_ref = ? ORDER BY a.ref`,
   agentById: `${AGENT_SELECT} WHERE a.id = ?`,
   agentNamed: "SELECT 1 FROM agents WHERE name = ?",
-  // Reads the whole table on purpose: one row per agent, which the app shows together.
+  // Reads the whole table on purpose: for the core's own checks across every agent.
   allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
+  // The standing team: department members and the chief. Each task's own agents are read by id.
+  standingAgents: `${AGENT_SELECT} WHERE a.department_ref IS NOT NULL OR a.id = ? ORDER BY a.ref`,
+  agentsByIds: `${AGENT_SELECT} WHERE a.id IN (SELECT value FROM json_each(?)) ORDER BY a.ref`,
   renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
   // The chief stands without a task.
   deleteAgentIfUnused: `

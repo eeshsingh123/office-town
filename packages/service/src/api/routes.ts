@@ -1,5 +1,6 @@
 import {
   agentCommandSchema,
+  agentListQuerySchema,
   agentMessageRequestSchema,
   agentProfileRequestSchema,
   answerPermissionsRequestSchema,
@@ -374,7 +375,13 @@ export function apiRoutes(
     {
       method: "GET",
       path: "/agents",
-      reply: () => ({ status: 200, json: store.listAgents() }),
+      reply: ({ query }) => {
+        const { ids } = agentListQuerySchema.parse(Object.fromEntries(query));
+        return {
+          status: 200,
+          json: ids.length === 0 ? store.listStandingAgents() : store.getAgents(ids),
+        };
+      },
     },
     {
       method: "GET",

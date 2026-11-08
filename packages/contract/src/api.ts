@@ -121,6 +121,9 @@ const listParam = z
   .optional()
   .transform((value) => (value === undefined || value === "" ? [] : value.split(",")));
 
+// Without `ids`, the standing team: department members and the chief.
+export const agentListQuerySchema = z.object({ ids: listParam });
+
 // `teams` are "chief", "solo" or department ids; `from` and `before` bound when a task started.
 export const taskSearchQuerySchema = z.object({
   text: z.string().default(""),
