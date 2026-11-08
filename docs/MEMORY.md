@@ -25,17 +25,14 @@ Last updated: 2026-11-08
 - Plain copy, merged as PR #78: one name per thing (task for a department, goal for the chief; part; Idle; Provider (never "AI app" or "Tool"); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
 - Office revamp, merged as PR #79: the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open while the room is open or the user stands in it (no hover). A click inside a room opens it (a department, the open floor, the chief's office); only a click outside every room clears the panel. The player and the open room live in the office store, so another screen and back keeps them (memory only). The open floor is a room (`OPEN_FLOOR`) with two desks and a panel that starts a task for an assistant. The autonomy level shows in the department panel.
 - Kept state (D-90), merged as PR #80: one `store/kept.ts` with two lifetimes, `session` (where the user was) and `saved` (preferences), on `api/last-known.ts`. Every hand-written storage copy moved onto it on the same keys. Tasks, Needs you, Connectors, Workspaces and Team keep filters, folds, searches and scroll for the session; a team task its shown member; an output its spots, size and version. Setup is a draft.
-
-- Long histories (D-91), branch `fix/large-history`: the core searches and counts every task for Tasks and Ctrl+K; a run opens on its latest work with Show earlier; ended runs no screen shows are dropped past 8; launch reads the standing team and named agents only. Run on a copy of a real store seeded with 300 old tasks.
+- Long histories (D-91), PR #81: the core searches and counts every task for Tasks and Ctrl+K with one shared status rule; a run opens on its latest work with Show earlier and a fixed start; ended runs no screen shows are dropped past 8; launch reads the standing team and named agents only. Run on a copy of a real store seeded with 300 old tasks: counts, Show older past 200, "assistants" matching old tasks, and a 13-session lead's tokens steady through Show earlier.
 
 ## Not checked yet
 
 Worth a click when touched.
 
-- D-91: the counts while a live team task ends (the core's list is read again once it settles), a chief goal's parts in search results, Show earlier on a live run as new steps arrive, an output or audience naming an agent of a task not loaded, in the packaged app.
-
+- D-91: the counts while a live team task ends, a chief goal's parts in search results, Show earlier on a live run as new steps arrive, a library file or connector call from an agent of a task not loaded, template use counts (the test store had no templates), a reconnect dropping a removed agent, the packaged app.
 - D-90: Needs you kept live (the test store had no requests), the scroll place on a long list (the test store had two tasks), output spots after leaving the task, setup after a restart mid-way. Run live: Tasks filter and folds through Back, cleared on a reload; group-by and theme read from older plain-text values; a team task's shown member; the Connectors search; the sidebar toggle.
-
 - D-89: the shell's text menu (spelling, Copy link, Copy image) in the packaged app; Send for review and Stop from an agent's menu on a live run; the menus in light mode.
 - D-87: a description written by Claude's Haiku (no OpenCode; only OpenCode's free model was run), a describer that fails or is slow (the path alone goes), a live session told an image mid-turn, a description reused for a second agent.
 - D-86: a real restart mid-task, then a message to the lead from its chat (tested on the test core); a task already stuck this way freeing at its lead's next message; Stop team hiding live.
