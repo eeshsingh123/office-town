@@ -57,7 +57,7 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
   const statuses = useHarnessStatuses();
   // Only an app that keeps several logins apart, and is installed here.
   const choices = harnesses.filter(
-    (known) => known.manyAccounts && (statuses === undefined || statuses[known.harness]?.installed),
+    (known) => known.manyAccounts && statuses?.[known.harness]?.installed !== false,
   );
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);

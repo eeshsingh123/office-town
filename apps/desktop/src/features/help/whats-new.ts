@@ -26,6 +26,14 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-09",
+    title: "Providers load faster",
+    icon: Plug,
+    changes: [
+      "Providers, setup and New task show each provider as soon as it is checked, instead of waiting for all of them",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Quicker start",
     icon: Gauge,
     changes: [

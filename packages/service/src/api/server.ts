@@ -12,6 +12,7 @@ import type { TeamContext } from "../team/members.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
+import { HarnessStatuses } from "./harness-statuses.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
@@ -24,6 +25,8 @@ export interface ApiOptions {
   outputs: OutputServices;
   // API prices for the usage estimate; without them no estimate is given.
   prices?: PriceList;
+  // The providers' last status; without it the first ask reads them.
+  statuses?: HarnessStatuses;
   // Names each task the user starts, beside it; without it the prompt names every task.
   nameTask?: NameTask;
   // Anything on this machine can reach the port, but not the token.
@@ -113,7 +116,17 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
-  const routes = apiRoutes(team, connectors, pauses, checks, outputs, prices, options.nameTask);
+  const statuses = options.statuses ?? new HarnessStatuses(store, team.readCatalog);
+  const routes = apiRoutes(
+    team,
+    connectors,
+    pauses,
+    checks,
+    outputs,
+    prices,
+    statuses,
+    options.nameTask,
+  );
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");
@@ -132,7 +145,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
         ...Object.fromEntries(url.searchParams),
         ...(typeof lastEventId === "string" ? { after: lastEventId } : {}),
       });
-      await streamEvents(response, { registry, store }, query);
+      await streamEvents(response, { registry, store, statuses }, query);
       return;
     }
     const matched = matchRoute(routes, method, url.pathname);

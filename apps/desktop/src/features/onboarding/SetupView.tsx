@@ -283,6 +283,7 @@ export function SetupView() {
 
   const ready = harnesses.filter((known) => isReady(statuses?.[known.harness]));
   const anyReady = ready.length > 0;
+  const allChecked = harnesses.every((known) => statuses?.[known.harness] !== undefined);
   const canContinue =
     (step !== 1 || anyReady) && (step !== 2 || work.where === "scratch" || work.folder !== "");
 
@@ -381,7 +382,7 @@ export function SetupView() {
           {step === 1 && statuses !== undefined && anyReady ? (
             <span className={styles.readyCount}>{ready.length} ready</span>
           ) : null}
-          {step === 1 && statuses !== undefined && !anyReady ? (
+          {step === 1 && allChecked && !anyReady ? (
             <Button variant="ghost" className={styles.later} onClick={() => setStep(2)}>
               Skip for now
             </Button>

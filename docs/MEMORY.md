@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-08
+Last updated: 2026-11-09
 
 ## State
 
@@ -26,21 +26,19 @@ Last updated: 2026-11-08
 - Office revamp, merged as PR #79: the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open while the room is open or the user stands in it (no hover). A click inside a room opens it (a department, the open floor, the chief's office); only a click outside every room clears the panel. The player and the open room live in the office store, so another screen and back keeps them (memory only). The open floor is a room (`OPEN_FLOOR`) with two desks and a panel that starts a task for an assistant. The autonomy level shows in the department panel.
 - Kept state (D-90), merged as PR #80: one `store/kept.ts` with two lifetimes, `session` (where the user was) and `saved` (preferences), on `api/last-known.ts`. Every hand-written storage copy moved onto it on the same keys. Tasks, Needs you, Connectors, Workspaces and Team keep filters, folds, searches and scroll for the session; a team task its shown member; an output its spots, size and version. Setup is a draft.
 - Long histories (D-91), PR #81: the core searches and counts every task for Tasks and Ctrl+K with one shared status rule; a run opens on its latest work with Show earlier and a fixed start; ended runs no screen shows are dropped past 8; launch reads the standing team and named agents only. Run on a copy of a real store seeded with 300 old tasks: counts, Show older past 200, "assistants" matching old tasks, and a 13-session lead's tokens steady through Show earlier.
-- Launch responsiveness (D-92), PR after #81: one-off CLI queries run two at a time, the model warm-up reads one provider at a time, one limits refresh serves every page, and Tasks shows held tasks before the core answers.
+- Launch responsiveness (D-92), PR after #81: one-off CLI queries run two at a time, one limits refresh serves every page, and Tasks shows held tasks before the core answers.
 
-## Optimization phase: background work next
+## Performance phase (D-93)
 
-Long work should not hold the core's thread or one of the window's six connections (D-92). Candidates, each to measure first:
-- Status, limits and models as background jobs: the core answers at once with the last known result and publishes the fresh one on the event stream (contract change). `/harnesses/status` waits for the slowest of six providers (11 s cold).
-- The core warms models and status itself when it starts, before the window asks.
-- One-off CLI queries in a worker thread, so a process start never blocks requests (Windows).
-- Heavy SQLite reads (search over every task, usage recounts) on a reader connection in a worker; the backup before a store upgrade (`VACUUM INTO`, 159 MB on the dev store) holds up that one start.
-- Claude apps read before each agent launch (1 to 10 s): read ahead and cache. Forward `/api` in `electron/app-protocol.ts` with Node's fetch, outside Chromium's pool.
-- Smaller: `/workspaces/usage` is read about 9 times at launch and `/environments` twice; share one read.
+- Done on `fix/performance-phase`: provider status in the background, and a clean dev start and stop. What was measured and left alone, with the numbers, is in D-93; measure again before reopening any of it.
+- The "broken dev store" seen from Claude's shell was its virtualized `%LOCALAPPDATA%` copy; the owner's dev app opens its store fine. Measure on a copy of a `store.db.bak-v*` in the scratchpad.
+- Known gap: a `harness` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
+- Still open, small: `/workspaces/usage` is read about 9 times at launch and `/environments` twice.
 
 ## Not checked yet
 
-- D-92: the packaged app and `pnpm dev:app` (measured in `pnpm dev:web` on a copy of the dev store); WSL queries waiting their turn.
+- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The packaged app.
+- D-92: the packaged app; WSL queries waiting their turn.
 
 Worth a click when touched.
 

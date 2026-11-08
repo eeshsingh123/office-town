@@ -16,18 +16,29 @@ type Outcome<T> = { answer: T } | { exit: ProcessExit; stderrTail: string };
 // so a burst of queries (launch reads six providers) froze the core for seconds (D-92).
 const QUERIES_AT_ONCE = 2;
 let queriesRunning = 0;
-const queued: (() => void)[] = [];
+const queued: { start: () => void; refuse: (error: Error) => void }[] = [];
+let stopped = false;
+
+const stoppingError = () => new QueryError("The app is stopping.");
+
+// A stopping core waits for every process it started, so the queries still waiting never start.
+// The running ones end by themselves.
+export function stopQueries(): void {
+  stopped = true;
+  for (const turn of queued.splice(0)) turn.refuse(stoppingError());
+}
 
 // Runs `run` once fewer than QUERIES_AT_ONCE one-off queries are running. Never for agent sessions.
 export async function inQueryTurn<T>(run: () => Promise<T>): Promise<T> {
+  if (stopped) throw stoppingError();
   if (queriesRunning < QUERIES_AT_ONCE) queriesRunning += 1;
-  else await new Promise<void>((resolve) => queued.push(resolve));
+  else await new Promise<void>((start, refuse) => queued.push({ start, refuse }));
   try {
     return await run();
   } finally {
     const next = queued.shift();
     if (next === undefined) queriesRunning -= 1;
-    else next();
+    else next.start();
   }
 }
 

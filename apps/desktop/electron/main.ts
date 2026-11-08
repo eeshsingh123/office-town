@@ -16,7 +16,13 @@ import {
 } from "electron";
 import { APP_ORIGIN, registerAppScheme, serveApp } from "./app-protocol.ts";
 import { type CoreCommand, type CoreProcess, startCore } from "./core-process.ts";
-import { becomeDevApp, quitWhenDisconnected, reloadOnRebuild } from "./dev-mode.ts";
+import {
+  becomeDevApp,
+  quitWhenDisconnected,
+  reloadOnRebuild,
+  showDevIcon,
+  startedByDevLoop,
+} from "./dev-mode.ts";
 import { pictureOfPage } from "./page-picture.ts";
 import { createTray } from "./tray.ts";
 import { followUpdates, type Updates } from "./updates.ts";
@@ -31,6 +37,7 @@ const CORE_ENTRY = app.isPackaged
   ? join(process.resourcesPath, "core", "main.mjs")
   : file("../../../packages/service/src/main.ts");
 const QUIT_CHECK_TIMEOUT_MS = 3000;
+const APP_ID = app.isPackaged ? "town.office.desktop" : "town.office.desktop.development";
 
 // The core runs on Electron's own Node, so users install no Node (D-34).
 const coreCommand: CoreCommand = {
@@ -40,14 +47,15 @@ const coreCommand: CoreCommand = {
 };
 
 let core: CoreProcess | undefined;
+// Set while the core starts, so quitting then still stops it.
+let coreStarting: Promise<CoreProcess> | undefined;
 let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let updates: Updates | undefined;
 let quitting = false;
 
 if (!app.isPackaged) becomeDevApp();
-// Only `pnpm dev:app` starts the app with an IPC channel.
-if (process.send !== undefined) quitWhenDisconnected();
+if (startedByDevLoop()) quitWhenDisconnected();
 registerAppScheme();
 if (app.requestSingleInstanceLock()) {
   app.on("second-instance", () => open());
@@ -58,8 +66,11 @@ if (app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  app.setAppUserModelId(app.isPackaged ? "town.office.desktop" : "town.office.desktop.development");
-  core = await startCore(coreCommand, { onCrash });
+  app.setAppUserModelId(APP_ID);
+  coreStarting = startCore(coreCommand, { onCrash });
+  core = await coreStarting;
+  coreStarting = undefined;
+  if (quitting) return;
   serveApp(UI_FOLDER, () => {
     if (core === undefined) throw new Error("The core is not running.");
     return core.ready;
@@ -67,6 +78,7 @@ async function start(): Promise<void> {
   registerBridge();
   denyPagesPermissions();
   window = createWindow({ icon: ICON, preload: PRELOAD, isQuitting: () => quitting });
+  if (!app.isPackaged) showDevIcon(window, APP_ID, ICON);
   tray = createTray(ICON, { open, quit: () => void confirmQuit() });
   if (!app.isPackaged) reloadOnRebuild(UI_FOLDER, () => window);
   if (app.isPackaged) {
@@ -79,10 +91,11 @@ function open(): void {
 }
 
 function failToStart(error: unknown): void {
-  dialog.showErrorBox(
-    `${app.getName()} could not start`,
-    error instanceof Error ? error.message : String(error),
-  );
+  const title = `${app.getName()} could not start`;
+  const detail = error instanceof Error ? error.message : String(error);
+  // The error box blocks the whole app until it is closed, so the dev loop could not stop it.
+  if (startedByDevLoop()) console.error(`${title}: ${detail}`);
+  else if (!quitting) dialog.showErrorBox(title, detail);
   app.exit(1);
 }
 
@@ -175,14 +188,14 @@ async function restartToUpdate(): Promise<void> {
 // Every way of quitting passes here, so the core always gets to record its agents as interrupted.
 function stopCoreFirst(event: Electron.Event): void {
   quitting = true;
-  if (core === undefined) return;
+  if (core === undefined && coreStarting === undefined) return;
   event.preventDefault();
   void stopCore().finally(() => app.quit());
 }
 
 async function stopCore(): Promise<void> {
   quitting = true;
-  const stopping = core;
+  const stopping = core ?? (await coreStarting?.catch(() => undefined));
   core = undefined;
   tray?.destroy();
   window?.hide();
