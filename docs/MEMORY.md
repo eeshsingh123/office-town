@@ -23,7 +23,7 @@ Last updated: 2026-11-08
 - Office chat task headers (D-88), merged as PR #76: earlier tasks fold, the open header stays in view, the message box names its task.
 - Right-click menus (D-89), merged as PR #77: the shell's text menu, and app menus on agents, departments, tasks, messages and files built from one action list per object.
 - Plain copy, merged as PR #78: one name per thing (task for a department, goal for the chief; part; Idle; Provider (never "AI app" or "Tool"); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
-- Office floor, branch `fix/office-floor-flicker`: the floor's scroll pane keeps a fixed scrollbar gutter, since the floor scales to its width and a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open on hover, focus or walking in. The autonomy level shows in the department panel.
+- Office floor, branch `fix/office-floor-flicker`: the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker (a fixed gutter left an unpainted strip). A department's sign shows only its name; its task's tokens open on hover, focus or walking in. The autonomy level shows in the department panel.
 
 ## Not checked yet
 

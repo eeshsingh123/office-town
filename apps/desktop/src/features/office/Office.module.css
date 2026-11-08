@@ -65,9 +65,6 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
-  /* The floor scales to this pane's width. Without a fixed gutter, a vertical scrollbar narrows it,
-     the smaller floor no longer needs the scrollbar, it goes, the floor grows and the loop flickers. */
-  scrollbar-gutter: stable;
   background-color: var(--bg);
   background-image: radial-gradient(var(--border-strong) 1px, transparent 1px);
   background-size: 20px 20px;

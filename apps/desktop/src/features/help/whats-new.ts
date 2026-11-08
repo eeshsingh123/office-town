@@ -28,6 +28,7 @@ export const RELEASES: Release[] = [
     changes: [
       "The office no longer flickers on smaller or zoomed screens when a scrollbar appears",
       "A department's name tag shows just its name. Hover the department or walk into it to see the tokens its task used",
+      "Dragging a side panel's edge to resize it no longer selects the text beside it",
     ],
   },
   {

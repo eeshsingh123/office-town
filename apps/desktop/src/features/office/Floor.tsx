@@ -262,18 +262,33 @@ function seatedOf(
 // Small enough that names still read; below it the floor scrolls.
 const MIN_SCALE = 0.6;
 
-// The floor shrinks to fit its pane's width, never grows past full size.
+// A classic scrollbar's width; 0 where scrollbars float over the content.
+function scrollbarWidth(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:absolute;top:-200px;visibility:hidden;overflow:scroll;width:100px;height:100px";
+  document.body.appendChild(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  return width;
+}
+
+// The floor shrinks to fit its pane's width, never grows past full size. It always leaves room for
+// a scrollbar: fitting to the width left beside one made the scrollbar come and go, so the floor
+// shrank and grew back each frame and flickered.
 function useFitScale(floor: RefObject<HTMLDivElement | null>, width: number) {
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const scroller = floor.current?.parentElement;
     if (scroller === undefined || scroller === null) return;
+    const bar = scrollbarWidth();
     const fit = () => {
-      const ratio = Math.min(1, Math.max(MIN_SCALE, scroller.clientWidth / width));
+      const ratio = Math.min(1, Math.max(MIN_SCALE, (scroller.offsetWidth - bar) / width));
       setScale(Math.floor(ratio * 100) / 100);
     };
     const observer = new ResizeObserver(fit);
-    observer.observe(scroller);
+    // The border box, which a scrollbar coming or going does not change.
+    observer.observe(scroller, { box: "border-box" });
     return () => observer.disconnect();
   }, [floor, width]);
   return scale;

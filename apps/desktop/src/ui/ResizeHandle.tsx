@@ -25,7 +25,11 @@ export function ResizeHandle({
   const direction = edge === "right" ? 1 : -1;
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    // A press that starts a drag here would otherwise select the text beside the handle.
+    event.preventDefault();
+    window.getSelection()?.removeAllRanges();
     const handle = event.currentTarget;
+    handle.focus({ preventScroll: true });
     handle.setPointerCapture(event.pointerId);
     const startX = event.clientX;
     const startWidth = width;

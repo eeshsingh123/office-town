@@ -3,9 +3,12 @@
   top: 0;
   bottom: 0;
   z-index: 5;
-  width: 9px;
+  /* 5px outside the pane's edge and 9px inside, so a press near the edge grabs the handle,
+     not the pane's text. */
+  width: 14px;
   cursor: col-resize;
   touch-action: none;
+  user-select: none;
 }
 
 .right {
@@ -25,6 +28,12 @@
   width: 2px;
   background: transparent;
   transition: background var(--motion);
+}
+
+/* The line stays on the pane's edge. */
+.right::after {
+  right: 4px;
+  left: auto;
 }
 
 .handle:hover::after,
