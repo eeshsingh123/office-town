@@ -119,18 +119,26 @@ async function readAll(
   );
   const reread = await Promise.all([...stale].map(readTask));
   const tasks = [...page.tasks, ...active.tasks, ...reread];
-  // Launch reads the standing team; the rest only as loaded records name them.
+  // Launch reads the standing team; the rest only as loaded records name them. Read again after
+  // a reconnect, the ones already held are read afresh too, as changes may have been missed.
   const standing = new Set(agents.map((agent) => agent.id));
-  const named = [
-    ...agentsOf(tasks),
-    ...outputs.map((output) => output.agentId),
-    ...library.flatMap((item) => item.givenTo.agentIds),
-    ...connectors.flatMap((connector) => connector.audience.agentIds),
-  ].filter((id) => !standing.has(id));
+  const held = new Set(Object.keys(useApp.getState().agents));
+  const named = new Set(
+    [
+      ...held,
+      ...agentsOf(tasks),
+      ...outputs.map((output) => output.agentId),
+      ...library.flatMap((item) => [
+        ...item.givenTo.agentIds,
+        ...(item.addedByAgentId === undefined ? [] : [item.addedByAgentId]),
+      ]),
+      ...connectors.flatMap((connector) => connector.audience.agentIds),
+    ].filter((id) => !standing.has(id)),
+  );
   const [delegations, pieces, more] = await Promise.all([
     readDelegations(tasks),
     readPlans(tasks, settings.chiefAgentId),
-    readAgents(named),
+    fetchAgents([...named]),
   ]);
   useApp.setState((state) => ({
     harnesses,
@@ -140,7 +148,12 @@ async function readAll(
     // Someone who used the app before setup existed has nothing to set up.
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
-    agents: { ...state.agents, ...byId(more), ...byId(agents) },
+    // One removed meanwhile is gone; one that arrived during the read stays.
+    agents: {
+      ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),
+      ...byId(more),
+      ...byId(agents),
+    },
     departments: byId(departments),
     delegations: byId(delegations),
     pieces: byId(pieces),
@@ -191,15 +204,25 @@ async function readTask(taskId: string): Promise<TaskSummary> {
 // So a long list of ids still fits in one address.
 const AGENTS_PER_READ = 100;
 
+async function fetchAgents(ids: readonly string[]): Promise<AgentRecord[]> {
+  const reads: Promise<AgentRecord[]>[] = [];
+  for (let start = 0; start < ids.length; start += AGENTS_PER_READ) {
+    reads.push(api.listAgents(ids.slice(start, start + AGENTS_PER_READ)));
+  }
+  return (await Promise.all(reads)).flat();
+}
+
 // Those named that the app does not know yet, such as one just made or one of an older task.
 async function readAgents(ids: Iterable<string>): Promise<AgentRecord[]> {
   const known = useApp.getState().agents;
-  const missing = [...new Set(ids)].filter((id) => known[id] === undefined);
-  const reads: Promise<AgentRecord[]>[] = [];
-  for (let start = 0; start < missing.length; start += AGENTS_PER_READ) {
-    reads.push(api.listAgents(missing.slice(start, start + AGENTS_PER_READ)));
-  }
-  return (await Promise.all(reads)).flat();
+  return fetchAgents([...new Set(ids)].filter((id) => known[id] === undefined));
+}
+
+// For records the app reads apart from tasks, such as a connector's calls.
+export async function knowAgents(ids: Iterable<string>): Promise<void> {
+  const agents = await readAgents(ids);
+  if (agents.length === 0) return;
+  useApp.setState((state) => ({ agents: { ...state.agents, ...byId(agents) } }));
 }
 
 const agentsOf = (tasks: readonly TaskSummary[]) =>
