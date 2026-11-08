@@ -1,10 +1,10 @@
 import type { DepartmentRecord, PlanPiece } from "@office-town/contract";
 import { CircleCheck, CircleDashed, LoaderCircle, Lock } from "lucide-react";
-import { type ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
+import { useTraces } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { type ActivityGroup, activityOf } from "../../trace/activity.ts";
@@ -257,9 +257,7 @@ export function AgentActivity({ agent }: { agent: Agent }) {
   const traces = useApp(
     useShallow((state) => agent.sessions.flatMap((session) => state.traces[session.id] ?? [])),
   );
-  useEffect(() => {
-    for (const session of agent.sessions) loadTrace(session.id);
-  }, [agent.sessions]);
+  useTraces(agent.sessions.map((session) => session.id));
   const groups = useMemo(() => activityOf(traces, isOpen(agent.latest)), [traces, agent.latest]);
   const planned = traces.some((trace) => trace.plan.length > 0);
   if (groups.length === 0) return <p className={styles.quiet}>Nothing done yet.</p>;

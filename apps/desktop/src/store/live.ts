@@ -8,6 +8,7 @@ import type {
   TaskSearchResult,
   TaskSummary,
 } from "@office-town/contract";
+import { useEffect } from "react";
 import { readCatalog } from "../api/catalogs.ts";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
@@ -18,6 +19,8 @@ import { addTasks, applyToRecords, isOpen, waitingFrom } from "./records.ts";
 
 const RETRY_MS = 2000;
 const FLUSH_FALLBACK_MS = 100;
+// Runs no screen shows that stay in memory once they have ended, so going back is instant.
+const KEPT_ENDED_TRACES = 8;
 
 let queue: StreamedEvent[] = [];
 let changes: Change[] = [];
@@ -29,6 +32,10 @@ let refreshing = 0;
 const loading = new Map<string, StreamedEvent[]>();
 // Applied once its record is known.
 const discovering = new Map<string, StreamedEvent[]>();
+// How many screens show each session's trace.
+const watched = new Map<string, number>();
+// Oldest first.
+let unwatched: string[] = [];
 // Replays run one at a time: the browser allows only six connections to the core (D-32).
 let replays = Promise.resolve();
 
@@ -254,6 +261,51 @@ function discover(sessionId: string, streamed?: StreamedEvent): void {
     })
     .catch((error: unknown) => console.error(`Could not load session ${sessionId}.`, error))
     .finally(() => discovering.delete(sessionId));
+}
+
+// Loads the traces while a screen shows them; ended ones it no longer shows are dropped in time.
+export function useTraces(sessionIds: readonly string[]): void {
+  const key = sessionIds.join();
+  useEffect(() => {
+    const ids = key === "" ? [] : key.split(",");
+    for (const id of ids) {
+      watched.set(id, (watched.get(id) ?? 0) + 1);
+      unwatched = unwatched.filter((known) => known !== id);
+      loadTrace(id);
+    }
+    return () => {
+      for (const id of ids) {
+        const left = (watched.get(id) ?? 1) - 1;
+        if (left > 0) watched.set(id, left);
+        else {
+          watched.delete(id);
+          unwatched.push(id);
+        }
+      }
+      dropEndedTraces();
+    };
+  }, [key]);
+}
+
+// Live ones stay: their events keep arriving. So do ended ones left most recently.
+function dropEndedTraces(): void {
+  const { traces, sessions } = useApp.getState();
+  const recent = new Set(unwatched.slice(-KEPT_ENDED_TRACES));
+  const drop = Object.keys(traces).filter((id) => {
+    const session = sessions[id];
+    return !watched.has(id) && !recent.has(id) && (session === undefined || !isOpen(session));
+  });
+  if (drop.length === 0) return;
+  unwatched = unwatched.filter((id) => !drop.includes(id));
+  useApp.setState((state) => {
+    const traces = { ...state.traces };
+    const traceErrors = { ...state.traceErrors };
+    for (const id of drop) {
+      delete traces[id];
+      delete traceErrors[id];
+    }
+    return { traces, traceErrors };
+  });
 }
 
 export function loadTrace(sessionId: string): void {

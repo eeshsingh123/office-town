@@ -1,7 +1,7 @@
 import { ArrowUpRight, Check, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
+import { useTraces } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
@@ -69,9 +69,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
     Object.values(app.waiting).find(({ event }) => event.sessionId === latest.id),
   );
   // Every session of its task, for its tokens; the latest also for its step.
-  useEffect(() => {
-    for (const session of agent.sessions) loadTrace(session.id);
-  }, [agent.sessions]);
+  useTraces(agent.sessions.map((session) => session.id));
   const facts = useRunFacts(agent);
   const results = useResults(agent.taskId).filter((output) => output.agentId === agent.id);
   const progress = trace === undefined ? undefined : progressOf(trace);

@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
+import { useTraces } from "../../store/live.ts";
 import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
@@ -152,15 +152,12 @@ function layOut(layout: Layout) {
   // Each department's current or last goal, and what each member used on it once its traces are in.
   const goals = new Map(departments.map((one) => [one.id, goalOf(one, state)]));
   const memberTokens = new Map<string, number>();
-  // Sessions whose traces the token counts still wait for.
-  const unloaded: string[] = [];
   for (const goal of goals.values()) {
     const people = usageByPerson(goal.sessions, traces);
-    if (people === undefined) {
-      unloaded.push(...goal.sessions.flatMap((one) => (traces[one.id] ? [] : one.id)));
-    }
     for (const person of people ?? []) memberTokens.set(person.agentId, person.tokens);
   }
+  // The token counts need every one of their traces.
+  const goalSessions = [...goals.values()].flatMap((goal) => goal.sessions.map((one) => one.id));
 
   const floorAgents = present.map((agent): FloorAgent => {
     const roomId = roomOf(agent, byId, chiefId);
@@ -220,7 +217,7 @@ function layOut(layout: Layout) {
         : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),
     };
   }
-  return { plan, floorAgents, signs, unloaded, assistants: solo.length };
+  return { plan, floorAgents, signs, goalSessions, assistants: solo.length };
 }
 
 // The home screen (D-35).
@@ -246,7 +243,7 @@ export function OfficeView() {
       Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
-  const { plan, floorAgents, signs, unloaded, assistants } = useMemo(() => {
+  const { plan, floorAgents, signs, goalSessions, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
     return layOut({
@@ -271,9 +268,7 @@ export function OfficeView() {
     chiefId,
     positions,
   ]);
-  useEffect(() => {
-    for (const sessionId of unloaded) loadTrace(sessionId);
-  }, [unloaded]);
+  useTraces(goalSessions);
   const { links, goalId, doors } = useCommandFloor(departments);
 
   // Back from another screen, the room left open opens again.
