@@ -24,7 +24,7 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    date: "2026-11-09",
+    date: "2026-11-08",
     title: "Long task histories",
     icon: Search,
     changes: [
@@ -221,9 +221,21 @@ export const RELEASES: Release[] = [
   },
 ];
 
-export const LATEST = RELEASES[0]?.date ?? "";
+// Several releases can share a day, so one is told apart by its title too.
+export const releaseKey = ({ date, title }: Release) => `${date} ${title}`;
 
-// What came out since the user last looked; at most the newest few.
+const newest = RELEASES[0];
+export const LATEST = newest === undefined ? "" : releaseKey(newest);
+
+// What came out since the user last looked; at most the newest few. A mark saved by an older
+// version holds only a date, so that day's releases show again once.
 export function unseen(seen: string | undefined): Release[] {
-  return RELEASES.filter((release) => seen === undefined || release.date > seen).slice(0, 2);
+  const at = RELEASES.findIndex((release) => releaseKey(release) === seen);
+  const fresh =
+    seen === undefined
+      ? RELEASES
+      : at >= 0
+        ? RELEASES.slice(0, at)
+        : RELEASES.filter((release) => release.date >= seen.slice(0, 10));
+  return fresh.slice(0, 2);
 }
