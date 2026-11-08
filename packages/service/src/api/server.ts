@@ -12,7 +12,7 @@ import type { TeamContext } from "../team/members.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
-import { HarnessStatuses, reportFailedCheck } from "./harness-statuses.ts";
+import { HarnessStatuses } from "./harness-statuses.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
@@ -25,6 +25,8 @@ export interface ApiOptions {
   outputs: OutputServices;
   // API prices for the usage estimate; without them no estimate is given.
   prices?: PriceList;
+  // The providers' last status; without it the first ask reads them.
+  statuses?: HarnessStatuses;
   // Names each task the user starts, beside it; without it the prompt names every task.
   nameTask?: NameTask;
   // Anything on this machine can reach the port, but not the token.
@@ -114,9 +116,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
-  const statuses = new HarnessStatuses(store);
-  // Ready before a page asks; the reads take their turn with the app's other CLI queries (D-92).
-  statuses.check().catch(reportFailedCheck);
+  const statuses = options.statuses ?? new HarnessStatuses(store);
   const routes = apiRoutes(
     team,
     connectors,

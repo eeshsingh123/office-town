@@ -3,7 +3,6 @@ import {
   defaultAccountId,
   type EnvironmentSpec,
   type HarnessStatus,
-  type HarnessStatusReply,
 } from "@office-town/contract";
 import { listHarnesses, readHarnessStatus } from "@office-town/harness";
 import { rememberedSignIns } from "../accounts/accounts.ts";
@@ -38,6 +37,7 @@ export class HarnessStatuses {
   readonly #listeners = new Set<StatusListener>();
   #last: HarnessStatus[] | undefined;
   #reading: Promise<HarnessStatus[]> | undefined;
+  #stopped = false;
 
   constructor(store: Store) {
     this.#store = store;
@@ -49,6 +49,8 @@ export class HarnessStatuses {
       listHarnesses().map(({ harness }) => readHarnessStatus(harness, NATIVE)),
     )
       .then((statuses) => {
+        // Queries refused while the core stops read as not installed, and the store is closed.
+        if (this.#stopped) return statuses;
         this.#last = statuses;
         const change: Change = { type: "harnesses", statuses: this.#shown(statuses) };
         for (const listener of this.#listeners) listener(change);
@@ -60,19 +62,23 @@ export class HarnessStatuses {
     return this.#reading;
   }
 
-  // The first ask, and one that wants a fresh answer, wait for the read.
-  async read({ fresh }: { fresh: boolean }): Promise<HarnessStatusReply> {
+  // The first ask waits for the read. A fresh ask waits for one that starts after it, as a read
+  // already running may have begun before an install ended.
+  async read({ fresh }: { fresh: boolean }): Promise<HarnessStatus[]> {
+    if (fresh) await this.#reading?.catch(() => undefined);
     const reading = this.check();
-    if (fresh || this.#last === undefined) {
-      return { statuses: this.#shown(await reading), checking: false };
-    }
+    if (fresh || this.#last === undefined) return this.#shown(await reading);
     reading.catch(reportFailedCheck);
-    return { statuses: this.#shown(this.#last), checking: true };
+    return this.#shown(this.#last);
   }
 
   subscribe(listener: StatusListener): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
+  }
+
+  stop(): void {
+    this.#stopped = true;
   }
 
   #shown(statuses: HarnessStatus[]): HarnessStatus[] {

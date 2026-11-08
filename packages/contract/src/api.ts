@@ -200,14 +200,6 @@ export const harnessStatusSchema = z.object({
 });
 export type HarnessStatus = z.infer<typeof harnessStatusSchema>;
 
-// The last statuses the core read, at once; while `checking`, fresh ones follow as a `harnesses`
-// change (D-93).
-export const harnessStatusReplySchema = z.object({
-  statuses: z.array(harnessStatusSchema),
-  checking: z.boolean(),
-});
-export type HarnessStatusReply = z.infer<typeof harnessStatusReplySchema>;
-
 // A vendor installer the app is running or ran from setup (D-75).
 export const harnessInstallSchema = z.object({
   state: z.enum(["running", "done", "failed"]),

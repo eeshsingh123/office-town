@@ -38,6 +38,7 @@ export {
   type RunningInstall,
   startHarnessInstall,
 } from "./install.ts";
+export { stopQueries } from "./query.ts";
 export {
   type CoreReport,
   type HarnessLine,

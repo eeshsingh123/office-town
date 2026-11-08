@@ -65,7 +65,7 @@ export function checkHarnesses({ now = false } = {}): Promise<void> {
   if (!now && Date.now() - checkedAt < CHECK_GAP_MS) return Promise.resolve();
   checking = api
     .readHarnessStatus(now)
-    .then(({ statuses }) => useApp.setState({ harnessStatuses: byHarness(statuses) }))
+    .then((statuses) => useApp.setState({ harnessStatuses: byHarness(statuses) }))
     .finally(() => {
       checking = undefined;
       checkedAt = Date.now();
