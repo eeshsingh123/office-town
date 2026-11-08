@@ -180,7 +180,9 @@ async function shutdown(): Promise<void> {
     store.close();
   }
 }
-for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, shutdown);
+process.on("SIGTERM", shutdown);
+// Ctrl+C in a Windows console reaches the core as well; a core with a parent stops when it says so.
+process.on("SIGINT", values["stop-when-stdin-closes"] ? () => undefined : shutdown);
 // Windows cannot send a child SIGTERM, and a closed pipe also stops the core when the app crashes.
 if (values["stop-when-stdin-closes"]) {
   process.stdin.on("close", shutdown);
