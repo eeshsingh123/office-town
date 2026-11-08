@@ -490,6 +490,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Kept for the session (owner): Tasks and Needs you (filters, folds, ticked requests, scroll), the searches and scroll on Connectors, Workspaces and Team, a team task's shown member, and an output's spots, size and version. Spots belong to the version and file they were marked on and go with a reload. Setup is a draft, so it survives a restart (owner).
 - Every hand-written storage copy moved onto it, on the same keys, so nothing saved is lost; plain-text values from older versions read as text. Bypass is still dropped on every read of the New task choices, not only the first.
 
+### D-91 A long history stays complete and light — accepted (2026-11-08)
+
+- The core searches every task (`GET /tasks/search`, `store/task-search.ts`): text, team, workspace, start time and tab, a page newest first, counts per tab, and the teams and workspaces any task has. Tasks and Ctrl+K use it, so nothing depends on how many tasks were loaded.
+- Each task's status has one owner. A task with an open session or a pause is live: the app always holds it and works out its status from the run, so it counts it. The core counts the rest, whose status follows from records alone with the Tasks page's rule. Both use the same `live` test, so a task is never counted twice. The core's text match covers title, prompt, team, agents and workspace; "Assistants" and the live step line match only on tasks the app holds.
+- A run opens on its latest 60 blocks; "Show earlier" draws 100 more, and an agent's earlier sessions load only once shown (`AgentTrace`). Screens say which traces they show (`useTraces`); an ended one none shows is dropped once 8 more recent ones have been left. Live traces stay.
+- Launch reads the standing team (`GET /agents`: department members and the chief) and the agents that loaded tasks, outputs and audiences name, by id in batches of 100 (`GET /agents?ids=`). A pinned agent of a task not loaded stays hidden, as its card already needed that task.
+
 ## Done
 
 All accepted and built.

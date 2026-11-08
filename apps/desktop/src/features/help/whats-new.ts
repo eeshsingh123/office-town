@@ -11,6 +11,7 @@ import {
   PackageCheck,
   Paperclip,
   Plug,
+  Search,
 } from "lucide-react";
 
 export interface Release {
@@ -22,6 +23,18 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-09",
+    title: "Long task histories",
+    icon: Search,
+    changes: [
+      "Search, filters and counts on Tasks now cover every task you have, so an old task shows up without clicking Show older tasks first",
+      "Ctrl+K searches all your tasks once you type, not only the recent ones",
+      "A long run opens on its latest steps. Show earlier, at the top, brings back the rest",
+      "The app keeps fewer finished runs in memory, so it stays quick as you open more tasks",
+      "The app starts faster when you have run many tasks",
+    ],
+  },
   {
     date: "2026-11-08",
     title: "Back where you left off",
