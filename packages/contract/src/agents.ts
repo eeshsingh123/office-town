@@ -84,6 +84,10 @@ export const profileRecordSchema = profileRequestSchema.extend({
 });
 export type ProfileRecord = z.infer<typeof profileRecordSchema>;
 
+// How many agents were made from each template, by its id; guests called in once do not count.
+export const profileUsesSchema = z.record(z.string().min(1), z.number().int().positive());
+export type ProfileUses = z.infer<typeof profileUsesSchema>;
+
 // From a template, or from settings of its own; a filled-in template keeps its id to count its uses.
 // The settings variant comes first, so a filled-in template keeps its settings.
 export const newAgentSchema = z.union([

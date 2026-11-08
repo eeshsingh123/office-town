@@ -322,6 +322,9 @@ export const queries = {
   profileById: `SELECT ${PROFILE_COLUMNS} FROM profiles WHERE id = ?`,
   // Reads the whole table on purpose: one row per profile the user saved.
   allProfiles: `SELECT ${PROFILE_COLUMNS} FROM profiles ORDER BY name`,
+  profileUses: `
+    SELECT p.id, count(*) AS uses FROM agents a JOIN profiles p ON p.ref = a.profile_ref
+    WHERE a.guest = 0 GROUP BY p.id`,
   updateProfile: "UPDATE profiles SET name = ?, role = ?, colour = ?, settings = ? WHERE ref = ?",
   deleteProfile: "DELETE FROM profiles WHERE ref = ?",
 

@@ -81,10 +81,12 @@ import {
   type PreviewReply,
   type ProfileRecord,
   type ProfileRequest,
+  type ProfileUses,
   pendingRequestListSchema,
   planPieceSchema,
   previewReplySchema,
   profileRecordSchema,
+  profileUsesSchema,
   type RoomPosition,
   type SessionPage,
   type SessionRecord,
@@ -366,6 +368,7 @@ export const api = {
     write("PUT", `/agents/${id(agentId)}`, profile, agentRecordSchema),
   saveYou: (you: UserProfile): Promise<UserProfile> => write("PUT", "/you", you, userProfileSchema),
   listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
+  countProfileUses: (): Promise<ProfileUses> => read("/profiles/uses", profileUsesSchema),
   createProfile: (profile: ProfileRequest): Promise<ProfileRecord> =>
     write("POST", "/profiles", profile, profileRecordSchema),
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>

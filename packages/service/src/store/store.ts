@@ -30,6 +30,7 @@ import type {
   PlanPiece,
   ProfileRecord,
   ProfileRequest,
+  ProfileUses,
   SessionEvent,
   SessionOptions,
   SessionPage,
@@ -362,6 +363,7 @@ export interface Store {
   createProfile(profile: ProfileRequest): ProfileRecord;
   getProfile(id: string): ProfileRecord | undefined;
   listProfiles(): ProfileRecord[];
+  countProfileUses(): ProfileUses;
   updateProfile(id: string, profile: ProfileRequest): ProfileRecord;
   // Agents made from it keep the settings it had when they were made.
   deleteProfile(id: string): void;

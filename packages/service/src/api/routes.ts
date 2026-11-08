@@ -560,6 +560,11 @@ export function apiRoutes(
       reply: () => ({ status: 200, json: store.listProfiles() }),
     },
     {
+      method: "GET",
+      path: "/profiles/uses",
+      reply: () => ({ status: 200, json: store.countProfileUses() }),
+    },
+    {
       method: "PUT",
       path: "/profiles/:id",
       reply: async ({ param, body }) => ({

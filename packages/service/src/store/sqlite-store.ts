@@ -37,6 +37,7 @@ import {
   type PlanPiece,
   type ProfileRecord,
   type ProfileRequest,
+  type ProfileUses,
   type SessionEvent,
   type SessionOptions,
   type SessionPage,
@@ -1598,6 +1599,11 @@ class SqliteStore implements Store {
     const row = this.#profileRow(id);
     this.#statements.updateProfile.run(name, role, colour, JSON.stringify(settings), row.ref);
     return { ...toProfile(row), name, role, colour, settings };
+  }
+
+  countProfileUses(): ProfileUses {
+    const rows = all<{ id: string; uses: number }>(this.#statements.profileUses);
+    return Object.fromEntries(rows.map(({ id, uses }) => [id, uses]));
   }
 
   deleteProfile(id: string): void {
