@@ -81,38 +81,58 @@ function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }
 const FIRST_BLOCKS = 60;
 const MORE_BLOCKS = 100;
 
-// An agent's sessions in a task, oldest first. Older ones load only once shown.
-export function AgentTrace({ sessions }: { sessions: readonly SessionRecord[] }) {
-  const [limit, setLimit] = useState(FIRST_BLOCKS);
-  const traces = useApp(useShallow((state) => sessions.map((session) => state.traces[session.id])));
-  const shown: { session: SessionRecord; index: number; skip: number }[] = [];
-  let left = limit;
-  for (let index = sessions.length - 1; index >= 0 && left > 0; index -= 1) {
-    const session = sessions[index];
-    if (session === undefined) continue;
-    const trace = traces[index];
-    // Until it loads, its length is unknown, so nothing older shows yet.
-    const count = trace === undefined ? left : toBlocks(trace).length;
-    shown.unshift({ session, index, skip: Math.max(0, count - left) });
-    left -= count;
+// Where the drawn part of a run starts: a session, and how many of its first blocks are left out.
+interface Start {
+  index: number;
+  skip: number;
+}
+
+// Steps back `count` blocks from `from`, or from the end. A trace not in yet stops it: that
+// session shows whole while it loads, and the start is not settled.
+function stepBack(
+  lengths: readonly (number | undefined)[],
+  from: Start | undefined,
+  count: number,
+): { start: Start; settled: boolean } {
+  let index = from?.index ?? lengths.length - 1;
+  let before = from === undefined ? lengths[index] : from.skip;
+  let left = count;
+  while (before !== undefined) {
+    if (before >= left) return { start: { index, skip: before - left }, settled: true };
+    left -= before;
+    if (index === 0) return { start: { index, skip: 0 }, settled: true };
+    index -= 1;
+    before = lengths[index];
   }
-  const first = shown[0];
-  const earlier = first !== undefined && (first.index > 0 || first.skip > 0);
+  return { start: { index, skip: 0 }, settled: false };
+}
+
+// An agent's sessions in a task, oldest first, drawn from its latest work on.
+export function AgentTrace({ sessions }: { sessions: readonly SessionRecord[] }) {
+  // Fixed once the latest work is in, so new steps of a live run never push the top away.
+  const [anchor, setAnchor] = useState<Start>();
+  const [extra, setExtra] = useState(0);
+  const traces = useApp(useShallow((state) => sessions.map((session) => state.traces[session.id])));
+  const lengths = traces.map((trace) => (trace === undefined ? undefined : toBlocks(trace).length));
+  const latest = stepBack(lengths, undefined, FIRST_BLOCKS);
+  if (anchor === undefined && latest.settled) setAnchor(latest.start);
+  const { start } = anchor === undefined ? latest : stepBack(lengths, anchor, extra);
+  const earlier = anchor !== undefined && (start.index > 0 || start.skip > 0);
   return (
     <>
       {earlier ? (
         <div className={styles.earlier}>
-          <Button variant="ghost" onClick={() => setLimit(limit + MORE_BLOCKS)}>
+          <Button variant="ghost" onClick={() => setExtra(extra + MORE_BLOCKS)}>
             Show earlier
           </Button>
         </div>
       ) : null}
-      {shown.map(({ session, index, skip }) => (
+      {sessions.slice(start.index).map((session, offset) => (
         <Fragment key={session.id}>
-          {index === 0 ? null : (
+          {start.index + offset === 0 ? null : (
             <div className={task.divider}>Continued at {clockTime(session.createdAt)}</div>
           )}
-          <SessionTrace session={session} skip={skip} />
+          <SessionTrace session={session} skip={offset === 0 ? start.skip : 0} />
         </Fragment>
       ))}
     </>
