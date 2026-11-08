@@ -26,6 +26,14 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-09",
+    title: "Providers at once",
+    icon: Plug,
+    changes: [
+      "Providers, setup and the provider list in New task show your providers at once, and update by themselves when a fresh check ends",
+    ],
+  },
+  {
+    date: "2026-11-09",
     title: "Quicker start",
     icon: Gauge,
     changes: [
