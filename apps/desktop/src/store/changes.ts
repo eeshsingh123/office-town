@@ -1,6 +1,9 @@
-import type { Change } from "@office-town/contract";
+import type { Change, HarnessStatus } from "@office-town/contract";
 import type { AppState } from "./app-store.ts";
 import { removeTask } from "./records.ts";
+
+export const byHarness = (statuses: readonly HarnessStatus[]) =>
+  Object.fromEntries(statuses.map((status) => [status.harness, status]));
 
 export function withoutTask(state: AppState, taskId: string): AppState {
   const sessionIds = new Set(state.tasks[taskId]?.sessionIds);
@@ -51,6 +54,8 @@ function applyChange(state: AppState, change: Change): AppState {
     }
     case "check":
       return { ...state, checks: { ...state.checks, [change.check.id]: change.check } };
+    case "harnesses":
+      return { ...state, harnessStatuses: byHarness(change.statuses) };
     case "limits":
       return { ...state, limits: { ...state.limits, [change.limits.accountId]: change.limits } };
     case "piece":

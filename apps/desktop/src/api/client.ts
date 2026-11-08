@@ -60,9 +60,11 @@ import {
   type HarnessDescription,
   type HarnessInstall,
   type HarnessStatus,
+  type HarnessStatusReply,
   harnessCatalogSchema,
   harnessDescriptionSchema,
   harnessInstallSchema,
+  harnessStatusReplySchema,
   harnessStatusSchema,
   type LibraryItem,
   type LibraryItemChange,
@@ -345,8 +347,9 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
-  readHarnessStatus: (): Promise<HarnessStatus[]> =>
-    read("/harnesses/status", listOf(harnessStatusSchema)),
+  // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).
+  readHarnessStatus: (fresh: boolean): Promise<HarnessStatusReply> =>
+    read(`/harnesses/status${fresh ? "?fresh=true" : ""}`, harnessStatusReplySchema),
   readHarnessStatusIn: (harness: string, environment: EnvironmentSpec): Promise<HarnessStatus> =>
     read(`/harnesses/${id(harness)}/status?${environmentQuery(environment)}`, harnessStatusSchema),
   saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>

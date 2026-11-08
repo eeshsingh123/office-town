@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { api } from "../../api/client.ts";
 import { loadLastKnown, saveLastKnown } from "../../api/last-known.ts";
 import { useApp } from "../../store/app-store.ts";
+import { byHarness } from "../../store/changes.ts";
 import { offeredHarnesses } from "./offered.ts";
 
 // Each logo is named by its harness; OpenCode has none, so it gets its first letter.
@@ -41,24 +42,30 @@ const lastReady = loadLastKnown(READY_NAME, (stored) =>
   Array.isArray(stored) ? stored.map(String) : undefined,
 );
 
+// Saved for the next launch, whether a check or the event stream brought them.
+useApp.subscribe((state, before) => {
+  const statuses = state.harnessStatuses;
+  if (statuses === undefined || statuses === before.harnessStatuses) return;
+  const ready = Object.values(statuses).filter((status) => isReady(status));
+  saveLastKnown(
+    READY_NAME,
+    ready.map((status) => status.harness),
+  );
+});
+
 // Each check starts every CLI, so one soon after the last is skipped.
 const CHECK_GAP_MS = 5000;
 let checking: Promise<void> | undefined;
 let checkedAt = 0;
 
+// `now` is the user asking again, so it waits for every CLI; any other check shows the core's last
+// result and the fresh one follows on the event stream (D-93).
 export function checkHarnesses({ now = false } = {}): Promise<void> {
   if (checking !== undefined) return checking;
   if (!now && Date.now() - checkedAt < CHECK_GAP_MS) return Promise.resolve();
   checking = api
-    .readHarnessStatus()
-    .then((statuses) => {
-      const byHarness = Object.fromEntries(statuses.map((status) => [status.harness, status]));
-      useApp.setState({ harnessStatuses: byHarness });
-      saveLastKnown(
-        READY_NAME,
-        statuses.filter((status) => isReady(status)).map((status) => status.harness),
-      );
-    })
+    .readHarnessStatus(now)
+    .then(({ statuses }) => useApp.setState({ harnessStatuses: byHarness(statuses) }))
     .finally(() => {
       checking = undefined;
       checkedAt = Date.now();
