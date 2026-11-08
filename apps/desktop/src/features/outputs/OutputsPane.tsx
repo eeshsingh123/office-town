@@ -2,6 +2,7 @@ import type { AgentRecord, ChangedFile, OutputRecord, SpottedSite } from "@offic
 import { ChevronDown, Globe } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { forSession, useKept } from "../../store/kept.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { ago } from "../../ui/format.ts";
@@ -33,7 +34,10 @@ export function OutputsPane({
 }) {
   const { results, outputs, failed, read } = useTaskOutputs(taskId);
   const agents = useApp((state) => state.agents);
-  const [picked, setPicked] = useState<Shown>();
+  // A file or site picked here; a result picked is in the view.
+  const [picked, setPicked] = useKept(
+    forSession<Shown | undefined>(`outputs.${taskId}.picked`, undefined),
+  );
   const [foldedByUser, setFoldedByUser] = useState<boolean>();
   const [changedShown, setChangedShown] = useState(CHANGED_PAGE);
   const roots = outputs?.roots ?? [];
@@ -183,6 +187,7 @@ export function OutputsPane({
         <Viewer
           key={currentKey}
           taskId={taskId}
+          keepAs={`outputs.${taskId}.${currentKey}`}
           shown={current}
           roots={roots}
           running={

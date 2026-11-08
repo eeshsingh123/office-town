@@ -28,6 +28,7 @@ import { api, fileAddress } from "../../api/client.ts";
 import { type Area, shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
+import { forSession, readKept, useKept, writeKept } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
@@ -87,6 +88,7 @@ function agentIdOf(shown: Shown): string {
 
 export function Viewer({
   taskId,
+  keepAs,
   shown,
   roots,
   running,
@@ -96,6 +98,8 @@ export function Viewer({
   onRestarted,
 }: {
   taskId: string;
+  // Names what this viewer keeps for the session, so leaving the task and coming back finds it.
+  keepAs: string;
   shown: Shown;
   roots: readonly string[];
   // A site that answered on the last read.
@@ -112,7 +116,9 @@ export function Viewer({
   const versions = output?.versions ?? [];
   const latest = versions.at(-1)?.number;
   // Follows each new version the agent shows, unless an older one was picked.
-  const [picked, setPicked] = useState<number>();
+  const [picked, setPicked] = useKept(
+    forSession<number | undefined>(`${keepAs}.version`, undefined),
+  );
   const version = picked ?? latest;
   const query: OutputFileQuery | undefined =
     target.kind === "site"
@@ -120,19 +126,26 @@ export function Viewer({
       : output !== undefined && version !== undefined && version !== latest
         ? { outputId: output.id, version }
         : { path: target.path };
-  const [size, setSize] = useState<Size>("desktop");
+  const [size, setSize] = useKept(forSession<Size>(`${keepAs}.size`, "desktop"));
   const [full, setFull] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>();
-  const [spots, setSpots] = useState<Spot[]>([]);
   const [marking, setMarking] = useState(false);
   const [reloads, setReloads] = useState(0);
   // A new version or a reload reads the file again; spots marked on the old one no longer fit.
   const changedAt = shown.kind === "file" ? shown.file.at : output?.updatedAt;
-  const stamp = `${version}:${changedAt}:${reloads}`;
+  const markedOn = `${version}:${changedAt}`;
+  const marks = forSession<{ on: string; spots: Spot[] }>(`${keepAs}.spots`, { on: "", spots: [] });
+  const [kept] = useKept(marks);
+  const spots = kept.on === markedOn ? kept.spots : [];
+  // Read when called, as a spot's picture lands after the spot.
+  const setSpots = (change: (all: Spot[]) => Spot[]) => {
+    const now = readKept(marks);
+    writeKept(marks, { on: markedOn, spots: change(now.on === markedOn ? now.spots : []) });
+  };
+  const stamp = `${markedOn}:${reloads}`;
   const [stampSeen, setStampSeen] = useState(stamp);
   if (stampSeen !== stamp) {
     setStampSeen(stamp);
-    setSpots([]);
     setMarking(false);
   }
   const deleted = shown.kind === "file" && shown.file.deleted;
@@ -209,7 +222,7 @@ export function Viewer({
             aria-pressed={size === value}
             onClick={() => {
               setSize(value);
-              setSpots([]);
+              setSpots(() => []);
             }}
           >
             <Icon size={14} aria-hidden />
@@ -257,7 +270,10 @@ export function Viewer({
               className={styles.iconButton}
               aria-label="Reload"
               title="Reload"
-              onClick={() => setReloads(reloads + 1)}
+              onClick={() => {
+                setReloads(reloads + 1);
+                setSpots(() => []);
+              }}
             >
               <RotateCw size={16} aria-hidden />
             </button>
@@ -358,7 +374,7 @@ export function Viewer({
           marking={marking}
           onMark={() => setMarking(!marking)}
           onRemoveSpot={(number) => setSpots((all) => all.filter((one) => one.number !== number))}
-          onSent={() => setSpots([])}
+          onSent={() => setSpots(() => [])}
         />
       )}
     </section>
