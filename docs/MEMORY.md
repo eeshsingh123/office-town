@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-05
+Last updated: 2026-11-08
 
 ## State
 
@@ -22,7 +22,8 @@ Last updated: 2026-11-05
 - Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
 - Office chat task headers (D-88), merged as PR #76: earlier tasks fold, the open header stays in view, the message box names its task.
 - Right-click menus (D-89), merged as PR #77: the shell's text menu, and app menus on agents, departments, tasks, messages and files built from one action list per object.
-- Plain copy, branch `fix/plain-copy`: one name per thing (task for a department, goal for the chief; part; Idle; Provider (never "AI app" or "Tool"); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
+- Plain copy, merged as PR #78: one name per thing (task for a department, goal for the chief; part; Idle; Provider (never "AI app" or "Tool"); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
+- Office revamp, branch `fix/office-floor-flicker` (PR #79): the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open while the room is open or the user stands in it (no hover). A click inside a room opens it (a department, the open floor, the chief's office); only a click outside every room clears the panel. The player and the open room live in the office store, so another screen and back keeps them (memory only). The open floor is a room (`OPEN_FLOOR`) with two desks and a panel that starts a task for an assistant. The autonomy level shows in the department panel.
 
 ## Not checked yet
 

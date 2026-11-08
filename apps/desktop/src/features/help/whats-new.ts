@@ -22,6 +22,21 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-08",
+    title: "Calmer office",
+    icon: LayoutGrid,
+    changes: [
+      "The office no longer flickers on smaller or zoomed screens when a scrollbar appears",
+      "A department's name tag shows just its name. Open the department or walk into it to see the tokens its task used",
+      "Clicking anywhere inside a department opens it and keeps it open. Clicking outside the rooms keeps the department you stand in open. Only the department you are in is outlined",
+      "Press Enter with a department open to chat with its lead",
+      "Leaving the office and coming back keeps where you stood and the room you had open",
+      "The open floor has two desks. Click it to start a task for an assistant",
+      "Walking no longer jumps back a little when you start",
+      "Dragging a side panel's edge to resize it no longer selects the text beside it",
+    ],
+  },
+  {
     date: "2026-11-05",
     title: "Plainer words",
     icon: CircleHelp,

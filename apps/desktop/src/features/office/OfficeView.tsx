@@ -7,7 +7,6 @@ import { loadTrace } from "../../store/live.ts";
 import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskName } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
@@ -24,12 +23,20 @@ import {
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
-import { openChat, type PanelKind, setPanelOpen, useOffice } from "./office-state.ts";
+import {
+  OPEN_FLOOR,
+  openChat,
+  type PanelKind,
+  rememberRoom,
+  reopenRoom,
+  setPanelOpen,
+  useOffice,
+} from "./office-state.ts";
 import { TopBar } from "./TopBar.tsx";
 import { CHIEF_ROOM, useCommandFloor } from "./use-command-floor.ts";
 
 const BUBBLE_LENGTH = 42;
-const OPEN = "open";
+const OPEN = OPEN_FLOOR;
 const GUESTS = "guest";
 
 // What it asks, or what it does now. Others stay quiet.
@@ -136,7 +143,8 @@ function layOut(layout: Layout) {
     ...(departments.length > 0 || chiefId !== undefined
       ? []
       : [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const]),
-    { id: OPEN, kind: "open", desks: Math.max(3, solo.length + 1) },
+    // Two desks, more only while more assistants work alone.
+    { id: OPEN, kind: "open", desks: Math.max(2, solo.length) },
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];
   const plan = floorPlan(specs, layout.positions);
@@ -203,7 +211,6 @@ function layOut(layout: Layout) {
       .filter((one) => one.tokens > 0);
     signs[department.id] = {
       title: department.name,
-      note: AUTONOMY[department.autonomy].short,
       lines:
         task === undefined
           ? ["No goal in progress"]
@@ -213,7 +220,7 @@ function layOut(layout: Layout) {
         : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),
     };
   }
-  return { plan, floorAgents, signs, unloaded };
+  return { plan, floorAgents, signs, unloaded, assistants: solo.length };
 }
 
 // The home screen (D-35).
@@ -239,7 +246,7 @@ export function OfficeView() {
       Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
-  const { plan, floorAgents, signs, unloaded } = useMemo(() => {
+  const { plan, floorAgents, signs, unloaded, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
     return layOut({
@@ -269,8 +276,17 @@ export function OfficeView() {
   }, [unloaded]);
   const { links, goalId, doors } = useCommandFloor(departments);
 
+  // Back from another screen, the room left open opens again.
+  useEffect(() => {
+    reopenRoom((id) => id === OPEN || useApp.getState().departments[id] !== undefined);
+  }, []);
+  useEffect(() => {
+    if (useApp.getState().view.name === "office") rememberRoom(room);
+  }, [room]);
+
   const chosen = floorAgents.filter(({ agent }) => selection.includes(agent.id));
   const openRoom = room === undefined ? undefined : departmentRecords[room];
+  const openFloor = room === OPEN;
   const onSelect = (agentIds: string[]) => {
     if (agentIds.length === 0 && room !== undefined) navigate({ name: "office" });
     select(agentIds);
@@ -287,7 +303,7 @@ export function OfficeView() {
 
   return (
     <section aria-label="Office" className={styles.office}>
-      <OpenOnSelect selection={selection} room={openRoom?.id} />
+      <OpenOnSelect selection={selection} room={openFloor ? OPEN : openRoom?.id} />
       <TopBar />
       {mode === "board" ? (
         <BoardView />
@@ -304,7 +320,7 @@ export function OfficeView() {
                 linksGoal={goalId}
                 chief={chiefId === undefined ? undefined : records[chiefId]}
                 selection={selection}
-                room={chosen.length === 0 ? openRoom?.id : undefined}
+                room={chosen.length === 0 ? (openFloor ? OPEN : openRoom?.id) : undefined}
                 onSelect={onSelect}
                 onOpenRoom={onOpenRoom}
                 onOpenChat={onOpenChat}
@@ -316,6 +332,8 @@ export function OfficeView() {
             selection={selection}
             chosen={chosen}
             room={openRoom}
+            openFloor={openFloor}
+            assistants={assistants}
             floorCount={floorAgents.length}
           />
         </div>

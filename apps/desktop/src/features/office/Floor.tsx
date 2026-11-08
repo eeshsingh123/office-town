@@ -43,7 +43,7 @@ import {
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
-import type { PanelKind } from "./office-state.ts";
+import { OPEN_FLOOR, type PanelKind, setPlayer, useOffice } from "./office-state.ts";
 import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
 import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
 import { keysOwnedAt, typingIn } from "./waiting-keys.ts";
@@ -66,7 +66,8 @@ const TOKENS_ABOVE = 52;
 
 export interface RoomSign {
   title: string;
-  note: string;
+  // Only the open floor and the review desk say what they hold; a department's name is enough.
+  note?: string;
   lines: string[];
   // What the room's current or last goal used, in all and per AI app.
   usage?: { apps: { name: string; tokens: number }[]; total: number };
@@ -133,12 +134,17 @@ const LEGEND: [LinkState, string][] = [
   ["failed", "Failed"],
 ];
 
+// The rooms that open in the side panel: a department's and the open floor.
+const opens = (room: Room | undefined) =>
+  room?.kind === "department" || room?.kind === "open" ? room.id : undefined;
+
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Walks once per frame until every key is released.
 function useWalking(plan: FloorPlan, scale: number) {
-  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they load.
-  const [walked, setWalked] = useState<Point>();
+  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they
+  // load. Kept outside the floor, so another screen and back finds the player where it was.
+  const walked = useOffice((state) => state.player);
   const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
   const frame = useRef<number | undefined>(undefined);
@@ -146,7 +152,8 @@ function useWalking(plan: FloorPlan, scale: number) {
 
   const tick = useCallback(
     (time: number) => {
-      const seconds = Math.min(0.05, (time - last.current) / 1000);
+      // A frame's time can come before the key press that asked for it; never step backwards.
+      const seconds = Math.min(0.05, Math.max(0, (time - last.current) / 1000));
       last.current = time;
       let x = 0;
       let y = 0;
@@ -160,7 +167,7 @@ function useWalking(plan: FloorPlan, scale: number) {
         return;
       }
       const step = (SPEED / scale) * seconds;
-      setWalked((at = plan.start) =>
+      setPlayer((at = plan.start) =>
         clampToFloor({ x: at.x + (x / length) * step, y: at.y + (y / length) * step }, plan),
       );
       frame.current = requestAnimationFrame(tick);
@@ -261,18 +268,33 @@ function seatedOf(
 // Small enough that names still read; below it the floor scrolls.
 const MIN_SCALE = 0.6;
 
-// The floor shrinks to fit its pane's width, never grows past full size.
+// A classic scrollbar's width; 0 where scrollbars float over the content.
+function scrollbarWidth(): number {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:absolute;top:-200px;visibility:hidden;overflow:scroll;width:100px;height:100px";
+  document.body.appendChild(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  return width;
+}
+
+// The floor shrinks to fit its pane's width, never grows past full size. It always leaves room for
+// a scrollbar: fitting to the width left beside one made the scrollbar come and go, so the floor
+// shrank and grew back each frame and flickered.
 function useFitScale(floor: RefObject<HTMLDivElement | null>, width: number) {
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const scroller = floor.current?.parentElement;
     if (scroller === undefined || scroller === null) return;
+    const bar = scrollbarWidth();
     const fit = () => {
-      const ratio = Math.min(1, Math.max(MIN_SCALE, scroller.clientWidth / width));
+      const ratio = Math.min(1, Math.max(MIN_SCALE, (scroller.offsetWidth - bar) / width));
       setScale(Math.floor(ratio * 100) / 100);
     };
     const observer = new ResizeObserver(fit);
-    observer.observe(scroller);
+    // The border box, which a scrollbar coming or going does not change.
+    observer.observe(scroller, { box: "border-box" });
     return () => observer.disconnect();
   }, [floor, width]);
   return scale;
@@ -350,8 +372,10 @@ export function Floor(props: FloorProps) {
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
-  // Walking into a room opens its panel; walking out closes it if it is still the one open.
-  const inside = useRef<string | undefined>(undefined);
+  // The room the user stands in. Walking into a room opens its panel; walking out closes it if it
+  // is still the one open. Set from where the player stands, so coming back reopens nothing.
+  const standing = roomAt(player, plan)?.id;
+  const inside = useRef(opens(roomAt(player, plan)));
 
   const focus = useApp((state) => state.focus);
   // The agent's oldest waiting request, from any of its sessions, as `waitingOrder` finds it.
@@ -373,8 +397,7 @@ export function Floor(props: FloorProps) {
   useEffect(() => {
     if (player === plan.start) return;
     you.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    const standingIn = roomAt(player, plan);
-    const entered = standingIn?.kind === "department" ? standingIn.id : undefined;
+    const entered = opens(roomAt(player, plan));
     if (entered !== undefined && entered !== inside.current) onOpenRoom(entered);
     else if (entered === undefined && inside.current !== undefined && room === inside.current)
       onSelect([]);
@@ -407,6 +430,15 @@ export function Floor(props: FloorProps) {
     } else if (key === "Enter" && event.target === event.currentTarget && selection.length === 1) {
       const [only = ""] = selection;
       onOpenChat(only, only === chief?.id ? "chief" : "agent");
+    } else if (
+      key === "Enter" &&
+      event.target === event.currentTarget &&
+      selection.length === 0 &&
+      room !== undefined &&
+      room !== OPEN_FLOOR
+    ) {
+      // With a department open and no one picked, its chat with the lead.
+      onOpenChat(room, "department");
     } else if (key === "Escape") {
       onSelect([]);
       focusAgent(undefined);
@@ -429,7 +461,22 @@ export function Floor(props: FloorProps) {
     const box = rectFrom(drag.from, drag.to);
     setDrag(undefined);
     const dragged = box.width > DRAG_THRESHOLD || box.height > DRAG_THRESHOLD;
-    onSelect(dragged ? inRect(box, seated).map(({ id }) => id) : []);
+    if (dragged) onSelect(inRect(box, seated).map(({ id }) => id));
+    else onClickAt(drag.from);
+  };
+
+  // A click inside a room opens it, as its sign does, and leaves an open room as it is. A click
+  // outside every room, or on the review desk, goes back to the room the user stands in, and
+  // clears the panel only when the user stands in none.
+  const onClickAt = (at: Point) => {
+    const hit = rooms.find((one) => contains(one.rect, at));
+    if (hit?.kind === "chief" && chief !== undefined) {
+      onSelect([chief.id]);
+      return;
+    }
+    const opened = opens(hit) ?? opens(roomAt(player, plan));
+    if (opened === undefined) onSelect([]);
+    else if (opened !== room) onOpenRoom(opened);
   };
 
   const signLabel = (id: string, kind: Room["kind"]) => {
@@ -447,7 +494,8 @@ export function Floor(props: FloorProps) {
     return (
       <>
         {sign.title}
-        <span>{sign.note}</span>
+        {sign.note === undefined ? null : <span>{sign.note}</span>}
+        {sign.usage === undefined ? null : <SignUsage usage={sign.usage} />}
         <DoorChips chips={chips} />
       </>
     );
@@ -462,7 +510,7 @@ export function Floor(props: FloorProps) {
       style={{ width: plan.width, height: plan.height, zoom: scale }}
       role="application"
       aria-roledescription="office floor"
-      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
+      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Enter opens the chat of the agent or department picked. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the floor takes the walking keys
       tabIndex={0}
       onKeyDown={onKeyDown}
@@ -509,6 +557,7 @@ export function Floor(props: FloorProps) {
           kind === "guest" ? styles.guestRoom : "",
           kind === "chief" ? styles.chiefRoom : "",
           open ? styles.roomOpen : "",
+          standing === id ? styles.roomHere : "",
           lifted ? styles.roomLifted : "",
         ];
         const roomBox = (
@@ -545,18 +594,6 @@ export function Floor(props: FloorProps) {
                 {sign.lines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
-                {sign.usage === undefined ? null : (
-                  <ul className={styles.roomUsage} aria-label="Tokens on this task">
-                    <li className={styles.usageTotal}>
-                      <strong>{compactCount(sign.usage.total)}</strong> tokens
-                    </li>
-                    {sign.usage.apps.map((app) => (
-                      <li key={app.name} className={styles.usageApp}>
-                        {app.name} <strong>{compactCount(app.tokens)}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             )}
           </div>
@@ -748,6 +785,22 @@ export function Floor(props: FloorProps) {
         />
       )}
     </div>
+  );
+}
+
+// Folded into the sign; it opens while the room is open or the user stands in it.
+function SignUsage({ usage }: { usage: NonNullable<RoomSign["usage"]> }) {
+  return (
+    <span className={styles.signUsage}>
+      <span className={styles.signUsageInner}>
+        <strong>{compactCount(usage.total)}</strong> tokens
+        {usage.apps.map((app) => (
+          <span key={app.name} className={styles.signUsageApp}>
+            {app.name} <strong>{compactCount(app.tokens)}</strong>
+          </span>
+        ))}
+      </span>
+    </span>
   );
 }
 

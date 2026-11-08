@@ -118,10 +118,6 @@
   background: var(--accent-soft);
 }
 
-.floor:focus-visible .room {
-  border-color: var(--accent);
-}
-
 .roomOpen {
   border-color: var(--accent);
 }
@@ -137,6 +133,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* One line; in a narrow room the opened usage runs past the room's edge rather than being cut. */
+  width: max-content;
   padding: 3px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
@@ -308,6 +306,14 @@
   cursor: default;
 }
 
+/* Keyboard focus on the floor rings the player, not every room: only the open room is outlined. */
+.floor:focus-visible .you {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent),
+    0 2px 6px rgb(0 0 0 / 18%);
+}
+
 .youNamed {
   padding: 0;
   background: none;
@@ -385,6 +391,17 @@
 
 .empty {
   margin: 0;
+  color: var(--text-2);
+}
+
+.openPicture {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--hover);
   color: var(--text-2);
 }
 
@@ -652,37 +669,40 @@
 }
 
 /* A goal's tokens, in all and per AI app, under the room's goal line. */
-.roomUsage {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
+.signUsage {
+  display: inline-grid;
+  flex: none;
+  grid-template-columns: 0fr;
+  margin-left: -8px;
+  transition:
+    grid-template-columns var(--motion),
+    margin-left var(--motion);
 }
 
-.roomUsage li {
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  line-height: 18px;
+.sign .signUsage,
+.sign .signUsageApp {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.signUsageInner {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
 }
 
-.roomUsage strong {
+.signUsage strong {
   font-weight: 700;
-}
-
-/* The total reads first: solid, in the action colour. */
-.usageTotal {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.usageApp {
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
   color: var(--text);
+}
+
+/* Open only while the room is open or the user stands in it, so hovering and clicking never flicker it. */
+.roomOpen .signUsage,
+.roomHere .signUsage {
+  grid-template-columns: 1fr;
+  margin-left: 0;
 }
 
 /* What a member used on its department's goal, above its head. */
