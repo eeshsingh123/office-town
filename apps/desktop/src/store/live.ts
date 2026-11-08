@@ -79,6 +79,15 @@ async function refresh(first: boolean, openStream?: (after: number) => void): Pr
   }
 }
 
+// Listing models runs each provider's CLI, which takes seconds the first time; doing it at launch
+// means no model picker or tutorial waits for it later. One at a time: each read holds one of the
+// six connections the window keeps to the core, and the core runs two CLIs at once anyway (D-92).
+async function warmCatalogs(harnesses: readonly string[]): Promise<void> {
+  for (const harness of harnesses) {
+    await readCatalog(harness, { kind: "native" }).catch(() => {});
+  }
+}
+
 async function readAll(
   first: boolean,
   openStream: ((after: number) => void) | undefined,
@@ -165,13 +174,7 @@ async function readAll(
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
   }));
-  // Listing models runs each AI app's CLI, which takes seconds the first time; doing it now
-  // means no model picker or tutorial waits for it later.
-  if (first) {
-    for (const { harness } of harnesses) {
-      readCatalog(harness, { kind: "native" }).catch(() => {});
-    }
-  }
+  if (first) void warmCatalogs(harnesses.map(({ harness }) => harness));
   for (const { event } of waiting.requests) {
     if (useApp.getState().sessions[event.sessionId] === undefined) discover(event.sessionId);
   }
