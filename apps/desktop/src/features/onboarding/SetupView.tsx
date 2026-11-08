@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
+import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { loadWorkspaces, useWorkspaces } from "../../store/workspaces.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -33,12 +34,16 @@ type Where = "scratch" | "folder";
 
 const STEPS = ["Welcome", "Provider", "Your work", "Ready"];
 
-function finish(purpose: Purpose | undefined) {
-  return saveOnboarding({
+// Where the user is in setup outlives a restart, as signing in to a provider can need one.
+const DRAFT = "setup";
+
+async function finish(purpose: Purpose | undefined) {
+  await saveOnboarding({
     setupDone: true,
     ...(purpose === undefined ? {} : { purpose }),
     whatsNewSeen: LATEST,
   });
+  clearDrafts(DRAFT);
 }
 
 function Welcome(props: { purpose: Purpose | undefined; onPurpose: (purpose: Purpose) => void }) {
@@ -262,11 +267,11 @@ function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void })
 export function SetupView() {
   const you = useYou();
   useWorkspaces();
-  const [step, setStep] = useState(0);
-  const [purpose, setPurpose] = useState<Purpose>();
+  const [step, setStep] = useDraft(`${DRAFT}.step`, 0);
+  const [purpose, setPurpose] = useDraft<Purpose | undefined>(`${DRAFT}.purpose`, undefined);
   const harnesses = useApp((state) => state.harnesses);
   const statuses = useHarnessStatuses();
-  const [work, setWork] = useState<Omit<YourWorkProps, "onChange">>({
+  const [work, setWork] = useDraft<Omit<YourWorkProps, "onChange">>(`${DRAFT}.work`, {
     where: "scratch",
     folder: "",
     name: you.name,

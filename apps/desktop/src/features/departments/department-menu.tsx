@@ -5,7 +5,7 @@ import { confirmed, type MenuAction, type MenuContent, MenuHeader } from "../../
 import { Avatar } from "../../ui/Avatar.tsx";
 import { taskName } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
-import { pin, unpin, usePins } from "../office/pins.ts";
+import { pin, pinnedNow, unpin } from "../office/pins.ts";
 import { stopTeamAsk } from "../task/stop-asks.ts";
 
 // Read when the menu opens; Stop team asks first, as on the department's panel.
@@ -15,7 +15,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
   if (department === undefined) return undefined;
   const members = Object.values(agents).filter((agent) => agent.departmentId === departmentId);
   const ids = members.map((agent) => agent.id);
-  const pinned = usePins.getState().pinned;
+  const pinned = pinnedNow();
   const allPinned = ids.length > 0 && ids.every((id) => pinned.includes(id));
   const latest = Object.values(tasks)
     .map((entry) => entry.task)

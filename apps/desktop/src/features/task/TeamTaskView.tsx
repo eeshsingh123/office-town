@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
+import { forSession, useKept } from "../../store/kept.ts";
 import { teamAtWork } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -121,7 +122,10 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
     [agents, tasks, sessions, taskId],
   );
   const lead = members.find((member) => member.id === task?.leadAgentId) ?? members[0];
-  const [chosenId, setChosenId] = useState<string>();
+  // Which member's work is shown, so leaving the task and coming back shows the same one.
+  const [chosenId, setChosenId] = useKept(
+    forSession<string | undefined>(`team-task.${taskId}.member`, undefined),
+  );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;

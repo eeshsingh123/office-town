@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useLevel, useSessionAgent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { forSession, type Keep, oneOf, useKept, useKeptScroll } from "../../store/kept.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -36,7 +37,6 @@ import {
 const PAGE = 25;
 const GROUP_PAGE = 10;
 const HOUR = 3_600_000;
-const GROUP_BY_KEY = "office-town.needs-you.group-by";
 
 const GROUP_BY: { value: GroupBy; label: string }[] = [
   { value: "task", label: "Task" },
@@ -53,15 +53,21 @@ const TYPES: { value: TypeFilter; label: string }[] = [
   { value: "approval", label: "Approvals" },
 ];
 
-// Storage can be blocked; grouping by task is the default (D-57).
-function savedGroupBy(): GroupBy {
-  try {
-    const saved = localStorage.getItem(GROUP_BY_KEY);
-    return GROUP_BY.find((choice) => choice.value === saved)?.value ?? "task";
-  } catch {
-    return "task";
-  }
-}
+// Grouping by task is the default (D-57).
+const GROUPED_BY: Keep<GroupBy> = {
+  name: "needs-you.group-by",
+  lasts: "saved",
+  start: "task",
+  parse: oneOf(GROUP_BY.map((choice) => choice.value)),
+};
+const NONE: ReadonlySet<string> = new Set();
+const FILTERS = forSession("needs-you.filters", NO_FILTERS);
+const OLDER_THAN_HOUR = forSession("needs-you.older-than-hour", false);
+const FOLDED = forSession("needs-you.folded", NONE);
+const SHOWN = forSession<Record<string, number>>("needs-you.shown", {});
+const GROUPS_SHOWN = forSession("needs-you.groups-shown", GROUP_PAGE);
+const OPEN_KEY = forSession<string | undefined>("needs-you.open", undefined);
+const PICKED = forSession("needs-you.picked", NONE);
 
 function useNow(): number {
   const [now, setNow] = useState(Date.now);
@@ -251,14 +257,15 @@ export function NeedsYouView() {
   const workspaces = useWorkspaces();
   const now = useNow();
 
-  const [by, setBy] = useState<GroupBy>(savedGroupBy);
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [olderThanHour, setOlderThanHour] = useState(false);
-  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
-  const [shown, setShown] = useState<Record<string, number>>({});
-  const [groupsShown, setGroupsShown] = useState(GROUP_PAGE);
-  const [openKey, setOpenKey] = useState<string>();
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [by, setBy] = useKept(GROUPED_BY);
+  const [filters, setFilters] = useKept(FILTERS);
+  const [olderThanHour, setOlderThanHour] = useKept(OLDER_THAN_HOUR);
+  const [folded, setFolded] = useKept(FOLDED);
+  const [shown, setShown] = useKept(SHOWN);
+  const [groupsShown, setGroupsShown] = useKept(GROUPS_SHOWN);
+  const [openKey, setOpenKey] = useKept(OPEN_KEY);
+  const [picked, setPicked] = useKept(PICKED);
+  const scroll = useKeptScroll("needs-you");
   const [bulk, setBulk] = useState<BulkAnswer>();
   const [notice, setNotice] = useState<string>();
 
@@ -312,11 +319,6 @@ export function NeedsYouView() {
     setFolded(new Set());
     setShown({});
     setGroupsShown(GROUP_PAGE);
-    try {
-      localStorage.setItem(GROUP_BY_KEY, value);
-    } catch (error) {
-      console.warn("Could not save the grouping.", error);
-    }
   };
   const clearFilters = () => {
     setFilters(NO_FILTERS);
@@ -340,7 +342,12 @@ export function NeedsYouView() {
   };
 
   return (
-    <section className={`${page.page} ${styles.page}`} aria-labelledby="needs-you-title">
+    <section
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={`${page.page} ${styles.page}`}
+      aria-labelledby="needs-you-title"
+    >
       <div className={styles.column}>
         <header className={page.header}>
           <h1 id="needs-you-title" className={page.title}>

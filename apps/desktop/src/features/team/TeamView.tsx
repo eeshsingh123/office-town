@@ -1,8 +1,8 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { ChevronDown, Lock, Network, Plus, Search, UserPlus } from "lucide-react";
-import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
+import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
@@ -292,6 +292,8 @@ function Starter() {
   );
 }
 
+const QUERY = forSession("team.query", "");
+
 // Everyone who works for the user, as one vertical tree: you, the chief, each department and
 // its people.
 export function TeamView() {
@@ -299,7 +301,8 @@ export function TeamView() {
   const agents = useApp((state) => state.agents);
   const hasChief = useApp((state) => state.chiefId !== undefined);
   const you = useYou();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useKept(QUERY);
+  const scroll = useKeptScroll("team");
   const needle = query.trim().toLowerCase();
   const all = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
   const { folded, toggle } = useTeamFolds(all.length);
@@ -322,7 +325,12 @@ export function TeamView() {
   const empty = all.length === 0;
 
   return (
-    <section className={page.page} aria-labelledby="team-title">
+    <section
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={page.page}
+      aria-labelledby="team-title"
+    >
       <div className={styles.column}>
         <header className={styles.head}>
           <div className={page.header}>

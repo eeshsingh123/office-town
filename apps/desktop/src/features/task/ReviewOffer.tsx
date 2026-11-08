@@ -6,6 +6,7 @@ import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { OPEN_CHECK, useChecks } from "../../store/checks.ts";
+import { type Keep, readKept, useKept, writeKept } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import checks from "../checks/Checks.module.css";
@@ -13,23 +14,12 @@ import { ReviewResults } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import styles from "./ReviewOffer.module.css";
 
-const DECLINED = "office-town.review-declined";
-const FIXES_SENT = "office-town.check-fixes-sent";
+const idList = (name: string): Keep<string[]> => ({ name, lasts: "saved", start: [] });
+const DECLINED = idList("review-declined");
+const FIXES_SENT = idList("check-fixes-sent");
 
-function remembered(key: string): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]") as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function remember(key: string, id: string) {
-  try {
-    localStorage.setItem(key, JSON.stringify([...remembered(key), id]));
-  } catch {
-    // Without storage the card simply asks again next time.
-  }
+function remember(keep: Keep<string[]>, id: string) {
+  writeKept(keep, [...readKept(keep), id]);
 }
 
 interface ReviewOfferProps {
@@ -124,7 +114,7 @@ function Results({
   onShow?: ((agentId: string) => void) | undefined;
 }) {
   const checker = useApp((state) => state.agents[check.checkerAgentId]);
-  const [sent, setSent] = useState(() => remembered(FIXES_SENT).has(check.id));
+  const sent = useKept(FIXES_SENT)[0].includes(check.id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const results = new Map(check.results?.map((result) => [result.id, result]));
@@ -151,7 +141,6 @@ function Results({
     act(async () => {
       await api.messageAgent(check.ownerAgentId, fixMessage(check), check.taskId);
       remember(FIXES_SENT, check.id);
-      setSent(true);
     });
 
   const summary =
@@ -237,7 +226,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
   const agents = useApp((state) => state.agents);
   const waiting = useWaitingSessions();
   const all = useChecks(agent.taskId);
-  const [declined, setDeclined] = useState(() => remembered(DECLINED).has(agent.taskId));
+  const declined = useKept(DECLINED)[0].includes(agent.taskId);
   const states = new Map(
     members.map((member) => [member.id, stateOf(member, traces, waiting.has(member.latest.id))]),
   );
@@ -313,13 +302,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
             See the files
           </Button>
         )}
-        <Button
-          variant="ghost"
-          onClick={() => {
-            remember(DECLINED, agent.taskId);
-            setDeclined(true);
-          }}
-        >
+        <Button variant="ghost" onClick={() => remember(DECLINED, agent.taskId)}>
           No thanks
         </Button>
       </div>

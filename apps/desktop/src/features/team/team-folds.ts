@@ -1,31 +1,14 @@
-import { useState } from "react";
+import { type Keep, useKept } from "../../store/kept.ts";
 
-const KEY = "office-town.team-folds";
 // Past this many departments, ones the user never opened start folded.
 const FOLD_PAST = 4;
 
-// Storage can be cleared or blocked; every department then starts at its default.
-function saved(): Record<string, boolean> {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(KEY) ?? "{}");
-    return typeof value === "object" && value !== null ? (value as Record<string, boolean>) : {};
-  } catch {
-    return {};
-  }
-}
-
 // Which departments on the Team page are folded to their header, remembered across launches.
+const FOLDS: Keep<Record<string, boolean>> = { name: "team-folds", lasts: "saved", start: {} };
+
 export function useTeamFolds(count: number) {
-  const [folds, setFolds] = useState(saved);
+  const [folds, setFolds] = useKept(FOLDS);
   const folded = (id: string) => folds[id] ?? count > FOLD_PAST;
-  const toggle = (id: string) => {
-    const next = { ...folds, [id]: !folded(id) };
-    setFolds(next);
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch (error) {
-      console.warn("Could not remember the folded departments.", error);
-    }
-  };
+  const toggle = (id: string) => setFolds({ ...folds, [id]: !folded(id) });
   return { folded, toggle };
 }

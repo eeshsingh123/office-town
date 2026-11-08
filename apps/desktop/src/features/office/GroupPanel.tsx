@@ -12,7 +12,7 @@ import { AgentCard, STATE_ORDER, toReview } from "./AgentCard.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import { GroupTaskDialog } from "./GroupTaskDialog.tsx";
 import styles from "./Office.module.css";
-import { pin, unpin, usePins } from "./pins.ts";
+import { pin, unpin, usePinned } from "./pins.ts";
 
 const AT_WORK: AgentState[] = ["working", "starting", "waiting"];
 
@@ -47,7 +47,7 @@ export function GroupPanel({ members }: { members: FloorAgent[] }) {
   const [error, setError] = useState<string>();
   const [giving, setGiving] = useState(false);
   const chiefId = useApp((state) => state.chiefId);
-  const pinned = usePins((state) => state.pinned);
+  const pinned = usePinned();
   const ids = members.map(({ agent }) => agent.id);
   const allPinned = ids.every((id) => pinned.includes(id));
   const atWork = members.filter(

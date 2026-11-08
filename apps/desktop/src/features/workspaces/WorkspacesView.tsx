@@ -3,6 +3,7 @@ import { MoreHorizontal, Plus, Search, TriangleAlert } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import {
   mainPath,
   removeWorkspace,
@@ -154,12 +155,16 @@ function Card({
   );
 }
 
+const QUERY = forSession("workspaces.query", "");
+const FILTER = forSession<Filter>("workspaces.filter", "all");
+
 export function WorkspacesView() {
   const workspaces = useWorkspaces();
   const usage = useWorkspaceUsage();
   const working = useWorkingNow();
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useKept(QUERY);
+  const [filter, setFilter] = useKept(FILTER);
+  const scroll = useKeptScroll("workspaces");
   const [editing, setEditing] = useState<{ workspace?: WorkspaceRecord; key: number }>();
   const all = workspaces ?? [];
   const words = query.trim().toLowerCase();
@@ -179,7 +184,12 @@ export function WorkspacesView() {
     setEditing({ ...(workspace === undefined ? {} : { workspace }), key: (editing?.key ?? 0) + 1 });
 
   return (
-    <section className={page.page} aria-labelledby="workspaces-title">
+    <section
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={page.page}
+      aria-labelledby="workspaces-title"
+    >
       <div className={styles.page}>
         <header className={styles.head}>
           <div className={page.header}>

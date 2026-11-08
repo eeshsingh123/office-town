@@ -1,28 +1,24 @@
 import { useSyncExternalStore } from "react";
 import { shell } from "../shell.ts";
+import { type Keep, readKept, writeKept } from "../store/kept.ts";
 
 export type Theme = "light" | "dark";
 
-const KEY = "office-town.theme";
+// Unset follows the system.
+const CHOSEN: Keep<Theme | undefined> = {
+  name: "theme",
+  lasts: "saved",
+  start: undefined,
+  parse: (saved) => (saved === "light" || saved === "dark" ? saved : undefined),
+};
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
 const listeners = new Set<() => void>();
 
-// Storage can be cleared or blocked; the app then follows the system.
-function saved(): Theme | undefined {
-  try {
-    const value = localStorage.getItem(KEY);
-    return value === "light" || value === "dark" ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-let chosen = saved();
-
-const current = (): Theme => chosen ?? (systemDark.matches ? "dark" : "light");
+const current = (): Theme => readKept(CHOSEN) ?? (systemDark.matches ? "dark" : "light");
 
 // The tokens switch on `color-scheme` (tokens.css); the shell matches the window frame.
 export function applyTheme() {
+  const chosen = readKept(CHOSEN);
   document.documentElement.style.colorScheme = chosen ?? "";
   shell?.setTheme(chosen ?? "system").catch((error: unknown) => {
     console.warn("Could not match the window frame to the theme.", error);
@@ -30,12 +26,7 @@ export function applyTheme() {
 }
 
 export function toggleTheme() {
-  chosen = current() === "dark" ? "light" : "dark";
-  try {
-    localStorage.setItem(KEY, chosen);
-  } catch (error) {
-    console.warn("Could not remember the theme.", error);
-  }
+  writeKept(CHOSEN, current() === "dark" ? "light" : "dark");
   applyTheme();
   for (const listener of listeners) listener();
 }

@@ -1,12 +1,10 @@
-import { create } from "zustand";
-import { savedFlag, saveFlag } from "../../ui/pane.ts";
+import { readKept, useKept, writeKept } from "../../store/kept.ts";
+import { paneFlag } from "../../ui/pane.ts";
 
-const KEY = "sidebar-collapsed";
+const COLLAPSED = paneFlag("sidebar-collapsed");
 
-export const useSidebar = create<{ collapsed: boolean }>(() => ({ collapsed: savedFlag(KEY) }));
+export const useSidebarCollapsed = () => useKept(COLLAPSED)[0];
 
 export function toggleSidebar(): void {
-  const collapsed = !useSidebar.getState().collapsed;
-  useSidebar.setState({ collapsed });
-  saveFlag(KEY, collapsed);
+  writeKept(COLLAPSED, !readKept(COLLAPSED));
 }

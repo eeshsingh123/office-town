@@ -1,4 +1,5 @@
-import { type CSSProperties, type ReactNode, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { useKept } from "../store/kept.ts";
 import { Button } from "./Button.tsx";
 import styles from "./Guide.module.css";
 
@@ -50,26 +51,8 @@ export function Guide({ id, title, intro, steps, onHide, children }: GuideProps)
   );
 }
 
-// Remembered in the browser; a convenience only.
-export function useGuideHidden(key: string): [boolean, (hidden: boolean) => void] {
-  const storageKey = `office-town.${key}.guide-hidden`;
-  const [hidden, setHidden] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) === "true";
-    } catch {
-      return false;
-    }
-  });
-  const remember = (next: boolean) => {
-    setHidden(next);
-    try {
-      localStorage.setItem(storageKey, String(next));
-    } catch {
-      // Remembering this is a convenience only.
-    }
-  };
-  return [hidden, remember];
-}
+export const useGuideHidden = (key: string) =>
+  useKept<boolean>({ name: `${key}.guide-hidden`, lasts: "saved", start: false });
 
 export const guideParts = {
   row: styles.miniRow,
