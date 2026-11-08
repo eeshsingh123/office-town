@@ -2,6 +2,7 @@ import {
   Bot,
   CircleHelp,
   Eye,
+  History,
   LayoutGrid,
   LifeBuoy,
   ListChecks,
@@ -21,6 +22,18 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-08",
+    title: "Back where you left off",
+    icon: History,
+    changes: [
+      "Going back to Tasks or Needs you finds your filters, folded groups, ticked requests and place in the list as you left them, until you restart the app",
+      "Searches on Connectors, Workspaces and the Team page stay when you come back to them",
+      "A team task shows the member you were looking at when you come back to it",
+      "Spots you marked on a page in Outputs, its screen size and the version you picked stay when you leave the task",
+      "First-run setup picks up at the step you left, even after a restart",
+    ],
+  },
   {
     date: "2026-11-08",
     title: "Calmer office",

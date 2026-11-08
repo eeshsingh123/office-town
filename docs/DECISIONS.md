@@ -428,7 +428,7 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Bypass never comes back from a draft without its warning: it reads as Ask me first, or the department's own level.
 - A draft from before its form changed is dropped by `fits`, so it cannot break the form. Its shape lists required fields only, as an optional one is often missing.
 - Throwing a draft away is always offered (owner): Start over and Discard, confirmed, on screens; Cancel in a dialog, where Esc or a click outside keeps it. One new department at a time, which every New department button resumes. Something handed over wins: a prompt or target fills the task box, and a new description goes into the existing department draft as a change.
-- A drafter run outlives its screen and shows as running on return; going back never runs a handed-over description again. Not kept: pasted keys (never written to disk), so a connector's test goes too; searches; account sign-in, which is tied to a live login; spots marked on an output; setup and renaming an agent inline.
+- A drafter run outlives its screen and shows as running on return; going back never runs a handed-over description again. Not kept: pasted keys (never written to disk), so a connector's test goes too; account sign-in, which is tied to a live login; renaming an agent inline. Setup is a draft too (`setup`), cleared when it finishes; searches and marked spots are kept for the session (D-90).
 
 ### D-82 Scratch is the fallback, and the level shows once — accepted (2026-11-02)
 
@@ -482,6 +482,13 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Agents, departments, tasks, messages and files get the app's own menu (`ui/ActionMenu.tsx`), on Radix ContextMenu. It only repeats actions that already exist on that thing, plus copying. Each object's actions are written once (`agentMenu`, `departmentMenu`, `taskMenu`, `fileMenu`, `MessageMenu`) and the same list draws its "…" button; a menu is built on the click, not per row. Owner: a name row on agent and department menus, icons in right-click menus only (the "…" menus stay text), Copy message copies Markdown, Stop always asks (Stop team's dialog, shared), only agents are pinned. UI only, no contract change. Mockup: https://claude.ai/artifact/J9qdwoMZfnCER1bMzesvfh.
 - A message's menu covers the whole message, so the shell's menu never shows there; it adds Copy link and Copy selection itself, from what was under the pointer. Owner: every Stop asks first, menus and buttons alike (`ConfirmButton` in `ui/ConfirmDialog.tsx`, the words once in `task/stop-asks.ts`).
 - A menu and the dialog it opens are drawn outside their area, yet React passes their clicks and keys up through it. An area with its own pointer or key handlers (the office floor) ignores events that did not happen inside it.
+
+### D-90 Where the user was outlives the screen — accepted (2026-11-08)
+
+- One module for what a screen keeps (`store/kept.ts`): a `Keep` names the value, its start and how long it lasts; `useKept` is a drop-in for `useState`, `readKept` and `writeKept` serve stores outside React. A new kept value is one `Keep`, with no change to the module.
+- Two lifetimes. `session` is where the user was (filters, folds, searches, scroll, the member shown, marked spots), in memory, so Back finds it and a restart starts clean, as the Office and Back already do. `saved` is a preference, in the browser's storage through `api/last-known.ts`, the one place that touches it; a value from an older version that does not fit is dropped (`parse`, or the fields of `start`). Typed text stays a draft (D-81), whose scopes and 30-day expiry `Keep` does not need.
+- Kept for the session (owner): Tasks and Needs you (filters, folds, ticked requests, scroll), the searches and scroll on Connectors, Workspaces and Team, a team task's shown member, and an output's spots, size and version. Spots belong to the version and file they were marked on and go with a reload. Setup is a draft, so it survives a restart (owner).
+- Every hand-written storage copy moved onto it, on the same keys, so nothing saved is lost; plain-text values from older versions read as text. Bypass is still dropped on every read of the New task choices, not only the first.
 
 ## Done
 
