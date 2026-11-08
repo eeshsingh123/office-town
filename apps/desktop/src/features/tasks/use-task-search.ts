@@ -1,18 +1,21 @@
-import type { TaskSearch, TaskTab } from "@office-town/contract";
+import type { TaskSearch, TaskSearchResult, TaskTab } from "@office-town/contract";
 import { useEffect, useRef, useState } from "react";
 import { searchTasks } from "../../store/live.ts";
+import type { TaskEntry } from "../../store/records.ts";
 import type { Filters, Started } from "./task-list.ts";
 
 const PAGE = 50;
-// The most the core sends at once; reading a list again keeps this many of it.
+// The most the core sends at once.
 const MOST = 200;
 const TYPING_MS = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // What the core found among tasks the app does not follow live.
 export interface Found {
-  ids: ReadonlySet<string>;
+  // When older matches wait behind "Show older tasks", when the oldest shown one started.
+  oldest: string | undefined;
   next: string | undefined;
+  shown: number;
   counts: Record<TaskTab, number>;
   teams: ReadonlySet<string>;
   workspaceIds: ReadonlySet<string>;
@@ -45,14 +48,77 @@ function useTyped(text: string): string {
 }
 
 /**
- * Search, filters and counts cover every task the core holds, not only those loaded. `changed`
- * moves whenever a task the core counts may have changed, so the list is read again.
+ * Counts what may change the core's answer: a held task's status fields, one going live or quiet,
+ * one deleted, or a new one. Older tasks only added to the app, as a search does, change nothing.
  */
-export function useTaskSearch(filters: Filters, changed: string, now: number) {
+export function useTaskMoves(tasks: Record<string, TaskEntry>, live: ReadonlySet<string>): number {
+  const before = useRef<Map<string, string>>(undefined);
+  const [moves, setMoves] = useState(0);
+  useEffect(() => {
+    const now = new Map(
+      Object.values(tasks).map(({ task }) => [
+        task.id,
+        live.has(task.id) ? "live" : `${task.state}:${task.reviewedAt}:${task.title}`,
+      ]),
+    );
+    const known = before.current;
+    before.current = now;
+    if (known === undefined) return;
+    const newest = Object.values(tasks).reduce(
+      (latest, { task }) =>
+        known.has(task.id) && task.createdAt > latest ? task.createdAt : latest,
+      "",
+    );
+    const moved =
+      [...known].some(([id, signature]) => now.get(id) !== signature) ||
+      Object.values(tasks).some(({ task }) => !known.has(task.id) && task.createdAt > newest);
+    if (moved) setMoves((count) => count + 1);
+  }, [tasks, live]);
+  return moves;
+}
+
+// Reads from the newest down to `count` matches, a page at a time.
+async function readDown(search: Partial<TaskSearch>, count: number): Promise<TaskSearchResult> {
+  let result = await searchTasks({ ...search, limit: Math.min(MOST, count) });
+  let { tasks } = result;
+  while (tasks.length < count && result.next !== undefined) {
+    const limit = Math.min(MOST, count - tasks.length);
+    result = await searchTasks({ ...search, limit, cursor: result.next });
+    tasks = [...tasks, ...result.tasks];
+  }
+  return { ...result, tasks };
+}
+
+function toFound(result: TaskSearchResult, shown: number, oldest: string | undefined): Found {
+  return {
+    oldest: result.next === undefined ? undefined : oldest,
+    next: result.next,
+    shown,
+    counts: result.counts,
+    teams: new Set(result.teams),
+    workspaceIds: new Set(result.workspaceIds),
+  };
+}
+
+/**
+ * Search, filters and counts cover every task the core holds, not only those loaded. `teams` are
+ * the names the page shows for each team, so typing "Assistants" finds their older tasks too.
+ */
+export function useTaskSearch(
+  filters: Filters,
+  teams: readonly { key: string; name: string }[],
+  moves: number,
+  now: number,
+) {
   const text = useTyped(filters.query);
+  const needle = text.trim().toLowerCase();
   const midnight = new Date(now).setHours(0, 0, 0, 0);
   const search: Partial<TaskSearch> = {
     text,
+    textTeams:
+      needle === ""
+        ? []
+        : teams.filter((team) => team.name.toLowerCase().includes(needle)).map(({ key }) => key),
     tab: filters.tab,
     teams: filters.teams,
     ...(filters.workspaceId === undefined ? {} : { workspaceId: filters.workspaceId }),
@@ -60,46 +126,48 @@ export function useTaskSearch(filters: Filters, changed: string, now: number) {
   };
   const key = JSON.stringify(search);
   const [found, setFound] = useState(last?.key === key ? last.found : undefined);
-  const shown = useRef({ key, count: 0 });
+  const [failed, setFailed] = useState(false);
+  const [tries, setTries] = useState(0);
+  const current = useRef({ key, shown: last?.key === key ? last.found.shown : 0 });
+  // A page that arrives after the filters changed belongs to the old list.
+  const latest = useRef(key);
+  latest.current = key;
+
+  const keep = (next: Found) => {
+    current.current = { key, shown: next.shown };
+    last = { key, found: next };
+    setFound(next);
+    setFailed(false);
+  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `key` stands for `search`.
   useEffect(() => {
-    let current = true;
-    const again = shown.current.key === key;
-    const limit = again ? Math.min(MOST, Math.max(PAGE, shown.current.count)) : PAGE;
-    searchTasks({ ...search, limit })
+    let live = true;
+    // Read again for the same search, it keeps every task already shown.
+    const count = current.current.key === key ? Math.max(PAGE, current.current.shown) : PAGE;
+    readDown(search, count)
       .then((result) => {
-        if (!current) return;
-        const next: Found = {
-          ids: new Set(result.tasks.map((task) => task.id)),
-          next: result.next,
-          counts: result.counts,
-          teams: new Set(result.teams),
-          workspaceIds: new Set(result.workspaceIds),
-        };
-        shown.current = { key, count: result.tasks.length };
-        last = { key, found: next };
-        setFound(next);
+        if (live) keep(toFound(result, result.tasks.length, result.tasks.at(-1)?.createdAt));
       })
-      .catch((error: unknown) => console.error("Could not search tasks.", error));
+      .catch(() => {
+        if (live) setFailed(true);
+      });
     return () => {
-      current = false;
+      live = false;
     };
-  }, [key, changed]);
+  }, [key, moves, tries]);
 
   const showOlder = async () => {
     if (found?.next === undefined) return;
-    const result = await searchTasks({ ...search, limit: PAGE, cursor: found.next });
-    const next: Found = {
-      ...found,
-      ids: new Set([...found.ids, ...result.tasks.map((task) => task.id)]),
-      next: result.next,
-      counts: result.counts,
-    };
-    shown.current = { key, count: next.ids.size };
-    last = { key, found: next };
-    setFound(next);
+    try {
+      const result = await searchTasks({ ...search, limit: PAGE, cursor: found.next });
+      if (latest.current !== key) return;
+      const oldest = result.tasks.at(-1)?.createdAt ?? found.oldest;
+      keep(toFound(result, found.shown + result.tasks.length, oldest));
+    } catch {
+      setFailed(true);
+    }
   };
 
-  return { found, showOlder };
+  return { found, failed, retry: () => setTries((count) => count + 1), showOlder };
 }

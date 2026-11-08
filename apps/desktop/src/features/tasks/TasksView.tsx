@@ -30,7 +30,7 @@ import {
   type Tab,
   tabCounts,
 } from "./task-list.ts";
-import { useTaskSearch } from "./use-task-search.ts";
+import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
@@ -235,23 +235,27 @@ export function TasksView() {
       ),
     [tasks, sessions],
   );
-  const changed = useMemo(
-    () =>
-      Object.values(tasks)
-        .filter(({ task }) => !live.has(task.id))
-        .map(({ task }) => `${task.id}:${task.state}:${task.reviewedAt}:${task.title}`)
-        .join(),
-    [tasks, live],
+  const moves = useTaskMoves(tasks, live);
+  const teamOf = (key: string): Team =>
+    teams.get(key) ?? { key, name: departments[key]?.name ?? "Assistants", colour: undefined };
+  const { found, failed, retry, showOlder } = useTaskSearch(
+    filters,
+    [...teams.values()],
+    moves,
+    now,
   );
-  const { found, showOlder } = useTaskSearch(filters, changed, now);
   const liveItems = items.filter((item) => live.has(item.id));
-  const shown = items.filter((item) => live.has(item.id) || found?.ids.has(item.id));
+  // Every task the app holds down to the oldest the search returned: the core's page, plus any
+  // that just went quiet while it is read again.
+  const shown = items.filter(
+    (item) =>
+      live.has(item.id) ||
+      (found !== undefined && (found.oldest === undefined || item.createdAt >= found.oldest)),
+  );
   const workspaceNames = useMemo(
     () => new Map((workspaces ?? []).map((workspace) => [workspace.id, workspace.name])),
     [workspaces],
   );
-  const teamOf = (key: string): Team =>
-    teams.get(key) ?? { key, name: departments[key]?.name ?? "Assistants", colour: undefined };
   const haystack = (item: Item) =>
     [
       item.title,
@@ -382,7 +386,8 @@ export function TasksView() {
                         tab.value === "needs" && counts.needs > 0 ? styles.needsBadge : styles.count
                       }
                     >
-                      {counts[tab.value]}
+                      {/* Blank until the core has counted, rather than a wrong number. */}
+                      {found === undefined ? null : counts[tab.value]}
                     </span>
                   </button>
                 ))}
@@ -434,7 +439,16 @@ export function TasksView() {
           </div>
         )}
 
-        {taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
+        {failed ? (
+          <div className={styles.empty}>
+            <p className={styles.emptyTitle}>Could not load all your tasks</p>
+            <button type="button" className={styles.link} onClick={retry}>
+              Try again
+            </button>
+          </div>
+        ) : null}
+
+        {!failed && taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>No tasks match</p>
             <button type="button" className={styles.link} onClick={() => setFilters(NO_FILTERS)}>
