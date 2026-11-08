@@ -37,7 +37,7 @@ Last updated: 2026-11-09
 
 ## Not checked yet
 
-- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. Limits were not measured (the probe store has no accounts). The packaged app.
+- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The packaged app.
 - D-92: the packaged app; WSL queries waiting their turn.
 
 Worth a click when touched.
