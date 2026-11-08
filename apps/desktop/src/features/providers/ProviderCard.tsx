@@ -33,6 +33,8 @@ export function ProviderCard({
           </span>
         ) : status?.installed ? (
           <span className={`${styles.chip} ${styles.chipWarn}`}>Not signed in</span>
+        ) : status === undefined ? (
+          <span className={styles.muted}>Checking…</span>
         ) : null}
       </div>
       <span className={styles.cardName}>

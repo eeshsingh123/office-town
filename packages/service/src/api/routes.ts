@@ -685,6 +685,10 @@ export function apiRoutes(
           kind: query.get("environment") ?? "native",
           distro: query.get("distro") ?? undefined,
         });
+        // This computer's goes through the shared check, so its fresh status reaches every page.
+        if (environment.kind === "native") {
+          return { status: 200, json: await statuses.recheck(param("harness")) };
+        }
         const status = await readHarnessStatus(param("harness"), environment);
         return { status: 200, json: withSeenSignIn(store, status, environment) };
       },

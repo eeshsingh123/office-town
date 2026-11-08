@@ -116,7 +116,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
-  const statuses = options.statuses ?? new HarnessStatuses(store);
+  const statuses = options.statuses ?? new HarnessStatuses(store, team.readCatalog);
   const routes = apiRoutes(
     team,
     connectors,

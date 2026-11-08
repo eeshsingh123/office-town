@@ -25,6 +25,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connector"), connector: connectorRecordSchema }),
   z.object({ type: z.literal("connector.removed"), connectorId: z.string().min(1) }),
   z.object({ type: z.literal("output"), output: outputRecordSchema }),
-  z.object({ type: z.literal("harnesses"), statuses: z.array(harnessStatusSchema) }),
+  // One provider's status as soon as a check reads it (D-93).
+  z.object({ type: z.literal("harness"), status: harnessStatusSchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

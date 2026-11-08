@@ -75,6 +75,8 @@ export function ProvidersView() {
   const statusOf = (harness: string) => statuses?.[harness];
   const installed = harnesses.filter((known) => statusOf(known.harness)?.installed);
   const missing = harnesses.filter((known) => statusOf(known.harness)?.installed === false);
+  // Each provider shows once its own check is in.
+  const unchecked = harnesses.filter((known) => statusOf(known.harness) === undefined);
   const accountsOf = (harness: string) =>
     accounts.filter(
       (account) => account.harness === harness && account.environment.kind === "native",
@@ -104,9 +106,9 @@ export function ProvidersView() {
                   Your providers <span className={styles.count}>{installed.length}</span>
                 </h2>
               </div>
-              {installed.length === 0 ? (
+              {installed.length === 0 && unchecked.length === 0 ? (
                 <p className={styles.muted}>None yet. Install one below to get started.</p>
-              ) : (
+              ) : installed.length === 0 ? null : (
                 <ul className={styles.list} aria-label="Your providers">
                   {installed.map((description) => {
                     const status = statusOf(description.harness);
@@ -149,6 +151,11 @@ export function ProvidersView() {
                     );
                   })}
                 </ul>
+              )}
+              {unchecked.length === 0 ? null : (
+                <p className={styles.muted} role="status">
+                  Checking {unchecked.map((known) => known.name).join(", ")}…
+                </p>
               )}
             </div>
 

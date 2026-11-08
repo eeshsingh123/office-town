@@ -9,7 +9,6 @@ import type {
   TaskSummary,
 } from "@office-town/contract";
 import { useEffect } from "react";
-import { readCatalog } from "../api/catalogs.ts";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
 import { applyEvents, emptyTrace } from "../trace/trace.ts";
@@ -49,7 +48,7 @@ export function connect(): void {
     // A core restarted meanwhile has marked its agents interrupted without an event.
     if (status === "live" && wasOffline) {
       wasOffline = false;
-      void refresh(false).catch((error: unknown) => console.error("Could not refresh.", error));
+      void refresh().catch((error: unknown) => console.error("Could not refresh.", error));
     }
   };
   const follow = (after: number) => {
@@ -58,7 +57,7 @@ export function connect(): void {
   };
   const open = async (): Promise<void> => {
     try {
-      await refresh(true, following ? undefined : follow);
+      await refresh(following ? undefined : follow);
     } catch (error) {
       console.warn("The core is not reachable yet; retrying.", error);
       useApp.setState({ connection: "offline" });
@@ -69,29 +68,17 @@ export function connect(): void {
 }
 
 // The waiting list is read first and a new stream opens at its position, so nothing is missed.
-async function refresh(first: boolean, openStream?: (after: number) => void): Promise<void> {
+async function refresh(openStream?: (after: number) => void): Promise<void> {
   refreshing += 1;
   try {
-    await readAll(first, openStream);
+    await readAll(openStream);
   } finally {
     refreshing -= 1;
     if (refreshing === 0 && (queue.length > 0 || changes.length > 0)) schedule();
   }
 }
 
-// Listing models runs each provider's CLI, which takes seconds the first time; doing it at launch
-// means no model picker or tutorial waits for it later. One at a time: each read holds one of the
-// six connections the window keeps to the core, and the core runs two CLIs at once anyway (D-92).
-async function warmCatalogs(harnesses: readonly string[]): Promise<void> {
-  for (const harness of harnesses) {
-    await readCatalog(harness, { kind: "native" }).catch(() => {});
-  }
-}
-
-async function readAll(
-  first: boolean,
-  openStream: ((after: number) => void) | undefined,
-): Promise<void> {
+async function readAll(openStream: ((after: number) => void) | undefined): Promise<void> {
   const waiting = await api.listPendingRequests();
   openStream?.(waiting.position);
   const [
@@ -174,7 +161,6 @@ async function readAll(
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
   }));
-  if (first) void warmCatalogs(harnesses.map(({ harness }) => harness));
   for (const { event } of waiting.requests) {
     if (useApp.getState().sessions[event.sessionId] === undefined) discover(event.sessionId);
   }

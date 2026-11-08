@@ -10,7 +10,7 @@ import {
   stopQueries,
 } from "@office-town/harness";
 import { permissionModeOf } from "./agents/options.ts";
-import { HarnessStatuses, reportFailedCheck } from "./api/harness-statuses.ts";
+import { HarnessStatuses } from "./api/harness-statuses.ts";
 import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
@@ -145,7 +145,7 @@ const token = randomBytes(32).toString("base64url");
 const preview = await PreviewServer.start();
 const ownPorts = new Set([preview.port, Number(new URL(toolServer.url).port)]);
 const prices = new PriceList();
-const statuses = new HarnessStatuses(store);
+const statuses = new HarnessStatuses(store, readCatalog);
 const server = await startApiServer({
   team,
   connectors,
@@ -161,8 +161,9 @@ const server = await startApiServer({
 ownPorts.add(Number(new URL(server.url).port));
 // Claude apps connected on claude.ai since the last run show up without a click.
 void connectors.claudeApps.refresh();
-// Ready before a page asks; the reads take their turn with the other CLI queries (D-92).
-statuses.check().catch(reportFailedCheck);
+// Each provider's status and models, ready before a page asks; the reads take their turn with the
+// other CLI queries (D-92).
+void statuses.checkAll();
 // Offline, the copy from the last run prices the usage estimate.
 prices.load(dataFolder).catch((error: unknown) => {
   process.stderr.write(`Could not read API prices: ${String(error)}\n`);

@@ -7,7 +7,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ConnectorSheet } from "../connectors/SheetParts.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
-import { checkHarnesses, isReady, useHarnessStatuses } from "./providers.ts";
+import { checkHarness, isReady, useHarnessStatuses } from "./providers.ts";
 
 const INSTALL_POLL_MS = 1000;
 const STEPS = ["Install", "Sign in", "Ready"];
@@ -91,7 +91,7 @@ interface InstallSheetProps {
 export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) {
   const description = useApp((state) => state.harnesses.find((one) => one.harness === harness));
   const status = useHarnessStatuses({ recheckOnFocus: true })?.[harness];
-  const { install, start } = useInstall(harness, () => void checkHarnesses({ now: true }));
+  const { install, start } = useInstall(harness, () => void checkHarness(harness).catch(() => {}));
   const [checking, setChecking] = useState(false);
   const name = description?.name ?? harness;
   const installed = status?.installed === true;
@@ -100,7 +100,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
 
   const checkAgain = () => {
     setChecking(true);
-    void checkHarnesses({ now: true })
+    void checkHarness(harness)
       .catch(() => {})
       .finally(() => setChecking(false));
   };
