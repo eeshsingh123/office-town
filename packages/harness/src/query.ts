@@ -13,7 +13,7 @@ export class QueryError extends Error {
 type Outcome<T> = { answer: T } | { exit: ProcessExit; stderrTail: string };
 
 // Starting a process blocks the core's thread on Windows, and every CLI boots on the same cores,
-// so a burst of queries (launch reads six AI apps) froze the core for seconds (D-92).
+// so a burst of queries (launch reads six providers) froze the core for seconds (D-92).
 const QUERIES_AT_ONCE = 2;
 let queriesRunning = 0;
 const queued: (() => void)[] = [];
