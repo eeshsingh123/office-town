@@ -272,3 +272,9 @@
 .under {
   padding: 0 8px 4px 32px;
 }
+
+.earlier {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 12px;
+}
