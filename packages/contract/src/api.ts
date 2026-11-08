@@ -125,8 +125,10 @@ const listParam = z
 export const agentListQuerySchema = z.object({ ids: listParam });
 
 // `teams` are "chief", "solo" or department ids; `from` and `before` bound when a task started.
+// `textTeams` are the teams whose name, as the app shows it, holds `text`: a task of one matches.
 export const taskSearchQuerySchema = z.object({
   text: z.string().default(""),
+  textTeams: listParam,
   tab: taskTabSchema.default("all"),
   teams: listParam,
   workspaceId: z.string().min(1).optional(),

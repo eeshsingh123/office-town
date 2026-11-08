@@ -1,4 +1,12 @@
-import type { PlanPiece, TaskRecord } from "@office-town/contract";
+import {
+  type PlanPiece,
+  onTab as statusOnTab,
+  type TaskRecord,
+  type TaskStatus,
+  type TaskTab,
+  taskStatus,
+  teamKey,
+} from "@office-town/contract";
 import { type Agent, agentsInTask, stateOf, taskStateOf } from "../../store/agents.ts";
 import type { AppState } from "../../store/app-store.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
@@ -6,8 +14,8 @@ import type { Trace } from "../../trace/trace.ts";
 import { taskName } from "../../ui/format.ts";
 import { requestSummary } from "../requests/summary.ts";
 
-export type RowStatus = "needs" | "working" | "queued" | "review" | "done" | "failed" | "stopped";
-export type Tab = "all" | "needs" | "active" | "review" | "done" | "ended";
+export type RowStatus = TaskStatus;
+export type Tab = TaskTab;
 export type GroupBy = "team" | "status" | "day";
 export type Started = "any" | "today" | "week" | "older";
 // "chief", "solo" or a department id.
@@ -31,14 +39,6 @@ export const STATUS_LABELS: Record<RowStatus, string> = {
   done: "Done",
   failed: "Failed",
   stopped: "Stopped",
-};
-
-const TAB_STATUSES: Record<Exclude<Tab, "all">, RowStatus[]> = {
-  needs: ["needs"],
-  active: ["working", "queued"],
-  review: ["review"],
-  done: ["done"],
-  ended: ["failed", "stopped"],
 };
 
 // Working with no new step, action or message for this long is flagged as stuck (owner, 2026-10-11).
@@ -97,22 +97,24 @@ function lastActivity(trace: Trace): string {
   return latest;
 }
 
-// A group task sits with its lead's department (D-63).
 export function teamOf(
   task: TaskRecord,
   known: Pick<Known, "chiefId" | "agents" | "departments">,
 ): TeamKey {
-  const { chiefId } = known;
-  if (task.parentTaskId === undefined && chiefId !== undefined && task.leadAgentId === chiefId) {
-    return "chief";
-  }
-  if (task.workerAgentIds !== undefined) {
-    const departmentId = known.agents[task.leadAgentId ?? ""]?.departmentId;
-    return departmentId !== undefined && known.departments[departmentId] !== undefined
-      ? departmentId
-      : "solo";
-  }
-  return task.departmentId ?? "solo";
+  const leadDepartmentId = known.agents[task.leadAgentId ?? ""]?.departmentId;
+  return teamKey(
+    {
+      isPart: task.parentTaskId !== undefined,
+      isGroup: task.workerAgentIds !== undefined,
+      leadAgentId: task.leadAgentId,
+      leadDepartmentId:
+        leadDepartmentId !== undefined && known.departments[leadDepartmentId] !== undefined
+          ? leadDepartmentId
+          : undefined,
+      departmentId: task.departmentId,
+    },
+    known.chiefId,
+  );
 }
 
 function statusOf(task: TaskRecord, agents: Agent[], known: Known, waiting: Set<string>) {
@@ -120,22 +122,13 @@ function statusOf(task: TaskRecord, agents: Agent[], known: Known, waiting: Set<
   const openPieces = Object.values(known.pieces).some(
     (piece) => piece.taskId === task.id && OPEN_PIECE.has(piece.status),
   );
-  switch (task.state) {
-    case "waiting":
-      return "needs";
-    case "working":
-      return "working";
-    case "queued":
-      return "queued";
-    case "idle":
-      if (openPieces) return "working";
-      return agentState === "interrupted" ? "stopped" : "done";
-    case "ended":
-      if (agentState === "failed") return "failed";
-      if (agentState === "stopped" || agentState === "interrupted") return "stopped";
-      // A part reports to the chief, so only the whole goal waits for review.
-      return task.reviewedAt === undefined && task.parentTaskId === undefined ? "review" : "done";
-  }
+  const facts = {
+    state: task.state,
+    reviewed: task.reviewedAt !== undefined,
+    isPart: task.parentTaskId !== undefined,
+    openPieces,
+  };
+  return taskStatus(facts, agentState);
 }
 
 // The step the busiest agent is on, else what it is doing right now.
@@ -326,9 +319,7 @@ function narrowed(item: Item, filters: Filters, haystack: (item: Item) => string
   return query === "" || haystack(item).toLowerCase().includes(query);
 }
 
-function onTab(item: Item, tab: Tab): boolean {
-  return tab === "all" || TAB_STATUSES[tab].includes(item.status);
-}
+const onTab = (item: Item, tab: Tab) => statusOnTab(item.status, tab);
 
 export function tabCounts(
   items: Item[],
@@ -340,10 +331,10 @@ export function tabCounts(
   for (const item of items) {
     if (!narrowed(item, filters, haystack, now)) continue;
     counts.all += 1;
-    for (const tab of Object.keys(TAB_STATUSES) as Exclude<Tab, "all">[]) {
+    for (const tab of Object.keys(counts) as Tab[]) {
       // A goal that needs you only through a part is counted once, by that part.
       if (tab === "needs" && item.parts.some((part) => part.status === "needs")) continue;
-      if (onTab(item, tab)) counts[tab] += 1;
+      if (tab !== "all" && onTab(item, tab)) counts[tab] += 1;
     }
   }
   return counts;

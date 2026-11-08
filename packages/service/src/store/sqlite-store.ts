@@ -792,7 +792,8 @@ class SqliteStore implements Store {
   }
 
   searchTasks(filters: TaskSearch): TaskSearchResult {
-    const facts = all<TaskFacts>(this.#statements.taskFacts);
+    const typed = filters.text.trim() === "" ? 0 : 1;
+    const facts = all<TaskFacts>(this.#statements.taskFacts, typed);
     const { refs, ...rest } = matchTasks(facts, filters, this.readSettings().chiefAgentId);
     const tasks = refs.flatMap((ref) => {
       const row = one<TaskRow>(this.#statements.taskByRef, ref);

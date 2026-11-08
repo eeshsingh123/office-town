@@ -1,4 +1,12 @@
-import type { SessionStatus, TaskSearch, TaskState, TaskTab } from "@office-town/contract";
+import {
+  onTab,
+  type SessionStatus,
+  type TaskSearch,
+  type TaskState,
+  type TaskTab,
+  taskStatus,
+  teamKey,
+} from "@office-town/contract";
 
 // What a search needs of one task, read for every task at once.
 export interface TaskFacts {
@@ -21,7 +29,8 @@ export interface TaskFacts {
   workspaceId: string | null;
   workspaceName: string | null;
   title: string | null;
-  prompt: string;
+  // Read only while text is typed.
+  prompt: string | null;
   agentNames: string | null;
 }
 
@@ -33,45 +42,28 @@ export interface TaskMatches {
   workspaceIds: string[];
 }
 
-type Status = "needs" | "working" | "queued" | "review" | "done" | "failed" | "stopped";
+const orUndefined = <T>(value: T | null) => value ?? undefined;
 
-const TAB_STATUSES: Record<Exclude<TaskTab, "all">, Status[]> = {
-  needs: ["needs"],
-  active: ["working", "queued"],
-  review: ["review"],
-  done: ["done"],
-  ended: ["failed", "stopped"],
-};
-
-// The same rule as the Tasks page, for a task with no agent at work.
-function statusOf(task: TaskFacts): Status {
-  switch (task.state) {
-    case "waiting":
-      return "needs";
-    case "working":
-      return "working";
-    case "queued":
-      return "queued";
-    case "idle":
-      if (task.openPieces) return "working";
-      return task.leadStatus === "interrupted" ? "stopped" : "done";
-    case "ended":
-      if (task.leadStatus === "failed") return "failed";
-      if (task.leadStatus === "stopped" || task.leadStatus === "interrupted") return "stopped";
-      // A part reports to the chief, so only the whole goal waits for review.
-      return task.reviewed || task.isPart ? "done" : "review";
-  }
+function teamOf(task: TaskFacts, chiefId: string | undefined): { key: string; name: string } {
+  const key = teamKey(
+    {
+      isPart: task.isPart === 1,
+      isGroup: task.isGroup === 1,
+      leadAgentId: orUndefined(task.leadAgentId),
+      leadDepartmentId: orUndefined(task.leadDepartmentId),
+      departmentId: orUndefined(task.departmentId),
+    },
+    chiefId,
+  );
+  const name = task.isGroup ? task.leadDepartmentName : task.departmentName;
+  return { key, name: key === "chief" || key === "solo" ? "" : (name ?? "") };
 }
 
-// A group task sits with its lead's department (D-63).
-function teamOf(task: TaskFacts, chiefId: string | undefined): { key: string; name: string } {
-  if (!task.isPart && chiefId !== undefined && task.leadAgentId === chiefId) {
-    return { key: "chief", name: "" };
-  }
-  if (task.isGroup) {
-    return { key: task.leadDepartmentId ?? "solo", name: task.leadDepartmentName ?? "" };
-  }
-  return { key: task.departmentId ?? "solo", name: task.departmentName ?? "" };
+function matchesText(task: TaskFacts, team: { key: string; name: string }, filters: TaskSearch) {
+  const text = filters.text.trim().toLowerCase();
+  if (text === "" || filters.textTeams.includes(team.key)) return true;
+  const haystack = [task.title, task.prompt, team.name, task.agentNames, task.workspaceName];
+  return haystack.join(" ").toLowerCase().includes(text);
 }
 
 export function matchTasks(
@@ -79,7 +71,6 @@ export function matchTasks(
   filters: TaskSearch,
   chiefId: string | undefined,
 ): TaskMatches {
-  const text = filters.text.trim().toLowerCase();
   const from = filters.from === undefined ? undefined : Date.parse(filters.from);
   const before = filters.before === undefined ? undefined : Date.parse(filters.before);
   const after = filters.cursor === undefined ? Number.MAX_SAFE_INTEGER : Number(filters.cursor);
@@ -104,25 +95,22 @@ export function matchTasks(
     if (filters.workspaceId !== undefined && task.workspaceId !== filters.workspaceId) continue;
     if (from !== undefined && task.createdAt < from) continue;
     if (before !== undefined && task.createdAt >= before) continue;
-    if (text !== "") {
-      const haystack = [
-        task.title,
-        task.prompt,
-        team.name,
-        task.agentNames,
-        task.workspaceName,
-      ].join(" ");
-      if (!haystack.toLowerCase().includes(text)) continue;
-    }
-    const status = statusOf(task);
+    if (!matchesText(task, team, filters)) continue;
+    const status = taskStatus(
+      {
+        state: task.state,
+        reviewed: task.reviewed === 1,
+        isPart: task.isPart === 1,
+        openPieces: task.openPieces === 1,
+      },
+      orUndefined(task.leadStatus),
+    );
     if (!task.live) {
-      counts.all += 1;
-      for (const [tab, statuses] of Object.entries(TAB_STATUSES)) {
-        if (statuses.includes(status)) counts[tab as TaskTab] += 1;
+      for (const tab of Object.keys(counts) as TaskTab[]) {
+        if (onTab(status, tab)) counts[tab] += 1;
       }
     }
-    if (filters.tab !== "all" && !TAB_STATUSES[filters.tab].includes(status)) continue;
-    if (task.ref >= after) continue;
+    if (!onTab(status, filters.tab) || task.ref >= after) continue;
     if (refs.length < filters.limit) refs.push(task.ref);
     else more = true;
   }

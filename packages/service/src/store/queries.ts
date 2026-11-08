@@ -132,7 +132,8 @@ export const queries = {
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
-  // Reads the whole table on purpose: a search covers every task. One light row each (`TaskFacts`).
+  // Reads the whole table on purpose: a search covers every task. One light row each
+  // (`TaskFacts`); the text a search matches is read only while some is typed.
   taskFacts: `
     SELECT t.ref, t.created_at AS createdAt, t.state, t.reviewed_at IS NOT NULL AS reviewed,
       t.parent_ref IS NOT NULL AS isPart,
@@ -146,9 +147,10 @@ export const queries = {
        ORDER BY s.ref DESC LIMIT 1) AS leadStatus,
       l.id AS leadAgentId, d.id AS departmentId, d.name AS departmentName,
       ld.id AS leadDepartmentId, ld.name AS leadDepartmentName,
-      w.id AS workspaceId, w.name AS workspaceName, t.title, t.prompt,
-      (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
-        (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) AS agentNames
+      w.id AS workspaceId, w.name AS workspaceName, t.title,
+      CASE WHEN ?1 THEN t.prompt END AS prompt,
+      CASE WHEN ?1 THEN (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
+        (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) END AS agentNames
     FROM tasks t
     LEFT JOIN agents l ON l.ref = t.lead_ref
     LEFT JOIN departments d ON d.ref = t.department_ref

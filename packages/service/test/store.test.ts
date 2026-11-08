@@ -161,7 +161,7 @@ describe("store", () => {
     for (let line = 0; line < 6000; line += 1) store.appendHarnessLine(session.id, "in", "{}");
     await expect(store.deleteTask(task.id)).rejects.toThrow(TaskActiveError);
     const search = (text: string, tab: "all" | "review" | "ended" = "all") =>
-      store.searchTasks({ text, tab, teams: [], limit: 1 });
+      store.searchTasks({ text, textTeams: [], tab, teams: [], limit: 1 });
     const all = search("");
     expect(all.tasks.map(({ id }) => id)).toEqual([task.id]);
     expect(all.next).toBeDefined();
