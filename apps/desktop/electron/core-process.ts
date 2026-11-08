@@ -39,7 +39,8 @@ function parseReady(line: string): CoreReady | undefined {
   }
 }
 
-function killTree(pid: number): Promise<void> {
+// Outside Windows, `pid` must lead its own process group (started `detached`).
+export function killTree(pid: number): Promise<void> {
   if (process.platform !== "win32") {
     process.kill(-pid, "SIGKILL");
     return Promise.resolve();

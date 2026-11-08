@@ -1,10 +1,11 @@
-import { type ChildProcess, execFile, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { once } from "node:events";
 import { readdirSync, statSync, watch } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { build } from "vite";
+import { killTree } from "../electron/core-process.ts";
 
 // The dev app (D-75): the UI rebuilds and the window reloads; a change to the shell or the core
 // restarts the app, which restarts its core.
@@ -26,7 +27,11 @@ let restarting: Promise<void> = Promise.resolve();
 let stopping = false;
 
 function startApp(): void {
-  const started = spawn(ELECTRON, [DESKTOP], { stdio: ["ignore", "inherit", "inherit", "ipc"] });
+  const started = spawn(ELECTRON, [DESKTOP], {
+    stdio: ["ignore", "inherit", "inherit", "ipc"],
+    // Its own process group outside Windows, so a kill reaches everything it started.
+    detached: process.platform !== "win32",
+  });
   started.on("exit", (code) => {
     // A restart starts the next app itself.
     if (app !== started || stopping) return;
@@ -41,16 +46,6 @@ function startApp(): void {
   app = started;
 }
 
-function killTree(pid: number): Promise<void> {
-  if (process.platform !== "win32") {
-    process.kill(pid, "SIGKILL");
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    execFile("taskkill", ["/pid", String(pid), "/t", "/f"], { windowsHide: true }, () => resolve());
-  });
-}
-
 async function stopApp(): Promise<void> {
   const running = app;
   app = undefined;
@@ -62,8 +57,13 @@ async function stopApp(): Promise<void> {
     delay(STOP_TIMEOUT_MS, false, { ref: false }),
   ]);
   if (stopped || running.pid === undefined) return;
-  console.log("The app did not stop, so it and everything it started are ended.");
-  await killTree(running.pid);
+  console.log("The app did not stop within 20 s, so it was ended with everything it started.");
+  try {
+    await killTree(running.pid);
+  } catch (error) {
+    // Most likely it exited just now.
+    console.error("Could not end the app.", error);
+  }
   await exited;
 }
 
@@ -74,6 +74,10 @@ function restart(files: string[]): void {
     await stopApp();
     startApp();
   });
+  // A failed restart must not stop the next save from restarting.
+  restarting = restarting.catch((error: unknown) =>
+    console.error("Could not restart the app.", error),
+  );
 }
 
 async function stop(): Promise<void> {
