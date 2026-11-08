@@ -3,6 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Agent } from "../../store/agents.ts";
 import { useLevel } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
+import { useTraces } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { scratchAlias } from "../../store/workspaces.ts";
 import type { TokenTotals, Trace } from "../../trace/trace.ts";
@@ -22,7 +23,8 @@ export interface RunFacts {
   folderAlias?: string;
   startedAt: string;
   duration: string;
-  tokens: TokenTotals;
+  // Undefined until every session's trace is in, so a partial sum never shows.
+  tokens: TokenTotals | undefined;
 }
 
 // A session cut off when the app closed has no end, so its last activity stands in.
@@ -46,6 +48,8 @@ export function useRunFacts(agent: Agent): RunFacts {
   const { latest } = agent;
   const first = agent.sessions[0] ?? latest;
   const { options } = latest;
+  // Newest first, so the trace on screen is not kept waiting behind older ones.
+  useTraces(agent.sessions.map((session) => session.id).reverse());
   const traces = useApp(
     useShallow((state) => agent.sessions.flatMap((session) => state.traces[session.id] ?? [])),
   );
@@ -76,10 +80,12 @@ export function useRunFacts(agent: Agent): RunFacts {
         }),
     startedAt: first.createdAt,
     duration: elapsed(first.createdAt, endOf(latest, traces)),
-    tokens: sumUsage(traces),
+    tokens: traces.length === agent.sessions.length ? sumUsage(traces) : undefined,
   };
 }
 
-export function tokenLine({ inputTokens, outputTokens, cachedInputTokens }: TokenTotals): string {
+export function tokenLine(tokens: TokenTotals | undefined): string {
+  if (tokens === undefined) return "Counting tokens";
+  const { inputTokens, outputTokens, cachedInputTokens } = tokens;
   return `${compactCount(inputTokens - cachedInputTokens + outputTokens)} tokens`;
 }
