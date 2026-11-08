@@ -13,9 +13,22 @@ export async function reloadAccounts(): Promise<void> {
 // Plan usage moves outside the app too, so it is read again while a page shows it.
 const LIMITS_EVERY_MS = 5 * 60_000;
 
-export async function refreshLimits(): Promise<void> {
-  const entries = await api.refreshLimits();
-  useApp.setState({ limits: Object.fromEntries(entries.map((entry) => [entry.accountId, entry])) });
+// One read in flight serves every page that asks: each holds one of the few connections the
+// window keeps to the core for seconds, and the rest of the app queues behind them (D-92).
+let refreshing: Promise<void> | undefined;
+
+export function refreshLimits(): Promise<void> {
+  refreshing ??= api
+    .refreshLimits()
+    .then((entries) =>
+      useApp.setState({
+        limits: Object.fromEntries(entries.map((entry) => [entry.accountId, entry])),
+      }),
+    )
+    .finally(() => {
+      refreshing = undefined;
+    });
+  return refreshing;
 }
 
 // Reads plan usage on open, every few minutes and when the window comes back; `refresh` on demand.

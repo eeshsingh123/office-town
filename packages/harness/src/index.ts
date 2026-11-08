@@ -23,7 +23,7 @@ import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
 import { installerHere } from "./install.ts";
 import { runProcess } from "./process-runner.ts";
-import { runQuery } from "./query.ts";
+import { inQueryTurn, runQuery } from "./query.ts";
 import { HarnessSession, type Session } from "./session.ts";
 import { readSignInPage, readVendorApps } from "./vendor-apps.ts";
 
@@ -278,7 +278,9 @@ const VERSION = /\d+(?:\.\d+)+(?:-[\w.]+)?/;
 // The CLI's version, or undefined when it is not installed here.
 async function readVersion(environment: Environment, install: Adapter["install"]) {
   if (install === undefined) return "";
-  const result = await runIn(environment, install.version).catch(() => undefined);
+  const result = await inQueryTurn(() => runIn(environment, install.version)).catch(
+    () => undefined,
+  );
   if (result?.code !== 0) return undefined;
   return VERSION.exec(result.stdout)?.[0] ?? "";
 }
@@ -292,7 +294,7 @@ export async function readHarnessStatus(
   const { install } = findAdapter(harness);
   const native = spec.kind === "native";
   const environment = environmentFor(environmentSpecSchema.parse(spec));
-  // At once: the first two each start the CLI, which takes most of a second.
+  // Asked together: the first two each start the CLI, which takes most of a second.
   const [version, signIn, installer] = await Promise.all([
     readVersion(environment, install),
     readAccountStatus(harness, spec, undefined).catch(() => undefined),
