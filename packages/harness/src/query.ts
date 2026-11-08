@@ -12,8 +12,35 @@ export class QueryError extends Error {
 
 type Outcome<T> = { answer: T } | { exit: ProcessExit; stderrTail: string };
 
+// Starting a process blocks the core's thread on Windows, and every CLI boots on the same cores,
+// so a burst of queries (launch reads six providers) froze the core for seconds (D-92).
+const QUERIES_AT_ONCE = 2;
+let queriesRunning = 0;
+const queued: (() => void)[] = [];
+
+// Runs `run` once fewer than QUERIES_AT_ONCE one-off queries are running. Never for agent sessions.
+export async function inQueryTurn<T>(run: () => Promise<T>): Promise<T> {
+  if (queriesRunning < QUERIES_AT_ONCE) queriesRunning += 1;
+  else await new Promise<void>((resolve) => queued.push(resolve));
+  try {
+    return await run();
+  } finally {
+    const next = queued.shift();
+    if (next === undefined) queriesRunning -= 1;
+    else next();
+  }
+}
+
 // Runs the CLI where its agents run, with `env` added, and returns what `read` found.
-export async function runQuery<T>(
+export function runQuery<T>(
+  environment: Environment,
+  query: HarnessQuery<T>,
+  options: { env?: Record<string, string>; timeoutMs: number },
+): Promise<T> {
+  return inQueryTurn(() => runQueryNow(environment, query, options));
+}
+
+async function runQueryNow<T>(
   environment: Environment,
   query: HarnessQuery<T>,
   { env = {}, timeoutMs }: { env?: Record<string, string>; timeoutMs: number },

@@ -245,13 +245,17 @@ export function TasksView() {
     now,
   );
   const liveItems = items.filter((item) => live.has(item.id));
-  // Every task the app holds down to the oldest the search returned: the core's page, plus any
-  // that just went quiet while it is read again.
+  // Until the core answers, every task the app holds, so the page never opens empty while the core
+  // is busy. Then down to the oldest the search returned, plus any that just went quiet.
   const shown = items.filter(
     (item) =>
+      found === undefined ||
       live.has(item.id) ||
-      (found !== undefined && (found.oldest === undefined || item.createdAt >= found.oldest)),
+      found.oldest === undefined ||
+      item.createdAt >= found.oldest,
   );
+  // The teams and workspaces to filter by: the core's, or the held tasks' until it answers.
+  const known = found === undefined ? items : liveItems;
   const workspaceNames = useMemo(
     () => new Map((workspaces ?? []).map((workspace) => [workspace.id, workspace.name])),
     [workspaces],
@@ -275,12 +279,12 @@ export function TasksView() {
   ) as Record<Tab, number>;
   const groups = groupRows(shown, filters, by, haystack, [...teams.keys()], now);
   const presentTeams = [...teams.values()].filter(
-    (team) => found?.teams.has(team.key) || liveItems.some((item) => item.team === team.key),
+    (team) => found?.teams.has(team.key) || known.some((item) => item.team === team.key),
   );
   const workspaceOptions = [
     ...new Set([
       ...(found?.workspaceIds ?? []),
-      ...liveItems.flatMap((item) => (item.workspaceId === undefined ? [] : [item.workspaceId])),
+      ...known.flatMap((item) => (item.workspaceId === undefined ? [] : [item.workspaceId])),
     ]),
   ]
     .map((id) => ({ value: id, label: workspaceNames.get(id) ?? "Removed workspace" }))

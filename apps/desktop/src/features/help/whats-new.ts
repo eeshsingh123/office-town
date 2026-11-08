@@ -2,6 +2,7 @@ import {
   Bot,
   CircleHelp,
   Eye,
+  Gauge,
   History,
   LayoutGrid,
   LifeBuoy,
@@ -23,6 +24,15 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-09",
+    title: "Quicker start",
+    icon: Gauge,
+    changes: [
+      "Tasks shows your tasks as soon as you open it, even while the app is still starting",
+      "The app stays quick while it checks your providers at start",
+    ],
+  },
   {
     date: "2026-11-08",
     title: "Long task histories",
