@@ -35,14 +35,14 @@ import { Departments } from "./Departments.tsx";
 import { HistoryButtons } from "./HistoryButtons.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
-import { toggleSidebar, useSidebar } from "./sidebar-state.ts";
+import { toggleSidebar, useSidebarCollapsed } from "./sidebar-state.ts";
 
 const SIZE: PaneSize = { initial: 220, min: 180, max: 320 };
 const RAIL = 60;
 
 // Collapsed, a label moves into the button's name and tooltip.
 function useRailLabel(label: string) {
-  const collapsed = useSidebar((state) => state.collapsed);
+  const collapsed = useSidebarCollapsed();
   return collapsed ? { "aria-label": label, title: label } : {};
 }
 
@@ -178,7 +178,7 @@ function YouItem() {
 }
 
 export function Sidebar() {
-  const collapsed = useSidebar((state) => state.collapsed);
+  const collapsed = useSidebarCollapsed();
   const [width, resize] = usePaneWidth("sidebar", SIZE);
   const [dragging, setDragging] = useState(false);
   const newTask = useRailLabel("New task");

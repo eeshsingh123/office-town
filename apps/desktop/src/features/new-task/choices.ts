@@ -1,4 +1,5 @@
 import type { Autonomy, EnvironmentSpec } from "@office-town/contract";
+import { type Keep, readKept, writeKept } from "../../store/kept.ts";
 
 // When the agent is not made from a profile.
 export interface HarnessChoices {
@@ -20,7 +21,6 @@ export interface Remembered {
   byHarness: Record<string, HarnessChoices>;
 }
 
-const KEY = "office-town.new-task";
 const RECENT_LIMIT = 5;
 
 export const DEFAULT_CHOICES: HarnessChoices = {
@@ -43,24 +43,16 @@ function withoutBypass(remembered: Remembered): Remembered {
   return { ...remembered, byHarness };
 }
 
-// Storage can be cleared or blocked; the form then starts from the defaults.
-export function loadRemembered(): Remembered {
-  try {
-    const saved = localStorage.getItem(KEY);
-    return saved === null ? { byHarness: {} } : withoutBypass(JSON.parse(saved) as Remembered);
-  } catch (error) {
-    console.warn("Could not read the last choices.", error);
-    return { byHarness: {} };
-  }
-}
+const REMEMBERED: Keep<Remembered> = {
+  name: "new-task",
+  lasts: "saved",
+  start: { byHarness: {} },
+};
 
-function save(remembered: Remembered): void {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(remembered));
-  } catch (error) {
-    console.warn("Could not save the last choices.", error);
-  }
-}
+// On every read, as a choice saved in this run can be Bypass too.
+export const loadRemembered = (): Remembered => withoutBypass(readKept(REMEMBERED));
+
+const save = (remembered: Remembered) => writeKept(REMEMBERED, remembered);
 
 // Leaving an AI app keeps what was picked on it, for when the user comes back.
 export function keepChoices(harness: string, choices: HarnessChoices): void {

@@ -8,7 +8,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { ReviewDialog } from "../task/ReviewDialog.tsx";
 import { stopAgentAsk } from "../task/stop-asks.ts";
-import { pin, unpin, usePins } from "./pins.ts";
+import { pin, pinnedNow, unpin } from "./pins.ts";
 
 // A member that has not worked yet has no task to open, only its profile.
 function newMemberMenu(record: AgentRecord | undefined): MenuContent | undefined {
@@ -41,7 +41,7 @@ export function agentMenu(agentId: string): MenuContent | undefined {
   const trace = known.traces[latest.id];
   const asking = Object.values(known.waiting).some((one) => one.event.sessionId === latest.id);
   const state = stateOf(agent, trace === undefined ? {} : { [latest.id]: trace }, asking);
-  const pinned = usePins.getState().pinned.includes(agentId);
+  const pinned = pinnedNow().includes(agentId);
   const actions: MenuAction[] = [
     {
       label: "Open task",

@@ -1,7 +1,9 @@
 import type { TaskRecord } from "@office-town/contract";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import { writeDraft } from "../../store/drafts.ts";
+import { writeKept } from "../../store/kept.ts";
 import { defaultWorkspace } from "../../store/workspaces.ts";
+import { DRAFTER } from "../drafts/use-drafter.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
 import type { TutorialModel } from "./tutorial-model.ts";
@@ -38,7 +40,6 @@ export interface Tutorial {
 
 const SAMPLE_TASK =
   "Write a one-page plan for a team lunch next Friday and save it as lunch-plan.md.";
-const DRAFTER_KEY = "office-town.drafter";
 
 const newTasks = (state: AppState, run: TutorialRun): TaskRecord[] =>
   Object.values(state.tasks)
@@ -102,13 +103,7 @@ export const TUTORIALS: Tutorial[] = [
     title: "Build a department",
     summary: "Describe a team in your own words, check it, and create it.",
     start(model) {
-      if (model !== undefined) {
-        try {
-          localStorage.setItem(DRAFTER_KEY, JSON.stringify(model.settings));
-        } catch {
-          // The draft then uses the model the user picked before.
-        }
-      }
+      if (model !== undefined) writeKept(DRAFTER, model.settings);
       // Its first step points at the Describe box, wherever a draft was left.
       writeDraft("new-department.step", 0);
       navigate({ name: "new-department" });

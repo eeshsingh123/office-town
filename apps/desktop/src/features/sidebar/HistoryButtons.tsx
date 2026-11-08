@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { type AppState, goBack, goForward, useApp, type Visit } from "../../store/app-store.ts";
 import { taskName } from "../../ui/format.ts";
 import styles from "./Sidebar.module.css";
-import { useSidebar } from "./sidebar-state.ts";
+import { useSidebarCollapsed } from "./sidebar-state.ts";
 
 const PAGES: Record<string, string> = {
   home: "Home",
@@ -113,7 +113,7 @@ export function HistoryButtons() {
 // With the sidebar collapsed, back and forward sit in a row at the top of the
 // main area. The Office has its own top bar and shows them there instead.
 export function HistoryRow() {
-  const collapsed = useSidebar((state) => state.collapsed);
+  const collapsed = useSidebarCollapsed();
   const office = useApp((state) => state.view.name === "office");
   if (!collapsed || office) return null;
   return (

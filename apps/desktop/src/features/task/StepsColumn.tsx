@@ -1,20 +1,15 @@
 import type { PlanStep } from "@office-town/contract";
 import { Check, CircleDashed, CircleDot, ListChecks, LoaderCircle, X } from "lucide-react";
-import { create } from "zustand";
+import { useKept, writeKept } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
-import { type PaneSize, savedFlag, saveFlag, usePaneWidth } from "../../ui/pane.ts";
+import { type PaneSize, paneFlag, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import styles from "./TaskView.module.css";
 
 const SIZE: PaneSize = { initial: 300, min: 240, max: 460 };
-const HIDDEN = "steps-hidden";
+const HIDDEN = paneFlag("steps-hidden");
 
-const useSteps = create<{ hidden: boolean }>(() => ({ hidden: savedFlag(HIDDEN) }));
-
-function setHidden(hidden: boolean) {
-  useSteps.setState({ hidden });
-  saveFlag(HIDDEN, hidden);
-}
+const setHidden = (hidden: boolean) => writeKept(HIDDEN, hidden);
 
 function StepIcon({ step, stale }: { step: PlanStep; stale: boolean }) {
   if (step.status === "completed")
@@ -33,7 +28,7 @@ const doneOf = (plan: readonly PlanStep[]) =>
 
 // In the task header; only an agent that made a step list has one.
 export function StepsButton({ plan }: { plan: readonly PlanStep[] }) {
-  const hidden = useSteps((state) => state.hidden);
+  const [hidden] = useKept(HIDDEN);
   return (
     <Button onClick={() => setHidden(!hidden)} aria-pressed={!hidden}>
       <ListChecks size={14} aria-hidden />
@@ -43,7 +38,7 @@ export function StepsButton({ plan }: { plan: readonly PlanStep[] }) {
 }
 
 export function StepsColumn({ plan, stale }: { plan: readonly PlanStep[]; stale: boolean }) {
-  const hidden = useSteps((state) => state.hidden);
+  const [hidden] = useKept(HIDDEN);
   const [width, resize] = usePaneWidth("steps", SIZE);
   if (hidden) return null;
   const done = doneOf(plan);

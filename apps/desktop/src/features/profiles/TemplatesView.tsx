@@ -3,6 +3,7 @@ import { CircleHelp, LayoutGrid, List, MoreHorizontal, Plus, Search } from "luci
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { type Keep, oneOf, useKept } from "../../store/kept.ts";
 import { deleteTemplate, usedText, useTemplates, useTemplateUses } from "../../store/templates.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -22,14 +23,12 @@ type Layout = "cards" | "list";
 // "free" or an AI app's id; empty for all.
 type Filter = string;
 
-const LAYOUT_KEY = "office-town.templates.layout";
-function loadLayout(): Layout {
-  try {
-    return localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards";
-  } catch {
-    return "cards";
-  }
-}
+const LAYOUT: Keep<Layout> = {
+  name: "templates.layout",
+  lasts: "saved",
+  start: "cards",
+  parse: oneOf<Layout>(["cards", "list"]),
+};
 
 interface Editing {
   template: ProfileRecord | undefined;
@@ -112,20 +111,12 @@ export function TemplatesView() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("");
   const [sort, setSort] = useState<Sort>("used");
-  const [layout, setLayout] = useState<Layout>(loadLayout);
+  const [layout, chooseLayout] = useKept(LAYOUT);
   const [editing, setEditing] = useState<Editing>();
   const [guideHidden, setGuideHidden] = useGuideHidden("templates");
   const showGuide = (show: boolean) => setGuideHidden(!show);
   const open = (template: ProfileRecord | undefined, start?: TemplateDraft) =>
     setEditing({ template, start, key: (editing?.key ?? 0) + 1 });
-  const chooseLayout = (next: Layout) => {
-    setLayout(next);
-    try {
-      localStorage.setItem(LAYOUT_KEY, next);
-    } catch {
-      // Remembering the layout is a convenience only.
-    }
-  };
 
   const apps = harnesses.filter((known) =>
     all.some((template) => template.settings.harness === known.harness),

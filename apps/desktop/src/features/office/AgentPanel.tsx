@@ -20,7 +20,7 @@ import { stopAgentAsk } from "../task/stop-asks.ts";
 import { AgentName } from "./AgentName.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
-import { pin, unpin, usePins } from "./pins.ts";
+import { pin, unpin, usePinned } from "./pins.ts";
 import { Facts, PanelHeader, PanelSection, SectionAction, StateChip } from "./SidePanel.tsx";
 
 function DoneLine({ action }: { action: TraceAction }) {
@@ -155,7 +155,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
 export function AgentFooter({ member }: { member: FloorAgent }) {
   const { agent } = member;
   const [asking, setAsking] = useState(false);
-  const pinned = usePins((state) => state.pinned.includes(agent.id));
+  const pinned = usePinned().includes(agent.id);
   return (
     <>
       <Button variant="primary" onClick={() => navigate({ name: "task", taskId: agent.taskId })}>

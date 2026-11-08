@@ -2,11 +2,11 @@ import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { AgentCard } from "./AgentCard.tsx";
 import styles from "./PinnedStrip.module.css";
-import { unpin, usePins } from "./pins.ts";
+import { unpin, usePinned } from "./pins.ts";
 
 // Pinned agents at the bottom of every screen, so they can be watched from anywhere.
 export function PinnedStrip() {
-  const pinned = usePins((state) => state.pinned);
+  const pinned = usePinned();
   const agents = useApp((state) => state.agents);
   // An agent deleted with its task drops out.
   const shown = pinned.filter((id) => agents[id] !== undefined);
