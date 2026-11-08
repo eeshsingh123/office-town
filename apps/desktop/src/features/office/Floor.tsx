@@ -66,7 +66,8 @@ const TOKENS_ABOVE = 52;
 
 export interface RoomSign {
   title: string;
-  note: string;
+  // Only the open floor and the review desk say what they hold; a department's name is enough.
+  note?: string;
   lines: string[];
   // What the room's current or last goal used, in all and per AI app.
   usage?: { apps: { name: string; tokens: number }[]; total: number };
@@ -447,7 +448,8 @@ export function Floor(props: FloorProps) {
     return (
       <>
         {sign.title}
-        <span>{sign.note}</span>
+        {sign.note === undefined ? null : <span>{sign.note}</span>}
+        {sign.usage === undefined ? null : <SignUsage usage={sign.usage} />}
         <DoorChips chips={chips} />
       </>
     );
@@ -545,18 +547,6 @@ export function Floor(props: FloorProps) {
                 {sign.lines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
-                {sign.usage === undefined ? null : (
-                  <ul className={styles.roomUsage} aria-label="Tokens on this task">
-                    <li className={styles.usageTotal}>
-                      <strong>{compactCount(sign.usage.total)}</strong> tokens
-                    </li>
-                    {sign.usage.apps.map((app) => (
-                      <li key={app.name} className={styles.usageApp}>
-                        {app.name} <strong>{compactCount(app.tokens)}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             )}
           </div>
@@ -748,6 +738,22 @@ export function Floor(props: FloorProps) {
         />
       )}
     </div>
+  );
+}
+
+// Folded into the sign; it opens while the pointer is on the room, the sign has focus or the room is open.
+function SignUsage({ usage }: { usage: NonNullable<RoomSign["usage"]> }) {
+  return (
+    <span className={styles.signUsage}>
+      <span className={styles.signUsageInner}>
+        <strong>{compactCount(usage.total)}</strong> tokens
+        {usage.apps.map((app) => (
+          <span key={app.name} className={styles.signUsageApp}>
+            {app.name} <strong>{compactCount(app.tokens)}</strong>
+          </span>
+        ))}
+      </span>
+    </span>
   );
 }
 

@@ -22,6 +22,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-08",
+    title: "Calmer office",
+    icon: LayoutGrid,
+    changes: [
+      "The office no longer flickers on smaller or zoomed screens when a scrollbar appears",
+      "A department's name tag shows just its name. Hover the department or walk into it to see the tokens its task used",
+    ],
+  },
+  {
     date: "2026-11-05",
     title: "Plainer words",
     icon: CircleHelp,

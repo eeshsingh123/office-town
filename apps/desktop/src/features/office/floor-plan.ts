@@ -75,8 +75,8 @@ const GAP = { x: 40, y: 50 };
 // Room for the sign, goal and usage lines above the first desk; the chief's office has no goal or usage.
 const DESK_TOP = 160;
 const CHIEF_DESK_TOP = 90;
-// A department's sign holds its goal's usage, and each member a token count above its head.
-const DEPARTMENT_DESK_TOP = 212;
+// A department holds its goal line, and each member a token count above its head.
+const DEPARTMENT_DESK_TOP = 182;
 const DEPARTMENT_PITCH_Y = 180;
 const DESK_BOTTOM = 34;
 const CORRIDOR = 90;

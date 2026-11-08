@@ -7,7 +7,6 @@ import { loadTrace } from "../../store/live.ts";
 import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { taskName } from "../../ui/format.ts";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
@@ -203,7 +202,6 @@ function layOut(layout: Layout) {
       .filter((one) => one.tokens > 0);
     signs[department.id] = {
       title: department.name,
-      note: AUTONOMY[department.autonomy].short,
       lines:
         task === undefined
           ? ["No goal in progress"]
