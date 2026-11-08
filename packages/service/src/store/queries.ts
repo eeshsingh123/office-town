@@ -132,6 +132,29 @@ export const queries = {
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
+  // Reads the whole table on purpose: a search covers every task. One light row each (`TaskFacts`).
+  taskFacts: `
+    SELECT t.ref, t.created_at AS createdAt, t.state, t.reviewed_at IS NOT NULL AS reviewed,
+      t.parent_ref IS NOT NULL AS isPart,
+      EXISTS (SELECT 1 FROM task_workers w WHERE w.task_ref = t.ref) AS isGroup,
+      (t.paused IS NOT NULL OR EXISTS
+        (SELECT 1 FROM sessions s WHERE s.task_ref = t.ref AND s.${UNFINISHED})) AS live,
+      EXISTS (SELECT 1 FROM plan_pieces p WHERE p.task_ref = t.ref
+        AND p.status IN ('waiting', 'queued', 'working')) AS openPieces,
+      (SELECT s.status FROM sessions s WHERE s.task_ref = t.ref AND s.agent_ref =
+        (SELECT f.agent_ref FROM sessions f WHERE f.task_ref = t.ref ORDER BY f.ref LIMIT 1)
+       ORDER BY s.ref DESC LIMIT 1) AS leadStatus,
+      l.id AS leadAgentId, d.id AS departmentId, d.name AS departmentName,
+      ld.id AS leadDepartmentId, ld.name AS leadDepartmentName,
+      w.id AS workspaceId, w.name AS workspaceName, t.title, t.prompt,
+      (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
+        (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) AS agentNames
+    FROM tasks t
+    LEFT JOIN agents l ON l.ref = t.lead_ref
+    LEFT JOIN departments d ON d.ref = t.department_ref
+    LEFT JOIN departments ld ON ld.ref = l.department_ref
+    LEFT JOIN workspaces w ON w.ref = t.workspace_ref
+    ORDER BY t.ref DESC`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
   activeTaskOfDepartment:
     "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",

@@ -112,6 +112,39 @@ export const taskPageSchema = z.object({
 });
 export type TaskPage = z.infer<typeof taskPageSchema>;
 
+// The Tasks page's tabs, by status.
+export const taskTabSchema = z.enum(["all", "needs", "active", "review", "done", "ended"]);
+export type TaskTab = z.infer<typeof taskTabSchema>;
+
+const listParam = z
+  .string()
+  .optional()
+  .transform((value) => (value === undefined || value === "" ? [] : value.split(",")));
+
+// `teams` are "chief", "solo" or department ids; `from` and `before` bound when a task started.
+export const taskSearchQuerySchema = z.object({
+  text: z.string().default(""),
+  tab: taskTabSchema.default("all"),
+  teams: listParam,
+  workspaceId: z.string().min(1).optional(),
+  from: z.iso.datetime().optional(),
+  before: z.iso.datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  cursor: z.string().min(1).optional(),
+});
+export type TaskSearch = z.output<typeof taskSearchQuerySchema>;
+
+// Newest first. `counts` leave out tasks with an agent at work or a pause: the app follows those
+// live and counts them itself. `teams` and `workspaceIds` are those any task has.
+export const taskSearchResultSchema = z.object({
+  tasks: z.array(taskSummarySchema),
+  next: z.string().min(1).optional(),
+  counts: z.record(taskTabSchema, z.number().int().nonnegative()),
+  teams: z.array(z.string().min(1)),
+  workspaceIds: z.array(z.string().min(1)),
+});
+export type TaskSearchResult = z.infer<typeof taskSearchResultSchema>;
+
 export const taskDetailSchema = z.object({
   task: taskRecordSchema,
   sessions: z.array(sessionRecordSchema),

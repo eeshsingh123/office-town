@@ -142,9 +142,14 @@ describe("store", () => {
     expect(store.getDepartment(empty.id)?.workspaceIds).toEqual([scratch.id]);
   });
 
-  it("deletes a finished task with its sessions, events, harness lines and result files", async () => {
+  // The search counts what the app does not follow live, with the Tasks page's status rule.
+  it("searches every task, then deletes a finished one with its sessions, events, lines and files", async () => {
+    const finished = store.createTask("Draft the launch post");
+    startSession(finished.id).emit({ type: "session.ended", payload: { reason: "exited" } });
+    store.setTaskState(finished.id, "ended");
+    const agent = addAgent(store);
     const task = store.createTask("Delete me");
-    const session = startSession(task.id);
+    const session = startSession(task.id, { agentId: agent.id });
     session.emit({ type: "session.started", payload: { harnessSessionId: "native-1" } });
     session.emit({
       type: "action.ended",
@@ -152,8 +157,18 @@ describe("store", () => {
     });
     for (let line = 0; line < 6000; line += 1) store.appendHarnessLine(session.id, "in", "{}");
     await expect(store.deleteTask(task.id)).rejects.toThrow(TaskActiveError);
+    const search = (text: string, tab: "all" | "review" | "ended" = "all") =>
+      store.searchTasks({ text, tab, teams: [], limit: 1 });
+    const all = search("");
+    expect(all.tasks.map(({ id }) => id)).toEqual([task.id]);
+    expect(all.next).toBeDefined();
+    expect(all.counts).toMatchObject({ all: 1, review: 1, ended: 0 });
+    expect(search("", "review").tasks.map(({ id }) => id)).toEqual([finished.id]);
 
     session.emit({ type: "session.ended", payload: { reason: "stopped", exitCode: 0 } });
+    store.setTaskState(task.id, "ended");
+    expect(search(agent.name, "ended").tasks.map(({ id }) => id)).toEqual([task.id]);
+    expect(search("").counts).toMatchObject({ all: 2, review: 1, ended: 1 });
     const before = await store.size();
     expect(before.resultBytes).toBe(20_000);
     const deleting = store.deleteTask(task.id);
@@ -162,7 +177,8 @@ describe("store", () => {
 
     expect(store.getTask(task.id)).toBeUndefined();
     expect(store.getSession(session.id)).toBeUndefined();
-    expect(store.readEvents({ after: 0, limit: 100 })).toEqual([]);
+    const events = store.readEvents({ after: 0, limit: 100 });
+    expect(events.filter(({ event }) => event.sessionId === session.id)).toEqual([]);
     expect(existsSync(join(directory, "results", session.id))).toBe(false);
     const after = await store.size();
     expect(after.resultBytes).toBe(0);

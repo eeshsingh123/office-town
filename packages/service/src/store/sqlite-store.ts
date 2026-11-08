@@ -50,6 +50,8 @@ import {
   type TaskPage,
   type TaskPause,
   type TaskRecord,
+  type TaskSearch,
+  type TaskSearchResult,
   type TaskState,
   type TaskSummary,
   type TaskUsage,
@@ -103,6 +105,7 @@ import {
   type UnopenedItem,
   type WorkspaceActivity,
 } from "./store.ts";
+import { matchTasks, type TaskFacts } from "./task-search.ts";
 
 // Deleting in chunks lets live updates through; one statement blocks for most of a second.
 const DELETE_CHUNK = 1000;
@@ -785,6 +788,16 @@ class SqliteStore implements Store {
       .map((id) => this.#taskRow(id))
       .sort((a, b) => b.ref - a.ref)
       .map((row) => this.#summarize(row));
+  }
+
+  searchTasks(filters: TaskSearch): TaskSearchResult {
+    const facts = all<TaskFacts>(this.#statements.taskFacts);
+    const { refs, ...rest } = matchTasks(facts, filters, this.readSettings().chiefAgentId);
+    const tasks = refs.flatMap((ref) => {
+      const row = one<TaskRow>(this.#statements.taskByRef, ref);
+      return row === undefined ? [] : [this.#summarize(row)];
+    });
+    return { tasks, ...rest };
   }
 
   listPausedTasks(): TaskSummary[] {

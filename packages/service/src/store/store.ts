@@ -41,6 +41,8 @@ import type {
   TaskPage,
   TaskPause,
   TaskRecord,
+  TaskSearch,
+  TaskSearchResult,
   TaskState,
   TaskSummary,
   TokenUsage,
@@ -264,6 +266,7 @@ export interface Store {
   listTasks(query: TaskQuery): TaskPage;
   listActiveTasks(): TaskSummary[];
   listPausedTasks(): TaskSummary[];
+  searchTasks(filters: TaskSearch): TaskSearchResult;
   // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;

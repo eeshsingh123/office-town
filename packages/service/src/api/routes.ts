@@ -30,6 +30,7 @@ import {
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
+  taskSearchQuerySchema,
   teamSchema,
   userProfileSchema,
   workspaceRequestSchema,
@@ -206,6 +207,14 @@ export function apiRoutes(
           json: store.listTasks(cursor === undefined ? { limit } : { limit, cursor }),
         };
       },
+    },
+    {
+      method: "GET",
+      path: "/tasks/search",
+      reply: ({ query }) => ({
+        status: 200,
+        json: store.searchTasks(taskSearchQuerySchema.parse(Object.fromEntries(query))),
+      }),
     },
     {
       method: "GET",
