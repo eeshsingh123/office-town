@@ -29,7 +29,7 @@ export const RELEASES: Release[] = [
     title: "Providers load faster",
     icon: Plug,
     changes: [
-      "Providers, setup and New task show your providers right away, and update by themselves when a new check finishes",
+      "Providers, setup and New task show each provider as soon as it is checked, instead of waiting for all of them",
     ],
   },
   {

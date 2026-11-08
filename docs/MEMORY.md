@@ -26,18 +26,18 @@ Last updated: 2026-11-09
 - Office revamp, merged as PR #79: the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open while the room is open or the user stands in it (no hover). A click inside a room opens it (a department, the open floor, the chief's office); only a click outside every room clears the panel. The player and the open room live in the office store, so another screen and back keeps them (memory only). The open floor is a room (`OPEN_FLOOR`) with two desks and a panel that starts a task for an assistant. The autonomy level shows in the department panel.
 - Kept state (D-90), merged as PR #80: one `store/kept.ts` with two lifetimes, `session` (where the user was) and `saved` (preferences), on `api/last-known.ts`. Every hand-written storage copy moved onto it on the same keys. Tasks, Needs you, Connectors, Workspaces and Team keep filters, folds, searches and scroll for the session; a team task its shown member; an output its spots, size and version. Setup is a draft.
 - Long histories (D-91), PR #81: the core searches and counts every task for Tasks and Ctrl+K with one shared status rule; a run opens on its latest work with Show earlier and a fixed start; ended runs no screen shows are dropped past 8; launch reads the standing team and named agents only. Run on a copy of a real store seeded with 300 old tasks: counts, Show older past 200, "assistants" matching old tasks, and a 13-session lead's tokens steady through Show earlier.
-- Launch responsiveness (D-92), PR after #81: one-off CLI queries run two at a time, the model warm-up reads one provider at a time, one limits refresh serves every page, and Tasks shows held tasks before the core answers.
+- Launch responsiveness (D-92), PR after #81: one-off CLI queries run two at a time, one limits refresh serves every page, and Tasks shows held tasks before the core answers.
 
 ## Performance phase (D-93)
 
 - Done on `fix/performance-phase`: provider status in the background, and a clean dev start and stop. What was measured and left alone, with the numbers, is in D-93; measure again before reopening any of it.
 - The "broken dev store" seen from Claude's shell was its virtualized `%LOCALAPPDATA%` copy; the owner's dev app opens its store fine. Measure on a copy of a `store.db.bak-v*` in the scratchpad.
-- Known gap: a `harnesses` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
+- Known gap: a `harness` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
 - Still open, small: `/workspaces/usage` is read about 9 times at launch and `/environments` twice.
 
 ## Not checked yet
 
-- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The owner measures whether model lists and limits at launch now wait behind the start-up provider check. The packaged app.
+- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. Limits were not measured (the probe store has no accounts). The packaged app.
 - D-92: the packaged app; WSL queries waiting their turn.
 
 Worth a click when touched.
