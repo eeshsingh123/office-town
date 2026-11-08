@@ -59,6 +59,15 @@ export function waitingFrom(requests: readonly PendingRequest[]): Record<string,
 export const isOpen = (session: SessionRecord) =>
   session.status === "starting" || session.status === "running";
 
+// The app follows such a task and works out its status itself; the core's task search counts
+// only the others (the same rule as its `live`).
+export const isLive = (entry: TaskEntry, sessions: Record<string, SessionRecord>) =>
+  entry.task.paused !== undefined ||
+  entry.sessionIds.some((id) => {
+    const session = sessions[id];
+    return session !== undefined && isOpen(session);
+  });
+
 // A team is at work, and can be stopped, until its task ends; idle processes left open after
 // that hold nothing, as the department is free (D-84).
 export const teamAtWork = (task: TaskRecord, sessions: readonly SessionRecord[]) =>

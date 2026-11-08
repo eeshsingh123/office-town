@@ -4,6 +4,8 @@ import type {
   DelegationRecord,
   PlanPiece,
   RoomPosition,
+  TaskSearch,
+  TaskSearchResult,
   TaskSummary,
 } from "@office-town/contract";
 import { readCatalog } from "../api/catalogs.ts";
@@ -133,7 +135,6 @@ async function readAll(
     outputs: byId(outputs),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
-    ...(first ? { olderTasks: page.next } : {}),
   }));
   // Listing models runs each AI app's CLI, which takes seconds the first time; doing it now
   // means no model picker or tutorial waits for it later.
@@ -222,16 +223,19 @@ export async function deleteTask(taskId: string): Promise<void> {
   useApp.setState((state) => withoutTask(state, taskId));
 }
 
-export async function loadOlderTasks(): Promise<void> {
-  const cursor = useApp.getState().olderTasks;
-  if (cursor === undefined) return;
-  const page = await api.listTasks(cursor);
-  const agents = await readAgents(page.tasks);
+// Adds the tasks the app does not follow yet; the stream keeps those it does current.
+export async function searchTasks(search: Partial<TaskSearch>): Promise<TaskSearchResult> {
+  const result = await api.searchTasks(search);
+  const known = useApp.getState().tasks;
+  const agents = await readAgents(result.tasks.filter((task) => known[task.id] === undefined));
   useApp.setState((state) => ({
-    ...addTasks(state, page.tasks),
+    ...addTasks(
+      state,
+      result.tasks.filter((task) => state.tasks[task.id] === undefined),
+    ),
     agents: { ...state.agents, ...byId(agents) },
-    olderTasks: page.next,
   }));
+  return result;
 }
 
 function discover(sessionId: string, streamed?: StreamedEvent): void {

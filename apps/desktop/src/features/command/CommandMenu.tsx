@@ -1,3 +1,4 @@
+import type { TaskRecord } from "@office-town/contract";
 import { Command, defaultFilter } from "cmdk";
 import {
   Bot,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useState } from "react";
+import { api } from "../../api/client.ts";
 import { useTasksWithAgents } from "../../store/agents.ts";
 import { navigate, useApp, type View } from "../../store/app-store.ts";
 import dialog from "../../ui/Dialog.module.css";
@@ -35,11 +37,41 @@ import styles from "./CommandMenu.module.css";
 import { setCommandMenuOpen, useCommandMenu } from "./command-menu.ts";
 
 const RECENT_TASKS = 8;
+const TYPING_MS = 150;
 // No label starts with "~", so the typed-task row never collides with another.
 const START_VALUE = "~start";
+// The core already matched these, on their prompt and agents too, not only their title.
+const FOUND_VALUE = "~found ";
+const FOUND_SCORE = 0.5;
 // The typed task always shows, after anything that matches, so Enter on "templ" opens Templates.
-const filter = (value: string, search: string, keywords?: string[]) =>
-  value === START_VALUE ? Number.MIN_VALUE : defaultFilter(value, search, keywords);
+const filter = (value: string, search: string, keywords?: string[]) => {
+  if (value === START_VALUE) return Number.MIN_VALUE;
+  if (value.startsWith(FOUND_VALUE)) return FOUND_SCORE;
+  return defaultFilter(value, search, keywords);
+};
+
+// Tasks across the whole history that match what was typed, not only those loaded.
+function useFoundTasks(typed: string): TaskRecord[] {
+  const [found, setFound] = useState<TaskRecord[]>([]);
+  useEffect(() => {
+    if (typed === "") return;
+    let current = true;
+    const timer = setTimeout(() => {
+      api
+        .searchTasks({ text: typed, limit: RECENT_TASKS * 3 })
+        .then(({ tasks }) => {
+          if (!current) return;
+          setFound(tasks.filter((task) => task.parentTaskId === undefined).slice(0, RECENT_TASKS));
+        })
+        .catch((error: unknown) => console.error("Could not search tasks.", error));
+    }, TYPING_MS);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [typed]);
+  return typed === "" ? [] : found;
+}
 
 function Row(props: {
   icon: LucideIcon;
@@ -92,6 +124,7 @@ export function CommandMenu() {
     navigate(view);
   };
   const typed = search.trim();
+  const found = useFoundTasks(typed);
 
   return (
     <Dialog.Root
@@ -207,7 +240,20 @@ export function CommandMenu() {
                   ))}
                 </Command.Group>
               )}
-              {tasks.length === 0 ? null : (
+              {typed === "" || found.length === 0 ? null : (
+                <Command.Group heading="Tasks">
+                  {found.map((task) => (
+                    <Row
+                      key={task.id}
+                      icon={List}
+                      label={taskName(task)}
+                      value={`${FOUND_VALUE}${task.id}`}
+                      onSelect={() => go({ name: "task", taskId: task.id })}
+                    />
+                  ))}
+                </Command.Group>
+              )}
+              {typed !== "" || tasks.length === 0 ? null : (
                 <Command.Group heading="Recent tasks">
                   {tasks.map(({ task }) => (
                     <Row

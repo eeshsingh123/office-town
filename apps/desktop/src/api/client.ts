@@ -100,11 +100,14 @@ import {
   type TaskOutputs,
   type TaskPage,
   type TaskRecord,
+  type TaskSearch,
+  type TaskSearchResult,
   type Team,
   taskDetailSchema,
   taskOutputsSchema,
   taskPageSchema,
   taskRecordSchema,
+  taskSearchResultSchema,
   type UserProfile,
   userProfileSchema,
   type WorkspaceRecord,
@@ -248,6 +251,14 @@ export const api = {
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),
+  searchTasks: (search: Partial<TaskSearch>): Promise<TaskSearchResult> => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(search)) {
+      const text = Array.isArray(value) ? value.join(",") : String(value ?? "");
+      if (text !== "") query.set(key, text);
+    }
+    return read(`/tasks/search?${query}`, taskSearchResultSchema);
+  },
   getTask: (taskId: string): Promise<TaskDetail> => read(`/tasks/${id(taskId)}`, taskDetailSchema),
   deleteTask: (taskId: string): Promise<void> => send("DELETE", `/tasks/${id(taskId)}`),
   getSession: (sessionId: string): Promise<SessionRecord> =>
