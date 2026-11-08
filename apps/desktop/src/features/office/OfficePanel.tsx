@@ -1,4 +1,5 @@
 import type { DepartmentRecord } from "@office-town/contract";
+import { User } from "lucide-react";
 import { stateOf, useAgent, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -14,7 +15,8 @@ import { AgentProfile } from "./AgentProfile.tsx";
 import type { FloorAgent } from "./Floor.tsx";
 import { GroupPanel } from "./GroupPanel.tsx";
 import styles from "./Office.module.css";
-import { PanelFrame, SidePanel } from "./SidePanel.tsx";
+import sideStyles from "./SidePanel.module.css";
+import { PanelFrame, PanelHeader, SidePanel } from "./SidePanel.tsx";
 
 function EmptyPanel({ count }: { count: number }) {
   return (
@@ -31,6 +33,37 @@ function EmptyPanel({ count }: { count: number }) {
           </Button>
         </div>
       ) : null}
+    </aside>
+  );
+}
+
+// The open floor holds assistants that work alone, so it starts a task for one.
+function OpenFloorPanel({ working }: { working: number }) {
+  return (
+    <aside className={sideStyles.panel} aria-label="Open floor">
+      <PanelHeader
+        picture={
+          <span className={styles.openPicture} aria-hidden>
+            <User size={18} />
+          </span>
+        }
+        title="Open floor"
+        subtitle={
+          working === 0
+            ? "No assistant here"
+            : `${working === 1 ? "1 assistant" : `${working} assistants`} here`
+        }
+      />
+      <div className={sideStyles.content}>
+        <p className={styles.empty}>
+          An assistant works here on its own task, outside any department.
+        </p>
+        <div>
+          <Button variant="primary" onClick={() => navigate({ name: "new-task", who: "one" })}>
+            New task for an assistant
+          </Button>
+        </div>
+      </div>
     </aside>
   );
 }
@@ -71,6 +104,9 @@ interface OfficePanelProps {
   selection: string[];
   chosen: FloorAgent[];
   room: DepartmentRecord | undefined;
+  openFloor: boolean;
+  // Those working alone on the open floor.
+  assistants: number;
   floorCount: number;
 }
 
@@ -82,7 +118,8 @@ export function OfficePanel(props: OfficePanelProps) {
   );
 }
 
-function PanelContent({ selection, chosen, room, floorCount }: OfficePanelProps) {
+function PanelContent(props: OfficePanelProps) {
+  const { selection, chosen, room, openFloor, assistants, floorCount } = props;
   const chiefId = useApp((state) => state.chiefId);
   const [single] = selection;
   if (selection.length > 1) return <GroupPanel members={chosen} />;
@@ -115,5 +152,6 @@ function PanelContent({ selection, chosen, room, floorCount }: OfficePanelProps)
       />
     );
   }
+  if (openFloor) return <OpenFloorPanel working={assistants} />;
   return <EmptyPanel count={floorCount} />;
 }

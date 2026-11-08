@@ -43,7 +43,7 @@ import {
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
-import type { PanelKind } from "./office-state.ts";
+import { type PanelKind, setPlayer, useOffice } from "./office-state.ts";
 import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
 import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
 import { keysOwnedAt, typingIn } from "./waiting-keys.ts";
@@ -134,12 +134,17 @@ const LEGEND: [LinkState, string][] = [
   ["failed", "Failed"],
 ];
 
+// The rooms that open in the side panel: a department's and the open floor.
+const opens = (room: Room | undefined) =>
+  room?.kind === "department" || room?.kind === "open" ? room.id : undefined;
+
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Walks once per frame until every key is released.
 function useWalking(plan: FloorPlan, scale: number) {
-  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they load.
-  const [walked, setWalked] = useState<Point>();
+  // Until the user walks, the player stands at the plan's start, which moves clear of rooms as they
+  // load. Kept outside the floor, so another screen and back finds the player where it was.
+  const walked = useOffice((state) => state.player);
   const player = walked ?? plan.start;
   const held = useRef(new Set<string>());
   const frame = useRef<number | undefined>(undefined);
@@ -147,7 +152,8 @@ function useWalking(plan: FloorPlan, scale: number) {
 
   const tick = useCallback(
     (time: number) => {
-      const seconds = Math.min(0.05, (time - last.current) / 1000);
+      // A frame's time can come before the key press that asked for it; never step backwards.
+      const seconds = Math.min(0.05, Math.max(0, (time - last.current) / 1000));
       last.current = time;
       let x = 0;
       let y = 0;
@@ -161,7 +167,7 @@ function useWalking(plan: FloorPlan, scale: number) {
         return;
       }
       const step = (SPEED / scale) * seconds;
-      setWalked((at = plan.start) =>
+      setPlayer((at = plan.start) =>
         clampToFloor({ x: at.x + (x / length) * step, y: at.y + (y / length) * step }, plan),
       );
       frame.current = requestAnimationFrame(tick);
@@ -366,8 +372,10 @@ export function Floor(props: FloorProps) {
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
-  // Walking into a room opens its panel; walking out closes it if it is still the one open.
-  const inside = useRef<string | undefined>(undefined);
+  // The room the user stands in. Walking into a room opens its panel; walking out closes it if it
+  // is still the one open. Set from where the player stands, so coming back reopens nothing.
+  const standing = roomAt(player, plan)?.id;
+  const inside = useRef(opens(roomAt(player, plan)));
 
   const focus = useApp((state) => state.focus);
   // The agent's oldest waiting request, from any of its sessions, as `waitingOrder` finds it.
@@ -389,8 +397,7 @@ export function Floor(props: FloorProps) {
   useEffect(() => {
     if (player === plan.start) return;
     you.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    const standingIn = roomAt(player, plan);
-    const entered = standingIn?.kind === "department" ? standingIn.id : undefined;
+    const entered = opens(roomAt(player, plan));
     if (entered !== undefined && entered !== inside.current) onOpenRoom(entered);
     else if (entered === undefined && inside.current !== undefined && room === inside.current)
       onSelect([]);
@@ -445,7 +452,22 @@ export function Floor(props: FloorProps) {
     const box = rectFrom(drag.from, drag.to);
     setDrag(undefined);
     const dragged = box.width > DRAG_THRESHOLD || box.height > DRAG_THRESHOLD;
-    onSelect(dragged ? inRect(box, seated).map(({ id }) => id) : []);
+    if (dragged) onSelect(inRect(box, seated).map(({ id }) => id));
+    else onClickAt(drag.from);
+  };
+
+  // A click inside a room opens it, as its sign does, and leaves an open room as it is. Only a
+  // click outside every room, or on the review desk, clears the panel.
+  const onClickAt = (at: Point) => {
+    const hit = rooms.find((one) => contains(one.rect, at));
+    const opened = opens(hit);
+    if (opened !== undefined) {
+      if (opened !== room) onOpenRoom(opened);
+    } else if (hit?.kind === "chief" && chief !== undefined) {
+      onSelect([chief.id]);
+    } else {
+      onSelect([]);
+    }
   };
 
   const signLabel = (id: string, kind: Room["kind"]) => {
@@ -526,6 +548,7 @@ export function Floor(props: FloorProps) {
           kind === "guest" ? styles.guestRoom : "",
           kind === "chief" ? styles.chiefRoom : "",
           open ? styles.roomOpen : "",
+          standing === id ? styles.roomHere : "",
           lifted ? styles.roomLifted : "",
         ];
         const roomBox = (
@@ -756,7 +779,7 @@ export function Floor(props: FloorProps) {
   );
 }
 
-// Folded into the sign; it opens while the pointer is on the room, the sign has focus or the room is open.
+// Folded into the sign; it opens while the room is open or the user stands in it.
 function SignUsage({ usage }: { usage: NonNullable<RoomSign["usage"]> }) {
   return (
     <span className={styles.signUsage}>

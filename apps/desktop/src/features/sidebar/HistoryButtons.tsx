@@ -22,7 +22,12 @@ const PAGES: Record<string, string> = {
 export function visitLabel({ view, selection }: Visit, state: AppState): string {
   switch (view.name) {
     case "office": {
-      const room = view.room === undefined ? undefined : state.departments[view.room]?.name;
+      const room =
+        view.room === "open"
+          ? "Open floor"
+          : view.room === undefined
+            ? undefined
+            : state.departments[view.room]?.name;
       const [only] = selection;
       const agent =
         selection.length > 1

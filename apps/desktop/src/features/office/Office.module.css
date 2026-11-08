@@ -118,10 +118,6 @@
   background: var(--accent-soft);
 }
 
-.floor:focus-visible .room {
-  border-color: var(--accent);
-}
-
 .roomOpen {
   border-color: var(--accent);
 }
@@ -310,6 +306,14 @@
   cursor: default;
 }
 
+/* Keyboard focus on the floor rings the player, not every room: only the open room is outlined. */
+.floor:focus-visible .you {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--accent),
+    0 2px 6px rgb(0 0 0 / 18%);
+}
+
 .youNamed {
   padding: 0;
   background: none;
@@ -387,6 +391,17 @@
 
 .empty {
   margin: 0;
+  color: var(--text-2);
+}
+
+.openPicture {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--hover);
   color: var(--text-2);
 }
 
@@ -683,9 +698,9 @@
   color: var(--text);
 }
 
+/* Open only while the room is open or the user stands in it, so hovering and clicking never flicker it. */
 .roomOpen .signUsage,
-.room:hover .signUsage,
-.sign:focus-visible .signUsage {
+.roomHere .signUsage {
   grid-template-columns: 1fr;
   margin-left: 0;
 }

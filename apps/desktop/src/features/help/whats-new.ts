@@ -27,7 +27,11 @@ export const RELEASES: Release[] = [
     icon: LayoutGrid,
     changes: [
       "The office no longer flickers on smaller or zoomed screens when a scrollbar appears",
-      "A department's name tag shows just its name. Hover the department or walk into it to see the tokens its task used",
+      "A department's name tag shows just its name. Open the department or walk into it to see the tokens its task used",
+      "Clicking anywhere inside a department opens it and keeps it open. Only the department you are in is outlined",
+      "Leaving the office and coming back keeps where you stood and the room you had open",
+      "The open floor has two desks. Click it to start a task for an assistant",
+      "Walking no longer jumps back a little when you start",
       "Dragging a side panel's edge to resize it no longer selects the text beside it",
     ],
   },
