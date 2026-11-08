@@ -145,7 +145,7 @@ describe("store", () => {
   // The search counts what the app does not follow live, with the Tasks page's status rule.
   it("searches every task, then deletes a finished one with its sessions, events, lines and files", async () => {
     const finished = store.createTask("Draft the launch post");
-    startSession(finished.id).emit({ type: "session.ended", payload: { reason: "exited" } });
+    startSession(finished.id).emit({ type: "session.ended", payload: { reason: "exited", exitCode: 0 } });
     store.setTaskState(finished.id, "ended");
     const agent = addAgent(store);
     const task = store.createTask("Delete me");
