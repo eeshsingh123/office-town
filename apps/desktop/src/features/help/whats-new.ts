@@ -26,19 +26,11 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-09",
-    title: "Providers at once",
-    icon: Plug,
-    changes: [
-      "Providers, setup and the provider list in New task show your providers at once, and update by themselves when a fresh check ends",
-    ],
-  },
-  {
-    date: "2026-11-09",
     title: "Quicker start",
     icon: Gauge,
     changes: [
       "Tasks shows your tasks as soon as you open it, even while the app is still starting",
-      "The app stays quick while it checks your providers at start",
+      "Providers show right away and update by themselves when a new check finishes",
     ],
   },
   {

@@ -32,11 +32,12 @@ Last updated: 2026-11-09
 
 - Done on `fix/performance-phase`: provider status in the background, and a clean dev start and stop. What was measured and left alone, with the numbers, is in D-93; measure again before reopening any of it.
 - The "broken dev store" seen from Claude's shell was its virtualized `%LOCALAPPDATA%` copy; the owner's dev app opens its store fine. Measure on a copy of a `store.db.bak-v*` in the scratchpad.
+- Known gap: a `harnesses` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
 - Still open, small: `/workspaces/usage` is read about 9 times at launch and `/environments` twice.
 
 ## Not checked yet
 
-- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. A fresh status reaching Providers on a reconnect is lost until the next check. The packaged app.
+- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The owner measures whether model lists and limits at launch now wait behind the start-up provider check. The packaged app.
 - D-92: the packaged app; WSL queries waiting their turn.
 
 Worth a click when touched.
