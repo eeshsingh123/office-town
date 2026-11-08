@@ -8,6 +8,7 @@ import { BadgeCheck, ChevronRight, Plus, RefreshCw, Search } from "lucide-react"
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
@@ -171,11 +172,15 @@ function firstSheet(entries: CatalogEntry[] | undefined, props: ConnectorsViewPr
     : ({ kind: "connect", entry, ...preset } as const);
 }
 
+const QUERY = forSession("connectors.query", "");
+const CATEGORY = forSession<ConnectorCategory | "all">("connectors.category", "all");
+
 export function ConnectorsView(props: ConnectorsViewProps) {
   const connectors = useConnectors();
   const catalog = useCatalog();
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<ConnectorCategory | "all">("all");
+  const [query, setQuery] = useKept(QUERY);
+  const [category, setCategory] = useKept(CATEGORY);
+  const scroll = useKeptScroll("connectors");
   const [chosen, setChosen] = useState<Sheet | null>();
   // An app asked for opens once the catalog is in, unless the user has closed it since.
   const sheet = chosen === undefined ? firstSheet(catalog?.entries, props) : chosen;
@@ -198,7 +203,12 @@ export function ConnectorsView(props: ConnectorsViewProps) {
   );
 
   return (
-    <section className={page.page} aria-labelledby="connectors-title">
+    <section
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={page.page}
+      aria-labelledby="connectors-title"
+    >
       <div className={styles.column}>
         <header className={page.header}>
           <h1 id="connectors-title" className={page.title}>

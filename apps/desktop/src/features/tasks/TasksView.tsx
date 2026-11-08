@@ -3,6 +3,7 @@ import { DropdownMenu } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { forSession, type Keep, oneOf, useKept, useKeptScroll } from "../../store/kept.ts";
 import { loadOlderTasks } from "../../store/live.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -32,7 +33,6 @@ import {
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
-const GROUP_BY_KEY = "office-town.tasks.group-by";
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "all", label: "All" },
@@ -56,15 +56,17 @@ const STARTED: { value: Started; label: string }[] = [
   { value: "older", label: "Older" },
 ];
 
-// Storage can be blocked; grouping by team is the default.
-function savedGroupBy(): GroupBy {
-  try {
-    const saved = localStorage.getItem(GROUP_BY_KEY);
-    return GROUP_BY.find((choice) => choice.value === saved)?.value ?? "team";
-  } catch {
-    return "team";
-  }
-}
+const GROUPED_BY: Keep<GroupBy> = {
+  name: "tasks.group-by",
+  lasts: "saved",
+  start: "team",
+  parse: oneOf(GROUP_BY.map((choice) => choice.value)),
+};
+const NONE: ReadonlySet<string> = new Set();
+const FILTERS = forSession("tasks.filters", NO_FILTERS);
+const FOLDED = forSession("tasks.folded", NONE);
+const TOGGLED = forSession("tasks.toggled", NONE);
+const SHOW_DONE = forSession("tasks.show-done", NONE);
 
 function useNow(): number {
   const [now, setNow] = useState(Date.now);
@@ -212,11 +214,12 @@ export function TasksView() {
   const workspaces = useWorkspaces();
   const teams = useTeams();
   const now = useNow();
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [by, setBy] = useState<GroupBy>(savedGroupBy);
-  const [folded, setFolded] = useState<Set<string>>(new Set());
-  const [toggled, setToggled] = useState<Set<string>>(new Set());
-  const [showDone, setShowDone] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useKept(FILTERS);
+  const [by, setBy] = useKept(GROUPED_BY);
+  const [folded, setFolded] = useKept(FOLDED);
+  const [toggled, setToggled] = useKept(TOGGLED);
+  const [showDone, setShowDone] = useKept(SHOW_DONE);
+  const scroll = useKeptScroll("tasks");
   const [loading, setLoading] = useState(false);
 
   const items = useMemo(
@@ -273,13 +276,8 @@ export function TasksView() {
   const chooseBy = (value: GroupBy) => {
     setBy(value);
     setFolded(new Set());
-    try {
-      localStorage.setItem(GROUP_BY_KEY, value);
-    } catch (error) {
-      console.warn("Could not save the grouping.", error);
-    }
   };
-  const flip = (set: Set<string>, key: string) => {
+  const flip = (set: ReadonlySet<string>, key: string) => {
     const next = new Set(set);
     if (!next.delete(key)) next.add(key);
     return next;
@@ -315,7 +313,12 @@ export function TasksView() {
   };
 
   return (
-    <section className={`${page.page} ${styles.page}`} aria-labelledby="tasks-title">
+    <section
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={`${page.page} ${styles.page}`}
+      aria-labelledby="tasks-title"
+    >
       <div className={styles.column}>
         <div className={styles.top}>
           <header className={page.header}>
