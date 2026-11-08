@@ -4,8 +4,11 @@ import type {
   DelegationRecord,
   PlanPiece,
   RoomPosition,
+  TaskSearch,
+  TaskSearchResult,
   TaskSummary,
 } from "@office-town/contract";
+import { useEffect } from "react";
 import { readCatalog } from "../api/catalogs.ts";
 import { api } from "../api/client.ts";
 import { followEvents, replaySession, type StreamedEvent } from "../api/event-stream.ts";
@@ -16,6 +19,8 @@ import { addTasks, applyToRecords, isOpen, waitingFrom } from "./records.ts";
 
 const RETRY_MS = 2000;
 const FLUSH_FALLBACK_MS = 100;
+// Runs no screen shows that stay in memory once they have ended, so going back is instant.
+const KEPT_ENDED_TRACES = 8;
 
 let queue: StreamedEvent[] = [];
 let changes: Change[] = [];
@@ -27,6 +32,10 @@ let refreshing = 0;
 const loading = new Map<string, StreamedEvent[]>();
 // Applied once its record is known.
 const discovering = new Map<string, StreamedEvent[]>();
+// How many screens show each session's trace.
+const watched = new Map<string, number>();
+// Oldest first.
+let unwatched: string[] = [];
 // Replays run one at a time: the browser allows only six connections to the core (D-32).
 let replays = Promise.resolve();
 
@@ -110,9 +119,26 @@ async function readAll(
   );
   const reread = await Promise.all([...stale].map(readTask));
   const tasks = [...page.tasks, ...active.tasks, ...reread];
-  const [delegations, pieces] = await Promise.all([
+  // Launch reads the standing team; the rest only as loaded records name them. Read again after
+  // a reconnect, the ones already held are read afresh too, as changes may have been missed.
+  const standing = new Set(agents.map((agent) => agent.id));
+  const held = new Set(Object.keys(useApp.getState().agents));
+  const named = new Set(
+    [
+      ...held,
+      ...agentsOf(tasks),
+      ...outputs.map((output) => output.agentId),
+      ...library.flatMap((item) => [
+        ...item.givenTo.agentIds,
+        ...(item.addedByAgentId === undefined ? [] : [item.addedByAgentId]),
+      ]),
+      ...connectors.flatMap((connector) => connector.audience.agentIds),
+    ].filter((id) => !standing.has(id)),
+  );
+  const [delegations, pieces, more] = await Promise.all([
     readDelegations(tasks),
     readPlans(tasks, settings.chiefAgentId),
+    fetchAgents([...named]),
   ]);
   useApp.setState((state) => ({
     harnesses,
@@ -122,7 +148,12 @@ async function readAll(
     // Someone who used the app before setup existed has nothing to set up.
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
-    agents: byId(agents),
+    // One removed meanwhile is gone; one that arrived during the read stays.
+    agents: {
+      ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),
+      ...byId(more),
+      ...byId(agents),
+    },
     departments: byId(departments),
     delegations: byId(delegations),
     pieces: byId(pieces),
@@ -133,7 +164,6 @@ async function readAll(
     outputs: byId(outputs),
     ...addTasks(state, tasks),
     waiting: waitingFrom(waiting.requests),
-    ...(first ? { olderTasks: page.next } : {}),
   }));
   // Listing models runs each AI app's CLI, which takes seconds the first time; doing it now
   // means no model picker or tutorial waits for it later.
@@ -171,12 +201,32 @@ async function readTask(taskId: string): Promise<TaskSummary> {
   return { ...task, sessions };
 }
 
-// Agents the app does not know yet, such as one just made.
-async function readAgents(tasks: readonly TaskSummary[]): Promise<AgentRecord[]> {
-  const known = useApp.getState().agents;
-  const missing = new Set(tasks.flatMap((task) => task.sessions.map((session) => session.agentId)));
-  return Promise.all([...missing].filter((id) => known[id] === undefined).map(api.getAgent));
+// So a long list of ids still fits in one address.
+const AGENTS_PER_READ = 100;
+
+async function fetchAgents(ids: readonly string[]): Promise<AgentRecord[]> {
+  const reads: Promise<AgentRecord[]>[] = [];
+  for (let start = 0; start < ids.length; start += AGENTS_PER_READ) {
+    reads.push(api.listAgents(ids.slice(start, start + AGENTS_PER_READ)));
+  }
+  return (await Promise.all(reads)).flat();
 }
+
+// Those named that the app does not know yet, such as one just made or one of an older task.
+async function readAgents(ids: Iterable<string>): Promise<AgentRecord[]> {
+  const known = useApp.getState().agents;
+  return fetchAgents([...new Set(ids)].filter((id) => known[id] === undefined));
+}
+
+// For records the app reads apart from tasks, such as a connector's calls.
+export async function knowAgents(ids: Iterable<string>): Promise<void> {
+  const agents = await readAgents(ids);
+  if (agents.length === 0) return;
+  useApp.setState((state) => ({ agents: { ...state.agents, ...byId(agents) } }));
+}
+
+const agentsOf = (tasks: readonly TaskSummary[]) =>
+  tasks.flatMap((task) => task.sessions.map((session) => session.agentId));
 
 export function keepAgent(agent: AgentRecord): void {
   useApp.setState((state) => ({ agents: { ...state.agents, [agent.id]: agent } }));
@@ -194,7 +244,7 @@ function watchActive(tasks: readonly TaskSummary[]): void {
 // Such as one it just started.
 export async function track(taskId: string): Promise<void> {
   const summary = await readTask(taskId);
-  const agents = await readAgents([summary]);
+  const agents = await readAgents(agentsOf([summary]));
   useApp.setState((state) => ({
     ...addTasks(state, [summary]),
     agents: { ...state.agents, ...byId(agents) },
@@ -222,16 +272,21 @@ export async function deleteTask(taskId: string): Promise<void> {
   useApp.setState((state) => withoutTask(state, taskId));
 }
 
-export async function loadOlderTasks(): Promise<void> {
-  const cursor = useApp.getState().olderTasks;
-  if (cursor === undefined) return;
-  const page = await api.listTasks(cursor);
-  const agents = await readAgents(page.tasks);
+// Adds the tasks the app does not follow yet; the stream keeps those it does current.
+export async function searchTasks(search: Partial<TaskSearch>): Promise<TaskSearchResult> {
+  const result = await api.searchTasks(search);
+  const known = useApp.getState().tasks;
+  const agents = await readAgents(
+    agentsOf(result.tasks.filter((task) => known[task.id] === undefined)),
+  );
   useApp.setState((state) => ({
-    ...addTasks(state, page.tasks),
+    ...addTasks(
+      state,
+      result.tasks.filter((task) => state.tasks[task.id] === undefined),
+    ),
     agents: { ...state.agents, ...byId(agents) },
-    olderTasks: page.next,
   }));
+  return result;
 }
 
 function discover(sessionId: string, streamed?: StreamedEvent): void {
@@ -250,6 +305,51 @@ function discover(sessionId: string, streamed?: StreamedEvent): void {
     })
     .catch((error: unknown) => console.error(`Could not load session ${sessionId}.`, error))
     .finally(() => discovering.delete(sessionId));
+}
+
+// Loads the traces while a screen shows them; ended ones it no longer shows are dropped in time.
+export function useTraces(sessionIds: readonly string[]): void {
+  const key = sessionIds.join();
+  useEffect(() => {
+    const ids = key === "" ? [] : key.split(",");
+    for (const id of ids) {
+      watched.set(id, (watched.get(id) ?? 0) + 1);
+      unwatched = unwatched.filter((known) => known !== id);
+      loadTrace(id);
+    }
+    return () => {
+      for (const id of ids) {
+        const left = (watched.get(id) ?? 1) - 1;
+        if (left > 0) watched.set(id, left);
+        else {
+          watched.delete(id);
+          unwatched.push(id);
+        }
+      }
+      dropEndedTraces();
+    };
+  }, [key]);
+}
+
+// Live ones stay: their events keep arriving. So do ended ones left most recently.
+function dropEndedTraces(): void {
+  const { traces, sessions } = useApp.getState();
+  const recent = new Set(unwatched.slice(-KEPT_ENDED_TRACES));
+  const drop = Object.keys(traces).filter((id) => {
+    const session = sessions[id];
+    return !watched.has(id) && !recent.has(id) && (session === undefined || !isOpen(session));
+  });
+  if (drop.length === 0) return;
+  unwatched = unwatched.filter((id) => !drop.includes(id));
+  useApp.setState((state) => {
+    const traces = { ...state.traces };
+    const traceErrors = { ...state.traceErrors };
+    for (const id of drop) {
+      delete traces[id];
+      delete traceErrors[id];
+    }
+    return { traces, traceErrors };
+  });
 }
 
 export function loadTrace(sessionId: string): void {

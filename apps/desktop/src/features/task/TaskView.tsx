@@ -1,5 +1,5 @@
 import { LoaderCircle, Square } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
@@ -14,7 +14,7 @@ import {
 import { requestKey } from "../../trace/trace.ts";
 import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { clockTime, taskName } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
@@ -24,7 +24,7 @@ import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
-import { SessionTrace } from "./SessionTrace.tsx";
+import { AgentTrace } from "./SessionTrace.tsx";
 import { StepsButton, StepsColumn } from "./StepsColumn.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
 import { ReviewAction } from "./TaskTools.tsx";
@@ -152,16 +152,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <RunCard agent={agent} />
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
-                {agent.sessions.map((session, index) => (
-                  <Fragment key={session.id}>
-                    {index === 0 ? null : (
-                      <div className={styles.divider}>
-                        Continued at {clockTime(session.createdAt)}
-                      </div>
-                    )}
-                    <SessionTrace session={session} />
-                  </Fragment>
-                ))}
+                <AgentTrace key={agent.id} sessions={agent.sessions} />
                 <ReviewOffer
                   agent={agent}
                   members={[agent]}

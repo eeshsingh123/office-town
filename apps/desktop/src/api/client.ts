@@ -81,10 +81,12 @@ import {
   type PreviewReply,
   type ProfileRecord,
   type ProfileRequest,
+  type ProfileUses,
   pendingRequestListSchema,
   planPieceSchema,
   previewReplySchema,
   profileRecordSchema,
+  profileUsesSchema,
   type RoomPosition,
   type SessionPage,
   type SessionRecord,
@@ -100,11 +102,14 @@ import {
   type TaskOutputs,
   type TaskPage,
   type TaskRecord,
+  type TaskSearch,
+  type TaskSearchResult,
   type Team,
   taskDetailSchema,
   taskOutputsSchema,
   taskPageSchema,
   taskRecordSchema,
+  taskSearchResultSchema,
   type UserProfile,
   userProfileSchema,
   type WorkspaceRecord,
@@ -248,6 +253,14 @@ export const api = {
   listTasks: (cursor?: string): Promise<TaskPage> =>
     read(`/tasks${cursor === undefined ? "" : `?cursor=${id(cursor)}`}`, taskPageSchema),
   listActiveTasks: (): Promise<TaskPage> => read("/tasks?active=true", taskPageSchema),
+  searchTasks: (search: Partial<TaskSearch>): Promise<TaskSearchResult> => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(search)) {
+      const text = Array.isArray(value) ? value.join(",") : String(value ?? "");
+      if (text !== "") query.set(key, text);
+    }
+    return read(`/tasks/search?${query}`, taskSearchResultSchema);
+  },
   getTask: (taskId: string): Promise<TaskDetail> => read(`/tasks/${id(taskId)}`, taskDetailSchema),
   deleteTask: (taskId: string): Promise<void> => send("DELETE", `/tasks/${id(taskId)}`),
   getSession: (sessionId: string): Promise<SessionRecord> =>
@@ -338,9 +351,12 @@ export const api = {
     read(`/harnesses/${id(harness)}/status?${environmentQuery(environment)}`, harnessStatusSchema),
   saveRoomPosition: (roomId: string, position: RoomPosition): Promise<void> =>
     send("PUT", `/room-positions/${id(roomId)}`, position),
-  listAgents: (): Promise<AgentRecord[]> => read("/agents", listOf(agentRecordSchema)),
-  getAgent: (agentId: string): Promise<AgentRecord> =>
-    read(`/agents/${id(agentId)}`, agentRecordSchema),
+  // Without ids, the standing team: department members and the chief.
+  listAgents: (ids: readonly string[] = []): Promise<AgentRecord[]> =>
+    read(
+      `/agents${ids.length === 0 ? "" : `?ids=${ids.map(id).join(",")}`}`,
+      listOf(agentRecordSchema),
+    ),
   listAgentSessions: (agentId: string, before?: string): Promise<SessionPage> =>
     read(
       `/agents/${id(agentId)}/sessions${before === undefined ? "" : `?before=${id(before)}`}`,
@@ -352,6 +368,7 @@ export const api = {
     write("PUT", `/agents/${id(agentId)}`, profile, agentRecordSchema),
   saveYou: (you: UserProfile): Promise<UserProfile> => write("PUT", "/you", you, userProfileSchema),
   listProfiles: (): Promise<ProfileRecord[]> => read("/profiles", listOf(profileRecordSchema)),
+  countProfileUses: (): Promise<ProfileUses> => read("/profiles/uses", profileUsesSchema),
   createProfile: (profile: ProfileRequest): Promise<ProfileRecord> =>
     write("POST", "/profiles", profile, profileRecordSchema),
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>

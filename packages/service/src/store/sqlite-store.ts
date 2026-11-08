@@ -37,6 +37,7 @@ import {
   type PlanPiece,
   type ProfileRecord,
   type ProfileRequest,
+  type ProfileUses,
   type SessionEvent,
   type SessionOptions,
   type SessionPage,
@@ -50,6 +51,8 @@ import {
   type TaskPage,
   type TaskPause,
   type TaskRecord,
+  type TaskSearch,
+  type TaskSearchResult,
   type TaskState,
   type TaskSummary,
   type TaskUsage,
@@ -103,6 +106,7 @@ import {
   type UnopenedItem,
   type WorkspaceActivity,
 } from "./store.ts";
+import { matchTasks, type TaskFacts } from "./task-search.ts";
 
 // Deleting in chunks lets live updates through; one statement blocks for most of a second.
 const DELETE_CHUNK = 1000;
@@ -787,6 +791,17 @@ class SqliteStore implements Store {
       .map((row) => this.#summarize(row));
   }
 
+  searchTasks(filters: TaskSearch): TaskSearchResult {
+    const typed = filters.text.trim() === "" ? 0 : 1;
+    const facts = all<TaskFacts>(this.#statements.taskFacts, typed);
+    const { refs, ...rest } = matchTasks(facts, filters, this.readSettings().chiefAgentId);
+    const tasks = refs.flatMap((ref) => {
+      const row = one<TaskRow>(this.#statements.taskByRef, ref);
+      return row === undefined ? [] : [this.#summarize(row)];
+    });
+    return { tasks, ...rest };
+  }
+
   listPausedTasks(): TaskSummary[] {
     return all<{ id: string }>(this.#statements.pausedTasks).map(({ id }) =>
       this.#summarize(this.#taskRow(id)),
@@ -1373,6 +1388,15 @@ class SqliteStore implements Store {
     return all<AgentRow>(this.#statements.allAgents).map(toAgent);
   }
 
+  listStandingAgents(): AgentRecord[] {
+    const chiefId = this.readSettings().chiefAgentId ?? null;
+    return all<AgentRow>(this.#statements.standingAgents, chiefId).map(toAgent);
+  }
+
+  getAgents(ids: readonly string[]): AgentRecord[] {
+    return all<AgentRow>(this.#statements.agentsByIds, JSON.stringify(ids)).map(toAgent);
+  }
+
   renameAgent(id: string, name: string): AgentRecord {
     const row = this.#agentRow(id);
     try {
@@ -1576,6 +1600,11 @@ class SqliteStore implements Store {
     const row = this.#profileRow(id);
     this.#statements.updateProfile.run(name, role, colour, JSON.stringify(settings), row.ref);
     return { ...toProfile(row), name, role, colour, settings };
+  }
+
+  countProfileUses(): ProfileUses {
+    const rows = all<{ id: string; uses: number }>(this.#statements.profileUses);
+    return Object.fromEntries(rows.map(({ id, uses }) => [id, uses]));
   }
 
   deleteProfile(id: string): void {

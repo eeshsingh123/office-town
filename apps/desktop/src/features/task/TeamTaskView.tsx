@@ -6,7 +6,7 @@ import { teamAtWork } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { clockTime, taskName } from "../../ui/format.ts";
+import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
@@ -19,7 +19,7 @@ import { PermissionChip } from "./PermissionChip.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
-import { SessionTrace } from "./SessionTrace.tsx";
+import { AgentTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
@@ -286,16 +286,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               <RunCard agent={shown} />
               <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
                 <div className={styles.traceWidth}>
-                  {shown.sessions.map((session, index) => (
-                    <Fragment key={session.id}>
-                      {index === 0 ? null : (
-                        <div className={styles.divider}>
-                          Continued at {clockTime(session.createdAt)}
-                        </div>
-                      )}
-                      <SessionTrace session={session} />
-                    </Fragment>
-                  ))}
+                  <AgentTrace key={shown.id} sessions={shown.sessions} />
                   {shown.id === lead.id ? (
                     <ReviewOffer
                       agent={lead}

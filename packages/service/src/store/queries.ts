@@ -132,6 +132,31 @@ export const queries = {
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
   tasksBefore: `${TASK_SELECT} WHERE t.ref < ? ORDER BY t.ref DESC LIMIT ?`,
+  // Reads the whole table on purpose: a search covers every task. One light row each
+  // (`TaskFacts`); the text a search matches is read only while some is typed.
+  taskFacts: `
+    SELECT t.ref, t.created_at AS createdAt, t.state, t.reviewed_at IS NOT NULL AS reviewed,
+      t.parent_ref IS NOT NULL AS isPart,
+      EXISTS (SELECT 1 FROM task_workers w WHERE w.task_ref = t.ref) AS isGroup,
+      (t.paused IS NOT NULL OR EXISTS
+        (SELECT 1 FROM sessions s WHERE s.task_ref = t.ref AND s.${UNFINISHED})) AS live,
+      EXISTS (SELECT 1 FROM plan_pieces p WHERE p.task_ref = t.ref
+        AND p.status IN ('waiting', 'queued', 'working')) AS openPieces,
+      (SELECT s.status FROM sessions s WHERE s.task_ref = t.ref AND s.agent_ref =
+        (SELECT f.agent_ref FROM sessions f WHERE f.task_ref = t.ref ORDER BY f.ref LIMIT 1)
+       ORDER BY s.ref DESC LIMIT 1) AS leadStatus,
+      l.id AS leadAgentId, d.id AS departmentId, d.name AS departmentName,
+      ld.id AS leadDepartmentId, ld.name AS leadDepartmentName,
+      w.id AS workspaceId, w.name AS workspaceName, t.title,
+      CASE WHEN ?1 THEN t.prompt END AS prompt,
+      CASE WHEN ?1 THEN (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
+        (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) END AS agentNames
+    FROM tasks t
+    LEFT JOIN agents l ON l.ref = t.lead_ref
+    LEFT JOIN departments d ON d.ref = t.department_ref
+    LEFT JOIN departments ld ON ld.ref = l.department_ref
+    LEFT JOIN workspaces w ON w.ref = t.workspace_ref
+    ORDER BY t.ref DESC`,
   taskJoinsDepartment: "UPDATE tasks SET department_ref = ?, setup = NULL WHERE ref = ?",
   activeTaskOfDepartment:
     "SELECT id FROM tasks WHERE department_ref = ? AND state <> 'ended' LIMIT 1",
@@ -196,8 +221,11 @@ export const queries = {
   membersOf: `${AGENT_SELECT} WHERE a.department_ref = ? ORDER BY a.ref`,
   agentById: `${AGENT_SELECT} WHERE a.id = ?`,
   agentNamed: "SELECT 1 FROM agents WHERE name = ?",
-  // Reads the whole table on purpose: one row per agent, which the app shows together.
+  // Reads the whole table on purpose: for the core's own checks across every agent.
   allAgents: `${AGENT_SELECT} ORDER BY a.ref`,
+  // The standing team: department members and the chief. Each task's own agents are read by id.
+  standingAgents: `${AGENT_SELECT} WHERE a.department_ref IS NOT NULL OR a.id = ? ORDER BY a.ref`,
+  agentsByIds: `${AGENT_SELECT} WHERE a.id IN (SELECT value FROM json_each(?)) ORDER BY a.ref`,
   renameAgent: "UPDATE agents SET name = ? WHERE ref = ?",
   // The chief stands without a task.
   deleteAgentIfUnused: `
@@ -296,6 +324,9 @@ export const queries = {
   profileById: `SELECT ${PROFILE_COLUMNS} FROM profiles WHERE id = ?`,
   // Reads the whole table on purpose: one row per profile the user saved.
   allProfiles: `SELECT ${PROFILE_COLUMNS} FROM profiles ORDER BY name`,
+  profileUses: `
+    SELECT p.id, count(*) AS uses FROM agents a JOIN profiles p ON p.ref = a.profile_ref
+    WHERE a.guest = 0 GROUP BY p.id`,
   updateProfile: "UPDATE profiles SET name = ?, role = ?, colour = ?, settings = ? WHERE ref = ?",
   deleteProfile: "DELETE FROM profiles WHERE ref = ?",
 

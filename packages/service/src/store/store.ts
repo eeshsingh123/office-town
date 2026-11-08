@@ -30,6 +30,7 @@ import type {
   PlanPiece,
   ProfileRecord,
   ProfileRequest,
+  ProfileUses,
   SessionEvent,
   SessionOptions,
   SessionPage,
@@ -41,6 +42,8 @@ import type {
   TaskPage,
   TaskPause,
   TaskRecord,
+  TaskSearch,
+  TaskSearchResult,
   TaskState,
   TaskSummary,
   TokenUsage,
@@ -264,6 +267,7 @@ export interface Store {
   listTasks(query: TaskQuery): TaskPage;
   listActiveTasks(): TaskSummary[];
   listPausedTasks(): TaskSummary[];
+  searchTasks(filters: TaskSearch): TaskSearchResult;
   // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;
   createSession(session: NewSession): SessionRecord;
@@ -339,6 +343,8 @@ export interface Store {
   getAgent(id: string): AgentRecord | undefined;
   isNameTaken(name: string): boolean;
   listAgents(): AgentRecord[];
+  listStandingAgents(): AgentRecord[];
+  getAgents(ids: readonly string[]): AgentRecord[];
   renameAgent(id: string, name: string): AgentRecord;
   updateAgent(id: string, change: AgentChange): AgentRecord;
   createDepartment(department: NewDepartment): DepartmentRecord;
@@ -357,6 +363,7 @@ export interface Store {
   createProfile(profile: ProfileRequest): ProfileRecord;
   getProfile(id: string): ProfileRecord | undefined;
   listProfiles(): ProfileRecord[];
+  countProfileUses(): ProfileUses;
   updateProfile(id: string, profile: ProfileRequest): ProfileRecord;
   // Agents made from it keep the settings it had when they were made.
   deleteProfile(id: string): void;

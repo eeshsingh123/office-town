@@ -136,7 +136,7 @@ export function TemplatesView() {
         ? a.name.localeCompare(b.name)
         : sort === "new"
           ? b.createdAt.localeCompare(a.createdAt)
-          : (uses[b.id] ?? 0) - (uses[a.id] ?? 0) || a.name.localeCompare(b.name),
+          : (uses?.[b.id] ?? 0) - (uses?.[a.id] ?? 0) || a.name.localeCompare(b.name),
     );
 
   const filters: { value: Filter; label: string }[] = [
@@ -286,7 +286,9 @@ export function TemplatesView() {
                       </span>
                     </button>
                     <div className={styles.cardFoot}>
-                      <span className={form.hint}>{usedText(uses[template.id] ?? 0)}</span>
+                      <span className={form.hint}>
+                        {usedText(uses === undefined ? undefined : (uses[template.id] ?? 0))}
+                      </span>
                       {actions(template)}
                     </div>
                   </li>
@@ -326,7 +328,9 @@ export function TemplatesView() {
                           {harnesses.find((known) => known.harness === template.settings.harness)
                             ?.name ?? template.settings.harness}
                         </td>
-                        <td className={form.hint}>{usedText(uses[template.id] ?? 0)}</td>
+                        <td className={form.hint}>
+                          {usedText(uses === undefined ? undefined : (uses[template.id] ?? 0))}
+                        </td>
                         <td>{actions(template)}</td>
                       </tr>
                     ))}

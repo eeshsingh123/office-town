@@ -490,6 +490,15 @@ Why: the owner, who built the app, still had to work out what departments and th
 - Kept for the session (owner): Tasks and Needs you (filters, folds, ticked requests, scroll), the searches and scroll on Connectors, Workspaces and Team, a team task's shown member, and an output's spots, size and version. Spots belong to the version and file they were marked on and go with a reload. Setup is a draft, so it survives a restart (owner).
 - Every hand-written storage copy moved onto it, on the same keys, so nothing saved is lost; plain-text values from older versions read as text. Bypass is still dropped on every read of the New task choices, not only the first.
 
+### D-91 A long history stays complete and light — accepted (2026-11-08)
+
+- The core searches every task (`GET /tasks/search`, `store/task-search.ts`): text, team, workspace, start time and tab, a page newest first, counts per tab, and the teams and workspaces any task has. Tasks and Ctrl+K use it, so nothing depends on how many tasks were loaded.
+- Each task's status has one owner. A task with an open session or a pause is live: the app always holds it and works out its status from the run, so it counts it. The core counts the rest, whose status follows from records alone. Both use the same `live` test and one status and team rule (`contract/task-status.ts`), so a task is never counted twice. The core's text match covers title, prompt, team, agents and workspace, plus the teams whose shown name holds the text (`textTeams`, such as "Assistants"); it reads the text only while some is typed.
+- The list shows every task the app holds down to the oldest the search returned. It is read again only when a held task moves (`useTaskMoves`: its status fields, live or quiet, deleted, or a new one), never for tasks a search added, and the read keeps every task already shown. Counts stay blank until the core answers; a failed read says so with Try again.
+- A run opens on its latest 60 blocks; "Show earlier" draws 100 more (`AgentTrace`). Its start is fixed once the latest work is in, so new steps of a live run never push the top away. The run card loads every session of the agent, newest first, and shows tokens only once all are in. Screens say which traces they show (`useTraces`); an ended one none shows is dropped once 8 more recent ones have been left. Live traces stay.
+- Launch reads the standing team (`GET /agents`: department members and the chief) and the agents that loaded tasks, outputs, library files and audiences name, by id in batches of 100 (`GET /agents?ids=`). A reconnect reads the held ones again, so a removed one goes. A connector's calls read their agents as they load. Template uses are counted by the core (`GET /profiles/uses`). A pinned agent of a task not loaded stays hidden, as its card already needed that task.
+- What's new marks the last release seen by date and title, as several can share a day.
+
 ## Done
 
 All accepted and built.

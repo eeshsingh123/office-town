@@ -16,4 +16,5 @@ export * from "./library.ts";
 export * from "./options.ts";
 export * from "./outputs.ts";
 export * from "./plans.ts";
+export * from "./task-status.ts";
 export * from "./team.ts";

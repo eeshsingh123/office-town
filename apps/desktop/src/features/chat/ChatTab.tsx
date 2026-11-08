@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
+import { useTraces } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
@@ -67,9 +67,7 @@ function useConversation(agentId: string) {
       .sort((a, b) => latest(a).localeCompare(latest(b)));
   }, [loaded, live]);
 
-  useEffect(() => {
-    for (const goal of goals) for (const session of goal.sessions) loadTrace(session.id);
-  }, [goals]);
+  useTraces(goals.flatMap((goal) => goal.sessions.map((session) => session.id)));
 
   return { goals, more: next !== undefined, loading, error, loadEarlier: () => read(next) };
 }

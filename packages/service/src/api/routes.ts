@@ -1,5 +1,6 @@
 import {
   agentCommandSchema,
+  agentListQuerySchema,
   agentMessageRequestSchema,
   agentProfileRequestSchema,
   answerPermissionsRequestSchema,
@@ -30,6 +31,7 @@ import {
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
+  taskSearchQuerySchema,
   teamSchema,
   userProfileSchema,
   workspaceRequestSchema,
@@ -209,6 +211,14 @@ export function apiRoutes(
     },
     {
       method: "GET",
+      path: "/tasks/search",
+      reply: ({ query }) => ({
+        status: 200,
+        json: store.searchTasks(taskSearchQuerySchema.parse(Object.fromEntries(query))),
+      }),
+    },
+    {
+      method: "GET",
       path: "/tasks/:id",
       reply: ({ param }) => {
         const id = param("id");
@@ -365,7 +375,13 @@ export function apiRoutes(
     {
       method: "GET",
       path: "/agents",
-      reply: () => ({ status: 200, json: store.listAgents() }),
+      reply: ({ query }) => {
+        const { ids } = agentListQuerySchema.parse(Object.fromEntries(query));
+        return {
+          status: 200,
+          json: ids.length === 0 ? store.listStandingAgents() : store.getAgents(ids),
+        };
+      },
     },
     {
       method: "GET",
@@ -542,6 +558,11 @@ export function apiRoutes(
       method: "GET",
       path: "/profiles",
       reply: () => ({ status: 200, json: store.listProfiles() }),
+    },
+    {
+      method: "GET",
+      path: "/profiles/uses",
+      reply: () => ({ status: 200, json: store.countProfileUses() }),
     },
     {
       method: "PUT",

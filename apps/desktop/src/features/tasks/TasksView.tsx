@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, type Keep, oneOf, useKept, useKeptScroll } from "../../store/kept.ts";
-import { loadOlderTasks } from "../../store/live.ts";
+import { isLive } from "../../store/records.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -30,6 +30,7 @@ import {
   type Tab,
   tabCounts,
 } from "./task-list.ts";
+import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
@@ -210,7 +211,6 @@ export function TasksView() {
   const waiting = useApp((state) => state.waiting);
   const traces = useApp((state) => state.traces);
   const chiefId = useApp((state) => state.chiefId);
-  const older = useApp((state) => state.olderTasks);
   const workspaces = useWorkspaces();
   const teams = useTeams();
   const now = useNow();
@@ -227,12 +227,35 @@ export function TasksView() {
       buildItems({ tasks, sessions, agents, departments, pieces, waiting, traces, chiefId }, now),
     [tasks, sessions, agents, departments, pieces, waiting, traces, chiefId, now],
   );
+  // The core searches the tasks no agent is at work on; the app answers for the live ones.
+  const live = useMemo(
+    () =>
+      new Set(
+        Object.values(tasks).flatMap((entry) => (isLive(entry, sessions) ? [entry.task.id] : [])),
+      ),
+    [tasks, sessions],
+  );
+  const moves = useTaskMoves(tasks, live);
+  const teamOf = (key: string): Team =>
+    teams.get(key) ?? { key, name: departments[key]?.name ?? "Assistants", colour: undefined };
+  const { found, failed, retry, showOlder } = useTaskSearch(
+    filters,
+    [...teams.values()],
+    moves,
+    now,
+  );
+  const liveItems = items.filter((item) => live.has(item.id));
+  // Every task the app holds down to the oldest the search returned: the core's page, plus any
+  // that just went quiet while it is read again.
+  const shown = items.filter(
+    (item) =>
+      live.has(item.id) ||
+      (found !== undefined && (found.oldest === undefined || item.createdAt >= found.oldest)),
+  );
   const workspaceNames = useMemo(
     () => new Map((workspaces ?? []).map((workspace) => [workspace.id, workspace.name])),
     [workspaces],
   );
-  const teamOf = (key: string): Team =>
-    teams.get(key) ?? { key, name: departments[key]?.name ?? "Assistants", colour: undefined };
   const haystack = (item: Item) =>
     [
       item.title,
@@ -243,13 +266,22 @@ export function TasksView() {
       item.workspaceId === undefined ? undefined : workspaceNames.get(item.workspaceId),
     ].join(" ");
 
-  const counts = tabCounts(items, filters, haystack, now);
-  const groups = groupRows(items, filters, by, haystack, [...teams.keys()], now);
-  const presentTeams = [...teams.values()].filter((team) =>
-    items.some((item) => item.task !== undefined && item.team === team.key),
+  const liveCounts = tabCounts(liveItems, filters, haystack, now);
+  const counts = Object.fromEntries(
+    Object.entries(liveCounts).map(([tab, count]) => [
+      tab,
+      count + (found?.counts[tab as Tab] ?? 0),
+    ]),
+  ) as Record<Tab, number>;
+  const groups = groupRows(shown, filters, by, haystack, [...teams.keys()], now);
+  const presentTeams = [...teams.values()].filter(
+    (team) => found?.teams.has(team.key) || liveItems.some((item) => item.team === team.key),
   );
   const workspaceOptions = [
-    ...new Set(items.flatMap((item) => (item.workspaceId === undefined ? [] : [item.workspaceId]))),
+    ...new Set([
+      ...(found?.workspaceIds ?? []),
+      ...liveItems.flatMap((item) => (item.workspaceId === undefined ? [] : [item.workspaceId])),
+    ]),
   ]
     .map((id) => ({ value: id, label: workspaceNames.get(id) ?? "Removed workspace" }))
     .toSorted((a, b) => a.label.localeCompare(b.label));
@@ -285,7 +317,7 @@ export function TasksView() {
   const loadMore = async () => {
     setLoading(true);
     try {
-      await loadOlderTasks();
+      await showOlder();
     } finally {
       setLoading(false);
     }
@@ -354,7 +386,8 @@ export function TasksView() {
                         tab.value === "needs" && counts.needs > 0 ? styles.needsBadge : styles.count
                       }
                     >
-                      {counts[tab.value]}
+                      {/* Blank until the core has counted, rather than a wrong number. */}
+                      {found === undefined ? null : counts[tab.value]}
                     </span>
                   </button>
                 ))}
@@ -406,7 +439,16 @@ export function TasksView() {
           </div>
         )}
 
-        {taskItems.length > 0 && groups.length === 0 ? (
+        {failed ? (
+          <div className={styles.empty}>
+            <p className={styles.emptyTitle}>Could not load all your tasks</p>
+            <button type="button" className={styles.link} onClick={retry}>
+              Try again
+            </button>
+          </div>
+        ) : null}
+
+        {!failed && taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>No tasks match</p>
             <button type="button" className={styles.link} onClick={() => setFilters(NO_FILTERS)}>
@@ -500,7 +542,7 @@ export function TasksView() {
           })}
         </div>
 
-        {older === undefined ? null : (
+        {found?.next === undefined ? null : (
           <Button variant="ghost" onClick={loadMore} disabled={loading}>
             {loading ? "Loading…" : "Show older tasks"}
           </Button>

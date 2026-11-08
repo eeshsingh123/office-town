@@ -19,11 +19,11 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
-import { loadTrace } from "../../store/live.ts";
+import { useTraces } from "../../store/live.ts";
 import { describeActions, settledByLevel } from "../../trace/blocks.ts";
 import { agentState, stageOf } from "../../trace/progress.ts";
 import { delegatedTo } from "../../trace/team-tools.ts";
@@ -137,9 +137,7 @@ function useUpdateTaken(action: TraceAction, sessionId: string): boolean {
         .map((session) => session.id);
     }),
   );
-  useEffect(() => {
-    for (const id of workerSessions) loadTrace(id);
-  }, [workerSessions]);
+  useTraces(workerSessions);
   return useApp((state) =>
     workerSessions.some((id) => (state.traces[id]?.turnStartedAt ?? "") >= action.startedAt),
   );

@@ -136,8 +136,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
   const traces = useApp((state) => state.traces);
   const waiting = useWaitingSessions().has(agent.latest.id);
   const state = stateOf(agent, traces, waiting);
-  const { inputTokens, outputTokens, cachedInputTokens } = facts.tokens;
-  const { folder } = facts;
+  const { tokens, folder } = facts;
   return (
     <>
       <div className={styles.who}>
@@ -188,16 +187,25 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
         </div>
         <div>
           <span className={styles.statLabel}>Tokens</span>
-          <span className={styles.statValue}>
-            {compactCount(inputTokens - cachedInputTokens + outputTokens)}
-          </span>
-          <span className={styles.statNote}>
-            {compactCount(inputTokens - cachedInputTokens)} in · {compactCount(outputTokens)} out
-          </span>
+          {tokens === undefined ? (
+            <span className={styles.statNote}>Counting…</span>
+          ) : (
+            <>
+              <span className={styles.statValue}>
+                {compactCount(tokens.inputTokens - tokens.cachedInputTokens + tokens.outputTokens)}
+              </span>
+              <span className={styles.statNote}>
+                {compactCount(tokens.inputTokens - tokens.cachedInputTokens)} in ·{" "}
+                {compactCount(tokens.outputTokens)} out
+              </span>
+            </>
+          )}
         </div>
       </div>
-      {cachedInputTokens === 0 ? null : (
-        <p className={styles.cached}>Plus {compactCount(cachedInputTokens)} reused from earlier</p>
+      {tokens === undefined || tokens.cachedInputTokens === 0 ? null : (
+        <p className={styles.cached}>
+          Plus {compactCount(tokens.cachedInputTokens)} reused from earlier
+        </p>
       )}
     </>
   );

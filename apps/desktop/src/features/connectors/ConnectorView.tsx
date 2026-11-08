@@ -9,6 +9,7 @@ import { DropdownMenu } from "radix-ui";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { knowAgents } from "../../store/live.ts";
 import { callTitle } from "../../trace/team-tools.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -77,6 +78,12 @@ function CallRow({ call }: { call: ConnectorCall }) {
   );
 }
 
+// A call may come from an agent of a task the app has not loaded.
+const nameCallers = (calls: readonly ConnectorCall[]) =>
+  knowAgents(calls.map((call) => call.agentId)).catch((failure: unknown) =>
+    showToast(errorText(failure)),
+  );
+
 // This week's calls, filtered by team or to changes; each row opens its task.
 function Activity({ connectorId }: { connectorId: string }) {
   const departments = useApp((state) => state.departments);
@@ -89,6 +96,7 @@ function Activity({ connectorId }: { connectorId: string }) {
     api.connectorActivity(connectorId, filter).then(
       (read) => {
         if (!current) return;
+        nameCallers(read.calls);
         setActivity(read);
         setOlder([]);
         setNext(read.next);
@@ -102,6 +110,7 @@ function Activity({ connectorId }: { connectorId: string }) {
   const more = async () => {
     if (next === undefined) return;
     const read = await api.connectorActivity(connectorId, { ...filter, before: next });
+    nameCallers(read.calls);
     setOlder([...older, ...read.calls]);
     setNext(read.next);
   };

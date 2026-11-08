@@ -88,8 +88,6 @@ export interface AppState extends Records {
   // Loaded for every agent at work and for each session the user opens (D-37).
   traces: Record<string, Trace>;
   traceErrors: Record<string, string>;
-  // The cursor of the next page of older tasks, while there is one.
-  olderTasks: string | undefined;
   view: View;
   // Kept while the user looks at a trace.
   selection: string[];
@@ -133,7 +131,6 @@ export const useApp = create<AppState>(() => ({
   waiting: {},
   traces: {},
   traceErrors: {},
-  olderTasks: undefined,
   view: { name: "home" },
   selection: [],
   back: [],

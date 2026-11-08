@@ -1,5 +1,5 @@
-import type { ProfileRecord, ProfileRequest } from "@office-town/contract";
-import { useEffect } from "react";
+import type { ProfileRecord, ProfileRequest, ProfileUses } from "@office-town/contract";
+import { useEffect, useState } from "react";
 import { api } from "../api/client.ts";
 import { useApp } from "./app-store.ts";
 
@@ -45,18 +45,26 @@ export async function deleteTemplate(id: string): Promise<void> {
   useApp.setState({ templates: left });
 }
 
-// How many agents were made from each template; guests called in once do not count.
-export function useTemplateUses(): Record<string, number> {
-  const agents = useApp((state) => state.agents);
-  const uses: Record<string, number> = {};
-  for (const agent of Object.values(agents)) {
-    if (agent.profileId !== undefined && agent.guest === undefined) {
-      uses[agent.profileId] = (uses[agent.profileId] ?? 0) + 1;
-    }
-  }
+// Counted by the core, which holds every agent; the app holds only those it shows. Read each time
+// the page opens, and undefined until then, so no count shows wrong.
+export function useTemplateUses(): ProfileUses | undefined {
+  const [uses, setUses] = useState<ProfileUses>();
+  useEffect(() => {
+    let current = true;
+    api.countProfileUses().then(
+      (read) => {
+        if (current) setUses(read);
+      },
+      (failure: unknown) => console.error("Could not count template uses.", failure),
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
   return uses;
 }
 
-export function usedText(count: number): string {
+export function usedText(count: number | undefined): string {
+  if (count === undefined) return "";
   return count === 0 ? "Not used yet" : `Used for ${count} agent${count === 1 ? "" : "s"}`;
 }
