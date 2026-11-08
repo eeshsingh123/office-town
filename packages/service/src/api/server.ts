@@ -12,6 +12,7 @@ import type { TeamContext } from "../team/members.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
 import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
+import { HarnessStatuses, reportFailedCheck } from "./harness-statuses.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
@@ -113,7 +114,19 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
   const { team, connectors, pauses, checks, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
-  const routes = apiRoutes(team, connectors, pauses, checks, outputs, prices, options.nameTask);
+  const statuses = new HarnessStatuses(store);
+  // Ready before a page asks; the reads take their turn with the app's other CLI queries (D-92).
+  statuses.check().catch(reportFailedCheck);
+  const routes = apiRoutes(
+    team,
+    connectors,
+    pauses,
+    checks,
+    outputs,
+    prices,
+    statuses,
+    options.nameTask,
+  );
   const expected = Buffer.from(`Bearer ${token}`);
   const authorized = (request: IncomingMessage): boolean => {
     const given = Buffer.from(request.headers.authorization ?? "");
@@ -132,7 +145,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
         ...Object.fromEntries(url.searchParams),
         ...(typeof lastEventId === "string" ? { after: lastEventId } : {}),
       });
-      await streamEvents(response, { registry, store }, query);
+      await streamEvents(response, { registry, store, statuses }, query);
       return;
     }
     const matched = matchRoute(routes, method, url.pathname);

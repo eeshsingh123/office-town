@@ -2,6 +2,7 @@ import type { ServerResponse } from "node:http";
 import type { Change } from "@office-town/contract";
 import type { PublishedEvent, SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
+import type { HarnessStatuses } from "./harness-statuses.ts";
 
 const PAGE_SIZE = 500;
 // A client this far behind is dropped and catches up from the store, so no backlog is unbounded.
@@ -11,6 +12,7 @@ const MAX_HELD_EVENTS = 10_000;
 export interface StreamSource {
   registry: SessionRegistry;
   store: Store;
+  statuses: HarnessStatuses;
 }
 
 export interface StreamQuery {
@@ -48,7 +50,7 @@ function drainedOrClosed(response: ServerResponse): Promise<void> {
 // Live events are held while the store is read; positions already sent are skipped.
 export async function streamEvents(
   response: ServerResponse,
-  { registry, store }: StreamSource,
+  { registry, store, statuses }: StreamSource,
   { after, session, follow }: StreamQuery,
 ): Promise<void> {
   if (session !== undefined && store.getSession(session) === undefined) {
@@ -79,6 +81,10 @@ export async function streamEvents(
     response.on(
       "close",
       store.subscribe((change) => listen({ change })),
+    );
+    response.on(
+      "close",
+      statuses.subscribe((change) => listen({ change })),
     );
   }
   response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store" });
