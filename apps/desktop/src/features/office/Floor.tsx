@@ -43,7 +43,7 @@ import {
   withinReach,
 } from "./floor-plan.ts";
 import styles from "./Office.module.css";
-import { type PanelKind, setPlayer, useOffice } from "./office-state.ts";
+import { OPEN_FLOOR, type PanelKind, setPlayer, useOffice } from "./office-state.ts";
 import { type DrawnLink, type Link, type LinkState, linkPaths } from "./plan-links.ts";
 import { type RoomMove, useRoomDrag } from "./use-room-drag.ts";
 import { keysOwnedAt, typingIn } from "./waiting-keys.ts";
@@ -430,6 +430,15 @@ export function Floor(props: FloorProps) {
     } else if (key === "Enter" && event.target === event.currentTarget && selection.length === 1) {
       const [only = ""] = selection;
       onOpenChat(only, only === chief?.id ? "chief" : "agent");
+    } else if (
+      key === "Enter" &&
+      event.target === event.currentTarget &&
+      selection.length === 0 &&
+      room !== undefined &&
+      room !== OPEN_FLOOR
+    ) {
+      // With a department open and no one picked, its chat with the lead.
+      onOpenChat(room, "department");
     } else if (key === "Escape") {
       onSelect([]);
       focusAgent(undefined);
@@ -456,18 +465,18 @@ export function Floor(props: FloorProps) {
     else onClickAt(drag.from);
   };
 
-  // A click inside a room opens it, as its sign does, and leaves an open room as it is. Only a
-  // click outside every room, or on the review desk, clears the panel.
+  // A click inside a room opens it, as its sign does, and leaves an open room as it is. A click
+  // outside every room, or on the review desk, goes back to the room the user stands in, and
+  // clears the panel only when the user stands in none.
   const onClickAt = (at: Point) => {
     const hit = rooms.find((one) => contains(one.rect, at));
-    const opened = opens(hit);
-    if (opened !== undefined) {
-      if (opened !== room) onOpenRoom(opened);
-    } else if (hit?.kind === "chief" && chief !== undefined) {
+    if (hit?.kind === "chief" && chief !== undefined) {
       onSelect([chief.id]);
-    } else {
-      onSelect([]);
+      return;
     }
+    const opened = opens(hit) ?? opens(roomAt(player, plan));
+    if (opened === undefined) onSelect([]);
+    else if (opened !== room) onOpenRoom(opened);
   };
 
   const signLabel = (id: string, kind: Room["kind"]) => {
@@ -501,7 +510,7 @@ export function Floor(props: FloorProps) {
       style={{ width: plan.width, height: plan.height, zoom: scale }}
       role="application"
       aria-roledescription="office floor"
-      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
+      aria-label="Office floor. Walk with the arrow keys or WASD and press E to talk to the agent beside you. Enter opens the chat of the agent or department picked. Tab moves between agents. Alt and an arrow key move a room whose sign has focus."
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the floor takes the walking keys
       tabIndex={0}
       onKeyDown={onKeyDown}

@@ -28,7 +28,8 @@ export const RELEASES: Release[] = [
     changes: [
       "The office no longer flickers on smaller or zoomed screens when a scrollbar appears",
       "A department's name tag shows just its name. Open the department or walk into it to see the tokens its task used",
-      "Clicking anywhere inside a department opens it and keeps it open. Only the department you are in is outlined",
+      "Clicking anywhere inside a department opens it and keeps it open. Clicking outside the rooms keeps the department you stand in open. Only the department you are in is outlined",
+      "Press Enter with a department open to chat with its lead",
       "Leaving the office and coming back keeps where you stood and the room you had open",
       "The open floor has two desks. Click it to start a task for an assistant",
       "Walking no longer jumps back a little when you start",
