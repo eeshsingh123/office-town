@@ -25,17 +25,25 @@ export interface Handover {
 }
 
 const SHOWN_BRIEF = 600;
+// A tool's output in the earlier conversation's file: errors and test lines come first, and the
+// whole of a file read stays on disk.
+const SHOWN_RESULT = 2_000;
 const TRAFFIC = new Set<MessageOrigin["kind"]>(["result", "notice", "piece"]);
 
 function list(title: string, items: string[]): string {
   return items.length === 0 ? "" : `\n\n${title}:\n${items.map((item) => `- ${item}`).join("\n")}`;
 }
 
-function shortened(text: string): string {
-  return text.length <= SHOWN_BRIEF ? text : `${text.slice(0, SHOWN_BRIEF)}…`;
+function shortened(text: string, length = SHOWN_BRIEF): string {
+  return text.length <= length ? text : `${text.slice(0, length)}…`;
 }
 
-function transcriptLine(event: SessionEvent, name: string): string | undefined {
+// Tools run side by side, so an output names the action it came from.
+function transcriptLine(
+  event: SessionEvent,
+  name: string,
+  titles: Map<string, string>,
+): string | undefined {
   switch (event.type) {
     case "message": {
       const { role, text, origin } = event.payload;
@@ -43,7 +51,15 @@ function transcriptLine(event: SessionEvent, name: string): string | undefined {
       return `### ${origin === undefined ? "The user" : `Office Town (${origin.kind})`}\n\n${text}`;
     }
     case "action.started":
+      titles.set(event.payload.actionId, event.payload.title);
       return `- ${event.payload.title}`;
+    case "action.ended": {
+      const { actionId, outcome, result } = event.payload;
+      if (result.trim() === "") return undefined;
+      const label = outcome === "failed" ? "Failed" : "Output";
+      const title = titles.get(actionId) ?? "a tool";
+      return `${label} of ${title}:\n\n\`\`\`\`\n${shortened(result, SHOWN_RESULT)}\n\`\`\`\``;
+    }
     case "permission.requested":
       return `- Asked the user: ${event.payload.title}`;
     case "permission.resolved":
@@ -54,9 +70,10 @@ function transcriptLine(event: SessionEvent, name: string): string | undefined {
 }
 
 export function transcriptOf(sessions: SessionEvent[][], name: string): string {
+  const titles = new Map<string, string>();
   return sessions
     .flat()
-    .flatMap((event) => transcriptLine(event, name) ?? [])
+    .flatMap((event) => transcriptLine(event, name, titles) ?? [])
     .join("\n\n");
 }
 
@@ -101,6 +118,16 @@ function briefOf(role: HandoverRole, events: SessionEvent[]): string | undefined
         )
       : undefined;
   return (lead ?? sent[0])?.text;
+}
+
+// A worker's first brief names its first piece; the new session reads the piece it is on.
+function withCurrentPiece(store: Store, old: SessionRecord, brief: string): string {
+  const piece = store.workingDelegation(old.id);
+  const first = store
+    .listDelegations(old.taskId)
+    .find((delegation) => delegation.workerAgentId === old.agentId);
+  if (piece === undefined || first === undefined || first.brief === piece.brief) return brief;
+  return brief.replace(first.brief, () => piece.brief);
 }
 
 function piecesHandedOut(store: Store, taskId: string): string[] {
@@ -208,9 +235,10 @@ export async function carryOver(
   const folder = handoverFolder(context.dataFolder, old.taskId);
   const { environment, workspacePath, additionalPaths = [], readOnlyPaths = [] } = old.options;
   const seen = environment === undefined ? file : environmentPath(environment, file);
-  const text = `${brief}
+  const opening = role === "worker" ? withCurrentPiece(store, old, brief) : brief;
+  const text = `${opening}
 
-You carry on from your earlier session on this task: it grew long, so a new session continues with a complete handover. Your folders and files are as you left them.
+You carry on from your earlier session on this task: it grew long, so a new session continues with a complete handover. Your folders and files are as you left them. Programs left running stopped with the earlier session; start again any you need.
 
 What you handed over:${handoverText(handover)}
 
@@ -234,7 +262,7 @@ Say in a few lines where things stand. If you keep a todo list, write it again f
       message,
     });
     if (next.status !== "starting" && next.status !== "running") {
-      throw new Error("It ended as it started.");
+      throw new Error("it ended at once");
     }
     if (piece !== undefined) store.moveDelegation(piece.id, next.id);
     return next;

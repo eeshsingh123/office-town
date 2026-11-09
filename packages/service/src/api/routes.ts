@@ -65,6 +65,7 @@ import {
   updateDepartment,
 } from "../team/departments.ts";
 import { messageAgent } from "../team/direct-message.ts";
+import { setEfficient } from "../team/handover.ts";
 import type { TeamContext } from "../team/members.ts";
 import {
   continueTeam,
@@ -289,7 +290,7 @@ export function apiRoutes(
       reply: async ({ param, body }) => {
         const { efficient } = taskModeRequestSchema.parse(await body());
         if (store.getTask(param("id")) === undefined) throw new RecordNotFoundError("task");
-        return { status: 200, json: store.setTaskEfficient(param("id"), efficient) };
+        return { status: 200, json: setEfficient(store, param("id"), efficient) };
       },
     },
     {

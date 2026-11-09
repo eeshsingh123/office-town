@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { type SessionEvent, type SessionRecord, teamToolServer } from "@office-town/contract";
+import {
+  type SessionEvent,
+  type SessionRecord,
+  type TaskRecord,
+  teamToolServer,
+} from "@office-town/contract";
 import { z } from "zod";
 import { isChiefTask } from "../chief/chief.ts";
 import { AnswerError, type Message, SessionNotRunningError } from "../registry/session-registry.ts";
@@ -24,6 +29,16 @@ const NEW_WORK_TOKENS = 50_000;
 export interface HandoverOptions {
   // Test runs only, to keep a live run short; not a product setting.
   handOverAt?: number;
+}
+
+const windowKey = ({ options }: SessionRecord) => `${options.harness}:${options.model ?? ""}`;
+
+// A chief's goal takes its departments' pieces along, so the whole goal runs one way (D-94).
+export function setEfficient(store: Store, taskId: string, efficient: boolean): TaskRecord {
+  for (const { pieceTaskId } of store.listPieces(taskId)) {
+    if (pieceTaskId !== undefined) store.setTaskEfficient(pieceTaskId, efficient);
+  }
+  return store.setTaskEfficient(taskId, efficient);
 }
 
 export function roleOf(store: Store, { taskId, agentId }: Caller): HandoverRole | undefined {
@@ -85,6 +100,11 @@ export class Handovers {
   readonly #failed = new Set<string>();
   // A sub-agent's process dies with its session's (D-71), so none hands over while one runs.
   readonly #subAgents = new Map<string, Set<string>>();
+  readonly #turnOpen = new Set<string>();
+  // Carrying over now: a turn's end and a sub-agent's end may both try at once.
+  readonly #switching = new Set<string>();
+  // Each model's window as last reported, by harness and model, for a session that has not yet.
+  readonly #windows = new Map<string, number>();
 
   constructor(context: TeamContext, { handOverAt = HAND_OVER_AT_TOKENS }: HandoverOptions = {}) {
     this.#context = context;
@@ -101,10 +121,10 @@ export class Handovers {
     return defineTool({
       name: "hand_over",
       description:
-        "Carry on in a new session with a short conversation, when the user or the app asks " +
-        "you to. Write down everything the new session needs; it also gets your brief, what " +
-        "the user said, the work handed out with its results, and your earlier conversation " +
-        "as a file. End your turn after calling it.",
+        "Carry on in a new session when the user or the app asks you to. Write down " +
+        "everything the new session needs; it also gets your brief, what the user said, the " +
+        "work handed out with its results, and your earlier conversation as a file. End your " +
+        "turn after calling it.",
       input: z.object({
         decisions: z
           .array(z.string().min(1))
@@ -114,7 +134,12 @@ export class Handovers {
           .describe(
             "What you learned that the work depends on: how things run, what failed and why.",
           ),
-        next: z.string().min(1).describe("Where the work stands and what you do next."),
+        next: z
+          .string()
+          .min(1)
+          .describe(
+            "Where the work stands and what you do next, with any program you left running that the work needs: it stops with this session.",
+          ),
         progress: z
           .string()
           .min(1)
@@ -154,19 +179,32 @@ export class Handovers {
     const { sessionId } = event;
     switch (event.type) {
       case "action.started":
-      case "action.ended":
         this.#followSubAgents(event);
         return;
+      case "action.ended":
+        this.#followSubAgents(event);
+        // A handover that waited for its last sub-agent after the turn ended goes ahead now.
+        if (!this.#turnOpen.has(sessionId)) await this.#carryOver(sessionId);
+        return;
       case "context.measured":
-        this.#check(sessionId, event.payload.contextTokens, event.payload.contextWindow, false);
+        await this.#check(
+          sessionId,
+          event.payload.contextTokens,
+          event.payload.contextWindow,
+          false,
+        );
+        return;
+      case "turn.started":
+        this.#turnOpen.add(sessionId);
         return;
       case "turn.ended": {
+        this.#turnOpen.delete(sessionId);
         if (this.#pending.has(sessionId)) {
           await this.#carryOver(sessionId);
           return;
         }
         const tokens = event.payload.usage?.contextTokens;
-        if (tokens !== undefined) this.#check(sessionId, tokens, undefined, true);
+        if (tokens !== undefined) await this.#check(sessionId, tokens, undefined, true);
         return;
       }
       case "session.ended":
@@ -193,14 +231,33 @@ export class Handovers {
     else this.#subAgents.set(event.sessionId, open);
   }
 
-  #check(sessionId: string, tokens: number, window: number | undefined, turnEnded: boolean): void {
+  async #check(
+    sessionId: string,
+    tokens: number,
+    reported: number | undefined,
+    turnEnded: boolean,
+  ): Promise<void> {
     const { store } = this.#context;
     const session = store.getSession(sessionId);
     const task = session === undefined ? undefined : store.getTask(session.taskId);
     if (session === undefined || task === undefined || task.paused !== undefined) return;
+    if (reported !== undefined) this.#windows.set(windowKey(session), reported);
+    const window =
+      task.efficient === true ? (reported ?? (await this.#knownWindow(session))) : undefined;
     if (this.#pending.has(sessionId) || this.#asking.has(sessionId)) return;
     if (task.efficient === true) this.#askToHandOver(session, tokens, window, turnEnded);
     else if (turnEnded) this.#suggest(session, tokens);
+  }
+
+  // Until a session reports its window: what the same model reported, else the AI app's list.
+  async #knownWindow(session: SessionRecord): Promise<number | undefined> {
+    const known = this.#windows.get(windowKey(session));
+    if (known !== undefined) return known;
+    const { harness, environment, model = "default" } = session.options;
+    // Without the list, the trigger stays at HAND_OVER_AT_TOKENS.
+    const catalog = await this.#context.readCatalog(harness, environment).catch(() => undefined);
+    return catalog?.models.find((one) => one.id === model || one.resolvedId === model)
+      ?.contextWindow;
   }
 
   // Efficient: the app asks at the next tool end; choosing the mode was the approval (owner).
@@ -320,25 +377,31 @@ export class Handovers {
     );
   }
 
-  // Waits while a sub-agent runs; the next turn's end tries again.
+  // Waits while a sub-agent runs; its end, or the next turn's end, tries again.
   async #carryOver(sessionId: string): Promise<void> {
     const { store, registry } = this.#context;
     const pending = this.#pending.get(sessionId);
     const session = store.getSession(sessionId);
-    if (pending === undefined || session === undefined || this.#subAgents.has(sessionId)) return;
-    const next = await carryOver(this.#context, session, pending.role, pending.handover);
-    // Kept until now, so the old turn's end is never taken as the worker's result.
-    this.#pending.delete(sessionId);
-    this.#cleared.delete(sessionId);
-    if (next === undefined) {
-      this.#failed.add(session.harnessSessionId ?? session.id);
-      await registry.release(sessionId);
-      return;
+    if (pending === undefined || session === undefined) return;
+    if (this.#subAgents.has(sessionId) || this.#switching.has(sessionId)) return;
+    this.#switching.add(sessionId);
+    try {
+      const next = await carryOver(this.#context, session, pending.role, pending.handover);
+      // Kept until now, so the old turn's end is never taken as the worker's result.
+      this.#pending.delete(sessionId);
+      this.#cleared.delete(sessionId);
+      if (next === undefined) {
+        this.#failed.add(session.harnessSessionId ?? session.id);
+        await registry.release(sessionId);
+        return;
+      }
+      this.#carried.add(next.id);
+      await registry.release(sessionId, next.id);
+      // Like an idle stop, so its end reads as finished and nothing retries it (D-44, D-77).
+      await registry.stop(sessionId, true);
+    } finally {
+      this.#switching.delete(sessionId);
     }
-    this.#carried.add(next.id);
-    await registry.release(sessionId, next.id);
-    // Like an idle stop, so its end reads as finished and nothing retries it (D-44, D-77).
-    await registry.stop(sessionId, true);
   }
 
   // Its turn's end is not a result: the piece goes on in a new session.
@@ -353,6 +416,7 @@ export class Handovers {
     this.#watches.delete(sessionId);
     this.#carried.delete(sessionId);
     this.#subAgents.delete(sessionId);
+    this.#turnOpen.delete(sessionId);
     // Cut off before its turn ended, as by a crash: what waited for it cannot reach it.
     if (pending) {
       await this.#context.registry.release(sessionId).catch((error: unknown) => {

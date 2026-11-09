@@ -203,13 +203,15 @@ Tests pass.`,
     expect(core.store.getSession(lead?.id ?? "")?.status).toBe("exited");
 
     // Efficient: past the size, the worker is asked during its turn and writes its own handover.
+    // Its window is not reported yet: the same model's, reported by the lead, stands in for it.
+    newLead?.emit({
+      type: "context.measured",
+      payload: { contextTokens: 10, contextWindow: 2000 },
+    });
     const switched = await core.call("PUT", `/tasks/${taskId}/efficient`, { efficient: true });
     expect(switched.json.efficient).toBe(true);
     worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
-    worker?.emit({
-      type: "context.measured",
-      payload: { contextTokens: 1700, contextWindow: 2000 },
-    });
+    worker?.emit({ type: "context.measured", payload: { contextTokens: 1700 } });
     await settle();
     expect(worker?.sent.at(-1)).toMatchObject({
       origin: { kind: "notice", summary: "Asked to carry on in a new session" },
@@ -233,7 +235,9 @@ Tests pass.`,
     const prompts = newWorker?.sent.filter((command) => command.type === "prompt");
     expect(prompts?.[0]).toMatchObject({
       origin: { kind: "handover", fromSessionId: worker?.id },
-      text: expect.stringMatching(/Write the menu[\s\S]*the prices are left[\s\S]*next: prices/),
+      text: expect.stringMatching(
+        /Write the menu[\s\S]*Programs left running stopped[\s\S]*the prices are left[\s\S]*next: prices/,
+      ),
     });
     expect(prompts?.[1]).toMatchObject({ text: expect.stringContaining("Add hours") });
     expect(core.store.getSession(newWorker?.id ?? "")?.options.workspacePath).toBe(
