@@ -1,4 +1,5 @@
 import {
+  type AgentRecord,
   type ChangedFile,
   type HandoverFile,
   MAX_PREVIEW_TEXT_BYTES,
@@ -276,7 +277,7 @@ export function Viewer({
         </div>
         <div className={styles.viewerActions}>
           {handover === undefined || query === undefined ? null : (
-            <HandoverActions taskId={taskId} query={query} title={title} />
+            <HandoverActions taskId={taskId} query={query} title={title} writer={agent} />
           )}
           {openAddress === undefined ? null : (
             <a
@@ -407,16 +408,18 @@ export function Viewer({
   );
 }
 
-// A handover file goes where the user saves it, or to the task's workspace Library for every
-// agent there (D-94).
+// A handover file goes where the user saves it, or to the task's workspace Library for the agent
+// that wrote it; the Library changes who else gets it (D-94).
 function HandoverActions({
   taskId,
   query,
   title,
+  writer,
 }: {
   taskId: string;
   query: OutputFileQuery;
   title: string;
+  writer: AgentRecord | undefined;
 }) {
   const workspaceId = useApp((state) => state.tasks[taskId]?.task.workspaceId);
   const name = `${title.replaceAll(/[^\p{L}\p{N}' -]/gu, "").trim()}.md`;
@@ -435,16 +438,16 @@ function HandoverActions({
         URL.revokeObjectURL(link.href);
       })
       .catch(() => showToast("The file could not be exported."));
-  const saveToLibrary = (workspace: string) =>
+  const saveToLibrary = (workspace: string, agent: AgentRecord) =>
     read()
       .then((file) => api.uploadFile(file, name))
       .then((attachment) =>
         api.addLibraryItem(workspace, {
           attachmentId: attachment.id,
-          givenTo: { everyone: true, departmentIds: [], agentIds: [] },
+          givenTo: { everyone: false, departmentIds: [], agentIds: [agent.id] },
         }),
       )
-      .then(() => showToast("Saved to the Library"))
+      .then(() => showToast(`Saved to the Library for ${agent.name}`))
       .catch((error: unknown) =>
         showToast(error instanceof Error ? error.message : "It could not be saved."),
       );
@@ -459,13 +462,13 @@ function HandoverActions({
       >
         <Download size={16} aria-hidden />
       </button>
-      {workspaceId === undefined ? null : (
+      {workspaceId === undefined || writer === undefined ? null : (
         <button
           type="button"
           className={styles.iconButton}
           aria-label="Save to Library"
           title="Save to Library"
-          onClick={() => void saveToLibrary(workspaceId)}
+          onClick={() => void saveToLibrary(workspaceId, writer)}
         >
           <BookmarkPlus size={16} aria-hidden />
         </button>

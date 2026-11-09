@@ -36,10 +36,10 @@ function finish(group: Open, now: boolean): ActivityGroup {
 // The core puts the user's words after the agent's instructions under this line (briefs.ts).
 const TASK_LINE = "\nYour task:\n";
 
-// A message that starts new work: the user's own, a brief, or another agent's message.
 // Where a session that carries on from a handover starts: one quiet line, never "You asked" (owner).
 export const CONTINUED_LINE = "Continued in a new session with complete handover";
 
+// A message that starts new work: the user's own, a brief, or another agent's message.
 function startTitle(message: TraceMessage): string | undefined {
   if (message.role !== "user") return undefined;
   const asked = taskTitle(message.text.split(TASK_LINE).at(-1) ?? message.text);
