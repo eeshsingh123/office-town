@@ -1,10 +1,10 @@
 # Brief C: one goal record, milestones and short check loops
 
-Phase 2 of the performance work, part C. **Start only after part B (`B-session-handover.md`) is merged and finished end to end.** C is a new module, so it goes through discussion, mockup and build (AGENTS.md). This brief is the starting point for the discussion stage. It is not a build spec.
+Phase 2 of the performance work, part C. **Start only after part B (Efficient mode, D-94) is merged and finished end to end.** C is a new module, so it goes through discussion, mockup and build (AGENTS.md). This brief is the starting point for the discussion stage. It is not a build spec.
 
 ## Read first
 
-`AGENTS.md`, `docs/RULES.md`, `docs/MODULES.md`, `docs/MEMORY.md`, B's brief and its decision in `docs/DECISIONS.md`, plus D-49 and D-51 (chief and plan pieces), D-44 (delegation and results), D-72 (lean runs), D-73 (checklist and checker), D-78 (`propose_change`), D-83 (Steps column).
+`AGENTS.md`, `docs/RULES.md`, `docs/MODULES.md`, `docs/MEMORY.md`, and in `docs/DECISIONS.md` D-94 (Efficient mode), D-49 and D-51 (chief and plan pieces), D-44 (delegation and results), D-72 (lean runs), D-73 (checklist and checker), D-78 (`propose_change`), D-83 (Steps column).
 
 ## The idea, as discussed so far
 

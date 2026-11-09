@@ -1,67 +1,65 @@
 # Modules
 
-The roadmap. Modules are built in order; each module is one branch and one PR, with one commit series per sub-module so it can be reviewed commit by commit. The next module is detailed once chosen; later ones stay an outline until their design session, and finished ones shrink to what later work builds on. A sub-module handed to another agent gets its own self-contained story brief (see AGENTS.md), written when it is assigned.
+The roadmap. Modules are built in order; each is one branch and one PR, with one commit series per sub-module. The next module is detailed once chosen; later ones stay an outline; built ones shrink to what later work builds on. A sub-module handed to another agent gets a self-contained story brief (AGENTS.md) in `docs/briefs/`, deleted once built.
 
 ## Package layout
 
 ```
 packages/contract   shared types and schemas: events, commands, API messages. No runtime dependencies except the schema library.
-packages/harness    M1. Runs one agent session on one harness and emits contract events.
-packages/service    M2. Long-running core: session registry, storage, HTTP and SSE API. M4 added teams, the tool server and autonomy.
-apps/desktop        M3. Electron shell and React UI; later modules add pages under src/features.
+packages/harness    runs one agent session on one harness and emits contract events.
+packages/service    the long-running core: registry, store, HTTP and SSE API, teams, tool server, autonomy, chief, connectors.
+apps/desktop        Electron shell and React UI; pages live under src/features.
 ```
 
-Dependencies point one way: `desktop -> contract`, `service -> harness -> contract`. The UI never imports `harness` or `service`; it only speaks the API defined in `contract`.
+Dependencies point one way: `desktop -> contract`, `service -> harness -> contract`. The UI never imports `harness` or `service`; it only speaks the API in `contract`.
 
 ## Vocabulary
 
-- Harness: a vendor CLI (Claude Code, OpenCode, Codex and others). "AI app" in what the user reads.
-- Session: one running conversation between the app and one harness process. Resuming starts a new session of the same agent.
+- Harness: a vendor CLI (Claude Code, OpenCode, Codex and others). "Provider" in what the user reads.
+- Session: one running conversation with one harness process. Resuming starts a new session of the same agent.
 - Event: one normalized fact a session reports. The UI, storage and orchestration consume only events.
-- Environment: where a harness process is launched (native OS, WSL, later a sandbox).
-- Adapter: the per-harness translator between the harness's own wire format and events.
-- Agent (employee): a stored worker with a name, a role and settings. It works through sessions.
-- Template (profile in code): a saved, harness-neutral description of an agent: role, instructions, harness, model, effort, autonomy. An agent made from one keeps a copy (D-55).
-- Department: a team with one lead and its workers, one workspace and one autonomy level.
-- Delegation: a piece of work the lead hands a worker, and the result that comes back.
-- Autonomy: how much a department's agents may do without asking the user.
-- Tool server: the core's own MCP server that gives agents team tools, such as delegating or asking the user.
-- Checker: a fresh agent outside the team that checks finished work against a checklist the user approves, in a temporary sandbox (D-47, D-73).
-
----
+- Environment: where a harness process runs (native, WSL, later a sandbox).
+- Adapter: the per-harness translator between its wire format and events.
+- Agent (employee): a stored worker with a name, a role and settings, working through sessions.
+- Template (profile in code): a saved, harness-neutral agent description; an agent made from one keeps a copy.
+- Department: a standing team with one lead, its workers, its workspaces and one permission level.
+- Delegation: a piece of work a lead hands a worker, and the result that comes back.
+- Tool server: the core's own MCP server giving agents team tools.
+- Checker: a fresh agent outside the team that checks finished work against a checklist the user approves.
 
 ## Built
 
-Each line is what later work builds on; the why lives in DECISIONS.md.
+What later work builds on; the why is in DECISIONS.md.
 
-- **M1 Harness core.** `packages/harness` runs one agent on one harness (Claude Code; OpenCode over ACP), natively or in WSL, as one event stream; lists models and efforts; resumes by the harness's id. Layers: environment (launch, paths, kill), process runner, JSON-RPC client, session (ids, sequence, errors, plan steps), adapter (command, native message -> events, outgoing commands). Every adapter passes the same conformance tests against recordings of the real CLI. `pnpm dev:run`, `pnpm dev:catalog`.
-- **M2 Core service.** `packages/service`: many sessions, every event stored in SQLite before it is published, one localhost API with a per-launch token and one event stream for live, catch-up and replay (D-15, D-17, D-30 to D-32). Workspaces (D-33, D-56); interrupted sessions resume after a crash. `SessionRegistry` is the only thing that starts sessions.
-- **M3 Desktop shell.** `apps/desktop`: Electron starts the core, keeps agents in the tray and forwards `/api` with the token (D-34, D-36). One API client, one Zustand store fed by one stream, pure event -> trace functions (D-37). The office floor (`features/office`), the trace, the request card (`features/requests`), Tasks, themes.
-- **M4 Orchestration.** A lead proposes a department, the user approves it in Needs you, and the lead delegates to workers on any harness through the core's MCP tool server (D-39, D-43, D-44). Stored agents and templates (D-42, D-55), one autonomy policy (D-45), a worktree per worker (D-46), a room per department (D-48). Code: `service/src/team`, `tools`, `autonomy`.
-- **M5 Command center.** A standing chief splits a goal into pieces per department; a scheduler runs them in order, passing results and read-only upstream folders (D-49, D-51). Records reach the UI as `change` frames; task state, usage and limits live in the core (D-50). `service/src/chief`; UI `board`, `plan`, `chief`, `work`.
-- **Feedback rounds after M5.** Home, creation flows, the Dusk look, review in the chat, profiles and templates, workspaces, Needs you, one composer, plain naming, Tasks, accounts and Usage, team building (D-52 to D-63, D-65).
-- **M6 Files and Library (D-64).** Attachments in every composer, copied or linked read-only, images inline when the model sees them, marked Opened or Not opened; a workspace Library given to Everyone, a department or an agent. `service/src/attachments`, `library`. Out: content search, reading Office files, editing Library files.
-- **M6.5 Onboarding and help (D-66).** Setup (AI app, where work goes, about you), tutorials that run real tasks on cheap models, Getting started, Help. `features/onboarding`, `help`.
-- **M7 Connectors (D-67, D-68).** Key apps, local programs and Add your own run through the core's hub and reach every harness (`service/src/connectors`, keys in the OS store); sign-in apps are the user's claude.ai connectors, Claude agents only. Every call is checked against access and permission and logged. `features/connectors`. Out: our own app sign-ins, the full registry, per-tool switches.
-- **After M7: feedback and optimization.** Several workspaces per department (D-69); usage recount (D-70), a lead stopping workers (D-71), lean runs with handover and usage pause (D-72), the check loop outside the team (D-73).
-- **M8 Outputs and preview (D-74).** `show_result`, changed files and local sites, viewed in a sandboxed viewer with feedback and marked spots. `service/src/outputs`, `features/outputs`.
-- **M9 Packaging (D-75).** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, a beta on every green merge, stable only on the owner's word, setup installing harnesses with the vendor's installer (`harness/src/install.ts`). Out until release: stable, Download link, signing, intro video.
-- **M10 More AI apps (D-76).** Codex and Muse Code with their own translators, GitHub Copilot CLI and Cursor CLI on the ACP translator; adapters declare sign-in, version, install and account folder. A Providers page (status, install, sign-in, accounts, where it runs) shared with setup, Usage and model pickers; an estimate at API prices where an app shares no plan usage. Out: Pi, Hermes, OpenClaw, Google CLIs, WSL installs.
-
-- **After M10: teams recover from failures (D-77).** Messages reach agents during a turn, one automatic retry, the real error to the lead, `change_worker`, model and effort on the run card.
-- **After M10: a lead asks before changing direction (D-78).** `propose_change`, a lead-only question in Needs you at every level.
-- **Phase 2 B: Efficient mode (D-94).** Opt-in: every role carries on in a new session past 350k with its own handover, the records and its earlier conversation; the size during a turn from every adapter (`context.measured`). `team/handover.ts`, `carry-over.ts`, `handover-files.ts`; Handovers in Outputs.
+- **M1 Harness core.** One agent on one harness, natively or in WSL, as one event stream; models and efforts; resume by the harness's id. Every adapter passes the same conformance tests against recordings. `pnpm dev:run`, `pnpm dev:catalog`.
+- **M2 Core service.** Many sessions, every event stored before it is published, one localhost API with a per-launch token and one event stream for live, catch-up and replay. `SessionRegistry` alone starts sessions.
+- **M3 Desktop shell.** Electron starts the core, keeps agents in the tray, forwards `/api`. One API client, one Zustand store fed by one stream, pure event-to-trace functions.
+- **M4 Orchestration.** A lead proposes a department, the user approves it, and the lead delegates to workers on any harness through the tool server; stored agents and templates, one autonomy policy, a worktree per worker. `service/src/team`, `tools`, `autonomy`.
+- **M5 Command center.** A standing chief splits a goal into department pieces run in order, passing results and read-only folders; task state, usage and limits live in the core. `service/src/chief`.
+- **Feedback after M5.** Home, creation flows, the Dusk look, review in the chat, templates, workspaces, Needs you, one composer, plain naming, accounts and Usage, team building.
+- **M6 Files and Library, M6.5 Onboarding.** Attachments and a workspace Library; setup, tutorials, Help.
+- **M7 Connectors.** Key apps and local programs through the core's hub for every harness; sign-in apps through claude.ai for Claude agents. `service/src/connectors`.
+- **After M7.** Several workspaces per department, usage recount, a lead stopping workers, lean runs with a usage pause, the check loop outside the team.
+- **M8 Outputs and preview.** `show_result`, changed files and local sites in a sandboxed viewer. `service/src/outputs`.
+- **M9 Packaging.** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, betas on every green merge, setup installing harnesses.
+- **M10 More providers.** Codex, Muse Code, Copilot and Cursor; the Providers page; an estimate at API prices where a provider shares no usage.
+- **After M10.** Team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
+- **Phase 2 B: Efficient mode (PR #84).** Opt-in: every role carries on in a new session past 350k with its own handover, the records and its earlier conversation. `team/handover.ts`, `carry-over.ts`, `handover-files.ts`.
 
 ## Next
 
+### Phase 2 C: one goal record
+
+One record per goal with milestones and short check loops, read by every agent instead of each other's conversations. Starts with a discussion once B is merged and checked end to end. Brief: `docs/briefs/C-goal-progress.md`.
+
 ### Before the public release (owner's go-ahead)
 
-- The owner has tested the beta and says release.
-- Intro video for marketing: discussed with the owner first.
-- Code signing through SignPath Foundation (D-75): the owner applies once P4 is done; signing is wired in when approved.
-- The final name (the app id `town.office.desktop` stays, so renaming breaks no updates or data).
+- The owner has tested a beta and says release.
+- Intro video, discussed with the owner first.
+- Code signing through SignPath Foundation, wired in once approved.
+- The final name (the app id stays, so a rename breaks no updates or data).
 - Then: run the stable workflow, add the README Download link.
 
-## Later modules (outline only)
+## Later (outline only)
 
-- **Deferred.** Agent memory (owner, 2026-10-23): the harnesses keep their own, so an app layer adds little; back only if the owner raises it. macOS support (D-23): parked until it can be tested on a Mac. Sandbox or VM environment for computer use: a third `Environment` implementation.
+- Deferred: agent memory across tasks (the harnesses keep their own), macOS (until it can be tested), a sandbox environment for computer use.

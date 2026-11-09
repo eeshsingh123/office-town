@@ -1,161 +1,104 @@
 # Memory
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
 
 ## State
 
-- Built and merged to `main`: M1 to M9, the feedback rounds after M5 and after M7 (D-69, round 2), and the optimization phase (D-70 to D-73), up to PR #66 (2026-10-23).
-- The optimization phase cut team spend: OpenCode usage is recounted after a session (D-70), a lead can ask to stop its workers (D-71), the lead manages while workers report short, with a user-asked handover and a pause past 95% of a usage window (D-72), and finished work is checked outside the team against a checklist the user approves (D-73). A solo task's prompt ends with a line asking for `write_checklist`, because Claude defers the tool and never looks.
-- M8 Outputs and preview (D-74) mockup: https://claude.ai/artifact/KWcarQmWHFRReo2nb89asR.
-- Built: M10 More AI apps (D-76), merged as PR #71. Live runs on Codex, Copilot, Cursor and Muse wait for the owner to sign in; all four are installed on the owner's machine, not signed in. Next: the public release steps in MODULES.md. New modules go discussion, mockup, build (AGENTS.md).
-- Done: feedback after M9 (PR #67, merged): office walking speed, department focus, and the new app icon ("Late shift", picked by the owner from https://claude.ai/artifact/DQ2HJ96qVcEUAgqA15AikD). The icon's source is `apps/desktop/src/ui/app-icon.svg` (sidebar logo, browser tab); `electron/icon.png` (64 px, window and tray) and `packaging/icon.png` (512 px, installer) are rendered from it. Betas are for the owner only; the stable release runs only when the owner asks. Agent memory is deferred.
-- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the default data folder and follows betas; development runs on `OfficeTown Dev`. Its store had lost Scratch; the next beta restores it (D-56).
-- Mockups are checked at full size before they are shown: serve the HTML (`mockup` entry in `.claude/launch.json`, a static server on port 5190) and shoot it with `out/capture` in dark and light.
-
-- Feedback on PR #72 (D-79): thinking before a model is picked, one id-named Scratch folder per task, documents opening in Outputs with nothing shown, the AI app on the run card. The two-pane picker (D-80) is on the same PR.
-- Form drafts (D-81): what is typed outlives the screen and the app. New forms use `useDraft` in place of `useState`.
-- Task page feedback (D-82): the org chart on Describe and Review (mockup https://claude.ai/artifact/15etZWBFsxzzJ4YTr5pCua), one permission chip under the message box, Scratch only for a department with no folder, a scroll place per chat, Stop team confirms.
-- Honest progress (D-83), on the same PR: steps that stop moving give way to the current action, the floor's work bubble shows on hover or reach, a brief to a busy worker reaches it at its next tool end with a queued icon that turns to sent once the worker takes it. A stale step list says so in the Steps column.
-- Free departments and turn stages (D-84), on the same PR: a department is free once its task ends, held only by an open check; a turn shows Starting the AI app, Waiting for the model, Thinking.
-- Chat feedback (D-85), merged as PR #76: generated task titles, the growing own-answer box, the open chat marked in the team tree, thinking pinned to its newest line.
-- A department held for good after a restart (D-86), same PR: every message to a lead continues the team; Stop team shows only until the task ends. The task page's box now takes files, images, folders and Library files (the Office chat already did); a chat at its end stays there when the box grows.
-- Images for a model that cannot see them (D-87), same PR: a cheap model that can writes a description, sent beside the image.
-- Office chat task headers (D-88), merged as PR #76: earlier tasks fold, the open header stays in view, the message box names its task.
-- Right-click menus (D-89), merged as PR #77: the shell's text menu, and app menus on agents, departments, tasks, messages and files built from one action list per object.
-- Plain copy, merged as PR #78: one name per thing (task for a department, goal for the chief; part; Idle; Provider (never "AI app" or "Tool"); Allow or Deny for permission requests, Approve for plans and teams), no internal words (core, trace, turn, fresh, delegation) in the UI or in the core's errors, shorter safety check text. The Home greeting keeps its lines (owner). New text follows the same words.
-- Office revamp, merged as PR #79: the floor scales to its pane's width less a scrollbar, shown or not, since a scrollbar coming and going made the scale flicker. A department's sign shows only its name; its task's tokens open while the room is open or the user stands in it (no hover). A click inside a room opens it (a department, the open floor, the chief's office); only a click outside every room clears the panel. The player and the open room live in the office store, so another screen and back keeps them (memory only). The open floor is a room (`OPEN_FLOOR`) with two desks and a panel that starts a task for an assistant. The autonomy level shows in the department panel.
-- Kept state (D-90), merged as PR #80: one `store/kept.ts` with two lifetimes, `session` (where the user was) and `saved` (preferences), on `api/last-known.ts`. Every hand-written storage copy moved onto it on the same keys. Tasks, Needs you, Connectors, Workspaces and Team keep filters, folds, searches and scroll for the session; a team task its shown member; an output its spots, size and version. Setup is a draft.
-- Long histories (D-91), PR #81: the core searches and counts every task for Tasks and Ctrl+K with one shared status rule; a run opens on its latest work with Show earlier and a fixed start; ended runs no screen shows are dropped past 8; launch reads the standing team and named agents only. Run on a copy of a real store seeded with 300 old tasks: counts, Show older past 200, "assistants" matching old tasks, and a 13-session lead's tokens steady through Show earlier.
-- Launch responsiveness (D-92), PR after #81: one-off CLI queries run two at a time, one limits refresh serves every page, and Tasks shows held tasks before the core answers.
-
-## Performance phase (D-93)
-
-- Done on `fix/performance-phase`: provider status in the background, and a clean dev start and stop. What was measured and left alone, with the numbers, is in D-93; measure again before reopening any of it.
-- The "broken dev store" seen from Claude's shell was its virtualized `%LOCALAPPDATA%` copy; the owner's dev app opens its store fine. Measure on a copy of a `store.db.bak-v*` in the scratchpad.
-- Known gap: a `harness` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
-- Still open, small: `/workspaces/usage` is read about 9 times at launch and `/environments` twice.
-
-## Phase 2: long sessions (agreed 2026-11-09)
-
-- B, Efficient mode (D-94), built on `feat/session-handover`; the owner skipped the mockup stage and asked for the build. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, one asked at a turn's end, one mid-turn; both carried on in the same folder and finished. Review fixes (same PR): the window from the model list or the same model, a resumed OpenCode size, a handover waiting on a sub-agent, tool output in the earlier conversation's file, the worker's current piece, stopped programs, a goal's switch reaching its pieces, Library for the writer only. OpenCode's list was parsed for real (312 models, all with a window); the rest was checked on fakes only.
-- After B is merged and done end to end: C, one goal record with milestones and short check loops, from `docs/briefs/C-goal-progress.md` (a discussion stage first). C's goal record replaces the handover note's source: keep the note's fields.
+- Built and merged to `main`: M1 to M10, the feedback and optimization rounds, and the performance phase (PR #83). MODULES.md lists what each built.
+- Open: PR #84 on `feat/session-handover`, Phase 2 B, Efficient mode (D-94), with its review fixes and this docs cleanup. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, asked at a turn's end and mid-turn; both went on in the same folder and finished.
+- Next, once B is merged and checked end to end: Phase 2 C, one goal record with milestones and short check loops, from `docs/briefs/C-goal-progress.md`, starting with a discussion. C's record replaces the handover's source, so keep the handover's fields.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex, Copilot, Cursor and Muse are installed there, not signed in, so their live runs wait for the owner.
 
 ## Not checked yet
 
-- D-94, a handover on Claude, Codex or Muse (only OpenCode ran live): start a task in Efficient with the core on `--hand-over-at 5000` and a multi-step prompt. It should be asked mid-turn, call `hand_over` and go on in a new session; wrong if it is asked only at the turn's end, or never.
-- D-94, a live team: a worker past the size should go on with the same piece and the lead get one result; wrong if the lead hears "finished" for the old session. A lead or chief should go on with workers' results reaching the new session (tested on fake sessions).
-- D-94, Export and Save to Library clicked in the desktop app (the web build showed both buttons): Export should open a Save dialog, Save to Library should add the file to the workspace's Library; wrong if nothing happens. The Long chats card, run card row and Handovers section in light mode.
-- D-94, a real Efficient run without `--hand-over-at` on OpenCode's free model (200k window): a worker past about 160k should be asked mid-turn, before OpenCode compacts at 170k; wrong if OpenCode compacts first. A Claude worker with a background sub-agent that calls `hand_over`: the switch should happen once the sub-agent ends; wrong if it waits for the idle stop.
-- D-94, Claude's idle compaction (2.1.290+, 200k+, one-hour cache): a session idle for an hour should not compact before our 10 minute idle stop closes it; wrong if it compacts on its own.
+Each item: how to reach it, what should happen.
 
-- D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The packaged app.
-- D-92: the packaged app; WSL queries waiting their turn.
+- D-94 on Claude, Codex or Muse (only OpenCode ran live): start an Efficient task with the core on `--hand-over-at 5000` and a multi-step prompt. It should be asked mid-turn, call `hand_over` and go on in a new session; wrong if asked only at the turn's end, or never.
+- D-94 in a live team: a worker past the size should go on with the same piece and the lead get one result; wrong if the lead hears "finished" for the old session. A lead or chief should go on with workers' results reaching the new session (tested on fakes only).
+- D-94 without `--hand-over-at` on OpenCode's free model (200k window): a worker past about 160k should be asked before OpenCode compacts at 170k. A Claude worker whose background sub-agent is running: the switch should happen once the sub-agent ends, not at the idle stop.
+- D-94 in the desktop app: Export should open a Save dialog, Save to Library should add the file to the workspace's Library. The Long chats card, run card row and Handovers in light mode.
+- D-94, Claude's idle compaction (2.1.290+, one-hour cache): a session idle for an hour should not compact before our 10 minute idle stop closes it.
+- D-93: five real Ctrl+C stops of `pnpm dev:app`, each printing the core stopping and leaving no electron.exe; the dev app's taskbar icon is the app's. The packaged app.
+- D-92: WSL queries waiting their turn, in the packaged app.
 
-Worth a click when touched.
+Worth a click when the area is touched:
 
-- D-91: the counts while a live team task ends, a chief goal's parts in search results, Show earlier on a live run as new steps arrive, a library file or connector call from an agent of a task not loaded, template use counts (the test store had no templates), a reconnect dropping a removed agent, the packaged app.
-- D-90: Needs you kept live (the test store had no requests), the scroll place on a long list (the test store had two tasks), output spots after leaving the task, setup after a restart mid-way. Run live: Tasks filter and folds through Back, cleared on a reload; group-by and theme read from older plain-text values; a team task's shown member; the Connectors search; the sidebar toggle.
-- D-89: the shell's text menu (spelling, Copy link, Copy image) in the packaged app; Send for review and Stop from an agent's menu on a live run; the menus in light mode.
-- D-87: a description written by Claude's Haiku (no OpenCode; only OpenCode's free model was run), a describer that fails or is slow (the path alone goes), a live session told an image mid-turn, a description reused for a second agent.
-- D-86: a real restart mid-task, then a message to the lead from its chat (tested on the test core); a task already stuck this way freeing at its lead's next message; Stop team hiding live.
-- D-85: a title written by Claude's Haiku (no OpenCode) and a chief goal's title (an OpenCode team task was run live), the drafter's own-answer box, a long thinking past 4000 characters, the thinking box in light mode.
-- D-84: a check holding a department in the app (tested on a fake session; the free department, the fresh second task and the three stages were run live on OpenCode), the stages on Claude and in light mode.
-- D-83: the queue on a Codex or Muse worker (OpenCode and Claude were run), a brief missing its turn live (tested on a fake session), the stale rule in a real long run (the sent row and the stale Steps column were run on seeded events), the bubble in light mode, keyboard focus on an agent. After a resume the Steps column only counts actions of the session that wrote the list.
-- D-82: real mouse scrolling between agents (the test pane was hidden, so scroll events were sent by hand), the permission chip on a solo agent in the app (only its API was run), a level change reaching an agent at work, a capped member's note, the chart in light mode, the Scratch clean-up on a real store (tested on a test store). A group the user opened folds back when they switch agents, so a place in a long chat can shift a little.
-- D-81: a real drafter run (the reply was stubbed), drafts in the packaged app (`pnpm dev:web` only), the request cards with a live request, Add your own and the workspace sheet, reopening after a reload with attachments (a remount was run), Start over while a draft is running (a late reply fills the form again).
-- D-80: OpenCode's preferred default in a real task from the app (only `dev:run` was run), switching Runs on to WSL from the picker, the left pane in a window under 640 px wide, a real pick on Codex, Copilot, Cursor or Muse (not signed in), the saved lists in the packaged app (only `pnpm dev:web` was run).
-- D-79: moving a team with work in progress live (only a finished team was moved; a move to another AI app was run on one assistant, Claude Code from OpenCode), a lead's new conversation on another AI app, an OpenCode agent keeping to its Scratch folder (Claude did), Copilot and Cursor's Thinking row with no model picked.
-- Change of direction (D-78): a Claude lead calling `propose_change` (its tools are deferred; only an OpenCode lead was run), a lead asked mid-run after real work, an answer in the user's own words live.
-- Recovery (D-77): `turn/steer` live on Codex and Muse (schema only), the tool-boundary delivery on Copilot and Cursor (only OpenCode was run), a whole failing team live end to end, a model change on a resumed OpenCode session.
-- M10 (D-76): every live run on Codex, Copilot, Cursor and Muse (recordings only; Codex's and three of Muse's follow the CLI's schema), their sign-in and Add account from the app, Codex and Muse meters live, the estimate on a real Copilot or Cursor run, Install through npm from the sheet, light mode on Providers, a resumed Muse session setting its approval mode and model again.
-- Packaging (D-75): the Linux AppImage (built only in CI), an update from one real GitHub beta to the next (`v0.1.0-beta.1` is the first; the update was tested with a local feed), Restart to update with agents open, an installed app's WSL task from the UI (tested on the packaged core), the setup Install progress line live (the API was run end to end with OpenCode through npm), the install folders on Linux.
-- Outputs (D-74): a team worker's result after its merge (tested in the core, not live), an OpenCode or WSL agent calling `show_result`, a PDF in the app's frame, a version's page loading its styles, a stopped site restarted fresh, Open with default app, light mode on the Outputs tab.
-- Check loop (D-73): a team lead writing its checklist, Send fixes and round 2, a copy sandbox (no git), WSL.
-- Lean runs (D-72): a real 95% pause (needs a nearly used window), the 400k handover suggestion.
-- Usage (D-70): a sub-agent's tokens followed live, a WSL recount.
-- Feedback round 2 and D-69: the plan card's workspace pick with a live chief, "Last:" lines with real history, the drafter no longer numbering roles, the agent profile and template point lists, your message in a live trace, pods with live bubbles and dragging a room with pods, several role groups in "Who works on this".
-- M7: a Claude app's sign-in end to end, Refresh after connecting a new app on claude.ai, a second Claude account's apps, `request_app` routing to a teammate, a real key app (GitHub with a token), a WSL agent using a connector, a local program from the catalog such as Blender, the Windows "keys cannot be saved" path.
-- Older: the plan card and re-plan view, next waiting with the in-place card, Mark reviewed and Follow up, hand-off motion, reduced motion and dark mode on the floor; the tray's Quit prompt, the Windows notification, the store size warning (over 1 GiB); a WSL run from New task, a WSL Claude agent calling a team tool, WSL share-name folding in the read-only check, plan usage for a WSL or added account; drag and drop and Add folder (app only); a chief draft live, the chief and Library tutorials live, setup with an AI app that is not installed or not signed in; the empty Team page and the "No chief" slot.
-- Light mode on the newer screens: workspaces, room tokens, the run card, pods, the pause card, the check card.
-
-## Notes
-- The "owes a turn" rule (D-50): a user message after a turn started counts; an answer counts only after the turn ended, since a harness's own question is answered inside its turn.
-- Where things are: core `packages/service/src/main.ts` with `store`, `registry`, `api`, `team`, `tools`, `autonomy`, `chief`, `accounts`, `attachments`, `library`, `drafts`, `connectors`. API messages in `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`, `src/styles/tokens.css`. Data folders: the installed app `%LOCALAPPDATA%\OfficeTown`, development `%LOCALAPPDATA%\OfficeTown Dev` (Linux: `office-town` and `office-town-dev` in the XDG data folder).
-- Local only, outside git: `.claude/launch.json` (browser preview configs, excluded in `.git/info/exclude`), `out/capture` (off-screen Electron screenshots), `out/burn.mjs` (a run's token spend from a copy of the store), `out/seed-pause.ts` (seeds a paused task), `feedback_images/`.
-- A test app for connectors: `node packages/service/test/support/notes-app.ts <port>` serves it over HTTP; with `--stdio` it is a local program.
-- Mockups (private to the owner): M3 https://claude.ai/artifact/EUBobEg5HWbUH74V8AsYLp, M4 https://claude.ai/artifact/Wuj5ihNNu4fVDGqxzLrQ4B, M5 https://claude.ai/artifact/2JtgLDazsmQeYH7hLuQuA3, creation flows https://claude.ai/artifact/PaPEMXnWXrc9gxQdGtTqsC, workspaces https://claude.ai/artifact/TAJNDntGi4PYmcExP6opUb, Library https://claude.ai/artifact/6TrVZrWjcnvXDWxGivLVgm, composer https://claude.ai/artifact/71RVoeMQkxza3Pq72eyxn9, team building https://claude.ai/artifact/WkgeYGyai2cMSCFoSMtTgp, team page https://claude.ai/artifact/FyPveyDNnv96N8SoAs4PFc, connectors https://claude.ai/artifact/AMEbojnd6kH9UExCAbFtti, department workspaces and big teams https://claude.ai/artifact/Dih5V7i4Z9Y5Efxrzi6EZz.
-- Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
-- Name: "Office Town" is a placeholder. "Bullpen" was rejected.
-
-## How to run
-
-- `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings.
-- `pnpm dev:app`: "Office Town Dev", next to the installed app. The UI rebuilds and the window reloads; a change to the shell or the core restarts the app. Every dev command uses the `OfficeTown Dev` data folder unless given `--data-folder`.
-- `pnpm dev:web [--data-folder path]`: browser mode at http://localhost:5173, a core plus Vite forwarding `/api` with the token. The folder picker, Open folder and dropping folders need the app.
-- `pnpm package [--beta n | --stable]`: the installer for this OS in `apps/desktop/out/package/installers` (local builds are `-beta.0`). Install silently with `<setup>.exe /S`.
-- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume harness-session-id]`
-- `pnpm dev:catalog [--harness claude|opencode] [--wsl Ubuntu]`: models and their effort values.
-- `pnpm dev:core [--data-folder path] [--port n]`: the core. It prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
-- In Git Bash, set `MSYS_NO_PATHCONV=1` before calling the core, or it rewrites `/tasks` into a Windows path. Windows arguments also lose doubled backslashes, so build JSON with Windows paths inside Node, not in the shell.
-- Live checks use the cheapest models only (owner): `--model claude-haiku-5-5 --effort low` for Claude (never Haiku 4.5); OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Space Bunny is no longer free. Beam Free refused a run with more than 128 tools (2026-11-01).
-- New recording: the CLI's stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}` per line). Remove machine paths, account details and the user's skill and command lists.
+- D-91: counts while a live team task ends, a chief goal's parts in search, Show earlier on a live run, template use counts, a reconnect dropping a removed agent.
+- D-90, D-81: Needs you kept with live requests, scroll place on a long list, setup after a restart mid-way, a real drafter run, drafts in the packaged app.
+- D-89: the shell's text menu in the packaged app; menus in light mode.
+- D-87, D-85: a description or title written by Claude's Haiku (only OpenCode's free model ran), a describer that fails or is slow.
+- D-86: a real restart mid-task, then a message to the lead from its chat.
+- D-84, D-83: a check holding a department in the app, the queue on a Codex or Muse worker, a brief missing its turn live, the stale-step rule in a real long run.
+- D-82, D-80, D-79: the permission chip on a solo agent, a level change reaching an agent at work, Runs on WSL from the picker, moving a team with work in progress to another provider.
+- D-78, D-77: a Claude lead calling `propose_change`; `turn/steer` live on Codex and Muse; tool-end delivery on Copilot and Cursor; a whole failing team end to end.
+- D-76: every live run on Codex, Copilot, Cursor and Muse (recordings only), their sign-in and Add account, Codex and Muse meters, the estimate on a real run, Install through npm.
+- D-75: the Linux AppImage, an update between two real GitHub betas, Restart to update with agents open, the setup install line live.
+- D-74, D-73, D-72: a worker's result after its merge, `show_result` from OpenCode or WSL, a PDF in the frame; a team lead writing its checklist, Send fixes and round 2, a copy sandbox; a real 95% pause.
+- D-67, D-68: a Claude app's sign-in end to end, a second Claude account's apps, `request_app` to a teammate, a real key app, a WSL agent using a connector, a local program such as Blender.
+- Older: the plan card and re-plan view, the tray's Quit prompt, the store size warning, a WSL run from New task, chief and Library tutorials live, setup with a provider not installed or not signed in, light mode on workspaces, the run card, pause and check cards.
 
 ## Owner requirements not yet built
 
-- Recovery gaps from D-77: a lead that fails twice has no Needs you card; a message waiting on one long tool shows as sent; a message still waiting when a session ends is lost; a hung worker is only visible as "last active N min ago"; results that end while a team lead is stopped are not replayed on resume.
-- "Always allow this" rules from a Needs you ask (e.g. always allow web search in a department), parked in D-57.
-- Telling the user a CLI is out of date (D-58; needs a contract change).
-- Voice input, parked by the owner (2026-10-24): shipping it to users is too much work for now (a native speech engine in the installer, a model download of several hundred MB, mic permissions). The owner may add it later, for themself first. The plan (on-device sherpa-onnx with Parakeet) is on closed PR #68.
-- Pixel art and themes for characters, later, as a skin of `features/office/Character.tsx`.
-- Human-in-the-loop UI starts simple but must extend without rewrites.
+- Recovery gaps (D-77): a lead that fails twice has no Needs you card; a message waiting on one long tool shows as sent; a message still waiting when a session ends is lost; a hung worker shows only as "last active N min ago"; results that end while a lead is stopped are not replayed on resume.
+- "Always allow this" rules from a Needs you ask, parked (D-57).
+- Telling the user a CLI is out of date (needs the CLI's version in the catalog: a contract change).
+- Voice input, parked by the owner (2026-10-24); the plan (on-device sherpa-onnx with Parakeet) is on closed PR #68.
+- Pixel art and character themes, later, as a skin of `features/office/Character.tsx`.
+- Agent memory across tasks, deferred (2026-10-23): the harnesses keep their own.
 
 ## Open questions for the owner
 
 - Whether Whole department stays the run card's default (D-79).
-- Apply to SignPath Foundation for signing now that P4 is built (D-75); reminded 2026-10-23.
-- Before the release: the intro video (a discussion), the final name.
+- Apply to SignPath Foundation for signing (D-75); reminded 2026-10-23.
+- Before the release: the intro video (a discussion first) and the final name ("Bullpen" was rejected).
+
+## How to run
+
+- `pnpm check`: lint, typecheck, tests. No subscription needed; adapters are tested against recordings. Read the test count from vitest; the repo sits at the cap of 50.
+- `pnpm dev:app`: "Office Town Dev" beside the installed app. The UI reloads; a change to the shell or core restarts the app. Every dev command uses the `OfficeTown Dev` data folder unless given `--data-folder`.
+- `pnpm dev:web [--data-folder path]`: browser mode at http://localhost:5173. The folder picker, Open folder and dropping folders need the app.
+- `pnpm package [--beta n | --stable]`: the installer in `apps/desktop/out/package/installers` (local builds are `-beta.0`). Install silently with `<setup>.exe /S`.
+- `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume id]`; `pnpm dev:catalog [--harness ...]` lists models and efforts.
+- `pnpm dev:core [--data-folder path] [--port n] [--hand-over-at tokens]`: prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
+- Git Bash: set `MSYS_NO_PATHCONV=1` before calling the core, and build JSON with Windows paths inside Node, not the shell.
+- Live checks use the cheapest models only: `--model claude-haiku-5-5 --effort low` for Claude; OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Beam Free refuses runs with over 128 tools.
+- New recording: CLI stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}`). Strip machine paths, account details and the user's skill and command lists.
+- Mockups are checked at full size before they are shown: the `mockup` entry in `.claude/launch.json` (static server, port 5190), shot with `out/capture` in dark and light.
+
+## Where things are
+
+- Core: `packages/service/src` with `store`, `registry`, `api`, `team`, `tools`, `autonomy`, `chief`, `accounts`, `attachments`, `library`, `drafts`, `connectors`, `outputs`. API messages: `packages/contract/src/api.ts`. Desktop: `apps/desktop/electron` (shell), `src/api`, `src/store`, `src/trace`, `src/features`, `src/ui`, `src/styles/tokens.css`. App icon source: `apps/desktop/src/ui/app-icon.svg`.
+- Data folders: installed `%LOCALAPPDATA%\OfficeTown`, development `%LOCALAPPDATA%\OfficeTown Dev` (Linux: `office-town` and `office-town-dev` under XDG data).
+- Local only, outside git: `.claude/launch.json`, `out/capture` (off-screen Electron screenshots), `out/burn.mjs` (a run's token spend from a store copy), `out/seed-pause.ts`, `feedback_images/`.
+- Test app for connectors: `node packages/service/test/support/notes-app.ts <port>` (HTTP), `--stdio` for a local program.
+- Repo: github.com/eeshsingh123/office-town, public. `main` only accepts PRs; the owner merges.
 
 ## What the harnesses do
 
-- OpenCode waits for every MCP server in the user's global config before `session/new` or `session/resume` answers. An `npx` one (`rea`, 2026-11-02) cost about 14 s on every start: 17 to 20 s against 3.6 s. Turned off in the owner's `~/.config/opencode/opencode.jsonc` (`"enabled": false`); set it back to load it.
-- DeepSeek V4.1 Flash on OpenCode Go (2026-11-01): first token 1 to 3 s on a cache hit, 7 to 28 s on a miss at 155k to 350k tokens, up to 55 s on a worker at 370k. Misses are the provider's: a restart alone does not cause one.
-
-- Claude Code 2.1.287 (fixtures), 2.1.296 checked for sign-in and images, 2.1.302 for connectors. A message sent during a turn folds into it at the next tool end, with no new `system/init` and one `result`; one that misses the turn starts its own; `--replay-user-messages` echoes each at the moment it is taken (2.1.316). MCP tools are deferred behind its `ToolSearch` tool, so an agent first loads them, which shows in the trace. In `ask` mode a tool not in `--allowedTools` comes as `can_use_tool` with `tool_name` `mcp__<server>__<tool>`. Permissions work over stdio (`--permission-prompt-tool stdio`). Every turn starts with `system/init`. The plan comes from `TaskCreate`/`TaskUpdate` calls; the model sometimes names their fields `title`, `id` or `task_id`, which the CLI accepts, so the adapter reads the CLI's own record in `tool_use_result`. Sub-agents run in the background, so a turn can end before its sub-agent does and a new turn then starts without a prompt. Thinking text arrives empty. `AskUserQuestion` arrives as a permission request; the answer goes back as `answers` inside `updatedInput`. Its answer to an `initialize` control request lists models and effort levels, and it exits when stdin closes. `--include-partial-messages` adds `stream_event` lines with `text_delta`. `--resume <id>` keeps the same session id; an unknown id exits with code 1. `rate_limit_event` carries `unifiedWindows` (`five_hour`, `seven_day`) with `utilization` as a 0 to 1 share and `resetsAt` in epoch seconds; a refused turn has `status: "rejected"` and names the window in `rateLimitType`. Plan usage between runs comes from `/api/oauth/usage` (what the CLI's `/usage` calls) with the CLI's own token, never refreshed by us. `claude auth login` opens the browser and prints the page, then waits for a pasted code on stdin if the page shows one; `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the whole login. Claude apps (2.1.302): an `mcp_status` control request lists them with status, tools and `readOnly` markers, without a turn; `system/init` alone shows them still connecting. A permission request for one has `mcp_server.source: "claudeai"`. Gmail, Drive and Calendar show `needs-auth` in headless runs until `claude mcp login --no-browser "<app>"`, which prints Claude's page and exits.
-- Codex 0.164 (`codex app-server`), Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`): see D-76. Sign-in: `codex login` (browser; `--device-auth`, `--with-api-key`), `copilot login` (browser, token in the system's credential store), `cursor-agent login` (browser; `cursor-agent status --format json`), `muse login` (approve a code in the browser; `META_API_KEY` wins over it).
-- OpenCode 1.18.34 over ACP (1.19.3 checked for connectors). An `ask` rule on an MCP tool sends an ACP permission request with an empty `rawInput`; the input comes only after it is allowed (why the core decides connector calls, D-67). The todo list is a `todowrite` tool call. A sub-agent's inner steps are not forwarded. ACP has no way to ask the user a question. `session/new` returns the model list and an `effort` setting (category `thought_level`) for the current model only, changed with `session/set_config_option`. `opencode models --verbose` prints every model with its `variants` (effort values) and `capabilities.input`. `session/resume` continues without replaying; `session/load` replays the whole history. It reports context size and a dollar figure, no plan limit, and has no usage source. `opencode auth login --provider <id>` reads a key from stdin; `XDG_DATA_HOME` moves its keys and sessions.
+- Claude Code (2.1.287 fixtures; 2.1.316 latest probed). Every turn starts with `system/init`. A message sent during a turn folds into it at the next tool end, with no new `system/init`; `--replay-user-messages` echoes it when taken. MCP tools are deferred behind `ToolSearch`. In `ask` mode a tool not in `--allowedTools` comes as `can_use_tool`. The plan comes from `TaskCreate`/`TaskUpdate`; read the CLI's own record in `tool_use_result`, since the model names fields loosely. Sub-agents run in the background, so a turn can end before its sub-agent. Thinking text arrives empty. `AskUserQuestion` comes as a permission request; answer with `answers` in `updatedInput`. `initialize` lists models and efforts. `--resume <id>` keeps the id. `rate_limit_event` carries `five_hour` and `seven_day` utilisation (0 to 1) and `resetsAt`; a refused turn has `status: "rejected"`. `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the login. `mcp_status` lists claude.ai apps with `readOnly` markers without a turn; Gmail, Drive and Calendar need `claude mcp login --no-browser "<app>"` in headless runs.
+- OpenCode (1.18.34 fixtures, 1.19.5 probed) over ACP. An `ask` rule on an MCP tool asks with an empty `rawInput` (why the core decides connector calls). The todo list is `todowrite`. Sub-agents' steps are not forwarded. ACP cannot ask the user a question. `session/new` gives models and the current model's `effort`; `opencode models --verbose` lists every model's variants, inputs and window. Reports context size as a prompt ends, no plan limit. It waits for every MCP server in the user's global config before `session/new` answers: an `npx` server cost 14 s per start, so the owner's `rea` server is disabled in `~/.config/opencode/opencode.jsonc`.
+- Codex 0.164 (`codex app-server`), Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`). Sign-in: `codex login`, `copilot login` (token in the OS store), `cursor-agent login`, `muse login` (`META_API_KEY` wins).
+- DeepSeek V4.1 Flash on OpenCode Go: first token 1 to 3 s on a cache hit, up to 55 s on a miss at 370k. Misses are the provider's.
 
 ## Environment (owner's machine, Windows 11)
 
-- Present: git, Node 24.16, pnpm 12.8, Python 3.14, Claude Code and OpenCode logged in natively and in WSL Ubuntu (OpenCode on a Go subscription). `@napi-rs/keyring` works under Node 24 on Windows.
-- `gh` is at `C:\Program Files\GitHub CLI\gh.exe`; call it by full path if it is not on PATH.
-- Installed, not signed in (2026-10-25): codex-cli 0.164.0, GitHub Copilot CLI 1.0.103 (npm), Cursor CLI (`%LOCALAPPDATA%\cursor-agent`), Muse Code 1.4.13 (`%LOCALAPPDATA%\Programs\muse`). Git Bash does not see the last two; PowerShell does.
-- Missing: Node inside WSL Ubuntu.
-- Explorer remembers a taskbar icon per app ID and does not re-read the window's. The dev app showed Electron's until its ID in `electron/main.ts` changed (2026-11-02).
-- The app's Terminal panel tab does not reach a prompt, so a real Ctrl+C cannot be sent from here.
-- The browser pane does not draw while the Claude window is covered; `out/capture` is the fallback.
-- Defender flags PowerShell running `irm … | iex` from a hidden process (`Commando.A!ml`) and refuses the start (`spawn EPERM`). Never run a vendor's one-line installer hidden.
-- Start an installed app or installer from here through `Win32_Process.Create` (WMI) so it uses the real `%LOCALAPPDATA%`; a window of it can be pressed through UI Automation (InvokePattern) without moving the mouse.
-- Commands run from the Claude desktop app see a virtualized `%LOCALAPPDATA%` (its private copy lives in `Packages\Claude_*\LocalCache\Local`): `OfficeTown\store.db` there is an Oct 7 copy, so it reads as "malformed". The real store is fine; read it from a process started through `Win32_Process.Create` (WMI), which runs outside the package. That launch can be refused from here. `OfficeTown Dev\store.db` looks empty the same way, but its `store.db.bak-v*` backups are real and can be read with `immutable=1`.
+- git, Node 24.16, pnpm 12.8, Python 3.14, Claude Code and OpenCode signed in natively and in WSL Ubuntu (no Node in WSL). `gh` at `C:\Program Files\GitHub CLI\gh.exe`. Git Bash does not see Cursor or Muse; PowerShell does.
+- Commands run from the Claude desktop app see a virtualized `%LOCALAPPDATA%`, so the stores there read as stale or "malformed". The real store is fine: read it from a process started through `Win32_Process.Create` (WMI), or measure on a copy of a `store.db.bak-v*` with `immutable=1` in the scratchpad.
+- Defender refuses `irm … | iex` run from a hidden process (`Commando.A!ml`). Never run a vendor's one-line installer hidden.
+- The browser pane does not draw while the Claude window is covered; `out/capture` is the fallback. The Terminal panel cannot send a real Ctrl+C.
+- Explorer remembers a taskbar icon per app ID; the dev window names its own `.ico`.
 
 ## Risks and known limits
 
-- The CLIs' wire formats are not versioned. A CLI upgrade can break an adapter; re-record the fixtures when it happens.- WSL path mapping assumes the default `/mnt/<drive>` automount root.
-- On Windows, if the harness's main process has already exited, anything it left running is not killed.
-- `Session.send` and `SessionRegistry.send` trust their caller; the API validates first (`agentCommandSchema`).
-- `costUsd` and `action.updated.title` are in the contract but never filled.
-- A checker's worktree shares the user's `.git`, so a git command it runs could still change refs; its brief forbids commits, pushes and branch changes. A checker resumed after it ended finds its sandbox gone.
-- A connector ask (Ask me first, request_app) lives as long as its agent's session, like a Library change; if the session ends first, the ask goes with it.
-- The MCP SDK brings Express and Hono as dependencies of the core, unused by us.
-- OpenCode gets extra folders through an `external_directory` rule, not ACP's `additionalDirectories`, which 1.18 does not offer. Switch when it does.
-- OpenCode isolates only in part: its global config and instructions still load (D-41).
-- Vendor policy on third-party use of subscriptions is still changing (D-6).
-- `node:sqlite` is a release candidate in Node 24; an API change would touch `packages/service/src/store` only.
-- A session already running in Bypass stays unguarded until it ends, even if its level is lowered (D-45). Under Bypass, Claude app calls run without the app's permission (D-68).
-- A Claude agent's apps are read before each launch (1 to 2 s; up to 10 s before the run goes on with its apps off).
-- Under Full a shell command, and under Bypass anything, could still change an upstream read-only folder; the plan card warns. One chief, one chief goal at a time.
-- Betas and installers are unsigned, so Windows SmartScreen warns on first install (SignPath, D-75).
+- The CLIs' wire formats are not versioned; an upgrade can break an adapter.
+- WSL path mapping assumes the default `/mnt/<drive>` root. On Windows, children a harness left behind after its main process exited are not killed.
+- `node:sqlite` is a release candidate in Node 24; a change touches `packages/service/src/store` only.
+- A checker's worktree shares the user's `.git`; its brief forbids commits, pushes and branch changes.
+- A connector ask or Library change lives as long as its agent's session.
+- A `harness` change sent while the event stream reconnects is lost until the next check. `/workspaces/usage` is read about 9 times at launch.
+- `costUsd` and `action.updated.title` are in the contract but never filled. The MCP SDK brings Express and Hono, unused.
+- Betas are unsigned, so SmartScreen warns on first install. Vendor policy on third-party use of subscriptions keeps changing.
 
-## Reference notes
+## References
 
-- Prior art (Munder Difflin, Pixel Agents, Claude Office Visualizer) visualises one harness only. Interface references: gather.town, Age of Empires, squad.so.
-- Command center research (2026-10-07): Gas Town (one "Mayor" agent you talk to), Paperclip (CEO agent, org chart, goals traced down), Cursor 3 "Needs Attention", Codex review queue, Vibe Kanban (cross-harness board), RimWorld and RTS (jump to the next waiting unit). Complaints to avoid: walls of live transcripts, waiting agents nobody notices, too many notifications.
+- Prior art visualises one harness only (Munder Difflin, Pixel Agents, Claude Office Visualizer). Interface references: gather.town, squad.so, Paperclip (CEO agent, org chart), Cursor's Needs Attention, RTS "jump to the next waiting unit". Avoid walls of live transcripts, waiting agents nobody notices, too many notifications.

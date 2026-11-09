@@ -35,3 +35,12 @@
 2. Lint, typecheck and tests pass.
 3. The diff was re-read against this file.
 4. DECISIONS.md and MEMORY.md reflect any new decision or state.
+
+## Docs
+
+The four docs drive every session, so they stay short and current.
+
+- A new decision joins its topic in DECISIONS.md as one bullet under a new `D-n`, merged into an existing bullet where it refines one. A why stays only while it still guides work. Numbers are never reused or dropped: code comments cite them.
+- MEMORY.md holds what the next session needs: state, what is not checked, open questions, how to run. Git already holds history; drop it.
+- A brief in `docs/briefs/` is deleted once its work is built; its decision keeps the outcome.
+- After each milestone (a module or phase merged), audit all four: merge overlaps, cut what no longer changes what the next session does, fix what went stale.
