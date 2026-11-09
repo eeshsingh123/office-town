@@ -276,6 +276,7 @@ export class AcpTranslator implements Translator {
 
   // Later prompts wait for the turn in progress to end, or for the next tool to end.
   prompt(text: string, images: InlineImage[]): Translation {
+    this.#charsSince += text.length;
     this.#queuedPrompts.push([
       ...images.map(({ mimeType, data }) => ({ type: "image", mimeType, data })),
       { type: "text", text },

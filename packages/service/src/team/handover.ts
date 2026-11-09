@@ -35,6 +35,19 @@ export function roleOf(store: Store, { taskId, agentId }: Caller): HandoverRole 
   return task.leadAgentId === undefined ? "solo" : "worker";
 }
 
+// Results will wake it, and each of its next turns reads the whole conversation again.
+function workOut(store: Store, role: HandoverRole, taskId: string): boolean {
+  if (role === "lead") {
+    return store.listDelegations(taskId).some((delegation) => delegation.status === "working");
+  }
+  if (role === "chief") {
+    return store
+      .listPieces(taskId)
+      .some((piece) => ["waiting", "queued", "working"].includes(piece.status));
+  }
+  return false;
+}
+
 const NOTE_FOR: Record<HandoverRole, string> = {
   worker: "what of your piece is done and what is left",
   lead: "where the goal stands",
@@ -186,15 +199,23 @@ export class Handovers {
     const task = session === undefined ? undefined : store.getTask(session.taskId);
     if (session === undefined || task === undefined || task.paused !== undefined) return;
     if (this.#pending.has(sessionId) || this.#asking.has(sessionId)) return;
-    if (task.efficient === true) this.#askToHandOver(session, tokens, window);
+    if (task.efficient === true) this.#askToHandOver(session, tokens, window, turnEnded);
     else if (turnEnded) this.#suggest(session, tokens);
   }
 
   // Efficient: the app asks at the next tool end; choosing the mode was the approval (owner).
-  #askToHandOver(session: SessionRecord, tokens: number, window: number | undefined): void {
+  // At a turn's end only an agent with work still out, or a finished one would be woken for
+  // nothing; the others are asked during their next turn.
+  #askToHandOver(
+    session: SessionRecord,
+    tokens: number,
+    window: number | undefined,
+    turnEnded: boolean,
+  ): void {
     const { store, registry } = this.#context;
     const role = roleOf(store, { ...session, sessionId: session.id });
     if (role === undefined || this.#subAgents.has(session.id)) return;
+    if (turnEnded && !workOut(store, role, session.taskId)) return;
     if (this.#failed.has(session.harnessSessionId ?? session.id)) return;
     const watch = this.#watches.get(session.id) ?? {
       asks: 0,
@@ -233,10 +254,7 @@ export class Handovers {
     if (!leadsTeam(store, { ...session, sessionId: session.id })) return;
     const conversation = session.harnessSessionId ?? session.id;
     if (this.#offered.has(conversation)) return;
-    const workOut = store
-      .listDelegations(session.taskId)
-      .some((delegation) => delegation.status === "working");
-    if (!workOut) return;
+    if (!workOut(store, "lead", session.taskId)) return;
     this.#offered.add(conversation);
     this.#askUser(
       session,
