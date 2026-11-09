@@ -659,6 +659,15 @@ export function apiRoutes(
     },
     {
       method: "PUT",
+      path: "/efficient-default",
+      reply: async ({ body }) => {
+        const { efficient } = taskModeRequestSchema.parse(await body());
+        store.saveSettings({ efficientByDefault: efficient });
+        return { status: 204 };
+      },
+    },
+    {
+      method: "PUT",
       path: "/room-positions/:roomId",
       reply: async ({ param, body }) => {
         const roomId = param("roomId");

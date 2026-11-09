@@ -69,6 +69,19 @@
   gap: 8px;
 }
 
+.groupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-right: 4px;
+}
+
+.groupHead .groupLabel {
+  gap: 8px;
+  justify-content: flex-start;
+}
+
 .groupLabel {
   display: flex;
   justify-content: space-between;

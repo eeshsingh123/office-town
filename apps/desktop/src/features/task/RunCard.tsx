@@ -1,5 +1,5 @@
 import type { RoleSettings } from "@office-town/contract";
-import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder } from "lucide-react";
+import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder, MessagesSquare } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -11,8 +11,10 @@ import { Button } from "../../ui/Button.tsx";
 import { clockTime, compactCount } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { showToast } from "../../ui/Toast.tsx";
 import chip from "../new-task/Composer.module.css";
 import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
+import { MODE_CHOICES, modeNote } from "./long-chats.ts";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
 
@@ -132,6 +134,32 @@ function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
   );
 }
 
+// The task's, so it holds for every agent in it; taken at the next size check (D-94).
+function ModeRow({ taskId }: { taskId: string }) {
+  const task = useApp((state) => state.tasks[taskId]?.task);
+  if (task === undefined) return null;
+  const efficient = task.efficient === true;
+  const choose = (next: string) => {
+    if ((next === "efficient") === efficient) return;
+    api
+      .setTaskEfficient(taskId, next === "efficient")
+      .catch(() => showToast("The choice could not be saved."));
+  };
+  return (
+    <li title={modeNote(efficient)} className={styles.modelRow}>
+      <MessagesSquare size={14} aria-hidden />
+      <span className={styles.modelChange}>
+        <Segments
+          label="Long chats"
+          value={efficient ? "efficient" : "one"}
+          options={MODE_CHOICES}
+          onChange={choose}
+        />
+      </span>
+    </li>
+  );
+}
+
 function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
   const traces = useApp((state) => state.traces);
   const waiting = useWaitingSessions().has(agent.latest.id);
@@ -154,6 +182,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
       </div>
       <ul className={styles.facts}>
         <ModelRow agent={agent} working={state === "working" || state === "starting"} />
+        <ModeRow taskId={agent.latest.taskId} />
         <li title="Provider and where it runs">
           <AppWindow size={14} aria-hidden />
           <span className={styles.text}>

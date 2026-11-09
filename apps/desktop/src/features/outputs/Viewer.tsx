@@ -1,5 +1,6 @@
 import {
   type ChangedFile,
+  type HandoverFile,
   MAX_PREVIEW_TEXT_BYTES,
   MAX_TABLE_ROWS,
   OPENS_SAFELY,
@@ -9,7 +10,9 @@ import {
   type SpottedSite,
 } from "@office-town/contract";
 import {
+  BookmarkPlus,
   Crosshair,
+  Download,
   ExternalLink,
   FolderOpen,
   Lock,
@@ -50,7 +53,8 @@ import { PICTURE_WIDTH, pictureIsCurrent, toBlob } from "./use-page-picture.ts";
 export type Shown =
   | { kind: "result"; output: OutputRecord }
   | { kind: "spotted"; site: SpottedSite }
-  | { kind: "file"; file: ChangedFile };
+  | { kind: "file"; file: ChangedFile }
+  | { kind: "handover"; file: HandoverFile };
 
 // Past this, continuing a conversation to start a server costs more than a fresh one (owner).
 const FRESH_FROM_TOKENS = 100_000;
@@ -77,6 +81,7 @@ interface Spot {
 function targetOf(shown: Shown): OutputTarget {
   if (shown.kind === "result") return shown.output.target;
   if (shown.kind === "spotted") return { kind: "site", url: shown.site.url };
+  if (shown.kind === "handover") return { kind: "file", path: `${shown.file.sessionId}.md` };
   return { kind: "file", path: shown.file.path };
 }
 
@@ -120,19 +125,23 @@ export function Viewer({
     forSession<number | undefined>(`${keepAs}.version`, undefined),
   );
   const version = picked ?? latest;
+  const handover = shown.kind === "handover" ? shown.file : undefined;
   const query: OutputFileQuery | undefined =
     target.kind === "site"
       ? undefined
-      : output !== undefined && version !== undefined && version !== latest
-        ? { outputId: output.id, version }
-        : { path: target.path };
+      : handover !== undefined
+        ? { handover: handover.sessionId }
+        : output !== undefined && version !== undefined && version !== latest
+          ? { outputId: output.id, version }
+          : { path: target.path };
   const [size, setSize] = useKept(forSession<Size>(`${keepAs}.size`, "desktop"));
   const [full, setFull] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [marking, setMarking] = useState(false);
   const [reloads, setReloads] = useState(0);
   // A new version or a reload reads the file again; spots marked on the old one no longer fit.
-  const changedAt = shown.kind === "file" ? shown.file.at : output?.updatedAt;
+  const changedAt =
+    shown.kind === "file" || shown.kind === "handover" ? shown.file.at : output?.updatedAt;
   const markedOn = `${version}:${changedAt}`;
   const marks = forSession<{ on: string; spots: Spot[] }>(`${keepAs}.spots`, { on: "", spots: [] });
   const [kept] = useKept(marks);
@@ -178,20 +187,32 @@ export function Viewer({
   }, [full]);
 
   const title =
-    output?.title ?? (target.kind === "site" ? new URL(target.url).host : fileName(target.path));
-  // Where the file is on disk now, for the shell to open.
+    handover !== undefined
+      ? `${agent?.name ?? "An agent"}'s handover`
+      : (output?.title ??
+        (target.kind === "site" ? new URL(target.url).host : fileName(target.path)));
+  // Where the file is on disk now, for the shell to open. A handover file is the app's own.
   const filePath =
-    target.kind === "file" ? ((output && movedTo[output.id]) ?? target.path) : undefined;
-  const where = target.kind === "site" ? target.url : shownPath(target.path, roots);
+    target.kind === "file" && handover === undefined
+      ? ((output && movedTo[output.id]) ?? target.path)
+      : undefined;
+  const where =
+    target.kind === "site"
+      ? target.url
+      : handover === undefined
+        ? shownPath(target.path, roots)
+        : undefined;
   const when =
     shown.kind === "result"
       ? `showed it ${ago(shown.output.updatedAt)}`
       : shown.kind === "file"
         ? `${shown.file.deleted ? "deleted" : "changed"} it ${ago(shown.file.at)}`
-        : "is running it";
+        : shown.kind === "handover"
+          ? `handed over ${ago(shown.file.at)}`
+          : "is running it";
   const openAddress = target.kind === "site" ? target.url : framed ? previewUrl : undefined;
   const markable = shell !== undefined && (kind === "page" || kind === "site");
-  const reloadable = target.kind === "file" && !deleted;
+  const reloadable = target.kind === "file" && !deleted && handover === undefined;
   const stoppedSite = target.kind === "site" && !running;
 
   const tools: ReactNode[] = [];
@@ -246,12 +267,17 @@ export function Viewer({
               <Avatar name={agent.name} colour={agent.colour} size={20} />
             )}
             <span>{agent === undefined ? when : `${agent.name} ${when}`}</span>
-            <span className={styles.path} title={where}>
-              {where}
-            </span>
+            {where === undefined ? null : (
+              <span className={styles.path} title={where}>
+                {where}
+              </span>
+            )}
           </p>
         </div>
         <div className={styles.viewerActions}>
+          {handover === undefined || query === undefined ? null : (
+            <HandoverActions taskId={taskId} query={query} title={title} />
+          )}
           {openAddress === undefined ? null : (
             <a
               className={styles.iconButton}
@@ -363,7 +389,7 @@ export function Viewer({
         )}
       </div>
 
-      {shown.kind === "spotted" || agent === undefined ? null : (
+      {shown.kind === "spotted" || shown.kind === "handover" || agent === undefined ? null : (
         <AskBox
           taskId={taskId}
           agentId={agent.id}
@@ -378,6 +404,73 @@ export function Viewer({
         />
       )}
     </section>
+  );
+}
+
+// A handover file goes where the user saves it, or to the task's workspace Library for every
+// agent there (D-94).
+function HandoverActions({
+  taskId,
+  query,
+  title,
+}: {
+  taskId: string;
+  query: OutputFileQuery;
+  title: string;
+}) {
+  const workspaceId = useApp((state) => state.tasks[taskId]?.task.workspaceId);
+  const name = `${title.replaceAll(/[^\p{L}\p{N}' -]/gu, "").trim()}.md`;
+  const read = async () => {
+    const response = await fetch(fileAddress(taskId, query));
+    if (!response.ok) throw new Error("The file could not be read.");
+    return new Blob([await response.text()], { type: "text/markdown" });
+  };
+  const exportFile = () =>
+    read()
+      .then((file) => {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(file);
+        link.download = name;
+        link.click();
+        URL.revokeObjectURL(link.href);
+      })
+      .catch(() => showToast("The file could not be exported."));
+  const saveToLibrary = (workspace: string) =>
+    read()
+      .then((file) => api.uploadFile(file, name))
+      .then((attachment) =>
+        api.addLibraryItem(workspace, {
+          attachmentId: attachment.id,
+          givenTo: { everyone: true, departmentIds: [], agentIds: [] },
+        }),
+      )
+      .then(() => showToast("Saved to the Library"))
+      .catch((error: unknown) =>
+        showToast(error instanceof Error ? error.message : "It could not be saved."),
+      );
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.iconButton}
+        aria-label="Export"
+        title="Export"
+        onClick={() => void exportFile()}
+      >
+        <Download size={16} aria-hidden />
+      </button>
+      {workspaceId === undefined ? null : (
+        <button
+          type="button"
+          className={styles.iconButton}
+          aria-label="Save to Library"
+          title="Save to Library"
+          onClick={() => void saveToLibrary(workspaceId)}
+        >
+          <BookmarkPlus size={16} aria-hidden />
+        </button>
+      )}
+    </>
   );
 }
 

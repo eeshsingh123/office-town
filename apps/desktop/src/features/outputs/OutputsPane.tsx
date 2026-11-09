@@ -1,10 +1,18 @@
-import type { AgentRecord, ChangedFile, OutputRecord, SpottedSite } from "@office-town/contract";
-import { ChevronDown, Globe } from "lucide-react";
+import type {
+  AgentRecord,
+  ChangedFile,
+  HandoverFile,
+  OutputRecord,
+  SpottedSite,
+} from "@office-town/contract";
+import { ChevronDown, FileText, Globe } from "lucide-react";
 import { useState } from "react";
+import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { forSession, useKept } from "../../store/kept.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { ago } from "../../ui/format.ts";
 import { fileMenu } from "../attachments/file-menu.ts";
 import { fileName, KIND_LABELS, latestDocument, shownPath, viewKindOf } from "./kinds.ts";
@@ -19,6 +27,7 @@ const CHANGED_PAGE = 8;
 function keyOf(shown: Shown): string {
   if (shown.kind === "result") return `result:${shown.output.id}`;
   if (shown.kind === "spotted") return `spotted:${shown.site.url}`;
+  if (shown.kind === "handover") return `handover:${shown.file.sessionId}`;
   return `file:${shown.file.path}`;
 }
 
@@ -47,6 +56,8 @@ export function OutputsPane({
     ({ url }) => new URL(url).origin !== window.location.origin,
   );
   const changed = outputs?.changed ?? [];
+  const handovers = outputs?.handovers ?? [];
+  const ended = useApp((state) => state.tasks[taskId]?.task.state === "ended");
   // Unfolded while it is all there is to see.
   const changedOpen = foldedByUser === undefined ? results.length === 0 : !foldedByUser;
 
@@ -61,6 +72,10 @@ export function OutputsPane({
     if (picked?.kind === "spotted") {
       const site = spotted.find((one) => one.url === picked.site.url);
       if (site !== undefined) return { kind: "spotted", site };
+    }
+    if (picked?.kind === "handover") {
+      const file = handovers.find((one) => one.sessionId === picked.file.sessionId);
+      if (file !== undefined) return { kind: "handover", file };
     }
     // A site may have stopped and open on its restart offer, so anything else opens first.
     const first = results.find((output) => output.target.kind !== "site") ?? results[0];
@@ -81,7 +96,12 @@ export function OutputsPane({
       </div>
     );
   }
-  if (results.length === 0 && changed.length === 0 && spotted.length === 0) {
+  if (
+    results.length === 0 &&
+    changed.length === 0 &&
+    spotted.length === 0 &&
+    handovers.length === 0
+  ) {
     return (
       <div className={styles.empty}>
         <strong>Nothing to show yet</strong>
@@ -134,6 +154,20 @@ export function OutputsPane({
               ))}
             </ul>
           </section>
+        )}
+        {handovers.length === 0 ? null : (
+          <Handovers
+            taskId={taskId}
+            files={handovers}
+            agents={agents}
+            ended={ended}
+            currentKey={currentKey}
+            onChoose={(file) => choose({ kind: "handover", file })}
+            onCleared={() => {
+              if (picked?.kind === "handover") setPicked(undefined);
+              read();
+            }}
+          />
         )}
         {changed.length === 0 ? null : (
           <section className={styles.changed}>
@@ -243,6 +277,83 @@ function ResultItem({
         </span>
       </span>
     </button>
+  );
+}
+
+// What each agent wrote for the session that carried on from it (D-94). Cleared only once the
+// task is done, as a running agent may still search its earlier conversation.
+function Handovers({
+  taskId,
+  files,
+  agents,
+  ended,
+  currentKey,
+  onChoose,
+  onCleared,
+}: {
+  taskId: string;
+  files: readonly HandoverFile[];
+  agents: Record<string, AgentRecord>;
+  ended: boolean;
+  currentKey: string | undefined;
+  onChoose: (file: HandoverFile) => void;
+  onCleared: () => void;
+}) {
+  const [clearing, setClearing] = useState(false);
+  return (
+    <section className={styles.group}>
+      <div className={styles.groupHead}>
+        <h2 className={styles.groupLabel}>
+          Handovers <span>{files.length}</span>
+        </h2>
+        {ended ? (
+          <button type="button" className={styles.link} onClick={() => setClearing(true)}>
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <ul className={styles.items}>
+        {files.map((file) => {
+          const agent = agents[file.agentId];
+          const chosen = currentKey === `handover:${file.sessionId}`;
+          return (
+            <li key={file.sessionId}>
+              <button
+                type="button"
+                className={`${styles.item} ${chosen ? styles.chosen : ""}`}
+                aria-current={chosen ? "true" : undefined}
+                onClick={() => onChoose(file)}
+              >
+                <span className={styles.picture}>
+                  <FileText size={18} aria-hidden />
+                </span>
+                <span className={styles.itemText}>
+                  <strong>{`${agent?.name ?? "An agent"}'s handover`}</strong>
+                  <span className={styles.meta}>
+                    {agent === undefined ? null : (
+                      <Avatar name={agent.name} colour={agent.colour} size={18} />
+                    )}
+                    <span>{`Markdown · ${ago(file.at)}`}</span>
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <ConfirmDialog
+        open={clearing}
+        onOpenChange={setClearing}
+        title="Clear the handover files?"
+        description="They are removed from this computer. Every chat stays in the task."
+        confirmLabel="Clear"
+        danger
+        onConfirm={async () => {
+          await api.clearHandovers(taskId);
+          onCleared();
+        }}
+      />
+    </section>
   );
 }
 

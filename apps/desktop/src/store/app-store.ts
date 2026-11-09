@@ -112,6 +112,8 @@ export interface AppState extends Records {
   // Undefined until loaded, so setup never flashes for someone who finished it.
   onboarding: Onboarding | undefined;
   display: Display;
+  // New tasks start in Efficient mode (D-94).
+  efficientByDefault: boolean;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -145,6 +147,7 @@ export const useApp = create<AppState>(() => ({
   connectors: {},
   onboarding: undefined,
   display: {},
+  efficientByDefault: false,
 }));
 
 export function focusAgent(agentId: string | undefined): void {

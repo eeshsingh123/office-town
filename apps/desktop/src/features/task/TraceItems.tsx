@@ -24,6 +24,7 @@ import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
+import { CONTINUED_LINE } from "../../trace/activity.ts";
 import { describeActions, settledByLevel } from "../../trace/blocks.ts";
 import { agentState, stageOf } from "../../trace/progress.ts";
 import { delegatedTo } from "../../trace/team-tools.ts";
@@ -491,6 +492,10 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       }
       if (item.origin?.kind === "answer") {
         return <FromOffice summary="Your answer" text={item.text} />;
+      }
+      // The handover it carries on from opens under the line.
+      if (item.origin?.kind === "handover") {
+        return <FromOffice summary={CONTINUED_LINE} text={item.text} />;
       }
       if (item.role === "user") return <UserMessage item={item} sessionId={place.sessionId} />;
       return (
