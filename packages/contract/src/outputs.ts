@@ -69,6 +69,15 @@ export const spottedSiteSchema = z.object({
 });
 export type SpottedSite = z.infer<typeof spottedSiteSchema>;
 
+// What an agent wrote for the session that carried on from it, with its earlier conversation
+// (D-94). Kept in the data folder until the user clears the task's handovers.
+export const handoverFileSchema = z.object({
+  sessionId: z.string().min(1),
+  agentId: z.string().min(1),
+  at: z.iso.datetime(),
+});
+export type HandoverFile = z.infer<typeof handoverFileSchema>;
+
 export const taskOutputsSchema = z.object({
   results: z.array(outputRecordSchema),
   changed: z.array(changedFileSchema),
@@ -86,13 +95,16 @@ export const taskOutputsSchema = z.object({
   // Where a result's file is now, by result id, when that is not where it was shown: a worker's
   // file merged into the lead's folder.
   movedTo: z.record(z.string(), z.string()),
+  // Oldest first.
+  handovers: z.array(handoverFileSchema),
 });
 export type TaskOutputs = z.infer<typeof taskOutputsSchema>;
 
-// A file of the task, or a kept version of a result.
+// A file of the task, a kept version of a result, or a handover file by the session that wrote it.
 export const outputFileQuerySchema = z.union([
   z.object({ path: z.string().min(1) }),
   z.object({ outputId: z.string().min(1), version: z.coerce.number().int().positive() }),
+  z.object({ handover: z.string().min(1) }),
 ]);
 export type OutputFileQuery = z.infer<typeof outputFileQuerySchema>;
 
