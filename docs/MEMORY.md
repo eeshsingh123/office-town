@@ -37,7 +37,7 @@ Last updated: 2026-11-09
 
 ## Phase 2: long sessions (agreed 2026-11-09)
 
-- B, Efficient mode (D-94), built on `feat/session-handover`; the owner skipped the mockup stage and asked for the build. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, one asked at a turn's end, one mid-turn; both carried on in the same folder and finished.
+- B, Efficient mode (D-94), built on `feat/session-handover`; the owner skipped the mockup stage and asked for the build. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, one asked at a turn's end, one mid-turn; both carried on in the same folder and finished. Review fixes (same PR): the window from the model list or the same model, a resumed OpenCode size, a handover waiting on a sub-agent, tool output in the earlier conversation's file, the worker's current piece, stopped programs, a goal's switch reaching its pieces, Library for the writer only. OpenCode's list was parsed for real (312 models, all with a window); the rest was checked on fakes only.
 - After B is merged and done end to end: C, one goal record with milestones and short check loops, from `docs/briefs/C-goal-progress.md` (a discussion stage first). C's goal record replaces the handover note's source: keep the note's fields.
 
 ## Not checked yet
@@ -45,6 +45,7 @@ Last updated: 2026-11-09
 - D-94, a handover on Claude, Codex or Muse (only OpenCode ran live): start a task in Efficient with the core on `--hand-over-at 5000` and a multi-step prompt. It should be asked mid-turn, call `hand_over` and go on in a new session; wrong if it is asked only at the turn's end, or never.
 - D-94, a live team: a worker past the size should go on with the same piece and the lead get one result; wrong if the lead hears "finished" for the old session. A lead or chief should go on with workers' results reaching the new session (tested on fake sessions).
 - D-94, Export and Save to Library clicked in the desktop app (the web build showed both buttons): Export should open a Save dialog, Save to Library should add the file to the workspace's Library; wrong if nothing happens. The Long chats card, run card row and Handovers section in light mode.
+- D-94, a real Efficient run without `--hand-over-at` on OpenCode's free model (200k window): a worker past about 160k should be asked mid-turn, before OpenCode compacts at 170k; wrong if OpenCode compacts first. A Claude worker with a background sub-agent that calls `hand_over`: the switch should happen once the sub-agent ends; wrong if it waits for the idle stop.
 - D-94, Claude's idle compaction (2.1.290+, 200k+, one-hour cache): a session idle for an hour should not compact before our 10 minute idle stop closes it; wrong if it compacts on its own.
 
 - D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The packaged app.
