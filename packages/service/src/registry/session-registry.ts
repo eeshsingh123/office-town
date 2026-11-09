@@ -378,11 +378,14 @@ ${text}`,
             },
       );
     }
+    // A session that ended before its first turn did keeps the size it was resumed at.
+    const size = this.#store.contextTokens(sessionId) ?? earlier.options.resumedContextTokens;
     const options = withAccess(
       {
         ...withAgentsModel(earlier.options, this.#store.getAgent(earlier.agentId)),
         permissionMode,
         resumeSessionId: conversation,
+        ...(size === undefined ? {} : { resumedContextTokens: size }),
       },
       message.attachments ?? [],
     );

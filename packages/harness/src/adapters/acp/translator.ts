@@ -157,7 +157,7 @@ export class AcpTranslator implements Translator {
   // What the cancelled part of a turn used, counted when the turn ends.
   #carriedUsage: TokenUsage | undefined;
   // The conversation's size as the app last reported it, and the text seen since, so its size
-  // during a turn can be estimated. Unknown in a resumed conversation until the app reports it.
+  // during a turn can be estimated. A resumed one starts from the size the core last stored.
   #reportedContext: number | undefined;
   #charsSince = 0;
   #contextWindow: number | undefined;
@@ -166,7 +166,12 @@ export class AcpTranslator implements Translator {
   constructor(
     options: Pick<
       LaunchOptions,
-      "workspacePath" | "model" | "effort" | "resumeSessionId" | "toolServers"
+      | "workspacePath"
+      | "model"
+      | "effort"
+      | "resumeSessionId"
+      | "resumedContextTokens"
+      | "toolServers"
     >,
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
@@ -177,7 +182,8 @@ export class AcpTranslator implements Translator {
     this.#model = options.model;
     this.#effort = options.effort;
     this.#resumeSessionId = options.resumeSessionId;
-    this.#reportedContext = options.resumeSessionId === undefined ? 0 : undefined;
+    this.#reportedContext =
+      options.resumeSessionId === undefined ? 0 : options.resumedContextTokens;
     this.#toolServers = options.toolServers;
     this.#toolPrefixes = toolPrefixes;
     this.#allowOwnToolAsks = allowOwnToolAsks;

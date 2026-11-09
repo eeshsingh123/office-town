@@ -39,6 +39,9 @@ export const sessionOptionsSchema = z.object({
   accountFolder: absolutePathSchema.optional(),
   // As reported by `session.started`.
   resumeSessionId: harnessSettingSchema.optional(),
+  // The resumed conversation's size when last reported, for a harness that reports it only as a
+  // prompt ends, so its size during the first turn is known (D-94).
+  resumedContextTokens: z.number().int().nonnegative().optional(),
   // For a clean-slate second opinion, as far as the harness allows.
   isolated: z.boolean().optional(),
   // The connectors served natively, fixed at a conversation's first session (D-67).
