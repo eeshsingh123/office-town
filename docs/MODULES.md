@@ -50,6 +50,7 @@ Each line is what later work builds on; the why lives in DECISIONS.md.
 
 - **After M10: teams recover from failures (D-77).** Messages reach agents during a turn, one automatic retry, the real error to the lead, `change_worker`, model and effort on the run card.
 - **After M10: a lead asks before changing direction (D-78).** `propose_change`, a lead-only question in Needs you at every level.
+- **Phase 2 B: Efficient mode (D-94).** Opt-in: every role carries on in a new session past 350k with its own handover, the records and its earlier conversation; the size during a turn from every adapter (`context.measured`). `team/handover.ts`, `carry-over.ts`, `handover-files.ts`; Handovers in Outputs.
 
 ## Next
 

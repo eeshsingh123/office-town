@@ -35,7 +35,17 @@ Last updated: 2026-11-09
 - Known gap: a `harness` change sent while the event stream is reconnecting is lost; Providers shows the older result until the next check.
 - Still open, small: `/workspaces/usage` is read about 9 times at launch and `/environments` twice.
 
+## Phase 2: long sessions (agreed 2026-11-09)
+
+- B, Efficient mode (D-94), built on `feat/session-handover`; the owner skipped the mockup stage and asked for the build. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, one asked at a turn's end, one mid-turn; both carried on in the same folder and finished.
+- After B is merged and done end to end: C, one goal record with milestones and short check loops, from `docs/briefs/C-goal-progress.md` (a discussion stage first). C's goal record replaces the handover note's source: keep the note's fields.
+
 ## Not checked yet
+
+- D-94, a handover on Claude, Codex or Muse (only OpenCode ran live): start a task in Efficient with the core on `--hand-over-at 5000` and a multi-step prompt. It should be asked mid-turn, call `hand_over` and go on in a new session; wrong if it is asked only at the turn's end, or never.
+- D-94, a live team: a worker past the size should go on with the same piece and the lead get one result; wrong if the lead hears "finished" for the old session. A lead or chief should go on with workers' results reaching the new session (tested on fake sessions).
+- D-94, Export and Save to Library clicked in the desktop app (the web build showed both buttons): Export should open a Save dialog, Save to Library should add the file to the workspace's Library; wrong if nothing happens. The Long chats card, run card row and Handovers section in light mode.
+- D-94, Claude's idle compaction (2.1.290+, 200k+, one-hour cache): a session idle for an hour should not compact before our 10 minute idle stop closes it; wrong if it compacts on its own.
 
 - D-93: five real Ctrl+C stops of `pnpm dev:app` (only a stop of the loop's process was run here): each should print the core stopping and leave no electron.exe in Task Manager. The dev app's taskbar icon should be the app's, not Electron's. The packaged app.
 - D-92: the packaged app; WSL queries waiting their turn.
