@@ -443,7 +443,12 @@ export class MuseTranslator implements Translator {
           cachedInputTokens: usage.cachedTokens,
           contextTokens: totalTokens,
         });
-        return NOTHING;
+        if (!this.#turnActive) return NOTHING;
+        // Sent after each model call, so a long turn's size is known as it grows (D-94).
+        return {
+          events: [{ type: "context.measured", payload: { contextTokens: totalTokens } }],
+          outgoing: [],
+        };
       }
       case "approval/resolved":
         return this.#approvalResolved(params);

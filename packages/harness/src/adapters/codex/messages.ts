@@ -66,7 +66,11 @@ export type Breakdown = z.infer<typeof breakdownSchema>;
 
 export const tokenUsageSchema = z.looseObject({
   threadId: z.string(),
-  tokenUsage: z.looseObject({ total: breakdownSchema, last: breakdownSchema }),
+  tokenUsage: z.looseObject({
+    total: breakdownSchema,
+    last: breakdownSchema,
+    modelContextWindow: z.number().int().positive().nullish(),
+  }),
 });
 
 export const turnCompletedSchema = z.looseObject({

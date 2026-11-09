@@ -42,6 +42,32 @@ function expectEveryMessageTaken(events: SessionEvent[]): void {
   expect(started).toBeGreaterThanOrEqual(sent);
 }
 
+// A long turn can be handed over only if its size is known before it ends (D-94): every turn
+// that ran a tool and reports its size at the end reports it during the turn too.
+function expectContextDuringTurns(events: SessionEvent[], resumed: boolean): void {
+  let open = false;
+  let measured = false;
+  let toolEnded = false;
+  for (const event of events) {
+    if (event.type === "turn.started") {
+      open = true;
+      measured = false;
+      toolEnded = false;
+    } else if (event.type === "context.measured") {
+      expect(open).toBe(true);
+      measured = true;
+    } else if (event.type === "action.ended" && event.payload.actionId !== undefined) {
+      toolEnded = true;
+    } else if (event.type === "turn.ended") {
+      const reported = event.payload.usage?.contextTokens !== undefined;
+      // A resumed conversation's size is unknown until the app first reports it.
+      if (reported && toolEnded && !resumed) expect(measured).toBe(true);
+      if (reported) resumed = false;
+      open = false;
+    }
+  }
+}
+
 function expectActionsStartedBeforeUse(events: SessionEvent[]): void {
   const started = payloadsOf(events, "action.started").map((payload) => payload.actionId);
   const updated = payloadsOf(events, "action.updated").map((payload) => payload.actionId);
@@ -85,7 +111,11 @@ function expectFragmentLinesPartial(received: ReceivedLine[]): void {
   }
 }
 
-async function expectEventRules(adapter: Adapter, lines: RecordingEntry[]): Promise<void> {
+async function expectEventRules(
+  adapter: Adapter,
+  lines: RecordingEntry[],
+  resumed: boolean,
+): Promise<void> {
   const { events, written, lines: reported, received } = await replay(adapter, lines);
 
   expectValidEventsInSequence(events);
@@ -93,6 +123,7 @@ async function expectEventRules(adapter: Adapter, lines: RecordingEntry[]): Prom
   expectTurnsClosed(events);
   expectEveryMessageTaken(events);
   expectActionsStartedBeforeUse(events);
+  expectContextDuringTurns(events, resumed);
   expectEveryRequestResolved(events);
   expectFragmentsToAddUp(events);
   expectFragmentLinesPartial(received);
@@ -114,7 +145,7 @@ export function describeAdapterConformance(
     it("keeps the event rules in every recording", async () => {
       for (const [name, lines] of Object.entries(recordings)) {
         try {
-          await expectEventRules(adapter, lines);
+          await expectEventRules(adapter, lines, name.startsWith("resumed"));
         } catch (error) {
           throw new Error(`Replaying ${name}: ${error instanceof Error ? error.message : error}`, {
             cause: error,

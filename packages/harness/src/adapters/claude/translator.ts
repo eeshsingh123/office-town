@@ -165,6 +165,9 @@ export class ClaudeTranslator implements Translator {
   #steps: PlanStep[] = [];
   // The main conversation's length at its latest model call; sub-agents have their own.
   #contextTokens = 0;
+  // Known once a turn has ended: the result names it per model.
+  #model: string | undefined;
+  #contextWindow: number | undefined;
   readonly #planCalls = new Map<string, ToolUse>();
   readonly #backgroundActions = new Set<string>();
   readonly #pendingPermissions = new Map<string, PendingPermission>();
@@ -289,6 +292,7 @@ export class ClaudeTranslator implements Translator {
   // The CLI reports init at the start of every turn, not only the first.
   #init(message: unknown): Translation {
     const init = initSchema.parse(message);
+    this.#model = init.model ?? this.#model;
     this.#turnOpen = true;
     this.#sentInTurn = 0;
     const events: AdapterEvent[] = [];
@@ -324,16 +328,19 @@ export class ClaudeTranslator implements Translator {
   #assistant(message: unknown): Translation {
     const { message: body, parent_tool_use_id } = assistantSchema.parse(message);
     const parent = parentOf(parent_tool_use_id);
+    const events: AdapterEvent[] = [];
     if (body.usage !== undefined && parent_tool_use_id == null) {
       const { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens } =
         body.usage;
-      this.#contextTokens =
+      const measured =
         input_tokens +
         (cache_creation_input_tokens ?? 0) +
         (cache_read_input_tokens ?? 0) +
         output_tokens;
+      // The CLI repeats a call's usage on each of its lines; one signal per call is enough.
+      if (measured !== this.#contextTokens && this.#turnOpen) events.push(this.#measured(measured));
+      this.#contextTokens = measured;
     }
-    const events: AdapterEvent[] = [];
     for (const block of body.content) {
       if (block.type === "text") {
         const { text } = textBlockSchema.parse(block);
@@ -551,9 +558,22 @@ export class ClaudeTranslator implements Translator {
     return translated(limits.length === 0 ? [] : [{ type: "limits.updated", payload: { limits } }]);
   }
 
+  #measured(contextTokens: number): AdapterEvent {
+    const window = this.#contextWindow;
+    return {
+      type: "context.measured",
+      payload: { contextTokens, ...(window === undefined ? {} : { contextWindow: window }) },
+    };
+  }
+
   #result(message: unknown): Translation {
     const result = resultSchema.parse(message);
     this.#turnOpen = false;
+    const windows = result.modelUsage ?? {};
+    const window =
+      (this.#model === undefined ? undefined : windows[this.#model]?.contextWindow) ??
+      Math.max(0, ...Object.values(windows).map((model) => model.contextWindow ?? 0));
+    if (window > 0) this.#contextWindow = window;
     const interrupted = result.terminal_reason?.startsWith("aborted") ?? false;
     const failed = result.is_error && !interrupted;
     const events: AdapterEvent[] = [];
