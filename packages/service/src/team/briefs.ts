@@ -1,5 +1,5 @@
 import type { HarnessDescription, HarnessModel } from "@office-town/contract";
-import { PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
+import { HANDOVER_ASK, PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
 
@@ -102,7 +102,7 @@ ${where_}
 Your piece of work, from ${input.lead.name}:
 ${input.work}
 
-Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${PLAN_ASK} ${SHOW_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
+Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${PLAN_ASK} ${SHOW_ASK} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
@@ -184,6 +184,6 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - ${SHOW_ASK}
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 
-${change} If the user asks you to carry on in a fresh session, call hand_over. If you cannot go on without the user's decision, ask with the ask_user tool.`;
+${change} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return { text, origin: { kind: "brief", summary: LEAD_BRIEF_SUMMARY } };
 }

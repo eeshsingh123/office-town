@@ -157,11 +157,13 @@ export type TaskTeam =
   | { leadAgentId: string; workerAgentIds: string[] }
   | { leadAgentId: string };
 
-// A piece of a chief's plan names the chief's task.
+// A piece of a chief's plan names the chief's task. Without `efficient`, a piece follows its goal
+// and any other task the app's default (D-94).
 export interface TaskPlacement {
   parentTaskId?: string;
   workspaceId?: string;
   queued?: true;
+  efficient?: boolean;
 }
 
 export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
@@ -262,6 +264,7 @@ export interface Store {
   setTaskPause(taskId: string, pause: TaskPause | undefined): TaskRecord;
   setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord;
   setTaskTitle(taskId: string, title: string): TaskRecord;
+  setTaskEfficient(taskId: string, efficient: boolean): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;
@@ -289,6 +292,8 @@ export interface Store {
   listDelegations(taskId: string): DelegationRecord[];
   workingDelegation(workerSessionId: string): DelegationRecord | undefined;
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
+  // The same piece, carried on by the worker's new session (D-94).
+  moveDelegation(id: string, workerSessionId: string): DelegationRecord;
   createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord;
   getCheck(id: string): CheckRecord | undefined;
   // Oldest first.

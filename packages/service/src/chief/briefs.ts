@@ -1,3 +1,4 @@
+import { HANDOVER_ASK } from "../agents/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
 
@@ -62,7 +63,7 @@ ${describeChoices(input.choices)}
 
 Each piece's result reaches you as a message when its department finishes, and passes on to the pieces that wait on it. To steer a lead while its department works, use message_lead. If a piece fails, propose a changed plan with propose_plan, or finish. When every piece is done, end with a short account of the whole goal for the user.
 
-If you cannot go on without the user's decision, ask with the ask_user tool.`;
+${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: "The goal, the departments, and how to plan" },

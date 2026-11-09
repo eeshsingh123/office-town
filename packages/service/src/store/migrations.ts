@@ -233,6 +233,12 @@ function addTaskTitle(db: DatabaseSync): void {
   if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN title TEXT");
 }
 
+// Efficient mode on a task: 1 on, 0 off, null for a task from before it (D-94).
+function addTaskEfficient(db: DatabaseSync): void {
+  const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'efficient'");
+  if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN efficient INTEGER");
+}
+
 // A lead's checklist on its task, and the rounds of checking it (D-73).
 function addChecks(db: DatabaseSync): void {
   const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'checklist'");
@@ -715,4 +721,5 @@ export const migrations: readonly Migration[] = [
   "CREATE INDEX IF NOT EXISTS sessions_interrupted ON sessions (status) WHERE status = 'interrupted';",
   dropScratchBesideFolders,
   addTaskTitle,
+  addTaskEfficient,
 ];

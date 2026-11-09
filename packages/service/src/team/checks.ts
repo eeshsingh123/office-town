@@ -26,8 +26,8 @@ import {
 import { eventsOf, userMessages } from "../store/session-events.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
+import { transcriptOf } from "./carry-over.ts";
 import { type MadeSandbox, makeSandbox, removeSandbox } from "./check-sandbox.ts";
-import { transcriptOf } from "./handover.ts";
 import { isOpen, latestSession } from "./lead.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 import { claimDepartment } from "./team-tasks.ts";

@@ -28,6 +28,7 @@ import {
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
   taskListQuerySchema,
+  taskModeRequestSchema,
   taskSearchQuerySchema,
   teamSchema,
   userProfileSchema,
@@ -143,6 +144,7 @@ export function apiRoutes(
         const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
         const task = store.createTask(request.prompt, undefined, {
           workspaceId: request.workspaceId,
+          ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
         });
         const session = await startFirstAgent(store, task.id, () =>
           registry.start({
@@ -172,8 +174,13 @@ export function apiRoutes(
       method: "POST",
       path: "/tasks/chief",
       reply: async ({ body }) => {
-        const { goal, attachments } = chiefTaskRequestSchema.parse(await body());
-        const detail = await startChiefGoal(team, goal, resolveAttachments(store, attachments));
+        const { goal, attachments, efficient } = chiefTaskRequestSchema.parse(await body());
+        const detail = await startChiefGoal(
+          team,
+          goal,
+          resolveAttachments(store, attachments),
+          efficient,
+        );
         const chief = chiefOf(store);
         if (chief !== undefined) nameTask(detail.task.id, chief.settings.harness);
         return { status: 201, json: detail };
@@ -273,6 +280,16 @@ export function apiRoutes(
           throw new RequestError(409, "conflict", "Only a finished goal can be marked reviewed.");
         }
         return { status: 200, json: store.markReviewed(task.id) };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/tasks/:id/efficient",
+      // Taken at the next size check; a handover already under way finishes (D-94).
+      reply: async ({ param, body }) => {
+        const { efficient } = taskModeRequestSchema.parse(await body());
+        if (store.getTask(param("id")) === undefined) throw new RecordNotFoundError("task");
+        return { status: 200, json: store.setTaskEfficient(param("id"), efficient) };
       },
     },
     {

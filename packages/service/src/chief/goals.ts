@@ -85,6 +85,7 @@ export async function startChiefGoal(
   context: TeamContext,
   goal: string,
   attachments: Attachment[] = [],
+  efficient?: boolean,
 ): Promise<TaskDetail> {
   const { store } = context;
   const chief = chiefOf(store);
@@ -93,7 +94,14 @@ export async function startChiefGoal(
     store.openTaskOfLead(chief.id) !== undefined ||
     isClaimed(chief.id) ||
     store.oldestQueuedTask() !== undefined;
-  const task = store.createTask(goal, { leadAgentId: chief.id }, waits ? { queued: true } : {});
+  const task = store.createTask(
+    goal,
+    { leadAgentId: chief.id },
+    {
+      ...(waits ? { queued: true } : {}),
+      ...(efficient === undefined ? {} : { efficient }),
+    },
+  );
   store.linkAttachments(
     task.id,
     attachments.map((attachment) => attachment.id),
