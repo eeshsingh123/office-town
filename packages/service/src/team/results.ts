@@ -29,7 +29,11 @@ export function tryAgain(error: string | undefined): Message {
 
 // A worker's last message when its turn ends with nothing waiting on the user; failures too.
 // A failure is tried once more first, which costs the lead nothing if it was a passing one.
-export function reportResults(context: TeamContext, activity: SessionActivity): void {
+export function reportResults(
+  context: TeamContext,
+  activity: SessionActivity,
+  handingOver: (sessionId: string) => boolean = () => false,
+): void {
   const { store, registry } = context;
   const retried = new Set<string>();
 
@@ -113,6 +117,7 @@ export function reportResults(context: TeamContext, activity: SessionActivity): 
   const onEvent = (event: SessionEvent) => {
     followUpdates(event);
     if (event.type !== "turn.ended" && event.type !== "session.ended") return;
+    if (handingOver(event.sessionId)) return;
     const delegation = store.workingDelegation(event.sessionId);
     if (delegation === undefined) return;
     const result = activity.of(event.sessionId)?.lastMessage ?? "";

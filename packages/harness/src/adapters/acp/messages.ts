@@ -44,6 +44,12 @@ export const updateParamsSchema = z.looseObject({
   update: z.looseObject({ sessionUpdate: z.string() }),
 });
 
+// How long the conversation is and how much the model holds; OpenCode sends it as a prompt ends.
+export const usageUpdateSchema = z.looseObject({
+  used: z.number().int().nonnegative(),
+  size: z.number().int().positive().optional(),
+});
+
 export const chunkSchema = z.looseObject({
   messageId: z.string().optional(),
   content: z.looseObject({ type: z.string(), text: z.string().optional() }),

@@ -39,13 +39,17 @@ export const SHOW_ASK =
 export const PLAN_ASK =
   "If you keep a todo list, update it as you go: mark each step done as you finish it and start the next, as the user follows your progress there.";
 
+// Every role's line; the app asks in Efficient mode, and an agent's own wish goes to the user (D-94).
+export const HANDOVER_ASK =
+  "When the user or the app asks you to carry on in a new session, call hand_over.";
+
 // The user's words as they are, after what the agent reads first, if anything.
 export function soloMessage(
   prompt: string,
   instructions: string | undefined,
   scratch = false,
 ): Message {
-  const asks = [...(scratch ? [SCRATCH_ASK] : []), PLAN_ASK, SHOW_ASK, CHECKLIST_ASK];
+  const asks = [...(scratch ? [SCRATCH_ASK] : []), PLAN_ASK, SHOW_ASK, CHECKLIST_ASK, HANDOVER_ASK];
   const task = `Your task:\n${prompt}\n\n${asks.join(" ")}`;
   if (instructions === undefined) {
     return { text: task, origin: { kind: "brief", summary: "The task, then its checklist" } };

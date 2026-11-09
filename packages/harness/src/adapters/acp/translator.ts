@@ -29,6 +29,7 @@ import {
   todoInputSchema,
   toolCallSchema,
   updateParamsSchema,
+  usageUpdateSchema,
 } from "./messages.ts";
 
 const PROTOCOL_VERSION = 1;
@@ -36,6 +37,8 @@ const SESSION_METHODS = new Set(["session/new", "session/resume", "session/load"
 const SET_OPTION = "session/set_config_option";
 const EFFORT_CATEGORY = "thought_level";
 const NOTHING: Translation = { events: [], outgoing: [] };
+// A rough count, only for the size during a turn: the app reports the real one as a prompt ends.
+const CHARS_PER_TOKEN = 4;
 
 interface TextStream {
   type: "message" | "reasoning";
@@ -108,6 +111,21 @@ function addUsage(earlier: TokenUsage | undefined, next: TokenUsage | undefined)
   };
 }
 
+// What an event adds to the conversation the model reads again at its next step.
+function charsOf(event: AdapterEvent): number {
+  switch (event.type) {
+    case "message":
+    case "reasoning":
+      return event.payload.text.length;
+    case "action.started":
+      return JSON.stringify(event.payload.input ?? "").length;
+    case "action.ended":
+      return event.payload.result.length;
+    default:
+      return 0;
+  }
+}
+
 export interface PreferredModel {
   model: string;
   effort: string;
@@ -138,12 +156,22 @@ export class AcpTranslator implements Translator {
   #steering = false;
   // What the cancelled part of a turn used, counted when the turn ends.
   #carriedUsage: TokenUsage | undefined;
+  // The conversation's size as the app last reported it, and the text seen since, so its size
+  // during a turn can be estimated. A resumed one starts from the size the core last stored.
+  #reportedContext: number | undefined;
+  #charsSince = 0;
+  #contextWindow: number | undefined;
   #stream: TextStream | undefined;
 
   constructor(
     options: Pick<
       LaunchOptions,
-      "workspacePath" | "model" | "effort" | "resumeSessionId" | "toolServers"
+      | "workspacePath"
+      | "model"
+      | "effort"
+      | "resumeSessionId"
+      | "resumedContextTokens"
+      | "toolServers"
     >,
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
@@ -154,6 +182,8 @@ export class AcpTranslator implements Translator {
     this.#model = options.model;
     this.#effort = options.effort;
     this.#resumeSessionId = options.resumeSessionId;
+    this.#reportedContext =
+      options.resumeSessionId === undefined ? 0 : options.resumedContextTokens;
     this.#toolServers = options.toolServers;
     this.#toolPrefixes = toolPrefixes;
     this.#allowOwnToolAsks = allowOwnToolAsks;
@@ -195,7 +225,32 @@ export class AcpTranslator implements Translator {
     const partial =
       events.length > 0 &&
       events.every((event) => event.type === "message.delta" || event.type === "reasoning.delta");
-    return { events, outgoing: this.#steer(events), partial };
+    return {
+      events: [...events, ...this.#measured(events)],
+      outgoing: this.#steer(events),
+      partial,
+    };
+  }
+
+  // At each tool end, the size so far: what the app last reported plus the text seen since.
+  #measured(events: AdapterEvent[]): AdapterEvent[] {
+    for (const event of events) this.#charsSince += charsOf(event);
+    const toolEnded = events.some((event) => event.type === "action.ended");
+    if (!toolEnded || !this.#turnActive || this.#reportedContext === undefined) return [];
+    const contextTokens = this.#reportedContext + Math.round(this.#charsSince / CHARS_PER_TOKEN);
+    const window = this.#contextWindow;
+    return [
+      {
+        type: "context.measured",
+        payload: { contextTokens, ...(window === undefined ? {} : { contextWindow: window }) },
+      },
+    ];
+  }
+
+  #reported(contextTokens: number | undefined): void {
+    if (contextTokens === undefined) return;
+    this.#reportedContext = contextTokens;
+    this.#charsSince = 0;
   }
 
   // ACP has no way into a running turn, and OpenCode never answers a second prompt sent during one.
@@ -227,6 +282,7 @@ export class AcpTranslator implements Translator {
 
   // Later prompts wait for the turn in progress to end, or for the next tool to end.
   prompt(text: string, images: InlineImage[]): Translation {
+    this.#charsSince += text.length;
     this.#queuedPrompts.push([
       ...images.map(({ mimeType, data }) => ({ type: "image", mimeType, data })),
       { type: "text", text },
@@ -407,7 +463,9 @@ export class AcpTranslator implements Translator {
 
   #turnEnded(result: unknown): Translation {
     const { stopReason, usage } = promptResultSchema.parse(result);
-    const used = addUsage(this.#carriedUsage, usageOf(usage));
+    const part = usageOf(usage);
+    this.#reported(part?.contextTokens);
+    const used = addUsage(this.#carriedUsage, part);
     if (this.#steering && stopReason === "cancelled") {
       this.#carriedUsage = used;
       return this.#steered();
@@ -459,6 +517,12 @@ export class AcpTranslator implements Translator {
       case "plan": {
         const steps = stepsOf(planSchema.parse(update).entries);
         return [...this.#flush(), { type: "plan.updated", payload: { steps } }];
+      }
+      case "usage_update": {
+        const { used, size } = usageUpdateSchema.parse(update);
+        this.#reported(used);
+        this.#contextWindow = size ?? this.#contextWindow;
+        return [];
       }
       default:
         return [];

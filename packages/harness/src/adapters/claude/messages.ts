@@ -173,6 +173,10 @@ export const resultSchema = z.looseObject({
   terminal_reason: z.string().optional(),
   result: z.string().optional(),
   usage: callUsageSchema.optional(),
+  // By model: the main one and any its sub-agents used.
+  modelUsage: z
+    .record(z.string(), z.looseObject({ contextWindow: z.number().optional() }))
+    .optional(),
 });
 
 // `claude auth status --json`; the rest of its fields are not needed.

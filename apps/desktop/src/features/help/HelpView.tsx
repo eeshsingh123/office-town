@@ -1,12 +1,15 @@
 import type { Display } from "@office-town/contract";
 import { useEffect, useState } from "react";
+import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
+import { showToast } from "../../ui/Toast.tsx";
 import { saveDisplay, saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
+import { MODE_CHOICES, modeNote } from "../task/long-chats.ts";
 import styles from "./Help.module.css";
 import { ReleaseList } from "./Releases.tsx";
 import { LATEST, RELEASES } from "./whats-new.ts";
@@ -85,6 +88,40 @@ function DisplaySettings() {
   );
 }
 
+// The app's default for new tasks; a running task changes on its run card (D-94).
+function LongChats() {
+  const efficient = useApp((state) => state.efficientByDefault);
+  const choose = (next: boolean) => {
+    useApp.setState({ efficientByDefault: next });
+    api.saveEfficientDefault(next).catch(() => {
+      useApp.setState({ efficientByDefault: !next });
+      showToast("The choice could not be saved.");
+    });
+  };
+  return (
+    <section className={styles.card} aria-labelledby="help-long-chats">
+      <h2 id="help-long-chats" className={styles.cardTitle}>
+        Long chats
+      </h2>
+      <fieldset className={styles.sizes}>
+        <legend className={styles.legend}>New tasks</legend>
+        {MODE_CHOICES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={form.chip}
+            aria-pressed={(option.value === "efficient") === efficient}
+            onClick={() => choose(option.value === "efficient")}
+          >
+            {option.label}
+          </button>
+        ))}
+      </fieldset>
+      <p className={styles.note}>{modeNote(efficient)}</p>
+    </section>
+  );
+}
+
 function useAppVersion(): string | undefined {
   const [version, setVersion] = useState<string>();
   useEffect(() => {
@@ -135,6 +172,7 @@ export function HelpView() {
         </div>
         <Tutorials />
         <DisplaySettings />
+        <LongChats />
         <WhatsNew />
       </div>
     </section>

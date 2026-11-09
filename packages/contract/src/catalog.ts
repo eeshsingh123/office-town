@@ -14,6 +14,9 @@ export const harnessModelSchema = z.object({
   efforts: z.array(z.string().min(1)),
   // What it takes besides text; unset when the harness does not say.
   inputs: z.array(z.enum(["image", "pdf"])).optional(),
+  // How much of a conversation it reads, when the harness says, so a handover comes before the
+  // harness's own compaction from a session's first turn (D-94).
+  contextWindow: z.number().int().positive().optional(),
 });
 export type HarnessModel = z.infer<typeof harnessModelSchema>;
 

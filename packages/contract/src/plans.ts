@@ -87,5 +87,7 @@ export type ChiefRequest = z.infer<typeof chiefRequestSchema>;
 export const chiefTaskRequestSchema = z.object({
   goal: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
+  // Without it, the app's default; the plan's pieces follow the goal.
+  efficient: z.boolean().optional(),
 });
 export type ChiefTaskRequest = z.infer<typeof chiefTaskRequestSchema>;

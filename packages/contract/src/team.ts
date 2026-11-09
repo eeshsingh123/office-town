@@ -99,6 +99,8 @@ export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
 export const startTeamTaskRequestSchema = z.object({
   goal: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
+  // Without it, the app's default.
+  efficient: z.boolean().optional(),
   team: z.union([
     // Without a workspace, the department's default.
     z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),

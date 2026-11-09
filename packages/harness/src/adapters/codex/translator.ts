@@ -333,10 +333,17 @@ export class CodexTranslator implements Translator {
         return { events: [{ type: "plan.updated", payload: { steps } }], outgoing: [] };
       }
       case "thread/tokenUsage/updated": {
-        const { total, last } = tokenUsageSchema.parse(params).tokenUsage;
+        const { total, last, modelContextWindow } = tokenUsageSchema.parse(params).tokenUsage;
         this.#total = total;
         this.#last = last;
-        return NOTHING;
+        if (!this.#turnActive) return NOTHING;
+        // Sent after each model step, so a long turn's size is known as it grows (D-94).
+        const contextTokens = last.inputTokens + last.outputTokens;
+        const window = modelContextWindow == null ? {} : { contextWindow: modelContextWindow };
+        return {
+          events: [{ type: "context.measured", payload: { contextTokens, ...window } }],
+          outgoing: [],
+        };
       }
       case "error": {
         const notice = errorNoticeSchema.parse(params);

@@ -14,6 +14,12 @@ import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
 import { canonicalPath } from "../autonomy/policy.ts";
 import { RecordNotFoundError } from "../store/store.ts";
+import {
+  handoverFile,
+  handoverFolder,
+  listHandovers,
+  removeHandovers,
+} from "../team/handover-files.ts";
 import { latestSession } from "../team/lead.ts";
 import type { TeamContext } from "../team/members.ts";
 import { git } from "../team/worktrees.ts";
@@ -61,6 +67,11 @@ function taskFile(context: TeamContext, taskId: string, query: URLSearchParams |
     return { path: now, root };
   };
   if ("path" in asked) return located(asked.path);
+  if ("handover" in asked) {
+    const path = handoverFile(context.store, context.dataFolder, taskId, asked.handover);
+    if (path === undefined) throw missing();
+    return { path, root: handoverFolder(context.dataFolder, taskId) };
+  }
   const output = outputOf(context, asked.outputId);
   const version = output.versions.find((one) => one.number === asked.version);
   if (output.taskId !== taskId || output.target.kind !== "file" || version === undefined) {
@@ -138,9 +149,10 @@ export function outputRoutes(context: TeamContext, services: OutputServices): Ro
         }
         const sites = results.flatMap(({ target }) => (target.kind === "site" ? [target.url] : []));
         const spotted = seen.filter(({ url }) => !shown.has(new URL(url).origin));
-        const [running, open] = await Promise.all([
+        const [running, open, handovers] = await Promise.all([
           answering(sites),
           answering(spotted.map(({ url }) => url)),
+          listHandovers(store, context.dataFolder, taskId),
         ]);
         const agentIds = new Set([...results, ...spotted].map(({ agentId }) => agentId));
         const sessions = [...agentIds].map((agentId) => ({
@@ -175,6 +187,7 @@ export function outputRoutes(context: TeamContext, services: OutputServices): Ro
             folderGone(latest) ? [agentId] : [],
           ),
           movedTo,
+          handovers,
         };
         return { status: 200, json: outputs };
       },
@@ -222,6 +235,24 @@ export function outputRoutes(context: TeamContext, services: OutputServices): Ro
       reply: async ({ param, query }) => {
         const file = taskFile(context, param("id"), query);
         return { status: 200, text: await changesOf(file.path) };
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/tasks/:id/handovers",
+      reply: async ({ param }) => {
+        const task = store.getTask(param("id"));
+        if (task === undefined) throw new RecordNotFoundError("task");
+        // A running agent may still search its earlier conversation (owner: clear once done).
+        if (task.state !== "ended") {
+          throw new RequestError(
+            409,
+            "conflict",
+            "Handovers can be cleared once the task is done.",
+          );
+        }
+        await removeHandovers(context.dataFolder, task.id);
+        return { status: 204 };
       },
     },
     {

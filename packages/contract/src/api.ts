@@ -56,6 +56,8 @@ export const taskRecordSchema = z.object({
   checklist: taskChecklistSchema.optional(),
   // Written by a cheap model once the task starts; the prompt names the task until then.
   title: z.string().min(1).optional(),
+  // Efficient mode: long conversations carry on in a new session with a handover (D-94).
+  efficient: z.boolean().optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
 });
@@ -309,6 +311,8 @@ export const settingsSchema = z.object({
   display: displaySchema.optional(),
   // Accounts the app saw sign in, on a harness that cannot say whether it is signed in (D-76).
   signedInAccounts: z.array(z.string().min(1)).optional(),
+  // New tasks start in Efficient mode unless the user picks otherwise (D-94).
+  efficientByDefault: z.boolean().optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -319,8 +323,14 @@ export const startTaskRequestSchema = z.object({
   autonomy: autonomySchema,
   workspaceId: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
+  // Without it, the app's default.
+  efficient: z.boolean().optional(),
 });
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
+
+// Taken at each size check, so a running task can switch.
+export const taskModeRequestSchema = z.object({ efficient: z.boolean() });
+export type TaskModeRequest = z.infer<typeof taskModeRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({
   prompt: z.string().min(1),

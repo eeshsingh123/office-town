@@ -21,6 +21,8 @@ const modelSchema = z.looseObject({
     })
     .optional(),
   variants: z.record(z.string(), z.unknown()).optional(),
+  // Some models list 0 for unknown.
+  limit: z.looseObject({ context: z.number(), input: z.number() }).partial().optional(),
 });
 type Model = z.infer<typeof modelSchema>;
 
@@ -35,6 +37,12 @@ function inputsOf({ capabilities }: Model): HarnessModel["inputs"] {
   const input = capabilities?.input;
   if (input === undefined) return undefined;
   return [...(input.image ? ["image" as const] : []), ...(input.pdf ? ["pdf" as const] : [])];
+}
+
+// OpenCode compacts against what a model can take in, which some models list below their window.
+function windowOf({ limit }: Model): number | undefined {
+  const window = [limit?.input, limit?.context].find((size) => size !== undefined && size > 0);
+  return window === undefined ? undefined : Math.floor(window);
 }
 
 function accessOf({ cost, providerID }: Model): HarnessModel["access"] {
@@ -191,6 +199,7 @@ const catalog: CatalogQuery = {
       const model = modelSchema.parse(JSON.parse(description.join("")));
       const access = accessOf(model);
       const inputs = inputsOf(model);
+      const contextWindow = windowOf(model);
       // A model that cannot call tools, such as one for images or speech, is useless to an agent.
       if (model.capabilities?.toolcall !== false) {
         models.push({
@@ -200,6 +209,7 @@ const catalog: CatalogQuery = {
           ...(access === undefined ? {} : { access }),
           efforts: Object.keys(model.variants ?? {}),
           ...(inputs === undefined ? {} : { inputs }),
+          ...(contextWindow === undefined ? {} : { contextWindow }),
         });
       }
       id = undefined;

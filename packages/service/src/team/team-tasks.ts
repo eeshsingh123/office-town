@@ -19,6 +19,7 @@ import { foldersForTask, type TaskFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
 import { removeSandboxesOf } from "./check-sandbox.ts";
+import { removeHandovers } from "./handover-files.ts";
 import { busyAgents, groupName, isOpen, latestSession } from "./lead.ts";
 import {
   DepartmentBusyError,
@@ -165,12 +166,16 @@ function requireWanted(piece: PieceStart | undefined): void {
 // A new lead first proposes its team; only the lead starts, as it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
-  { goal, team, attachments: attachmentIds }: StartTeamTaskRequest,
+  { goal, team, attachments: attachmentIds, efficient }: StartTeamTaskRequest,
   piece?: PieceStart,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const attachments = [...resolveAttachments(store, attachmentIds), ...(piece?.attachments ?? [])];
-  const parent = piece === undefined ? {} : { parentTaskId: piece.parentTaskId };
+  // A piece of a chief's plan follows its goal's mode.
+  const parent = {
+    ...(piece === undefined ? {} : { parentTaskId: piece.parentTaskId }),
+    ...(efficient === undefined ? {} : { efficient }),
+  };
   // The upstream departments' folders a piece of a chief's plan may read.
   const withUpstream = (folders: TaskFolders) => ({
     ...folders,
@@ -179,7 +184,7 @@ export async function startTeamTask(
   if ("workerAgentIds" in team) {
     if (piece !== undefined)
       throw new TeamError("A part of the chief's plan goes to a department.");
-    return startGroupTask(context, goal, team, attachments);
+    return startGroupTask(context, goal, team, attachments, efficient);
   }
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
@@ -271,6 +276,7 @@ async function startGroupTask(
   goal: string,
   team: GroupTeam,
   attachments: Attachment[],
+  efficient: boolean | undefined,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const { lead, workers } = groupOf(store, team);
@@ -286,7 +292,7 @@ async function startGroupTask(
     const task = store.createTask(
       goal,
       { leadAgentId: lead.id, workerAgentIds: team.workerAgentIds },
-      { workspaceId: team.workspaceId },
+      { workspaceId: team.workspaceId, ...(efficient === undefined ? {} : { efficient }) },
     );
     return await startFirstAgent(store, task.id, () =>
       registry.start({
@@ -319,6 +325,7 @@ async function startGroupTask(
 export async function deleteTask(context: TeamContext, taskId: string): Promise<void> {
   await removeWorktrees(context, taskId);
   await removeSandboxesOf(context.store, taskId);
+  await removeHandovers(context.dataFolder, taskId);
   await context.store.deleteTask(taskId);
 }
 

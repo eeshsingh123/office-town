@@ -182,11 +182,11 @@ function environmentQuery(environment: EnvironmentSpec): string {
 // Left out when empty, so a message without files reads as before.
 const withFiles = (attachments: string[] = []) => (attachments.length === 0 ? {} : { attachments });
 
-// A task's file, or a kept version of a result.
+// A task's file, a kept version of a result, or a handover file.
 function fileQuery(query: OutputFileQuery): string {
-  return "path" in query
-    ? `path=${id(query.path)}`
-    : `outputId=${id(query.outputId)}&version=${query.version}`;
+  if ("path" in query) return `path=${id(query.path)}`;
+  if ("handover" in query) return `handover=${id(query.handover)}`;
+  return `outputId=${id(query.outputId)}&version=${query.version}`;
 }
 
 // Read straight by an <img> or fetch, as the shell forwards the token.
@@ -209,6 +209,9 @@ export const api = {
     write("PUT", `/outputs/${id(outputId)}/picture`, png, outputRecordSchema),
   restartSite: (outputId: string, fresh: boolean): Promise<void> =>
     send("POST", `/outputs/${id(outputId)}/restart`, { fresh }),
+  // Once the task is done; the store still holds every conversation (D-94).
+  clearHandovers: (taskId: string): Promise<void> =>
+    send("DELETE", `/tasks/${id(taskId)}/handovers`),
   uploadFile: (file: Blob, name: string): Promise<Attachment> =>
     write("POST", `/attachments?name=${id(name)}`, file, attachmentSchema),
   linkFolder: (path: string): Promise<Attachment> =>
@@ -281,6 +284,8 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
+  setTaskEfficient: (taskId: string, efficient: boolean): Promise<TaskRecord> =>
+    write("PUT", `/tasks/${id(taskId)}/efficient`, { efficient }, taskRecordSchema),
   markReviewed: (taskId: string): Promise<TaskRecord> =>
     write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
   startChiefTask: (goal: string, attachments?: string[]): Promise<TaskDetail> =>
@@ -345,6 +350,8 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
+  saveEfficientDefault: (efficient: boolean): Promise<void> =>
+    send("PUT", "/efficient-default", { efficient }),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).
   readHarnessStatus: (fresh: boolean): Promise<HarnessStatus[]> =>
     read(`/harnesses/status${fresh ? "?fresh=true" : ""}`, listOf(harnessStatusSchema)),

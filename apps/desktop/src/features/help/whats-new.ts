@@ -8,6 +8,7 @@ import {
   LifeBuoy,
   ListChecks,
   type LucideIcon,
+  MessagesSquare,
   MousePointerClick,
   PackageCheck,
   Paperclip,
@@ -24,6 +25,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-09",
+    title: "Efficient mode for long chats",
+    icon: MessagesSquare,
+    changes: [
+      "Pick Efficient in Help, or on a running task's run card: when an agent's chat grows long, it carries on in a new session with a complete handover, and uses fewer tokens",
+      'You still see one chat, with the line "Continued in a new session with complete handover"',
+      "Each handover shows in the task's Outputs as a readable document you can export, save to the Library for the agent that wrote it, or clear once the task is done",
+      "Switching a chief's goal to Efficient switches its departments' parts too",
+      "In One place, the lead suggests a new session sooner, at 300k tokens",
+      "An agent that asks for a new session on its own now waits for your answer in Needs you",
+    ],
+  },
   {
     date: "2026-11-09",
     title: "Providers load faster",

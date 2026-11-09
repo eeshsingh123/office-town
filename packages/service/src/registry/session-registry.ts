@@ -254,6 +254,8 @@ export class SessionRegistry {
   // By session and request id.
   readonly #asked = new Map<string, CoreRequestHandler>();
   readonly #outbox: PublishedEvent[] = [];
+  // Messages for an agent that is handing over, kept for the session that carries on (D-94).
+  readonly #held = new Map<string, Message[]>();
   #publishing = false;
 
   constructor(
@@ -376,11 +378,14 @@ ${text}`,
             },
       );
     }
+    // A session that ended before its first turn did keeps the size it was resumed at.
+    const size = this.#store.contextTokens(sessionId) ?? earlier.options.resumedContextTokens;
     const options = withAccess(
       {
         ...withAgentsModel(earlier.options, this.#store.getAgent(earlier.agentId)),
         permissionMode,
         resumeSessionId: conversation,
+        ...(size === undefined ? {} : { resumedContextTokens: size }),
       },
       message.attachments ?? [],
     );
@@ -463,6 +468,11 @@ ${text}`,
   // An agent that has ended cannot take it; the caller may resume it.
   async tell(sessionId: string, message: Message): Promise<void> {
     const live = this.#running(sessionId);
+    const held = this.#held.get(sessionId);
+    if (held !== undefined) {
+      held.push(message);
+      return;
+    }
     // Storing the prompt before returning means the caller's next write never finds the lead idle.
     if (live.firstMessage !== undefined) await live.firstMessage;
     if (live.stopping) {
@@ -481,6 +491,19 @@ ${text}`,
       ? await this.#withSight(record, message)
       : { given: message, sees: false };
     await this.#running(sessionId).session.send(this.#prompt(record, given, sees));
+  }
+
+  // From now on what is told to the session waits, so nothing reaches a conversation about to end.
+  hold(sessionId: string): void {
+    this.#running(sessionId);
+    if (!this.#held.has(sessionId)) this.#held.set(sessionId, []);
+  }
+
+  // What waited goes to the session that carries on, or back to this one when none does.
+  async release(sessionId: string, to = sessionId): Promise<void> {
+    const held = this.#held.get(sessionId) ?? [];
+    this.#held.delete(sessionId);
+    for (const message of held) await this.tell(to, message);
   }
 
   // The answer goes to `onAnswer` instead of the harness; it lasts as long as the session.

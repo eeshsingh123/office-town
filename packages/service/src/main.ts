@@ -57,6 +57,8 @@ const { values } = parseArgs({
     "data-folder": { type: "string" },
     port: { type: "string", default: "0" },
     "stop-when-stdin-closes": { type: "boolean", default: false },
+    // Test runs only: a lower size for Efficient mode's handover, so a live run stays short.
+    "hand-over-at": { type: "string" },
   },
 });
 
@@ -64,6 +66,11 @@ const { values } = parseArgs({
 delete process.env.ELECTRON_RUN_AS_NODE;
 addInstallFoldersToPath();
 
+const handOverAt =
+  values["hand-over-at"] === undefined ? undefined : Number(values["hand-over-at"]);
+if (handOverAt !== undefined && !(Number.isInteger(handOverAt) && handOverAt > 0)) {
+  throw new Error(`--hand-over-at must be a number of tokens, got "${values["hand-over-at"]}".`);
+}
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
@@ -108,10 +115,10 @@ void followRecounts(
       : recountUsage(options.harness, options.environment, options.accountFolder, harnessSessionId),
 );
 const stopIdle = stopIdleAgents(registry, store, activity);
-reportResults(team, activity);
+const handovers = new Handovers(team, handOverAt === undefined ? {} : { handOverAt });
+reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 recoverLeads(team, activity);
 taskStates.follow(registry);
-const handovers = new Handovers(team);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
 const checks = new Checks(team);

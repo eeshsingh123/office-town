@@ -14,10 +14,10 @@ Open-source desktop app where a user describes a task and a team of AI agents pl
 
 - [docs/MODULES.md](docs/MODULES.md): the roadmap and the scope of each module. Do not build outside it.
 - [docs/RULES.md](docs/RULES.md): design, code and git rules. Read before writing code.
-- [docs/DECISIONS.md](docs/DECISIONS.md): architecture decisions. Only those that still guide upcoming work keep their why; settled ones are compressed to one line under Done.
+- [docs/DECISIONS.md](docs/DECISIONS.md): architecture decisions, grouped by topic. Code cites them as `D-n`.
 - [docs/MEMORY.md](docs/MEMORY.md): current state, active module, open questions. Update at the end of every work session.
 
-Keep all four short. If a line would not change what the next session does, delete it.
+Keep all four short. If a line would not change what the next session does, delete it. Audit them after each milestone (RULES.md, Docs).
 
 ## How we work
 

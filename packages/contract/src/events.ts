@@ -89,6 +89,8 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   }),
   // Another agent's words, such as the chief's to a lead at work.
   z.object({ kind: z.literal("message"), from: z.string().min(1) }),
+  // The first message of a session that carries on from `fromSessionId` with a handover (D-94).
+  z.object({ kind: z.literal("handover"), fromSessionId: z.string().min(1) }),
 ]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;
 
@@ -154,6 +156,12 @@ const payloadSchemas = {
   "message.delta": deltaSchema,
   "reasoning.delta": deltaSchema,
   "plan.updated": z.object({ steps: z.array(planStepSchema) }),
+  // How long the conversation is now, during a turn; never stored. `contextWindow` when the app
+  // says how much the model holds (D-94).
+  "context.measured": z.object({
+    contextTokens: z.number().int().nonnegative(),
+    contextWindow: z.number().int().positive().optional(),
+  }),
   "action.started": z.object({
     actionId: z.string().min(1),
     kind: actionKindSchema,
@@ -278,6 +286,7 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("message.delta"),
   eventOf("reasoning.delta"),
   eventOf("plan.updated"),
+  eventOf("context.measured"),
   eventOf("action.started"),
   eventOf("action.updated"),
   eventOf("action.ended"),

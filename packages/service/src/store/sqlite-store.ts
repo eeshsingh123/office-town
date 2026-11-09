@@ -112,6 +112,12 @@ import { matchTasks, type TaskFacts } from "./task-search.ts";
 const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
 const LINE_CAP_BYTES = 64 * 1024;
+// Published live and never kept: text fragments, and the size of a conversation during a turn.
+const UNSTORED = new Set<SessionEvent["type"]>([
+  "message.delta",
+  "reasoning.delta",
+  "context.measured",
+]);
 
 interface TaskRow {
   ref: number;
@@ -128,6 +134,7 @@ interface TaskRow {
   paused: string | null;
   checklist: string | null;
   title: string | null;
+  efficient: number | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -360,6 +367,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.paused === null ? {} : { paused: JSON.parse(row.paused) as TaskPause }),
     ...(row.checklist === null ? {} : { checklist: JSON.parse(row.checklist) as TaskChecklist }),
     ...(row.title === null ? {} : { title: row.title }),
+    ...(row.efficient === null ? {} : { efficient: row.efficient === 1 }),
     usage,
   };
 }
@@ -688,6 +696,11 @@ class SqliteStore implements Store {
       placement.parentTaskId === undefined ? undefined : this.#taskRow(placement.parentTaskId);
     const workspace =
       placement.workspaceId === undefined ? undefined : this.#workspaceRow(placement.workspaceId);
+    const efficient =
+      placement.efficient ??
+      (parent === undefined ? undefined : parent.efficient === 1) ??
+      this.readSettings().efficientByDefault ??
+      false;
     const workers =
       team !== undefined && "workerAgentIds" in team
         ? team.workerAgentIds.map((agentId) => this.#agentRow(agentId))
@@ -703,6 +716,7 @@ class SqliteStore implements Store {
         placement.queued ? "queued" : "working",
         parent?.ref ?? null,
         workspace?.ref ?? null,
+        efficient ? 1 : 0,
       );
       for (const worker of workers) {
         this.#statements.insertTaskWorker.run(lastInsertRowid, worker.ref);
@@ -759,6 +773,11 @@ class SqliteStore implements Store {
 
   setTaskTitle(taskId: string, title: string): TaskRecord {
     this.#statements.setTaskTitle.run(title, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskEfficient(taskId: string, efficient: boolean): TaskRecord {
+    this.#statements.setTaskEfficient.run(efficient ? 1 : 0, this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
   }
 
@@ -1033,6 +1052,14 @@ class SqliteStore implements Store {
     this.#publish({ type: "delegation", delegation: toDelegation(ended) });
   }
 
+  moveDelegation(id: string, workerSessionId: string): DelegationRecord {
+    const row = this.#delegationRow(id);
+    this.#statements.moveDelegation.run(workerSessionId, row.ref);
+    const moved = toDelegation({ ...row, workerSessionId });
+    this.#publish({ type: "delegation", delegation: moved });
+    return moved;
+  }
+
   createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord {
     const id = randomUUID();
     const createdAt = Date.now();
@@ -1257,7 +1284,7 @@ class SqliteStore implements Store {
   }
 
   append(event: SessionEvent): StoredEvent | undefined {
-    if (event.type === "message.delta" || event.type === "reasoning.delta") return undefined;
+    if (UNSTORED.has(event.type)) return undefined;
     const sessionRef = this.#sessionRef(event.sessionId);
     // A file is written before its row; if the row then fails, the file is removed with its session.
     const stored = this.#keepLargeTextApart(event);

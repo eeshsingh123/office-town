@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
@@ -126,8 +126,9 @@ const CONNECTOR_CALL_SELECT = `
 export const queries = {
   insertTask: `
     INSERT INTO tasks
-      (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref,
+       efficient)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   insertTaskWorker: "INSERT INTO task_workers (task_ref, agent_ref) VALUES (?, ?)",
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
@@ -172,6 +173,7 @@ export const queries = {
   setTaskPause: "UPDATE tasks SET paused = ? WHERE ref = ?",
   setTaskChecklist: "UPDATE tasks SET checklist = ? WHERE ref = ?",
   setTaskTitle: "UPDATE tasks SET title = ? WHERE ref = ?",
+  setTaskEfficient: "UPDATE tasks SET efficient = ? WHERE ref = ?",
   pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",
   usageOfTask: `
     SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
@@ -246,6 +248,7 @@ export const queries = {
   workingDelegationOf: `${DELEGATION_SELECT} WHERE g.worker_session = ? AND g.status = 'working'`,
   delegationById: `${DELEGATION_SELECT} WHERE g.id = ?`,
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
+  moveDelegation: "UPDATE delegations SET worker_session = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
   interruptSession: `UPDATE sessions SET status = 'interrupted' WHERE id = ? AND ${UNFINISHED}`,
   workingDelegationsOfSession: `${DELEGATION_SELECT} WHERE g.status = 'working' AND g.worker_session = ?`,

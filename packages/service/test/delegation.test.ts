@@ -147,33 +147,139 @@ Tests pass.`,
     ]);
   });
 
-  it("tells the lead at once when a worker cannot start, and keeps no work out with it", async () => {
-    const { department, task, writer } = await teamAtWork();
-    const [member] = (await core.call("GET", "/agents")).json.filter(
-      (agent: AgentRecord) => agent.name === writer,
+  it("carries a lead and a worker on in a new session with a complete handover: One place suggests it, Efficient asks mid-turn, the piece and its result stay whole, and an agent's own ask waits for the user", async () => {
+    const { task, writer } = await teamAtWork();
+    const taskId = task.taskId as string;
+    const lead = core.sessions[0];
+    await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
+    const worker = core.sessions[1];
+    const [piece] = core.store.listDelegations(taskId);
+    const results = () =>
+      core.sessions.flatMap((one) =>
+        one.sent.filter(
+          (command) => command.type === "prompt" && command.origin?.kind === "result",
+        ),
+      );
+    const note = {
+      decisions: ["Plain HTML: the user wants no build step"],
+      facts: ["The site opens from index.html"],
+      next: "Add the prices",
+    };
+    const approve = async (session: typeof lead, optionId: string) => {
+      const asked = core.store
+        .listPendingRequests()
+        .requests.find(({ event }) => event.sessionId === session?.id)?.event;
+      expect(asked?.type).toBe("permission.requested");
+      await core.call("POST", `/sessions/${session?.id}/commands`, {
+        type: "answerPermission",
+        requestId: asked?.payload.requestId,
+        optionId,
+      });
+      await settle();
+    };
+
+    // One place: past 300k with work out, the lead's suggestion waits in Needs you.
+    lead?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    lead?.emit({
+      type: "turn.ended",
+      payload: {
+        turnId: "turn",
+        outcome: "completed",
+        usage: { inputTokens: 1, outputTokens: 1, contextTokens: 310_000 },
+      },
+    });
+    await settle();
+    await approve(lead, "approve");
+    expect(lead?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Call hand_over") });
+    expect((await core.callTool(lead, "hand_over", note)).text).toContain("saved");
+    playTurn(lead, "Handover written.");
+    await eventually(() => core.sessions.length === 3);
+    await settle();
+    const newLead = core.sessions.at(-1);
+    expect(newLead?.sent.at(-1)).toMatchObject({
+      origin: { kind: "handover", fromSessionId: lead?.id },
+      text: expect.stringMatching(/Plain HTML[\s\S]*Work handed out[\s\S]*Write the menu/),
+    });
+    expect(core.store.getSession(lead?.id ?? "")?.status).toBe("exited");
+
+    // Efficient: past the size, the worker is asked during its turn and writes its own handover.
+    // Its window is not reported yet: the same model's, reported by the lead, stands in for it.
+    newLead?.emit({
+      type: "context.measured",
+      payload: { contextTokens: 10, contextWindow: 2000 },
+    });
+    const switched = await core.call("PUT", `/tasks/${taskId}/efficient`, { efficient: true });
+    expect(switched.json.efficient).toBe(true);
+    worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    worker?.emit({ type: "context.measured", payload: { contextTokens: 1700 } });
+    await settle();
+    expect(worker?.sent.at(-1)).toMatchObject({
+      origin: { kind: "notice", summary: "Asked to carry on in a new session" },
+    });
+    const written = await core.callTool(worker, "hand_over", {
+      ...note,
+      progress: "The menu is written; the prices are left",
+      steps: ["done: menu", "next: prices"],
+    });
+    expect(written.text).toContain("saved");
+    // A brief sent during the switch waits for the new session.
+    const queued = await core.callTool(newLead, "delegate", { agent: writer, brief: "Add hours" });
+    expect(queued.text).toContain(`Queued for ${writer}`);
+    expect(worker?.sent.at(-1)).not.toMatchObject({ text: expect.stringContaining("Add hours") });
+    worker?.emit({ type: "message", payload: { role: "assistant", text: "Handover written." } });
+    worker?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    await eventually(() => core.sessions.length === 4);
+    await settle();
+
+    const newWorker = core.sessions.at(-1);
+    const prompts = newWorker?.sent.filter((command) => command.type === "prompt");
+    expect(prompts?.[0]).toMatchObject({
+      origin: { kind: "handover", fromSessionId: worker?.id },
+      text: expect.stringMatching(
+        /Write the menu[\s\S]*Programs left running stopped[\s\S]*the prices are left[\s\S]*next: prices/,
+      ),
+    });
+    expect(prompts?.[1]).toMatchObject({ text: expect.stringContaining("Add hours") });
+    expect(core.store.getSession(newWorker?.id ?? "")?.options.workspacePath).toBe(
+      core.store.getSession(worker?.id ?? "")?.options.workspacePath,
     );
-    await core.call("PUT", `/departments/${department.id}/team`, {
-      name: "Web team",
-      roles: [
-        {
-          role: "Writer",
-          purpose: "Writes",
-          agentId: member.id,
-          settings: { ...claude, model: "broken" },
-        },
-      ],
-    });
+    expect(core.store.listDelegations(taskId)).toEqual([
+      expect.objectContaining({ id: piece?.id, status: "working", workerSessionId: newWorker?.id }),
+    ]);
+    expect(results()).toEqual([]);
 
-    const reply = await core.callTool(core.sessions[0], "delegate", {
-      agent: writer,
-      brief: "Write",
-    });
+    // Its result reaches the new lead once.
+    playTurn(newWorker, "Menu, prices and hours are in.");
+    await settle();
+    expect(results()).toEqual([
+      expect.objectContaining({ text: `${writer} finished:\nMenu, prices and hours are in.` }),
+    ]);
+    expect(newLead?.sent.at(-1)).toMatchObject({ origin: { kind: "result" } });
 
-    expect(reply).toMatchObject({
-      isError: true,
-      text: expect.stringContaining("could not start"),
+    // Each handover is a Markdown file in Outputs, cleared only once the task is done.
+    const outputs = (await core.call("GET", `/tasks/${taskId}/outputs`)).json;
+    expect(outputs.handovers.map((file: { sessionId: string }) => file.sessionId)).toEqual([
+      lead?.id,
+      worker?.id,
+    ]);
+    const markdown = readFileSync(
+      join(directory, "data", "handovers", taskId, `${worker?.id}.md`),
+      "utf8",
+    );
+    expect(markdown).toMatch(
+      /^# .+'s handover[\s\S]*### Where the part stands[\s\S]*## Earlier conversation/,
+    );
+    expect((await core.call("DELETE", `/tasks/${taskId}/handovers`)).status).toBe(409);
+
+    // An agent's own ask goes to Needs you; Deny keeps the session.
+    const own = await core.callTool(newLead, "hand_over", note);
+    expect(own.text).toContain("Needs you");
+    const sessions = core.sessions.length;
+    await approve(newLead, "decline");
+    expect(newLead?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("keep this session"),
     });
-    expect(core.store.listDelegations(task.taskId)).toEqual([]);
+    expect(core.sessions).toHaveLength(sessions);
   });
 
   it("keeps a goal's state: working, waiting on the user, working while its lead owes a turn for a result, ended once the lead finished, and idle when cut off", async () => {
@@ -362,11 +468,32 @@ Testing again.`),
     expect(next?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
   });
 
-  it("tries a failed worker once, then tells the lead the real error, and resume_work carries it on", async () => {
-    const { writer } = await teamAtWork();
+  it("tells the lead at once when a worker cannot start, tries a failed worker once, then tells the lead the real error, and resume_work carries it on", async () => {
+    const { department, task, writer, tester } = await teamAtWork();
     const lead = core.sessions[0];
+    const members = (await core.call("GET", "/agents")).json as AgentRecord[];
+    const keep = (name: string, model?: string) => {
+      const member = members.find((agent) => agent.name === name);
+      return {
+        role: member?.role ?? "",
+        purpose: member?.purpose ?? "",
+        agentId: member?.id,
+        settings: { ...claude, ...(model === undefined ? {} : { model }) },
+      };
+    };
+    await core.call("PUT", `/departments/${department.id}/team`, {
+      name: "Web team",
+      roles: [keep(writer), keep(tester, "broken")],
+    });
+    const refused = await core.callTool(lead, "delegate", { agent: tester, brief: "Test" });
+    expect(refused).toMatchObject({
+      isError: true,
+      text: expect.stringContaining("could not start"),
+    });
+    expect(core.store.listDelegations(task.taskId)).toEqual([]);
+
     await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
-    const worker = core.sessions[1];
+    const worker = core.sessions.at(-1);
     const fail = () => {
       worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
       worker?.emit({ type: "error", payload: { message: "The model refused", fatal: false } });

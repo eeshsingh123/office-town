@@ -1,4 +1,5 @@
 import type { DelegationRecord } from "@office-town/contract";
+import { CONTINUED_LINE } from "../../trace/activity.ts";
 import { describeActions } from "../../trace/blocks.ts";
 import { type FileUse, fileUses } from "../../trace/file-uses.ts";
 import type { ShownInput } from "../../trace/team-tools.ts";
@@ -79,6 +80,8 @@ function itemOf(message: TraceMessage, files: FileUse[] | undefined): ChatItem |
       return { kind: "passed", id, text, at, brief: false, from: origin.from, ...given };
     case "notice":
       return { kind: "notice", id, text: origin.summary };
+    case "handover":
+      return { kind: "notice", id, text: CONTINUED_LINE };
     case "piece":
       return { kind: "handoff", id, pieceId: origin.pieceId, state: origin.outcome, result: text };
     case "result":
