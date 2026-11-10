@@ -335,7 +335,10 @@ export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 // Either or both. Efficient is taken at each size check; Milestones at each agent's next start.
 export const taskModeRequestSchema = z
   .object({ efficient: z.boolean().optional(), milestones: z.boolean().optional() })
-  .refine((mode) => mode.efficient !== undefined || mode.milestones !== undefined, "Nothing to change");
+  .refine(
+    (mode) => mode.efficient !== undefined || mode.milestones !== undefined,
+    "Nothing to change",
+  );
 export type TaskModeRequest = z.infer<typeof taskModeRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({

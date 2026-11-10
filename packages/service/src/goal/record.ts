@@ -79,7 +79,8 @@ export function resultLine(
   if (part.length === 0) {
     lines.push(`${name} had no milestones.`);
   } else if (delegation.accepted !== undefined) {
-    lines.push(`${name}: all ${part.length} milestones met, so it is done. You need not check it.`);
+    const all = part.length === 1 ? "its milestone is met" : `all ${part.length} milestones met`;
+    lines.push(`${name}: ${all}, so it is done. You need not check it.`);
   } else {
     const notMet = part.filter((one) => one.status === "not_met");
     const unreported = part.filter((one) => one.status === "not_started");
