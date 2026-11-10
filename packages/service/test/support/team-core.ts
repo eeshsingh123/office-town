@@ -9,6 +9,7 @@ import { Scheduler } from "../../src/chief/scheduler.ts";
 import { appsOf } from "../../src/connectors/access.ts";
 import { ConnectorHub } from "../../src/connectors/hub.ts";
 import { AppRequests } from "../../src/connectors/request-app.ts";
+import { MilestoneEdits } from "../../src/goal/edits.ts";
 import { goalTools } from "../../src/goal/tools.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
@@ -119,6 +120,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
   const checks = new Checks(team);
+  const milestones = new MilestoneEdits(team);
   const scheduler = new Scheduler(team);
   tools.offer([
     askUser(registry),
@@ -147,6 +149,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     connectors,
     pauses,
     checks,
+    milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
     token: TOKEN,
     port: 0,

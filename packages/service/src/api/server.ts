@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { eventStreamQuerySchema } from "@office-town/contract";
 import type { ConnectorHub } from "../connectors/hub.ts";
 import type { NameTask } from "../drafts/title.ts";
+import type { MilestoneEdits } from "../goal/edits.ts";
 import type { OutputServices } from "../outputs/routes.ts";
 import { PriceList } from "../prices/prices.ts";
 import type { Checks } from "../team/checks.ts";
@@ -22,6 +23,7 @@ export interface ApiOptions {
   connectors: ConnectorHub;
   pauses: UsagePauses;
   checks: Checks;
+  milestones: MilestoneEdits;
   outputs: OutputServices;
   // API prices for the usage estimate; without them no estimate is given.
   prices?: PriceList;
@@ -113,7 +115,7 @@ function send(response: ServerResponse, reply: Reply): void {
 }
 
 export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
-  const { team, connectors, pauses, checks, outputs, token, port } = options;
+  const { team, connectors, pauses, checks, milestones, outputs, token, port } = options;
   const { registry, store } = team;
   const prices = options.prices ?? new PriceList();
   const statuses = options.statuses ?? new HarnessStatuses(store, team.readCatalog);
@@ -122,6 +124,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
     connectors,
     pauses,
     checks,
+    milestones,
     outputs,
     prices,
     statuses,

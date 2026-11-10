@@ -49,6 +49,7 @@ import { draftChief } from "../drafts/chief.ts";
 import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import type { NameTask } from "../drafts/title.ts";
+import type { MilestoneEdits } from "../goal/edits.ts";
 import { setMilestonesOn } from "../goal/record.ts";
 import { goalRoutes } from "../goal/routes.ts";
 import { libraryRoutes } from "../library/routes.ts";
@@ -116,6 +117,7 @@ export function apiRoutes(
   connectors: ConnectorHub,
   pauses: UsagePauses,
   checks: Checks,
+  milestones: MilestoneEdits,
   outputs: OutputServices,
   prices: PriceList,
   statuses: HarnessStatuses,
@@ -135,7 +137,7 @@ export function apiRoutes(
       },
     },
     ...libraryRoutes(store),
-    ...goalRoutes(team),
+    ...goalRoutes(store, milestones),
     ...outputRoutes(team, outputs),
     ...connectorRoutes(store, connectors),
     {

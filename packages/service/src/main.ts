@@ -24,6 +24,7 @@ import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
+import { MilestoneEdits } from "./goal/edits.ts";
 import { goalTools } from "./goal/tools.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
@@ -123,6 +124,7 @@ taskStates.follow(registry);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
 const checks = new Checks(team);
+const milestones = new MilestoneEdits(team);
 // No checker survives a restart, and neither does its sandbox (D-73).
 store.stopOpenChecks();
 await removeAllSandboxes(store, dataFolder);
@@ -160,6 +162,7 @@ const server = await startApiServer({
   connectors,
   pauses,
   checks,
+  milestones,
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
   statuses,

@@ -4,16 +4,13 @@ import {
   stepRequestSchema,
 } from "@office-town/contract";
 import type { Route } from "../api/routes.ts";
-import { RecordNotFoundError } from "../store/store.ts";
-import type { TeamContext } from "../team/members.ts";
-import { MilestoneEdits } from "./edits.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
+import type { MilestoneEdits } from "./edits.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 
 // The user has the final say on every milestone; each change reaches the agent that owns it.
-export function goalRoutes(context: TeamContext): Route[] {
-  const { store } = context;
-  const edits = new MilestoneEdits(context);
+export function goalRoutes(store: Store, edits: MilestoneEdits): Route[] {
   return [
     {
       method: "GET",
