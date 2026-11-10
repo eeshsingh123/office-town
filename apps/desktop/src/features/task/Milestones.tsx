@@ -121,12 +121,12 @@ function Delivery({ milestone }: { milestone: MilestoneRecord }) {
   }
   const name = agents[delivery.agentId]?.name ?? "The agent";
   if (delivery.state === "telling") {
-    return <span className={`${styles.pill} ${styles.pillQuiet}`}>Telling {name}…</span>;
+    return <span className={`${styles.pill} ${styles.pillQuiet}`}>Sending to {name}…</span>;
   }
-  const yours = origin === "user" ? "Yours" : "Changed by you";
+  const what = origin === "user" ? "You added this" : "You changed this";
   return (
     <span className={`${styles.pill} ${styles.pillAccent}`}>
-      {yours} · {name} has it
+      {what} · {name} got it
     </span>
   );
 }

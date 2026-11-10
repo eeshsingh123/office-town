@@ -20,8 +20,8 @@ import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { departmentMenu } from "../departments/department-menu.tsx";
-import { fraction, type ShownStatus } from "../task/goal-progress.ts";
-import { MiniBar, Segments } from "../task/Milestones.tsx";
+import { fraction, metCount, type ShownStatus } from "../task/goal-progress.ts";
+import { Segments } from "../task/Milestones.tsx";
 import { useYou } from "../you/you.ts";
 import { agentMenu } from "./agent-menu.tsx";
 import { Character } from "./Character.tsx";
@@ -722,7 +722,10 @@ export function Floor(props: FloorProps) {
                 style={{ left: position.x - DESK.width / 2, top: position.y + DESK_BELOW }}
                 aria-hidden
               >
-                <MiniBar statuses={part} />
+                {/* One fill, not a segment each, so any number of milestones fits the desk. */}
+                <span className={styles.deskBar}>
+                  <i style={{ width: `${(metCount(part) / part.length) * 100}%` }} />
+                </span>
                 <span>{fraction(part)}</span>
               </div>
             )}

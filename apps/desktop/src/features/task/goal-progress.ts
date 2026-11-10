@@ -15,11 +15,11 @@ export function shownStatus(
   return finished ? "unreported" : "todo";
 }
 
-const metOf = (statuses: readonly ShownStatus[]) =>
+export const metCount = (statuses: readonly ShownStatus[]) =>
   statuses.filter((status) => status === "met").length;
 
 export const fraction = (statuses: readonly ShownStatus[]) =>
-  `${metOf(statuses)} of ${statuses.length}`;
+  `${metCount(statuses)} of ${statuses.length}`;
 
 export function goalStatuses(
   milestones: Record<string, MilestoneRecord>,
