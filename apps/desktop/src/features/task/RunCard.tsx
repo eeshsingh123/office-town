@@ -151,6 +151,11 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
           onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
       ))}
+      {task.state === "ended" ? null : (
+        <p className={styles.optionsNote}>
+          A change to Milestones applies when each agent next starts.
+        </p>
+      )}
       <button
         type="button"
         className={styles.settingsLink}

@@ -256,6 +256,13 @@
   color: var(--text-3);
 }
 
+.optionsNote {
+  margin: -4px 0 0;
+  font-size: var(--size-small);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
 .settingsLink {
   align-self: flex-start;
   margin: -4px -6px 0;

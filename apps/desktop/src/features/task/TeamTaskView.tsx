@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState } from "react";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { forSession, useKept } from "../../store/kept.ts";
+import { useLoadProgress } from "../../store/milestones.ts";
 import { teamAtWork } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -16,6 +17,7 @@ import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
+import { ProgressButton, ProgressColumn } from "./ProgressColumn.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -128,6 +130,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
+  useLoadProgress(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
   const follow = useFollow(
@@ -203,6 +206,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           </div>
         </div>
         <TaskTabs taskId={taskId} />
+        {tab.outputs ? null : <ProgressButton taskId={taskId} />}
         {open ? (
           <StopTeamButton
             taskId={taskId}
@@ -314,6 +318,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </div>
             </div>
           </MemberLinks.Provider>
+          <ProgressColumn taskId={taskId} />
         </div>
       )}
       <ReviewDialog

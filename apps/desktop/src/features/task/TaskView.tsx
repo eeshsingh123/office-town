@@ -3,14 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
+import { useLoadProgress } from "../../store/milestones.ts";
 import { isOpen } from "../../store/records.ts";
-import {
-  type AgentState,
-  type Progress,
-  planIsStale,
-  progressOf,
-  stageOf,
-} from "../../trace/progress.ts";
+import { type AgentState, type Progress, progressOf, stageOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
@@ -21,11 +16,11 @@ import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
+import { ProgressButton, ProgressColumn } from "./ProgressColumn.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
-import { StepsButton, StepsColumn } from "./StepsColumn.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
@@ -78,6 +73,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
+  useLoadProgress(taskId);
 
   useEffect(() => {
     if (agent === undefined) void track(taskId);
@@ -95,11 +91,6 @@ function SoloTaskView({ taskId }: { taskId: string }) {
       : waiting.event.type === "permission.requested"
         ? "Needs your approval"
         : "Has a question for you";
-  // A resumed session reports no plan until it changes, so the latest known one shows.
-  const planned = agent.sessions
-    .map((session) => traces[session.id])
-    .findLast((trace) => trace !== undefined && trace.plan.length > 0);
-  const plan = planned?.plan;
 
   return (
     <section className={styles.view} aria-labelledby="task-title">
@@ -135,7 +126,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
           </div>
         </div>
         <TaskTabs taskId={taskId} />
-        {plan === undefined || tab.outputs ? null : <StepsButton plan={plan} />}
+        {tab.outputs ? null : <ProgressButton taskId={taskId} soloAgentId={agent.id} />}
         {live ? (
           <ConfirmButton ask={stopAgentAsk(agent.name, latest.id)}>
             <Square size={12} aria-hidden />
@@ -173,9 +164,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               />
             </div>
           </div>
-          {planned === undefined ? null : (
-            <StepsColumn plan={planned.plan} stale={planIsStale(planned)} />
-          )}
+          <ProgressColumn taskId={taskId} soloAgentId={agent.id} />
         </div>
       )}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />

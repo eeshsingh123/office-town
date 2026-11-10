@@ -67,6 +67,9 @@ import {
   type LibraryItem,
   type LibraryItemChange,
   libraryItemSchema,
+  type MilestoneRecord,
+  type MilestoneText,
+  milestoneRecordSchema,
   type NewAccountRequest,
   type NewConnectorRequest,
   type NewDepartmentRequest,
@@ -93,12 +96,14 @@ import {
   type Settings,
   type StartTaskRequest,
   type StartTeamTaskRequest,
+  type StepRequest,
   type StoreSize,
   sessionPageSchema,
   sessionRecordSchema,
   settingsSchema,
   storeSizeSchema,
   type TaskDetail,
+  type TaskModeRequest,
   type TaskOutputs,
   type TaskPage,
   type TaskRecord,
@@ -284,14 +289,35 @@ export const api = {
   stopTeam: (taskId: string): Promise<void> => send("POST", `/tasks/${id(taskId)}/stop`),
   continueTask: (taskId: string, prompt: string): Promise<SessionRecord> =>
     write("POST", `/tasks/${id(taskId)}/continue`, { prompt }, sessionRecordSchema),
-  setTaskEfficient: (taskId: string, efficient: boolean): Promise<TaskRecord> =>
-    write("PUT", `/tasks/${id(taskId)}/efficient`, { efficient }, taskRecordSchema),
+  setTaskOptions: (taskId: string, options: TaskModeRequest): Promise<TaskRecord> =>
+    write("PUT", `/tasks/${id(taskId)}/options`, options, taskRecordSchema),
+  listMilestones: (taskId: string): Promise<MilestoneRecord[]> =>
+    read(`/tasks/${id(taskId)}/milestones`, listOf(milestoneRecordSchema)),
+  addMilestone: (
+    taskId: string,
+    text: MilestoneText,
+    delegationId?: string,
+  ): Promise<MilestoneRecord> =>
+    write(
+      "POST",
+      `/tasks/${id(taskId)}/milestones`,
+      { ...text, ...(delegationId === undefined ? {} : { delegationId }) },
+      milestoneRecordSchema,
+    ),
+  editMilestone: (milestoneId: string, text: MilestoneText): Promise<MilestoneRecord> =>
+    write("PUT", `/milestones/${id(milestoneId)}`, text, milestoneRecordSchema),
+  removeMilestone: (milestoneId: string): Promise<void> =>
+    send("DELETE", `/milestones/${id(milestoneId)}`),
+  askStep: (taskId: string, request: StepRequest): Promise<void> =>
+    send("POST", `/tasks/${id(taskId)}/steps`, request),
+  markPartSeen: (delegationId: string): Promise<DelegationRecord> =>
+    write("POST", `/delegations/${id(delegationId)}/seen`, undefined, delegationRecordSchema),
   markReviewed: (taskId: string): Promise<TaskRecord> =>
     write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
   startChiefTask: (
     goal: string,
     attachments?: string[],
-    options?: { efficient?: boolean },
+    options?: TaskModeRequest,
   ): Promise<TaskDetail> =>
     write(
       "POST",
@@ -359,8 +385,8 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
-  saveEfficientDefault: (efficient: boolean): Promise<void> =>
-    send("PUT", "/efficient-default", { efficient }),
+  saveTaskDefaults: (defaults: TaskModeRequest): Promise<void> =>
+    send("PUT", "/task-defaults", defaults),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).
   readHarnessStatus: (fresh: boolean): Promise<HarnessStatus[]> =>
     read(`/harnesses/status${fresh ? "?fresh=true" : ""}`, listOf(harnessStatusSchema)),

@@ -145,6 +145,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
     efficientByDefault: settings.efficientByDefault === true,
+    milestonesByDefault: settings.milestonesByDefault === true,
     // One removed meanwhile is gone; one that arrived during the read stays.
     agents: {
       ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),

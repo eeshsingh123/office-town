@@ -11,6 +11,7 @@ import type {
   HarnessDescription,
   HarnessStatus,
   LibraryItem,
+  MilestoneRecord,
   Onboarding,
   OutputRecord,
   PlanPiece,
@@ -113,8 +114,11 @@ export interface AppState extends Records {
   // Undefined until loaded, so setup never flashes for someone who finished it.
   onboarding: Onboarding | undefined;
   display: Display;
-  // New tasks start in Efficient mode (D-94).
+  // New tasks start in Efficient mode (D-94), and with Milestones (D-95).
   efficientByDefault: boolean;
+  milestonesByDefault: boolean;
+  // Of the tasks whose milestones were read, and each one written since.
+  milestones: Record<string, MilestoneRecord>;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -149,6 +153,8 @@ export const useApp = create<AppState>(() => ({
   onboarding: undefined,
   display: {},
   efficientByDefault: false,
+  milestonesByDefault: false,
+  milestones: {},
 }));
 
 export function focusAgent(agentId: string | undefined): void {
