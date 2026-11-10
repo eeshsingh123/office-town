@@ -1,5 +1,5 @@
-import { autonomySchema, type DepartmentRecord } from "@office-town/contract";
-import { ArrowDown, ArrowUp, Plus, X } from "lucide-react";
+import { autonomySchema, type DepartmentRecord, type MilestoneText } from "@office-town/contract";
+import { ArrowDown, ArrowUp, CircleDashed, Plus, X } from "lucide-react";
 import { DropdownMenu, ToggleGroup } from "radix-ui";
 import { useApp } from "../../store/app-store.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
@@ -22,6 +22,69 @@ interface PlanRowsProps {
   onChange: (rows: PlanRow[]) => void;
   kept: KeptPiece[];
   defaultLead: DraftDepartment["lead"];
+  // The goal has Milestones on, so each part carries its own (D-95).
+  milestones: boolean;
+}
+
+// What the department's part gives the user; it becomes that department's goal milestones.
+function PieceMilestones({
+  value,
+  onChange,
+}: {
+  value: MilestoneText[];
+  onChange: (milestones: MilestoneText[]) => void;
+}) {
+  const set = (index: number, change: Partial<MilestoneText>) =>
+    onChange(value.map((one, at) => (at === index ? { ...one, ...change } : one)));
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel}>What you'll get</span>
+      {value.length === 0 ? (
+        <p className={styles.hint}>No milestones for this part yet.</p>
+      ) : (
+        <ul className={styles.milestones}>
+          {value.map((milestone, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: the list is edited in place, by position
+            <li key={index} className={styles.milestone}>
+              <CircleDashed size={15} className={styles.milestoneIcon} aria-hidden />
+              <div className={styles.milestoneFields}>
+                <input
+                  className={styles.input}
+                  aria-label="What you'll get"
+                  placeholder="What you'll get"
+                  value={milestone.outcome}
+                  onChange={(change) => set(index, { outcome: change.target.value })}
+                />
+                <input
+                  className={`${styles.input} ${styles.milestoneSee}`}
+                  aria-label="How you'll see it"
+                  placeholder="How you'll see it"
+                  value={milestone.see}
+                  onChange={(change) => set(index, { see: change.target.value })}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                icon
+                aria-label={`Remove the milestone ${milestone.outcome}`}
+                onClick={() => onChange(value.filter((_, at) => at !== index))}
+              >
+                <X size={14} aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        className={styles.addMilestone}
+        onClick={() => onChange([...value, { outcome: "", see: "" }])}
+      >
+        <Plus size={13} aria-hidden />
+        Add a milestone
+      </button>
+    </div>
+  );
 }
 
 // Which of an existing department's workspaces the piece runs in; shown only when it has a choice.
@@ -179,7 +242,7 @@ function nextKey(rows: readonly PlanRow[], kept: readonly KeptPiece[]): string {
   return `piece-${number}`;
 }
 
-export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
+export function PlanRows({ rows, onChange, kept, defaultLead, milestones }: PlanRowsProps) {
   const departments = useApp((state) => state.departments);
   const saved = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
   const update = (key: string, change: Partial<PlanRow>) =>
@@ -296,6 +359,12 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
                 kept={kept}
                 onChange={(waitsOn) => update(row.key, { waitsOn })}
               />
+              {milestones ? (
+                <PieceMilestones
+                  value={row.milestones ?? []}
+                  onChange={(next) => update(row.key, { milestones: next })}
+                />
+              ) : null}
               {"newDepartment" in row.department ? (
                 <NewDepartmentFields
                   draft={row.department.newDepartment}
@@ -316,6 +385,7 @@ export function PlanRows({ rows, onChange, kept, defaultLead }: PlanRowsProps) {
                 title: "",
                 brief: "",
                 waitsOn: [],
+                milestones: [],
                 department:
                   saved[0] === undefined
                     ? { newDepartment: newDraft() }

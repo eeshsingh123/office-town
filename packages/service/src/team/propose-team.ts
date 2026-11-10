@@ -7,6 +7,8 @@ import type {
   TeamRole,
 } from "@office-town/contract";
 import { z } from "zod";
+import { LEAD_CHECKS, leadMilestones } from "../goal/briefs.ts";
+import { briefMilestones } from "../goal/record.ts";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError } from "../store/store.ts";
 import { pathsOf } from "../task-folders.ts";
@@ -138,13 +140,18 @@ function answerProposal(
     if (answer.outcome === "approved") {
       const department = approve(context, caller, answer.team);
       const roles = answer.team.roles.map((role) => role.role).join(", ");
+      const milestones = briefMilestones(store, caller.taskId);
+      const next =
+        milestones === undefined
+          ? "Hand out the work with the delegate tool."
+          : `${leadMilestones(milestones)}\n\n${LEAD_CHECKS}\n\nThen hand out the work with the delegate tool.`;
       return {
         resolution: {
           type: "proposal.resolved",
           payload: { requestId, outcome: "approved", team: answer.team },
         },
         afterwards: tell(
-          `The user approved your team, ${department.name}. Your workers:\n${rosterOf(store, department)}\n\nHand out the work with the delegate tool.`,
+          `The user approved your team, ${department.name}. Your workers:\n${rosterOf(store, department)}\n\n${next}`,
           `You approved the team: ${roles}`,
         ),
       };

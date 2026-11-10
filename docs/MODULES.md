@@ -45,12 +45,9 @@ What later work builds on; the why is in DECISIONS.md.
 - **M10 More providers.** Codex, Muse Code, Copilot and Cursor; the Providers page; an estimate at API prices where a provider shares no usage.
 - **After M10.** Team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
 - **Phase 2 B: Efficient mode (PR #84).** Opt-in: every role carries on in a new session past 350k with its own handover, the records and its earlier conversation. `team/handover.ts`, `carry-over.ts`, `handover-files.ts`.
+- **Phase 2 C: Milestones.** Opt-in milestones per goal and part, reported by their owners, edited by the user, with a core-kept send-back limit; one Progress view, progress on the floor, a Settings page. `service/src/goal`, `features/task/ProgressColumn.tsx`, `features/settings`.
 
 ## Next
-
-### Phase 2 C: one goal record
-
-One record per goal with milestones and short check loops, read by every agent instead of each other's conversations. Starts with a discussion once B is merged and checked end to end. Brief: `docs/briefs/C-goal-progress.md`.
 
 ### Before the public release (owner's go-ahead)
 
@@ -62,4 +59,5 @@ One record per goal with milestones and short check loops, read by every agent i
 
 ## Later (outline only)
 
+- Swarms: discuss first a Decisions list (from send-back notes, `propose_change` answers and handovers) and a read-only goal file, and free workers picking up parts whose inputs are done.
 - Deferred: agent memory across tasks (the harnesses keep their own), macOS (until it can be tested), a sandbox environment for computer use.

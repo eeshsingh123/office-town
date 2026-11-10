@@ -2,6 +2,7 @@ import { z } from "zod";
 import { agentSettingsSchema } from "./agents.ts";
 import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
+import { milestoneTextSchema } from "./milestones.ts";
 import { roleSettingsSchema } from "./team.ts";
 
 // Its lead proposes the team once the piece starts.
@@ -30,6 +31,8 @@ const pieceFieldsShape = {
 export const proposedPieceSchema = z.object({
   ...pieceFieldsShape,
   waitsOn: z.array(z.string().min(1)),
+  // With Milestones on: what the department's part gives the user, as the plan card shows it.
+  milestones: z.array(milestoneTextSchema).optional(),
   department: z.union([
     // Without a workspace, the department's default.
     z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),
@@ -87,7 +90,8 @@ export type ChiefRequest = z.infer<typeof chiefRequestSchema>;
 export const chiefTaskRequestSchema = z.object({
   goal: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
-  // Without it, the app's default; the plan's pieces follow the goal.
+  // Without them, the app's defaults; the plan's pieces follow the goal.
   efficient: z.boolean().optional(),
+  milestones: z.boolean().optional(),
 });
 export type ChiefTaskRequest = z.infer<typeof chiefTaskRequestSchema>;

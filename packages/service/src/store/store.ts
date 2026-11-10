@@ -24,6 +24,8 @@ import type {
   LibraryAudience,
   LibraryItem,
   LibraryItemChange,
+  MilestoneDelivery,
+  MilestoneRecord,
   OutputRecord,
   OutputTarget,
   PendingRequestList,
@@ -31,6 +33,7 @@ import type {
   ProfileRecord,
   ProfileRequest,
   ProfileUses,
+  SendBack,
   SessionEvent,
   SessionOptions,
   SessionPage,
@@ -164,6 +167,7 @@ export interface TaskPlacement {
   workspaceId?: string;
   queued?: true;
   efficient?: boolean;
+  milestones?: boolean;
 }
 
 export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
@@ -183,7 +187,21 @@ export type NewDepartment = Omit<DepartmentRecord, "id" | "createdAt" | "workspa
 export type NewDelegation = Pick<
   DelegationRecord,
   "taskId" | "workerAgentId" | "workerSessionId" | "brief"
->;
+> & { title?: string | undefined };
+
+export type NewMilestone = Pick<MilestoneRecord, "taskId" | "outcome" | "see" | "origin"> & {
+  delegationId?: string | undefined;
+  pieceId?: string | undefined;
+  changedBy?: string | undefined;
+  delivery?: MilestoneDelivery | undefined;
+};
+
+// Every field given is written; one given as undefined is cleared.
+export type MilestoneChange = {
+  [Key in "outcome" | "see" | "status"]?: MilestoneRecord[Key];
+} & {
+  [Key in "proof" | "reportedBy" | "changedBy" | "delivery"]?: MilestoneRecord[Key] | undefined;
+};
 
 export type DelegationEnd = Exclude<DelegationRecord["status"], "working">;
 
@@ -265,6 +283,7 @@ export interface Store {
   setTaskChecklist(taskId: string, checklist: TaskChecklist): TaskRecord;
   setTaskTitle(taskId: string, title: string): TaskRecord;
   setTaskEfficient(taskId: string, efficient: boolean): TaskRecord;
+  setTaskMilestones(taskId: string, milestones: boolean): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;
@@ -294,6 +313,23 @@ export interface Store {
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
   // The same piece, carried on by the worker's new session (D-94).
   moveDelegation(id: string, workerSessionId: string): DelegationRecord;
+  // The same part at work again, after its lead sent it back; it is no longer accepted.
+  reopenDelegation(id: string, workerSessionId: string, sendBack: SendBack): DelegationRecord;
+  raiseSendBackLimit(id: string): DelegationRecord;
+  setDelegationAccepted(id: string, accepted: "new" | "seen"): DelegationRecord;
+  // A retry in a new session goes on with the same part: its name, send-backs and milestones.
+  carryPart(fromId: string, toId: string): void;
+  createMilestone(milestone: NewMilestone): MilestoneRecord;
+  getMilestone(id: string): MilestoneRecord | undefined;
+  milestoneByKey(taskId: string, key: string): MilestoneRecord | undefined;
+  // The goal's and its parts', oldest first.
+  listMilestones(taskId: string): MilestoneRecord[];
+  updateMilestone(id: string, change: MilestoneChange): MilestoneRecord;
+  removeMilestone(id: string): void;
+  // Written before their part, so the worker's brief can name them.
+  assignMilestones(milestoneIds: string[], delegationId: string): void;
+  // A chief's piece starts: its milestones become its department task's goal milestones.
+  moveMilestonesOfPiece(pieceId: string, taskId: string): void;
   createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord;
   getCheck(id: string): CheckRecord | undefined;
   // Oldest first.
@@ -443,6 +479,7 @@ type RecordKind =
   | "delegation"
   | "check"
   | "piece"
+  | "milestone"
   | "connector";
 
 // The user reads these, so each kind is named the way the app names it.
@@ -461,6 +498,7 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   delegation: "handed-out work",
   check: "check",
   piece: "part of the plan",
+  milestone: "milestone",
   connector: "app",
 };
 

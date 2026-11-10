@@ -1,0 +1,44 @@
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.note {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.sizes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  float: left;
+  margin-right: 8px;
+  padding: 0;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}

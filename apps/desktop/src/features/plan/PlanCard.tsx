@@ -84,6 +84,9 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
   const chief = useSessionAgent(event.sessionId);
   const departments = useApp((state) => state.departments);
   const plan = usePlan(chief?.taskId);
+  const milestones = useApp((state) =>
+    chief === undefined ? false : state.tasks[chief.taskId]?.task.milestones === true,
+  );
   const minutes = useMinutesSince(event.timestamp);
   const draft = `request.${event.id}`;
   const [rows, setRows] = useDraft<PlanRow[]>(`${draft}.rows`, () => toRows(pieces), shaped([]));
@@ -138,6 +141,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
             rows={rows}
             onChange={setRows}
             kept={kept}
+            milestones={milestones}
             defaultLead={{
               harness: lead?.harness ?? "claude",
               environment: lead?.environment ?? { kind: "native" },

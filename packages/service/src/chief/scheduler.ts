@@ -181,7 +181,11 @@ export class Scheduler {
           attachments: store.taskAttachments(goal.id),
           handOff: text,
           readOnlyPaths,
-          onTaskCreated: (taskId) => store.updatePiece(piece.id, { pieceTaskId: taskId }),
+          onTaskCreated: (taskId) => {
+            store.updatePiece(piece.id, { pieceTaskId: taskId });
+            // The same rows, not a copy: the user's edits on the plan card carry on (D-95).
+            store.moveMilestonesOfPiece(piece.id, taskId);
+          },
           stillWanted: () => store.getPiece(piece.id)?.status === "working",
         },
       );

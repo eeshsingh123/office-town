@@ -20,6 +20,8 @@ import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { departmentMenu } from "../departments/department-menu.tsx";
+import { fraction, metCount, type ShownStatus } from "../task/goal-progress.ts";
+import { Segments } from "../task/Milestones.tsx";
 import { useYou } from "../you/you.ts";
 import { agentMenu } from "./agent-menu.tsx";
 import { Character } from "./Character.tsx";
@@ -59,10 +61,13 @@ export interface FloorAgent {
   tokens?: number;
   // By name, to group a selection.
   group: string;
+  // Its part's milestones, or the goal's at the lead's desk (D-95).
+  part?: ShownStatus[];
 }
 
-// From the agent's centre to the top of its token count.
+// From the agent's centre to the top of its token count, and to the top of its desk.
 const TOKENS_ABOVE = 52;
+const DESK_BELOW = 46;
 
 export interface RoomSign {
   title: string;
@@ -71,6 +76,8 @@ export interface RoomSign {
   lines: string[];
   // What the room's current or last goal used, in all and per AI app.
   usage?: { apps: { name: string; tokens: number }[]; total: number };
+  // One segment per milestone of its goal, filling as each is met (D-95).
+  progress?: { statuses: ShownStatus[]; label: string };
 }
 
 interface Seated {
@@ -82,6 +89,7 @@ interface Seated {
   position: Point;
   bubble?: string;
   tokens?: number;
+  part?: ShownStatus[];
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
   detail: string;
@@ -247,7 +255,7 @@ function seatedOf(
     move === undefined || !contains(move.from, position)
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
-  const seated = agents.map(({ agent, state, position, harness, bubble, tokens }) => ({
+  const seated = agents.map(({ agent, state, position, harness, bubble, tokens, part }) => ({
     id: agent.id,
     name: agent.name,
     colour: agent.colour,
@@ -257,6 +265,7 @@ function seatedOf(
     detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
     ...(bubble === undefined ? {} : { bubble }),
     ...(tokens === undefined ? {} : { tokens }),
+    ...(part === undefined ? {} : { part }),
   }));
   const office = rooms.find((room) => room.kind === "chief")?.seats[0];
   if (chief === undefined || office === undefined || seated.some(({ id }) => id === chief.id)) {
@@ -589,11 +598,18 @@ export function Floor(props: FloorProps) {
             ) : (
               <span className={styles.sign}>{label}</span>
             )}
-            {sign === undefined || sign.lines.length === 0 ? null : (
+            {sign === undefined ||
+            (sign.lines.length === 0 && sign.progress === undefined) ? null : (
               <div className={styles.roomLines}>
                 {sign.lines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
+                {sign.progress === undefined ? null : (
+                  <span className={styles.roomProgress}>
+                    <Segments statuses={sign.progress.statuses} />
+                    <span className={styles.roomCount}>{sign.progress.label}</span>
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -685,7 +701,7 @@ export function Floor(props: FloorProps) {
           </>
         )}
       </button>
-      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail }) => {
+      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail, part }) => {
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
@@ -697,6 +713,20 @@ export function Floor(props: FloorProps) {
                 title={`${name} used ${compactCount(tokens)} tokens on this task`}
               >
                 {compactCount(tokens)}
+              </div>
+            )}
+            {/* On the desk, as the mockup's: the name tag stays as narrow as before. */}
+            {part === undefined ? null : (
+              <div
+                className={styles.deskCount}
+                style={{ left: position.x - DESK.width / 2, top: position.y + DESK_BELOW }}
+                aria-hidden
+              >
+                {/* One fill, not a segment each, so any number of milestones fits the desk. */}
+                <span className={styles.deskBar}>
+                  <i style={{ width: `${(metCount(part) / part.length) * 100}%` }} />
+                </span>
+                <span>{fraction(part)}</span>
               </div>
             )}
             {bubble === undefined ? null : (

@@ -136,6 +136,13 @@
   white-space: nowrap;
 }
 
+.accepted {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ok);
+  white-space: nowrap;
+}
+
 .nest {
   margin-left: 15px;
   padding-left: 14px;

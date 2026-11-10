@@ -26,6 +26,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-10",
+    title: "Milestones and one Progress view",
+    icon: ListChecks,
+    changes: [
+      "Turn on Milestones in Settings, in a new task's Options, or on a running task's run card. The team first writes down what you'll get, in plain words",
+      "Progress takes the place of Steps: what you'll get, who is doing what, and each person's steps, all updated live",
+      "Add, change or remove any milestone, or ask an agent to add or drop a step. The agent is told at its next step, and Progress shows when it has your change",
+      "A part with every milestone met is done at once. You get a short notice, and nothing waits on you",
+      "A lead can send a part back twice at most. After that, it comes to you in Needs you",
+      "The office floor shows each department's progress, and each desk shows its person's part",
+      "The chief's plan lists each part's milestones, and you can edit them before you approve",
+      "Settings is a new page above Help. Display and the defaults for new tasks moved there",
+      "An agent whose AI app closes after its work is done now shows as done, not failed",
+    ],
+  },
+  {
     date: "2026-11-09",
     title: "Efficient mode for long chats",
     icon: MessagesSquare,

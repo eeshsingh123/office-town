@@ -14,6 +14,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Settings,
   SwatchBook,
   Users,
 } from "lucide-react";
@@ -58,6 +59,7 @@ interface NavItemProps {
     | "providers"
     | "connectors"
     | "usage"
+    | "settings"
     | "help";
   icon: LucideIcon;
   label: string;
@@ -243,6 +245,7 @@ export function Sidebar() {
         )}
         <div className={styles.footer}>
           <UpdateItem />
+          <NavItem view="settings" icon={Settings} label="Settings" />
           <NavItem view="help" icon={CircleHelp} label="Help" />
           <ConnectionStatus />
           <YouItem />

@@ -14,7 +14,7 @@ export class NeverStartedError extends Error {
 }
 
 // A finished agent is resumed in its latest task, once that department is free.
-async function deliver(
+export async function deliver(
   context: TeamContext,
   session: SessionRecord,
   message: Message,

@@ -5,6 +5,7 @@ import { harnessStatusSchema, taskRecordSchema } from "./api.ts";
 import { checkRecordSchema } from "./checks.ts";
 import { connectorRecordSchema } from "./connectors.ts";
 import { libraryItemSchema } from "./library.ts";
+import { milestoneRecordSchema } from "./milestones.ts";
 import { outputRecordSchema } from "./outputs.ts";
 import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
@@ -25,6 +26,12 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("connector"), connector: connectorRecordSchema }),
   z.object({ type: z.literal("connector.removed"), connectorId: z.string().min(1) }),
   z.object({ type: z.literal("output"), output: outputRecordSchema }),
+  z.object({ type: z.literal("milestone"), milestone: milestoneRecordSchema }),
+  z.object({
+    type: z.literal("milestone.removed"),
+    milestoneId: z.string().min(1),
+    taskId: z.string().min(1),
+  }),
   // One provider's status as soon as a check reads it (D-93).
   z.object({ type: z.literal("harness"), status: harnessStatusSchema }),
 ]);

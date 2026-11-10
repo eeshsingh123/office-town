@@ -10,6 +10,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
 import { ConnectorHub } from "../src/connectors/hub.ts";
+import { MilestoneEdits } from "../src/goal/edits.ts";
 import { PreviewServer } from "../src/outputs/preview-server.ts";
 import { TaskFiles } from "../src/outputs/task-files.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
@@ -122,6 +123,7 @@ beforeEach(async () => {
     connectors,
     pauses,
     checks,
+    milestones: new MilestoneEdits(team),
     outputs,
     token: TOKEN,
     port: 0,

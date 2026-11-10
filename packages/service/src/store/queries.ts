@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient, t.milestones,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
@@ -65,10 +65,22 @@ const DEPARTMENT_SELECT = `
 
 const DELEGATION_SELECT = `
   SELECT g.ref, g.id, t.id AS taskId, a.id AS workerAgentId, g.worker_session AS workerSessionId,
-         g.brief, g.status, g.result, g.created_at AS createdAt, g.ended_at AS endedAt
+         g.brief, g.status, g.result, g.title, g.send_backs AS sendBacks,
+         g.send_back_limit AS sendBackLimit, g.accepted, g.created_at AS createdAt,
+         g.ended_at AS endedAt
   FROM delegations g
   JOIN tasks t ON t.ref = g.task_ref
   JOIN agents a ON a.ref = g.worker_ref`;
+
+const MILESTONE_SELECT = `
+  SELECT m.ref, m.id, t.id AS taskId, m.number, g.id AS delegationId, pp.id AS pieceId,
+         m.outcome, m.see, m.status, m.proof, m.reported_by AS reportedBy, m.origin,
+         m.changed_by AS changedBy, m.told_agent AS toldAgent, m.delivery,
+         m.created_at AS createdAt, m.updated_at AS updatedAt
+  FROM milestones m
+  JOIN tasks t ON t.ref = m.task_ref
+  LEFT JOIN delegations g ON g.ref = m.delegation_ref
+  LEFT JOIN plan_pieces pp ON pp.ref = m.piece_ref`;
 
 const PIECE_SELECT = `
   SELECT pp.ref, pp.id, t.id AS taskId, pp.key, pp.title, d.id AS departmentId,
@@ -127,8 +139,8 @@ export const queries = {
   insertTask: `
     INSERT INTO tasks
       (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref,
-       efficient)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       efficient, milestones)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   insertTaskWorker: "INSERT INTO task_workers (task_ref, agent_ref) VALUES (?, ?)",
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
@@ -174,6 +186,7 @@ export const queries = {
   setTaskChecklist: "UPDATE tasks SET checklist = ? WHERE ref = ?",
   setTaskTitle: "UPDATE tasks SET title = ? WHERE ref = ?",
   setTaskEfficient: "UPDATE tasks SET efficient = ? WHERE ref = ?",
+  setTaskMilestones: "UPDATE tasks SET milestones = ? WHERE ref = ?",
   pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",
   usageOfTask: `
     SELECT harness, input_tokens AS inputTokens, output_tokens AS outputTokens,
@@ -241,8 +254,35 @@ export const queries = {
 
   insertDelegation: `
     INSERT INTO delegations
-      (id, task_ref, worker_ref, worker_session, brief, status, created_at)
-    VALUES (?, ?, ?, ?, ?, 'working', ?)`,
+      (id, task_ref, worker_ref, worker_session, brief, status, created_at, title)
+    VALUES (?, ?, ?, ?, ?, 'working', ?, ?)`,
+  reopenDelegation: `
+    UPDATE delegations SET status = 'working', result = NULL, ended_at = NULL,
+      worker_session = ?, send_backs = ?, accepted = NULL
+    WHERE ref = ?`,
+  setPart: "UPDATE delegations SET title = ?, send_backs = ?, send_back_limit = ? WHERE ref = ?",
+  setDelegationAccepted: "UPDATE delegations SET accepted = ? WHERE ref = ?",
+
+  insertMilestone: `
+    INSERT INTO milestones
+      (id, task_ref, number, delegation_ref, piece_ref, outcome, see, status, origin, changed_by,
+       told_agent, delivery, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'not_started', ?, ?, ?, ?, ?, ?)`,
+  nextMilestoneNumber:
+    "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM milestones WHERE task_ref = ?",
+  milestonesOfTask: `${MILESTONE_SELECT} WHERE m.task_ref = ? ORDER BY m.ref`,
+  milestoneById: `${MILESTONE_SELECT} WHERE m.id = ?`,
+  milestoneByNumber: `${MILESTONE_SELECT} WHERE m.task_ref = ? AND m.number = ?`,
+  milestonesOfPiece: `${MILESTONE_SELECT} WHERE m.piece_ref = ? ORDER BY m.ref`,
+  milestonesOfDelegation: `${MILESTONE_SELECT} WHERE m.delegation_ref = ? ORDER BY m.ref`,
+  updateMilestone: `
+    UPDATE milestones SET outcome = ?, see = ?, status = ?, proof = ?, reported_by = ?,
+      changed_by = ?, told_agent = ?, delivery = ?, updated_at = ?
+    WHERE ref = ?`,
+  deleteMilestone: "DELETE FROM milestones WHERE ref = ?",
+  assignMilestone: "UPDATE milestones SET delegation_ref = ? WHERE id = ?",
+  moveMilestonesOfPiece: "UPDATE milestones SET task_ref = ? WHERE piece_ref = ?",
+  moveMilestonesOfDelegation: "UPDATE milestones SET delegation_ref = ? WHERE delegation_ref = ?",
   delegationsOfTask: `${DELEGATION_SELECT} WHERE g.task_ref = ? ORDER BY g.ref`,
   workingDelegations: `${DELEGATION_SELECT} WHERE g.status = 'working'`,
   workingDelegationOf: `${DELEGATION_SELECT} WHERE g.worker_session = ? AND g.status = 'working'`,

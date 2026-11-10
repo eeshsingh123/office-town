@@ -691,7 +691,10 @@ ${text}`,
   }
 
   #record(live: LiveSession, received: SessionEvent): void {
-    const event = stamped(live, live.readOnly ? withoutAllowAlways(received) : received);
+    const event = this.#finishedEnd(
+      live,
+      stamped(live, live.readOnly ? withoutAllowAlways(received) : received),
+    );
     live.lastSequence = event.sequence;
     if (event.type === "turn.started") live.turn = Promise.withResolvers<void>();
     if (event.type === "turn.ended") {
@@ -767,6 +770,26 @@ ${text}`,
     told.catch((error: unknown) => {
       this.#publishError(live, "An app's setting could not answer a request.", errorMessage(error));
     });
+  }
+
+  // A process that dies between turns once its work is done ends as an idle stop does: nothing
+  // was lost, and it resumes when next needed. Its error stays in the trace.
+  #finishedEnd(live: LiveSession, event: SessionEvent): SessionEvent {
+    if (event.type !== "session.ended" || event.payload.reason !== "failed") return event;
+    if (live.turn !== undefined || !live.recorded) return event;
+    const { sessionId } = event;
+    if (this.#store.latestTurn(sessionId)?.outcome !== "completed") return event;
+    if (this.#store.owesTurn(sessionId) || this.#store.workingDelegation(sessionId) !== undefined) {
+      return event;
+    }
+    const asking = this.#store
+      .listPendingRequests()
+      .requests.some((request) => request.event.sessionId === sessionId);
+    if (asking) return event;
+    return {
+      ...event,
+      payload: { reason: "exited", exitCode: event.payload.exitCode, idle: true },
+    };
   }
 
   // One more try once stopped, so a brief storage failure does not leave the session stuck "running".

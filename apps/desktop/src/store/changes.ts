@@ -28,7 +28,19 @@ export function withoutTask(state: AppState, taskId: string): AppState {
   const outputs = Object.fromEntries(
     Object.entries(state.outputs).filter(([, output]) => output.taskId !== taskId),
   );
-  return { ...state, ...removeTask(state, taskId), traces, delegations, pieces, checks, outputs };
+  const milestones = Object.fromEntries(
+    Object.entries(state.milestones).filter(([, milestone]) => milestone.taskId !== taskId),
+  );
+  return {
+    ...state,
+    ...removeTask(state, taskId),
+    traces,
+    delegations,
+    pieces,
+    checks,
+    outputs,
+    milestones,
+  };
 }
 
 // A task the app does not hold yet is left out: it is read whole once one of its sessions shows up.
@@ -60,6 +72,14 @@ function applyChange(state: AppState, change: Change): AppState {
     }
     case "check":
       return { ...state, checks: { ...state.checks, [change.check.id]: change.check } };
+    case "milestone": {
+      const { milestone } = change;
+      return { ...state, milestones: { ...state.milestones, [milestone.id]: milestone } };
+    }
+    case "milestone.removed": {
+      const { [change.milestoneId]: _, ...milestones } = state.milestones;
+      return { ...state, milestones };
+    }
     case "harness":
       return { ...state, harnessStatuses: withStatuses(state.harnessStatuses, [change.status]) };
     case "limits":

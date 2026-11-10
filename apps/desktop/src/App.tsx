@@ -22,9 +22,11 @@ import { useTutorial } from "./features/onboarding/tutorial-state.ts";
 import { TemplatesView } from "./features/profiles/TemplatesView.tsx";
 import { ProvidersView } from "./features/providers/ProvidersView.tsx";
 import { ProviderView } from "./features/providers/ProviderView.tsx";
+import { SettingsView } from "./features/settings/SettingsView.tsx";
 import { HistoryRow, useHistoryKeys } from "./features/sidebar/HistoryButtons.tsx";
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
+import { usePartNotices } from "./features/task/part-notices.ts";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
 import { TeamView } from "./features/team/TeamView.tsx";
@@ -90,6 +92,8 @@ function Main({ view }: { view: View }) {
       );
     case "you":
       return <YouView />;
+    case "settings":
+      return <SettingsView />;
     case "help":
       return <HelpView />;
     case "department":
@@ -117,6 +121,7 @@ export function App() {
   useDisplay();
   useWaitingKeys();
   useHistoryKeys();
+  usePartNotices();
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {

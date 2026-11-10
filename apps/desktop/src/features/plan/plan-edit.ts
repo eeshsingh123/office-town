@@ -1,6 +1,7 @@
 import type {
   ApprovedPiece,
   Autonomy,
+  MilestoneText,
   PlanPiece,
   ProposedPiece,
   RoleSettings,
@@ -20,6 +21,9 @@ export interface PlanRow {
   title: string;
   brief: string;
   waitsOn: string[];
+  // With Milestones on: what the department's part gives the user (D-95). A draft kept from
+  // before them has none.
+  milestones?: MilestoneText[];
   // Without a workspace, the department's default.
   department:
     | { departmentId: string; workspaceId?: string | undefined }
@@ -33,11 +37,12 @@ export interface KeptPiece {
 }
 
 export function toRows(pieces: readonly ProposedPiece[]): PlanRow[] {
-  return pieces.map(({ key, title, brief, waitsOn, department }) => ({
+  return pieces.map(({ key, title, brief, waitsOn, department, milestones }) => ({
     key,
     title,
     brief,
     waitsOn,
+    milestones: milestones ?? [],
     department:
       "departmentId" in department
         ? department
@@ -77,6 +82,9 @@ export function planProblem(
   if (rows.some((row) => row.title.trim() === "" || row.brief.trim() === "")) {
     return "Every part needs a title and what to do.";
   }
+  if (rows.some((row) => (row.milestones ?? []).some((one) => one.outcome.trim() === ""))) {
+    return "Every milestone needs what you'll get, or remove it.";
+  }
   const keys = rows.map((row) => row.key);
   if (keys.some((key, index) => keys.indexOf(key) !== index)) {
     return "Two parts are the same. Remove one and add it again.";
@@ -106,8 +114,21 @@ export function planProblem(
 
 // Call only once `planProblem` finds nothing.
 export function toApproved(rows: readonly PlanRow[]): ApprovedPiece[] {
-  return rows.map(({ key, title, brief, waitsOn, department }) => {
-    const shared = { key, title: title.trim(), brief: brief.trim(), waitsOn };
+  return rows.map(({ key, title, brief, waitsOn, department, milestones = [] }) => {
+    const shared = {
+      key,
+      title: title.trim(),
+      brief: brief.trim(),
+      waitsOn,
+      ...(milestones.length === 0
+        ? {}
+        : {
+            milestones: milestones.map((one) => ({
+              outcome: one.outcome.trim(),
+              see: one.see.trim(),
+            })),
+          }),
+    };
     if ("departmentId" in department) return { ...shared, department };
     const { name, purpose, lead, workspaceId, autonomy } = department.newDepartment;
     return {

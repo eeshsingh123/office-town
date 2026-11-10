@@ -126,9 +126,11 @@ describe("delegation", () => {
     expect(resumed?.sent.at(-1)).toMatchObject({ text: `${writer} finished:\nHours are in.` });
   });
 
-  it("hands an idle lead every result that comes at once, in order", async () => {
-    const { writer, tester } = await teamAtWork();
+  it("hands an idle lead every result that comes at once, in order; with Milestones on, a part with every milestone met is done at once, and a lead sends a part back at most twice before the user decides", async () => {
+    const { writer, tester, task } = await teamAtWork();
     const lead = core.sessions[0];
+    // Milestones off: the brief reads as before.
+    expect(JSON.stringify(lead?.sent)).not.toContain("milestone");
     await core.callTool(lead, "delegate", { agent: writer, brief: "Write the menu" });
     await core.callTool(lead, "delegate", { agent: tester, brief: "Test the page" });
     await core.registry.stop(lead?.id ?? "", true);
@@ -145,6 +147,80 @@ Menu done.`,
       `${tester} finished:
 Tests pass.`,
     ]);
+
+    // Turned on mid-task: the lead keeps the goal's list; a worker reports its part's.
+    await core.call("PUT", `/tasks/${task.taskId}/options`, { milestones: true });
+    const resumed = core.sessions.at(-1);
+    const goal = { outcome: "A menu page", see: "Open menu.html" };
+    expect((await core.callTool(resumed, "set_milestones", { milestones: [goal] })).text).toContain(
+      "M1. A menu page",
+    );
+    const part = (outcome: string) => [{ outcome, see: "Open the page" }];
+    const bare = await core.callTool(resumed, "delegate", { agent: writer, brief: "Prices" });
+    expect(bare.isError).toBe(true);
+    await core.callTool(resumed, "delegate", {
+      agent: writer,
+      brief: "Add prices",
+      title: "Prices",
+      milestones: part("Prices show"),
+    });
+    expect(JSON.stringify(core.sessions[1]?.sent.at(-1))).toContain("M2. Prices show");
+    await core.callTool(core.sessions[1], "report_milestone", {
+      id: "M2",
+      met: true,
+      proof: "Opened it.",
+    });
+    playTurn(core.sessions[1], "Prices are in.");
+    await settle();
+    const done = core.store.listDelegations(task.taskId).at(-1);
+    expect(done?.accepted).toBe("new");
+    expect(resumed?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining('"Prices": its milestone is met, so it is done'),
+    });
+
+    // Not met: sent back twice, then the user decides.
+    await core.callTool(resumed, "delegate", {
+      agent: tester,
+      brief: "Test prices",
+      title: "Price tests",
+      milestones: part("Tests pass"),
+    });
+    await core.callTool(core.sessions[2], "report_milestone", {
+      id: "M3",
+      met: false,
+      proof: "Two fail.",
+    });
+    playTurn(core.sessions[2], "Two tests fail.");
+    await settle();
+    const sendBack = { agent: tester, milestones: ["M3"], note: "Fix the failing tests" };
+    for (const round of [1, 2]) {
+      const sent = await core.callTool(resumed, "send_back", sendBack);
+      expect(sent.text).toContain(`(${round} of 2)`);
+      expect(JSON.stringify(core.sessions[2]?.sent.at(-1))).toContain("sent your part back");
+      playTurn(core.sessions[2], "Still failing.");
+      await settle();
+    }
+    const third = await core.callTool(resumed, "send_back", sendBack);
+    expect(third.text).toContain("with the user");
+    const asked = core.store
+      .listPendingRequests()
+      .requests.find(({ event }) => event.sessionId === resumed?.id);
+    expect(JSON.stringify(asked?.event)).toContain("was sent back twice");
+    await core.call("POST", `/sessions/${resumed?.id}/commands`, {
+      type: "answerQuestion",
+      requestId: asked?.event.payload.requestId,
+      answers: [{ questionId: "1", selected: ["Accept as is"] }],
+    });
+    await settle();
+    expect(resumed?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("accepted"),
+    });
+
+    // A part sent back after it was accepted is no longer accepted.
+    await core.callTool(resumed, "send_back", { agent: writer, milestones: ["M2"], note: "Wrong" });
+    const reopened = core.store.listDelegations(task.taskId).find((one) => one.id === done?.id);
+    expect(reopened).toMatchObject({ status: "working", sendBacks: [{ note: "Wrong" }] });
+    expect(reopened?.accepted).toBeUndefined();
   });
 
   it("carries a lead and a worker on in a new session with a complete handover: One place suggests it, Efficient asks mid-turn, the piece and its result stay whole, and an agent's own ask waits for the user", async () => {
@@ -208,7 +284,7 @@ Tests pass.`,
       type: "context.measured",
       payload: { contextTokens: 10, contextWindow: 2000 },
     });
-    const switched = await core.call("PUT", `/tasks/${taskId}/efficient`, { efficient: true });
+    const switched = await core.call("PUT", `/tasks/${taskId}/options`, { efficient: true });
     expect(switched.json.efficient).toBe(true);
     worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
     worker?.emit({ type: "context.measured", payload: { contextTokens: 1700 } });

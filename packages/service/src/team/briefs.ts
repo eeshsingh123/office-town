@@ -1,5 +1,6 @@
-import type { HarnessDescription, HarnessModel } from "@office-town/contract";
+import type { HarnessDescription, HarnessModel, MilestoneRecord } from "@office-town/contract";
 import { HANDOVER_ASK, PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
+import { LEAD_CHECKS, leadMilestones } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
 
@@ -144,6 +145,8 @@ export function leadBrief(input: {
   codeFlow: boolean;
   // A group the user picked cannot be changed by its lead.
   fixedTeam?: boolean;
+  // With Milestones on: the goal's, which may come from the chief's plan (D-95).
+  milestones?: readonly MilestoneRecord[] | undefined;
 }): Message {
   const branches = input.branches
     ? "\n\nThis workspace is a git repository, and each worker works on a branch of its own, made from your branch's last commit: commit what a worker needs before you hand out its piece. When a worker's result says its work is committed, merge its branch into yours."
@@ -154,6 +157,12 @@ export function leadBrief(input: {
   const change = input.fixedTeam
     ? "The user picked this team for this task, so it cannot change."
     : "If the team needs to change, propose the whole new team with propose_team.";
+  const milestones =
+    input.milestones === undefined ? "" : `${leadMilestones(input.milestones)}\n\n`;
+  const checks =
+    input.milestones === undefined
+      ? "Each worker checks its own piece: it builds and its own tests pass. You check that the merged work builds and its tests pass. A tester on the team checks a piece once and reports; you decide what must be fixed and hand that out once. Do not run rounds of testing and fixing: the end-to-end check comes after, outside the team."
+      : LEAD_CHECKS;
   const text = `You lead ${input.teamName} in Office Town, an app where a team of AI agents works on a goal for the user. Each worker runs in its own harness and session; you hand them work and put their results together.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -164,7 +173,7 @@ ${where(input.folders)}
 Your team:
 ${input.roster}
 
-Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on.
+${milestones}Hand each worker its piece with the delegate tool: name the worker and give it a brief it can act on alone, as it knows nothing else. Workers run at the same time. Each one's result reaches you as a message when it finishes; check on everyone with team_status. Let workers take the time hard work needs. Only if one clearly goes beyond its piece, or the user asks, ask the user to stop it with stop_work; resume_work has it carry on.
 
 Results and messages reach you by themselves. Never wait for them with sleep, by polling team_status or by watching for files: if you have nothing else to do, end your turn with a short line, and the next message wakes you. Read every message from the user and answer it first.
 
@@ -176,7 +185,7 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - Look at the workspace only enough to plan. For a deeper look, have a worker study it and report briefly.
 - Write the shared contracts every worker builds on (interfaces, schemas, a spec) yourself when the work needs them. Hand the building to workers.
 - Check a result from its account and a diff summary, and open a file only where something looks wrong.
-- Each worker checks its own piece: it builds and its own tests pass. You check that the merged work builds and its tests pass. A tester on the team checks a piece once and reports; you decide what must be fixed and hand that out once. Do not run rounds of testing and fixing: the end-to-end check comes after, outside the team.
+- ${checks}
 - Fix small things yourself, such as a merge conflict or a line or two.
 - The app shows the user every worker's state, so do not keep a progress board or commit only to record progress.
 - When the goal is done, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run the work, and what changed. The user can have a fresh agent outside the team run it.

@@ -1,4 +1,5 @@
 import type { DelegationRecord, SessionEvent } from "@office-town/contract";
+import { acceptIfMet, resultLine } from "../goal/record.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import type { Message } from "../registry/session-registry.ts";
 import type { DelegationEnd } from "../store/store.ts";
@@ -40,9 +41,11 @@ export function reportResults(
   const finish = (delegation: DelegationRecord, outcome: Outcome, result: string) => {
     const worker = store.getAgent(delegation.workerAgentId);
     const name = worker?.name ?? "A worker";
+    const part = outcome === "done" ? acceptIfMet(store, delegation) : delegation;
+    const line = resultLine(store, part, name);
     // Told before the delegation ends, so the lead owes a turn and its goal never reads finished in between.
     const told = tellLead(context, delegation.taskId, {
-      text: resultText(name, outcome, result),
+      text: `${resultText(name, outcome, result)}${line === undefined ? "" : `\n\n${line}`}`,
       origin: {
         kind: "result",
         delegationId: delegation.id,
@@ -72,6 +75,8 @@ export function reportResults(
       brief,
     });
     retried.add(moved.id);
+    // A retry is not a send-back: the part goes on as it was (D-77).
+    store.carryPart(delegation.id, moved.id);
     store.endDelegation(delegation.id, "failed", "Tried again in a new session.");
   };
 

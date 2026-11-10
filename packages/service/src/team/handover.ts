@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  type PlanStep,
   type SessionEvent,
   type SessionRecord,
   type TaskRecord,
@@ -7,6 +8,7 @@ import {
 } from "@office-town/contract";
 import { z } from "zod";
 import { isChiefTask } from "../chief/chief.ts";
+import { handoverProgress, milestonesOn } from "../goal/record.ts";
 import { AnswerError, type Message, SessionNotRunningError } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
@@ -84,6 +86,15 @@ interface Watch {
   startedAt?: number;
 }
 
+const STEP_WORDS: Record<PlanStep["status"], string> = {
+  completed: "done",
+  in_progress: "doing",
+  pending: "next",
+};
+
+const stepLines = (plan: readonly PlanStep[]) =>
+  plan.map((step) => `${STEP_WORDS[step.status]}: ${step.title}`);
+
 export class Handovers {
   readonly #context: TeamContext;
   readonly #handOverAt: number;
@@ -101,6 +112,8 @@ export class Handovers {
   // A sub-agent's process dies with its session's (D-71), so none hands over while one runs.
   readonly #subAgents = new Map<string, Set<string>>();
   readonly #turnOpen = new Set<string>();
+  // Each session's step list as it last reported it, for a handover from the record (D-95).
+  readonly #plans = new Map<string, PlanStep[]>();
   // Carrying over now: a turn's end and a sub-agent's end may both try at once.
   readonly #switching = new Set<string>();
   // Each model's window as last reported, by harness and model, for a session that has not yet.
@@ -166,7 +179,11 @@ export class Handovers {
           this.#askUser(session, `${this.#nameOf(session)} asks to carry on in a new session`);
           return "The user decides in Needs you. Carry on with your work meanwhile; if they agree, you will be asked to write it again.";
         }
-        const { files = [], steps = [], progress, ...rest } = input;
+        const { files = [], steps: written = [], progress: told, ...rest } = input;
+        // With Milestones on, where the work stands comes from the record, not the agent (D-95).
+        const progress = handoverProgress(store, caller) ?? told;
+        const kept = milestonesOn(store, caller.taskId) ? this.#plans.get(session.id) : undefined;
+        const steps = kept === undefined ? written : stepLines(kept);
         const handover = { ...rest, files, steps, ...(progress === undefined ? {} : { progress }) };
         this.#pending.set(session.id, { handover, role });
         this.#context.registry.hold(session.id);
@@ -197,6 +214,9 @@ export class Handovers {
       case "turn.started":
         this.#turnOpen.add(sessionId);
         return;
+      case "plan.updated":
+        this.#plans.set(sessionId, event.payload.steps);
+        return;
       case "turn.ended": {
         this.#turnOpen.delete(sessionId);
         if (this.#pending.has(sessionId)) {
@@ -208,6 +228,7 @@ export class Handovers {
         return;
       }
       case "session.ended":
+        this.#plans.delete(sessionId);
         await this.#forget(sessionId);
         return;
       default:

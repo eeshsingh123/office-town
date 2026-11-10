@@ -12,6 +12,8 @@ import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
 import { newTokens, usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
+import { fraction, goalStatuses, partStatuses, pieceStatuses } from "../task/goal-progress.ts";
+import { chiefGoal } from "./doors.ts";
 import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
 import {
   ADD_CHIEF,
@@ -74,7 +76,10 @@ function teamsOf(department: DepartmentRecord, agents: Record<string, AgentRecor
   ];
 }
 
-type Known = Pick<AppState, "agents" | "tasks" | "sessions">;
+type Known = Pick<
+  AppState,
+  "agents" | "tasks" | "sessions" | "delegations" | "milestones" | "pieces"
+>;
 
 // A guest is no member.
 function goalOf(department: DepartmentRecord, state: Known) {
@@ -173,6 +178,14 @@ function layOut(layout: Layout) {
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
     const tokens = roomId === agent.record.departmentId ? memberTokens.get(agent.id) : undefined;
     const trace = traces[agent.latest.id];
+    // Its part of the department's goal, or the goal itself at the lead's desk (D-95).
+    const goalTask = roomId === agent.record.departmentId ? goals.get(roomId)?.task : undefined;
+    const part =
+      goalTask === undefined
+        ? []
+        : goalTask.leadAgentId === agent.id
+          ? goalStatuses(state.milestones, goalTask.id, goalTask.state === "ended")
+          : partStatuses(state.milestones, state.delegations, goalTask.id, agent.id);
     return {
       agent,
       state: agentState,
@@ -187,6 +200,7 @@ function layOut(layout: Layout) {
               ? "Guests"
               : (byId[roomId]?.name ?? ""),
       ...(tokens === undefined ? {} : { tokens }),
+      ...(part.length === 0 ? {} : { part }),
       ...bubbleOf(
         agentState,
         asking.get(agent.latest.id),
@@ -206,15 +220,36 @@ function layOut(layout: Layout) {
     const apps = (task?.usage ?? [])
       .map((one) => ({ name: harnessName(one.harness), tokens: newTokens(one) }))
       .filter((one) => one.tokens > 0);
+    const statuses =
+      task === undefined ? [] : goalStatuses(state.milestones, task.id, task.state === "ended");
     signs[department.id] = {
       title: department.name,
       lines:
         task === undefined
           ? ["No goal in progress"]
           : [working ? taskName(task) : `Last goal · ${taskName(task)}`],
+      ...(statuses.length === 0 ? {} : { progress: { statuses, label: fraction(statuses) } }),
       ...(apps.length === 0
         ? {}
         : { usage: { apps, total: apps.reduce((sum, one) => sum + one.tokens, 0) } }),
+    };
+  }
+  // The chief counts its departments' pieces of the goal it runs.
+  const goal =
+    chiefId === undefined
+      ? undefined
+      : chiefGoal(
+          Object.values(state.tasks).map(({ task }) => task),
+          chiefId,
+        );
+  const pieces = pieceStatuses(
+    Object.values(state.pieces).filter((piece) => piece.taskId === goal?.id),
+  );
+  if (pieces.length > 0) {
+    signs[CHIEF_ROOM] = {
+      title: "Chief",
+      lines: [],
+      progress: { statuses: pieces, label: `${fraction(pieces)} departments` },
     };
   }
   return { plan, floorAgents, signs, goalSessions, assistants: solo.length };
@@ -227,6 +262,9 @@ export function OfficeView() {
   const departmentRecords = useApp((state) => state.departments);
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
+  const delegations = useApp((state) => state.delegations);
+  const milestones = useApp((state) => state.milestones);
+  const pieces = useApp((state) => state.pieces);
   const traces = useApp((state) => state.traces);
   const waiting = useApp((state) => state.waiting);
   const harnesses = useApp((state) => state.harnesses);
@@ -252,7 +290,7 @@ export function OfficeView() {
       waiting,
       harnessName,
       departments,
-      state: { agents: records, tasks, sessions },
+      state: { agents: records, tasks, sessions, delegations, milestones, pieces },
       chiefId,
       positions,
     });
@@ -265,6 +303,9 @@ export function OfficeView() {
     records,
     tasks,
     sessions,
+    delegations,
+    milestones,
+    pieces,
     chiefId,
     positions,
   ]);

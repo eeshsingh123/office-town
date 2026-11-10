@@ -2,6 +2,7 @@ import { z } from "zod";
 import { agentSettingsSchema, newAgentSchema } from "./agents.ts";
 import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema } from "./autonomy.ts";
+import { sendBackSchema } from "./milestones.ts";
 import { absolutePathSchema } from "./options.ts";
 
 // Its level is its department's.
@@ -99,8 +100,9 @@ export type NewDepartmentRequest = z.infer<typeof newDepartmentRequestSchema>;
 export const startTeamTaskRequestSchema = z.object({
   goal: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
-  // Without it, the app's default.
+  // Without them, the app's defaults.
   efficient: z.boolean().optional(),
+  milestones: z.boolean().optional(),
   team: z.union([
     // Without a workspace, the department's default.
     z.object({ departmentId: z.string().min(1), workspaceId: z.string().min(1).optional() }),
@@ -122,6 +124,14 @@ export const delegationRecordSchema = z.object({
   brief: z.string(),
   status: z.enum(["working", "done", "failed", "stopped", "interrupted"]),
   result: z.string().optional(),
+  // A few words the lead named the part with.
+  title: z.string().min(1).optional(),
+  // Each time the lead sent it back with milestones not met, oldest first.
+  sendBacks: z.array(sendBackSchema).optional(),
+  // Raised when the user allows another send-back; SEND_BACK_LIMIT without it.
+  sendBackLimit: z.number().int().positive().optional(),
+  // Done with every milestone met, so no one had to accept it: a notice until the user has seen it.
+  accepted: z.enum(["new", "seen"]).optional(),
   createdAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),
 });

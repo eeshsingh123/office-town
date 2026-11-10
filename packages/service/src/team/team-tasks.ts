@@ -13,8 +13,9 @@ import { resolveAttachments } from "../attachments/attachments.ts";
 import { pieceResult } from "../chief/briefs.ts";
 import { isChiefTask } from "../chief/chief.ts";
 import { departmentNameOf } from "../chief/piece-folders.ts";
+import { briefMilestones } from "../goal/record.ts";
 import { type Message, SessionNotRunningError } from "../registry/session-registry.ts";
-import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { RecordNotFoundError, type Store, type TaskPlacement } from "../store/store.ts";
 import { foldersForTask, type TaskFolders } from "../task-folders.ts";
 import { startFirstAgent } from "../task-start.ts";
 import { type HarnessChoices, leadBrief, proposeTeamBrief } from "./briefs.ts";
@@ -166,7 +167,7 @@ function requireWanted(piece: PieceStart | undefined): void {
 // A new lead first proposes its team; only the lead starts, as it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
-  { goal, team, attachments: attachmentIds, efficient }: StartTeamTaskRequest,
+  { goal, team, attachments: attachmentIds, efficient, milestones }: StartTeamTaskRequest,
   piece?: PieceStart,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
@@ -175,6 +176,7 @@ export async function startTeamTask(
   const parent = {
     ...(piece === undefined ? {} : { parentTaskId: piece.parentTaskId }),
     ...(efficient === undefined ? {} : { efficient }),
+    ...(milestones === undefined ? {} : { milestones }),
   };
   // The upstream departments' folders a piece of a chief's plan may read.
   const withUpstream = (folders: TaskFolders) => ({
@@ -184,7 +186,7 @@ export async function startTeamTask(
   if ("workerAgentIds" in team) {
     if (piece !== undefined)
       throw new TeamError("A part of the chief's plan goes to a department.");
-    return startGroupTask(context, goal, team, attachments, efficient);
+    return startGroupTask(context, goal, team, attachments, parent);
   }
   if ("departmentId" in team) {
     const department = store.getDepartment(team.departmentId);
@@ -218,6 +220,7 @@ export async function startTeamTask(
               roster: rosterOf(store, department),
               branches: department.branchPerWorker && isRepository(folders.workspacePath),
               codeFlow: department.codeFlow,
+              milestones: briefMilestones(store, task.id),
             }),
             piece,
             attachments,
@@ -276,7 +279,7 @@ async function startGroupTask(
   goal: string,
   team: GroupTeam,
   attachments: Attachment[],
-  efficient: boolean | undefined,
+  modes: Pick<TaskPlacement, "efficient" | "milestones">,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const { lead, workers } = groupOf(store, team);
@@ -292,7 +295,7 @@ async function startGroupTask(
     const task = store.createTask(
       goal,
       { leadAgentId: lead.id, workerAgentIds: team.workerAgentIds },
-      { workspaceId: team.workspaceId, ...(efficient === undefined ? {} : { efficient }) },
+      { workspaceId: team.workspaceId, ...modes },
     );
     return await startFirstAgent(store, task.id, () =>
       registry.start({
@@ -309,6 +312,7 @@ async function startGroupTask(
             branches: false,
             codeFlow: false,
             fixedTeam: true,
+            milestones: briefMilestones(store, task.id),
           }),
           undefined,
           attachments,

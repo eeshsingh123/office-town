@@ -1,0 +1,517 @@
+/* The task's one live progress view: what the user gets, who does what, and the steps (D-95). */
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 0;
+  padding: 18px 16px 24px 20px;
+  overflow-y: auto;
+}
+
+.headCount {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One segment per milestone, filling as each is met. */
+.segments {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+}
+
+.segments i {
+  flex: 1;
+  border-radius: 3px;
+  background: var(--hover);
+  transition: background 400ms ease-out;
+}
+
+.segments i.met,
+.mini i.met {
+  background: var(--ok);
+}
+
+.segments i.notMet,
+.mini i.notMet {
+  background: color-mix(in srgb, var(--bad) 60%, transparent);
+}
+
+.segments i.doing,
+.mini i.doing {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.label {
+  font-size: var(--size-small);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  padding: 7px 6px;
+  border-radius: var(--radius-control);
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  height: 20px;
+}
+
+.text {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.outcome {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.see {
+  margin-top: 1px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.see b {
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 5px;
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+.metaBad {
+  color: var(--bad);
+}
+
+.proof {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-2);
+  white-space: pre-line;
+}
+
+/* Edit and remove show on hover or focus, and always on touch. */
+.tools {
+  display: flex;
+  opacity: 0;
+  transition: opacity var(--motion);
+}
+
+.row:hover .tools,
+.row:focus-within .tools,
+.step:hover .tools,
+.step:focus-within .tools {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tools {
+    opacity: 1;
+  }
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.iconButton:focus-visible,
+.link:focus-visible,
+.add:focus-visible,
+.partHead:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--size-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pillQuiet {
+  background: var(--hover);
+  color: var(--text-2);
+}
+
+.pillAccent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.pillOk {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pillWarn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.pillBad {
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  color: var(--bad);
+}
+
+.pillNew {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 7px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.add:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--ring);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text);
+  resize: none;
+  field-sizing: content;
+}
+
+.input:focus {
+  outline: 0;
+  border-color: var(--accent);
+}
+
+.editorFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hint {
+  margin-right: auto;
+  font-size: var(--size-small);
+  color: var(--text-3);
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  font-size: var(--size-meta);
+  color: var(--bad);
+}
+
+.confirm span {
+  margin-right: auto;
+}
+
+/* Who does what: one card per part. */
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.part {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
+.partNew {
+  border-color: var(--ok);
+}
+
+.partHead {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-card);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.partHead:hover {
+  background: var(--hover);
+}
+
+.partName {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.partName strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partName span {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.partRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.fraction {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.mini {
+  display: flex;
+  gap: 2px;
+}
+
+.mini i {
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hover);
+}
+
+.partBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 12px 12px;
+}
+
+.sentBack {
+  padding: 7px 10px;
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--warn);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.step:hover {
+  background: var(--hover);
+}
+
+.step svg {
+  flex: none;
+}
+
+.stepCurrent {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.stepTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+.stepAsked {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.running {
+  color: var(--accent);
+}
+
+.quiet {
+  color: var(--text-3);
+}
+
+/* Buttons inside a row stay the row's size. */
+:is(.editor, .confirm, .partBody, .body) .small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: var(--size-meta);
+}

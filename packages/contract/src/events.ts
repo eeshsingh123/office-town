@@ -89,6 +89,8 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   }),
   // Another agent's words, such as the chief's to a lead at work.
   z.object({ kind: z.literal("message"), from: z.string().min(1) }),
+  // The user's change to a list of milestones or steps, word for word.
+  z.object({ kind: z.literal("milestones"), summary: z.string().min(1) }),
   // The first message of a session that carries on from `fromSessionId` with a handover (D-94).
   z.object({ kind: z.literal("handover"), fromSessionId: z.string().min(1) }),
 ]);
