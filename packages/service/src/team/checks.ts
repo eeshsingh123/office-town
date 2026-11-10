@@ -9,6 +9,7 @@ import {
   type CheckResult,
   type EnvironmentSpec,
   lowerAutonomy,
+  type MilestoneRecord,
   type TaskChecklist,
 } from "@office-town/contract";
 import { environmentPath } from "@office-town/harness";
@@ -18,6 +19,7 @@ import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { levelOf } from "../autonomy/policy.ts";
 import { isChiefTask } from "../chief/chief.ts";
+import { goalMilestones, milestoneLines } from "../goal/record.ts";
 import {
   AnswerError,
   type CoreRequestHandler,
@@ -74,6 +76,8 @@ interface Background {
   owner: AgentRecord;
   // The owner's checklist, when it wrote one for this task.
   checklist: TaskChecklist | undefined;
+  // With Milestones on, the goal's: the checker's list starts from them (D-95).
+  milestones: MilestoneRecord[];
   text: string;
   transcript: string;
 }
@@ -107,7 +111,11 @@ function backgroundOf(store: Store, taskId: string, owner: AgentRecord): Backgro
     section(`How to set up and run it, from ${owner.name}`, checklist?.setup),
     section(`What changed, from ${owner.name}`, checklist?.changes),
   ].join("");
-  return { owner, checklist, text, transcript: transcriptOf(events, owner.name) };
+  const milestones =
+    task.milestones === true && topAgentOf(store, taskId) === owner.id
+      ? goalMilestones(store, taskId)
+      : [];
+  return { owner, checklist, milestones, text, transcript: transcriptOf(events, owner.name) };
 }
 
 interface Place {
@@ -131,14 +139,20 @@ ${owner.name}'s whole conversation is in ${seen(transcriptFile)}. Search it for 
 const RUN = `Run every item. For each, record pass, fail or not_run, with evidence: what you ran or did and the key output. A fail also needs the steps to reproduce it and what happened instead. Something you notice that is not on the list goes into notes; it does not fail the check. Keep command output short: quiet flags, and long output into a file you search. When every item has a result, call report_check, then end your turn with one line.`;
 
 function draftBrief(place: Place, background: Background, file: string, ask: string | undefined) {
-  const { owner, checklist } = background;
+  const { owner, checklist, milestones } = background;
   const given =
     checklist === undefined
-      ? `${owner.name} wrote no checklist, so write the whole list yourself.`
+      ? milestones.length === 0
+        ? `${owner.name} wrote no checklist, so write the whole list yourself.`
+        : ""
       : `${owner.name}'s checklist:\n${checklist.items.map((item) => `- ${item.check}\n  Expected: ${item.expected}`).join("\n")}`;
+  const goal =
+    milestones.length === 0
+      ? ""
+      : `The milestones the user set for this work. Start your list from them: one check each, expecting what the user will see, marked as from the lead.\n${milestoneLines(milestones)}\n\n`;
   const text = `${opening(place, background, file)}
 
-${given}${section("The user also asks", ask)}
+${goal}${given}${section("The user also asks", ask)}
 
 First, write the checklist you will run; do not run anything yet. Write at most ${MAX_ITEMS} focused checks: keep the most important of ${owner.name}'s items, and add only the cases most likely to break it: the expected scenario end to end, then edge cases, boundary values, empty or wrong input and error paths. Merge checks that test the same thing. Each item is one check with the result it expects, specific enough that anyone gets the same answer. Look at the work only as much as you need for that. Call propose_checks with the full list, then end your turn. The user edits and approves it, and the approved list reaches you as a message.`;
   return { text, origin: { kind: "brief", summary: `Check ${owner.name}'s work` } } as const;
@@ -402,8 +416,11 @@ export class Checks {
               : "Your checklist is already approved; run it.",
           );
         }
-        // Without a checklist from the owner, nothing on the list came from the team.
-        const given = store.getTask(check.taskId)?.checklist?.agentId === check.ownerAgentId;
+        // Without a checklist or milestones from the owner, nothing on the list came from the team.
+        const task = store.getTask(check.taskId);
+        const given =
+          task?.checklist?.agentId === check.ownerAgentId ||
+          (task?.milestones === true && goalMilestones(store, check.taskId).length > 0);
         const proposed: CheckItem[] = items.map(({ check: text, expected, fromLead }, index) => ({
           id: `c${index + 1}`,
           check: text,

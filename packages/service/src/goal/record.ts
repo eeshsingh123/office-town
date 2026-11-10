@@ -108,3 +108,42 @@ export function acceptIfMet(store: Store, delegation: DelegationRecord): Delegat
 // What a lead's brief carries: nothing with Milestones off, so the brief reads as before.
 export const briefMilestones = (store: Store, taskId: string) =>
   milestonesOn(store, taskId) ? goalMilestones(store, taskId) : undefined;
+
+function statusLines(milestones: readonly MilestoneRecord[]): string {
+  return milestones
+    .map((milestone) => {
+      const status =
+        milestone.status === "met"
+          ? "met"
+          : milestone.status === "not_met"
+            ? "not met"
+            : "not reported yet";
+      const proof = milestone.proof === undefined ? "" : ` (${milestone.proof})`;
+      return `- ${milestone.key} ${status}: ${milestone.outcome}${proof}`;
+    })
+    .join("\n");
+}
+
+// Written by the core from the record, so a new session never takes the agent's word for it.
+export function handoverProgress(store: Store, caller: Caller): string | undefined {
+  if (!milestonesOn(store, caller.taskId)) return undefined;
+  if (isWorker(store, caller)) {
+    const part = store.workingDelegation(caller.sessionId);
+    if (part === undefined) return undefined;
+    const sent = part.sendBacks?.length ?? 0;
+    const back = sent === 0 ? "" : `\nSent back ${sent} of ${sendBackLimit(part)} times.`;
+    return `Your part's milestones:\n${statusLines(partMilestones(store, part))}${back}`;
+  }
+  if (!ownsGoal(store, caller)) return undefined;
+  const parts = store.listDelegations(caller.taskId).flatMap((part) => {
+    const own = partMilestones(store, part);
+    if (own.length === 0) return [];
+    const name = store.getAgent(part.workerAgentId)?.name ?? "A worker";
+    const met = own.filter((one) => one.status === "met").length;
+    return [
+      `- ${name}${part.title === undefined ? "" : ` "${part.title}"`}: ${part.status}, ${met} of ${own.length} met`,
+    ];
+  });
+  const goal = `The goal's milestones:\n${statusLines(goalMilestones(store, caller.taskId))}`;
+  return parts.length === 0 ? goal : `${goal}\n\nParts:\n${parts.join("\n")}`;
+}
