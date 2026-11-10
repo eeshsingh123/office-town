@@ -58,6 +58,8 @@ export const taskRecordSchema = z.object({
   title: z.string().min(1).optional(),
   // Efficient mode: long conversations carry on in a new session with a handover (D-94).
   efficient: z.boolean().optional(),
+  // Milestones: the team writes what the user will get and checks each part against it.
+  milestones: z.boolean().optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
 });
@@ -311,8 +313,9 @@ export const settingsSchema = z.object({
   display: displaySchema.optional(),
   // Accounts the app saw sign in, on a harness that cannot say whether it is signed in (D-76).
   signedInAccounts: z.array(z.string().min(1)).optional(),
-  // New tasks start in Efficient mode unless the user picks otherwise (D-94).
+  // New tasks start with these unless the user picks otherwise (D-94).
   efficientByDefault: z.boolean().optional(),
+  milestonesByDefault: z.boolean().optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -323,13 +326,16 @@ export const startTaskRequestSchema = z.object({
   autonomy: autonomySchema,
   workspaceId: z.string().min(1),
   attachments: attachmentIdsSchema.optional(),
-  // Without it, the app's default.
+  // Without them, the app's defaults.
   efficient: z.boolean().optional(),
+  milestones: z.boolean().optional(),
 });
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
-// Taken at each size check, so a running task can switch.
-export const taskModeRequestSchema = z.object({ efficient: z.boolean() });
+// Either or both. Efficient is taken at each size check; Milestones at each agent's next start.
+export const taskModeRequestSchema = z
+  .object({ efficient: z.boolean().optional(), milestones: z.boolean().optional() })
+  .refine((mode) => mode.efficient !== undefined || mode.milestones !== undefined, "Nothing to change");
 export type TaskModeRequest = z.infer<typeof taskModeRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({

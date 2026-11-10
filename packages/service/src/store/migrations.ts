@@ -239,6 +239,57 @@ function addTaskEfficient(db: DatabaseSync): void {
   if (has.get() === undefined) db.exec("ALTER TABLE tasks ADD COLUMN efficient INTEGER");
 }
 
+const hasColumn = (db: DatabaseSync, table: string, column: string) =>
+  db.prepare(`SELECT 1 FROM pragma_table_info('${table}') WHERE name = ?`).get(column) !==
+  undefined;
+
+// Milestones for a goal and its parts, and how each part went back and forth (D-95).
+function addMilestones(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "milestones")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN milestones INTEGER");
+  }
+  const parts: [string, string][] = [
+    ["title", "TEXT"],
+    // JSON: the send-backs as the contract has them.
+    ["send_backs", "TEXT"],
+    ["send_back_limit", "INTEGER"],
+    ["accepted", "TEXT CHECK (accepted IN ('new', 'seen'))"],
+  ];
+  for (const [column, type] of parts) {
+    if (!hasColumn(db, "delegations", column)) {
+      db.exec(`ALTER TABLE delegations ADD COLUMN ${column} ${type}`);
+    }
+  }
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS milestones (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    task_ref       INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    -- Agents name it as "M" and this number, unique in its task.
+    number         INTEGER NOT NULL,
+    delegation_ref INTEGER REFERENCES delegations (ref) ON DELETE CASCADE,
+    -- Kept when its chief's goal is deleted: by then they are the department task's own.
+    piece_ref      INTEGER REFERENCES plan_pieces (ref) ON DELETE SET NULL,
+    outcome        TEXT NOT NULL,
+    see            TEXT NOT NULL,
+    status         TEXT NOT NULL CHECK (status IN ('not_started', 'met', 'not_met')),
+    proof          TEXT,
+    -- Agent ids, or "user": agents can be deleted with another task.
+    reported_by    TEXT,
+    origin         TEXT NOT NULL CHECK (origin IN ('agent', 'user')),
+    changed_by     TEXT,
+    told_agent     TEXT,
+    delivery       TEXT CHECK (delivery IN ('telling', 'taken')),
+    created_at     INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS milestones_by_task ON milestones (task_ref, number);
+  CREATE INDEX IF NOT EXISTS milestones_by_delegation ON milestones (delegation_ref);
+  CREATE INDEX IF NOT EXISTS milestones_by_piece ON milestones (piece_ref);
+  `);
+}
+
 // A lead's checklist on its task, and the rounds of checking it (D-73).
 function addChecks(db: DatabaseSync): void {
   const has = db.prepare("SELECT 1 FROM pragma_table_info('tasks') WHERE name = 'checklist'");
@@ -722,4 +773,5 @@ export const migrations: readonly Migration[] = [
   dropScratchBesideFolders,
   addTaskTitle,
   addTaskEfficient,
+  addMilestones,
 ];

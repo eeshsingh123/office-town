@@ -13,6 +13,7 @@ export * from "./connectors.ts";
 export * from "./drafts.ts";
 export * from "./events.ts";
 export * from "./library.ts";
+export * from "./milestones.ts";
 export * from "./options.ts";
 export * from "./outputs.ts";
 export * from "./plans.ts";

@@ -30,6 +30,7 @@ import {
   type LibraryAudience,
   type LibraryItem,
   type LibraryItemChange,
+  type MilestoneRecord,
   type OutputRecord,
   type OutputTarget,
   type OutputVersion,
@@ -38,6 +39,8 @@ import {
   type ProfileRecord,
   type ProfileRequest,
   type ProfileUses,
+  SEND_BACK_LIMIT,
+  type SendBack,
   type SessionEvent,
   type SessionOptions,
   type SessionPage,
@@ -81,6 +84,7 @@ import {
   InUseError,
   type LatestTurn,
   type LineDirection,
+  type MilestoneChange,
   NameTakenError,
   type NewAgentRecord,
   type NewCheck,
@@ -90,6 +94,7 @@ import {
   type NewDepartment,
   type NewFile,
   type NewLibraryItem,
+  type NewMilestone,
   type NewPiece,
   type NewSession,
   type PieceChange,
@@ -135,6 +140,7 @@ interface TaskRow {
   checklist: string | null;
   title: string | null;
   efficient: number | null;
+  milestones: number | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -202,8 +208,32 @@ interface DelegationRow {
   brief: string;
   status: DelegationRecord["status"];
   result: string | null;
+  title: string | null;
+  sendBacks: string | null;
+  sendBackLimit: number | null;
+  accepted: DelegationRecord["accepted"] | null;
   createdAt: number;
   endedAt: number | null;
+}
+
+interface MilestoneRow {
+  ref: number;
+  id: string;
+  taskId: string;
+  number: number;
+  delegationId: string | null;
+  pieceId: string | null;
+  outcome: string;
+  see: string;
+  status: MilestoneRecord["status"];
+  proof: string | null;
+  reportedBy: string | null;
+  origin: MilestoneRecord["origin"];
+  changedBy: string | null;
+  toldAgent: string | null;
+  delivery: "telling" | "taken" | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface CheckRow {
@@ -368,6 +398,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.checklist === null ? {} : { checklist: JSON.parse(row.checklist) as TaskChecklist }),
     ...(row.title === null ? {} : { title: row.title }),
     ...(row.efficient === null ? {} : { efficient: row.efficient === 1 }),
+    ...(row.milestones === null ? {} : { milestones: row.milestones === 1 }),
     usage,
   };
 }
@@ -434,8 +465,36 @@ function toDelegation(row: DelegationRow): DelegationRecord {
     brief: row.brief,
     status: row.status,
     ...(row.result === null ? {} : { result: row.result }),
+    ...(row.title === null ? {} : { title: row.title }),
+    ...(row.sendBacks === null ? {} : { sendBacks: JSON.parse(row.sendBacks) as SendBack[] }),
+    ...(row.sendBackLimit === null ? {} : { sendBackLimit: row.sendBackLimit }),
+    ...(row.accepted === null ? {} : { accepted: row.accepted }),
     createdAt: iso(row.createdAt),
     ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
+  };
+}
+
+const MILESTONE_KEY = /^M(\d+)$/i;
+
+function toMilestone(row: MilestoneRow): MilestoneRecord {
+  return {
+    id: row.id,
+    taskId: row.taskId,
+    key: `M${row.number}`,
+    ...(row.delegationId === null ? {} : { delegationId: row.delegationId }),
+    ...(row.pieceId === null ? {} : { pieceId: row.pieceId }),
+    outcome: row.outcome,
+    see: row.see,
+    status: row.status,
+    ...(row.proof === null ? {} : { proof: row.proof }),
+    ...(row.reportedBy === null ? {} : { reportedBy: row.reportedBy }),
+    origin: row.origin,
+    ...(row.changedBy === null ? {} : { changedBy: row.changedBy }),
+    ...(row.toldAgent === null || row.delivery === null
+      ? {}
+      : { delivery: { agentId: row.toldAgent, state: row.delivery } }),
+    createdAt: iso(row.createdAt),
+    updatedAt: iso(row.updatedAt),
   };
 }
 
@@ -701,6 +760,11 @@ class SqliteStore implements Store {
       (parent === undefined ? undefined : parent.efficient === 1) ??
       this.readSettings().efficientByDefault ??
       false;
+    const milestones =
+      placement.milestones ??
+      (parent === undefined ? undefined : parent.milestones === 1) ??
+      this.readSettings().milestonesByDefault ??
+      false;
     const workers =
       team !== undefined && "workerAgentIds" in team
         ? team.workerAgentIds.map((agentId) => this.#agentRow(agentId))
@@ -717,6 +781,7 @@ class SqliteStore implements Store {
         parent?.ref ?? null,
         workspace?.ref ?? null,
         efficient ? 1 : 0,
+        milestones ? 1 : 0,
       );
       for (const worker of workers) {
         this.#statements.insertTaskWorker.run(lastInsertRowid, worker.ref);
@@ -778,6 +843,11 @@ class SqliteStore implements Store {
 
   setTaskEfficient(taskId: string, efficient: boolean): TaskRecord {
     this.#statements.setTaskEfficient.run(efficient ? 1 : 0, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskMilestones(taskId: string, milestones: boolean): TaskRecord {
+    this.#statements.setTaskMilestones.run(milestones ? 1 : 0, this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
   }
 
@@ -1028,10 +1098,9 @@ class SqliteStore implements Store {
       delegation.workerSessionId,
       delegation.brief,
       createdAt,
+      textOrNull(delegation.title),
     );
-    const record = { ...delegation, id, status: "working" as const, createdAt: iso(createdAt) };
-    this.#publish({ type: "delegation", delegation: record });
-    return record;
+    return this.#publishDelegation(id);
   }
 
   listDelegations(taskId: string): DelegationRecord[] {
@@ -1058,6 +1127,134 @@ class SqliteStore implements Store {
     const moved = toDelegation({ ...row, workerSessionId });
     this.#publish({ type: "delegation", delegation: moved });
     return moved;
+  }
+
+  reopenDelegation(id: string, workerSessionId: string, sendBack: SendBack): DelegationRecord {
+    const row = this.#delegationRow(id);
+    const sendBacks = [...(toDelegation(row).sendBacks ?? []), sendBack];
+    this.#statements.reopenDelegation.run(workerSessionId, JSON.stringify(sendBacks), row.ref);
+    return this.#publishDelegation(id);
+  }
+
+  raiseSendBackLimit(id: string): DelegationRecord {
+    const row = this.#delegationRow(id);
+    const limit = (row.sendBackLimit ?? SEND_BACK_LIMIT) + 1;
+    this.#statements.setPart.run(row.title, row.sendBacks, limit, row.ref);
+    return this.#publishDelegation(id);
+  }
+
+  setDelegationAccepted(id: string, accepted: "new" | "seen"): DelegationRecord {
+    this.#statements.setDelegationAccepted.run(accepted, this.#delegationRow(id).ref);
+    return this.#publishDelegation(id);
+  }
+
+  carryPart(fromId: string, toId: string): void {
+    const from = this.#delegationRow(fromId);
+    const to = this.#delegationRow(toId);
+    const moved = all<MilestoneRow>(this.#statements.milestonesOfDelegation, from.ref);
+    transaction(this.#db, () => {
+      this.#statements.setPart.run(from.title, from.sendBacks, from.sendBackLimit, to.ref);
+      this.#statements.moveMilestonesOfDelegation.run(to.ref, from.ref);
+    });
+    this.#publishDelegation(toId);
+    for (const row of moved) this.#publishMilestone(row.id);
+  }
+
+  createMilestone(milestone: NewMilestone): MilestoneRecord {
+    const id = randomUUID();
+    const now = Date.now();
+    const task = this.#taskRow(milestone.taskId);
+    const next = one<{ next: number }>(this.#statements.nextMilestoneNumber, task.ref)?.next ?? 1;
+    this.#statements.insertMilestone.run(
+      id,
+      task.ref,
+      next,
+      milestone.delegationId === undefined ? null : this.#delegationRow(milestone.delegationId).ref,
+      milestone.pieceId === undefined ? null : this.#pieceRow(milestone.pieceId).ref,
+      milestone.outcome.trim(),
+      milestone.see.trim(),
+      milestone.origin,
+      milestone.changedBy ?? null,
+      milestone.delivery?.agentId ?? null,
+      milestone.delivery?.state ?? null,
+      now,
+      now,
+    );
+    return this.#publishMilestone(id);
+  }
+
+  getMilestone(id: string): MilestoneRecord | undefined {
+    const row = one<MilestoneRow>(this.#statements.milestoneById, id);
+    return row === undefined ? undefined : toMilestone(row);
+  }
+
+  milestoneByKey(taskId: string, key: string): MilestoneRecord | undefined {
+    const number = MILESTONE_KEY.exec(key.trim())?.[1];
+    if (number === undefined) return undefined;
+    const ref = this.#taskRow(taskId).ref;
+    const row = one<MilestoneRow>(this.#statements.milestoneByNumber, ref, Number(number));
+    return row === undefined ? undefined : toMilestone(row);
+  }
+
+  listMilestones(taskId: string): MilestoneRecord[] {
+    const ref = this.#taskRow(taskId).ref;
+    return all<MilestoneRow>(this.#statements.milestonesOfTask, ref).map(toMilestone);
+  }
+
+  updateMilestone(id: string, change: MilestoneChange): MilestoneRecord {
+    const row = one<MilestoneRow>(this.#statements.milestoneById, id);
+    if (row === undefined) throw new RecordNotFoundError("milestone");
+    const next = { ...toMilestone(row), ...change };
+    this.#statements.updateMilestone.run(
+      next.outcome.trim(),
+      next.see.trim(),
+      next.status,
+      textOrNull(next.proof),
+      next.reportedBy ?? null,
+      next.changedBy ?? null,
+      next.delivery?.agentId ?? null,
+      next.delivery?.state ?? null,
+      Date.now(),
+      row.ref,
+    );
+    return this.#publishMilestone(id);
+  }
+
+  removeMilestone(id: string): void {
+    const row = one<MilestoneRow>(this.#statements.milestoneById, id);
+    if (row === undefined) throw new RecordNotFoundError("milestone");
+    this.#statements.deleteMilestone.run(row.ref);
+    this.#publish({ type: "milestone.removed", milestoneId: id, taskId: row.taskId });
+  }
+
+  assignMilestones(milestoneIds: string[], delegationId: string): void {
+    const { ref } = this.#delegationRow(delegationId);
+    transaction(this.#db, () => {
+      for (const id of milestoneIds) this.#statements.assignMilestone.run(ref, id);
+    });
+    for (const id of milestoneIds) this.#publishMilestone(id);
+  }
+
+  moveMilestonesOfPiece(pieceId: string, taskId: string): void {
+    const piece = this.#pieceRow(pieceId);
+    this.#statements.moveMilestonesOfPiece.run(this.#taskRow(taskId).ref, piece.ref);
+    for (const row of all<MilestoneRow>(this.#statements.milestonesOfPiece, piece.ref)) {
+      this.#publishMilestone(row.id);
+    }
+  }
+
+  #publishDelegation(id: string): DelegationRecord {
+    const record = toDelegation(this.#delegationRow(id));
+    this.#publish({ type: "delegation", delegation: record });
+    return record;
+  }
+
+  #publishMilestone(id: string): MilestoneRecord {
+    const row = one<MilestoneRow>(this.#statements.milestoneById, id);
+    if (row === undefined) throw new RecordNotFoundError("milestone");
+    const record = toMilestone(row);
+    this.#publish({ type: "milestone", milestone: record });
+    return record;
   }
 
   createCheck(check: NewCheck, sandbox: CheckSandbox): CheckRecord {
