@@ -126,7 +126,7 @@ describe("session registry", () => {
     await registry.close();
   });
 
-  it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task", async () => {
+  it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task; a process that dies after its work is done ends as finished", async () => {
     const first = await start(openRegistry(), "Write a report");
 
     // A new registry over the same store is what a core restarted after a crash sees.
@@ -150,6 +150,19 @@ describe("session registry", () => {
     await expect(registry.resume(first.id, { text: "Continue" })).rejects.toThrow(
       SessionNotResumableError,
     );
+
+    // Between turns with nothing owed, a dying process lost nothing; mid-turn, it failed.
+    const done = await start(registry, "Tidy up");
+    const midTurn = await start(registry, "Tidy more");
+    for (const session of [sessions[2], sessions[3]]) {
+      session?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    }
+    sessions[2]?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    for (const session of [sessions[2], sessions[3]]) {
+      session?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+    }
+    expect(store.getSession(done.id)?.status).toBe("exited");
+    expect(store.getSession(midTurn.id)?.status).toBe("failed");
 
     await registry.close();
     expect(sessions[1]?.sent.at(-1)).toEqual({ type: "stop" });
