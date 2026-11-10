@@ -9,6 +9,7 @@ import { Scheduler } from "../../src/chief/scheduler.ts";
 import { appsOf } from "../../src/connectors/access.ts";
 import { ConnectorHub } from "../../src/connectors/hub.ts";
 import { AppRequests } from "../../src/connectors/request-app.ts";
+import { goalTools } from "../../src/goal/tools.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
@@ -128,6 +129,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     resumeWork(team),
     changeWorker(team),
     proposeChange(team),
+    ...goalTools(team),
     handovers.tool(),
     checks.writeChecklistTool(),
     checks.proposeChecksTool(),

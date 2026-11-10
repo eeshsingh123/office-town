@@ -208,7 +208,7 @@ Tests pass.`,
       type: "context.measured",
       payload: { contextTokens: 10, contextWindow: 2000 },
     });
-    const switched = await core.call("PUT", `/tasks/${taskId}/efficient`, { efficient: true });
+    const switched = await core.call("PUT", `/tasks/${taskId}/options`, { efficient: true });
     expect(switched.json.efficient).toBe(true);
     worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
     worker?.emit({ type: "context.measured", payload: { contextTokens: 1700 } });

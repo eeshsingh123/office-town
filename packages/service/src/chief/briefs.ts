@@ -1,4 +1,5 @@
 import { HANDOVER_ASK } from "../agents/briefs.ts";
+import { CHIEF_MILESTONES } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
 
@@ -45,7 +46,9 @@ export function chiefBrief(input: {
   instructions: string | undefined;
   departments: DepartmentView[];
   choices: HarnessChoices[];
+  milestones?: boolean;
 }): Message {
+  const milestones = input.milestones === true ? ` ${CHIEF_MILESTONES}` : "";
   const text = `You are the chief in Office Town, an app where teams of AI agents work on goals for the user. Each department is a team with a lead and workers. You do not do the work yourself: you split the goal into pieces, one per department's part of it, and the departments do them.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -56,7 +59,7 @@ You work in ${input.folder}. You may read every department's workspace, but neve
 The departments:
 ${describeDepartments(input.departments)}
 
-Your first step is to plan. Look around just enough to judge the work, then call the propose_plan tool with the pieces: each for one department, with a brief that stands alone, as the department knows nothing else. Say that a piece waits on another only when it truly needs that one's result; pieces that wait on nothing run at the same time, and a piece for a busy department waits until it is free. A department that is needed but does not exist can be proposed in the plan, with its lead's harness and model from the list below; its lead proposes its team when its piece starts. The user edits and approves the plan, and you get a message when they answer.
+Your first step is to plan. Look around just enough to judge the work, then call the propose_plan tool with the pieces: each for one department, with a brief that stands alone, as the department knows nothing else. Say that a piece waits on another only when it truly needs that one's result; pieces that wait on nothing run at the same time, and a piece for a busy department waits until it is free. A department that is needed but does not exist can be proposed in the plan, with its lead's harness and model from the list below; its lead proposes its team when its piece starts. The user edits and approves the plan, and you get a message when they answer.${milestones}
 
 Harnesses and models for a new department's lead:
 ${describeChoices(input.choices)}

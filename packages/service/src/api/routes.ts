@@ -49,6 +49,8 @@ import { draftChief } from "../drafts/chief.ts";
 import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import type { NameTask } from "../drafts/title.ts";
+import { setMilestonesOn } from "../goal/record.ts";
+import { goalRoutes } from "../goal/routes.ts";
 import { libraryRoutes } from "../library/routes.ts";
 import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
 import type { PriceList } from "../prices/prices.ts";
@@ -133,6 +135,7 @@ export function apiRoutes(
       },
     },
     ...libraryRoutes(store),
+    ...goalRoutes(team),
     ...outputRoutes(team, outputs),
     ...connectorRoutes(store, connectors),
     {
@@ -146,6 +149,7 @@ export function apiRoutes(
         const task = store.createTask(request.prompt, undefined, {
           workspaceId: request.workspaceId,
           ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
+          ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
         });
         const session = await startFirstAgent(store, task.id, () =>
           registry.start({
@@ -153,7 +157,12 @@ export function apiRoutes(
             agentId: agent.id,
             options: sessionOptionsFor(store, agent, folders),
             message: {
-              ...soloMessage(request.prompt, instructionsFor(store, agent), folders.scratch),
+              ...soloMessage(
+                request.prompt,
+                instructionsFor(store, agent),
+                folders.scratch,
+                task.milestones === true,
+              ),
               attachments,
             },
           }),
@@ -175,13 +184,13 @@ export function apiRoutes(
       method: "POST",
       path: "/tasks/chief",
       reply: async ({ body }) => {
-        const { goal, attachments, efficient } = chiefTaskRequestSchema.parse(await body());
-        const detail = await startChiefGoal(
-          team,
-          goal,
-          resolveAttachments(store, attachments),
-          efficient,
+        const { goal, attachments, efficient, milestones } = chiefTaskRequestSchema.parse(
+          await body(),
         );
+        const detail = await startChiefGoal(team, goal, resolveAttachments(store, attachments), {
+          efficient,
+          milestones,
+        });
         const chief = chiefOf(store);
         if (chief !== undefined) nameTask(detail.task.id, chief.settings.harness);
         return { status: 201, json: detail };
@@ -285,12 +294,16 @@ export function apiRoutes(
     },
     {
       method: "PUT",
-      path: "/tasks/:id/efficient",
-      // Taken at the next size check; a handover already under way finishes (D-94).
+      path: "/tasks/:id/options",
+      // Efficient is taken at the next size check, and a handover under way finishes (D-94).
+      // Milestones reach each agent at its next start, as an AI app reads its tools once.
       reply: async ({ param, body }) => {
-        const { efficient } = taskModeRequestSchema.parse(await body());
-        if (store.getTask(param("id")) === undefined) throw new RecordNotFoundError("task");
-        return { status: 200, json: setEfficient(store, param("id"), efficient) };
+        const { efficient, milestones } = taskModeRequestSchema.parse(await body());
+        const taskId = param("id");
+        if (store.getTask(taskId) === undefined) throw new RecordNotFoundError("task");
+        if (efficient !== undefined) setEfficient(store, taskId, efficient);
+        if (milestones !== undefined) setMilestonesOn(store, taskId, milestones);
+        return { status: 200, json: store.getTask(taskId) };
       },
     },
     {
@@ -660,10 +673,13 @@ export function apiRoutes(
     },
     {
       method: "PUT",
-      path: "/efficient-default",
+      path: "/task-defaults",
       reply: async ({ body }) => {
-        const { efficient } = taskModeRequestSchema.parse(await body());
-        store.saveSettings({ efficientByDefault: efficient });
+        const { efficient, milestones } = taskModeRequestSchema.parse(await body());
+        store.saveSettings({
+          ...(efficient === undefined ? {} : { efficientByDefault: efficient }),
+          ...(milestones === undefined ? {} : { milestonesByDefault: milestones }),
+        });
         return { status: 204 };
       },
     },

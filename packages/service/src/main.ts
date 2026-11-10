@@ -24,6 +24,7 @@ import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
+import { goalTools } from "./goal/tools.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
@@ -135,6 +136,7 @@ toolServer.offer([
   resumeWork(team),
   changeWorker(team),
   proposeChange(team),
+  ...goalTools(team),
   handovers.tool(),
   checks.writeChecklistTool(),
   checks.proposeChecksTool(),

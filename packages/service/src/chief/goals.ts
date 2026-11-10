@@ -72,6 +72,7 @@ async function startChief(
           instructions: instructionsFor(store, chief),
           departments: departmentViews(store),
           choices: await harnessChoices(context, options.environment),
+          milestones: task.milestones === true,
         }),
         attachments: store.taskAttachments(taskId),
       },
@@ -85,7 +86,7 @@ export async function startChiefGoal(
   context: TeamContext,
   goal: string,
   attachments: Attachment[] = [],
-  efficient?: boolean,
+  modes: { efficient?: boolean | undefined; milestones?: boolean | undefined } = {},
 ): Promise<TaskDetail> {
   const { store } = context;
   const chief = chiefOf(store);
@@ -99,7 +100,8 @@ export async function startChiefGoal(
     { leadAgentId: chief.id },
     {
       ...(waits ? { queued: true } : {}),
-      ...(efficient === undefined ? {} : { efficient }),
+      ...(modes.efficient === undefined ? {} : { efficient: modes.efficient }),
+      ...(modes.milestones === undefined ? {} : { milestones: modes.milestones }),
     },
   );
   store.linkAttachments(

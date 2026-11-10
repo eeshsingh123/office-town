@@ -1,4 +1,5 @@
 import type { AgentRecord, ConnectorPermission, ConnectorRecord } from "@office-town/contract";
+import { SOLO_MILESTONES } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { SCRATCH_ASK } from "../task-folders.ts";
@@ -48,8 +49,16 @@ export function soloMessage(
   prompt: string,
   instructions: string | undefined,
   scratch = false,
+  milestones = false,
 ): Message {
-  const asks = [...(scratch ? [SCRATCH_ASK] : []), PLAN_ASK, SHOW_ASK, CHECKLIST_ASK, HANDOVER_ASK];
+  const asks = [
+    ...(milestones ? [SOLO_MILESTONES] : []),
+    ...(scratch ? [SCRATCH_ASK] : []),
+    PLAN_ASK,
+    SHOW_ASK,
+    CHECKLIST_ASK,
+    HANDOVER_ASK,
+  ];
   const task = `Your task:\n${prompt}\n\n${asks.join(" ")}`;
   if (instructions === undefined) {
     return { text: task, origin: { kind: "brief", summary: "The task, then its checklist" } };

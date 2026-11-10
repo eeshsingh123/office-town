@@ -10,6 +10,8 @@ import { z } from "zod";
 import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
 import { readOnlyFoldersOfTask } from "../chief/piece-folders.ts";
+import { partBrief } from "../goal/briefs.ts";
+import { goalMilestones, milestonesOn } from "../goal/record.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import { SessionNotRunningError } from "../registry/session-registry.ts";
 import { FolderNotFoundError } from "../task-folders.ts";
@@ -179,12 +181,35 @@ export function delegate(context: TeamContext) {
         .array(z.string().min(1))
         .optional()
         .describe("Files from your list to pass on, each by its exact path or name."),
+      title: z
+        .string()
+        .trim()
+        .min(1)
+        .optional()
+        .describe("With milestones on: the part's name in a few plain words."),
+      milestones: z
+        .array(
+          z.object({
+            outcome: z.string().trim().min(1).describe("What the user gets, in plain words."),
+            see: z.string().trim().min(1).describe("How the user would see it."),
+          }),
+        )
+        .optional()
+        .describe("With milestones on: what this part gives the user, at least one."),
     }),
     offeredTo: isLead(context),
-    async call({ agent, brief, files = [] }, caller) {
+    async call({ agent, brief, files = [], title, milestones: asked = [] }, caller) {
       const team = teamOf(context, caller);
       if (team === undefined) throw new ToolError(NOT_YET);
       const attachments = filesToPass(context, caller, files);
+      const milestones = milestonesOn(store, caller.taskId) ? asked : [];
+      // Only once the lead keeps milestones: a lead that started before they were on has no word of them.
+      const keeping = milestones === asked && goalMilestones(store, caller.taskId).length > 0;
+      if (keeping && milestones.length === 0) {
+        throw new ToolError(
+          "Milestones are on: give the part at least one milestone, and a title.",
+        );
+      }
       const worker = team.workers.find((member) => member.name === agent);
       if (worker === undefined) {
         const names = team.workers.map((member) => member.name).join(", ") || "none yet";
@@ -195,19 +220,41 @@ export function delegate(context: TeamContext) {
       if (!here && busyAgents(store, [worker.id]).length > 0) {
         throw new ToolError(`${worker.name} is busy on another task. Try again once it is free.`);
       }
-      if (earlier !== undefined && store.workingDelegation(earlier.id) !== undefined) {
-        return queueForWorker(context, team, earlier, worker, brief, attachments);
+      // Written first, so the worker reads them by the names it reports them with.
+      const written = milestones.map((text) =>
+        store.createMilestone({ taskId: caller.taskId, ...text, origin: "agent" }),
+      );
+      const work = partBrief(brief, written);
+      const working = earlier === undefined ? undefined : store.workingDelegation(earlier.id);
+      if (earlier !== undefined && working !== undefined) {
+        store.assignMilestones(
+          written.map((one) => one.id),
+          working.id,
+        );
+        return queueForWorker(context, team, earlier, worker, work, attachments);
       }
-      const session = await startWork(context, team, caller, worker, brief, attachments);
+      let session: SessionRecord;
+      try {
+        session = await startWork(context, team, caller, worker, work, attachments);
+      } catch (error) {
+        for (const one of written) store.removeMilestone(one.id);
+        throw error;
+      }
       if (!isOpen(session)) {
+        for (const one of written) store.removeMilestone(one.id);
         throw new ToolError(`${worker.name} could not start. Its trace says why.`);
       }
-      store.createDelegation({
+      const part = store.createDelegation({
         taskId: caller.taskId,
         workerAgentId: worker.id,
         workerSessionId: session.id,
         brief,
+        title,
       });
+      store.assignMilestones(
+        written.map((one) => one.id),
+        part.id,
+      );
       return `Delegated to ${worker.name} (${worker.role ?? "worker"}). Its result will reach you as a message when it finishes.`;
     },
   });
