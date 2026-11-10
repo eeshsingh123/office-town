@@ -202,13 +202,11 @@ export function delegate(context: TeamContext) {
       const team = teamOf(context, caller);
       if (team === undefined) throw new ToolError(NOT_YET);
       const attachments = filesToPass(context, caller, files);
-      const milestones = milestonesOn(store, caller.taskId) ? asked : [];
+      const on = milestonesOn(store, caller.taskId);
+      const milestones = on ? asked : [];
       // Only once the lead keeps milestones: a lead that started before they were on has no word of them.
-      const keeping = milestones === asked && goalMilestones(store, caller.taskId).length > 0;
-      if (keeping && milestones.length === 0) {
-        throw new ToolError(
-          "Milestones are on: give the part at least one milestone, and a title.",
-        );
+      if (on && milestones.length === 0 && goalMilestones(store, caller.taskId).length > 0) {
+        throw new ToolError("Milestones are on: give the part at least one milestone.");
       }
       const worker = team.workers.find((member) => member.name === agent);
       if (worker === undefined) {
@@ -225,23 +223,32 @@ export function delegate(context: TeamContext) {
         store.createMilestone({ taskId: caller.taskId, ...text, origin: "agent" }),
       );
       const work = partBrief(brief, written);
+      // Work that never reached the worker leaves no milestones behind.
+      const unwrite = () => {
+        for (const one of written) store.removeMilestone(one.id);
+      };
       const working = earlier === undefined ? undefined : store.workingDelegation(earlier.id);
       if (earlier !== undefined && working !== undefined) {
         store.assignMilestones(
           written.map((one) => one.id),
           working.id,
         );
-        return queueForWorker(context, team, earlier, worker, work, attachments);
+        try {
+          return await queueForWorker(context, team, earlier, worker, work, attachments);
+        } catch (error) {
+          unwrite();
+          throw error;
+        }
       }
       let session: SessionRecord;
       try {
         session = await startWork(context, team, caller, worker, work, attachments);
       } catch (error) {
-        for (const one of written) store.removeMilestone(one.id);
+        unwrite();
         throw error;
       }
       if (!isOpen(session)) {
-        for (const one of written) store.removeMilestone(one.id);
+        unwrite();
         throw new ToolError(`${worker.name} could not start. Its trace says why.`);
       }
       const part = store.createDelegation({

@@ -1,4 +1,5 @@
 import type {
+  DelegationRecord,
   MilestoneRecord,
   MilestoneText,
   SessionEvent,
@@ -6,43 +7,62 @@ import type {
 } from "@office-town/contract";
 import { isChiefTask } from "../chief/chief.ts";
 import type { Message } from "../registry/session-registry.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { deliver, noteLead } from "../team/direct-message.ts";
 import { latestSession } from "../team/lead.ts";
-import type { TeamContext } from "../team/members.ts";
-import { TeamError } from "../team/members.ts";
-
-const PAST: Record<Edit, string> = { added: "added", changed: "changed", removed: "removed" };
-
+import { type TeamContext, TeamError } from "../team/members.ts";
 import { LEAD_CHECKS, leadMilestones, SOLO_MILESTONES } from "./briefs.ts";
 import { goalMilestones, milestoneLines, milestonesOn, ownsGoal } from "./record.ts";
 
 type Edit = "added" | "changed" | "removed";
 
+interface Owner {
+  agentId: string;
+  // The worker of the part at work, which has the change itself.
+  worker: boolean;
+  // The milestone's part, at work or ended.
+  part: DelegationRecord | undefined;
+}
+
 // Who acts on a change: the worker while its part is at work, else whoever owns the goal.
 function ownerOf(
   { store }: TeamContext,
   milestone: Pick<MilestoneRecord, "taskId" | "delegationId" | "pieceId">,
-): { agentId: string; worker: boolean } | undefined {
+): Owner | undefined {
   const task = store.getTask(milestone.taskId);
   if (task === undefined) return undefined;
   const part =
     milestone.delegationId === undefined
       ? undefined
       : store.listDelegations(task.id).find((one) => one.id === milestone.delegationId);
-  if (part?.status === "working") return { agentId: part.workerAgentId, worker: true };
+  if (part?.status === "working") return { agentId: part.workerAgentId, worker: true, part };
   // A chief's piece not started yet: its department's lead reads them in its brief.
   if (isChiefTask(store, task.id)) return undefined;
   const top = task.leadAgentId ?? store.listSessions(task.id)[0]?.agentId;
-  return top === undefined ? undefined : { agentId: top, worker: false };
+  return top === undefined ? undefined : { agentId: top, worker: false, part };
 }
 
-function editText(edit: Edit, milestone: MilestoneRecord, where: string): string {
+function partName(store: Store, part: DelegationRecord): string {
+  const worker = store.getAgent(part.workerAgentId)?.name ?? "a worker";
+  return part.title === undefined ? `${worker}'s part` : `${worker}'s part "${part.title}"`;
+}
+
+// Only a part's worker reports its milestones, so a lead told of an ended part may send it back.
+function editText(store: Store, edit: Edit, milestone: MilestoneRecord, owner: Owner): string {
+  const ended = !owner.worker && owner.part !== undefined;
+  const where = owner.worker
+    ? "your part"
+    : owner.part === undefined
+      ? "the goal"
+      : partName(store, owner.part);
   if (edit === "removed") {
     return `The user removed milestone ${milestone.key} from ${where}: "${milestone.outcome}". It no longer counts.`;
   }
   const verb = edit === "added" ? "added a milestone to" : `changed milestone ${milestone.key} of`;
-  return `The user ${verb} ${where}. In their words:\n${milestoneLines([milestone])}\nWork it into what you do; report it with report_milestone like the others.`;
+  const next = ended
+    ? `That part has ended. If this matters, send it back with send_back, naming ${milestone.key}; otherwise carry on.`
+    : "Work it into what you do; report it with report_milestone like the others.";
+  return `The user ${verb} ${where}. In their words:\n${milestoneLines([milestone])}\n${next}`;
 }
 
 // Stored at once; the agent gets the exact words at its next tool end (D-77, D-83).
@@ -120,17 +140,17 @@ export class MilestoneEdits {
     const owner = ownerOf(this.#context, milestone);
     if (owner === undefined) return;
     await this.#send(milestone.taskId, owner.agentId, {
-      text: editText(edit, milestone, owner.worker ? "your part" : "the goal"),
-      origin: { kind: "milestones", summary: `The user ${PAST[edit]} a milestone` },
+      text: editText(store, edit, milestone, owner),
+      origin: { kind: "milestones", summary: `The user ${edit} a milestone` },
     });
     const worker = owner.worker ? store.getAgent(owner.agentId) : undefined;
     if (worker === undefined) return;
-    // The worker has the change already, so the lead only reads one line (owner).
+    // The worker is told the change itself, so the lead only reads one line (owner).
     await noteLead(
       this.#context,
       worker,
       milestone.taskId,
-      `The user ${PAST[edit]} milestone ${milestone.key} of ${worker.name}'s part: "${milestone.outcome}". ${worker.name} has it.`,
+      `The user ${edit} milestone ${milestone.key} of ${worker.name}'s part: "${milestone.outcome}". ${worker.name} is told.`,
       `The user changed ${worker.name}'s part`,
     );
   }
