@@ -20,6 +20,8 @@ import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { departmentMenu } from "../departments/department-menu.tsx";
+import { fraction, type ShownStatus } from "../task/goal-progress.ts";
+import { MiniBar, Segments } from "../task/Milestones.tsx";
 import { useYou } from "../you/you.ts";
 import { agentMenu } from "./agent-menu.tsx";
 import { Character } from "./Character.tsx";
@@ -59,6 +61,8 @@ export interface FloorAgent {
   tokens?: number;
   // By name, to group a selection.
   group: string;
+  // Its part's milestones, or the goal's at the lead's desk (D-95).
+  part?: ShownStatus[];
 }
 
 // From the agent's centre to the top of its token count.
@@ -71,6 +75,8 @@ export interface RoomSign {
   lines: string[];
   // What the room's current or last goal used, in all and per AI app.
   usage?: { apps: { name: string; tokens: number }[]; total: number };
+  // One segment per milestone of its goal, filling as each is met (D-95).
+  progress?: { statuses: ShownStatus[]; label: string };
 }
 
 interface Seated {
@@ -82,6 +88,7 @@ interface Seated {
   position: Point;
   bubble?: string;
   tokens?: number;
+  part?: ShownStatus[];
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
   detail: string;
@@ -247,7 +254,7 @@ function seatedOf(
     move === undefined || !contains(move.from, position)
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
-  const seated = agents.map(({ agent, state, position, harness, bubble, tokens }) => ({
+  const seated = agents.map(({ agent, state, position, harness, bubble, tokens, part }) => ({
     id: agent.id,
     name: agent.name,
     colour: agent.colour,
@@ -257,6 +264,7 @@ function seatedOf(
     detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
     ...(bubble === undefined ? {} : { bubble }),
     ...(tokens === undefined ? {} : { tokens }),
+    ...(part === undefined ? {} : { part }),
   }));
   const office = rooms.find((room) => room.kind === "chief")?.seats[0];
   if (chief === undefined || office === undefined || seated.some(({ id }) => id === chief.id)) {
@@ -589,11 +597,18 @@ export function Floor(props: FloorProps) {
             ) : (
               <span className={styles.sign}>{label}</span>
             )}
-            {sign === undefined || sign.lines.length === 0 ? null : (
+            {sign === undefined ||
+            (sign.lines.length === 0 && sign.progress === undefined) ? null : (
               <div className={styles.roomLines}>
                 {sign.lines.map((line) => (
                   <span key={line}>{line}</span>
                 ))}
+                {sign.progress === undefined ? null : (
+                  <span className={styles.roomProgress}>
+                    <Segments statuses={sign.progress.statuses} />
+                    <span className={styles.roomCount}>{sign.progress.label}</span>
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -685,7 +700,7 @@ export function Floor(props: FloorProps) {
           </>
         )}
       </button>
-      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail }) => {
+      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail, part }) => {
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
@@ -745,6 +760,12 @@ export function Floor(props: FloorProps) {
                     <span className={styles.nameTag}>
                       {name}
                       {finished ? ` · ${STATE_LABELS[state].toLowerCase()}` : ""}
+                      {part === undefined ? null : (
+                        <span className={styles.partCount}>
+                          <MiniBar statuses={part} />
+                          {fraction(part)}
+                        </span>
+                      )}
                     </span>
                   </button>
                 </Tooltip.Trigger>

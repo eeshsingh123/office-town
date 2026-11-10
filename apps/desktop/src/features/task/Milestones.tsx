@@ -13,18 +13,8 @@ import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { showToast } from "../../ui/Toast.tsx";
+import type { ShownStatus } from "./goal-progress.ts";
 import styles from "./Progress.module.css";
-
-// Shown, never stored: a part's milestone while the part is at work, or one its owner left
-// without a word once it finished.
-export type ShownStatus = "met" | "notMet" | "doing" | "todo" | "unreported";
-
-export function shownStatus(milestone: MilestoneRecord, working: boolean, finished: boolean) {
-  if (milestone.status === "met") return "met";
-  if (milestone.status === "not_met") return "notMet";
-  if (working) return "doing";
-  return finished ? "unreported" : "todo";
-}
 
 function StatusIcon({ status }: { status: ShownStatus }) {
   if (status === "met") return <CircleCheck size={15} className={styles.ok} aria-label="Met" />;

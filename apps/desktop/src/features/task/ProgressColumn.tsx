@@ -12,14 +12,8 @@ import { Button } from "../../ui/Button.tsx";
 import { type PaneSize, paneFlag, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { showToast } from "../../ui/Toast.tsx";
-import {
-  AddMilestone,
-  MilestoneList,
-  MiniBar,
-  Segments,
-  type ShownStatus,
-  shownStatus,
-} from "./Milestones.tsx";
+import { type ShownStatus, shownStatus } from "./goal-progress.ts";
+import { AddMilestone, MilestoneList, MiniBar, Segments } from "./Milestones.tsx";
 import styles from "./Progress.module.css";
 import { StepList } from "./ProgressSteps.tsx";
 import task from "./TaskView.module.css";

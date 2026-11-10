@@ -2,6 +2,7 @@ import type {
   AgentRecord,
   Change,
   DelegationRecord,
+  MilestoneRecord,
   PlanPiece,
   RoomPosition,
   TaskSearch,
@@ -131,9 +132,10 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
       ...connectors.flatMap((connector) => connector.audience.agentIds),
     ].filter((id) => !standing.has(id)),
   );
-  const [delegations, pieces, more] = await Promise.all([
+  const [delegations, pieces, milestones, more] = await Promise.all([
     readDelegations(tasks),
     readPlans(tasks, settings.chiefAgentId),
+    readMilestones(tasks),
     fetchAgents([...named]),
   ]);
   useApp.setState((state) => ({
@@ -155,6 +157,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     departments: byId(departments),
     delegations: byId(delegations),
     pieces: byId(pieces),
+    milestones: byId(milestones),
     limits: Object.fromEntries(limits.map((account) => [account.accountId, account])),
     accounts,
     library: byId(library),
@@ -174,6 +177,18 @@ async function readDelegations(tasks: readonly TaskSummary[]): Promise<Delegatio
   const teams = tasks.filter((task) => task.leadAgentId !== undefined && task.state !== "ended");
   const ids = [...new Set(teams.map((task) => task.id))];
   return (await Promise.all(ids.map(api.listDelegations))).flat();
+}
+
+// The floor shows the goals at work; an ended one's are read when it is opened (D-95).
+async function readMilestones(tasks: readonly TaskSummary[]): Promise<MilestoneRecord[]> {
+  const ids = [
+    ...new Set(
+      tasks
+        .filter((task) => task.milestones === true && task.state !== "ended")
+        .map((task) => task.id),
+    ),
+  ];
+  return (await Promise.all(ids.map(api.listMilestones))).flat();
 }
 
 // An ended goal has no piece left to run.

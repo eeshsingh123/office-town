@@ -177,6 +177,37 @@
   color: var(--text-2);
 }
 
+/* The goal's milestones under its name, one segment each (D-95). */
+.roomProgress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.roomProgress > :first-child {
+  flex: 1;
+  max-width: 220px;
+}
+
+.roomCount {
+  flex: none;
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.partCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 6px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
 .desk {
   position: absolute;
   border: 1px solid var(--desk-line);
