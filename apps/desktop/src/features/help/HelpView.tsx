@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
+import page from "../../ui/CardPage.module.css";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
@@ -14,8 +15,8 @@ const RECENT_RELEASES = 3;
 function Tutorials() {
   const state = useApp();
   return (
-    <section className={styles.card} aria-labelledby="help-tutorials">
-      <h2 id="help-tutorials" className={styles.cardTitle}>
+    <section className={page.card} aria-labelledby="help-tutorials">
+      <h2 id="help-tutorials" className={page.cardTitle}>
         Tutorials
       </h2>
       <ul className={styles.list}>
@@ -54,9 +55,9 @@ function WhatsNew() {
   const [showAll, setShowAll] = useState(false);
   const earlier = RELEASES.length - RECENT_RELEASES;
   return (
-    <section className={styles.card} aria-labelledby="help-new">
+    <section className={page.card} aria-labelledby="help-new">
       <div className={styles.cardHead}>
-        <h2 id="help-new" className={styles.cardTitle}>
+        <h2 id="help-new" className={page.cardTitle}>
           What's new
         </h2>
         {version === undefined ? null : <span className={styles.version}>Version {version}</span>}
@@ -81,10 +82,10 @@ function WhatsNew() {
 
 export function HelpView() {
   return (
-    <section className={styles.page} aria-labelledby="help-title">
-      <div className={styles.column}>
-        <div className={styles.head}>
-          <h1 id="help-title" className={styles.title}>
+    <section className={page.page} aria-labelledby="help-title">
+      <div className={page.column}>
+        <div className={page.head}>
+          <h1 id="help-title" className={page.title}>
             Help
           </h1>
           <Button onClick={() => void saveOnboarding({ setupDone: false })}>Run setup again</Button>

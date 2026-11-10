@@ -38,6 +38,7 @@ export const RELEASES: Release[] = [
       "The office floor shows each department's progress, and each desk shows its person's part",
       "The chief's plan lists each part's milestones, and you can edit them before you approve",
       "Settings is a new page above Help. Display and the defaults for new tasks moved there",
+      "An agent whose AI app closes after its work is done now shows as done, not failed",
     ],
   },
   {

@@ -46,9 +46,10 @@ export function useParts(taskId: string): DelegationRecord[] {
     const parts = Object.values(all)
       .filter((delegation) => delegation.taskId === taskId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    // A retry carries the same part on in a new session (D-77): the latest one stands for it.
+    // A retry ends the failed part and carries it on in a new one (D-77): that one stands for it.
     return parts.filter(
       (part, index) =>
+        part.status !== "failed" ||
         !parts
           .slice(index + 1)
           .some(

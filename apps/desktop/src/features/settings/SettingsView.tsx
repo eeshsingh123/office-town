@@ -1,8 +1,8 @@
 import type { Display } from "@office-town/contract";
 import { useApp } from "../../store/app-store.ts";
+import page from "../../ui/CardPage.module.css";
 import form from "../../ui/Form.module.css";
 import { SwitchRow } from "../../ui/Switch.tsx";
-import page from "../help/Help.module.css";
 import { saveDisplay } from "../onboarding/onboarding.ts";
 import { saveTaskDefault, TASK_OPTIONS, useTaskDefaults } from "../task/task-options.ts";
 import styles from "./Settings.module.css";
@@ -49,8 +49,8 @@ function DisplaySettings() {
       <h2 id="settings-display" className={page.cardTitle}>
         Display
       </h2>
-      <fieldset className={page.sizes}>
-        <legend className={page.legend}>Text size</legend>
+      <fieldset className={styles.sizes}>
+        <legend className={styles.legend}>Text size</legend>
         {TEXT_SIZES.map((option) => (
           <button
             key={option}
@@ -64,7 +64,7 @@ function DisplaySettings() {
         ))}
       </fieldset>
       {toggles.map(({ key, label }) => (
-        <label key={key} className={page.toggle}>
+        <label key={key} className={styles.toggle}>
           <input
             type="checkbox"
             checked={key === "announceRequests" ? display[key] !== false : display[key] === true}
