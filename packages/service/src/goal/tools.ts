@@ -203,6 +203,19 @@ export class SendBacks {
     return this.#send(caller, part, named, note);
   }
 
+  // Why the part's worker cannot take it back now, if it cannot.
+  #notFree(caller: Caller, part: DelegationRecord): string | undefined {
+    const { store } = this.#context;
+    const team = teamOf(this.#context, caller);
+    const worker = team?.workers.find((member) => member.id === part.workerAgentId);
+    if (team === undefined || worker === undefined) return NOT_YET;
+    const earlier = store.listSessions(caller.taskId).findLast((one) => one.agentId === worker.id);
+    if (earlier !== undefined && store.workingDelegation(earlier.id) !== undefined) {
+      return `${worker.name} is on another part. Send this back once that one ends.`;
+    }
+    return undefined;
+  }
+
   async #send(
     caller: Caller,
     part: DelegationRecord,
@@ -210,13 +223,11 @@ export class SendBacks {
     note: string,
   ): Promise<string> {
     const { store } = this.#context;
+    const notFree = this.#notFree(caller, part);
+    if (notFree !== undefined) throw new ToolError(notFree);
     const team = teamOf(this.#context, caller);
     const worker = team?.workers.find((member) => member.id === part.workerAgentId);
     if (team === undefined || worker === undefined) throw new ToolError(NOT_YET);
-    const earlier = store.listSessions(caller.taskId).findLast((one) => one.agentId === worker.id);
-    if (earlier !== undefined && store.workingDelegation(earlier.id) !== undefined) {
-      throw new ToolError(`${worker.name} is on another part. Send this back once that one ends.`);
-    }
     const round = (part.sendBacks?.length ?? 0) + 1;
     const work = `${team.lead.name} sent your part back (${round} of ${sendBackLimit(part)}): ${note}
 
@@ -292,12 +303,23 @@ Work on these only. Report each one again with report_milestone, then end with a
   ): string {
     const [answer] = selected;
     if (selected.length === 1 && answer === ONCE_MORE) {
-      this.#context.store.raiseSendBackLimit(part.id);
-      const raised = this.#context.store
-        .listDelegations(caller.taskId)
-        .find((one) => one.id === part.id);
-      this.#send(caller, raised ?? part, failing, note).catch((error: unknown) => {
-        console.error(`Could not send ${name} back.`, error);
+      const { store, registry } = this.#context;
+      // The user's word stands even when the worker cannot take it now, so the lead can retry.
+      const raised = store.raiseSendBackLimit(part.id);
+      const notFree = this.#notFree(caller, raised);
+      if (notFree !== undefined) {
+        return `The user allowed ${name} to go back once more, but it was not sent: ${notFree}`;
+      }
+      this.#send(caller, raised, failing, note).catch((error: unknown) => {
+        const why = error instanceof ToolError ? error.message : "It could not start.";
+        registry
+          .tell(caller.sessionId, {
+            text: `${name} was not sent back after all: ${why} The user allowed one more, so you may call send_back again.`,
+            origin: { kind: "notice", summary: `${name} was not sent back` },
+          })
+          .catch((tellError: unknown) => {
+            console.error(`Could not tell the lead that ${name} was not sent back.`, tellError);
+          });
       });
       return `The user sent ${name} back once more, with your note. Its result will reach you as a message.`;
     }

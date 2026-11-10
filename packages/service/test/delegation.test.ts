@@ -215,6 +215,12 @@ Tests pass.`,
     expect(resumed?.sent.at(-1)).toMatchObject({
       text: expect.stringContaining("accepted"),
     });
+
+    // A part sent back after it was accepted is no longer accepted.
+    await core.callTool(resumed, "send_back", { agent: writer, milestones: ["M2"], note: "Wrong" });
+    const reopened = core.store.listDelegations(task.taskId).find((one) => one.id === done?.id);
+    expect(reopened).toMatchObject({ status: "working", sendBacks: [{ note: "Wrong" }] });
+    expect(reopened?.accepted).toBeUndefined();
   });
 
   it("carries a lead and a worker on in a new session with a complete handover: One place suggests it, Efficient asks mid-turn, the piece and its result stay whole, and an agent's own ask waits for the user", async () => {

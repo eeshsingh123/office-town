@@ -313,7 +313,7 @@ export interface Store {
   endDelegation(id: string, status: DelegationEnd, result?: string): void;
   // The same piece, carried on by the worker's new session (D-94).
   moveDelegation(id: string, workerSessionId: string): DelegationRecord;
-  // The same part at work again, after its lead sent it back.
+  // The same part at work again, after its lead sent it back; it is no longer accepted.
   reopenDelegation(id: string, workerSessionId: string, sendBack: SendBack): DelegationRecord;
   raiseSendBackLimit(id: string): DelegationRecord;
   setDelegationAccepted(id: string, accepted: "new" | "seen"): DelegationRecord;

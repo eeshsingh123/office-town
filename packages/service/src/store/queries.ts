@@ -258,7 +258,7 @@ export const queries = {
     VALUES (?, ?, ?, ?, ?, 'working', ?, ?)`,
   reopenDelegation: `
     UPDATE delegations SET status = 'working', result = NULL, ended_at = NULL,
-      worker_session = ?, send_backs = ?
+      worker_session = ?, send_backs = ?, accepted = NULL
     WHERE ref = ?`,
   setPart: "UPDATE delegations SET title = ?, send_backs = ?, send_back_limit = ? WHERE ref = ?",
   setDelegationAccepted: "UPDATE delegations SET accepted = ? WHERE ref = ?",
