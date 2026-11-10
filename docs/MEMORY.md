@@ -6,13 +6,17 @@ Last updated: 2026-11-10
 
 - Built and merged to `main`: M1 to M10, the feedback and optimization rounds, and the performance phase (PR #83). MODULES.md lists what each built.
 - Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
-- Next: Phase 2 C, milestones and one live Progress view, on `feat/goal-record`. Discussion is done and the mockup is published (link in `docs/briefs/C-goal-progress.md`). The owner agreed all 7 mockup questions; ready to build. C fills the handover's `progress` and `steps`, so keep the handover's fields.
+- Phase 2 C, Milestones (D-95), built on `feat/goal-record`, PR open. Live smoke: one team task on OpenCode's free model with Milestones on (lead wrote 3, both parts accepted at once, a user edit showed has it, the floor and Progress updated live).
+- Next: the public release steps in MODULES.md, on the owner's go-ahead.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex, Copilot, Cursor and Muse are installed there, not signed in, so their live runs wait for the owner.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
 
+- D-95 send-back live (the flow test covers it): a lead's `send_back` twice, then a third should put a question in Needs you with the tries; Send back once more should start the worker again, Accept as is should tell the lead. Wrong if a third send-back reaches the worker.
+- D-95 chief: a goal to the chief with Milestones on should show each piece's milestones on the plan card, editable; once a piece starts, they should be its department's goal milestones in Progress. The checker started on a Milestones task should list them first, marked from the lead. A handover on a Milestones task should carry progress and steps from the record.
+- D-95 Milestones turned on mid-task: the run card says it applies at each agent's next start; a lead resumed after an idle stop should be told to write them. A Claude lead or worker (only OpenCode ran live), and "has it" on Codex or Muse (`turn/steer` may start no new turn, so it could stay at Telling).
 - D-94 on Claude, Codex or Muse (only OpenCode ran live): start an Efficient task with the core on `--hand-over-at 5000` and a multi-step prompt. It should be asked mid-turn, call `hand_over` and go on in a new session; wrong if asked only at the turn's end, or never.
 - D-94 in a live team: a worker past the size should go on with the same piece and the lead get one result; wrong if the lead hears "finished" for the old session. A lead or chief should go on with workers' results reaching the new session (tested on fakes only).
 - D-94 without `--hand-over-at` on OpenCode's free model (200k window): a worker past about 160k should be asked before OpenCode compacts at 170k. A Claude worker whose background sub-agent is running: the switch should happen once the sub-agent ends, not at the idle stop.
