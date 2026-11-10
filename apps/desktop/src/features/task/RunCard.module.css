@@ -242,6 +242,37 @@
   color: var(--text-3);
 }
 
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.optionsLabel {
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.settingsLink {
+  align-self: flex-start;
+  margin: -4px -6px 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: var(--size-small);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.settingsLink:hover {
+  background: var(--hover);
+}
+
 /* Last, so it overrides the narrow layout above. */
 @container trace (min-width: 1120px) {
   .run {

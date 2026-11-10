@@ -288,8 +288,17 @@ export const api = {
     write("PUT", `/tasks/${id(taskId)}/efficient`, { efficient }, taskRecordSchema),
   markReviewed: (taskId: string): Promise<TaskRecord> =>
     write("POST", `/tasks/${id(taskId)}/reviewed`, undefined, taskRecordSchema),
-  startChiefTask: (goal: string, attachments?: string[]): Promise<TaskDetail> =>
-    write("POST", "/tasks/chief", { goal, ...withFiles(attachments) }, taskDetailSchema),
+  startChiefTask: (
+    goal: string,
+    attachments?: string[],
+    options?: { efficient?: boolean },
+  ): Promise<TaskDetail> =>
+    write(
+      "POST",
+      "/tasks/chief",
+      { goal, ...withFiles(attachments), ...options },
+      taskDetailSchema,
+    ),
   getPlan: (taskId: string): Promise<PlanPiece[]> =>
     read(`/tasks/${id(taskId)}/plan`, listOf(planPieceSchema)),
   getChief: (): Promise<AgentRecord> => read("/chief", agentRecordSchema),

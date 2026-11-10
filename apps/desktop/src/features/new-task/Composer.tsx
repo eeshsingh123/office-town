@@ -34,6 +34,7 @@ import { useChief } from "../chief/use-chief.ts";
 import { keptLevel } from "../departments/team-form.ts";
 import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
+import { type TaskOptions, useTaskDefaults } from "../task/task-options.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { AskChip } from "./AskChip.tsx";
 import styles from "./Composer.module.css";
@@ -47,6 +48,7 @@ import {
 import { DepartmentWorkspaceChip } from "./DepartmentWorkspaceChip.tsx";
 import { GoesToChip, targetIcon } from "./GoesToChip.tsx";
 import { ModelChip } from "./ModelChip.tsx";
+import { OptionsChip } from "./OptionsChip.tsx";
 import { Suggestions } from "./Suggestions.tsx";
 import { CHIEF, type Mention, mentionAt, PROPOSE, SOLO, withoutMention } from "./targets.ts";
 import { useBusyDepartments } from "./use-targets.ts";
@@ -127,6 +129,13 @@ export function Composer({ home = false }: ComposerProps) {
     `${DRAFT}.departmentWorkspaceId`,
     undefined,
   );
+  // Only what the user changed for this task; the rest follows Settings.
+  const [changedOptions, setChangedOptions] = useDraft<Partial<TaskOptions>>(
+    `${DRAFT}.options`,
+    {},
+  );
+  const defaults = useTaskDefaults();
+  const options: TaskOptions = { ...defaults, ...changedOptions };
   const [mention, setMention] = useState<Mention>();
   const [highlight, setHighlight] = useState(0);
   const [starting, setStarting] = useState(false);
@@ -243,7 +252,7 @@ export function Composer({ home = false }: ComposerProps) {
       };
       if (target === CHIEF) {
         if (chief === undefined) return;
-        const { task } = await api.startChiefTask(goal, attached.ids);
+        const { task } = await api.startChiefTask(goal, attached.ids, options);
         keep();
         await track(task.id);
         selectAgent(chief.record.id);
@@ -267,6 +276,7 @@ export function Composer({ home = false }: ComposerProps) {
               goal,
               team: { departmentId: department.id, workspaceId: goalWorkspaceId },
               ...files,
+              ...options,
             })
           : workspace === undefined
             ? undefined
@@ -275,6 +285,7 @@ export function Composer({ home = false }: ComposerProps) {
                   goal,
                   team: { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy },
                   ...files,
+                  ...options,
                 })
               : await api.startTask({
                   prompt: goal,
@@ -282,6 +293,7 @@ export function Composer({ home = false }: ComposerProps) {
                   autonomy: soloAutonomy,
                   workspaceId: workspace.id,
                   ...files,
+                  ...options,
                 });
       if (session === undefined) return;
       keep();
@@ -607,6 +619,10 @@ export function Composer({ home = false }: ComposerProps) {
                 <span className={styles.chipText}>{AUTONOMY[department.autonomy].short}</span>
               </span>
             ) : null}
+            <OptionsChip
+              value={options}
+              onChange={(key, on) => setChangedOptions({ ...changedOptions, [key]: on })}
+            />
           </div>
           <Button variant="primary" className={styles.start} disabled={!ready} onClick={start}>
             {starting ? "Starting…" : "Start"}

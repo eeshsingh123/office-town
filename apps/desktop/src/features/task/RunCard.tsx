@@ -1,22 +1,22 @@
 import type { RoleSettings } from "@office-town/contract";
-import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder, MessagesSquare } from "lucide-react";
+import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
-import { useApp } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, compactCount } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
-import { showToast } from "../../ui/Toast.tsx";
+import { SwitchRow } from "../../ui/Switch.tsx";
 import chip from "../new-task/Composer.module.css";
 import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
-import { MODE_CHOICES, modeNote } from "./long-chats.ts";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
+import { optionsOf, setTaskOption, TASK_OPTIONS } from "./task-options.ts";
 
 // Who the trace belongs to and what it runs on: a card in the trace's right margin, or a
 // pill that opens it when the trace has no margin to spare.
@@ -134,29 +134,31 @@ function ModelRow({ agent, working }: { agent: Agent; working: boolean }) {
   );
 }
 
-// The task's, so it holds for every agent in it; taken at the next size check (D-94).
-function ModeRow({ taskId }: { taskId: string }) {
+// The task's, so they hold for every agent in it; taken at each agent's next check.
+function TaskOptionsSection({ taskId }: { taskId: string }) {
   const task = useApp((state) => state.tasks[taskId]?.task);
   if (task === undefined) return null;
-  const efficient = task.efficient === true;
-  const choose = (next: string) => {
-    if ((next === "efficient") === efficient) return;
-    api
-      .setTaskEfficient(taskId, next === "efficient")
-      .catch(() => showToast("The choice could not be saved."));
-  };
+  const options = optionsOf(task);
   return (
-    <li title={modeNote(efficient)} className={styles.modelRow}>
-      <MessagesSquare size={14} aria-hidden />
-      <span className={styles.modelChange}>
-        <Segments
-          label="Long chats"
-          value={efficient ? "efficient" : "one"}
-          options={MODE_CHOICES}
-          onChange={choose}
+    <section className={styles.options} aria-label="For this task">
+      <span className={styles.optionsLabel}>For this task</span>
+      {TASK_OPTIONS.map((option) => (
+        <SwitchRow
+          key={option.key}
+          label={option.label}
+          hint={option.hint}
+          on={options[option.key]}
+          onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
-      </span>
-    </li>
+      ))}
+      <button
+        type="button"
+        className={styles.settingsLink}
+        onClick={() => navigate({ name: "settings" })}
+      >
+        Defaults for new tasks are in Settings
+      </button>
+    </section>
   );
 }
 
@@ -182,7 +184,6 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
       </div>
       <ul className={styles.facts}>
         <ModelRow agent={agent} working={state === "working" || state === "starting"} />
-        <ModeRow taskId={agent.latest.taskId} />
         <li title="Provider and where it runs">
           <AppWindow size={14} aria-hidden />
           <span className={styles.text}>
@@ -236,6 +237,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
           Plus {compactCount(tokens.cachedInputTokens)} reused from earlier
         </p>
       )}
+      <TaskOptionsSection taskId={agent.latest.taskId} />
     </>
   );
 }

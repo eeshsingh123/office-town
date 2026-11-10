@@ -54,6 +54,7 @@ export type View =
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
+  | { name: "settings" }
   | { name: "help" }
   // `member` opens that agent in the team editor, or "new" adds one.
   | { name: "department"; departmentId: string; member?: string }

@@ -16,6 +16,7 @@ import {
   Plug,
   Plus,
   Search,
+  Settings,
   SwatchBook,
   UserRound,
   Users,
@@ -185,6 +186,7 @@ export function CommandMenu() {
                 <Row icon={Bot} label="Providers" onSelect={() => go({ name: "providers" })} />
                 <Row icon={Plug} label="Connectors" onSelect={() => go({ name: "connectors" })} />
                 <Row icon={Gauge} label="Usage" onSelect={() => go({ name: "usage" })} />
+                <Row icon={Settings} label="Settings" onSelect={() => go({ name: "settings" })} />
                 <Row
                   icon={Network}
                   label={chief === undefined ? "Set up your chief" : `Chief · ${chief.name}`}

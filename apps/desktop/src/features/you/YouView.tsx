@@ -11,6 +11,7 @@ import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
+import { Switch } from "../../ui/Switch.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import styles from "./YouView.module.css";
@@ -18,7 +19,7 @@ import { ANSWER_PICKS, useYou, youPreview } from "./you.ts";
 
 const DRAFT = "you";
 
-function Switch({
+function NotifySwitch({
   label,
   hint,
   on,
@@ -31,14 +32,7 @@ function Switch({
 }) {
   return (
     <div className={styles.switchRow}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={label}
-        className={styles.switch}
-        onClick={() => onChange(!on)}
-      />
+      <Switch label={label} on={on} onChange={onChange} />
       <div>
         <strong>{label}</strong>
         {hint === undefined ? null : <p className={form.hint}>{hint}</p>}
@@ -195,12 +189,12 @@ export function YouView() {
                 </h2>
                 <p className={form.hint}>Shown while the app is in the background.</p>
               </div>
-              <Switch
+              <NotifySwitch
                 label="When an agent needs you"
                 on={draft.notifyNeedsYou}
                 onChange={(notifyNeedsYou) => set({ notifyNeedsYou })}
               />
-              <Switch
+              <NotifySwitch
                 label="When a task is finished"
                 on={draft.notifyFinished}
                 onChange={(notifyFinished) => set({ notifyFinished })}

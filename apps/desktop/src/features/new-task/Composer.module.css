@@ -640,3 +640,22 @@
   gap: 8px;
   text-align: center;
 }
+
+/* This task's options: switches with their hints. */
+.optionsMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+}
+
+.optionsNote {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: var(--size-small);
+  line-height: 1.5;
+  color: var(--text-3);
+}
