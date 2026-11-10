@@ -197,15 +197,22 @@
   color: var(--text-3);
 }
 
-.partCount {
-  display: inline-flex;
+/* A part's milestones on its desk, under the desk's own mark. */
+.deskCount {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
-  margin-left: 6px;
-  padding-left: 6px;
-  border-left: 1px solid var(--border);
+  justify-content: flex-end;
+  gap: 3px;
+  width: 64px;
+  height: 34px;
+  padding-bottom: 5px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-3);
+  line-height: 1;
+  color: var(--text-2);
+  pointer-events: none;
 }
 
 .desk {

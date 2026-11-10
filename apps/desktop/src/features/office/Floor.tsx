@@ -65,8 +65,9 @@ export interface FloorAgent {
   part?: ShownStatus[];
 }
 
-// From the agent's centre to the top of its token count.
+// From the agent's centre to the top of its token count, and to the top of its desk.
 const TOKENS_ABOVE = 52;
+const DESK_BELOW = 46;
 
 export interface RoomSign {
   title: string;
@@ -714,6 +715,17 @@ export function Floor(props: FloorProps) {
                 {compactCount(tokens)}
               </div>
             )}
+            {/* On the desk, as the mockup's: the name tag stays as narrow as before. */}
+            {part === undefined ? null : (
+              <div
+                className={styles.deskCount}
+                style={{ left: position.x - DESK.width / 2, top: position.y + DESK_BELOW }}
+                aria-hidden
+              >
+                <MiniBar statuses={part} />
+                <span>{fraction(part)}</span>
+              </div>
+            )}
             {bubble === undefined ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : styles.bubbleWork} ${id === near?.id ? styles.bubbleNear : ""}`}
@@ -760,12 +772,6 @@ export function Floor(props: FloorProps) {
                     <span className={styles.nameTag}>
                       {name}
                       {finished ? ` · ${STATE_LABELS[state].toLowerCase()}` : ""}
-                      {part === undefined ? null : (
-                        <span className={styles.partCount}>
-                          <MiniBar statuses={part} />
-                          {fraction(part)}
-                        </span>
-                      )}
                     </span>
                   </button>
                 </Tooltip.Trigger>

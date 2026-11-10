@@ -38,6 +38,18 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
     kind: "other",
     title: (input) => `Messaged the lead of ${words(input.department)}`,
   },
+  set_milestones: {
+    kind: "other",
+    title: (input) =>
+      count(input.milestones) === 1
+        ? "Wrote a milestone"
+        : `Wrote ${count(input.milestones)} milestones`,
+  },
+  report_milestone: {
+    kind: "other",
+    title: (input) => `Reported ${words(input.id)} as ${input.met === true ? "met" : "not met"}`,
+  },
+  send_back: { kind: "other", title: (input) => `Sent ${words(input.agent)}'s part back` },
 };
 
 export function teamToolAction(name: string, input: unknown) {
