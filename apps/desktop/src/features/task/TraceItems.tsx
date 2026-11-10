@@ -373,6 +373,15 @@ function Result({ item }: { item: TraceMessage }) {
   const worker = useApp((state) =>
     origin === undefined ? undefined : state.agents[origin.agentId],
   );
+  // Every milestone met: done at once, with no check by the lead (D-95).
+  const accepted = useApp((state) => {
+    if (origin === undefined || state.delegations[origin.delegationId]?.accepted === undefined) {
+      return 0;
+    }
+    return Object.values(state.milestones).filter(
+      (milestone) => milestone.delegationId === origin.delegationId,
+    ).length;
+  });
   if (origin === undefined) return null;
   const how =
     origin.outcome === "done"
@@ -393,6 +402,12 @@ function Result({ item }: { item: TraceMessage }) {
             </button>
           )}{" "}
           {how}
+          {accepted === 0 ? null : (
+            <span className={styles.accepted}>
+              {" "}
+              · {accepted === 1 ? "its milestone met" : `all ${accepted} milestones met`}
+            </span>
+          )}
           <span className={styles.meta}> · sent to the lead</span>
         </div>
         {/* The head already says who finished; the text's first line says so for the lead. */}
