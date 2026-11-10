@@ -5,8 +5,8 @@ Last updated: 2026-11-10
 ## State
 
 - Built and merged to `main`: M1 to M10, the feedback and optimization rounds, and the performance phase (PR #83). MODULES.md lists what each built.
-- Open: PR #84 on `feat/session-handover`, Phase 2 B, Efficient mode (D-94), with its review fixes and this docs cleanup. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`, asked at a turn's end and mid-turn; both went on in the same folder and finished.
-- Next, once B is merged and checked end to end: Phase 2 C, one goal record with milestones and short check loops, from `docs/briefs/C-goal-progress.md`, starting with a discussion. C's record replaces the handover's source, so keep the handover's fields.
+- Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
+- Next: Phase 2 C, milestones and one live Progress view, on `feat/goal-record`. Discussion is done and the mockup is published (link in `docs/briefs/C-goal-progress.md`). The owner agreed all 7 mockup questions; ready to build. C fills the handover's `progress` and `steps`, so keep the handover's fields.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex, Copilot, Cursor and Muse are installed there, not signed in, so their live runs wait for the owner.
 
 ## Not checked yet
