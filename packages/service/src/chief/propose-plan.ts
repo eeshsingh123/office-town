@@ -6,6 +6,7 @@ import type {
   ProposedPiece,
 } from "@office-town/contract";
 import { z } from "zod";
+import { milestonesOn } from "../goal/record.ts";
 import { AnswerError, type CoreRequestHandler } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import type { TeamContext } from "../team/members.ts";
@@ -46,6 +47,15 @@ const pieceSchema = z.object({
     .describe(
       "For a department with several workspaces, the one to work in, by name. Leave it out for its default.",
     ),
+  milestones: z
+    .array(
+      z.object({
+        outcome: z.string().trim().min(1).describe("What the user gets, in plain words."),
+        see: z.string().trim().min(1).describe("How the user would see it."),
+      }),
+    )
+    .optional()
+    .describe("With milestones on: what this department's part gives the user, at least one."),
 });
 
 const inputSchema = z.object({
@@ -128,10 +138,18 @@ async function resolvePieces(
   const environment = store.getSession(caller.sessionId)?.options.environment;
   if (environment === undefined) throw new RecordNotFoundError("session");
   const departments = store.listDepartments();
+  const keepsMilestones = milestonesOn(store, caller.taskId);
   const resolved: ProposedPiece[] = [];
   for (const piece of pieces) {
     const known = departments.find((department) => department.name === piece.department);
-    const shared = { key: piece.key, title: piece.title, brief: piece.brief };
+    const shared = {
+      key: piece.key,
+      title: piece.title,
+      brief: piece.brief,
+      ...(keepsMilestones && piece.milestones !== undefined
+        ? { milestones: piece.milestones }
+        : {}),
+    };
     const waitsOn = piece.waits_on ?? [];
     if (piece.new_department !== undefined) {
       const { purpose, ...lead } = piece.new_department;
@@ -172,6 +190,10 @@ function savePlan(store: Store, taskId: string, approved: ApprovedPiece[]): void
       waitsOn: piece.waitsOn.flatMap((upstream) => ids.get(upstream) ?? []),
       ...("departmentId" in department ? department : { newDepartment: department.newDepartment }),
     });
+    // They become the department task's own goal milestones once the piece starts (D-95).
+    for (const text of piece.milestones ?? []) {
+      store.createMilestone({ taskId, pieceId: created.id, ...text, origin: "agent" });
+    }
     ids.set(key, created.id);
   }
 }

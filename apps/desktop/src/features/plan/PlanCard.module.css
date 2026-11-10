@@ -183,6 +183,59 @@
   color: var(--text-3);
 }
 
+.milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.milestone {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.milestoneIcon {
+  margin-top: 8px;
+  color: var(--text-3);
+}
+
+.milestoneFields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.milestoneSee {
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.addMilestone {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: inherit;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.addMilestone:hover {
+  background: var(--hover);
+}
+
 .changes {
   display: flex;
   flex-direction: column;
