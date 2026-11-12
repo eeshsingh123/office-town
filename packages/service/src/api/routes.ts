@@ -8,7 +8,6 @@ import {
   chiefDraftRequestSchema,
   chiefRequestSchema,
   chiefTaskRequestSchema,
-  connectorDraftRequestSchema,
   continueTaskRequestSchema,
   departmentDraftRequestSchema,
   departmentModelRequestSchema,
@@ -46,7 +45,6 @@ import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import type { ConnectorHub } from "../connectors/hub.ts";
 import { connectorRoutes } from "../connectors/routes.ts";
 import { draftChief } from "../drafts/chief.ts";
-import { draftConnector } from "../drafts/connectors.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import type { NameTask } from "../drafts/title.ts";
 import type { MilestoneEdits } from "../goal/edits.ts";
@@ -512,14 +510,6 @@ export function apiRoutes(
       reply: async ({ body }) => ({
         status: 200,
         json: await draftChief(team, chiefDraftRequestSchema.parse(await body())),
-      }),
-    },
-    {
-      method: "POST",
-      path: "/drafts/connectors",
-      reply: async ({ body }) => ({
-        status: 200,
-        json: await draftConnector(team, connectorDraftRequestSchema.parse(await body())),
       }),
     },
     {

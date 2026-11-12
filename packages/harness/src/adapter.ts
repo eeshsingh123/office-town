@@ -170,6 +170,9 @@ export interface VendorAppSupport {
   // Prints the vendor's page where the user signs an app in, and exits.
   signIn?(app: string): HarnessCommand;
   signInPage?(output: string[]): string | undefined;
+  // Adds an app the login does not have yet, by its name, and answers the vendor's page where the
+  // user signs it in; the vendor keeps the sign-in.
+  setUp?(app: string): HarnessQuery<string>;
 }
 
 // Reads what a conversation really used from the harness's own records, after its session ends.

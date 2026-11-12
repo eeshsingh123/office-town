@@ -15,6 +15,7 @@ import {
   accountSchema,
   mcpStatusListSchema,
   modelListSchema,
+  pluginInstallSchema,
   rateLimitsNoticeSchema,
   type StatusTool,
 } from "./messages.ts";
@@ -210,9 +211,27 @@ const STATUS_REQUEST = JSON.stringify({
 });
 
 // Read from the app-server without a turn; Codex signs in to and keeps every app itself.
+// ChatGPT's plugins carry its apps; a catalog slug such as "hugging-face" is its plugin "huggingface".
+const PLUGINS = "openai-curated-remote";
+
 const vendorApps: VendorAppSupport = {
   command: APP_SERVER,
   allOff: true,
+  // Installing the plugin answers the ChatGPT page where the user signs its app in (0.167.2).
+  setUp: (app) =>
+    appServerQuery(
+      "plugin/install",
+      (result) => {
+        const { appsNeedingAuth } = pluginInstallSchema.parse(result);
+        const page = appsNeedingAuth.find(({ installUrl }) => installUrl)?.installUrl;
+        if (!page) throw new Error(`${app} is set up in Codex already; check again.`);
+        return page;
+      },
+      {
+        pluginName: app.toLowerCase().replaceAll(/[^a-z0-9]+/g, ""),
+        remoteMarketplaceName: PLUGINS,
+      },
+    ),
   start: [
     JSON.stringify({
       id: 1,

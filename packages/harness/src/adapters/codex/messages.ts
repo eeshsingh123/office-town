@@ -133,6 +133,10 @@ const statusToolSchema = z.looseObject({
 });
 export type StatusTool = z.infer<typeof statusToolSchema>;
 
+export const pluginInstallSchema = z.looseObject({
+  appsNeedingAuth: z.array(z.looseObject({ installUrl: z.string().nullish() })),
+});
+
 export const mcpStatusListSchema = z.looseObject({
   data: z.array(
     z.looseObject({

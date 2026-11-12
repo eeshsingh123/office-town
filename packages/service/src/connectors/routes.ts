@@ -5,6 +5,7 @@ import {
   connectorChangeSchema,
   connectorTestRequestSchema,
   newConnectorRequestSchema,
+  providerSetupRequestSchema,
 } from "@office-town/contract";
 import type { Route } from "../api/routes.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
@@ -80,7 +81,15 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
         return { status: 200, json: { url: await hub.providerApps.signInPage(param("id")) } };
       },
     },
-    // Reads the Claude apps again, such as one just connected on claude.ai.
+    {
+      method: "POST",
+      path: "/connectors/setup",
+      reply: async ({ body }) => {
+        const { provider, app } = providerSetupRequestSchema.parse(await body());
+        return { status: 200, json: { url: await hub.providerApps.setUpPage(provider, app) } };
+      },
+    },
+    // Reads the provider apps again, such as one just connected on claude.ai.
     {
       method: "POST",
       path: "/connectors/refresh",

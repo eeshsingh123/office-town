@@ -11,6 +11,7 @@ import {
   hasVendorApps,
   listHarnesses,
   listVendorApps,
+  vendorAppSetUpPage,
   vendorAppSignInPage,
 } from "@office-town/harness";
 import { allAccounts, hasSignIn, sessionAccountId } from "../accounts/accounts.ts";
@@ -33,6 +34,9 @@ const KINDS: Record<string, { kind: ConnectorKind; maker: string }> = {
   codex: { kind: "codex", maker: "ChatGPT" },
   opencode: { kind: "opencode", maker: "OpenCode" },
 };
+
+// Where the user adds an app to Claude; Claude Code loads it for the login (D-68).
+const CLAUDE_CONNECTORS = "https://claude.ai/customize/connectors";
 
 // "claude.ai Google Drive" is shown as "Google Drive".
 const shownName = (app: string) => app.replace(/^claude\.ai /, "");
@@ -124,6 +128,21 @@ export class ProviderApps {
       return await vendorAppSignInPage(account.harness, account.environment, account.folder, app);
     } catch (error) {
       throw new ConnectError(name, error);
+    }
+  }
+
+  // The provider's page where the user adds an app it does not have yet, on its first signed-in
+  // login; the provider keeps the sign-in and the app is read on the next refresh (D-96).
+  async setUpPage(provider: string, app: string): Promise<string> {
+    if (provider === "claude") return CLAUDE_CONNECTORS;
+    const account = allAccounts(this.#store, listHarnesses()).find(
+      (candidate) => candidate.harness === provider && hasSignIn(candidate, this.#store),
+    );
+    if (account === undefined) throw new ConnectError(app, `sign in to ${provider} first`);
+    try {
+      return await vendorAppSetUpPage(provider, account.environment, account.folder, app);
+    } catch (error) {
+      throw new ConnectError(app, error);
     }
   }
 

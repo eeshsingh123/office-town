@@ -270,6 +270,24 @@ export function vendorAppSignInPage(
   );
 }
 
+// Adds an app the login does not have yet and answers the vendor's page to sign it in (D-96).
+export async function vendorAppSetUpPage(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string | undefined,
+  app: string,
+): Promise<string> {
+  const setUp = findAdapter(harness).vendorApps?.setUp;
+  if (setUp === undefined) throw new Error(`The "${harness}" harness cannot add apps itself.`);
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const page = await runQuery(environment, setUp(app), {
+    env: loginEnv(harness, environment, folder),
+    timeoutMs: STATUS_TIMEOUT_MS,
+  });
+  if (page === undefined) throw new Error("It did not answer in time.");
+  return page;
+}
+
 // Where an account's sign-in is saved inside its folder, for a harness that keeps accounts apart.
 export function accountCredentials(harness: string): string | undefined {
   return findAdapter(harness).accounts?.credentials;
