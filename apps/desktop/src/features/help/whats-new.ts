@@ -26,6 +26,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-12",
+    title: "Connectors, simpler",
+    icon: Plug,
+    changes: [
+      "One card per app. Small provider tags show who can use it: All, or Claude, Codex or OpenCode for an app that provider signs in to",
+      "Codex's ChatGPT apps and OpenCode's own servers now show beside your Claude apps. Every call to them follows the app's permission, and its page lists each use",
+      "The only alert left is Needs renewing, for a sign-in to renew",
+      "Add searches a list of apps we checked, and shows what an app can read and change before you save it. An address or command sits under Advanced",
+      "Ten more apps made by their own companies, such as Exa, Context7, Firecrawl and PostHog",
+      "When an agent asks for an app, Needs you names the provider and sets it up in one click. It goes to the agent's department unless you pick otherwise",
+      "An app given mid-task reaches the agent in a fresh conversation, so it carries on with it",
+      "A department's panel lists its apps, and the team builder warns when no member can reach one",
+      "A new walkthrough connects your first app",
+    ],
+  },
+  {
     date: "2026-11-10",
     title: "Milestones and one Progress view",
     icon: ListChecks,
