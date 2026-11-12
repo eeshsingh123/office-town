@@ -23,7 +23,7 @@ describe("codex adapter", () => {
       additionalPaths: ["/notes", "/papers"],
       readOnlyPaths: ["/papers"],
       vendorApps: ["connector_gmail"],
-      blockedApps: ["connector_drive", "own-server"],
+      blockedApps: ["connector_drive", "server:own-server"],
       toolServers: [
         {
           transport: "http",

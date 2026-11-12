@@ -17,6 +17,7 @@ import {
   modelListSchema,
   pluginReadSchema,
   rateLimitsNoticeSchema,
+  SERVER_PREFIX,
   type StatusTool,
 } from "./messages.ts";
 import { CLIENT_INFO, CodexTranslator, limitsOf } from "./translator.ts";
@@ -62,7 +63,8 @@ const HIDDEN_APPS = new Set([
   "connector_openai_visualize",
   "connector_openai_codex_document_control",
 ]);
-const isApp = (id: string) => id.startsWith("connector_");
+const serverOf = (id: string) =>
+  id.startsWith(SERVER_PREFIX) ? id.slice(SERVER_PREFIX.length) : undefined;
 
 // Every ChatGPT app starts off; the ones the agent may use are turned on and ask before each call,
 // which the core answers by the app's permission. Another MCP server of the login is turned off
@@ -70,12 +72,13 @@ const isApp = (id: string) => id.startsWith("connector_");
 function appSettings({ vendorApps = [], blockedApps = [] }: LaunchOptions): string[] {
   const settings: [string, unknown][] = [["apps._default.enabled", false]];
   for (const id of vendorApps) {
-    const key = isApp(id) ? `apps.${id}` : `mcp_servers.${id}`;
-    if (isApp(id)) settings.push([`${key}.enabled`, true]);
+    const server = serverOf(id);
+    const key = server === undefined ? `apps.${id}` : `mcp_servers.${server}`;
+    if (server === undefined) settings.push([`${key}.enabled`, true]);
     settings.push([`${key}.default_tools_approval_mode`, "prompt"]);
   }
-  for (const id of blockedApps.filter((blocked) => !isApp(blocked))) {
-    settings.push([`mcp_servers.${id}.enabled`, false]);
+  for (const server of blockedApps.flatMap((blocked) => serverOf(blocked) ?? [])) {
+    settings.push([`mcp_servers.${server}.enabled`, false]);
   }
   return settings.flatMap(([name, value]) => ["-c", `${name}=${JSON.stringify(value)}`]);
 }
@@ -183,7 +186,7 @@ function appsOf(result: unknown): VendorApp[] {
     if (server.name !== APPS_SERVER) {
       apps.push({
         name: server.name,
-        id: server.name,
+        id: `${SERVER_PREFIX}${server.name}`,
         status:
           server.authStatus === "notLoggedIn"
             ? "needs_sign_in"

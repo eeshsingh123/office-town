@@ -186,3 +186,6 @@ export const modelListSchema = z.looseObject({
     }),
   ),
 });
+
+// Another MCP server of the login is named apart from a ChatGPT app, whose id may take any form.
+export const SERVER_PREFIX = "server:";

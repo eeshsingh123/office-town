@@ -20,6 +20,7 @@ import {
   planSchema,
   type RateLimits,
   rateLimitsNoticeSchema,
+  SERVER_PREFIX,
   threadNoticeSchema,
   threadResultSchema,
   tokenUsageSchema,
@@ -540,7 +541,7 @@ export class CodexTranslator implements Translator {
   #appApproval(id: JsonRpcId, { serverName, _meta }: AppApproval): Translation {
     const requestId = `app-${id}`;
     this.#appCalls.set(requestId, id);
-    const server = _meta.connector_id ?? serverName;
+    const server = _meta.connector_id ?? `${SERVER_PREFIX}${serverName}`;
     const name = _meta.tool_name.replace(/^[^.]+./, "");
     const app = _meta.connector_name ?? serverName;
     return {
