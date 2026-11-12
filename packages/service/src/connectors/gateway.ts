@@ -13,8 +13,9 @@ import {
   ToolError,
   type ToolResult,
 } from "../tools/tools.ts";
-import { decide, isClaudeApp, isRead, mayUse, usableBy } from "./access.ts";
+import { decide, isProviderApp, isRead, mayUse, usableBy } from "./access.ts";
 import type { ConnectorLinks } from "./links.ts";
+import { askableApps } from "./request-app.ts";
 
 const RESULT_CHARS = 20_000;
 
@@ -45,9 +46,9 @@ export function findApps(store: Store, app: string): ConnectorRecord[] {
     .filter(({ setup }) => setup.slug === wanted || setup.name.toLowerCase() === wanted);
 }
 
-// A hub connector; Claude apps are never served through the hub (D-68).
+// A hub connector; provider apps are never served through the hub (D-68).
 export function findConnector(store: Store, app: string): ConnectorRecord | undefined {
-  return findApps(store, app).find((connector) => !isClaudeApp(connector));
+  return findApps(store, app).find((connector) => !isProviderApp(connector));
 }
 
 // Every connector call passes here, natively or through the hub: it is checked against who may
@@ -201,20 +202,26 @@ export class ConnectorGateway {
     return defineTool({
       name: "list_app_tools",
       description:
-        "Without app: the apps you can use now, with what you may do in each. With app: that " +
-        "app's tools and their input schemas, to call with use_app_tool.",
+        "Without app: the apps you can use now, with what you may do in each, and the apps you " +
+        "can ask for. With app: that app's tools and their input schemas, to call with " +
+        "use_app_tool.",
       input: z.object({ app: z.string().min(1).optional() }),
       offeredTo: () => true,
       call: ({ app }, caller) => {
         const usable = usableBy(this.#store, caller.agentId);
         if (app === undefined) {
-          if (usable.length === 0) return "You have no apps. Ask for one with request_app.";
-          return usable
-            .map(
-              ({ setup, permission }) =>
-                `- ${setup.name} (app: "${setup.slug}"): ${PERMISSION_WORDS[permission]}.`,
-            )
-            .join("\n");
+          const agent = this.#store.getAgent(caller.agentId);
+          const askable = agent === undefined ? "" : askableApps(this.#store, agent);
+          const yours =
+            usable.length === 0
+              ? "You have no apps here."
+              : usable
+                  .map(
+                    ({ setup, permission }) =>
+                      `- ${setup.name} (app: "${setup.slug}"): ${PERMISSION_WORDS[permission]}.`,
+                  )
+                  .join("\n");
+          return [yours, askable].filter(Boolean).join("\n");
         }
         const connector = findConnector(this.#store, app);
         if (connector === undefined || !usable.some(({ id }) => id === connector.id)) {

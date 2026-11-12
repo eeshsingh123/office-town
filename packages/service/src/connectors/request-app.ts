@@ -1,10 +1,17 @@
 import { randomUUID } from "node:crypto";
-import type {
-  AgentRecord,
-  Audience,
-  CatalogEntry,
-  ConnectorRecord,
-  SessionRecord,
+import {
+  type AgentRecord,
+  type AppAsk,
+  type AppAudience,
+  type Audience,
+  appAudienceSchema,
+  appKeyOf,
+  type CatalogEntry,
+  type ConnectorRecord,
+  isEntryApp,
+  kindOf,
+  providerOf,
+  type SessionRecord,
 } from "@office-town/contract";
 import { hasVendorApps } from "@office-town/harness";
 import { z } from "zod";
@@ -12,61 +19,107 @@ import { sessionAccountId } from "../accounts/accounts.ts";
 import { AnswerError, type SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { isClaudeApp, mayUse, reachableApps, reaches } from "./access.ts";
+import { isProviderApp, mayUse, providerName, reachableApps } from "./access.ts";
 import { catalog } from "./catalog.ts";
-import { findApps } from "./gateway.ts";
 
 interface Waiting {
   sessionId: string;
   requestId: string;
   agentId: string;
   // The app as the ask names it, matched against a connector added later.
-  names: string[];
-}
-
-// The asker's department, or the agent itself without one.
-function withAsker(audience: Audience, agent: AgentRecord): Audience {
-  if (reaches(audience, agent)) return audience;
-  return agent.departmentId === undefined
-    ? { ...audience, agentIds: [...audience.agentIds, agent.id] }
-    : { ...audience, departmentIds: [...audience.departmentIds, agent.departmentId] };
+  key: string;
+  audience: AppAudience;
+  askedAt: number;
 }
 
 // Sent by the core alone, once the user connected the app.
 const CONNECTED = "connected";
+const GIVE = "give:";
 
-const slugOf = (app: string) =>
-  app
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
-    .slice(0, 24);
+const NOBODY: Audience = { everyone: false, departmentIds: [], agentIds: [] };
 
-// The record an agent would use for an app: a hub app, else the Claude app of the login its
-// session runs on, else that app on another login.
-function appFor(store: Store, session: SessionRecord | undefined, app: string) {
-  const found = findApps(store, app);
-  const hub = found.find((connector) => !isClaudeApp(connector));
-  if (hub !== undefined) return hub;
-  const accountId = session === undefined ? undefined : sessionAccountId(session.options);
-  return found.find(({ setup }) => setup.account === accountId) ?? found[0];
+// Who gets the app: the asker, its department (by default), or everyone (D-96).
+function widened(audience: Audience, agent: AgentRecord, wanted: AppAudience): Audience {
+  if (wanted === "everyone") return { ...NOBODY, everyone: true };
+  if (wanted === "department" && agent.departmentId !== undefined) {
+    return audience.departmentIds.includes(agent.departmentId)
+      ? audience
+      : { ...audience, departmentIds: [...audience.departmentIds, agent.departmentId] };
+  }
+  return audience.agentIds.includes(agent.id)
+    ? audience
+    : { ...audience, agentIds: [...audience.agentIds, agent.id] };
 }
 
-const claudeOnly = (connector: ConnectorRecord | undefined, entry: CatalogEntry | undefined) =>
-  connector === undefined ? entry?.setup.kind === "claude" : isClaudeApp(connector);
+// Who has the app once the user answers. One the provider listed for this ask goes to whom the
+// user chose; a shared app keeps the audience saved with it in Add; any other is only widened.
+function audienceAfter(
+  connector: ConnectorRecord,
+  agent: AgentRecord,
+  audience: AppAudience,
+  askedAt: number | undefined,
+): Audience | undefined {
+  if (askedAt === undefined) return widened(connector.audience, agent, audience);
+  if (!isProviderApp(connector)) {
+    return mayUse(connector, agent) ? undefined : widened(connector.audience, agent, "agent");
+  }
+  const fresh = Date.parse(connector.createdAt) >= askedAt;
+  return widened(fresh ? NOBODY : connector.audience, agent, audience);
+}
 
-// An agent without an app asks for it; the user connects it or gives access from Needs you,
-// and the agent then reaches it through use_app_tool, so its tool list stays as it was (D-67).
-// A Claude app reaches only Claude agents, from their next conversation; another agent is
-// pointed to a teammate who has it (D-68).
+// The app an ask names, matched as the Connectors page groups it: `key` is an entry's slug, or the
+// asked name's key for an app not on the list.
+function sameApp(key: string) {
+  const entry = catalog.find(({ setup }) => setup.slug === key);
+  return ({ setup }: ConnectorRecord) =>
+    entry === undefined
+      ? setup.slug === key || appKeyOf(setup.name) === key
+      : isEntryApp(entry, setup);
+}
+
+const entryOf = (app: string): CatalogEntry | undefined =>
+  catalog.find((entry) => isEntryApp(entry, { slug: appKeyOf(app), name: app }));
+
+// The ways an app reaches an agent on this session: a shared app first, then its provider's app on
+// the session's login (D-96).
+function routesFor(store: Store, session: SessionRecord, key: string) {
+  const found = store.listConnectors().filter(sameApp(key));
+  const { harness } = session.options;
+  const accountId = sessionAccountId(session.options);
+  return {
+    shared: found.find((connector) => !isProviderApp(connector)),
+    own: found.find(
+      ({ setup }) => providerOf(setup.kind) === harness && setup.account === accountId,
+    ),
+  };
+}
+
+// Whether the agent's provider can sign in to the app itself, as Add would offer it.
+function providerCanAdd(harness: string, entry: CatalogEntry | undefined): boolean {
+  if (!hasVendorApps(harness) || kindOf(harness) === undefined) return false;
+  if (entry === undefined) return harness !== "opencode";
+  return providerOf(entry.setup.kind) === harness || entry.signIn.includes(harness);
+}
+
+// An agent without an app asks for it; the user connects it or gives access from Needs you. A
+// shared app is then reached through use_app_tool, so the tool list stays as it was (D-67). A
+// provider app reaches an agent only from a new conversation, so the agent carries on in one with
+// its handover (D-94, D-96). An app a teammate already has goes to that teammate's step instead.
 export class AppRequests {
   readonly #store: Store;
   readonly #registry: SessionRegistry;
-  // Asks answered by connecting the app, which the user does in the connect sheet.
+  readonly #carryOn: (sessionId: string) => void;
+  // Asks answered by connecting the app, which the user does from the ask's card.
   readonly #connecting = new Map<string, Waiting>();
 
-  constructor(store: Store, registry: SessionRegistry) {
+  constructor(
+    store: Store,
+    registry: SessionRegistry,
+    carryOn: (sessionId: string) => void = () => undefined,
+  ) {
     this.#store = store;
     this.#registry = registry;
+    this.#carryOn = carryOn;
     store.subscribe((change) => {
       if (change.type === "connector") this.#connected(change.connector);
     });
@@ -76,41 +129,83 @@ export class AppRequests {
     return defineTool({
       name: "request_app",
       description:
-        "Ask the user for an app you need, such as Notion or GitHub, and say why. It returns " +
-        "at once; once the user gives it to you, you are told by message and use it through " +
-        "use_app_tool.",
-      input: z.object({ app: z.string().trim().min(1).max(60), reason: z.string().trim().min(1) }),
+        "Ask the user for an app you need, such as Notion or GitHub, and say why. " +
+        "list_app_tools names the apps you can ask for. It returns at once; the user's answer " +
+        "reaches you by message.",
+      input: z.object({
+        app: z.string().trim().min(1).max(60),
+        reason: z.string().trim().min(1),
+        for: appAudienceSchema
+          .optional()
+          .describe('Who should get it: "agent" (you), "department" (default) or "everyone".'),
+      }),
       offeredTo: (caller) => this.#store.getAgent(caller.agentId)?.guest !== true,
-      call: ({ app, reason }, caller) => this.#request(caller, app, reason),
+      call: ({ app, reason, for: wanted }, caller) => this.#request(caller, app, reason, wanted),
     });
   }
 
-  #request(caller: Caller, app: string, reason: string): string {
+  #request(caller: Caller, app: string, reason: string, wanted?: AppAudience): string {
     const agent = this.#store.getAgent(caller.agentId);
-    if (agent === undefined) throw new ToolError("No such agent.");
     const session = this.#store.getSession(caller.sessionId);
-    const connector = appFor(this.#store, session, app);
-    const wanted = app.toLowerCase();
-    const entry = catalog.find(
-      ({ setup }) => setup.slug === wanted || setup.name.toLowerCase() === wanted,
-    );
-    const setup = connector?.setup ?? entry?.setup;
-    const name = setup?.name ?? app;
-    const claude = claudeOnly(connector, entry);
-    if (claude && (session === undefined || !hasVendorApps(session.options.harness))) {
-      return this.#elsewhere(caller, agent, name, reason);
+    if (agent === undefined || session === undefined) throw new ToolError("No such agent.");
+    const { harness } = session.options;
+    const entry = entryOf(app);
+    const key = entry?.setup.slug ?? appKeyOf(app);
+    const { shared, own } = routesFor(this.#store, session, key);
+    const name = entry?.setup.name ?? shared?.setup.name ?? own?.setup.name ?? app;
+    const ready = (connector: ConnectorRecord | undefined): connector is ConnectorRecord =>
+      connector !== undefined && connector.status === "connected";
+    if (ready(shared) && mayUse(shared, agent)) {
+      return `You already have ${name}. See its tools with list_app_tools.`;
     }
-    if (connector !== undefined && mayUse(connector, agent) && connector.status === "connected") {
-      if (!claude) return `You already have ${name}. See its tools with list_app_tools.`;
-      return connector.setup.app !== undefined &&
-        (session?.options.vendorApps ?? []).includes(connector.setup.app)
-        ? `You already have ${name}; use its own tools.`
-        : `${name} came after this conversation began, so it is yours from your next task.`;
+    if (ready(own) && mayUse(own, agent)) {
+      if ((session.options.vendorApps ?? []).includes(own.setup.app ?? "")) {
+        return `You already have ${name}; use its own tools.`;
+      }
+      this.#carryOn(session.id);
+      return `${name} came after this conversation began. Call hand_over now to carry on in a new conversation that has it, then end your turn.`;
     }
+    const give = ready(shared) ? shared : ready(own) ? own : undefined;
+    if (give === undefined) {
+      const teammates = this.#teammates(agent, name);
+      if (teammates !== undefined) return teammates;
+    }
+    // An app that can be shared is added in Office Town first, where Add also offers the
+    // provider's own way in; otherwise the agent's provider sets it up.
+    const sharedEntry =
+      entry !== undefined && (entry.setup.kind === "remote" || entry.setup.kind === "local");
+    const provider =
+      give === undefined && !sharedEntry && providerCanAdd(harness, entry) ? harness : undefined;
+    if (give === undefined && provider === undefined && !sharedEntry) {
+      return this.#nobody(caller, agent, name, reason);
+    }
+    const suggested: AppAudience =
+      wanted ?? (agent.departmentId === undefined ? "agent" : "department");
     const requestId = `app-request-${randomUUID()}`;
-    // A Claude app that is signed out is connected again, not given.
-    const give =
-      connector !== undefined && (!isClaudeApp(connector) || connector.status === "connected");
+    const input: AppAsk = {
+      app: name,
+      reason,
+      ...(provider === undefined ? {} : { provider }),
+      suggested,
+      ...(agent.departmentId === undefined ? {} : { departmentId: agent.departmentId }),
+    };
+    const audiences = appAudienceSchema.options.filter(
+      (audience) => audience !== "department" || agent.departmentId !== undefined,
+    );
+    const setUp =
+      provider === undefined
+        ? `Connect ${name}`
+        : own?.status === "signed_out"
+          ? `Sign in again in ${providerName(provider)}`
+          : `Set up in ${providerName(provider)}`;
+    const options =
+      give === undefined
+        ? [{ optionId: "connect", label: setUp, kind: "allow_once" as const }]
+        : audiences.map((audience) => ({
+            optionId: `${GIVE}${audience}`,
+            label: "Give access",
+            kind: "allow_once" as const,
+          }));
     this.#registry.ask(
       caller.sessionId,
       {
@@ -118,93 +213,116 @@ export class AppRequests {
         payload: {
           requestId,
           title: `${agent.name} wants to use ${name}. ${reason}`,
-          input: { app: name, reason },
+          input,
           kind: "other",
-          tool: { server: setup?.slug ?? slugOf(app), name: "request" },
-          options: [
-            give
-              ? { optionId: "give", label: "Give access", kind: "allow_once" }
-              : connector?.status === "signed_out"
-                ? { optionId: "sign-in", label: `Sign in to ${name}`, kind: "allow_once" }
-                : { optionId: "connect", label: `Connect ${name}`, kind: "allow_once" },
-            { optionId: "decline", label: "Decline", kind: "reject_once" },
-          ],
+          tool: { server: entry?.setup.slug ?? key, name: "request" },
+          options: [...options, { optionId: "decline", label: "Decline", kind: "reject_once" }],
         },
       },
       (command) => {
         if (command.type !== "answerPermission") throw new AnswerError("This is an approval.");
-        // The card's button opens the connect sheet; the core answers once the app is connected.
-        if (command.optionId === "connect" || command.optionId === "sign-in") {
-          throw new AnswerError(`Connect ${name} from its card.`);
-        }
-        const allowed = command.optionId !== "decline";
+        // The card's button opens the setup; the core answers once the app is connected.
+        if (command.optionId === "connect") throw new AnswerError(`Set up ${name} from its card.`);
+        const connected =
+          command.optionId === CONNECTED ? this.#connecting.get(requestId) : undefined;
         this.#connecting.delete(requestId);
+        const audience = command.optionId.startsWith(GIVE)
+          ? appAudienceSchema.parse(command.optionId.slice(GIVE.length))
+          : connected?.audience;
         return {
           resolution: {
             type: "permission.resolved",
             payload: {
               requestId,
-              outcome: allowed ? "allowed" : "denied",
+              outcome: audience === undefined ? "denied" : "allowed",
               optionId: command.optionId,
               answeredBy: "user",
             },
           },
-          afterwards: () => this.#answered(caller.sessionId, agent.id, name, allowed),
+          afterwards: () =>
+            this.#answered(caller.sessionId, agent.id, key, name, audience, connected?.askedAt),
         };
       },
     );
-    if (!give) {
-      const names = [wanted, name.toLowerCase(), ...(setup === undefined ? [] : [setup.slug])];
+    if (give === undefined) {
       this.#connecting.set(requestId, {
         sessionId: caller.sessionId,
         requestId,
         agentId: agent.id,
-        names,
+        key,
+        audience: suggested,
+        askedAt: Date.now(),
       });
     }
     return `Your request for ${name} is with the user. Their answer will reach you as a message.`;
   }
 
-  async #answered(sessionId: string, agentId: string, name: string, allowed: boolean) {
+  // The audience the user picked before setting the app up, kept for when it connects.
+  chooseAudience(requestId: string, audience: AppAudience): void {
+    const waiting = this.#connecting.get(requestId);
+    if (waiting !== undefined) waiting.audience = audience;
+  }
+
+  async #answered(
+    sessionId: string,
+    agentId: string,
+    key: string,
+    name: string,
+    audience: AppAudience | undefined,
+    askedAt?: number,
+  ) {
     const tell = (text: string, summary: string) =>
       this.#registry.tell(sessionId, { text, origin: { kind: "notice", summary } });
-    if (!allowed) {
+    if (audience === undefined) {
       await tell(`The user did not give you ${name}.`, `You declined ${name}`);
       return;
     }
-    const connector = appFor(this.#store, this.#store.getSession(sessionId), name);
+    const session = this.#store.getSession(sessionId);
     const agent = this.#store.getAgent(agentId);
-    if (connector === undefined || agent === undefined) return;
-    this.#store.updateConnector(connector.id, { audience: withAsker(connector.audience, agent) });
-    const ready = isClaudeApp(connector)
-      ? `${connector.setup.name} is ready for you from your next task; this conversation's apps stay as they are.`
-      : `${connector.setup.name} is ready for you. See its tools with list_app_tools and call them with use_app_tool.`;
-    await tell(ready, `You gave it ${connector.setup.name}`);
+    if (session === undefined || agent === undefined) return;
+    const { shared, own } = routesFor(this.#store, session, key);
+    const connector = shared?.status === "connected" ? shared : own;
+    if (connector === undefined) return;
+    const next = audienceAfter(connector, agent, audience, askedAt);
+    if (next !== undefined) this.#store.updateConnector(connector.id, { audience: next });
+    if (!isProviderApp(connector)) {
+      await tell(
+        `${name} is ready for you. See its tools with list_app_tools and call them with use_app_tool.`,
+        `You gave it ${name}`,
+      );
+      return;
+    }
+    // A provider reads its apps once per conversation, so the agent carries on in a new one.
+    this.#carryOn(sessionId);
+    await tell(
+      `${name} is ready, and it reaches you in a new conversation. Call hand_over now with everything the new conversation needs, then end your turn.`,
+      `You gave it ${name}`,
+    );
   }
 
-  // Only Claude agents reach a Claude app: a teammate who has it takes the step, or the user is
-  // told the team has no one who can.
-  #elsewhere(caller: Caller, agent: AgentRecord, name: string, reason: string): string {
-    const department =
-      agent.departmentId === undefined ? undefined : this.#store.getDepartment(agent.departmentId);
+  // Teammates who already reach the app take the step: a team mixing providers covers more apps.
+  #teammates(agent: AgentRecord, name: string): string | undefined {
+    if (agent.departmentId === undefined) return undefined;
+    const wanted = appKeyOf(name);
     const holders = this.#store
       .listAgents()
       .filter(
         (other) =>
           other.id !== agent.id &&
-          other.departmentId !== undefined &&
           other.departmentId === agent.departmentId &&
-          reachableApps(this.#store, other).includes(name),
+          reachableApps(this.#store, other).some((app) => appKeyOf(app) === wanted),
       )
       .map((other) => other.name);
-    const only = `${name} is a Claude app, which only Claude agents use.`;
-    if (holders.length > 0) {
-      const how =
-        department?.leadAgentId === agent.id
-          ? "Hand this step to one of them with delegate."
-          : "Ask your lead with message_lead to hand this step to one of them.";
-      return `${only} ${holders.join(", ")} can use it. ${how}`;
-    }
+    if (holders.length === 0) return undefined;
+    const how =
+      this.#store.getDepartment(agent.departmentId)?.leadAgentId === agent.id
+        ? "Hand this step to one of them with delegate."
+        : "Ask your lead with message_lead to hand this step to one of them.";
+    return `You cannot reach ${name}, but ${holders.join(", ")} can. ${how}`;
+  }
+
+  // Neither the agent nor a teammate can reach the app, so the user is told.
+  #nobody(caller: Caller, agent: AgentRecord, name: string, reason: string): string {
     const requestId = `app-request-${randomUUID()}`;
     this.#registry.ask(
       caller.sessionId,
@@ -212,10 +330,10 @@ export class AppRequests {
         type: "permission.requested",
         payload: {
           requestId,
-          title: `${agent.name} wants to use ${name}, which only Claude agents use. Add a Claude agent to the team for it. ${reason}`,
+          title: `${agent.name} wants to use ${name}, which no one on the team can reach. ${reason}`,
           input: { app: name, reason },
           kind: "other",
-          tool: { server: slugOf(name), name: "request" },
+          tool: { server: appKeyOf(name), name: "request" },
           options: [{ optionId: "decline", label: "OK", kind: "reject_once" }],
         },
       },
@@ -231,23 +349,26 @@ export class AppRequests {
               answeredBy: "user",
             },
           },
-          afterwards: () => this.#answered(caller.sessionId, agent.id, name, false),
+          afterwards: () =>
+            this.#answered(caller.sessionId, agent.id, appKeyOf(name), name, undefined),
         };
       },
     );
-    return `${only} No one on your team can use it, and the user was told. Carry on without it.`;
+    return `Your provider cannot reach ${name}. No one on your team can use it, and the user was told. Carry on without it.`;
   }
 
   // The user connected the app an agent asked for, so its ask is answered.
   #connected(connector: ConnectorRecord): void {
     if (connector.status !== "connected") return;
-    const names = [connector.setup.slug, connector.setup.name.toLowerCase()];
     for (const waiting of this.#connecting.values()) {
-      if (!waiting.names.some((name) => names.includes(name))) continue;
-      if (!this.#registry.isRunning(waiting.sessionId)) {
+      if (!sameApp(waiting.key)(connector)) continue;
+      const session = this.#store.getSession(waiting.sessionId);
+      if (session === undefined || !this.#registry.isRunning(waiting.sessionId)) {
         this.#connecting.delete(waiting.requestId);
         continue;
       }
+      const provider = providerOf(connector.setup.kind);
+      if (provider !== undefined && provider !== session.options.harness) continue;
       this.#registry
         .send(waiting.sessionId, {
           type: "answerPermission",
@@ -257,4 +378,14 @@ export class AppRequests {
         .catch((error: unknown) => console.error("Could not answer an app request.", error));
     }
   }
+}
+
+// What an agent can ask for, so it names the app as the user knows it (D-96).
+export function askableApps(store: Store, agent: AgentRecord): string {
+  const have = new Set(reachableApps(store, agent).map(appKeyOf));
+  const names = [
+    ...store.listConnectors().map(({ setup }) => setup.name),
+    ...catalog.map(({ setup }) => setup.name),
+  ].filter((name, index, all) => !have.has(appKeyOf(name)) && all.indexOf(name) === index);
+  return names.length === 0 ? "" : `Apps you can ask for with request_app: ${names.join(", ")}.`;
 }

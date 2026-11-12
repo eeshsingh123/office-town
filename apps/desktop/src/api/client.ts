@@ -26,19 +26,17 @@ import {
   type CheckRequest,
   type ChiefDraftReply,
   type ChiefDraftRequest,
+  type ConnectorAction,
   type ConnectorActivity,
   type ConnectorActivityQuery,
   type ConnectorCatalog,
   type ConnectorChange,
-  type ConnectorDraftReply,
-  type ConnectorDraftRequest,
   type ConnectorRecord,
   type ConnectorTestRequest,
   checkRecordSchema,
   chiefDraftReplySchema,
   connectorActivitySchema,
   connectorCatalogSchema,
-  connectorDraftReplySchema,
   connectorRecordSchema,
   connectorSignInSchema,
   connectorTestSchema,
@@ -85,6 +83,7 @@ import {
   type ProfileRecord,
   type ProfileRequest,
   type ProfileUses,
+  type ProviderSetupRequest,
   pendingRequestListSchema,
   planPieceSchema,
   previewReplySchema,
@@ -233,16 +232,21 @@ export const api = {
     read("/connectors/catalog", connectorCatalogSchema),
   addConnector: (request: NewConnectorRequest): Promise<ConnectorRecord> =>
     write("POST", "/connectors", request, connectorRecordSchema),
-  testConnector: (request: ConnectorTestRequest): Promise<number> =>
+  testConnector: (request: ConnectorTestRequest): Promise<ConnectorAction[]> =>
     write("POST", "/connectors/test", request, connectorTestSchema).then(({ tools }) => tools),
+  connectorActions: (connectorId: string): Promise<ConnectorAction[]> =>
+    read(`/connectors/${id(connectorId)}/actions`, connectorTestSchema).then(({ tools }) => tools),
   changeConnector: (connectorId: string, change: ConnectorChange): Promise<ConnectorRecord> =>
     write("PUT", `/connectors/${id(connectorId)}`, change, connectorRecordSchema),
-  // Reads the Claude apps again, such as one just connected on claude.ai.
+  // Reads the provider apps again, such as one just connected on claude.ai.
   refreshConnectors: (): Promise<ConnectorRecord[]> =>
     write("POST", "/connectors/refresh", {}, listOf(connectorRecordSchema)),
   removeConnector: (connectorId: string): Promise<void> =>
     send("DELETE", `/connectors/${id(connectorId)}`),
-  // Claude's sign-in page for a Claude app, to open in the browser.
+  // The provider's page where the user adds an app; the provider keeps the sign-in (D-96).
+  providerSetup: (request: ProviderSetupRequest): Promise<string> =>
+    write("POST", "/connectors/setup", request, connectorSignInSchema).then(({ url }) => url),
+  // The provider's page to sign a provider app in again, to open in the browser.
   connectorSignIn: (connectorId: string): Promise<string> =>
     write("POST", `/connectors/${id(connectorId)}/sign-in`, {}, connectorSignInSchema).then(
       ({ url }) => url,
@@ -333,8 +337,6 @@ export const api = {
   removeChief: (): Promise<void> => send("DELETE", "/chief"),
   draftChief: (request: ChiefDraftRequest): Promise<ChiefDraftReply> =>
     write("POST", "/drafts/chief", request, chiefDraftReplySchema),
-  draftConnector: (request: ConnectorDraftRequest): Promise<ConnectorDraftReply> =>
-    write("POST", "/drafts/connectors", request, connectorDraftReplySchema),
   draftDepartments: (request: DepartmentDraftRequest): Promise<DepartmentDraftReply> =>
     write("POST", "/drafts/departments", request, departmentDraftReplySchema),
   messageAgent: (

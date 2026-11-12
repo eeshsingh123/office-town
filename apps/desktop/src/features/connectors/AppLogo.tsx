@@ -1,3 +1,4 @@
+import { providerOf } from "@office-town/contract";
 import { useApp } from "../../store/app-store.ts";
 import { useTheme } from "../../ui/theme.ts";
 import styles from "./Connectors.module.css";
@@ -17,9 +18,9 @@ export function AppLogo({ app, size = "md" }: AppLogoProps) {
       ({ setup }) => setup.slug === app || setup.name.toLowerCase() === app.toLowerCase(),
     ),
   );
-  // A Claude app's slug is "claude-notion", so its logo is found by its name.
+  // A provider app's slug is "claude-notion", so its logo is found by its name.
   const slug =
-    connector?.setup.kind === "claude"
+    connector !== undefined && providerOf(connector.setup.kind) !== undefined
       ? connector.setup.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")
       : (connector?.setup.slug ?? app);
   const logo = LOGOS[slug];

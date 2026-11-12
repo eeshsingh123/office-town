@@ -25,7 +25,7 @@ import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
 import { useCounts } from "../office/use-counts.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
-import { TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
+import { sharedApps, TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
@@ -412,6 +412,7 @@ function GettingStarted() {
     department: Object.keys(state.departments).length > 0,
     chief: Object.keys(state.pieces).length > 0,
     library: Object.keys(state.library).length > 0,
+    apps: sharedApps(state) > 0,
   };
   const count = TUTORIALS.filter((tutorial) => done[tutorial.id]).length;
   if (hidden || count === TUTORIALS.length) return null;

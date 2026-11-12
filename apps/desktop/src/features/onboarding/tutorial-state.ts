@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { useApp } from "../../store/app-store.ts";
 import { markTutorialDone } from "./onboarding.ts";
 import { findTutorialModel, type TutorialModel } from "./tutorial-model.ts";
-import { type TutorialId, type TutorialRun, tutorialById } from "./tutorials.ts";
+import { sharedApps, type TutorialId, type TutorialRun, tutorialById } from "./tutorials.ts";
 
 interface TutorialState {
   run: TutorialRun | undefined;
@@ -19,7 +19,8 @@ export const useTutorial = create<TutorialState>(() => ({
 }));
 
 export async function startTutorial(id: TutorialId): Promise<void> {
-  const { departments, library } = useApp.getState();
+  const state = useApp.getState();
+  const { departments, library } = state;
   useTutorial.setState({
     model: undefined,
     preparing: true,
@@ -29,6 +30,7 @@ export async function startTutorial(id: TutorialId): Promise<void> {
       startedAt: new Date().toISOString(),
       departments: Object.keys(departments).length,
       library: Object.keys(library).length,
+      apps: sharedApps(state),
     },
   });
   const model = await findTutorialModel();

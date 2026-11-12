@@ -18,7 +18,8 @@ export const itemSchema = z.looseObject({
   id: z.string(),
   text: z.string().optional(),
   summary: z.array(z.string()).optional(),
-  content: z.array(z.string()).optional(),
+  // A reasoning item's text; since 0.167 a user message's parts are objects here too.
+  content: z.array(z.unknown()).optional(),
   command: z.string().optional(),
   cwd: z.string().nullish(),
   status: z.string().optional(),
@@ -109,6 +110,47 @@ export const approvalParamsSchema = z.looseObject({
   reason: z.string().nullish(),
 });
 
+// Codex asks before an app's call as an MCP form with the call in `_meta`, once the app's approval
+// mode is "prompt" (checked live on 0.167.2).
+export const appApprovalParamsSchema = z.looseObject({
+  serverName: z.string().min(1),
+  _meta: z.looseObject({
+    codex_approval_kind: z.literal("mcp_tool_call"),
+    tool_name: z.string().min(1),
+    connector_id: z.string().min(1).nullish(),
+    connector_name: z.string().min(1).nullish(),
+    tool_params: z.unknown().optional(),
+  }),
+});
+
+const statusToolSchema = z.looseObject({
+  name: z.string().min(1),
+  title: z.string().nullish(),
+  description: z.string().nullish(),
+  annotations: z.looseObject({ readOnlyHint: z.boolean().nullish() }).nullish(),
+  _meta: z
+    .looseObject({ connector_id: z.string().nullish(), connector_name: z.string().nullish() })
+    .nullish(),
+});
+export type StatusTool = z.infer<typeof statusToolSchema>;
+
+export const pluginReadSchema = z.looseObject({
+  plugin: z.looseObject({
+    apps: z.array(z.looseObject({ installUrl: z.string().nullish() })),
+  }),
+});
+
+export const mcpStatusListSchema = z.looseObject({
+  data: z.array(
+    z.looseObject({
+      name: z.string().min(1),
+      authStatus: z.string(),
+      toolsError: z.string().nullish(),
+      tools: z.record(z.string(), statusToolSchema),
+    }),
+  ),
+});
+
 export const userInputParamsSchema = z.looseObject({
   threadId: z.string(),
   itemId: z.string(),
@@ -144,3 +186,6 @@ export const modelListSchema = z.looseObject({
     }),
   ),
 });
+
+// Another MCP server of the login is named apart from a ChatGPT app, whose id may take any form.
+export const SERVER_PREFIX = "server:";

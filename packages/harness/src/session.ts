@@ -235,8 +235,10 @@ export class HarnessSession implements Session {
   // The login's other apps are found now, as the user may connect one at any time; a list that
   // cannot be read turns every app off, so none the session may not use can reach it (D-68).
   async #withAppsBlocked(): Promise<LaunchOptions> {
-    const allowed = this.#options.vendorApps ?? [];
-    if (allowed.length === 0 || this.#adapter.vendorApps === undefined) return this.#options;
+    const allowed = this.#options.vendorApps;
+    const support = this.#adapter.vendorApps;
+    if (allowed === undefined || support === undefined) return this.#options;
+    if (allowed.length === 0 && support.allOff === true) return this.#options;
     const { accountFolder } = this.#options;
     const env =
       accountFolder === undefined ? {} : (this.#adapter.accounts?.env(accountFolder) ?? {});
@@ -245,7 +247,9 @@ export class HarnessSession implements Session {
         settled: false,
         timeoutMs: APPS_TIMEOUT_MS,
       });
-      const blockedApps = apps.map(({ name }) => name).filter((name) => !allowed.includes(name));
+      const blockedApps = apps
+        .map(({ id, name }) => id ?? name)
+        .filter((name) => !allowed.includes(name));
       return { ...this.#options, blockedApps };
     } catch (error) {
       const message = `Its apps are off for this run: ${errorMessage(error)}`;

@@ -19,7 +19,6 @@ import { proposePlan } from "./chief/propose-plan.ts";
 import { Scheduler } from "./chief/scheduler.ts";
 import { appsOf } from "./connectors/access.ts";
 import { ConnectorHub } from "./connectors/hub.ts";
-import { AppRequests } from "./connectors/request-app.ts";
 import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
@@ -95,12 +94,7 @@ const registry = new SessionRegistry(store, {
   describeImages: imageDescriber({ store, readCatalog, dataFolder, createSession }),
   referenceOf: referenceOf(store),
   appsOf: appsOf(store),
-  appGuard: (session, request) => connectors.claudeApps.decide(session, request),
-});
-const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder));
-toolServer.offerApps({
-  hub: connectors.gateway.hubTools(),
-  endpointOf: (slug) => connectors.gateway.endpointOf(slug),
+  appGuard: (session, request) => connectors.providerApps.decide(session, request),
 });
 followLibraryUses(registry, store);
 const team = { store, registry, readCatalog, dataFolder, createSession };
@@ -118,6 +112,13 @@ void followRecounts(
 );
 const stopIdle = stopIdleAgents(registry, store, activity);
 const handovers = new Handovers(team, handOverAt === undefined ? {} : { handOverAt });
+const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder), (sessionId) =>
+  handovers.allow(sessionId),
+);
+toolServer.offerApps({
+  hub: connectors.gateway.hubTools(),
+  endpointOf: (slug) => connectors.gateway.endpointOf(slug),
+});
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 recoverLeads(team, activity);
 taskStates.follow(registry);
@@ -147,7 +148,7 @@ toolServer.offer([
   messageLead(team),
   addToLibrary(team),
   changeLibrary(team),
-  new AppRequests(store, registry).tool(),
+  connectors.asks.tool(),
   showResult(team),
 ]);
 // After a restart, queued work may be free to start.
@@ -172,7 +173,7 @@ const server = await startApiServer({
 });
 ownPorts.add(Number(new URL(server.url).port));
 // Claude apps connected on claude.ai since the last run show up without a click.
-void connectors.claudeApps.refresh();
+void connectors.providerApps.refresh();
 // Each provider's status and models, ready before a page asks; the reads take their turn with the
 // other CLI queries (D-92).
 void statuses.checkAll();

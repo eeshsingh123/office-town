@@ -214,7 +214,8 @@ export interface RegistryOptions {
 
 export interface Apps {
   connectorIds: string[];
-  vendorApps: string[];
+  // Undefined where the provider has no apps of its own to allow or keep out.
+  vendorApps?: string[];
   brief?: string;
 }
 
@@ -307,7 +308,7 @@ export class SessionRegistry {
     const { connectorIds, vendorApps, brief } = this.#appsOf(agentId, options);
     const apps = {
       ...(connectorIds.length === 0 ? {} : { connectorIds }),
-      ...(vendorApps.length === 0 ? {} : { vendorApps }),
+      ...(vendorApps === undefined ? {} : { vendorApps }),
     };
     const withReference = reference.length === 0 ? message : { ...message, reference };
     if (brief === undefined) return { message: withReference, apps };

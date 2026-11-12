@@ -1,8 +1,13 @@
 import type { CatalogEntry, ConnectorCategory, ConnectorSetup } from "@office-town/contract";
 
-// Sign-in apps are connected on claude.ai and reached by Claude agents (D-68); the address is for
-// one missing from Claude's directory, added there as a custom connector. Key apps were checked
-// live on 2026-10-18: Hugging Face listed its tools, GitHub took a key header.
+// Claude's tiles are connected on claude.ai and reached by Claude agents (D-68); the address is for
+// one missing from Claude's directory, added there as a custom connector. The first list was
+// checked on this day; each entry is checked again at every release (D-96).
+const LISTED = "2026-10-18";
+
+// Also offered as ChatGPT apps that Codex signs in to (checked in Codex 0.167.2, 2026-11-12).
+const CODEX = ["codex"];
+
 const inClaude = (
   slug: string,
   name: string,
@@ -10,11 +15,48 @@ const inClaude = (
   url: string,
   category: ConnectorCategory,
   description: string,
+  signIn: string[] = [],
 ): CatalogEntry => ({
   setup: { slug, name, kind: "claude", maker, official: true, url, auth: "none", keys: [] },
   category,
   description,
+  signIn,
+  checked: LISTED,
 });
+
+// Checked against the listing checklist on 2026-11-12: made by the app's own company, served over
+// HTTPS, taking a key (or none) as the vendor's own docs say. Remote servers run at the vendor, so
+// there is no package to check; the one program is pinned and was checked on GitHub Advisories and
+// OSV that day.
+const CHECKED = "2026-11-12";
+
+// A shared app every provider reaches through the hub (D-67), with a key header where it needs one.
+function shared(
+  slug: string,
+  name: string,
+  url: string,
+  key: { label: string; link: string } | undefined,
+  category: ConnectorCategory,
+  description: string,
+  signIn: string[] = [],
+): CatalogEntry {
+  return {
+    setup: {
+      slug,
+      name,
+      kind: "remote",
+      maker: name,
+      official: true,
+      url,
+      auth: key === undefined ? "none" : "key",
+      keys: key === undefined ? [] : [{ name: "Authorization", ...key }],
+    },
+    category,
+    description,
+    signIn,
+    checked: CHECKED,
+  };
+}
 
 const github: ConnectorSetup = {
   slug: "github",
@@ -41,14 +83,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.notion.com/mcp",
     "work",
     "Search, read and write pages and databases.",
-  ),
-  inClaude(
-    "linear",
-    "Linear",
-    "Linear",
-    "https://mcp.linear.app/mcp",
-    "work",
-    "Find, create and update issues and projects.",
+    CODEX,
   ),
   inClaude(
     "atlassian",
@@ -98,7 +133,13 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Read your meeting notes and transcripts.",
   ),
-  { setup: github, category: "code", description: "Read code, open issues and pull requests." },
+  {
+    setup: github,
+    category: "code",
+    description: "Read code, open issues and pull requests.",
+    signIn: CODEX,
+    checked: LISTED,
+  },
   inClaude(
     "sentry",
     "Sentry",
@@ -106,6 +147,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.sentry.dev/mcp",
     "code",
     "Look into errors and the issues behind them.",
+    CODEX,
   ),
   inClaude(
     "vercel",
@@ -114,14 +156,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.vercel.com",
     "code",
     "Check projects, deployments and their logs.",
-  ),
-  inClaude(
-    "supabase",
-    "Supabase",
-    "Supabase",
-    "https://mcp.supabase.com/mcp",
-    "code",
-    "Query and manage your databases and projects.",
+    CODEX,
   ),
   inClaude(
     "cloudflare",
@@ -139,14 +174,6 @@ export const catalog: CatalogEntry[] = [
     "code",
     "Create, deploy and manage sites.",
   ),
-  inClaude(
-    "neon",
-    "Neon",
-    "Neon",
-    "https://mcp.neon.tech/mcp",
-    "code",
-    "Manage Postgres projects and run queries.",
-  ),
   {
     setup: {
       slug: "hugging-face",
@@ -160,6 +187,8 @@ export const catalog: CatalogEntry[] = [
     },
     category: "code",
     description: "Search models, datasets, papers and Spaces.",
+    signIn: CODEX,
+    checked: LISTED,
   },
   inClaude(
     "intercom",
@@ -168,14 +197,6 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.intercom.com/mcp",
     "messages",
     "Search conversations and customer details.",
-  ),
-  inClaude(
-    "stripe",
-    "Stripe",
-    "Stripe",
-    "https://mcp.stripe.com",
-    "sales",
-    "Look up and manage payments, customers and invoices.",
   ),
   inClaude(
     "paypal",
@@ -216,6 +237,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.canva.com/mcp",
     "design",
     "Find, create and export designs.",
+    CODEX,
   ),
   inClaude(
     "webflow",
@@ -241,4 +263,105 @@ export const catalog: CatalogEntry[] = [
     "design",
     "Read and add to your boards.",
   ),
+  shared(
+    "linear",
+    "Linear",
+    "https://mcp.linear.app/mcp",
+    { label: "API key", link: "https://linear.app/settings/account/security" },
+    "work",
+    "Find, create and update issues and projects.",
+    ["claude", "codex"],
+  ),
+  shared(
+    "supabase",
+    "Supabase",
+    "https://mcp.supabase.com/mcp",
+    { label: "Personal access token", link: "https://supabase.com/dashboard/account/tokens" },
+    "code",
+    "Query and manage your databases and projects.",
+    ["claude", "codex"],
+  ),
+  shared(
+    "neon",
+    "Neon",
+    "https://mcp.neon.tech/mcp",
+    { label: "API key", link: "https://console.neon.tech/app/settings/api-keys" },
+    "code",
+    "Manage Postgres projects and run queries.",
+    ["claude"],
+  ),
+  shared(
+    "stripe",
+    "Stripe",
+    "https://mcp.stripe.com",
+    { label: "Restricted key for agents", link: "https://dashboard.stripe.com/apikeys" },
+    "sales",
+    "Look up and manage payments, customers and invoices.",
+    ["claude", "codex"],
+  ),
+  shared(
+    "context7",
+    "Context7",
+    "https://mcp.context7.com/mcp",
+    undefined,
+    "code",
+    "Read current docs and code examples for libraries.",
+  ),
+  shared(
+    "exa",
+    "Exa",
+    "https://mcp.exa.ai/mcp",
+    undefined,
+    "work",
+    "Search the web and read pages.",
+  ),
+  shared(
+    "firecrawl",
+    "Firecrawl",
+    "https://mcp.firecrawl.dev/v2/mcp",
+    { label: "API key", link: "https://www.firecrawl.dev/app/api-keys" },
+    "work",
+    "Scrape, search and crawl websites.",
+  ),
+  shared(
+    "tavily",
+    "Tavily",
+    "https://mcp.tavily.com/mcp",
+    { label: "API key", link: "https://app.tavily.com/home" },
+    "work",
+    "Search the web and pull out what pages say.",
+  ),
+  shared(
+    "apify",
+    "Apify",
+    "https://mcp.apify.com",
+    { label: "API token", link: "https://console.apify.com/settings/integrations" },
+    "work",
+    "Run ready-made scrapers and automations.",
+  ),
+  shared(
+    "posthog",
+    "PostHog",
+    "https://mcp.posthog.com/mcp",
+    { label: "Personal API key", link: "https://app.posthog.com/settings/user-api-keys" },
+    "code",
+    "Read product analytics, flags and errors.",
+  ),
+  {
+    setup: {
+      slug: "playwright",
+      name: "Playwright",
+      kind: "local",
+      maker: "Microsoft",
+      official: true,
+      command: "npx",
+      args: ["-y", "@playwright/mcp@0.0.85"],
+      auth: "none",
+      keys: [],
+    },
+    category: "code",
+    description: "Open pages in a browser, click and fill them in.",
+    signIn: [],
+    checked: CHECKED,
+  },
 ];

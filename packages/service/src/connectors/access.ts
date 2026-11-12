@@ -1,11 +1,13 @@
-import type {
-  AgentRecord,
-  Audience,
-  ConnectorPermission,
-  ConnectorRecord,
-  SessionOptions,
+import {
+  type AgentRecord,
+  type Audience,
+  type ConnectorAction,
+  type ConnectorPermission,
+  type ConnectorRecord,
+  providerOf,
+  type SessionOptions,
 } from "@office-town/contract";
-import { hasVendorApps } from "@office-town/harness";
+import { hasVendorApps, listHarnesses } from "@office-town/harness";
 import { chooseAccount, sessionAccountId } from "../accounts/accounts.ts";
 import { appsBrief } from "../agents/briefs.ts";
 import type { Apps } from "../registry/session-registry.ts";
@@ -25,8 +27,12 @@ export function mayUse(connector: ConnectorRecord, agent: AgentRecord): boolean 
   return agent.guest !== true && connector.enabled && reaches(connector.audience, agent);
 }
 
-// Claude Code connects these itself, so only its agents reach them, never through the hub (D-68).
-export const isClaudeApp = (connector: ConnectorRecord) => connector.setup.kind === "claude";
+export const providerName = (harness: string) =>
+  listHarnesses().find((known) => known.harness === harness)?.name ?? harness;
+
+// A provider connects these itself, so only its agents reach them, never through the hub (D-68).
+export const isProviderApp = (connector: ConnectorRecord) =>
+  providerOf(connector.setup.kind) !== undefined;
 
 // The hub's connectors, which any harness reaches.
 export function usableBy(store: Store, agentId: string): ConnectorRecord[] {
@@ -34,44 +40,52 @@ export function usableBy(store: Store, agentId: string): ConnectorRecord[] {
   if (agent === undefined) return [];
   return store
     .listConnectors()
-    .filter((connector) => !isClaudeApp(connector) && mayUse(connector, agent));
+    .filter((connector) => !isProviderApp(connector) && mayUse(connector, agent));
 }
 
-// The Claude apps of the login a session runs on that the agent may use and that are connected.
-export function claudeAppsOn(store: Store, agent: AgentRecord, accountId: string) {
-  return store
+const appsOnLogin = (store: Store, harness: string, accountId: string) =>
+  store
     .listConnectors()
-    .filter(
-      (connector) =>
-        isClaudeApp(connector) &&
-        connector.setup.account === accountId &&
-        connector.status === "connected" &&
-        mayUse(connector, agent),
-    );
+    .filter(({ setup }) => providerOf(setup.kind) === harness && setup.account === accountId);
+
+// The provider apps of the login a session runs on that the agent may use and that are connected.
+export function providerAppsOn(
+  store: Store,
+  agent: AgentRecord,
+  harness: string,
+  accountId: string,
+) {
+  return appsOnLogin(store, harness, accountId).filter(
+    (connector) => connector.status === "connected" && mayUse(connector, agent),
+  );
 }
 
-// Every app an agent reaches, by name, for a lead's roster; its Claude apps by the account it
+// Every app an agent reaches, by name, for a lead's roster; its provider apps by the account it
 // would run on now.
 export function reachableApps(store: Store, agent: AgentRecord): string[] {
-  const own = hasVendorApps(agent.settings.harness)
-    ? claudeAppsOn(store, agent, chooseAccount(store, agent.settings).accountId)
+  const { harness } = agent.settings;
+  const own = hasVendorApps(harness)
+    ? providerAppsOn(store, agent, harness, chooseAccount(store, agent.settings).accountId)
     : [];
   return [...usableBy(store, agent.id), ...own].map(({ setup }) => setup.name);
 }
 
-// What a new conversation gets: the apps its agent may use now, and the lines naming them.
+// What a new conversation gets: the apps its agent may use now, and the lines naming them. Where
+// the login has provider apps, the allowed ones are named even when none is, so the rest stay off.
 export function appsOf(store: Store) {
   return (agentId: string, options: SessionOptions): Apps => {
     const agent = store.getAgent(agentId);
     const usable = usableBy(store, agentId);
-    const claude =
-      agent === undefined || !hasVendorApps(options.harness)
-        ? []
-        : claudeAppsOn(store, agent, sessionAccountId(options));
-    const brief = appsBrief(usable, claude);
+    const accountId = sessionAccountId(options);
+    const listed =
+      agent !== undefined &&
+      hasVendorApps(options.harness) &&
+      appsOnLogin(store, options.harness, accountId).length > 0;
+    const own = listed ? providerAppsOn(store, agent, options.harness, accountId) : [];
+    const brief = appsBrief(usable, own);
     return {
       connectorIds: usable.map(({ id }) => id),
-      vendorApps: claude.flatMap(({ setup }) => setup.app ?? []),
+      ...(listed ? { vendorApps: own.flatMap(({ setup }) => setup.app ?? []) } : {}),
       ...(brief === undefined ? {} : { brief }),
     };
   };
@@ -79,6 +93,13 @@ export function appsOf(store: Store) {
 
 // Unmarked counts as a change.
 export const isRead = (tool: ConnectorTool) => tool.annotations?.readOnlyHint === true;
+
+export const actionsOf = (tools: ConnectorTool[]): ConnectorAction[] =>
+  tools.map((tool) => ({
+    name: tool.name,
+    ...(tool.description === undefined ? {} : { description: tool.description }),
+    readOnly: isRead(tool),
+  }));
 
 export type Decision = "go" | "ask" | "refuse";
 

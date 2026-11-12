@@ -11,6 +11,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ago, taskName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { DepartmentApps } from "../connectors/DepartmentApps.tsx";
 import office from "../office/Office.module.css";
 import {
   PanelHeader,
@@ -192,6 +193,20 @@ function DepartmentOutputs({ taskId }: { taskId: string }) {
   );
 }
 
+// Shown only when the department was given apps of its own (D-96).
+function DepartmentAppsSection(props: { departmentId: string; harnesses: string[] }) {
+  const connectors = useApp((state) => state.connectors);
+  const has = Object.values(connectors).some(({ audience }) =>
+    audience.departmentIds.includes(props.departmentId),
+  );
+  if (!has) return null;
+  return (
+    <PanelSection title="Apps">
+      <DepartmentApps {...props} />
+    </PanelSection>
+  );
+}
+
 export function DepartmentNow({ department }: { department: DepartmentRecord }) {
   const { task, members, goalSessions, working } = useDepartmentGoal(department);
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
@@ -235,6 +250,11 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
       </PanelSection>
 
       {task === undefined ? null : <OpenDelegations task={task} members={members} />}
+
+      <DepartmentAppsSection
+        departmentId={department.id}
+        harnesses={members.map(({ record }) => record.settings.harness)}
+      />
 
       {task === undefined ? null : <DepartmentOutputs taskId={task.id} />}
 

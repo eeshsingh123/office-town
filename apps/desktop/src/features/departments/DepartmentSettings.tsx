@@ -15,6 +15,7 @@ import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
+import { DepartmentApps } from "../connectors/DepartmentApps.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { DEPARTMENT_STEPS } from "../team/guides.tsx";
@@ -253,6 +254,11 @@ function Settings({
           defaults={team.lead.settings}
           departmentId={department.id}
           workspaceId={department.workspaceId}
+        />
+        <DepartmentApps
+          departmentId={department.id}
+          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
+          warnOnly
         />
       </section>
 

@@ -1,18 +1,29 @@
 # Memory
 
-Last updated: 2026-11-10
+Last updated: 2026-11-12
 
 ## State
 
 - Built and merged to `main`: M1 to M10, the feedback and optimization rounds, and the performance phase (PR #83). MODULES.md lists what each built.
 - Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
-- Phase 2 C, Milestones (D-95), built on `feat/goal-record`, PR open. Live smoke: one team task on OpenCode's free model with Milestones on (lead wrote 3, both parts accepted at once, a user edit showed "got it", the floor and Progress updated live).
+- Phase 2 C, Milestones (D-95), merged as PR #85.
+- Connectors revamp (D-96) built on `feat/connectors-revamp`, PR open. Live smoke on the dev web app: a Claude Haiku agent asked for Exa, it was added and the agent searched with it (recorded); a Codex agent (ChatGPT Free, default model) called Plugin Management through the core (allowed as a read, recorded with its input), then asked for Notion and got "Set up in Codex"; Codex's setup page for Hugging Face came from `plugin/read`.
 - Next: the public release steps in MODULES.md, on the owner's go-ahead.
-- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex, Copilot, Cursor and Muse are installed there, not signed in, so their live runs wait for the owner.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
+
+- D-96 Codex app connected through ChatGPT: press Set up in Codex on an ask, connect the app on the ChatGPT page, come back. It should show with the Codex tag and the ask answer itself; wrong if Codex lists it only once the plugin is installed (then `plugin/install` with the remote id from `plugin/read`).
+- D-96 handover after a provider app is given mid-task: the agent should call `hand_over` and its new conversation have the app; wrong if it carries on without it or the handover waits in Needs you.
+- D-96 a Codex app change under Ask me first: Plugin Management's uninstall should wait in Needs you with its input. Only reads ran live.
+- D-96 OpenCode's own servers: an enabled one in `opencode.jsonc` should show with the OpenCode tag on Don't ask, run without asking, and its page list each action once used. The owner has none enabled. Handing a new server to OpenCode or Codex for their own sign-in is not built.
+- D-96 Needs renewing: a Claude app signed out after use should show amber with Renew on its card and page, opening claude.ai; a Codex or OpenCode one shows "Sign in in Codex" instead. Only offers (never signed in) were seen.
+- D-96 ask audience: on an ask for a shared app, pick Everyone, then Save in Add. The app should go to Everyone; wrong if it ends up with the department only.
+- D-96 teammate first: in a department with a Claude member who has Gmail, a Codex member asking for Gmail should be told to hand the step over (or ask the lead), with no Needs you card.
+- D-96 shared keys not connected live: Firecrawl, Tavily, Linear, Supabase, Neon, Stripe, Apify, PostHog (only Exa ran). Firecrawl and Tavily document the key in the address, so a header key may fail.
+- D-96 screens not captured: the department Apps section, the team builder warning, the walkthrough card.
 
 - D-95 send-back live (the flow test covers it): a lead's `send_back` twice, then a third should put a question in Needs you with the tries; Send back once more should start the worker again, Accept as is should tell the lead. Wrong if a third send-back reaches the worker.
 - D-95 chief: a goal to the chief with Milestones on should show each piece's milestones on the plan card, editable; once a piece starts, they should be its department's goal milestones in Progress. The checker started on a Milestones task should list them first, marked from the lead. A handover on a Milestones task should carry progress and steps from the record.
@@ -81,7 +92,7 @@ Worth a click when the area is touched:
 
 - Claude Code (2.1.287 fixtures; 2.1.316 latest probed). Every turn starts with `system/init`. A message sent during a turn folds into it at the next tool end, with no new `system/init`; `--replay-user-messages` echoes it when taken. MCP tools are deferred behind `ToolSearch`. In `ask` mode a tool not in `--allowedTools` comes as `can_use_tool`. The plan comes from `TaskCreate`/`TaskUpdate`; read the CLI's own record in `tool_use_result`, since the model names fields loosely. Sub-agents run in the background, so a turn can end before its sub-agent. Thinking text arrives empty. `AskUserQuestion` comes as a permission request; answer with `answers` in `updatedInput`. `initialize` lists models and efforts. `--resume <id>` keeps the id. `rate_limit_event` carries `five_hour` and `seven_day` utilisation (0 to 1) and `resetsAt`; a refused turn has `status: "rejected"`. `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the login. `mcp_status` lists claude.ai apps with `readOnly` markers without a turn; Gmail, Drive and Calendar need `claude mcp login --no-browser "<app>"` in headless runs.
 - OpenCode (1.18.34 fixtures, 1.19.5 probed) over ACP. An `ask` rule on an MCP tool asks with an empty `rawInput` (why the core decides connector calls). The todo list is `todowrite`. Sub-agents' steps are not forwarded. ACP cannot ask the user a question. `session/new` gives models and the current model's `effort`; `opencode models --verbose` lists every model's variants, inputs and window. Reports context size as a prompt ends, no plan limit. It waits for every MCP server in the user's global config before `session/new` answers: an `npx` server cost 14 s per start, so the owner's `rea` server is disabled in `~/.config/opencode/opencode.jsonc`. It calls `fs/write_text_file` although the client says it cannot; refused, it writes the file itself, and once its idle process later exited on that refusal (code 1, D-77).
-- Codex 0.164 (`codex app-server`), Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`). Sign-in: `codex login`, `copilot login` (token in the OS store), `cursor-agent login`, `muse login` (`META_API_KEY` wins).
+- Codex 0.167.2 (`codex app-server`; the 0.164 fixtures still pass). It reports a user message as an item with object parts, and asks before every MCP call as `mcpServer/elicitation/request` (`_meta.codex_approval_kind: "mcp_tool_call"` with the tool, connector id and input), ignoring an `auto` approval mode, so the translator accepts the core's own. ChatGPT apps are the `codex_apps` server's tools grouped by `_meta.connector_id` (not always `connector_*`). Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`). Sign-in: `codex login`, `copilot login` (token in the OS store), `cursor-agent login`, `muse login` (`META_API_KEY` wins).
 - DeepSeek V4.1 Flash on OpenCode Go: first token 1 to 3 s on a cache hit, up to 55 s on a miss at 370k. Misses are the provider's.
 
 ## Environment (owner's machine, Windows 11)

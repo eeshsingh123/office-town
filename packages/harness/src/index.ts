@@ -257,8 +257,11 @@ export function vendorAppSignInPage(
   folder: string | undefined,
   app: string,
 ): Promise<string> {
-  const support = findAdapter(harness).vendorApps;
-  if (support === undefined) throw new Error(`The "${harness}" harness has no apps of its own.`);
+  const adapter = findAdapter(harness);
+  const support = adapter.vendorApps;
+  if (support?.signIn === undefined || support.signInPage === undefined) {
+    throw new Error(`sign in again in ${adapter.name}`);
+  }
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const command = support.signIn(app);
   return readSignInPage(
@@ -266,6 +269,25 @@ export function vendorAppSignInPage(
     { ...command, env: { ...command.env, ...loginEnv(harness, environment, folder) } },
     support.signInPage,
   );
+}
+
+// Adds an app the login does not have yet and answers the vendor's page to sign it in (D-96).
+export async function vendorAppSetUpPage(
+  harness: string,
+  spec: EnvironmentSpec,
+  folder: string | undefined,
+  app: string,
+): Promise<string> {
+  const adapter = findAdapter(harness);
+  const setUp = adapter.vendorApps?.setUp;
+  if (setUp === undefined) throw new Error(`set it up in ${adapter.name}`);
+  const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const page = await runQuery(environment, setUp(app), {
+    env: loginEnv(harness, environment, folder),
+    timeoutMs: STATUS_TIMEOUT_MS,
+  });
+  if (page === undefined) throw new Error("It did not answer in time.");
+  return page;
 }
 
 // Where an account's sign-in is saved inside its folder, for a harness that keeps accounts apart.

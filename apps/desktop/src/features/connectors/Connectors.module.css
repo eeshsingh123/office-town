@@ -71,11 +71,6 @@
   font-size: 22px;
 }
 
-.plus {
-  background: var(--bg);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
-
 /* Connected list */
 .list {
   margin: 0;
@@ -117,21 +112,6 @@
   background: var(--hover);
 }
 
-.connItem {
-  position: relative;
-}
-
-.withAction {
-  padding-right: 160px;
-}
-
-.connAction {
-  position: absolute;
-  top: 50%;
-  right: 20px;
-  transform: translateY(-50%);
-}
-
 .connText {
   display: flex;
   flex-direction: column;
@@ -153,10 +133,6 @@
 
 .warn {
   color: var(--warn);
-}
-
-.go {
-  color: var(--text-3);
 }
 
 /* Catalog */
@@ -205,11 +181,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
-}
-
-.own {
-  border-style: dashed;
-  background: transparent;
 }
 
 .cardTop {
@@ -316,10 +287,6 @@
   border-top: 1px solid var(--border);
 }
 
-.footLeft {
-  margin-right: auto;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -331,33 +298,6 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--text-2);
-}
-
-.account {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 12px 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-}
-
-.check {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-
-.accountText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
 }
 
 .picker {
@@ -375,44 +315,6 @@
   color: var(--text-3);
 }
 
-.group {
-  display: grid;
-  gap: 8px;
-}
-
-.groupLabel {
-  margin: 0;
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.linkButton {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 600;
-  color: var(--accent-text);
-  cursor: pointer;
-}
-
-.steps {
-  margin: 0;
-  padding-left: 20px;
-  display: grid;
-  gap: 8px;
-  font-size: var(--size-meta);
-  color: var(--text-2);
-}
-
-.steps code {
-  display: block;
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-
 .link {
   color: var(--accent-text);
   font-size: var(--size-meta);
@@ -420,60 +322,6 @@
 }
 
 /* Describe it */
-.describe {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 10px 10px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-}
-
-.describe:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.describe textarea {
-  flex: 1;
-  min-height: 48px;
-  padding: 6px 0 0;
-  border: 0;
-  outline: 0;
-  resize: vertical;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  line-height: 1.55;
-}
-
-.found {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-}
-
-.foundHead {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-}
-
-.foundRow {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 12px;
-  padding: 9px 16px;
-  border-top: 1px solid var(--border);
-  font-size: 13.5px;
-  overflow-wrap: anywhere;
-}
-
-.foundKey {
-  color: var(--text-3);
-}
 
 .code {
   padding: 2px 6px;
@@ -613,18 +461,6 @@
 }
 
 /* Asks in Needs you */
-.askHead {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.askText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
 
 .mail {
   display: grid;
@@ -670,4 +506,247 @@
   .accessRow {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Provider tags and one card per app (D-96) */
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.tag > span {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+}
+
+.renew {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.appCard {
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.appCard:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.card:has(.appCard:hover) {
+  border-color: var(--border-strong);
+}
+
+.cardRenew {
+  border-color: var(--warn-border);
+}
+
+.head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headTools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.routeRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.routeRow + .routeRow {
+  border-top: 1px solid var(--border);
+}
+
+.routeStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.routeStatus svg {
+  color: var(--ok);
+}
+
+.first {
+  margin-left: 6px;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.actions > div {
+  padding: 14px 16px;
+}
+
+.actions > div + div {
+  border-left: 1px solid var(--border);
+}
+
+.actionsHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 8px;
+  font-size: var(--size-meta);
+  font-weight: 700;
+}
+
+.actionsHead span {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.actionList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13.5px;
+}
+
+.actionList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionList svg {
+  flex: none;
+  color: var(--text-3);
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.ways {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.fold:hover {
+  color: var(--text);
+}
+
+.seeAll {
+  align-self: flex-start;
+}
+
+.giveTo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.giveTo select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.deptApps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teamWarn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  font-size: var(--size-meta);
+  color: var(--warn);
+}
+
+.teamWarn > span {
+  flex: 1;
+  min-width: 180px;
 }

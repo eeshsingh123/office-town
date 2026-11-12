@@ -1,4 +1,4 @@
-import type { HarnessModel, PermissionMode } from "@office-town/contract";
+import type { HarnessModel, PermissionMode, VendorApp } from "@office-town/contract";
 import { z } from "zod";
 import type {
   AccountSupport,
@@ -7,6 +7,7 @@ import type {
   InstallSupport,
   LaunchOptions,
   RecountSupport,
+  VendorAppSupport,
 } from "../../adapter.ts";
 import { createAcpAdapter } from "../acp/adapter.ts";
 
@@ -71,13 +72,19 @@ function externalFolders(paths: string[] | undefined) {
 function buildCommand(options: LaunchOptions): HarnessCommand {
   // The core's own tools never ask, even under a user's stricter rules; their effects are guarded.
   const toolRules = options.toolServers.map((server) => [`${server.name}_*`, "allow"]);
+  // The user's own servers: an allowed one asks before each call, which the core answers by its
+  // permission (D-96); any other is turned off for this session.
+  const appRules = (options.vendorApps ?? []).map((name) => [`${name}_*`, "ask"]);
+  const blocked = (options.blockedApps ?? []).map((name) => [name, { enabled: false }]);
   // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
   const config = {
     permission: {
       ...PERMISSIONS[options.permissionMode],
       ...externalFolders(options.additionalPaths),
+      ...Object.fromEntries(appRules),
       ...Object.fromEntries(toolRules),
     },
+    ...(blocked.length === 0 ? {} : { mcp: Object.fromEntries(blocked) }),
     ...(options.model === undefined ? {} : { model: options.model }),
   };
   return {
@@ -230,6 +237,26 @@ const catalog: CatalogQuery = {
   },
 };
 
+const configSchema = z.looseObject({
+  mcp: z.record(z.string(), z.looseObject({ enabled: z.boolean().optional() })).optional(),
+});
+
+// The MCP servers in the user's own OpenCode settings, as OpenCode resolves them; it signs in to
+// them and keeps their sign-ins itself. Their tools are known only once an agent uses them.
+const vendorApps: VendorAppSupport = {
+  command: { binary: "opencode", args: ["debug", "config"] },
+  read(output) {
+    const text = output.join("\n");
+    const start = text.indexOf("{");
+    if (start === -1) return undefined;
+    const { mcp = {} } = configSchema.parse(JSON.parse(text.slice(start)));
+    const apps: VendorApp[] = Object.entries(mcp)
+      .filter(([, server]) => server.enabled !== false)
+      .map(([name]) => ({ name, id: name, status: "connected", tools: [] }));
+    return { apps, pending: false };
+  },
+};
+
 export const opencodeAdapter = createAcpAdapter({
   harness: "opencode",
   name: "OpenCode",
@@ -254,5 +281,6 @@ export const opencodeAdapter = createAcpAdapter({
   accounts,
   install,
   recount,
+  vendorApps,
   buildCommand,
 });

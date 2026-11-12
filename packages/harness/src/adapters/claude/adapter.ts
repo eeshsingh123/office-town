@@ -192,6 +192,7 @@ const APP_STATUS: Record<string, VendorApp["status"]> = {
 // The user's claude.ai connectors, which the CLI fetches for a subscription login.
 const vendorApps: VendorAppSupport = {
   command: { binary: "claude", args: [...STREAM_ARGS, "--setting-sources", ""] },
+  allOff: true,
   start: [
     JSON.stringify({
       type: "control_request",
@@ -204,7 +205,7 @@ const vendorApps: VendorAppSupport = {
     request_id: "apps",
     request: { subtype: "mcp_status" },
   }),
-  read(line) {
+  read([line = ""]) {
     if (!line.startsWith("{")) return undefined;
     const parsed = mcpStatusResponseSchema.safeParse(JSON.parse(line));
     if (!parsed.success || parsed.data.response.request_id !== "apps") return undefined;

@@ -38,20 +38,20 @@ What later work builds on; the why is in DECISIONS.md.
 - **M5 Command center.** A standing chief splits a goal into department pieces run in order, passing results and read-only folders; task state, usage and limits live in the core. `service/src/chief`.
 - **Feedback after M5.** Home, creation flows, the Dusk look, review in the chat, templates, workspaces, Needs you, one composer, plain naming, accounts and Usage, team building.
 - **M6 Files and Library, M6.5 Onboarding.** Attachments and a workspace Library; setup, tutorials, Help.
-- **M7 Connectors.** Key apps and local programs through the core's hub for every harness; sign-in apps through claude.ai for Claude agents. `service/src/connectors`.
+- **M7 Connectors, revamped (D-96).** Shared apps through the core's hub for every provider; provider apps (claude.ai, Codex's ChatGPT apps, OpenCode's servers) read from each provider, one card per app with provider tags, every call decided by the core; Add over a vetted list; asks that name the provider. `service/src/connectors`, `features/connectors`.
 - **After M7.** Several workspaces per department, usage recount, a lead stopping workers, lean runs with a usage pause, the check loop outside the team.
 - **M8 Outputs and preview.** `show_result`, changed files and local sites in a sandboxed viewer. `service/src/outputs`.
 - **M9 Packaging.** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, betas on every green merge, setup installing harnesses.
 - **M10 More providers.** Codex, Muse Code, Copilot and Cursor; the Providers page; an estimate at API prices where a provider shares no usage.
 - **After M10.** Team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
-- **Phase 2 B: Efficient mode (PR #84).** Opt-in: every role carries on in a new session past 350k with its own handover, the records and its earlier conversation. `team/handover.ts`, `carry-over.ts`, `handover-files.ts`.
-- **Phase 2 C: Milestones.** Opt-in milestones per goal and part, reported by their owners, edited by the user, with a core-kept send-back limit; one Progress view, progress on the floor, a Settings page. `service/src/goal`, `features/task/ProgressColumn.tsx`, `features/settings`.
+- **Phase 2.** Efficient mode: carrying on in a new session with a handover (`team/handover.ts`). Milestones with one Progress view and a Settings page (`service/src/goal`).
 
 ## Next
 
 ### Before the public release (owner's go-ahead)
 
 - The owner has tested a beta and says release.
+- Every vetted connector checked again (D-96): any with an advisory removed, the rest re-dated.
 - Intro video, discussed with the owner first.
 - Code signing through SignPath Foundation, wired in once approved.
 - The final name (the app id stays, so a rename breaks no updates or data).

@@ -8,7 +8,7 @@ import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.t
 import { SOLO } from "../new-task/targets.ts";
 import type { TutorialModel } from "./tutorial-model.ts";
 
-export type TutorialId = "first-task" | "department" | "chief" | "library";
+export type TutorialId = "first-task" | "department" | "chief" | "library" | "apps";
 
 // What the app held when the tutorial started, so a step can tell what the user added since.
 export interface TutorialRun {
@@ -17,6 +17,8 @@ export interface TutorialRun {
   startedAt: string;
   departments: number;
   library: number;
+  // Apps added in Office Town; a provider's own are listed without the user.
+  apps: number;
 }
 
 export interface TutorialStep {
@@ -37,6 +39,11 @@ export interface Tutorial {
   start: (model: TutorialModel | undefined) => void;
   steps: TutorialStep[];
 }
+
+export const sharedApps = (state: AppState) =>
+  Object.values(state.connectors).filter(
+    ({ setup }) => setup.kind === "remote" || setup.kind === "local",
+  ).length;
 
 const SAMPLE_TASK =
   "Write a one-page plan for a team lunch next Friday and save it as lunch-plan.md.";
@@ -178,6 +185,30 @@ export const TUTORIALS: Tutorial[] = [
       {
         title: "Choose who gets it",
         text: "To share it with only one department or agent, use Given to.",
+      },
+    ],
+  },
+  {
+    id: "apps",
+    title: "Connect your first app",
+    summary: "Connect an app, see what it can do, and watch an agent use it.",
+    start() {
+      navigate({ name: "connectors" });
+    },
+    steps: [
+      {
+        title: "Connect one app",
+        text: "Press Add app and pick one. Exa and Context7 need no key, so they connect at once.",
+        target: "connectors-add",
+        done: (state, run) => sharedApps(state) > run.apps,
+      },
+      {
+        title: "See what it can do",
+        text: "Open the app. Its page lists what agents can read and change, and who may use it.",
+      },
+      {
+        title: "Watch an agent use it",
+        text: "Start a task that needs it, such as: find this week's AI news with Exa. The app's page shows each use under Recent use.",
       },
     ],
   },

@@ -425,6 +425,12 @@ export class Handovers {
     }
   }
 
+  // The user's own action stands for their go-ahead, such as giving an app that reaches the agent
+  // only in a new conversation (D-96).
+  allow(sessionId: string): void {
+    this.#cleared.add(sessionId);
+  }
+
   // Its turn's end is not a result: the piece goes on in a new session.
   isHandingOver(sessionId: string): boolean {
     return this.#pending.has(sessionId);

@@ -16,12 +16,14 @@ const recordings = {
 describeAdapterConformance(codexAdapter, recordings);
 
 describe("codex adapter", () => {
-  it("attaches the core's tool servers without their tokens on the command line, never asks for their tools, and writes no read-only folder", () => {
+  it("attaches the core's tool servers without their tokens on the command line, never asks for their tools, turns on only allowed apps, each asking, and writes no read-only folder", () => {
     const command = codexAdapter.buildCommand({
       ...replayOptions,
       accountFolder: "/accounts/work",
       additionalPaths: ["/notes", "/papers"],
       readOnlyPaths: ["/papers"],
+      vendorApps: ["connector_gmail"],
+      blockedApps: ["connector_drive", "server:own-server"],
       toolServers: [
         {
           transport: "http",
@@ -40,6 +42,14 @@ describe("codex adapter", () => {
       'mcp_servers.office-town.bearer_token_env_var="OFFICE_TOWN_TOOL_TOKEN_0"',
       "-c",
       'mcp_servers.office-town.default_tools_approval_mode="auto"',
+      "-c",
+      "apps._default.enabled=false",
+      "-c",
+      "apps.connector_gmail.enabled=true",
+      "-c",
+      'apps.connector_gmail.default_tools_approval_mode="prompt"',
+      "-c",
+      "mcp_servers.own-server.enabled=false",
       "-c",
       'sandbox_workspace_write.writable_roots=["/notes"]',
     ]);

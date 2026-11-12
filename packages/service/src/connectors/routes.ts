@@ -5,9 +5,11 @@ import {
   connectorChangeSchema,
   connectorTestRequestSchema,
   newConnectorRequestSchema,
+  providerSetupRequestSchema,
 } from "@office-town/contract";
 import type { Route } from "../api/routes.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { actionsOf } from "./access.ts";
 import { catalog } from "./catalog.ts";
 import type { ConnectorHub } from "./hub.ts";
 
@@ -76,16 +78,34 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "POST",
       path: "/connectors/:id/sign-in",
       reply: async ({ param }) => {
-        return { status: 200, json: { url: await hub.claudeApps.signInPage(param("id")) } };
+        return { status: 200, json: { url: await hub.providerApps.signInPage(param("id")) } };
       },
     },
-    // Reads the Claude apps again, such as one just connected on claude.ai.
+    {
+      method: "POST",
+      path: "/connectors/setup",
+      reply: async ({ body }) => {
+        const { provider, app, ask } = providerSetupRequestSchema.parse(await body());
+        if (ask !== undefined) hub.asks.chooseAudience(ask.requestId, ask.audience);
+        return { status: 200, json: { url: await hub.providerApps.setUpPage(provider, app) } };
+      },
+    },
+    // Reads the provider apps again, such as one just connected on claude.ai.
     {
       method: "POST",
       path: "/connectors/refresh",
       reply: async () => {
-        await hub.claudeApps.refresh();
+        await hub.providerApps.refresh();
         return { status: 200, json: store.listConnectors() };
+      },
+    },
+    {
+      method: "GET",
+      path: "/connectors/:id/actions",
+      reply: ({ param }) => {
+        const id = param("id");
+        if (store.getConnector(id) === undefined) throw new RecordNotFoundError("connector");
+        return { status: 200, json: { tools: actionsOf(store.connectorTools(id)) } };
       },
     },
     {
