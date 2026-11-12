@@ -213,15 +213,14 @@ const STATUS_REQUEST = JSON.stringify({
   params: { detail: "toolsAndAuthOnly" },
 });
 
-// Read from the app-server without a turn; Codex signs in to and keeps every app itself.
 // ChatGPT's plugins carry its apps; a catalog slug such as "hugging-face" is its plugin "huggingface".
 const PLUGINS = "openai-curated-remote";
 
+// Read from the app-server without a turn. Not `allOff`: that override covers ChatGPT apps only, so
+// the login's other MCP servers are always listed to be turned off.
 const vendorApps: VendorAppSupport = {
   command: APP_SERVER,
-  allOff: true,
-  // The plugin's app names the ChatGPT page where the user connects it; nothing is installed here
-  // (0.167.2). Connected there, it reaches Codex with the account.
+  // The plugin's app names the ChatGPT page where the user connects it; nothing is installed here.
   setUp: (app) =>
     appServerQuery(
       "plugin/read",
