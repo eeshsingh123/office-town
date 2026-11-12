@@ -85,7 +85,8 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "POST",
       path: "/connectors/setup",
       reply: async ({ body }) => {
-        const { provider, app } = providerSetupRequestSchema.parse(await body());
+        const { provider, app, ask } = providerSetupRequestSchema.parse(await body());
+        if (ask !== undefined) hub.asks.chooseAudience(ask.requestId, ask.audience);
         return { status: 200, json: { url: await hub.providerApps.setUpPage(provider, app) } };
       },
     },

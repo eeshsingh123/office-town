@@ -142,16 +142,18 @@ export type ConnectorChange = z.infer<typeof connectorChangeSchema>;
 export const connectorSignInSchema = z.object({ url: z.url() });
 export type ConnectorSignIn = z.infer<typeof connectorSignInSchema>;
 
+// Who an app connected through an agent's ask goes to; the department by default (D-96).
+export const appAudienceSchema = z.enum(["agent", "department", "everyone"]);
+export type AppAudience = z.infer<typeof appAudienceSchema>;
+
 // Sets up an app through a provider that has none of it yet, by catalog slug or name.
 export const providerSetupRequestSchema = z.object({
   provider: z.string().min(1),
   app: z.string().trim().min(1).max(60),
+  // Set up from an agent's ask: who the user chose to give it to once it connects.
+  ask: z.object({ requestId: z.string().min(1), audience: appAudienceSchema }).optional(),
 });
 export type ProviderSetupRequest = z.infer<typeof providerSetupRequestSchema>;
-
-// Who an app connected through an agent's ask goes to; the department by default (D-96).
-export const appAudienceSchema = z.enum(["agent", "department", "everyone"]);
-export type AppAudience = z.infer<typeof appAudienceSchema>;
 
 // The input of an agent's ask for an app, as Needs you shows it. Its answers are "give:<audience>",
 // "connect", "decline"; a provider app names the provider whose sign-in it needs.

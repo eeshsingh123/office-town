@@ -8,7 +8,6 @@ import { proposePlan } from "../../src/chief/propose-plan.ts";
 import { Scheduler } from "../../src/chief/scheduler.ts";
 import { appsOf } from "../../src/connectors/access.ts";
 import { ConnectorHub } from "../../src/connectors/hub.ts";
-import { AppRequests } from "../../src/connectors/request-app.ts";
 import { MilestoneEdits } from "../../src/goal/edits.ts";
 import { goalTools } from "../../src/goal/tools.ts";
 import { referenceOf } from "../../src/library/library.ts";
@@ -140,7 +139,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     messageLead(team),
     addToLibrary(team),
     changeLibrary(team),
-    new AppRequests(store, registry).tool(),
+    connectors.asks.tool(),
     showResult(team),
   ]);
   const preview = await PreviewServer.start();

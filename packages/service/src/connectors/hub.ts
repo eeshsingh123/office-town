@@ -13,6 +13,7 @@ import { actionsOf, isProviderApp } from "./access.ts";
 import { ConnectorGateway } from "./gateway.ts";
 import { ConnectError, ConnectorLinks, probe } from "./links.ts";
 import { ProviderApps } from "./provider-apps.ts";
+import { AppRequests } from "./request-app.ts";
 import { type Secrets, writeKeys } from "./secrets.ts";
 
 // The core keeps one link per key app and program, which every harness reaches (D-67). Provider
@@ -21,10 +22,17 @@ export class ConnectorHub {
   readonly links: ConnectorLinks;
   readonly gateway: ConnectorGateway;
   readonly providerApps: ProviderApps;
+  readonly asks: AppRequests;
   readonly #store: Store;
   readonly #secrets: Secrets;
 
-  constructor(store: Store, registry: SessionRegistry, secrets: Secrets) {
+  // carryOn lets an agent hand over to a new conversation that has an app just given (D-96).
+  constructor(
+    store: Store,
+    registry: SessionRegistry,
+    secrets: Secrets,
+    carryOn?: (sessionId: string) => void,
+  ) {
     this.#store = store;
     this.#secrets = secrets;
     this.links = new ConnectorLinks(secrets, {
@@ -40,6 +48,7 @@ export class ConnectorHub {
     });
     this.gateway = new ConnectorGateway(store, registry, this.links);
     this.providerApps = new ProviderApps(store, registry);
+    this.asks = new AppRequests(store, registry, carryOn);
   }
 
   get secretsKind(): Secrets["kind"] {
