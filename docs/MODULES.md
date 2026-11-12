@@ -51,6 +51,7 @@ What later work builds on; the why is in DECISIONS.md.
 ### Before the public release (owner's go-ahead)
 
 - The owner has tested a beta and says release.
+- Every vetted connector checked again (D-96): any with an advisory removed, the rest re-dated.
 - Intro video, discussed with the owner first.
 - Code signing through SignPath Foundation, wired in once approved.
 - The final name (the app id stays, so a rename breaks no updates or data).

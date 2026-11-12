@@ -18,8 +18,11 @@ Each item: how to reach it, what should happen.
 - D-96 Codex app connected through ChatGPT: press Set up in Codex on an ask, connect the app on the ChatGPT page, come back. It should show with the Codex tag and the ask answer itself; wrong if Codex lists it only once the plugin is installed (then `plugin/install` with the remote id from `plugin/read`).
 - D-96 handover after a provider app is given mid-task: the agent should call `hand_over` and its new conversation have the app; wrong if it carries on without it or the handover waits in Needs you.
 - D-96 a Codex app change under Ask me first: Plugin Management's uninstall should wait in Needs you with its input. Only reads ran live.
-- D-96 OpenCode's own servers: an enabled one in `opencode.jsonc` should show with the OpenCode tag, ask with no input under Ask me first, and keep each action's name. The owner has none enabled. Handing a new server to OpenCode or Codex for their own sign-in is not built.
-- D-96 Needs renewing: a provider app signed out after use should show amber with Renew on its card and page; only offers (never signed in) were seen.
+- D-96 OpenCode's own servers: an enabled one in `opencode.jsonc` should show with the OpenCode tag on Don't ask, run without asking, and its page list each action once used. The owner has none enabled. Handing a new server to OpenCode or Codex for their own sign-in is not built.
+- D-96 Needs renewing: a Claude app signed out after use should show amber with Renew on its card and page, opening claude.ai; a Codex or OpenCode one shows "Sign in in Codex" instead. Only offers (never signed in) were seen.
+- D-96 ask audience: on an ask for a shared app, pick Everyone, then Save in Add. The app should go to Everyone; wrong if it ends up with the department only.
+- D-96 teammate first: in a department with a Claude member who has Gmail, a Codex member asking for Gmail should be told to hand the step over (or ask the lead), with no Needs you card.
+- D-96 shared keys not connected live: Firecrawl, Tavily, Linear, Supabase, Neon, Stripe, Apify, PostHog (only Exa ran). Firecrawl and Tavily document the key in the address, so a header key may fail.
 - D-96 screens not captured: the department Apps section, the team builder warning, the walkthrough card.
 
 - D-95 send-back live (the flow test covers it): a lead's `send_back` twice, then a third should put a question in Needs you with the tries; Send back once more should start the worker again, Accept as is should tell the lead. Wrong if a third send-back reaches the worker.
