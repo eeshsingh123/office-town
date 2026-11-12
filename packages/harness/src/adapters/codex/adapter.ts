@@ -15,7 +15,7 @@ import {
   accountSchema,
   mcpStatusListSchema,
   modelListSchema,
-  pluginInstallSchema,
+  pluginReadSchema,
   rateLimitsNoticeSchema,
   type StatusTool,
 } from "./messages.ts";
@@ -217,14 +217,15 @@ const PLUGINS = "openai-curated-remote";
 const vendorApps: VendorAppSupport = {
   command: APP_SERVER,
   allOff: true,
-  // Installing the plugin answers the ChatGPT page where the user signs its app in (0.167.2).
+  // The plugin's app names the ChatGPT page where the user connects it; nothing is installed here
+  // (0.167.2). Connected there, it reaches Codex with the account.
   setUp: (app) =>
     appServerQuery(
-      "plugin/install",
+      "plugin/read",
       (result) => {
-        const { appsNeedingAuth } = pluginInstallSchema.parse(result);
-        const page = appsNeedingAuth.find(({ installUrl }) => installUrl)?.installUrl;
-        if (!page) throw new Error(`${app} is set up in Codex already; check again.`);
+        const { apps } = pluginReadSchema.parse(result).plugin;
+        const page = apps.find(({ installUrl }) => installUrl)?.installUrl;
+        if (!page) throw new Error(`${app} has no app to sign in to in Codex.`);
         return page;
       },
       {

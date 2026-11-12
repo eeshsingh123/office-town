@@ -144,9 +144,12 @@ export class AppRequests {
       return `${name} came after this conversation began. Call hand_over now to carry on in a new conversation that has it, then end your turn.`;
     }
     const give = ready(shared) ? shared : ready(own) ? own : undefined;
-    const provider = give === undefined && providerCanAdd(harness, entry) ? harness : undefined;
+    // An app that can be shared is added in Office Town first, where Add also offers the
+    // provider's own way in; otherwise the agent's provider sets it up.
     const sharedEntry =
       entry !== undefined && (entry.setup.kind === "remote" || entry.setup.kind === "local");
+    const provider =
+      give === undefined && !sharedEntry && providerCanAdd(harness, entry) ? harness : undefined;
     if (give === undefined && provider === undefined && !sharedEntry) {
       return this.#elsewhere(caller, agent, name, reason);
     }
