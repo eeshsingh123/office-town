@@ -500,6 +500,11 @@ export class CodexTranslator implements Translator {
     if (method === "item/tool/requestUserInput") return this.#question(id, params);
     const app = appApprovalParamsSchema.safeParse(params);
     if (method === "mcpServer/elicitation/request" && app.success) {
+      // Codex 0.167 asks for the core's own tools too, whatever their approval mode; they never
+      // ask, since what they lead to is guarded where it happens (D-41).
+      const own = this.#options.toolServers.some(({ name }) => name === app.data.serverName);
+      if (own)
+        return { events: [], outgoing: [this.#peer.respond(id, elicitationAnswer("accept"))] };
       return this.#appApproval(id, app.data);
     }
     // Anything else Codex asks, such as an MCP server's form, is turned down.
