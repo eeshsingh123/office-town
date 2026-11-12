@@ -176,7 +176,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <Button variant="primary" onClick={() => setAdding({})}>
+            <Button variant="primary" data-tour="connectors-add" onClick={() => setAdding({})}>
               <Plus size={15} aria-hidden />
               Add app
             </Button>

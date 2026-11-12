@@ -70,7 +70,7 @@ export function TutorialCard() {
           {preparing ? "Finding a low-cost model to use. This takes a few seconds." : step.text}
         </p>
       </div>
-      {run.step === 0 && model !== undefined && run.id !== "chief" && run.id !== "library" ? (
+      {run.step === 0 && model !== undefined && !["chief", "library", "apps"].includes(run.id) ? (
         <p className={styles.model}>
           {model.free
             ? `Runs on ${model.name}, a free model. Its answers can be weaker than a paid model's.`
