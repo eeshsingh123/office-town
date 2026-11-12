@@ -13,7 +13,7 @@ import {
   ToolError,
   type ToolResult,
 } from "../tools/tools.ts";
-import { decide, isClaudeApp, isRead, mayUse, usableBy } from "./access.ts";
+import { decide, isProviderApp, isRead, mayUse, usableBy } from "./access.ts";
 import type { ConnectorLinks } from "./links.ts";
 
 const RESULT_CHARS = 20_000;
@@ -45,9 +45,9 @@ export function findApps(store: Store, app: string): ConnectorRecord[] {
     .filter(({ setup }) => setup.slug === wanted || setup.name.toLowerCase() === wanted);
 }
 
-// A hub connector; Claude apps are never served through the hub (D-68).
+// A hub connector; provider apps are never served through the hub (D-68).
 export function findConnector(store: Store, app: string): ConnectorRecord | undefined {
-  return findApps(store, app).find((connector) => !isClaudeApp(connector));
+  return findApps(store, app).find((connector) => !isProviderApp(connector));
 }
 
 // Every connector call passes here, natively or through the hub: it is checked against who may

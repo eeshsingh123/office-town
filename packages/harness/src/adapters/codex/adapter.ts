@@ -1,3 +1,4 @@
+import type { VendorApp } from "@office-town/contract";
 import type {
   AccountSupport,
   Adapter,
@@ -7,9 +8,16 @@ import type {
   HarnessQuery,
   InstallSupport,
   LaunchOptions,
+  VendorAppSupport,
 } from "../../adapter.ts";
 import { answerIn } from "../../json-rpc.ts";
-import { accountSchema, modelListSchema, rateLimitsNoticeSchema } from "./messages.ts";
+import {
+  accountSchema,
+  mcpStatusListSchema,
+  modelListSchema,
+  rateLimitsNoticeSchema,
+  type StatusTool,
+} from "./messages.ts";
 import { CLIENT_INFO, CodexTranslator, limitsOf } from "./translator.ts";
 
 const APP_SERVER = { binary: "codex", args: ["app-server"] };
@@ -43,8 +51,40 @@ function serverConfig(server: AttachedToolServer, index: number): string[] {
   return settings.flatMap(([name, value]) => ["-c", `${key}.${name}=${JSON.stringify(value)}`]);
 }
 
+// The server that carries every ChatGPT app, each tool marked with its app.
+const APPS_SERVER = "codex_apps";
+// OpenAI's own helpers that do nothing for an agent here (owner, D-96): Pets, parental controls,
+// charts drawn in the Codex app, and documents open in it. They are never listed or turned on.
+const HIDDEN_APPS = new Set([
+  "connector_openai_chatgpt_pets",
+  "connector_openai_safety_settings",
+  "connector_openai_visualize",
+  "connector_openai_codex_document_control",
+]);
+const isApp = (id: string) => id.startsWith("connector_");
+
+// Every ChatGPT app starts off; the ones the agent may use are turned on and ask before each call,
+// which the core answers by the app's permission. Another MCP server of the login is turned off
+// unless allowed, and an allowed one asks the same way. Only `-c` overrides: nothing on disk.
+function appSettings({ vendorApps = [], blockedApps = [] }: LaunchOptions): string[] {
+  const settings: [string, unknown][] = [["apps._default.enabled", false]];
+  for (const id of vendorApps) {
+    const key = isApp(id) ? `apps.${id}` : `mcp_servers.${id}`;
+    if (isApp(id)) settings.push([`${key}.enabled`, true]);
+    settings.push([`${key}.default_tools_approval_mode`, "prompt"]);
+  }
+  for (const id of blockedApps.filter((blocked) => !isApp(blocked))) {
+    settings.push([`mcp_servers.${id}.enabled`, false]);
+  }
+  return settings.flatMap(([name, value]) => ["-c", `${name}=${JSON.stringify(value)}`]);
+}
+
 function buildCommand(options: LaunchOptions): HarnessCommand {
-  const args = [...APP_SERVER.args, ...options.toolServers.flatMap(serverConfig)];
+  const args = [
+    ...APP_SERVER.args,
+    ...options.toolServers.flatMap(serverConfig),
+    ...appSettings(options),
+  ];
   // Codex reads everywhere, so a read-only folder is left out of the folders it may write.
   const readOnly = new Set(options.readOnlyPaths ?? []);
   const paths = (options.additionalPaths ?? []).filter((path) => !readOnly.has(path));
@@ -125,6 +165,70 @@ const accounts: AccountSupport = {
   ),
 };
 
+function appTools(tools: StatusTool[]): VendorApp["tools"] {
+  return tools.map((tool) => ({
+    name: tool.name.replace(/^[^.]+./, ""),
+    ...(tool.description ? { description: tool.description } : {}),
+    readOnly: tool.annotations?.readOnlyHint === true,
+  }));
+}
+
+// The login's apps, from one status list: each ChatGPT app by the tools marked with it, and each
+// other server as an app of its own.
+function appsOf(result: unknown): VendorApp[] {
+  const apps: VendorApp[] = [];
+  for (const server of mcpStatusListSchema.parse(result).data) {
+    const tools = Object.values(server.tools);
+    if (server.name !== APPS_SERVER) {
+      apps.push({
+        name: server.name,
+        id: server.name,
+        status:
+          server.authStatus === "notLoggedIn"
+            ? "needs_sign_in"
+            : server.toolsError
+              ? "failed"
+              : "connected",
+        tools: appTools(tools),
+      });
+      continue;
+    }
+    const byApp = Map.groupBy(tools, (tool) => tool._meta?.connector_id ?? "");
+    for (const [id, own] of byApp) {
+      if (id === "" || HIDDEN_APPS.has(id)) continue;
+      const name = own[0]?._meta?.connector_name ?? id;
+      apps.push({ name, id, status: "connected", tools: appTools(own) });
+    }
+  }
+  return apps;
+}
+
+const STATUS_REQUEST = JSON.stringify({
+  id: 2,
+  method: "mcpServerStatus/list",
+  params: { detail: "toolsAndAuthOnly" },
+});
+
+// Read from the app-server without a turn; Codex signs in to and keeps every app itself.
+const vendorApps: VendorAppSupport = {
+  command: APP_SERVER,
+  allOff: true,
+  start: [
+    JSON.stringify({
+      id: 1,
+      method: "initialize",
+      params: { clientInfo: CLIENT_INFO, capabilities: null },
+    }),
+    JSON.stringify({ method: "initialized", params: {} }),
+    STATUS_REQUEST,
+  ],
+  poll: STATUS_REQUEST,
+  read(output) {
+    const answer = answerIn(output, 2);
+    return answer === undefined ? undefined : { apps: appsOf(answer.result), pending: false };
+  },
+};
+
 const install: InstallSupport = {
   version: { binary: "codex", args: ["--version"] },
   windows: "npm install -g @openai/codex",
@@ -177,6 +281,7 @@ export const codexAdapter: Adapter = {
   catalog,
   accounts,
   install,
+  vendorApps,
   buildCommand,
   createTranslator: (options) => new CodexTranslator(options),
 };

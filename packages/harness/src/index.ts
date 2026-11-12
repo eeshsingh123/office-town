@@ -258,7 +258,9 @@ export function vendorAppSignInPage(
   app: string,
 ): Promise<string> {
   const support = findAdapter(harness).vendorApps;
-  if (support === undefined) throw new Error(`The "${harness}" harness has no apps of its own.`);
+  if (support?.signIn === undefined || support.signInPage === undefined) {
+    throw new Error(`The "${harness}" harness has no sign-in page for its apps.`);
+  }
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const command = support.signIn(app);
   return readSignInPage(

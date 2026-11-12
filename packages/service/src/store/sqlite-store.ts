@@ -324,6 +324,7 @@ interface ConnectorRow {
   enabled: number;
   status: ConnectorStatus;
   createdAt: number;
+  actions: number;
 }
 
 interface ConnectorCallRow {
@@ -629,6 +630,7 @@ function toConnector(row: ConnectorRow): ConnectorRecord {
     permission: row.permission,
     enabled: row.enabled === 1,
     status: row.status,
+    actions: row.actions,
     createdAt: iso(row.createdAt),
   };
 }
@@ -2128,7 +2130,9 @@ class SqliteStore implements Store {
   }
 
   saveConnectorTools(id: string, tools: ConnectorTool[]): void {
-    this.#statements.saveConnectorTools.run(JSON.stringify(tools), this.#connectorRow(id).ref);
+    const before = this.#connectorRow(id);
+    this.#statements.saveConnectorTools.run(JSON.stringify(tools), before.ref);
+    if (before.actions !== tools.length) this.#publishConnector(id);
   }
 
   deleteConnector(id: string): void {

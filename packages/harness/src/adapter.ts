@@ -153,18 +153,23 @@ export interface InstallSupport {
   folders?: string[];
 }
 
-// Apps the vendor connects for a login itself, such as the user's claude.ai connectors (D-68).
+// Apps the vendor connects for a login itself, such as the user's claude.ai connectors (D-68) or
+// Codex's ChatGPT apps (D-96). Listing them never changes anything.
 export interface VendorAppSupport {
   // Run on the login, it answers without starting a turn.
   command: HarnessCommand;
-  // Written once at start, then `poll` every so often until the list is in.
-  start: string[];
-  poll: string;
-  // Undefined for any other line. An app still connecting is listed as failed, with `pending`.
-  read(line: string): { apps: VendorApp[]; pending: boolean } | undefined;
+  // Written once at start, then `poll` every so often until the list is in. A CLI that prints its
+  // list and exits has neither and is read once it ends.
+  start?: string[];
+  poll?: string;
+  // With none allowed, every app is turned off without a list, so none is read at start.
+  allOff?: boolean;
+  // Undefined for any other line, or for a CLI that exits, for an output that has no list yet. An
+  // app still connecting is listed as failed, with `pending`.
+  read(output: string[]): { apps: VendorApp[]; pending: boolean } | undefined;
   // Prints the vendor's page where the user signs an app in, and exits.
-  signIn(app: string): HarnessCommand;
-  signInPage(output: string[]): string | undefined;
+  signIn?(app: string): HarnessCommand;
+  signInPage?(output: string[]): string | undefined;
 }
 
 // Reads what a conversation really used from the harness's own records, after its session ends.

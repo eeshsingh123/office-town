@@ -12,7 +12,7 @@ import { sessionAccountId } from "../accounts/accounts.ts";
 import { AnswerError, type SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { isClaudeApp, mayUse, reachableApps, reaches } from "./access.ts";
+import { isProviderApp, mayUse, reachableApps, reaches } from "./access.ts";
 import { catalog } from "./catalog.ts";
 import { findApps } from "./gateway.ts";
 
@@ -45,14 +45,14 @@ const slugOf = (app: string) =>
 // session runs on, else that app on another login.
 function appFor(store: Store, session: SessionRecord | undefined, app: string) {
   const found = findApps(store, app);
-  const hub = found.find((connector) => !isClaudeApp(connector));
+  const hub = found.find((connector) => !isProviderApp(connector));
   if (hub !== undefined) return hub;
   const accountId = session === undefined ? undefined : sessionAccountId(session.options);
   return found.find(({ setup }) => setup.account === accountId) ?? found[0];
 }
 
 const claudeOnly = (connector: ConnectorRecord | undefined, entry: CatalogEntry | undefined) =>
-  connector === undefined ? entry?.setup.kind === "claude" : isClaudeApp(connector);
+  connector === undefined ? entry?.setup.kind === "claude" : isProviderApp(connector);
 
 // An agent without an app asks for it; the user connects it or gives access from Needs you,
 // and the agent then reaches it through use_app_tool, so its tool list stays as it was (D-67).
@@ -110,7 +110,7 @@ export class AppRequests {
     const requestId = `app-request-${randomUUID()}`;
     // A Claude app that is signed out is connected again, not given.
     const give =
-      connector !== undefined && (!isClaudeApp(connector) || connector.status === "connected");
+      connector !== undefined && (!isProviderApp(connector) || connector.status === "connected");
     this.#registry.ask(
       caller.sessionId,
       {
@@ -176,7 +176,7 @@ export class AppRequests {
     const agent = this.#store.getAgent(agentId);
     if (connector === undefined || agent === undefined) return;
     this.#store.updateConnector(connector.id, { audience: withAsker(connector.audience, agent) });
-    const ready = isClaudeApp(connector)
+    const ready = isProviderApp(connector)
       ? `${connector.setup.name} is ready for you from your next task; this conversation's apps stay as they are.`
       : `${connector.setup.name} is ready for you. See its tools with list_app_tools and call them with use_app_tool.`;
     await tell(ready, `You gave it ${connector.setup.name}`);

@@ -14,7 +14,8 @@ export class VendorAppsError extends Error {
 
 // Asks the CLI for a login's apps without starting a turn, polling until it has them: their names
 // only, or with `settled` until none is still connecting, else what it had by the timeout. A
-// login with no apps answers an empty list throughout, so only the timeout ends it.
+// login with no apps answers an empty list throughout, so only the timeout ends it. A CLI that
+// prints its list and exits is read once.
 export async function readVendorApps(
   adapter: Adapter,
   environment: Environment,
@@ -25,27 +26,41 @@ export async function readVendorApps(
   if (support === undefined) return [];
   const found = Promise.withResolvers<VendorApp[]>();
   let last: VendorApp[] = [];
+  const output: string[] = [];
+  const polling = support.poll !== undefined;
   const running = await runProcess(
     environment,
     { ...support.command, env: { ...support.command.env, ...env } },
     {
       onLine: (line) => {
-        const read = support.read(line);
+        if (!polling) {
+          output.push(line);
+          return;
+        }
+        const read = support.read([line]);
         if (read === undefined) return;
         last = read.apps;
         if (read.apps.length > 0 && !(settled && read.pending)) found.resolve(read.apps);
       },
-      onExit: (exit, stderrTail) =>
-        found.reject(
-          new VendorAppsError(`${adapter.name} stopped (${exit.code}): ${stderrTail.trim()}`),
-        ),
+      onExit: (exit, stderrTail) => {
+        const read = polling || exit.code !== 0 ? undefined : support.read(output);
+        if (read !== undefined) found.resolve(read.apps);
+        else {
+          found.reject(
+            new VendorAppsError(`${adapter.name} stopped (${exit.code}): ${stderrTail.trim()}`),
+          );
+        }
+      },
     },
   );
   signal?.addEventListener("abort", () => found.reject(new VendorAppsError("Stopped.")), {
     once: true,
   });
-  for (const line of support.start) running.writeLine(line);
-  const poll = setInterval(() => running.writeLine(support.poll), POLL_MS);
+  if (!polling) running.closeInput();
+  for (const line of support.start ?? []) running.writeLine(line);
+  const { poll: pollLine } = support;
+  const poll =
+    pollLine === undefined ? undefined : setInterval(() => running.writeLine(pollLine), POLL_MS);
   const timeout = setTimeout(() => {
     if (settled) found.resolve(last);
     else found.reject(new VendorAppsError(`${adapter.name} did not list its apps in time.`));

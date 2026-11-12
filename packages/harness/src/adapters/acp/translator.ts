@@ -144,6 +144,8 @@ export class AcpTranslator implements Translator {
   readonly #resumeSessionId: string | undefined;
   readonly #toolServers: AttachedToolServer[];
   readonly #toolPrefixes: (server: string) => string[];
+  // The provider's own apps this session may use, whose calls the core decides (D-96).
+  readonly #vendorApps: readonly { name: string }[];
   readonly #allowOwnToolAsks: boolean;
   #sessionId: string | undefined;
   // The setting the harness is applying: the model first, then its effort.
@@ -172,6 +174,7 @@ export class AcpTranslator implements Translator {
       | "resumeSessionId"
       | "resumedContextTokens"
       | "toolServers"
+      | "vendorApps"
     >,
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
@@ -185,6 +188,7 @@ export class AcpTranslator implements Translator {
     this.#reportedContext =
       options.resumeSessionId === undefined ? 0 : options.resumedContextTokens;
     this.#toolServers = options.toolServers;
+    this.#vendorApps = (options.vendorApps ?? []).map((name) => ({ name }));
     this.#toolPrefixes = toolPrefixes;
     this.#allowOwnToolAsks = allowOwnToolAsks;
   }
@@ -629,6 +633,7 @@ export class AcpTranslator implements Translator {
       output: "",
     };
     this.#actions.set(toolCall.toolCallId, state);
+    const app = attachedTool(toolCall.title ?? "", this.#vendorApps, this.#toolPrefixes);
     const events: AdapterEvent[] = [
       ...this.#flush(),
       ...this.#started(toolCall, state),
@@ -640,6 +645,7 @@ export class AcpTranslator implements Translator {
           title: toolCall.title ?? "Permission needed",
           input: toolCall.rawInput ?? {},
           options: options.map(({ optionId, name, kind }) => ({ optionId, label: name, kind })),
+          ...(app === undefined ? {} : { tool: app }),
         },
       },
     ];

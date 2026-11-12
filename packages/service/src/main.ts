@@ -95,7 +95,7 @@ const registry = new SessionRegistry(store, {
   describeImages: imageDescriber({ store, readCatalog, dataFolder, createSession }),
   referenceOf: referenceOf(store),
   appsOf: appsOf(store),
-  appGuard: (session, request) => connectors.claudeApps.decide(session, request),
+  appGuard: (session, request) => connectors.providerApps.decide(session, request),
 });
 const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder));
 toolServer.offerApps({
@@ -172,7 +172,7 @@ const server = await startApiServer({
 });
 ownPorts.add(Number(new URL(server.url).port));
 // Claude apps connected on claude.ai since the last run show up without a click.
-void connectors.claudeApps.refresh();
+void connectors.providerApps.refresh();
 // Each provider's status and models, ready before a page asks; the reads take their turn with the
 // other CLI queries (D-92).
 void statuses.checkAll();

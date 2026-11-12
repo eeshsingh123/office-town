@@ -92,6 +92,8 @@ export const connectorRecordSchema = z.object({
   permission: connectorPermissionSchema,
   enabled: z.boolean(),
   status: connectorStatusSchema,
+  // How many actions it is known to have; a provider app with none has never been signed in.
+  actions: z.number().int().nonnegative(),
   createdAt: z.iso.datetime(),
 });
 export type ConnectorRecord = z.infer<typeof connectorRecordSchema>;

@@ -97,7 +97,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     permissionModeOf: (agentId) => permissionModeOf(store, agentId),
     referenceOf: referenceOf(store),
     appsOf: appsOf(store),
-    appGuard: (session, request) => connectors.claudeApps.decide(session, request),
+    appGuard: (session, request) => connectors.providerApps.decide(session, request),
   });
   const secrets = memorySecrets();
   const connectors = new ConnectorHub(store, registry, secrets);

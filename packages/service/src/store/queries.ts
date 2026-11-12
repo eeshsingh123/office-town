@@ -121,7 +121,8 @@ const LIBRARY_SELECT = `
   LEFT JOIN agents ag ON ag.ref = li.added_by_ref`;
 
 const CONNECTOR_SELECT = `
-  SELECT ref, id, setup, audience, permission, enabled, status, created_at AS createdAt
+  SELECT ref, id, setup, audience, permission, enabled, status, created_at AS createdAt,
+    json_array_length(tools) AS actions
   FROM connectors`;
 
 const CONNECTOR_CALL_SELECT = `

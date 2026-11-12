@@ -1,25 +1,26 @@
-import type {
-  ConnectorAction,
-  ConnectorChange,
-  ConnectorRecord,
-  ConnectorSetup,
-  ConnectorTestRequest,
-  NewConnectorRequest,
+import {
+  type ConnectorAction,
+  type ConnectorChange,
+  type ConnectorRecord,
+  type ConnectorSetup,
+  type ConnectorTestRequest,
+  type NewConnectorRequest,
+  providerOf,
 } from "@office-town/contract";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
-import { actionsOf, isClaudeApp } from "./access.ts";
-import { ClaudeApps } from "./claude-apps.ts";
+import { actionsOf, isProviderApp } from "./access.ts";
 import { ConnectorGateway } from "./gateway.ts";
 import { ConnectError, ConnectorLinks, probe } from "./links.ts";
+import { ProviderApps } from "./provider-apps.ts";
 import { type Secrets, writeKeys } from "./secrets.ts";
 
-// The core keeps one link per key app and program, which every harness reaches (D-67). Claude
-// apps are Claude Code's own: the hub only keeps their settings (D-68).
+// The core keeps one link per key app and program, which every harness reaches (D-67). Provider
+// apps are the provider's own: the hub only keeps their settings (D-68, D-96).
 export class ConnectorHub {
   readonly links: ConnectorLinks;
   readonly gateway: ConnectorGateway;
-  readonly claudeApps: ClaudeApps;
+  readonly providerApps: ProviderApps;
   readonly #store: Store;
   readonly #secrets: Secrets;
 
@@ -38,7 +39,7 @@ export class ConnectorHub {
       },
     });
     this.gateway = new ConnectorGateway(store, registry, this.links);
-    this.claudeApps = new ClaudeApps(store, registry);
+    this.providerApps = new ProviderApps(store, registry);
   }
 
   get secretsKind(): Secrets["kind"] {
@@ -49,10 +50,10 @@ export class ConnectorHub {
     return actionsOf(await this.#probe(setup, keys));
   }
 
-  // Tried before it is saved. Claude apps come only from Claude Code's own list.
+  // Tried before it is saved. Provider apps come only from the provider's own list.
   async create({ setup, audience, permission, keys = {} }: NewConnectorRequest) {
-    if (setup.kind === "claude") {
-      throw new ConnectError(setup.name, "connect it in Claude, then refresh");
+    if (providerOf(setup.kind) !== undefined) {
+      throw new ConnectError(setup.name, "set it up through its provider, then check again");
     }
     const tools = await this.#probe(setup, keys);
     const connector = this.#store.createConnector({
@@ -69,8 +70,8 @@ export class ConnectorHub {
   async change(id: string, { audience, permission, enabled, keys }: ConnectorChange) {
     const before = this.#require(id);
     if (keys !== undefined) {
-      if (isClaudeApp(before))
-        throw new ConnectError(before.setup.name, "Claude keeps its sign-in");
+      if (isProviderApp(before))
+        throw new ConnectError(before.setup.name, "its provider keeps its sign-in");
       await this.#probe(before.setup, keys);
       writeKeys(this.#secrets, id, keys);
       await this.links.drop(id);
@@ -78,8 +79,8 @@ export class ConnectorHub {
     const turnedOff = enabled === false && before.enabled;
     const turnedOn = enabled === true && !before.enabled;
     if (turnedOff) await this.links.drop(id);
-    // A Claude app's status is Claude Code's, read on the next refresh.
-    const claude = isClaudeApp(before);
+    // A provider app's status is the provider's, read on the next refresh.
+    const claude = isProviderApp(before);
     const connector = this.#store.updateConnector(id, {
       ...(audience === undefined ? {} : { audience }),
       ...(permission === undefined ? {} : { permission }),
@@ -92,11 +93,14 @@ export class ConnectorHub {
     return connector;
   }
 
-  // A Claude app is removed in Claude; here it can only be turned off.
+  // A provider app is removed in its provider; here it can only be turned off.
   async remove(id: string): Promise<void> {
     const connector = this.#require(id);
-    if (isClaudeApp(connector)) {
-      throw new ConnectError(connector.setup.name, "remove it in Claude, or turn it off here");
+    if (isProviderApp(connector)) {
+      throw new ConnectError(
+        connector.setup.name,
+        "remove it in its provider, or turn it off here",
+      );
     }
     await this.links.drop(id);
     this.#secrets.remove(id);
@@ -104,7 +108,7 @@ export class ConnectorHub {
   }
 
   async close(): Promise<void> {
-    this.claudeApps.close();
+    this.providerApps.close();
     await this.links.close();
   }
 

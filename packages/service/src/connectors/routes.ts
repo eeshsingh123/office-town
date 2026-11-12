@@ -77,7 +77,7 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "POST",
       path: "/connectors/:id/sign-in",
       reply: async ({ param }) => {
-        return { status: 200, json: { url: await hub.claudeApps.signInPage(param("id")) } };
+        return { status: 200, json: { url: await hub.providerApps.signInPage(param("id")) } };
       },
     },
     // Reads the Claude apps again, such as one just connected on claude.ai.
@@ -85,7 +85,7 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       method: "POST",
       path: "/connectors/refresh",
       reply: async () => {
-        await hub.claudeApps.refresh();
+        await hub.providerApps.refresh();
         return { status: 200, json: store.listConnectors() };
       },
     },

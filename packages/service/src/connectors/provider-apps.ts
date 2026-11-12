@@ -1,5 +1,6 @@
 import type {
   Account,
+  ConnectorKind,
   ConnectorRecord,
   ConnectorStatus,
   SessionEvent,
@@ -26,21 +27,29 @@ const STATUS: Record<VendorApp["status"], ConnectorStatus> = {
   failed: "failing",
 };
 
+// Each provider's kind of app, and who the user reads it comes from.
+const KINDS: Record<string, { kind: ConnectorKind; maker: string }> = {
+  claude: { kind: "claude", maker: "Claude" },
+  codex: { kind: "codex", maker: "ChatGPT" },
+  opencode: { kind: "opencode", maker: "OpenCode" },
+};
+
 // "claude.ai Google Drive" is shown as "Google Drive".
 const shownName = (app: string) => app.replace(/^claude\.ai /, "");
 
-function slugBase(app: string): string {
+function slugBase(harness: string, app: string): string {
   const words = shownName(app)
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/^-|-$/g, "");
-  return `claude-${words}`.slice(0, 21).replace(/-$/, "");
+  return `${harness}-${words}`.slice(0, 21).replace(/-$/, "");
 }
 
-// The user's claude.ai connectors, one record per app and Claude account. Office Town signs in to
-// none of them and holds no token: Claude Code connects them, and only Claude agents use them
-// (D-68). The core keeps who may use each and its permission, and decides every call.
-export class ClaudeApps {
+// The provider apps of each login: the user's claude.ai connectors, Codex's ChatGPT apps and
+// OpenCode's own servers, one record per app and account. Office Town signs in to none of them
+// and holds no token: the provider connects them, and only its agents use them (D-68, D-96). The
+// core keeps who may use each and its permission, and decides every call.
+export class ProviderApps {
   readonly #store: Store;
   // Calls held for the user, by session and request id, to log once answered.
   readonly #asked = new Map<string, string>();
@@ -75,10 +84,13 @@ export class ClaudeApps {
     this.#stop.abort();
   }
 
-  // Reads every signed-in Claude account's apps again; an account that cannot answer keeps its own.
+  // Reads every signed-in account's apps again; an account that cannot answer keeps its own.
   async #refresh(): Promise<void> {
     const accounts = allAccounts(this.#store, listHarnesses()).filter(
-      (account) => hasVendorApps(account.harness) && hasSignIn(account, this.#store),
+      (account) =>
+        KINDS[account.harness] !== undefined &&
+        hasVendorApps(account.harness) &&
+        hasSignIn(account, this.#store),
     );
     await Promise.all(
       accounts.map(async (account) => {
@@ -93,13 +105,14 @@ export class ClaudeApps {
           if (!signal.aborted) this.#sync(account, apps);
         } catch (error) {
           if (this.#stop.signal.aborted) return;
-          console.error(`Could not list the Claude apps of ${account.name}.`, error);
+          console.error(`Could not list the apps of ${account.name}.`, error);
         }
       }),
     );
   }
 
-  // Claude's page where the user signs the app in; it works from the agent's next conversation.
+  // The provider's page where the user signs the app in again; it works from the agent's next
+  // conversation.
   async signInPage(id: string): Promise<string> {
     const connector = this.#store.getConnector(id);
     if (connector === undefined) throw new RecordNotFoundError("connector");
@@ -114,13 +127,19 @@ export class ClaudeApps {
     }
   }
 
-  // A call to a Claude app: no access or a change under Read only is refused, a read or a Don't
-  // ask call goes ahead, and an Ask me first change waits for the user. Logged either way.
+  // A call to a provider app: no access or a change under Read only is refused, a read or a Don't
+  // ask call goes ahead, and an Ask me first change waits for the user. Logged either way. An
+  // action not seen before, as OpenCode lists none, is kept for the app's page and counts as a
+  // change.
   decide(session: SessionRecord, request: PermissionRequest): AppVerdict | undefined {
     const connector = this.#of(session, request);
     if (connector === undefined || request.tool === undefined) return undefined;
     const { name } = request.tool;
-    const tool = this.#store.connectorTools(connector.id).find((known) => known.name === name);
+    const known = this.#store.connectorTools(connector.id);
+    const tool = known.find((candidate) => candidate.name === name);
+    if (tool === undefined) {
+      this.#store.saveConnectorTools(connector.id, [...known, { name, inputSchema: {} }]);
+    }
     const change = tool === undefined || !isRead(tool);
     const record = (outcome: "done" | "refused" | "asked") =>
       this.#store.recordConnectorCall({
@@ -159,20 +178,24 @@ export class ClaudeApps {
       return undefined;
     }
     const accountId = sessionAccountId(session.options);
+    const kind = KINDS[session.options.harness]?.kind;
     return this.#store
       .listConnectors()
       .find(
-        ({ setup }) =>
-          setup.kind === "claude" && setup.account === accountId && setup.app === server,
+        ({ setup }) => setup.kind === kind && setup.account === accountId && setup.app === server,
       );
   }
 
-  // A new app gets Everyone and Ask me first; one gone from claude.ai goes with its settings.
+  // A new app gets Everyone and Ask me first; one gone from the provider goes with its settings.
   #sync(account: Account, apps: VendorApp[]): void {
+    const own = KINDS[account.harness];
+    if (own === undefined) return;
     const known = this.#store
       .listConnectors()
-      .filter(({ setup }) => setup.kind === "claude" && setup.account === account.id);
+      .filter(({ setup }) => setup.kind === own.kind && setup.account === account.id);
     for (const app of apps) {
+      // The provider's own name for it, which its settings and its calls use.
+      const appId = app.id ?? app.name;
       const tools = app.tools.map(({ name, description, readOnly }) => ({
         name,
         ...(description === undefined ? {} : { description }),
@@ -180,17 +203,17 @@ export class ClaudeApps {
         annotations: { readOnlyHint: readOnly },
       }));
       const status = STATUS[app.status];
-      const existing = known.find(({ setup }) => setup.app === app.name);
+      const existing = known.find(({ setup }) => setup.app === appId);
       if (existing === undefined) {
         this.#store.createConnector({
           setup: {
-            slug: this.#freeSlug(app.name),
+            slug: this.#freeSlug(account.harness, app.name),
             name: shownName(app.name),
-            kind: "claude",
-            maker: "Claude",
+            kind: own.kind,
+            maker: own.maker,
             official: true,
             account: account.id,
-            app: app.name,
+            app: appId,
             auth: "none",
             keys: [],
           },
@@ -209,14 +232,15 @@ export class ClaudeApps {
     }
     // An empty list may be a fetch that did not finish, so it removes nothing.
     if (apps.length === 0) return;
-    for (const gone of known.filter(({ setup }) => !apps.some(({ name }) => name === setup.app))) {
+    const listed = new Set(apps.map(({ id, name }) => id ?? name));
+    for (const gone of known.filter(({ setup }) => !listed.has(setup.app ?? ""))) {
       this.#store.deleteConnector(gone.id);
     }
   }
 
-  #freeSlug(app: string): string {
+  #freeSlug(harness: string, app: string): string {
     const taken = new Set(this.#store.listConnectors().map(({ setup }) => setup.slug));
-    const base = slugBase(app);
+    const base = slugBase(harness, app);
     for (let count = 1; ; count += 1) {
       const slug = count === 1 ? base : `${base}-${count}`;
       if (!taken.has(slug)) return slug;

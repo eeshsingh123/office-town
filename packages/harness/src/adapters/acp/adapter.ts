@@ -16,6 +16,7 @@ export type AcpHarness = Pick<
   | "accounts"
   | "install"
   | "recount"
+  | "vendorApps"
   | "buildCommand"
 > & {
   // The ways the harness may prefix a tool of an MCP server the core attached, as its tool call

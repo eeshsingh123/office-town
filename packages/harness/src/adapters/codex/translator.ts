@@ -1,4 +1,5 @@
 import type { ActionKind, PermissionOption, UsageLimit } from "@office-town/contract";
+import type { z } from "zod";
 import type {
   AdapterEvent,
   AnsweredQuestion,
@@ -9,6 +10,7 @@ import type {
 } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
 import {
+  appApprovalParamsSchema,
   approvalParamsSchema,
   type Breakdown,
   deltaSchema,
@@ -27,6 +29,14 @@ import {
 } from "./messages.ts";
 
 const NOTHING: Translation = { events: [], outgoing: [] };
+
+// An app's call, decided by the core from the app's permission (D-68, D-96).
+const APP_OPTIONS: PermissionOption[] = [
+  { optionId: "accept", label: "Allow", kind: "allow_once" },
+  { optionId: "decline", label: "Deny", kind: "reject_once" },
+];
+type AppApproval = z.infer<typeof appApprovalParamsSchema>;
+const elicitationAnswer = (action: string) => ({ action, content: null, _meta: null });
 const APPROVALS = new Set([
   "item/commandExecution/requestApproval",
   "item/fileChange/requestApproval",
@@ -135,6 +145,7 @@ export class CodexTranslator implements Translator {
   // The files each change touches, which its ask leaves out.
   readonly #locations = new Map<string, string[]>();
   readonly #permissions = new Map<string, JsonRpcId>();
+  readonly #appCalls = new Map<string, JsonRpcId>();
   readonly #questions = new Map<string, JsonRpcId>();
   #threadId: string | undefined;
   #turnId: string | undefined;
@@ -192,6 +203,14 @@ export class CodexTranslator implements Translator {
   }
 
   answerPermission(requestId: string, option: PermissionOption): Translation {
+    const call = this.#appCalls.get(requestId);
+    if (call !== undefined) {
+      this.#appCalls.delete(requestId);
+      return {
+        events: [],
+        outgoing: [this.#peer.respond(call, elicitationAnswer(option.optionId))],
+      };
+    }
     const id = this.#permissions.get(requestId);
     if (id === undefined) throw new Error(`Unknown permission request "${requestId}".`);
     this.#permissions.delete(requestId);
@@ -218,6 +237,11 @@ export class CodexTranslator implements Translator {
       events.push({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#permissions.clear();
+    for (const [requestId, id] of this.#appCalls) {
+      outgoing.push(this.#peer.respond(id, elicitationAnswer("cancel")));
+      events.push({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
+    }
+    this.#appCalls.clear();
     return { events, outgoing };
   }
 
@@ -473,6 +497,10 @@ export class CodexTranslator implements Translator {
   #request(id: JsonRpcId, method: string, params: unknown): Translation {
     if (APPROVALS.has(method)) return this.#approval(id, method, params);
     if (method === "item/tool/requestUserInput") return this.#question(id, params);
+    const app = appApprovalParamsSchema.safeParse(params);
+    if (method === "mcpServer/elicitation/request" && app.success) {
+      return this.#appApproval(id, app.data);
+    }
     // Anything else Codex asks, such as an MCP server's form, is turned down.
     return { events: [], outgoing: [this.#peer.reject(id, METHOD_NOT_FOUND, "Not supported")] };
   }
@@ -500,6 +528,31 @@ export class CodexTranslator implements Translator {
       },
     ];
     return { events, outgoing: [] };
+  }
+
+  // The app is named by its connector id, as the session's allowed apps name it.
+  #appApproval(id: JsonRpcId, { serverName, _meta }: AppApproval): Translation {
+    const requestId = `app-${id}`;
+    this.#appCalls.set(requestId, id);
+    const server = _meta.connector_id ?? serverName;
+    const name = _meta.tool_name.replace(/^[^.]+./, "");
+    const app = _meta.connector_name ?? serverName;
+    return {
+      events: [
+        {
+          type: "permission.requested",
+          payload: {
+            requestId,
+            title: `${name} in ${app}`,
+            input: _meta.tool_params ?? {},
+            options: APP_OPTIONS,
+            kind: "other",
+            tool: { server, name },
+          },
+        },
+      ],
+      outgoing: [],
+    };
   }
 
   #question(id: JsonRpcId, params: unknown): Translation {
