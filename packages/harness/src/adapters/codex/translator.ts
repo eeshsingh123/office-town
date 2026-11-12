@@ -437,7 +437,8 @@ export class CodexTranslator implements Translator {
       return { events: [message], outgoing: [] };
     }
     if (item.type === "reasoning") {
-      const text = (item.summary?.length ? item.summary : (item.content ?? [])).join("\n\n");
+      const parts = item.content?.filter((part): part is string => typeof part === "string");
+      const text = (item.summary?.length ? item.summary : (parts ?? [])).join("\n\n");
       if (text === "") return NOTHING;
       return { events: [{ type: "reasoning", payload: { text } }], outgoing: [] };
     }

@@ -18,7 +18,8 @@ export const itemSchema = z.looseObject({
   id: z.string(),
   text: z.string().optional(),
   summary: z.array(z.string()).optional(),
-  content: z.array(z.string()).optional(),
+  // A reasoning item's text; since 0.167 a user message's parts are objects here too.
+  content: z.array(z.unknown()).optional(),
   command: z.string().optional(),
   cwd: z.string().nullish(),
   status: z.string().optional(),
