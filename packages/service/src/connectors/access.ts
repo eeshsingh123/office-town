@@ -1,6 +1,7 @@
 import type {
   AgentRecord,
   Audience,
+  ConnectorAction,
   ConnectorPermission,
   ConnectorRecord,
   SessionOptions,
@@ -79,6 +80,14 @@ export function appsOf(store: Store) {
 
 // Unmarked counts as a change.
 export const isRead = (tool: ConnectorTool) => tool.annotations?.readOnlyHint === true;
+
+// What the user reads: each action, and whether it only reads.
+export const actionsOf = (tools: ConnectorTool[]): ConnectorAction[] =>
+  tools.map((tool) => ({
+    name: tool.name,
+    ...(tool.description === undefined ? {} : { description: tool.description }),
+    readOnly: isRead(tool),
+  }));
 
 export type Decision = "go" | "ask" | "refuse";
 

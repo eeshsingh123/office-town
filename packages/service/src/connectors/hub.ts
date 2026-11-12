@@ -1,4 +1,5 @@
 import type {
+  ConnectorAction,
   ConnectorChange,
   ConnectorRecord,
   ConnectorSetup,
@@ -7,7 +8,7 @@ import type {
 } from "@office-town/contract";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
-import { isClaudeApp } from "./access.ts";
+import { actionsOf, isClaudeApp } from "./access.ts";
 import { ClaudeApps } from "./claude-apps.ts";
 import { ConnectorGateway } from "./gateway.ts";
 import { ConnectError, ConnectorLinks, probe } from "./links.ts";
@@ -44,8 +45,8 @@ export class ConnectorHub {
     return this.#secrets.kind;
   }
 
-  async test({ setup, keys = {} }: ConnectorTestRequest): Promise<number> {
-    return (await this.#probe(setup, keys)).length;
+  async test({ setup, keys = {} }: ConnectorTestRequest): Promise<ConnectorAction[]> {
+    return actionsOf(await this.#probe(setup, keys));
   }
 
   // Tried before it is saved. Claude apps come only from Claude Code's own list.

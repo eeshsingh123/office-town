@@ -3,6 +3,12 @@ import type { CatalogEntry, ConnectorCategory, ConnectorSetup } from "@office-to
 // Sign-in apps are connected on claude.ai and reached by Claude agents (D-68); the address is for
 // one missing from Claude's directory, added there as a custom connector. Key apps were checked
 // live on 2026-10-18: Hugging Face listed its tools, GitHub took a key header.
+// The day the first list was checked; each entry is checked again at every release (D-96).
+const LISTED = "2026-10-18";
+
+// Also offered as ChatGPT apps that Codex signs in to (checked in Codex 0.167.2, 2026-11-12).
+const CODEX = ["codex"];
+
 const inClaude = (
   slug: string,
   name: string,
@@ -10,10 +16,13 @@ const inClaude = (
   url: string,
   category: ConnectorCategory,
   description: string,
+  signIn: string[] = [],
 ): CatalogEntry => ({
   setup: { slug, name, kind: "claude", maker, official: true, url, auth: "none", keys: [] },
   category,
   description,
+  signIn,
+  checked: LISTED,
 });
 
 const github: ConnectorSetup = {
@@ -41,6 +50,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.notion.com/mcp",
     "work",
     "Search, read and write pages and databases.",
+    CODEX,
   ),
   inClaude(
     "linear",
@@ -49,6 +59,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.linear.app/mcp",
     "work",
     "Find, create and update issues and projects.",
+    CODEX,
   ),
   inClaude(
     "atlassian",
@@ -98,7 +109,13 @@ export const catalog: CatalogEntry[] = [
     "work",
     "Read your meeting notes and transcripts.",
   ),
-  { setup: github, category: "code", description: "Read code, open issues and pull requests." },
+  {
+    setup: github,
+    category: "code",
+    description: "Read code, open issues and pull requests.",
+    signIn: CODEX,
+    checked: LISTED,
+  },
   inClaude(
     "sentry",
     "Sentry",
@@ -106,6 +123,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.sentry.dev/mcp",
     "code",
     "Look into errors and the issues behind them.",
+    CODEX,
   ),
   inClaude(
     "vercel",
@@ -114,6 +132,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.vercel.com",
     "code",
     "Check projects, deployments and their logs.",
+    CODEX,
   ),
   inClaude(
     "supabase",
@@ -122,6 +141,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.supabase.com/mcp",
     "code",
     "Query and manage your databases and projects.",
+    CODEX,
   ),
   inClaude(
     "cloudflare",
@@ -160,6 +180,8 @@ export const catalog: CatalogEntry[] = [
     },
     category: "code",
     description: "Search models, datasets, papers and Spaces.",
+    signIn: CODEX,
+    checked: LISTED,
   },
   inClaude(
     "intercom",
@@ -176,6 +198,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.stripe.com",
     "sales",
     "Look up and manage payments, customers and invoices.",
+    CODEX,
   ),
   inClaude(
     "paypal",
@@ -216,6 +239,7 @@ export const catalog: CatalogEntry[] = [
     "https://mcp.canva.com/mcp",
     "design",
     "Find, create and export designs.",
+    CODEX,
   ),
   inClaude(
     "webflow",

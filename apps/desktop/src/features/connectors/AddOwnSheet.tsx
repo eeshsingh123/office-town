@@ -318,7 +318,7 @@ export function AddOwnSheet({ keysAt, describe, audience: asked, onClose }: AddO
     clearDrafts(draft);
     onClose();
   };
-  const test = () => run(async () => setTested(await api.testConnector({ setup, keys })));
+  const test = () => run(async () => setTested((await api.testConnector({ setup, keys })).length));
   const add = () =>
     run(async () => {
       await api.addConnector({ setup, audience, permission, keys });

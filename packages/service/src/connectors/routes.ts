@@ -8,6 +8,7 @@ import {
 } from "@office-town/contract";
 import type { Route } from "../api/routes.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
+import { actionsOf } from "./access.ts";
 import { catalog } from "./catalog.ts";
 import type { ConnectorHub } from "./hub.ts";
 
@@ -86,6 +87,15 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       reply: async () => {
         await hub.claudeApps.refresh();
         return { status: 200, json: store.listConnectors() };
+      },
+    },
+    {
+      method: "GET",
+      path: "/connectors/:id/actions",
+      reply: ({ param }) => {
+        const id = param("id");
+        if (store.getConnector(id) === undefined) throw new RecordNotFoundError("connector");
+        return { status: 200, json: { tools: actionsOf(store.connectorTools(id)) } };
       },
     },
     {

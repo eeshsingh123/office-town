@@ -26,6 +26,7 @@ import {
   type CheckRequest,
   type ChiefDraftReply,
   type ChiefDraftRequest,
+  type ConnectorAction,
   type ConnectorActivity,
   type ConnectorActivityQuery,
   type ConnectorCatalog,
@@ -233,8 +234,10 @@ export const api = {
     read("/connectors/catalog", connectorCatalogSchema),
   addConnector: (request: NewConnectorRequest): Promise<ConnectorRecord> =>
     write("POST", "/connectors", request, connectorRecordSchema),
-  testConnector: (request: ConnectorTestRequest): Promise<number> =>
+  testConnector: (request: ConnectorTestRequest): Promise<ConnectorAction[]> =>
     write("POST", "/connectors/test", request, connectorTestSchema).then(({ tools }) => tools),
+  connectorActions: (connectorId: string): Promise<ConnectorAction[]> =>
+    read(`/connectors/${id(connectorId)}/actions`, connectorTestSchema).then(({ tools }) => tools),
   changeConnector: (connectorId: string, change: ConnectorChange): Promise<ConnectorRecord> =>
     write("PUT", `/connectors/${id(connectorId)}`, change, connectorRecordSchema),
   // Reads the Claude apps again, such as one just connected on claude.ai.
