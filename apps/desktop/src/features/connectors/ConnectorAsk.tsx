@@ -114,7 +114,11 @@ function AppAskBody({ event, context }: { event: PermissionEvent; context: React
             </option>
           ))}
         </select>
-        {ask.suggested !== undefined && ask.suggested !== "department" && ask.suggested === audience
+        {/* Without a department, Just the agent is the default, not a suggestion. */}
+        {ask.suggested !== undefined &&
+        ask.suggested !== "department" &&
+        !(ask.suggested === "agent" && ask.departmentId === undefined) &&
+        ask.suggested === audience
           ? ` · ${agent?.name ?? "The agent"} suggested this`
           : null}
       </label>
