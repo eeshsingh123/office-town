@@ -707,3 +707,46 @@
 .seeAll {
   align-self: flex-start;
 }
+
+.giveTo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}
+
+.giveTo select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.deptApps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.teamWarn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-control);
+  background: var(--warn-soft);
+  font-size: var(--size-meta);
+  color: var(--warn);
+}
+
+.teamWarn > span {
+  flex: 1;
+  min-width: 180px;
+}

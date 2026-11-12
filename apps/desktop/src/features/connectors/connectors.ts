@@ -1,5 +1,6 @@
 import {
   type AgentRecord,
+  type AppAudience,
   appKeyOf,
   type CatalogEntry,
   type ConnectorCatalog,
@@ -181,8 +182,12 @@ export function openClaudeConnectors(): void {
 
 // The provider's own page where the user adds the app: claude.ai's connectors, or the page Codex
 // gives for it. The provider keeps the sign-in; the app shows once the user is back (D-96).
-export async function setUpThrough(provider: string, app: string): Promise<void> {
-  const url = await api.providerSetup({ provider, app });
+export async function setUpThrough(
+  provider: string,
+  app: string,
+  ask?: { requestId: string; audience: AppAudience },
+): Promise<void> {
+  const url = await api.providerSetup({ provider, app, ...(ask === undefined ? {} : { ask }) });
   window.open(url, "_blank", "noopener");
   refreshOnReturn();
 }
