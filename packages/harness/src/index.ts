@@ -257,9 +257,10 @@ export function vendorAppSignInPage(
   folder: string | undefined,
   app: string,
 ): Promise<string> {
-  const support = findAdapter(harness).vendorApps;
+  const adapter = findAdapter(harness);
+  const support = adapter.vendorApps;
   if (support?.signIn === undefined || support.signInPage === undefined) {
-    throw new Error(`The "${harness}" harness has no sign-in page for its apps.`);
+    throw new Error(`sign in again in ${adapter.name}`);
   }
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const command = support.signIn(app);
@@ -277,8 +278,9 @@ export async function vendorAppSetUpPage(
   folder: string | undefined,
   app: string,
 ): Promise<string> {
-  const setUp = findAdapter(harness).vendorApps?.setUp;
-  if (setUp === undefined) throw new Error(`The "${harness}" harness cannot add apps itself.`);
+  const adapter = findAdapter(harness);
+  const setUp = adapter.vendorApps?.setUp;
+  if (setUp === undefined) throw new Error(`set it up in ${adapter.name}`);
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const page = await runQuery(environment, setUp(app), {
     env: loginEnv(harness, environment, folder),

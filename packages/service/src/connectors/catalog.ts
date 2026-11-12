@@ -1,9 +1,8 @@
 import type { CatalogEntry, ConnectorCategory, ConnectorSetup } from "@office-town/contract";
 
-// Sign-in apps are connected on claude.ai and reached by Claude agents (D-68); the address is for
-// one missing from Claude's directory, added there as a custom connector. Key apps were checked
-// live on 2026-10-18: Hugging Face listed its tools, GitHub took a key header.
-// The day the first list was checked; each entry is checked again at every release (D-96).
+// Claude's tiles are connected on claude.ai and reached by Claude agents (D-68); the address is for
+// one missing from Claude's directory, added there as a custom connector. The first list was
+// checked on this day; each entry is checked again at every release (D-96).
 const LISTED = "2026-10-18";
 
 // Also offered as ChatGPT apps that Codex signs in to (checked in Codex 0.167.2, 2026-11-12).
@@ -291,7 +290,6 @@ export const catalog: CatalogEntry[] = [
     "Manage Postgres projects and run queries.",
     ["claude"],
   ),
-  // Stripe takes only restricted keys made for agents from December 2026.
   shared(
     "stripe",
     "Stripe",

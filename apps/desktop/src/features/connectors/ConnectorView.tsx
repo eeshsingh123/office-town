@@ -30,12 +30,12 @@ import {
   isProviderApp,
   needsRenewing,
   PERMISSIONS,
-  signIn,
   tagsOf,
   useCatalog,
   useConnectors,
 } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
+import { RenewAction } from "./RenewAction.tsx";
 
 const errorText = (failure: unknown) =>
   failure instanceof Error ? failure.message : String(failure);
@@ -50,12 +50,14 @@ async function changeAll(routes: ConnectorRecord[], update: ConnectorChange) {
 
 const PLACES = { app: "In the app", background: "In the background", cloud: "In the cloud" };
 
-// How this way in is signed in, in the user's words.
 function signedInText(route: ConnectorRecord, accountName: string | undefined): string {
   const { setup } = route;
   if (setup.kind === "claude")
     return `Signed in on claude.ai${accountName ? ` · ${accountName}` : ""}`;
-  if (setup.kind === "codex") return "Signed in through ChatGPT";
+  // Codex names a server from the user's own Codex settings "server:<name>"; the rest are ChatGPT's.
+  if (setup.kind === "codex") {
+    return `Signed in through ${setup.app?.startsWith("server:") ? "Codex" : "ChatGPT"}`;
+  }
   if (setup.kind === "opencode") return "Signed in through OpenCode";
   if (setup.kind === "local") return "A program on this computer";
   return setup.auth === "key" ? "Key saved on this computer" : "No sign-in needed";
@@ -101,14 +103,7 @@ function RouteRow({ route, first }: { route: ConnectorRecord; first: boolean }) 
         </span>
       </span>
       {renewing ? (
-        <Button
-          variant="primary"
-          onClick={() =>
-            signIn(route.id).catch((failure: unknown) => showToast(errorText(failure)))
-          }
-        >
-          Renew
-        </Button>
+        <RenewAction route={route} label="Renew" />
       ) : (
         <span className={`${styles.routeStatus} ${route.enabled ? "" : styles.warn}`}>
           {!route.enabled ? (
@@ -226,10 +221,10 @@ function useActions(routes: ConnectorRecord[]): ConnectorAction[] | undefined {
   const [actions, setActions] = useState<ConnectorAction[]>();
   const source = routes.toSorted((a, b) => b.actions - a.actions)[0];
   const sourceId = source?.id;
-  // Read again when its count changes, such as an OpenCode action seen for the first time.
   const count = source?.actions ?? 0;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: read again when its count changes, such as an OpenCode action seen for the first time.
   useEffect(() => {
-    if (sourceId === undefined || count < 0) return;
+    if (sourceId === undefined) return;
     let current = true;
     api.connectorActions(sourceId).then(
       (read) => {
@@ -338,7 +333,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                 </fieldset>
                 <p className={styles.hint}>
                   {onlyOpenCode
-                    ? "OpenCode hides what each action is given, so Ask me first shows only its name."
+                    ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, showing only its name, and Read only blocks them all."
                     : "Reads never ask. Changes follow this."}
                 </p>
               </span>

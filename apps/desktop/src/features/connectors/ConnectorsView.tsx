@@ -1,11 +1,10 @@
 import type { Audience, CatalogEntry } from "@office-town/contract";
 import { CircleAlert, Plus, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { navigate } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
-import { showToast } from "../../ui/Toast.tsx";
 import { AddSheet } from "./AddSheet.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
@@ -16,24 +15,18 @@ import {
   isOffer,
   needsRenewing,
   refreshApps,
-  signIn,
   tagsOf,
   useCatalog,
   useConnectors,
 } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
+import { RenewAction } from "./RenewAction.tsx";
 
 interface ConnectorsViewProps {
   // An app to set up at once, by slug or name, such as one an agent asked for.
   connect?: string;
   audience?: Audience;
 }
-
-const errorText = (failure: unknown) =>
-  failure instanceof Error ? failure.message : String(failure);
-
-const renew = (connectorId: string) =>
-  signIn(connectorId).catch((failure: unknown) => showToast(errorText(failure)));
 
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
@@ -64,9 +57,7 @@ function AppCard({ group }: { group: AppGroup }) {
             <CircleAlert size={14} aria-hidden />
             Needs renewing
           </span>
-          <Button variant="primary" onClick={() => void renew(renewing.id)}>
-            Renew
-          </Button>
+          <RenewAction route={renewing} label="Renew" />
         </div>
       )}
     </li>
@@ -77,11 +68,11 @@ function AppCard({ group }: { group: AppGroup }) {
 function SuggestedCard({
   group,
   entry,
-  onSetUp,
+  action,
 }: {
   group?: AppGroup;
   entry?: CatalogEntry;
-  onSetUp: () => void;
+  action: ReactNode;
 }) {
   const name = group?.name ?? entry?.setup.name ?? "";
   const tags =
@@ -96,9 +87,7 @@ function SuggestedCard({
       <p className={styles.description}>{entry?.description ?? group?.entry?.description}</p>
       <div className={styles.cardFoot}>
         <span />
-        <Button onClick={onSetUp} aria-label={`Set up ${name}`}>
-          Set up
-        </Button>
+        {action}
       </div>
     </li>
   );
@@ -203,21 +192,28 @@ export function ConnectorsView(props: ConnectorsViewProps) {
             <h2 className={page.sectionTitle}>Suggested</h2>
           </div>
           <ul className={styles.grid} aria-label="Suggested apps">
-            {offers.map((group) => (
-              <SuggestedCard
-                key={group.key}
-                group={group}
-                onSetUp={() => {
-                  const [route] = group.routes;
-                  if (route !== undefined) void renew(route.id);
-                }}
-              />
-            ))}
+            {offers.map((group) => {
+              const [route] = group.routes;
+              return route === undefined ? null : (
+                <SuggestedCard
+                  key={group.key}
+                  group={group}
+                  action={<RenewAction route={route} label="Set up" />}
+                />
+              );
+            })}
             {listed.map((entry) => (
               <SuggestedCard
                 key={entry.setup.slug}
                 entry={entry}
-                onSetUp={() => setAdding({ app: entry.setup.slug })}
+                action={
+                  <Button
+                    onClick={() => setAdding({ app: entry.setup.slug })}
+                    aria-label={`Set up ${entry.setup.name}`}
+                  >
+                    Set up
+                  </Button>
+                }
               />
             ))}
           </ul>

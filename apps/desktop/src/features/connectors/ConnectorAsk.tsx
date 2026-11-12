@@ -7,7 +7,7 @@ import { showToast } from "../../ui/Toast.tsx";
 import { detailOf, useAnswer } from "../requests/answer.ts";
 import requests from "../requests/RequestCard.module.css";
 import styles from "./Connectors.module.css";
-import { refreshApps, setUpThrough, signIn } from "./connectors.ts";
+import { refreshApps, setUpThrough } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 
 type PermissionEvent = Extract<UserRequestEvent, { type: "permission.requested" }>;
@@ -164,12 +164,6 @@ export function ConnectorAskBody({
 }) {
   const { sending, error, run } = useAnswer();
   const { requestId, title, input, options, tool } = event.payload;
-  // A provider app's own ask names it as the provider does, such as "claude.ai Notion".
-  const connector = useApp((state) =>
-    Object.values(state.connectors).find(
-      ({ setup }) => setup.slug === tool?.server || setup.app === tool?.server,
-    ),
-  );
   if (tool?.name === "request" && appAskSchema.safeParse(input).data?.suggested !== undefined) {
     return <AppAskBody event={event} context={context} />;
   }
@@ -179,12 +173,6 @@ export function ConnectorAskBody({
   const detail = detailOf(input);
   const answer = (optionId: string) =>
     run(() => api.command(event.sessionId, { type: "answerPermission", requestId, optionId }));
-  const buttonFor = (optionId: string) => {
-    if (optionId === "sign-in" && connector !== undefined) {
-      return () => signIn(connector.id).catch((failure: unknown) => showToast(String(failure)));
-    }
-    return () => answer(optionId);
-  };
   return (
     <div className={requests.body}>
       {context}
@@ -200,7 +188,7 @@ export function ConnectorAskBody({
             key={option.optionId}
             variant={option.kind.startsWith("allow") ? "primary" : "ghost"}
             disabled={sending}
-            onClick={() => void buttonFor(option.optionId)()}
+            onClick={() => void answer(option.optionId)}
           >
             {mail && option.optionId === "approve" ? "Send" : option.label}
           </Button>

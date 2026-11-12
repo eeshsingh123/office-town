@@ -7,6 +7,7 @@ import {
   type ConnectorCategory,
   type ConnectorPermission,
   type ConnectorRecord,
+  isEntryApp,
   providerOf,
 } from "@office-town/contract";
 import { useEffect, useMemo, useState } from "react";
@@ -52,18 +53,9 @@ export function useCatalog() {
   return loaded;
 }
 
-// Where the user connects Claude apps; Claude Code loads them for the account's login (D-68).
-export const CLAUDE_CONNECTORS = "https://claude.ai/customize/connectors";
-
 // Signed in to by a provider and used by its agents only (D-68, D-96).
 export const isProviderApp = ({ setup }: { setup: ConnectorRecord["setup"] }) =>
   providerOf(setup.kind) !== undefined;
-
-// A catalog tile matches a provider app by name, as the provider names it.
-export const sameApp = (entry: CatalogEntry, connector: ConnectorRecord) =>
-  entry.setup.slug === connector.setup.slug ||
-  appKeyOf(connector.setup.name) === appKeyOf(entry.setup.name) ||
-  appKeyOf(connector.setup.name) === appKeyOf(entry.setup.maker ?? "");
 
 // A provider app it lists but that was never signed in, such as claude.ai's Gmail before its first
 // sign-in: an offer, not a problem.
@@ -73,6 +65,9 @@ export const isOffer = (connector: ConnectorRecord) =>
 // The only alert the page shows (D-96): a sign-in that worked before and has to be renewed.
 export const needsRenewing = (connector: ConnectorRecord) =>
   connector.enabled && connector.status === "signed_out" && !isOffer(connector);
+
+// Only Claude gives a page to sign an app in again; Codex and OpenCode do it in their own app.
+export const renewsHere = ({ setup }: ConnectorRecord) => setup.kind === "claude";
 
 // One app, however many ways it is reached: shared first, since agents use it first there.
 export interface AppGroup {
@@ -95,7 +90,7 @@ const logoSlug = (connector: ConnectorRecord) =>
 export function groupApps(connectors: ConnectorRecord[], entries: CatalogEntry[] = []): AppGroup[] {
   const groups = new Map<string, AppGroup>();
   for (const connector of connectors) {
-    const entry = entries.find((candidate) => sameApp(candidate, connector));
+    const entry = entries.find((candidate) => isEntryApp(candidate, connector.setup));
     const key = entry?.setup.slug ?? appKeyOf(connector.setup.name);
     const group = groups.get(key);
     if (group !== undefined) {
@@ -172,11 +167,6 @@ export function connectorOfSlug(slug: string): ConnectorRecord | undefined {
 export async function signIn(connectorId: string): Promise<void> {
   const url = await api.connectorSignIn(connectorId);
   window.open(url, "_blank", "noopener");
-  refreshOnReturn();
-}
-
-export function openClaudeConnectors(): void {
-  window.open(CLAUDE_CONNECTORS, "_blank", "noopener");
   refreshOnReturn();
 }
 

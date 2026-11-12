@@ -8,6 +8,8 @@ import {
   appKeyOf,
   type CatalogEntry,
   type ConnectorRecord,
+  isEntryApp,
+  kindOf,
   providerOf,
   type SessionRecord,
 } from "@office-town/contract";
@@ -17,7 +19,7 @@ import { sessionAccountId } from "../accounts/accounts.ts";
 import { AnswerError, type SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
-import { isProviderApp, mayUse, reachableApps } from "./access.ts";
+import { isProviderApp, mayUse, providerName, reachableApps } from "./access.ts";
 import { catalog } from "./catalog.ts";
 
 interface Waiting {
@@ -27,21 +29,18 @@ interface Waiting {
   // The app as the ask names it, matched against a connector added later.
   key: string;
   audience: AppAudience;
+  askedAt: number;
 }
 
 // Sent by the core alone, once the user connected the app.
 const CONNECTED = "connected";
 const GIVE = "give:";
 
-const PROVIDER_NAMES: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  opencode: "OpenCode",
-};
+const NOBODY: Audience = { everyone: false, departmentIds: [], agentIds: [] };
 
 // Who gets the app: the asker, its department (by default), or everyone (D-96).
 function widened(audience: Audience, agent: AgentRecord, wanted: AppAudience): Audience {
-  if (wanted === "everyone") return { everyone: true, departmentIds: [], agentIds: [] };
+  if (wanted === "everyone") return { ...NOBODY, everyone: true };
   if (wanted === "department" && agent.departmentId !== undefined) {
     return audience.departmentIds.includes(agent.departmentId)
       ? audience
@@ -52,11 +51,34 @@ function widened(audience: Audience, agent: AgentRecord, wanted: AppAudience): A
     : { ...audience, agentIds: [...audience.agentIds, agent.id] };
 }
 
-const sameApp = (key: string) => (connector: ConnectorRecord) =>
-  connector.setup.slug === key || appKeyOf(connector.setup.name) === key;
+// Who has the app once the user answers. One the provider listed for this ask goes to whom the
+// user chose; a shared app keeps the audience saved with it in Add; any other is only widened.
+function audienceAfter(
+  connector: ConnectorRecord,
+  agent: AgentRecord,
+  audience: AppAudience,
+  askedAt: number | undefined,
+): Audience | undefined {
+  if (askedAt === undefined) return widened(connector.audience, agent, audience);
+  if (!isProviderApp(connector)) {
+    return mayUse(connector, agent) ? undefined : widened(connector.audience, agent, "agent");
+  }
+  const fresh = Date.parse(connector.createdAt) >= askedAt;
+  return widened(fresh ? NOBODY : connector.audience, agent, audience);
+}
 
-const entryOf = (key: string): CatalogEntry | undefined =>
-  catalog.find(({ setup }) => setup.slug === key || appKeyOf(setup.name) === key);
+// The app an ask names, matched as the Connectors page groups it: `key` is an entry's slug, or the
+// asked name's key for an app not on the list.
+function sameApp(key: string) {
+  const entry = catalog.find(({ setup }) => setup.slug === key);
+  return ({ setup }: ConnectorRecord) =>
+    entry === undefined
+      ? setup.slug === key || appKeyOf(setup.name) === key
+      : isEntryApp(entry, setup);
+}
+
+const entryOf = (app: string): CatalogEntry | undefined =>
+  catalog.find((entry) => isEntryApp(entry, { slug: appKeyOf(app), name: app }));
 
 // The ways an app reaches an agent on this session: a shared app first, then its provider's app on
 // the session's login (D-96).
@@ -74,7 +96,7 @@ function routesFor(store: Store, session: SessionRecord, key: string) {
 
 // Whether the agent's provider can sign in to the app itself, as Add would offer it.
 function providerCanAdd(harness: string, entry: CatalogEntry | undefined): boolean {
-  if (!hasVendorApps(harness) || PROVIDER_NAMES[harness] === undefined) return false;
+  if (!hasVendorApps(harness) || kindOf(harness) === undefined) return false;
   if (entry === undefined) return harness !== "opencode";
   return providerOf(entry.setup.kind) === harness || entry.signIn.includes(harness);
 }
@@ -82,7 +104,7 @@ function providerCanAdd(harness: string, entry: CatalogEntry | undefined): boole
 // An agent without an app asks for it; the user connects it or gives access from Needs you. A
 // shared app is then reached through use_app_tool, so the tool list stays as it was (D-67). A
 // provider app reaches an agent only from a new conversation, so the agent carries on in one with
-// its handover (D-94, D-96). An app no way reaches is passed to a teammate who has it.
+// its handover (D-94, D-96). An app a teammate already has goes to that teammate's step instead.
 export class AppRequests {
   readonly #store: Store;
   readonly #registry: SessionRegistry;
@@ -127,7 +149,7 @@ export class AppRequests {
     const session = this.#store.getSession(caller.sessionId);
     if (agent === undefined || session === undefined) throw new ToolError("No such agent.");
     const { harness } = session.options;
-    const entry = entryOf(appKeyOf(app));
+    const entry = entryOf(app);
     const key = entry?.setup.slug ?? appKeyOf(app);
     const { shared, own } = routesFor(this.#store, session, key);
     const name = entry?.setup.name ?? shared?.setup.name ?? own?.setup.name ?? app;
@@ -144,6 +166,10 @@ export class AppRequests {
       return `${name} came after this conversation began. Call hand_over now to carry on in a new conversation that has it, then end your turn.`;
     }
     const give = ready(shared) ? shared : ready(own) ? own : undefined;
+    if (give === undefined) {
+      const teammates = this.#teammates(agent, name);
+      if (teammates !== undefined) return teammates;
+    }
     // An app that can be shared is added in Office Town first, where Add also offers the
     // provider's own way in; otherwise the agent's provider sets it up.
     const sharedEntry =
@@ -151,7 +177,7 @@ export class AppRequests {
     const provider =
       give === undefined && !sharedEntry && providerCanAdd(harness, entry) ? harness : undefined;
     if (give === undefined && provider === undefined && !sharedEntry) {
-      return this.#elsewhere(caller, agent, name, reason);
+      return this.#nobody(caller, agent, name, reason);
     }
     const suggested: AppAudience =
       wanted ?? (agent.departmentId === undefined ? "agent" : "department");
@@ -170,8 +196,8 @@ export class AppRequests {
       provider === undefined
         ? `Connect ${name}`
         : own?.status === "signed_out"
-          ? `Sign in again in ${PROVIDER_NAMES[provider]}`
-          : `Set up in ${PROVIDER_NAMES[provider]}`;
+          ? `Sign in again in ${providerName(provider)}`
+          : `Set up in ${providerName(provider)}`;
     const options =
       give === undefined
         ? [{ optionId: "connect", label: setUp, kind: "allow_once" as const }]
@@ -197,12 +223,12 @@ export class AppRequests {
         if (command.type !== "answerPermission") throw new AnswerError("This is an approval.");
         // The card's button opens the setup; the core answers once the app is connected.
         if (command.optionId === "connect") throw new AnswerError(`Set up ${name} from its card.`);
+        const connected =
+          command.optionId === CONNECTED ? this.#connecting.get(requestId) : undefined;
+        this.#connecting.delete(requestId);
         const audience = command.optionId.startsWith(GIVE)
           ? appAudienceSchema.parse(command.optionId.slice(GIVE.length))
-          : command.optionId === CONNECTED
-            ? (this.#connecting.get(requestId)?.audience ?? suggested)
-            : undefined;
-        this.#connecting.delete(requestId);
+          : connected?.audience;
         return {
           resolution: {
             type: "permission.resolved",
@@ -213,7 +239,8 @@ export class AppRequests {
               answeredBy: "user",
             },
           },
-          afterwards: () => this.#answered(caller.sessionId, agent.id, key, name, audience),
+          afterwards: () =>
+            this.#answered(caller.sessionId, agent.id, key, name, audience, connected?.askedAt),
         };
       },
     );
@@ -224,6 +251,7 @@ export class AppRequests {
         agentId: agent.id,
         key,
         audience: suggested,
+        askedAt: Date.now(),
       });
     }
     return `Your request for ${name} is with the user. Their answer will reach you as a message.`;
@@ -241,6 +269,7 @@ export class AppRequests {
     key: string,
     name: string,
     audience: AppAudience | undefined,
+    askedAt?: number,
   ) {
     const tell = (text: string, summary: string) =>
       this.#registry.tell(sessionId, { text, origin: { kind: "notice", summary } });
@@ -254,10 +283,8 @@ export class AppRequests {
     const { shared, own } = routesFor(this.#store, session, key);
     const connector = shared?.status === "connected" ? shared : own;
     if (connector === undefined) return;
-    // An app just set up for this ask goes to whom the user chose; one that existed is widened.
-    const fresh = Date.parse(connector.createdAt) >= Date.parse(session.createdAt);
-    const base = fresh ? { everyone: false, departmentIds: [], agentIds: [] } : connector.audience;
-    this.#store.updateConnector(connector.id, { audience: widened(base, agent, audience) });
+    const next = audienceAfter(connector, agent, audience, askedAt);
+    if (next !== undefined) this.#store.updateConnector(connector.id, { audience: next });
     if (!isProviderApp(connector)) {
       await tell(
         `${name} is ready for you. See its tools with list_app_tools and call them with use_app_tool.`,
@@ -273,29 +300,29 @@ export class AppRequests {
     );
   }
 
-  // No way reaches the agent: a teammate who has the app takes the step, or the user is told the
-  // team has no one who can.
-  #elsewhere(caller: Caller, agent: AgentRecord, name: string, reason: string): string {
-    const department =
-      agent.departmentId === undefined ? undefined : this.#store.getDepartment(agent.departmentId);
+  // Teammates who already reach the app take the step: a team mixing providers covers more apps.
+  #teammates(agent: AgentRecord, name: string): string | undefined {
+    if (agent.departmentId === undefined) return undefined;
+    const wanted = appKeyOf(name);
     const holders = this.#store
       .listAgents()
       .filter(
         (other) =>
           other.id !== agent.id &&
-          other.departmentId !== undefined &&
           other.departmentId === agent.departmentId &&
-          reachableApps(this.#store, other).includes(name),
+          reachableApps(this.#store, other).some((app) => appKeyOf(app) === wanted),
       )
       .map((other) => other.name);
-    const only = `Your provider cannot reach ${name}.`;
-    if (holders.length > 0) {
-      const how =
-        department?.leadAgentId === agent.id
-          ? "Hand this step to one of them with delegate."
-          : "Ask your lead with message_lead to hand this step to one of them.";
-      return `${only} ${holders.join(", ")} can use it. ${how}`;
-    }
+    if (holders.length === 0) return undefined;
+    const how =
+      this.#store.getDepartment(agent.departmentId)?.leadAgentId === agent.id
+        ? "Hand this step to one of them with delegate."
+        : "Ask your lead with message_lead to hand this step to one of them.";
+    return `You cannot reach ${name}, but ${holders.join(", ")} can. ${how}`;
+  }
+
+  // Neither the agent nor a teammate can reach the app, so the user is told.
+  #nobody(caller: Caller, agent: AgentRecord, name: string, reason: string): string {
     const requestId = `app-request-${randomUUID()}`;
     this.#registry.ask(
       caller.sessionId,
@@ -327,7 +354,7 @@ export class AppRequests {
         };
       },
     );
-    return `${only} No one on your team can use it, and the user was told. Carry on without it.`;
+    return `Your provider cannot reach ${name}. No one on your team can use it, and the user was told. Carry on without it.`;
   }
 
   // The user connected the app an agent asked for, so its ask is answered.

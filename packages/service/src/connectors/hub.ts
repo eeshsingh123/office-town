@@ -89,7 +89,7 @@ export class ConnectorHub {
     const turnedOn = enabled === true && !before.enabled;
     if (turnedOff) await this.links.drop(id);
     // A provider app's status is the provider's, read on the next refresh.
-    const claude = isProviderApp(before);
+    const provider = isProviderApp(before);
     const connector = this.#store.updateConnector(id, {
       ...(audience === undefined ? {} : { audience }),
       ...(permission === undefined ? {} : { permission }),
@@ -98,7 +98,7 @@ export class ConnectorHub {
       ...(turnedOn || keys !== undefined ? { status: "connected" as const } : {}),
     });
     // The link reports how it really stands.
-    if (!claude && (turnedOn || keys !== undefined)) this.#refreshLater(connector);
+    if (!provider && (turnedOn || keys !== undefined)) this.#refreshLater(connector);
     return connector;
   }
 

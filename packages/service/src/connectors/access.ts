@@ -7,7 +7,7 @@ import {
   providerOf,
   type SessionOptions,
 } from "@office-town/contract";
-import { hasVendorApps } from "@office-town/harness";
+import { hasVendorApps, listHarnesses } from "@office-town/harness";
 import { chooseAccount, sessionAccountId } from "../accounts/accounts.ts";
 import { appsBrief } from "../agents/briefs.ts";
 import type { Apps } from "../registry/session-registry.ts";
@@ -27,6 +27,9 @@ export function mayUse(connector: ConnectorRecord, agent: AgentRecord): boolean 
   return agent.guest !== true && connector.enabled && reaches(connector.audience, agent);
 }
 
+export const providerName = (harness: string) =>
+  listHarnesses().find((known) => known.harness === harness)?.name ?? harness;
+
 // A provider connects these itself, so only its agents reach them, never through the hub (D-68).
 export const isProviderApp = (connector: ConnectorRecord) =>
   providerOf(connector.setup.kind) !== undefined;
@@ -40,7 +43,6 @@ export function usableBy(store: Store, agentId: string): ConnectorRecord[] {
     .filter((connector) => !isProviderApp(connector) && mayUse(connector, agent));
 }
 
-// A provider's apps on one of its logins.
 const appsOnLogin = (store: Store, harness: string, accountId: string) =>
   store
     .listConnectors()
@@ -92,7 +94,6 @@ export function appsOf(store: Store) {
 // Unmarked counts as a change.
 export const isRead = (tool: ConnectorTool) => tool.annotations?.readOnlyHint === true;
 
-// What the user reads: each action, and whether it only reads.
 export const actionsOf = (tools: ConnectorTool[]): ConnectorAction[] =>
   tools.map((tool) => ({
     name: tool.name,

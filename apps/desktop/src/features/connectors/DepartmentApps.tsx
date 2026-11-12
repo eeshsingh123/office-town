@@ -81,13 +81,13 @@ export function DepartmentApps({
       {unreachable.map((group) => {
         const only = [...new Set(group.routes.flatMap(({ setup }) => providerOf(setup.kind) ?? []))]
           .map(nameOf)
-          .join(" and ");
+          .join(" or ");
         const provider = providerToAdd(group, harnesses);
         return (
           <div key={`warn-${group.key}`} className={styles.teamWarn}>
             <CircleAlert size={14} aria-hidden />
             <span>
-              {group.name} is set up only through {only}, and no one here uses it.
+              {group.name} works only with {only}, which no one here uses.
             </span>
             {provider === undefined ? null : (
               <Button

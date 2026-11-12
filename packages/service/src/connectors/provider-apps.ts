@@ -1,11 +1,14 @@
-import type {
-  Account,
-  ConnectorKind,
-  ConnectorRecord,
-  ConnectorStatus,
-  SessionEvent,
-  SessionRecord,
-  VendorApp,
+import {
+  type Account,
+  type ConnectorKind,
+  type ConnectorPermission,
+  type ConnectorRecord,
+  type ConnectorStatus,
+  claudeConnectorsPage,
+  kindOf,
+  type SessionEvent,
+  type SessionRecord,
+  type VendorApp,
 } from "@office-town/contract";
 import {
   hasVendorApps,
@@ -17,7 +20,7 @@ import {
 import { allAccounts, hasSignIn, sessionAccountId } from "../accounts/accounts.ts";
 import type { AppVerdict, SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
-import { decide, isRead, mayUse } from "./access.ts";
+import { decide, isRead, mayUse, providerName } from "./access.ts";
 import { ConnectError } from "./links.ts";
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>["payload"];
@@ -28,15 +31,15 @@ const STATUS: Record<VendorApp["status"], ConnectorStatus> = {
   failed: "failing",
 };
 
-// Each provider's kind of app, and who the user reads it comes from.
-const KINDS: Record<string, { kind: ConnectorKind; maker: string }> = {
-  claude: { kind: "claude", maker: "Claude" },
-  codex: { kind: "codex", maker: "ChatGPT" },
-  opencode: { kind: "opencode", maker: "OpenCode" },
-};
-
-// Where the user adds an app to Claude; Claude Code loads it for the login (D-68).
-const CLAUDE_CONNECTORS = "https://claude.ai/customize/connectors";
+// Who the user reads a provider app comes from, and the permission a new one starts with. OpenCode
+// never says which of its servers' actions only read, so they keep Don't ask, as before D-96; any
+// other level would ask before, or block, every action (owner).
+const NEW_APP: Partial<Record<ConnectorKind, { maker: string; permission: ConnectorPermission }>> =
+  {
+    claude: { maker: "Claude", permission: "ask" },
+    codex: { maker: "ChatGPT", permission: "ask" },
+    opencode: { maker: "OpenCode", permission: "dont_ask" },
+  };
 
 // "claude.ai Google Drive" is shown as "Google Drive".
 const shownName = (app: string) => app.replace(/^claude\.ai /, "");
@@ -92,7 +95,7 @@ export class ProviderApps {
   async #refresh(): Promise<void> {
     const accounts = allAccounts(this.#store, listHarnesses()).filter(
       (account) =>
-        KINDS[account.harness] !== undefined &&
+        kindOf(account.harness) !== undefined &&
         hasVendorApps(account.harness) &&
         hasSignIn(account, this.#store),
     );
@@ -134,11 +137,13 @@ export class ProviderApps {
   // The provider's page where the user adds an app it does not have yet, on its first signed-in
   // login; the provider keeps the sign-in and the app is read on the next refresh (D-96).
   async setUpPage(provider: string, app: string): Promise<string> {
-    if (provider === "claude") return CLAUDE_CONNECTORS;
+    if (provider === "claude") return claudeConnectorsPage;
     const account = allAccounts(this.#store, listHarnesses()).find(
       (candidate) => candidate.harness === provider && hasSignIn(candidate, this.#store),
     );
-    if (account === undefined) throw new ConnectError(app, `sign in to ${provider} first`);
+    if (account === undefined) {
+      throw new ConnectError(app, `sign in to ${providerName(provider)} first`);
+    }
     try {
       return await vendorAppSetUpPage(provider, account.environment, account.folder, app);
     } catch (error) {
@@ -197,7 +202,7 @@ export class ProviderApps {
       return undefined;
     }
     const accountId = sessionAccountId(session.options);
-    const kind = KINDS[session.options.harness]?.kind;
+    const kind = kindOf(session.options.harness);
     return this.#store
       .listConnectors()
       .find(
@@ -205,13 +210,14 @@ export class ProviderApps {
       );
   }
 
-  // A new app gets Everyone and Ask me first; one gone from the provider goes with its settings.
+  // A new app goes to everyone; one gone from the provider goes with its settings.
   #sync(account: Account, apps: VendorApp[]): void {
-    const own = KINDS[account.harness];
-    if (own === undefined) return;
+    const kind = kindOf(account.harness);
+    const defaults = kind === undefined ? undefined : NEW_APP[kind];
+    if (kind === undefined || defaults === undefined) return;
     const known = this.#store
       .listConnectors()
-      .filter(({ setup }) => setup.kind === own.kind && setup.account === account.id);
+      .filter(({ setup }) => setup.kind === kind && setup.account === account.id);
     for (const app of apps) {
       // The provider's own name for it, which its settings and its calls use.
       const appId = app.id ?? app.name;
@@ -228,8 +234,8 @@ export class ProviderApps {
           setup: {
             slug: this.#freeSlug(account.harness, app.name),
             name: shownName(app.name),
-            kind: own.kind,
-            maker: own.maker,
+            kind,
+            maker: defaults.maker,
             official: true,
             account: account.id,
             app: appId,
@@ -237,7 +243,7 @@ export class ProviderApps {
             keys: [],
           },
           audience: { everyone: true, departmentIds: [], agentIds: [] },
-          permission: "ask",
+          permission: defaults.permission,
           status,
           tools,
         });

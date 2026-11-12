@@ -26,6 +26,13 @@ const PROVIDER_OF: Partial<Record<ConnectorKind, string>> = {
 // The provider whose agents alone reach an app, or undefined for a shared app every provider uses.
 export const providerOf = (kind: ConnectorKind): string | undefined => PROVIDER_OF[kind];
 
+// The kind of app a provider signs in to itself, or undefined for one without apps of its own.
+export const kindOf = (provider: string): ConnectorKind | undefined =>
+  connectorKindSchema.options.find((kind) => PROVIDER_OF[kind] === provider);
+
+// Where the user adds an app to Claude; Claude Code loads it for the login (D-68).
+export const claudeConnectorsPage = "https://claude.ai/customize/connectors";
+
 export const workPlaceSchema = z.enum(["app", "background", "cloud"]);
 export type WorkPlace = z.infer<typeof workPlaceSchema>;
 
@@ -224,6 +231,17 @@ export const catalogEntrySchema = z.object({
   checked: z.iso.date(),
 });
 export type CatalogEntry = z.infer<typeof catalogEntrySchema>;
+
+// Whether an app is a vetted entry: by slug, or by the name a provider lists it under, which may be
+// the maker's ("Atlassian" for Jira and Confluence).
+export function isEntryApp(entry: CatalogEntry, app: { slug: string; name: string }): boolean {
+  const key = appKeyOf(app.name);
+  return (
+    entry.setup.slug === app.slug ||
+    key === appKeyOf(entry.setup.name) ||
+    key === appKeyOf(entry.setup.maker ?? "")
+  );
+}
 
 export const connectorCatalogSchema = z.object({
   entries: z.array(catalogEntrySchema),
