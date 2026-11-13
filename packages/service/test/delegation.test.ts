@@ -143,6 +143,11 @@ describe("delegation", () => {
     expect((await core.callTool(resumed, "team_status", {})).text).toContain(
       `${writer}, Writer (claude): is waiting on 1 sub-agent`,
     );
+    // With the lead's turn over too, the goal is at work while the sub-agent works.
+    playTurn(resumed, "Noted.");
+    await settle();
+    const taskId = core.store.getSession(worker?.id ?? "")?.taskId ?? "";
+    expect(core.store.getTask(taskId)?.state).toBe("working");
     // Its CLI starts no turn of its own, so the worker is asked to take the sub-agent's work in.
     worker?.emit({
       type: "action.ended",

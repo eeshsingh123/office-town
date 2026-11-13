@@ -132,7 +132,7 @@ toolServer.offerApps({
 });
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 recoverLeads(team, activity);
-taskStates.follow(registry);
+taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
 const checks = new Checks(team);
