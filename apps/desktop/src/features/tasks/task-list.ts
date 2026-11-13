@@ -353,11 +353,13 @@ export interface Group {
   rows: Row[];
 }
 
+const OPEN: RowStatus[] = ["needs", "working", "queued"];
+
+// Open work stays on top (owner); the rest is newest first by the time each row shows.
 function sortRows(rows: Row[]): Row[] {
+  const closed = (row: Row) => (OPEN.includes(row.item.status) ? 0 : 1);
   return rows.toSorted(
-    (a, b) =>
-      STATUS_ORDER.indexOf(a.item.status) - STATUS_ORDER.indexOf(b.item.status) ||
-      b.item.createdAt.localeCompare(a.item.createdAt),
+    (a, b) => closed(a) - closed(b) || b.item.activityAt.localeCompare(a.item.activityAt),
   );
 }
 

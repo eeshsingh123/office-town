@@ -1,10 +1,13 @@
 import { ChevronDown, Clock } from "lucide-react";
+import type { Agent } from "../../store/agents.ts";
 import { navigate } from "../../store/app-store.ts";
 import { ContextMenu, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ago } from "../../ui/format.ts";
 import { StatusIcon } from "../../ui/StatusIcon.tsx";
+import { useModelName } from "../profiles/model-line.ts";
+import { effortLabel } from "../profiles/model-name.ts";
 import styles from "./TasksView.module.css";
 import { type Item, type RowStatus, STATUS_LABELS } from "./task-list.ts";
 import { taskMenu } from "./task-menu.ts";
@@ -56,7 +59,8 @@ function Who({ item, team, byTeam }: { item: Item; team: Team; byTeam: boolean }
       <span className={styles.who}>
         <Avatar name={first.name} colour={first.colour} size={20} />
         <span className={styles.whoName}>
-          <WorkerName agent={first} />
+          {/* Under the Assistants heading, the model is all that tells them apart. */}
+          {byTeam ? <ModelAndEffort agent={first} /> : <WorkerName agent={first} />}
         </span>
       </span>
     );
@@ -85,6 +89,13 @@ function Who({ item, team, byTeam }: { item: Item; team: Team; byTeam: boolean }
       </span>
     </span>
   );
+}
+
+function ModelAndEffort({ agent }: { agent: Agent }) {
+  const { options } = agent.latest;
+  const model = useModelName(options, options.model);
+  const text = options.effort === undefined ? model : `${model} · ${effortLabel(options.effort)}`;
+  return <span title={text}>{text}</span>;
 }
 
 function Progress({ item }: { item: Item }) {
