@@ -1,7 +1,7 @@
 import { Settings, X } from "lucide-react";
 import { Tabs } from "radix-ui";
 import { type ReactNode, useState } from "react";
-import type { AgentState } from "../../trace/progress.ts";
+import { type AgentState, isBusy } from "../../trace/progress.ts";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
@@ -39,7 +39,7 @@ export function StateChip({ state }: { state: AgentState }) {
   const tone =
     state === "waiting"
       ? styles.chipWaiting
-      : state === "working" || state === "starting"
+      : isBusy(state)
         ? styles.chipWorking
         : state === "failed"
           ? styles.chipFailed

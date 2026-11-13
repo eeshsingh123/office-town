@@ -7,6 +7,7 @@ import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { OPEN_CHECK, useChecks } from "../../store/checks.ts";
 import { type Keep, readKept, useKept, writeKept } from "../../store/kept.ts";
+import { isBusy } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import checks from "../checks/Checks.module.css";
@@ -232,7 +233,7 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
   );
   const busy = (member: Agent) => {
     const state = states.get(member.id);
-    return state === "working" || state === "starting" || state === "waiting";
+    return state !== undefined && (isBusy(state) || state === "waiting");
   };
   const latest = all.at(-1);
   const folder = agent.latest.options.workspacePath;

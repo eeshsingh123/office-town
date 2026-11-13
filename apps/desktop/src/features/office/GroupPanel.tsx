@@ -14,11 +14,11 @@ import { GroupTaskDialog } from "./GroupTaskDialog.tsx";
 import styles from "./Office.module.css";
 import { pin, unpin, usePinned } from "./pins.ts";
 
-const AT_WORK: AgentState[] = ["working", "starting", "waiting"];
+const AT_WORK: AgentState[] = ["working", "starting", "background", "waiting"];
 
 const SUMMARY: { label: string; states: AgentState[]; tone: string }[] = [
   { label: "needs you", states: ["waiting"], tone: "chipNeedsYou" },
-  { label: "working", states: ["working", "starting"], tone: "" },
+  { label: "working", states: ["working", "starting", "background"], tone: "" },
   { label: "failed", states: ["failed"], tone: "chipFailed" },
   { label: "done", states: ["done"], tone: "chipDone" },
   { label: "stopped", states: ["interrupted", "stopped"], tone: "chipQuiet" },

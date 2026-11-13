@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
+import { isBusy } from "../../trace/progress.ts";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import { AccountCard } from "./AccountCard.tsx";
@@ -163,7 +164,7 @@ export function AccountGrid({ accounts, spend, showLeft }: AccountGridProps) {
           const users = usersOf.get(account.id) ?? [];
           const working = users.filter((agent) => {
             const state = stateOf(agent, traces, false);
-            return state === "working" || state === "starting";
+            return isBusy(state);
           }).length;
           const mine = (rows: readonly AccountUsage[] | undefined) =>
             (rows ?? []).filter((row) => row.accountId === account.id);

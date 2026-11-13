@@ -6,6 +6,7 @@ import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { isBusy } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, compactCount } from "../../ui/format.ts";
@@ -188,7 +189,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
         </span>
       </div>
       <ul className={styles.facts}>
-        <ModelRow agent={agent} working={state === "working" || state === "starting"} />
+        <ModelRow agent={agent} working={isBusy(state)} />
         <li title="Provider and where it runs">
           <AppWindow size={14} aria-hidden />
           <span className={styles.text}>

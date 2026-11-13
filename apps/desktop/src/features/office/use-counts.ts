@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
+import { isBusy } from "../../trace/progress.ts";
 import { waitingOrder } from "./next-waiting.ts";
 
 // The office at a glance, shared by the top bar and Home.
@@ -16,7 +17,7 @@ export function useCounts() {
     const tasks = Object.values(entries).map((entry) => entry.task);
     const working = agents.filter((agent) => {
       const state = stateOf(agent, traces, waitingSessions.has(agent.latest.id));
-      return state === "working" || state === "starting";
+      return isBusy(state);
     }).length;
     const queued =
       tasks.filter((task) => task.state === "queued").length +

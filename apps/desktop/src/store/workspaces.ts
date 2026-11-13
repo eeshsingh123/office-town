@@ -1,7 +1,7 @@
 import type { WorkspaceRecord, WorkspaceRequest, WorkspaceUsage } from "@office-town/contract";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.ts";
-import type { AgentState } from "../trace/progress.ts";
+import { type AgentState, isBusy } from "../trace/progress.ts";
 import { clockTime } from "../ui/format.ts";
 import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "./agents.ts";
 import { useApp } from "./app-store.ts";
@@ -72,7 +72,7 @@ export function useWorkingNow(): Record<string, WorkingAgent[]> {
       for (const agent of agentsInTask({ agents, tasks, sessions }, task.id)) {
         if (!isOpen(agent.latest)) continue;
         const state = stateOf(agent, traces, asking.has(agent.latest.id));
-        if (state !== "starting" && state !== "working" && state !== "waiting") continue;
+        if (!isBusy(state) && state !== "waiting") continue;
         working[task.workspaceId] = [...(working[task.workspaceId] ?? []), { agent, state }];
       }
     }

@@ -2,7 +2,7 @@ import { ArrowUpRight, Check, X } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
-import { progressOf } from "../../trace/progress.ts";
+import { isBusy, progressOf } from "../../trace/progress.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -72,7 +72,7 @@ export function AgentNow({ member }: { member: FloorAgent }) {
   const results = useResults(agent.taskId).filter((output) => output.agentId === agent.id);
   const progress = trace === undefined ? undefined : progressOf(trace);
   const done = progress?.recent.filter((action) => action.status !== "running") ?? [];
-  const busy = state === "working" || state === "starting";
+  const busy = isBusy(state);
 
   return (
     <>

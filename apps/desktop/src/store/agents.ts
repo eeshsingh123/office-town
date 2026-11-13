@@ -6,7 +6,7 @@ import {
   type TaskRecord,
 } from "@office-town/contract";
 import { useMemo } from "react";
-import { type AgentState, agentState } from "../trace/progress.ts";
+import { type AgentState, agentState, isBusy } from "../trace/progress.ts";
 import type { Trace } from "../trace/trace.ts";
 import { type AppState, useApp } from "./app-store.ts";
 
@@ -69,7 +69,7 @@ export function taskStateOf(
 ): AgentState | undefined {
   const states = agents.map((agent) => stateOf(agent, traces, waiting.has(agent.latest.id)));
   if (states.includes("waiting")) return "waiting";
-  return states.find((state) => state === "working" || state === "starting") ?? states[0];
+  return states.find((state) => isBusy(state)) ?? states[0];
 }
 
 // By latest task, newest first.
