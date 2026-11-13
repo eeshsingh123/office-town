@@ -49,7 +49,7 @@ import { DepartmentWorkspaceChip } from "./DepartmentWorkspaceChip.tsx";
 import { GoesToChip, targetIcon } from "./GoesToChip.tsx";
 import { ModelChip } from "./ModelChip.tsx";
 import { OptionsChip } from "./OptionsChip.tsx";
-import { Suggestions } from "./Suggestions.tsx";
+import { SamplePrompts } from "./SamplePrompts.tsx";
 import { CHIEF, type Mention, mentionAt, PROPOSE, SOLO, withoutMention } from "./targets.ts";
 import { useBusyDepartments } from "./use-targets.ts";
 
@@ -430,9 +430,9 @@ export function Composer({ home = false }: ComposerProps) {
     }
   };
 
-  const fill = (text: string, next: string) => {
+  const fill = (text: string) => {
     setPrompt(text);
-    setChosen(next);
+    setChosen(SOLO);
     box.current?.focus();
   };
 
@@ -616,7 +616,7 @@ export function Composer({ home = false }: ComposerProps) {
             ) : department !== undefined ? (
               <span className={`${styles.chip} ${styles.fixed}`} title="Set by the department">
                 <ShieldCheck size={14} aria-hidden />
-                <span className={styles.chipText}>{AUTONOMY[department.autonomy].short}</span>
+                <span className={styles.chipText}>{AUTONOMY[department.autonomy].label}</span>
               </span>
             ) : null}
             <OptionsChip
@@ -657,7 +657,7 @@ export function Composer({ home = false }: ComposerProps) {
           {error}
         </p>
       )}
-      {home ? null : <Suggestions onUse={fill} />}
+      {home ? null : <SamplePrompts onUse={fill} />}
       {gate.confirm}
     </div>
   );
