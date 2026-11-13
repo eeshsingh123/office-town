@@ -220,6 +220,24 @@
   margin-top: 6px;
 }
 
+.composerAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: var(--size-meta);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.composerAction:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
 .error {
   margin: 0 0 8px;
   color: var(--bad);

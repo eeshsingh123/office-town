@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { useState } from "react";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -9,8 +10,9 @@ import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./ReviewBar.module.css";
 import { FIXES_SENT, failingCount, sendFixes } from "./ReviewOffer.tsx";
 
-// Above the message box while a task waits for review, so done and review are always in reach.
-export function ReviewBar({ agent, onReview }: { agent: Agent; onReview: () => void }) {
+// Above the message box while a task waits for review. Send for review stays under the box, in
+// every chat, so the bar holds only what closes the task.
+export function ReviewBar({ agent }: { agent: Agent }) {
   const status = useApp((state) => statusOfTask(state, agent.taskId));
   const checks = useChecks(agent.taskId);
   const sent = useKept(FIXES_SENT)[0];
@@ -54,16 +56,13 @@ export function ReviewBar({ agent, onReview }: { agent: Agent; onReview: () => v
         >
           Send fixes ({failed})
         </Button>
-      ) : (
-        <Button variant="secondary" disabled={busy} onClick={onReview}>
-          Send for review…
-        </Button>
-      )}
+      ) : null}
       <Button
-        variant="primary"
+        className={styles.done}
         disabled={busy}
         onClick={() => void act(() => markDone(agent.taskId))}
       >
+        <Check size={14} aria-hidden />
         {failed > 0 ? "Accept" : "Mark done"}
       </Button>
     </section>

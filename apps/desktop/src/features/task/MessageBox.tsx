@@ -31,10 +31,12 @@ interface MessageBoxProps {
   className?: string | undefined;
   // Small actions under the box, such as Send for review.
   actions?: ReactNode;
+  // A bar above the box, kept to its width, such as the review bar.
+  above?: ReactNode;
 }
 
 // Sent like a chat message, so a worker's lead hears of it (D-49) and a lead continues its team (D-86).
-export function MessageBox({ agent, className, actions }: MessageBoxProps) {
+export function MessageBox({ agent, className, actions, above }: MessageBoxProps) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
   const [focusFor] = useKept(COMPOSER_FOCUS);
@@ -103,6 +105,7 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
       onSubmit={send}
       {...(open ? attached.dropHandlers : {})}
     >
+      {above}
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
           {error}

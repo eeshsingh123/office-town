@@ -1,4 +1,4 @@
-import { LoaderCircle, Square } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -13,7 +13,6 @@ import {
   stageOf,
 } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
-import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { taskName } from "../../ui/format.ts";
 import { stateLabel } from "../../ui/StatusIcon.tsx";
@@ -28,8 +27,10 @@ import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
+import { StopButton } from "./StopButton.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
+import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
 
@@ -129,12 +130,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         </div>
         <TaskTabs taskId={taskId} />
         {tab.outputs ? null : <ProgressButton taskId={taskId} soloAgentId={agent.id} />}
-        {live ? (
-          <ConfirmButton ask={stopAgentAsk(agent.name, latest.id)}>
-            <Square size={12} aria-hidden />
-            Stop
-          </ConfirmButton>
-        ) : null}
+        {live ? <StopButton ask={stopAgentAsk(agent.name, latest.id)} /> : null}
       </header>
 
       {tab.outputs ? (
@@ -150,8 +146,16 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               </div>
             </div>
             <div className={`${styles.traceWidth} ${styles.dock}`}>
-              <ReviewBar agent={agent} onReview={() => setAsking(true)} />
-              <MessageBox agent={agent} actions={<PermissionChip agent={agent} />} />
+              <MessageBox
+                agent={agent}
+                above={<ReviewBar agent={agent} />}
+                actions={
+                  <>
+                    <ReviewAction onClick={() => setAsking(true)} />
+                    <PermissionChip agent={agent} />
+                  </>
+                }
+              />
             </div>
           </div>
           <SideColumn taskId={taskId} soloAgentId={agent.id} />
