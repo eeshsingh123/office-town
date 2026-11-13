@@ -119,8 +119,9 @@ export interface AccountSupport {
   credentials?: string;
   // Signs in, printing a page to open and reading a code from stdin if the page shows one.
   login?: HarnessCommand;
-  // Signs in with a key from the provider's console, read from stdin; the CLI saves it.
-  keyLogin?: (provider: string) => HarnessCommand;
+  // Signs in with a key from the provider's console, written to stdin as `input` gives it; the CLI
+  // saves it.
+  keyLogin?: (provider: string) => { command: HarnessCommand; input(key: string): string };
   status?: HarnessQuery<AccountStatus>;
   // The default login's folder, inside the home folder.
   home?: string;
@@ -201,6 +202,9 @@ export interface Adapter {
   readonly install?: InstallSupport;
   readonly vendorApps?: VendorAppSupport;
   readonly recount?: RecountSupport;
+  // For a CLI whose major releases differ in their commands: the adapter for the version installed
+  // where it runs (D-97). Sessions start the same way on every version.
+  forVersion?(version: string): Adapter;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }

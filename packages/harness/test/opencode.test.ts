@@ -15,6 +15,8 @@ const recordings = {
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "team-tool": recording("team-tool"),
+  // OpenCode 2 (D-97).
+  "team-tool-2": recording("team-tool-2"),
 };
 
 describeAdapterConformance(opencodeAdapter, recordings);
@@ -29,7 +31,7 @@ function configOf(options: Parameters<typeof opencodeAdapter.buildCommand>[0]) {
 }
 
 describe("opencode adapter", () => {
-  it("attaches the core's tool servers over ACP, keeps their tokens out of the reported lines, allows their tools, and reports calls to them as theirs", async () => {
+  it("attaches the core's tool servers over ACP, keeps their tokens out of the reported lines, allows their tools, and reports calls to them as theirs on OpenCode 1 and 2", async () => {
     const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
     const attached = {
       transport: "http" as const,
@@ -38,9 +40,11 @@ describe("opencode adapter", () => {
       url: toolServer.url,
       headers: { Authorization: "Bearer secret" },
     };
-    expect(configOf({ ...replayOptions, toolServers: [attached] }).permission).toMatchObject({
-      "office-town_*": "allow",
-    });
+    const config = configOf({ ...replayOptions, toolServers: [attached], blockedApps: ["rea"] });
+    // Code Mode off, so OpenCode 2 calls each tool by its name; a blocked server is off on both.
+    expect(config.permission).toMatchObject({ "office-town_*": "allow", execute: "deny" });
+    expect(config.mcp).toEqual({ rea: { enabled: false } });
+    expect(config.policies).toEqual([{ action: "mcp.use", resource: "rea", effect: "deny" }]);
 
     const { events, written, lines } = await replay(
       opencodeAdapter,
@@ -62,6 +66,13 @@ describe("opencode adapter", () => {
     expect(lines.map((line) => line.text).join("\n")).not.toContain("secret");
     expect(only(events, "action.started").map((event) => event.payload.tool)).toEqual([
       { server: "office-town", name: "ask_user" },
+    ]);
+
+    const second = await replay(opencodeAdapter, recordings["team-tool-2"], replayOptions, {
+      toolServers: [toolServer],
+    });
+    expect(only(second.events, "action.started").map((event) => event.payload.tool)).toEqual([
+      { server: "office-town", name: "search_notes" },
     ]);
   });
 });

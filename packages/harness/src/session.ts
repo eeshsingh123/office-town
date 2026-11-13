@@ -28,6 +28,7 @@ import { attachmentNote } from "./attachments.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 import { readVendorApps } from "./vendor-apps.ts";
+import { installedAdapter } from "./versions.ts";
 
 const STOP_GRACE_MS = 3000;
 const APPS_TIMEOUT_MS = 10_000;
@@ -234,16 +235,15 @@ export class HarnessSession implements Session {
 
   // The login's other apps are found now, as the user may connect one at any time; a list that
   // cannot be read turns every app off, so none the session may not use can reach it (D-68).
-  async #withAppsBlocked(): Promise<LaunchOptions> {
+  async #withAppsBlocked(adapter: Adapter): Promise<LaunchOptions> {
     const allowed = this.#options.vendorApps;
-    const support = this.#adapter.vendorApps;
+    const support = adapter.vendorApps;
     if (allowed === undefined || support === undefined) return this.#options;
     if (allowed.length === 0 && support.allOff === true) return this.#options;
     const { accountFolder } = this.#options;
-    const env =
-      accountFolder === undefined ? {} : (this.#adapter.accounts?.env(accountFolder) ?? {});
+    const env = accountFolder === undefined ? {} : (adapter.accounts?.env(accountFolder) ?? {});
     try {
-      const apps = await readVendorApps(this.#adapter, this.#environment, env, {
+      const apps = await readVendorApps(adapter, this.#environment, env, {
         settled: false,
         timeoutMs: APPS_TIMEOUT_MS,
       });
@@ -270,8 +270,14 @@ export class HarnessSession implements Session {
     }
     this.#state = "starting";
     this.#reportIgnoredEffort();
+    const adapter = await installedAdapter(
+      this.#adapter,
+      this.#options.environment,
+      this.#environment,
+      false,
+    );
     const request = {
-      ...this.#adapter.buildCommand(await this.#withAppsBlocked()),
+      ...adapter.buildCommand(await this.#withAppsBlocked(adapter)),
       cwd: this.#options.workspacePath,
     };
     try {

@@ -35,6 +35,20 @@ export function loadRecording(file: string): RecordingEntry[] {
     .map((line) => JSON.parse(line) as RecordingEntry);
 }
 
+function endedProcess(): LaunchedProcess {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  stdout.end();
+  stderr.end();
+  return {
+    stdin: new Writable({ write: (_chunk, _encoding, done) => done() }),
+    stdout,
+    stderr,
+    exited: Promise.resolve({ code: 0, signal: null }),
+    killTree: async () => {},
+  };
+}
+
 export class ScriptedEnvironment implements Environment {
   readonly written: string[] = [];
   request: LaunchRequest | undefined;
@@ -43,6 +57,8 @@ export class ScriptedEnvironment implements Environment {
   readonly #exited = Promise.withResolvers<ProcessExit>();
 
   async launch(request: LaunchRequest): Promise<LaunchedProcess> {
+    // A session's version check ends at once, unanswered, so the recording plays to the session.
+    if (request.args.includes("--version")) return endedProcess();
     this.request = request;
     const stdin = new Writable({
       write: (chunk: Buffer, _encoding, done) => {

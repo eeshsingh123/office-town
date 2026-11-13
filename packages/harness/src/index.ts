@@ -23,9 +23,10 @@ import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
 import { installerHere } from "./install.ts";
 import { runProcess } from "./process-runner.ts";
-import { inQueryTurn, runQuery } from "./query.ts";
+import { runQuery } from "./query.ts";
 import { HarnessSession, type Session } from "./session.ts";
 import { readSignInPage, readVendorApps } from "./vendor-apps.ts";
+import { forgetVersion, installedAdapter, readVersion, rememberVersion } from "./versions.ts";
 
 export type { LaunchExtras, ToolServer } from "./adapter.ts";
 export { UnknownHarnessError } from "./adapters/registry.ts";
@@ -97,8 +98,17 @@ export async function listEnvironments(): Promise<EnvironmentSpec[]> {
   return [{ kind: "native" }, ...distros.map((distro) => ({ kind: "wsl" as const, distro }))];
 }
 
-export function describeHarness(harness: string, input: EnvironmentSpec): Promise<HarnessCatalog> {
-  return readCatalog(findAdapter(harness), environmentFor(environmentSpecSchema.parse(input)));
+export async function describeHarness(
+  harness: string,
+  input: EnvironmentSpec,
+): Promise<HarnessCatalog> {
+  const spec = environmentSpecSchema.parse(input);
+  const environment = environmentFor(spec);
+  const adapter = await installedAdapter(findAdapter(harness), spec, environment);
+  return readCatalog(adapter, environment).catch((error: unknown) => {
+    forgetVersion(harness, spec);
+    throw error;
+  });
 }
 
 export function runCommand(
@@ -125,9 +135,9 @@ export async function recountUsage(
   accountFolder: string | undefined,
   conversationId: string,
 ): Promise<TokenUsage | undefined> {
-  const { recount, accounts } = findAdapter(harness);
-  if (recount === undefined) return undefined;
   const environment = environmentFor(environmentSpecSchema.parse(spec));
+  const { recount, accounts } = await installedAdapter(findAdapter(harness), spec, environment);
+  if (recount === undefined) return undefined;
   const env =
     accountFolder === undefined || accounts === undefined
       ? {}
@@ -141,7 +151,10 @@ export async function recountUsage(
     seen.add(id);
     const command = recount.command(id);
     const result = await runIn(environment, { ...command, env: { ...command.env, ...env } });
-    if (result.code !== 0) return undefined;
+    if (result.code !== 0) {
+      forgetVersion(harness, spec);
+      return undefined;
+    }
     const { usage, children } = recount.parse(result.stdout);
     total.inputTokens += usage.inputTokens;
     total.outputTokens += usage.outputTokens;
@@ -206,18 +219,18 @@ export async function saveAccountKey(
   provider: string,
   key: string,
 ): Promise<boolean> {
-  const { accounts } = findAdapter(harness);
-  if (accounts?.keyLogin === undefined) return false;
   const environment = environmentFor(environmentSpecSchema.parse(spec));
-  const command = accounts.keyLogin(provider);
+  const { accounts } = await installedAdapter(findAdapter(harness), spec, environment);
+  if (accounts?.keyLogin === undefined) return false;
+  const { command, input } = accounts.keyLogin(provider);
   const exited = Promise.withResolvers<number | null>();
   const running = await runProcess(
     environment,
     { ...command, env: { ...command.env, ...accounts.env(environment.toEnvironmentPath(folder)) } },
     { onLine: () => {}, onExit: (exit) => exited.resolve(exit.code) },
   );
-  // Its prompt takes Enter as a carriage return, as a terminal sends it.
-  running.writeLine(`${key}\r`);
+  running.writeLine(input(key));
+  running.closeInput();
   const timer = setTimeout(() => void running.killTree(), 30_000);
   const code = await exited.promise;
   clearTimeout(timer);
@@ -236,14 +249,15 @@ function loginEnv(harness: string, environment: Environment, folder: string | un
 }
 
 // A login's apps once they have connected, or as far as they got in 20 seconds.
-export function listVendorApps(
+export async function listVendorApps(
   harness: string,
   spec: EnvironmentSpec,
   folder: string | undefined,
   signal?: AbortSignal,
 ): Promise<VendorApp[]> {
   const environment = environmentFor(environmentSpecSchema.parse(spec));
-  return readVendorApps(findAdapter(harness), environment, loginEnv(harness, environment, folder), {
+  const adapter = await installedAdapter(findAdapter(harness), spec, environment);
+  return readVendorApps(adapter, environment, loginEnv(harness, environment, folder), {
     settled: true,
     timeoutMs: 20_000,
     ...(signal === undefined ? {} : { signal }),
@@ -295,19 +309,6 @@ export function accountCredentials(harness: string): string | undefined {
   return findAdapter(harness).accounts?.credentials;
 }
 
-// Such as "1.4.13" from "Muse Code 1.4.13 (1.4.13-R6996.1)" or "2026.10.22-27dcf5f".
-const VERSION = /\d+(?:\.\d+)+(?:-[\w.]+)?/;
-
-// The CLI's version, or undefined when it is not installed here.
-async function readVersion(environment: Environment, install: Adapter["install"]) {
-  if (install === undefined) return "";
-  const result = await inQueryTurn(() => runIn(environment, install.version)).catch(
-    () => undefined,
-  );
-  if (result?.code !== 0) return undefined;
-  return VERSION.exec(result.stdout)?.[0] ?? "";
-}
-
 // Whether the CLI is where agents run and signed in, with how to install it if not. The app runs
 // an installer on this computer only (D-75).
 export async function readHarnessStatus(
@@ -323,6 +324,7 @@ export async function readHarnessStatus(
     readAccountStatus(harness, spec, undefined).catch(() => undefined),
     native ? installerHere(install) : Promise.resolve({ found: undefined, missing: undefined }),
   ]);
+  rememberVersion(harness, spec, version);
   const installed = version !== undefined;
   const status = installed ? signIn : undefined;
   return {
