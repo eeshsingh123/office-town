@@ -4,6 +4,7 @@ import type {
   EnvironmentSpec,
   SessionRecord,
   StartTeamTaskRequest,
+  TaskRecord,
 } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
 import { createAgent } from "../agents/agents.ts";
@@ -353,6 +354,15 @@ export async function stopAgent({ store, registry }: TeamContext, sessionId: str
   const session = store.getSession(sessionId);
   const waiting = new Set(store.listPendingRequests().requests.map(({ event }) => event.sessionId));
   await registry.stop(sessionId, session !== undefined && stopsAsDone(store, session, waiting));
+}
+
+// Done on the user's word. Its finished agents close as an idle stop closes them, so a message
+// resumes them and takes the task back to work.
+export async function markDone(context: TeamContext, taskId: string): Promise<TaskRecord> {
+  const marked = context.store.markReviewed(taskId);
+  if (!context.store.listSessions(taskId).some(isOpen)) return marked;
+  await stopTeam(context, taskId);
+  return context.store.getTask(taskId) ?? marked;
 }
 
 // A member that had finished ends as done, like one stopped for being idle; the rest as stopped.
