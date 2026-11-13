@@ -28,7 +28,11 @@ const used = (accountId: string, usedFraction: number, resetsAt = hourFromNow): 
 });
 
 const storeWith = (accounts: Account[], limits: AccountLimits[]) =>
-  ({ listAccounts: () => accounts, listLimits: () => limits }) as unknown as Store;
+  ({
+    listAccounts: () => accounts,
+    listLimits: () => limits,
+    readSettings: () => ({}),
+  }) as unknown as Store;
 
 const settings = { harness: "claude", environment: { kind: "native" as const } };
 

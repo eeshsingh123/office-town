@@ -14,13 +14,14 @@ import { accountCredentials } from "@office-town/harness";
 import { eventsOf, userMessages } from "../store/session-events.ts";
 import type { Store } from "../store/store.ts";
 
-// An added account counts once its sign-in is saved in its folder, or, for a CLI that may keep it
-// in the system's credential store, once the app saw it sign in; a default login always does.
+// An added account counts once its sign-in is saved in its folder, or once the app saw it sign in,
+// for a CLI that may keep it elsewhere (a credential store, OpenCode 2's database); a default
+// login always does.
 export function hasSignIn(account: Account, store: Pick<Store, "readSettings">): boolean {
   if (account.folder === undefined) return true;
   const file = accountCredentials(account.harness);
-  if (file === undefined) return rememberedSignIns(store).includes(account.id);
-  return existsSync(join(account.folder, file));
+  if (file !== undefined && existsSync(join(account.folder, file))) return true;
+  return rememberedSignIns(store).includes(account.id);
 }
 
 export function rememberedSignIns(store: Pick<Store, "readSettings">): string[] {
