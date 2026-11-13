@@ -1,10 +1,9 @@
 import type { WorkspaceRecord } from "@office-town/contract";
-import { GitBranch, MoreHorizontal, Plus, TriangleAlert } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { GitBranch, Plus, SquareArrowOutUpRight, Star, TriangleAlert, X } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { mainPath, useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
-import menu from "../../ui/Menu.module.css";
 import { WorkspaceIcon } from "../workspaces/WorkspaceParts.tsx";
 import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./DepartmentWorkspaces.module.css";
@@ -96,40 +95,37 @@ export function DepartmentWorkspaces({
                     </span>
                   )}
                 </span>
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger asChild>
-                    <Button variant="ghost" icon aria-label={`More for ${workspace.name}`}>
-                      <MoreHorizontal size={16} aria-hidden />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                      {index === 0 ? null : (
-                        <DropdownMenu.Item
-                          className={menu.item}
-                          onSelect={() =>
-                            onChange([workspace.id, ...value.filter((id) => id !== workspace.id)])
-                          }
-                        >
-                          Make default
-                        </DropdownMenu.Item>
-                      )}
-                      <DropdownMenu.Item
-                        className={menu.item}
-                        onSelect={() => navigate({ name: "workspace", workspaceId: workspace.id })}
-                      >
-                        Open workspace
-                      </DropdownMenu.Item>
-                      <DropdownMenu.Item
-                        className={menu.item}
-                        disabled={value.length === 1 && workspace.kind === "scratch"}
-                        onSelect={() => remove(workspace.id)}
-                      >
-                        Remove from {departmentName}
-                      </DropdownMenu.Item>
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
+                <MoreMenu
+                  label={`More for ${workspace.name}`}
+                  menu={() => ({
+                    actions: [
+                      ...(index === 0
+                        ? []
+                        : [
+                            {
+                              label: "Make default",
+                              icon: Star,
+                              run: () =>
+                                onChange([
+                                  workspace.id,
+                                  ...value.filter((id) => id !== workspace.id),
+                                ]),
+                            },
+                          ]),
+                      {
+                        label: "Open workspace",
+                        icon: SquareArrowOutUpRight,
+                        run: () => navigate({ name: "workspace", workspaceId: workspace.id }),
+                      },
+                      {
+                        label: `Remove from ${departmentName}`,
+                        icon: X,
+                        disabled: value.length === 1 && workspace.kind === "scratch",
+                        run: () => remove(workspace.id),
+                      },
+                    ],
+                  })}
+                />
               </li>
             );
           })}

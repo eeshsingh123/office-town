@@ -1,6 +1,5 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
-import { MoreHorizontal, Plus, Search, TriangleAlert } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { ListX, Pencil, Plus, Search, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
@@ -11,11 +10,11 @@ import {
   useWorkspaces,
   useWorkspaceUsage,
 } from "../../store/workspaces.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
-import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { KIND_LABEL, WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
@@ -47,32 +46,26 @@ export function WorkspaceMenu({
   const scratches = (useWorkspaces() ?? []).filter((known) => known.kind === "scratch");
   const blocked =
     (usage?.departmentIds.length ?? 0) > 0
-      ? "Can't remove: a department works here"
+      ? "A department works here"
       : workspace.kind === "scratch" && scratches.length === 1
-        ? "Can't remove: you need at least one Scratch workspace"
+        ? "You need at least one Scratch workspace"
         : undefined;
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button icon variant="ghost" aria-label={`More actions for ${workspace.name}`}>
-          <MoreHorizontal size={16} aria-hidden />
-        </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-          <DropdownMenu.Item className={menu.item} onSelect={onEdit}>
-            Edit
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            className={menu.item}
-            disabled={blocked !== undefined}
-            onSelect={() => void removeFromList(workspace)}
-          >
-            {blocked === undefined ? "Remove from list" : blocked}
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+    <MoreMenu
+      label={`More for ${workspace.name}`}
+      menu={() => ({
+        actions: [
+          { label: "Edit", icon: Pencil, run: onEdit },
+          {
+            label: "Remove from list",
+            icon: ListX,
+            disabled: blocked !== undefined,
+            ...(blocked === undefined ? {} : { note: blocked }),
+            run: () => void removeFromList(workspace),
+          },
+        ],
+      })}
+    />
   );
 }
 

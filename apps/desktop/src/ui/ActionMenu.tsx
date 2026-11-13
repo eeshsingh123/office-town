@@ -102,12 +102,10 @@ interface Parts {
 function Items({
   content,
   parts: { Item, Separator },
-  icons,
   onDialog,
 }: {
   content: MenuContent;
   parts: Parts;
-  icons: boolean;
   onDialog: (action: MenuAction) => void;
 }) {
   const { header, actions } = content;
@@ -136,9 +134,9 @@ function Items({
               {...(action.disabled === undefined ? {} : { disabled: action.disabled })}
               onSelect={() => select(action)}
             >
-              {icons ? <Icon size={14} className={styles.itemIcon} aria-hidden /> : null}
+              <Icon size={14} className={styles.itemIcon} aria-hidden />
               <span className={styles.itemText}>
-                {action.dialog === undefined ? action.label : `${action.label}…`}
+                {action.label}
                 {action.note === undefined ? null : (
                   <span className={styles.itemDescription}>{action.note}</span>
                 )}
@@ -197,7 +195,7 @@ export function ContextMenu({
         {content === undefined ? null : (
           <RightClick.Portal>
             <RightClick.Content className={styles.surface}>
-              <Items content={content} parts={RightClick} icons onDialog={open} />
+              <Items content={content} parts={RightClick} onDialog={open} />
             </RightClick.Content>
           </RightClick.Portal>
         )}
@@ -207,6 +205,8 @@ export function ContextMenu({
   );
 }
 
+// The same items as the right-click menu, icons included. Clicks stay inside, so a menu on a
+// clickable card or row never also opens it.
 export function MoreMenu({ menu, label }: { menu: () => MenuContent | undefined; label: string }) {
   const { open, dialog } = useActionDialog();
   const [content, setContent] = useState<MenuContent>();
@@ -214,19 +214,24 @@ export function MoreMenu({ menu, label }: { menu: () => MenuContent | undefined;
     <>
       <DropdownMenu.Root onOpenChange={(next) => setContent(next ? menu() : undefined)}>
         <DropdownMenu.Trigger asChild>
-          <Button variant="ghost" icon aria-label={label}>
+          <Button
+            variant="ghost"
+            icon
+            aria-label={label}
+            onClick={(event) => event.stopPropagation()}
+          >
             <MoreHorizontal size={14} aria-hidden />
           </Button>
         </DropdownMenu.Trigger>
         {content === undefined ? null : (
           <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.surface} align="end" sideOffset={4}>
-              <Items
-                content={{ actions: content.actions }}
-                parts={DropdownMenu}
-                icons={false}
-                onDialog={open}
-              />
+            <DropdownMenu.Content
+              className={styles.surface}
+              align="end"
+              sideOffset={4}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Items content={{ actions: content.actions }} parts={DropdownMenu} onDialog={open} />
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         )}

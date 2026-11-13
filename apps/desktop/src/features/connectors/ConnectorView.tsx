@@ -6,18 +6,17 @@ import {
   providerOf,
   workPlacesOf,
 } from "@office-town/contract";
-import { CircleAlert, CircleCheck, Ellipsis, Globe, KeyRound, Monitor } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { CircleAlert, CircleCheck, Globe, KeyRound, Monitor, Power, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { knowAgents } from "../../store/live.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { ago, taskName } from "../../ui/format.ts";
-import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { AudienceMenu, useHolders } from "../library/GivenToMenu.tsx";
@@ -274,28 +273,28 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
             </h1>
             <ProviderTags tags={tagsOf(routes)} named />
           </span>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button variant="ghost" icon aria-label={`More for ${group.name}`}>
-                <Ellipsis size={16} aria-hidden />
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                <DropdownMenu.Item
-                  className={menu.item}
-                  onSelect={() => void changeAll(routes, { enabled: !enabled })}
-                >
-                  {enabled ? "Turn off" : "Turn on"}
-                </DropdownMenu.Item>
-                {shared.length === 0 ? null : (
-                  <DropdownMenu.Item className={menu.item} onSelect={() => setConfirming(true)}>
-                    Disconnect
-                  </DropdownMenu.Item>
-                )}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+          <MoreMenu
+            label={`More for ${group.name}`}
+            menu={() => ({
+              actions: [
+                {
+                  label: enabled ? "Turn off" : "Turn on",
+                  icon: Power,
+                  run: () => changeAll(routes, { enabled: !enabled }),
+                },
+                ...(shared.length === 0
+                  ? []
+                  : [
+                      {
+                        label: "Disconnect",
+                        icon: Unplug,
+                        danger: true,
+                        run: () => setConfirming(true),
+                      },
+                    ]),
+              ],
+            })}
+          />
         </header>
 
         <div className={page.section}>

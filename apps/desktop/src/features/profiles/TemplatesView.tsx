@@ -1,15 +1,14 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { CircleHelp, LayoutGrid, List, MoreHorizontal, Plus, Search } from "lucide-react";
-import { DropdownMenu } from "radix-ui";
+import { CircleHelp, Copy, LayoutGrid, List, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { type Keep, oneOf, useKept } from "../../store/kept.ts";
 import { deleteTemplate, usedText, useTemplates, useTemplateUses } from "../../store/templates.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { useGuideHidden } from "../../ui/Guide.tsx";
-import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
@@ -58,45 +57,26 @@ function Actions({
       >
         Use
       </Button>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button
-            icon
-            className={styles.small}
-            aria-label={`More actions for ${template.name}`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <MoreHorizontal size={16} aria-hidden />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            className={menu.surface}
-            align="end"
-            sideOffset={4}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <DropdownMenu.Item className={menu.item} onSelect={onEdit}>
-              Edit
-            </DropdownMenu.Item>
-            <DropdownMenu.Item className={menu.item} onSelect={onDuplicate}>
-              Duplicate
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className={`${menu.item} ${styles.danger}`}
-              onSelect={() =>
-                void deleteTemplate(template.id).then(() =>
+      <MoreMenu
+        label={`More for ${template.name}`}
+        menu={() => ({
+          actions: [
+            { label: "Edit", icon: Pencil, run: onEdit },
+            { label: "Duplicate", icon: Copy, run: onDuplicate },
+            {
+              label: "Delete",
+              icon: Trash2,
+              danger: true,
+              run: () =>
+                deleteTemplate(template.id).then(() =>
                   showToast(
                     `Deleted “${template.name}”. Agents made from it keep working as before.`,
                   ),
-                )
-              }
-            >
-              Delete
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+                ),
+            },
+          ],
+        })}
+      />
     </div>
   );
 }

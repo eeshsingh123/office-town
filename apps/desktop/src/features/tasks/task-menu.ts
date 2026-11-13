@@ -54,7 +54,7 @@ export function taskMenu(taskId: string, followUp?: () => void): MenuContent | u
     actions.push({ label: "Mark done", icon: CircleCheck, run: () => markDone(taskId) });
   }
   if ((status === "review" || status === "done") && lead !== undefined) {
-    actions.push({ label: "Send for review…", icon: Eye, run: () => openReview(taskId) });
+    actions.push({ label: "Send for review", icon: Eye, run: () => openReview(taskId) });
   }
   if ((status === "review" || status === "done") && followUp !== undefined) {
     actions.push({ label: "Follow up", icon: MessageSquare, run: followUp });
