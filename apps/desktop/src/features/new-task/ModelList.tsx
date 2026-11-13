@@ -50,7 +50,11 @@ function ModelRow(props: {
           <span className={menu.itemDescription}>{model.description}</span>
         )}
       </span>
-      {model.access === "free" ? <span className={styles.free}>Free</span> : null}
+      {model.access === "free" ? (
+        <span className={styles.free}>Free</span>
+      ) : model.access === "plan" ? (
+        <span className={styles.plan}>Plan</span>
+      ) : null}
       {picked ? <Check size={14} className={menu.check} /> : null}
     </Command.Item>
   );

@@ -58,6 +58,15 @@
   font-weight: 600;
 }
 
+.plan {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
 .more {
   color: var(--text-2);
 }
