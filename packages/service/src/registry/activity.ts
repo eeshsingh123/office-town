@@ -1,3 +1,4 @@
+import { type SessionEvent, teamToolServer } from "@office-town/contract";
 import type { SessionRegistry } from "./session-registry.ts";
 
 export interface Activity {
@@ -7,9 +8,20 @@ export interface Activity {
   // What went wrong in this turn, for whoever has to deal with it.
   lastError: string | undefined;
   lastActive: number;
+  // The agent's own sub-agents still at work, by the action that started each, with its title. A
+  // team tool is the core's own and ends at once; a sub-agent's own ones end with it.
+  subAgents: Map<string, string>;
+  // Its CLI starts a turn of its own once a sub-agent that outlived the turn ends.
+  wakes: boolean;
 }
 
-// Whether a turn is open, what the agent last said, and when anything last happened.
+const isSubAgent = (event: Extract<SessionEvent, { type: "action.started" }>) =>
+  event.payload.kind === "delegate" &&
+  event.payload.parentActionId === undefined &&
+  event.payload.tool?.server !== teamToolServer;
+
+// Whether a turn is open, what the agent last said, which of its sub-agents still work, and when
+// anything last happened.
 export class SessionActivity {
   readonly #sessions = new Map<string, Activity>();
 
@@ -27,9 +39,17 @@ export class SessionActivity {
         lastMessage: undefined,
         lastError: undefined,
         lastActive: Date.now(),
+        subAgents: new Map<string, string>(),
+        wakes: false,
       };
       activity.lastActive = Date.now();
-      if (event.type === "turn.started") {
+      if (event.type === "session.started") {
+        activity.wakes = event.payload.subAgents?.wakes ?? false;
+      } else if (event.type === "action.started" && isSubAgent(event)) {
+        activity.subAgents.set(event.payload.actionId, event.payload.title);
+      } else if (event.type === "action.ended") {
+        activity.subAgents.delete(event.payload.actionId);
+      } else if (event.type === "turn.started") {
         activity.turnOpen = true;
         activity.lastMessage = undefined;
         activity.lastError = undefined;

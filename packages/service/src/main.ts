@@ -111,7 +111,7 @@ void followRecounts(
       : recountUsage(options.harness, options.environment, options.accountFolder, harnessSessionId),
 );
 const stopIdle = stopIdleAgents(registry, store, activity);
-const handovers = new Handovers(team, handOverAt === undefined ? {} : { handOverAt });
+const handovers = new Handovers(team, activity, handOverAt === undefined ? {} : { handOverAt });
 const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder), (sessionId) =>
   handovers.allow(sessionId),
 );

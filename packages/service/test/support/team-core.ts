@@ -112,7 +112,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   });
   const team = { store, registry, readCatalog, dataFolder, createSession };
   const activity = new SessionActivity(registry);
-  const handovers = new Handovers(team);
+  const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   recoverLeads(team, activity);
   taskStates.follow(registry);

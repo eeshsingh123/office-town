@@ -1,14 +1,9 @@
 import { randomUUID } from "node:crypto";
-import {
-  type PlanStep,
-  type SessionEvent,
-  type SessionRecord,
-  type TaskRecord,
-  teamToolServer,
-} from "@office-town/contract";
+import type { PlanStep, SessionEvent, SessionRecord, TaskRecord } from "@office-town/contract";
 import { z } from "zod";
 import { isChiefTask } from "../chief/chief.ts";
 import { handoverProgress, milestonesOn } from "../goal/record.ts";
+import type { SessionActivity } from "../registry/activity.ts";
 import { AnswerError, type Message, SessionNotRunningError } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
@@ -109,8 +104,7 @@ export class Handovers {
   readonly #carried = new Set<string>();
   // Conversations whose new session failed to start: not asked again while the core runs.
   readonly #failed = new Set<string>();
-  // A sub-agent's process dies with its session's (D-71), so none hands over while one runs.
-  readonly #subAgents = new Map<string, Set<string>>();
+  readonly #activity: SessionActivity;
   readonly #turnOpen = new Set<string>();
   // Each session's step list as it last reported it, for a handover from the record (D-95).
   readonly #plans = new Map<string, PlanStep[]>();
@@ -119,8 +113,13 @@ export class Handovers {
   // Each model's window as last reported, by harness and model, for a session that has not yet.
   readonly #windows = new Map<string, number>();
 
-  constructor(context: TeamContext, { handOverAt = HAND_OVER_AT_TOKENS }: HandoverOptions = {}) {
+  constructor(
+    context: TeamContext,
+    activity: SessionActivity,
+    { handOverAt = HAND_OVER_AT_TOKENS }: HandoverOptions = {},
+  ) {
     this.#context = context;
+    this.#activity = activity;
     this.#handOverAt = handOverAt;
     context.registry.subscribe(({ event }) => {
       this.#follow(event).catch((error: unknown) =>
@@ -195,11 +194,7 @@ export class Handovers {
   async #follow(event: SessionEvent): Promise<void> {
     const { sessionId } = event;
     switch (event.type) {
-      case "action.started":
-        this.#followSubAgents(event);
-        return;
       case "action.ended":
-        this.#followSubAgents(event);
         // A handover that waited for its last sub-agent after the turn ended goes ahead now.
         if (!this.#turnOpen.has(sessionId)) await this.#carryOver(sessionId);
         return;
@@ -236,20 +231,9 @@ export class Handovers {
     }
   }
 
-  // Top-level sub-agents only: a team tool is the core's own and ends at once.
-  #followSubAgents(event: Extract<SessionEvent, { type: "action.started" | "action.ended" }>) {
-    const open = this.#subAgents.get(event.sessionId) ?? new Set<string>();
-    if (event.type === "action.ended") {
-      open.delete(event.payload.actionId);
-    } else if (
-      event.payload.kind === "delegate" &&
-      event.payload.parentActionId === undefined &&
-      event.payload.tool?.server !== teamToolServer
-    ) {
-      open.add(event.payload.actionId);
-    }
-    if (open.size === 0) this.#subAgents.delete(event.sessionId);
-    else this.#subAgents.set(event.sessionId, open);
+  // A sub-agent's process dies with its session's (D-71), so none hands over while one runs.
+  #subAgentsRun(sessionId: string): boolean {
+    return (this.#activity.of(sessionId)?.subAgents.size ?? 0) > 0;
   }
 
   async #check(
@@ -292,7 +276,7 @@ export class Handovers {
   ): void {
     const { store, registry } = this.#context;
     const role = roleOf(store, { ...session, sessionId: session.id });
-    if (role === undefined || this.#subAgents.has(session.id)) return;
+    if (role === undefined || this.#subAgentsRun(session.id)) return;
     if (turnEnded && !workOut(store, role, session.taskId)) return;
     if (this.#failed.has(session.harnessSessionId ?? session.id)) return;
     const watch = this.#watches.get(session.id) ?? {
@@ -404,7 +388,7 @@ export class Handovers {
     const pending = this.#pending.get(sessionId);
     const session = store.getSession(sessionId);
     if (pending === undefined || session === undefined) return;
-    if (this.#subAgents.has(sessionId) || this.#switching.has(sessionId)) return;
+    if (this.#subAgentsRun(sessionId) || this.#switching.has(sessionId)) return;
     this.#switching.add(sessionId);
     try {
       const next = await carryOver(this.#context, session, pending.role, pending.handover);
@@ -442,7 +426,6 @@ export class Handovers {
     this.#asking.delete(sessionId);
     this.#watches.delete(sessionId);
     this.#carried.delete(sessionId);
-    this.#subAgents.delete(sessionId);
     this.#turnOpen.delete(sessionId);
     // Cut off before its turn ended, as by a crash: what waited for it cannot reach it.
     if (pending) {
