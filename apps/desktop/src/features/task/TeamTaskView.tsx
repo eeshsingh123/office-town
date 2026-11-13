@@ -3,12 +3,12 @@ import { type Agent, agentsInTask, stateOf, useWaitingSessions } from "../../sto
 import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { forSession, useKept } from "../../store/kept.ts";
 import { useLoadProgress } from "../../store/milestones.ts";
-import { teamAtWork } from "../../store/records.ts";
-import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
+import { isOpen, teamAtWork } from "../../store/records.ts";
+import { type AgentState, isBusy, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { taskName } from "../../ui/format.ts";
-import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { StatusIcon, stateLabel } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
@@ -17,12 +17,14 @@ import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
-import { ProgressButton, ProgressColumn } from "./ProgressColumn.tsx";
+import { ProgressButton } from "./ProgressColumn.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
+import { SubAgentRows } from "./SubAgentCard.tsx";
+import { SideColumn } from "./SubAgentPanel.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
@@ -56,7 +58,7 @@ function MemberRow({
       ? `Step ${step.number} of ${progress?.stepCount} · ${step.title}`
       : state === "waiting"
         ? "Waiting for you"
-        : STATE_LABELS[state]);
+        : stateLabel(state, progress?.subAgents.length ?? 0));
   const role = agent.record.role?.trim();
   const classes = [
     team.member,
@@ -95,7 +97,7 @@ function MemberRow({
 
 const SUMMARY: [string, readonly AgentState[]][] = [
   ["waiting", ["waiting"]],
-  ["at work", ["starting", "working"]],
+  ["at work", ["starting", "working", "background"]],
   ["done", ["idle", "done"]],
   ["failed", ["failed"]],
   ["stopped", ["stopped", "interrupted"]],
@@ -107,6 +109,18 @@ function summaryOf(states: readonly AgentState[]): string {
     const count = states.filter((state) => kinds.includes(state)).length;
     return count === 0 ? [] : `${count} ${word}`;
   }).join(" · ");
+}
+
+type MemberProps = Parameters<typeof MemberRow>[0] & { taskId: string };
+
+function Member({ taskId, ...row }: MemberProps) {
+  const sessions = row.agent.sessions.map((session) => ({ id: session.id, live: isOpen(session) }));
+  return (
+    <>
+      <MemberRow {...row} />
+      <SubAgentRows taskId={taskId} sessions={sessions} />
+    </>
+  );
 }
 
 // The team as a tree by delegation, lead at the top, guests apart.
@@ -152,7 +166,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   );
   const states = [...stateById.values()];
   const groups = byRole(workers, (worker) => worker.record.role);
-  const working = states.filter((state) => state === "working" || state === "starting").length;
+  const working = states.filter((state) => isBusy(state)).length;
   const waitingCount = states.filter((state) => state === "waiting").length;
   const open = teamAtWork(
     task,
@@ -226,7 +240,8 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 {working === 0 ? "" : ` · ${working} at work`}
               </span>
             </div>
-            <MemberRow
+            <Member
+              taskId={taskId}
               agent={lead}
               state={stateById.get(lead.id) ?? "idle"}
               chosen={shown.id === lead.id}
@@ -247,13 +262,14 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                     {people.map((worker, at) => {
                       const state = stateById.get(worker.id) ?? "idle";
                       const last = index === groups.length - 1 && at === people.length - 1;
-                      const live = state === "working" || state === "starting";
+                      const live = isBusy(state);
                       return (
                         <div
                           key={worker.id}
                           className={`${team.branch} ${last ? team.last : ""} ${live ? team.live : ""}`}
                         >
-                          <MemberRow
+                          <Member
+                            taskId={taskId}
                             agent={worker}
                             state={state}
                             chosen={shown.id === worker.id}
@@ -273,7 +289,8 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               <>
                 <span className={`${team.label} ${team.visiting}`}>Reviewers</span>
                 {visitors.map((visitor) => (
-                  <MemberRow
+                  <Member
+                    taskId={taskId}
                     key={visitor.id}
                     agent={visitor}
                     chosen={shown.id === visitor.id}
@@ -318,7 +335,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
               </div>
             </div>
           </MemberLinks.Provider>
-          <ProgressColumn taskId={taskId} />
+          <SideColumn taskId={taskId} onMessage={setChosenId} />
         </div>
       )}
       <ReviewDialog

@@ -82,6 +82,8 @@ function itemOf(message: TraceMessage, files: FileUse[] | undefined): ChatItem |
       return { kind: "notice", id, text: origin.summary };
     case "handover":
       return { kind: "notice", id, text: CONTINUED_LINE };
+    case "interim":
+      return { kind: "notice", id, text };
     case "piece":
       return { kind: "handoff", id, pieceId: origin.pieceId, state: origin.outcome, result: text };
     case "result":

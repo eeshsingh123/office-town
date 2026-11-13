@@ -1,16 +1,17 @@
-import { X } from "lucide-react";
+import { CornerDownRight, X } from "lucide-react";
 import { useMemo } from "react";
 import { type Agent, stateOf, useAgent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
-import type { Trace } from "../../trace/trace.ts";
+import type { Trace, TraceAction } from "../../trace/trace.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { taskName } from "../../ui/format.ts";
-import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { STATE_LABELS, StatusIcon, subAgentCount } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
+import { showSubAgent } from "../task/sub-agent-state.ts";
 import styles from "./AgentCard.module.css";
 import { agentMenu } from "./agent-menu.tsx";
 import { selectAgent } from "./office-state.ts";
@@ -20,6 +21,7 @@ export const STATE_ORDER: AgentState[] = [
   "waiting",
   "working",
   "starting",
+  "background",
   "failed",
   "done",
   "idle",
@@ -44,6 +46,8 @@ export interface AgentStatus {
   state: AgentState;
   // What it asks, does now, or last did.
   line: string;
+  // Its own sub-agents still at work, oldest first.
+  subAgents: TraceAction[];
 }
 
 function lineOf(
@@ -63,7 +67,8 @@ function lineOf(
     }
     return progress?.current?.title ?? title;
   }
-  return state === "idle" ? title : `${STATE_LABELS[state]} · ${title}`;
+  // Its chip says it waits on sub-agents.
+  return state === "idle" || state === "background" ? title : `${STATE_LABELS[state]} · ${title}`;
 }
 
 export function useAgentStatus(agentId: string): AgentStatus | undefined {
@@ -80,7 +85,8 @@ export function useAgentStatus(agentId: string): AgentStatus | undefined {
       trace === undefined ? {} : { [agent.latest.id]: trace },
       request !== undefined,
     );
-    return { agent, state, line: lineOf(agent, state, request, trace) };
+    const subAgents = trace === undefined ? [] : progressOf(trace).subAgents;
+    return { agent, state, line: lineOf(agent, state, request, trace), subAgents };
   }, [agent, trace, waiting]);
 }
 
@@ -92,6 +98,22 @@ function MainAction({ status }: { status: AgentStatus }) {
       <Button className={styles.answer} onClick={() => selectAgent(agent.id)}>
         Answer
       </Button>
+    );
+  }
+  const [first] = status.subAgents;
+  if (state === "background" && first !== undefined) {
+    return (
+      <button
+        type="button"
+        className={styles.subAgents}
+        onClick={() => {
+          showSubAgent(agent.taskId, agent.latest.id, first.id);
+          navigate({ name: "task", taskId: agent.taskId });
+        }}
+      >
+        <CornerDownRight size={12} aria-hidden />
+        {subAgentCount(status.subAgents.length)}
+      </button>
     );
   }
   if (toReview(agent, state)) {
