@@ -60,6 +60,8 @@ const { values } = parseArgs({
     "stop-when-stdin-closes": { type: "boolean", default: false },
     // Test runs only: a lower size for Efficient mode's handover, so a live run stays short.
     "hand-over-at": { type: "string" },
+    // Test runs only, like --hand-over-at: seconds of quiet before an idle agent is stopped.
+    "idle-after": { type: "string" },
   },
 });
 
@@ -71,6 +73,10 @@ const handOverAt =
   values["hand-over-at"] === undefined ? undefined : Number(values["hand-over-at"]);
 if (handOverAt !== undefined && !(Number.isInteger(handOverAt) && handOverAt > 0)) {
   throw new Error(`--hand-over-at must be a number of tokens, got "${values["hand-over-at"]}".`);
+}
+const idleAfter = values["idle-after"] === undefined ? undefined : Number(values["idle-after"]);
+if (idleAfter !== undefined && !(Number.isInteger(idleAfter) && idleAfter > 0)) {
+  throw new Error(`--idle-after must be a number of seconds, got "${values["idle-after"]}".`);
 }
 const port = Number(values.port);
 if (!Number.isInteger(port) || port < 0 || port > 65535) {
@@ -110,7 +116,12 @@ void followRecounts(
       ? Promise.resolve(undefined)
       : recountUsage(options.harness, options.environment, options.accountFolder, harnessSessionId),
 );
-const stopIdle = stopIdleAgents(registry, store, activity);
+const stopIdle = stopIdleAgents(
+  registry,
+  store,
+  activity,
+  ...(idleAfter === undefined ? [] : [idleAfter * 1000]),
+);
 const handovers = new Handovers(team, activity, handOverAt === undefined ? {} : { handOverAt });
 const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder), (sessionId) =>
   handovers.allow(sessionId),
