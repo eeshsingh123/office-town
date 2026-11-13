@@ -18,6 +18,7 @@ import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
+import { ReviewBar } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
@@ -25,7 +26,6 @@ import { AgentTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopTeamButton.tsx";
 import { SubAgentRows } from "./SubAgentCard.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
-import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
 
@@ -312,7 +312,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                     <ReviewOffer
                       agent={lead}
                       members={members}
-                      suggest
                       onReview={() => setAsking(true)}
                       onShow={setChosenId}
                     />
@@ -320,17 +319,11 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 </div>
               </div>
               <div className={`${styles.traceWidth} ${styles.dock}`}>
+                <ReviewBar agent={lead} onReview={() => setAsking(true)} />
                 <MessageBox
                   key={shown.id}
                   agent={shown}
-                  actions={
-                    shown.record.guest ? undefined : (
-                      <>
-                        <ReviewAction onClick={() => setAsking(true)} />
-                        <PermissionChip agent={shown} />
-                      </>
-                    )
-                  }
+                  actions={shown.record.guest ? undefined : <PermissionChip agent={shown} />}
                 />
               </div>
             </div>
@@ -339,8 +332,8 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
         </div>
       )}
       <ReviewDialog
-        key={shown.id}
-        agent={shown}
+        key={lead.id}
+        agent={lead}
         open={asking}
         onOpenChange={setAsking}
         onStarted={setChosenId}

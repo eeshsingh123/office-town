@@ -14,6 +14,7 @@ import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine, modelName } from "./model-name.ts";
+import { ReviewersSection } from "./ReviewersSection.tsx";
 import { draftOf, TemplateDialog, type TemplateDraft } from "./TemplateDialog.tsx";
 import styles from "./Templates.module.css";
 import { TemplatesGuide } from "./TemplatesGuide.tsx";
@@ -160,7 +161,7 @@ export function TemplatesView() {
             <h1 id="templates-title" className={page.title}>
               Templates
             </h1>
-            <p className={page.lead}>Saved agent setups you can reuse.</p>
+            <p className={page.lead}>Saved agent setups and reviewers you can reuse.</p>
           </div>
           <div className={styles.headActions}>
             {guideHidden ? (
@@ -340,6 +341,7 @@ export function TemplatesView() {
             )}
           </div>
         )}
+        <ReviewersSection />
       </div>
       {editing === undefined ? null : (
         <TemplateDialog

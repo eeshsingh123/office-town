@@ -295,18 +295,6 @@ button.open {
   place-items: center;
 }
 
-.quiet {
-  color: var(--text-3);
-}
-
-/* Finished and not opened yet: green like every finished task, a dot until it is seen. */
-.unread {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--ok);
-}
-
 .text {
   display: flex;
   flex-direction: column;

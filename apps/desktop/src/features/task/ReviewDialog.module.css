@@ -1,62 +1,268 @@
+/* Three parts: the reviewer and the buttons stay put, only the middle scrolls. */
 .content {
-  width: min(600px, calc(100vw - 32px));
+  width: min(720px, calc(100vw - 32px));
+  padding: 0;
+  overflow: hidden;
 }
 
-.brief {
-  padding: 8px 10px;
+.form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 32px 24px;
+}
+
+.reviewerLabel {
+  margin-top: 8px;
+}
+
+.middle {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 24px 32px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 32px;
+}
+
+.error {
+  margin-right: auto;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.optional {
+  margin-left: 6px;
+  font-weight: 500;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+.picks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 216px;
+  overflow-y: auto;
+}
+
+.pick {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  height: 60px;
+  padding: 10px 14px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
-  font-size: var(--size-agent);
-  font-weight: 400;
-  line-height: 1.55;
-  field-sizing: content;
-  min-height: 64px;
-  resize: none;
+  text-align: left;
+  cursor: pointer;
 }
 
-.files {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
+.pick strong {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.legend {
-  float: left;
-  width: 100%;
-  padding: 8px 10px 4px;
-  font-weight: 500;
-}
-
-.file {
-  margin: 0;
-  padding: 7px 10px;
-  border-top: 1px solid var(--border);
-  overflow-wrap: anywhere;
-}
-
-.reviewer {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-.note {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
+.pick span {
+  overflow: hidden;
   font-size: var(--size-meta);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-3);
+}
+
+.pick:hover {
+  background: var(--hover);
+}
+
+.pick[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--ring);
+}
+
+.pick[aria-pressed="true"] strong {
+  color: var(--accent-text);
+}
+
+.newPick {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-style: dashed;
+  font-weight: 600;
   color: var(--text-2);
 }
 
-.files .note {
-  padding: 7px 10px;
-  border-top: 1px solid var(--border);
+.firstUse {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fold {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   background: var(--bg);
+  color: var(--text-3);
+}
+
+.foldText {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.foldText span {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.check + .check {
+  border-top: 1px solid var(--border);
+}
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.checkRow:hover {
+  background: var(--hover);
+}
+
+.checkRow svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--text-3);
+  transition: transform 120ms ease;
+}
+
+.turned {
+  transform: rotate(90deg);
+}
+
+.oneLine {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.whole {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.expected {
+  margin: 0;
+  padding: 0 14px 14px 38px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+}
+
+.expected b {
+  margin-right: 6px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.brief {
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  line-height: 1.55;
+  field-sizing: content;
+  resize: none;
+}
+
+@media (max-width: 640px) {
+  .picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

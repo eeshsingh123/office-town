@@ -79,7 +79,7 @@ function useNow(): number {
 }
 
 // The chief, then each department by name, then the agents working alone.
-function useTeams(): Map<string, Team & { leadId: string | undefined; role: string }> {
+export function useTeams(): Map<string, Team & { leadId: string | undefined; role: string }> {
   const chiefId = useApp((state) => state.chiefId);
   const agents = useApp((state) => state.agents);
   const departments = useApp((state) => state.departments);
@@ -133,7 +133,7 @@ function StoreSize() {
   );
 }
 
-function TeamFilter(props: {
+export function TeamFilter(props: {
   teams: Team[];
   chosen: string[];
   onChange: (teams: string[]) => void;

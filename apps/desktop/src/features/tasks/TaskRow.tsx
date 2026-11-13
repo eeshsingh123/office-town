@@ -1,15 +1,15 @@
-import { ChevronDown, Clock } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { Agent } from "../../store/agents.ts";
 import { navigate } from "../../store/app-store.ts";
 import { ContextMenu, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ago } from "../../ui/format.ts";
-import { StatusIcon } from "../../ui/StatusIcon.tsx";
 import { useModelName } from "../profiles/model-line.ts";
 import { effortLabel } from "../profiles/model-name.ts";
+import { TaskStatusIcon } from "./TaskStatusIcon.tsx";
 import styles from "./TasksView.module.css";
-import { type Item, type RowStatus, STATUS_LABELS } from "./task-list.ts";
+import type { Item } from "./task-list.ts";
 import { taskMenu } from "./task-menu.ts";
 import { WorkerName } from "./WorkerName.tsx";
 
@@ -17,25 +17,6 @@ export interface Team {
   key: string;
   name: string;
   colour: string | undefined;
-}
-
-function RowIcon({ status }: { status: RowStatus }) {
-  switch (status) {
-    case "needs":
-      return <StatusIcon state="waiting" />;
-    case "working":
-      return <StatusIcon state="working" />;
-    case "queued":
-      return <Clock size={14} className={styles.quiet} aria-label={STATUS_LABELS.queued} />;
-    case "review":
-      return <span className={styles.unread} role="img" aria-label={STATUS_LABELS.review} />;
-    case "done":
-      return <StatusIcon state="done" />;
-    case "failed":
-      return <StatusIcon state="failed" />;
-    case "stopped":
-      return <StatusIcon state="stopped" />;
-  }
 }
 
 // Handles stay in the office (D-59): a team's row shows faces and how many help the lead.
@@ -156,17 +137,13 @@ export function TaskRow(props: TaskRowProps) {
   const open = () => {
     if (task !== undefined) navigate({ name: "task", taskId: task.id });
   };
-  const action =
-    item.status === "needs" && item.answerTaskId !== undefined
-      ? { label: "Answer", primary: true, taskId: item.answerTaskId }
-      : item.status === "review" && task !== undefined
-        ? { label: "Review", primary: false, taskId: task.id }
-        : undefined;
+  // Only an ask gets a button; everything else about a row is in its menu.
+  const answerTaskId = item.status === "needs" ? item.answerTaskId : undefined;
 
   const cells = (
     <>
       <span className={styles.icon}>
-        <RowIcon status={item.status} />
+        <TaskStatusIcon status={item.status} />
       </span>
       <span className={styles.text}>
         <span className={styles.title}>
@@ -207,13 +184,13 @@ export function TaskRow(props: TaskRowProps) {
             <ChevronDown size={14} className={expanded ? undefined : styles.folded} aria-hidden />
           </Button>
         )}
-        {action === undefined ? null : (
+        {answerTaskId === undefined ? null : (
           <Button
-            variant={action.primary ? "primary" : "secondary"}
-            className={action.primary ? styles.answer : undefined}
-            onClick={() => navigate({ name: "task", taskId: action.taskId })}
+            variant="primary"
+            className={styles.answer}
+            onClick={() => navigate({ name: "task", taskId: answerTaskId })}
           >
-            {action.label}
+            Answer
           </Button>
         )}
       </span>

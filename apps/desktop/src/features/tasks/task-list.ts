@@ -131,6 +131,14 @@ function statusOf(task: TaskRecord, agents: Agent[], known: Known, waiting: Set<
   return taskStatus(facts, agentState);
 }
 
+// One task's status, the same one its row shows: for its menu, its chat and its Board card.
+export function statusOfTask(known: Known, taskId: string): RowStatus | undefined {
+  const task = known.tasks[taskId]?.task;
+  if (task === undefined) return undefined;
+  const waiting = new Set(Object.values(known.waiting).map(({ event }) => event.sessionId));
+  return statusOf(task, agentsInTask(known, taskId), known, waiting);
+}
+
 // The step the busiest agent is on, else what it is doing right now.
 function workLine(agents: Agent[], known: Known): Line | undefined {
   for (const agent of agents) {

@@ -27,6 +27,7 @@ import { HistoryRow, useHistoryKeys } from "./features/sidebar/HistoryButtons.ts
 import { Sidebar } from "./features/sidebar/Sidebar.tsx";
 import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { usePartNotices } from "./features/task/part-notices.ts";
+import { ReviewDialogHost } from "./features/task/ReviewDialog.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
 import { TasksView } from "./features/tasks/TasksView.tsx";
 import { TeamView } from "./features/team/TeamView.tsx";
@@ -155,6 +156,7 @@ export function App() {
         </main>
         <Toaster />
         <CommandMenu />
+        <ReviewDialogHost />
         <TutorialCard />
         {tutorial ? null : <WhatsNewDialog />}
         <RequestAnnouncer />

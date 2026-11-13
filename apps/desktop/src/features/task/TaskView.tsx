@@ -23,18 +23,15 @@ import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
+import { ReviewBar } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
-import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
-
-// A solo task with a plan this long is offered a review once it is done.
-const LONG_TASK_STEPS = 3;
 
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
@@ -149,24 +146,12 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
                 <AgentTrace key={agent.id} sessions={agent.sessions} />
-                <ReviewOffer
-                  agent={agent}
-                  members={[agent]}
-                  suggest={(progress?.stepCount ?? 0) >= LONG_TASK_STEPS}
-                  onReview={() => setAsking(true)}
-                />
+                <ReviewOffer agent={agent} members={[agent]} onReview={() => setAsking(true)} />
               </div>
             </div>
             <div className={`${styles.traceWidth} ${styles.dock}`}>
-              <MessageBox
-                agent={agent}
-                actions={
-                  <>
-                    <ReviewAction onClick={() => setAsking(true)} />
-                    <PermissionChip agent={agent} />
-                  </>
-                }
-              />
+              <ReviewBar agent={agent} onReview={() => setAsking(true)} />
+              <MessageBox agent={agent} actions={<PermissionChip agent={agent} />} />
             </div>
           </div>
           <SideColumn taskId={taskId} soloAgentId={agent.id} />
