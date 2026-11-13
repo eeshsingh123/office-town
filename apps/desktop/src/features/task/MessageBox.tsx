@@ -12,7 +12,7 @@ import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
-import { useKept } from "../../store/kept.ts";
+import { useKept, writeKept } from "../../store/kept.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -32,19 +32,16 @@ interface MessageBoxProps {
   actions?: ReactNode;
 }
 
-// The last focus asked for that a box took, so a box shown for it takes it once, on mount.
-let focusTaken = 0;
-
 // Sent like a chat message, so a worker's lead hears of it (D-49) and a lead continues its team (D-86).
 export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
-  const [focusAsked] = useKept(COMPOSER_FOCUS);
+  const [focusFor] = useKept(COMPOSER_FOCUS);
   useEffect(() => {
-    if (focusAsked <= focusTaken) return;
-    focusTaken = focusAsked;
+    if (focusFor !== agent.id) return;
     field.current?.focus();
-  }, [focusAsked]);
+    writeKept(COMPOSER_FOCUS, undefined);
+  }, [focusFor, agent.id]);
   const [text, setText] = useDraft(`message.${agent.id}`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();

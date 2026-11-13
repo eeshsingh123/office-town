@@ -179,7 +179,7 @@ export function SideColumn({
         onClose={close}
         onMessage={(agentId) => {
           onMessage(agentId);
-          focusComposer();
+          focusComposer(agentId);
         }}
       />
       <ResizeHandle

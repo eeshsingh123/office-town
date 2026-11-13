@@ -1,4 +1,4 @@
-import { forSession, readKept, useKept, writeKept } from "../../store/kept.ts";
+import { forSession, useKept, writeKept } from "../../store/kept.ts";
 
 export interface ShownSubAgent {
   sessionId: string;
@@ -8,8 +8,8 @@ export interface ShownSubAgent {
 const shownIn = (taskId: string) =>
   forSession<ShownSubAgent | undefined>(`task.${taskId}.sub-agent`, undefined);
 
-// Asked each time the panel's Message button is pressed; the open composer takes it.
-export const COMPOSER_FOCUS = forSession("task.composer-focus", 0);
+// The agent whose message box takes focus once it shows, from the panel's Message button.
+export const COMPOSER_FOCUS = forSession<string | undefined>("task.composer-focus", undefined);
 
 // The sub-agent shown in the task's side column, in place of Progress.
 export function useShownSubAgent(taskId: string): [ShownSubAgent | undefined, () => void] {
@@ -21,6 +21,6 @@ export function showSubAgent(taskId: string, sessionId: string, actionId: string
   writeKept(shownIn(taskId), { sessionId, actionId });
 }
 
-export function focusComposer(): void {
-  writeKept(COMPOSER_FOCUS, readKept(COMPOSER_FOCUS) + 1);
+export function focusComposer(agentId: string): void {
+  writeKept(COMPOSER_FOCUS, agentId);
 }
