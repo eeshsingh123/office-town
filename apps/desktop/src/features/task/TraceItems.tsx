@@ -19,7 +19,7 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -354,19 +354,65 @@ function MessageFiles({ item, sessionId }: { item: TraceMessage; sessionId: stri
 }
 
 // The user's own words sit on the right in their colour, apart from the agent's.
-function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+function UserSaid({ text, children }: { text: string; children?: ReactNode }) {
   const name = useYourName();
   return (
     <div className={styles.user}>
       <div className={styles.userSaid}>
         <span className={styles.userName}>{name}</span>
-        <MessageMenu text={item.text}>
-          <div className={styles.userBubble}>{item.text}</div>
+        <MessageMenu text={text}>
+          <div className={styles.userBubble}>{text}</div>
         </MessageMenu>
-        <MessageFiles item={item} sessionId={sessionId} />
+        {children}
       </div>
       <YouAvatar size={24} />
     </div>
+  );
+}
+
+function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+  return (
+    <UserSaid text={item.text}>
+      <MessageFiles item={item} sessionId={sessionId} />
+    </UserSaid>
+  );
+}
+
+// The task's first brief carries the user's prompt, which then opens the page in their words. A
+// piece of a chief's plan was written by the chief, so it has none.
+function useOpeningPrompt(sessionId: string, text: string): string | undefined {
+  return useApp(
+    (state) =>
+      Object.values(state.tasks).find(
+        ({ task, sessionIds }) =>
+          task.parentTaskId === undefined &&
+          sessionIds[0] === sessionId &&
+          task.prompt.trim() !== "" &&
+          text.includes(task.prompt.trim()),
+      )?.task.prompt,
+  );
+}
+
+function Brief({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+  const prompt = useOpeningPrompt(sessionId, item.text);
+  if (item.origin?.kind !== "brief") return null;
+  const { from, summary } = item.origin;
+  if (prompt === undefined) {
+    return (
+      <>
+        <FromOffice summary={`Task · ${summary}`} text={item.text} />
+        <MessageFiles item={item} sessionId={sessionId} />
+        {from === undefined ? null : <LeadLink agentId={from} />}
+      </>
+    );
+  }
+  return (
+    <>
+      <UserSaid text={prompt}>
+        <MessageFiles item={item} sessionId={sessionId} />
+      </UserSaid>
+      <FromOffice summary={`Full brief · ${summary}`} text={item.text} />
+    </>
   );
 }
 
@@ -494,16 +540,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         </div>
       );
     case "message":
-      if (item.origin?.kind === "brief") {
-        const { from, summary } = item.origin;
-        return (
-          <>
-            <FromOffice summary={`Task · ${summary}`} text={item.text} />
-            <MessageFiles item={item} sessionId={place.sessionId} />
-            {from === undefined ? null : <LeadLink agentId={from} />}
-          </>
-        );
-      }
+      if (item.origin?.kind === "brief") return <Brief item={item} sessionId={place.sessionId} />;
       if (item.origin?.kind === "result") return <Result item={item} />;
       if (item.origin?.kind === "notice" || item.origin?.kind === "interim") {
         return <FromOffice summary={item.origin.summary} text={item.text} />;
