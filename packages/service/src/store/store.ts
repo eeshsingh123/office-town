@@ -33,6 +33,8 @@ import type {
   ProfileRecord,
   ProfileRequest,
   ProfileUses,
+  ReviewerRecord,
+  ReviewerRequest,
   SendBack,
   SessionEvent,
   SessionOptions,
@@ -408,6 +410,11 @@ export interface Store {
   updateProfile(id: string, profile: ProfileRequest): ProfileRecord;
   // Agents made from it keep the settings it had when they were made.
   deleteProfile(id: string): void;
+  // Oldest first, so the starters lead.
+  listReviewers(): ReviewerRecord[];
+  createReviewer(reviewer: ReviewerRequest): ReviewerRecord;
+  updateReviewer(id: string, reviewer: ReviewerRequest): ReviewerRecord;
+  deleteReviewer(id: string): void;
   createWorkspace(workspace: WorkspaceRequest): WorkspaceRecord;
   getWorkspace(id: string): WorkspaceRecord | undefined;
   // Most recently used first.
@@ -470,6 +477,7 @@ type RecordKind =
   | "result"
   | "workspace"
   | "agent"
+  | "reviewer"
   | "attachment"
   | "library item"
   | "profile"
@@ -489,6 +497,7 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   result: "result",
   workspace: "workspace",
   agent: "agent",
+  reviewer: "reviewer",
   attachment: "file",
   "library item": "Library file",
   profile: "profile",

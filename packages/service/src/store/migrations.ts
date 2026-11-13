@@ -244,6 +244,60 @@ const hasColumn = (db: DatabaseSync, table: string, column: string) =>
   undefined;
 
 // Milestones for a goal and its parts, and how each part went back and forth (D-95).
+const NEVER_EDIT =
+  "Never edit the project's files. For each problem, give the exact steps to see it.";
+
+// The starters have no model: the user picks one when first sending work to each.
+const STARTER_REVIEWERS: [string, string, string][] = [
+  [
+    "Code review",
+    "Reads the changes for bugs, unclear code and missing edge cases.",
+    `Read the changes and run the checklist. Look for bugs, unclear names, missing error handling and edge cases the checklist does not cover. ${NEVER_EDIT}`,
+  ],
+  [
+    "Run the tests",
+    "Runs the project's build and tests, then reports each failure.",
+    `Find how the project builds and tests, run both, and report each failure with its output. Then run the checklist. ${NEVER_EDIT}`,
+  ],
+  [
+    "UI check in the browser",
+    "Opens the app in a browser and walks through each screen.",
+    `Start the app, open it in a browser and walk through every screen the work touched, at desktop and phone widths. Report broken layouts, console errors and steps that do not work. ${NEVER_EDIT}`,
+  ],
+  [
+    "Security pass",
+    "Looks for exposed secrets, unsafe input handling and risky packages.",
+    `Look for exposed secrets, unchecked input, injection, unsafe file or shell use, and new packages with known problems. Rate each finding high, medium or low. ${NEVER_EDIT}`,
+  ],
+  [
+    "Proofread",
+    "Checks wording, spelling and tone in text and documents.",
+    `Read every text, document and interface label the work changed. Report spelling, grammar, unclear wording and tone that does not fit. ${NEVER_EDIT}`,
+  ],
+];
+
+function addReviewers(db: DatabaseSync): void {
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS reviewers (
+    ref          INTEGER PRIMARY KEY,
+    id           TEXT NOT NULL UNIQUE,
+    name         TEXT NOT NULL,
+    description  TEXT NOT NULL,
+    instructions TEXT NOT NULL,
+    -- JSON: the agent settings, absent until a model is picked.
+    settings     TEXT,
+    created_at   INTEGER NOT NULL
+  ) STRICT;
+  `);
+  const insert = db.prepare(
+    "INSERT INTO reviewers (id, name, description, instructions, created_at) VALUES (?, ?, ?, ?, ?)",
+  );
+  const now = Date.now();
+  STARTER_REVIEWERS.forEach(([name, description, instructions], index) => {
+    insert.run(randomUUID(), name, description, instructions, now + index);
+  });
+}
+
 function addMilestones(db: DatabaseSync): void {
   if (!hasColumn(db, "tasks", "milestones")) {
     db.exec("ALTER TABLE tasks ADD COLUMN milestones INTEGER");
@@ -774,4 +828,5 @@ export const migrations: readonly Migration[] = [
   addTaskTitle,
   addTaskEfficient,
   addMilestones,
+  addReviewers,
 ];
