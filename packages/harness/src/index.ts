@@ -249,20 +249,22 @@ function loginEnv(harness: string, environment: Environment, folder: string | un
   return accounts.env(environment.toEnvironmentPath(folder));
 }
 
-// A login's apps once they have connected, or as far as they got in 20 seconds.
+// A login's apps once they have connected, or as far as they got in 20 seconds, and whether the
+// installed release's asks before their calls say what each call sends.
 export async function listVendorApps(
   harness: string,
   spec: EnvironmentSpec,
   folder: string | undefined,
   signal?: AbortSignal,
-): Promise<VendorApp[]> {
+): Promise<{ apps: VendorApp[]; asksShowInput: boolean }> {
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const adapter = await installedAdapter(findAdapter(harness), spec, environment);
-  return readVendorApps(adapter, environment, loginEnv(harness, environment, folder), {
+  const apps = await readVendorApps(adapter, environment, loginEnv(harness, environment, folder), {
     settled: true,
     timeoutMs: 20_000,
     ...(signal === undefined ? {} : { signal }),
   });
+  return { apps, asksShowInput: adapter.vendorApps?.asksWithoutInput !== true };
 }
 
 // The vendor's page where the user signs one app in; the harness keeps the sign-in.

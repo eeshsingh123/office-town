@@ -1,14 +1,20 @@
-import type { PermissionMode, VendorApp } from "@office-town/contract";
+import {
+  appsToolServer,
+  type PermissionMode,
+  teamToolServer,
+  type VendorApp,
+} from "@office-town/contract";
 import { z } from "zod";
 import type {
   AccountSupport,
   Adapter,
+  AttachedToolServer,
   HarnessCommand,
   InstallSupport,
   LaunchOptions,
   VendorAppSupport,
 } from "../../adapter.ts";
-import { createAcpAdapter } from "../acp/adapter.ts";
+import { type AcpHarness, createAcpAdapter } from "../acp/adapter.ts";
 import { catalog, catalog2, PREFERRED } from "./catalog.ts";
 import { recount, recount2 } from "./recount.ts";
 
@@ -29,42 +35,105 @@ function externalFolders(paths: string[] | undefined) {
   return { external_directory: Object.fromEntries(rules) };
 }
 
-// One inline config for both releases (D-97): OpenCode 2 reads OpenCode 1's permission rules as
-// they are, and each ignores the other's switch for turning a server off.
-function buildCommand(options: LaunchOptions): HarnessCommand {
+// The permission rules both releases read: OpenCode 2 reads OpenCode 1's as they are (D-97).
+function permissionsOf(options: LaunchOptions) {
   // The core's own tools never ask, even under a user's stricter rules; their effects are guarded.
   const toolRules = options.toolServers.map((server) => [`${server.name}_*`, "allow"]);
   // The user's own servers: an allowed one asks before each call, which the core answers by its
   // permission (D-96); any other is turned off for this session.
   const appRules = (options.vendorApps ?? []).map((name) => [`${name}_*`, "ask"]);
-  const blocked = options.blockedApps ?? [];
-  // OpenCode merges this inline config over the user's own, so nothing on disk is touched.
-  const config = {
-    permission: {
-      ...PERMISSIONS[options.permissionMode],
-      ...externalFolders(options.additionalPaths),
-      // OpenCode 2's Code Mode would wrap every MCP call in one script, hiding which tool runs.
-      execute: "deny",
-      ...Object.fromEntries(appRules),
-      ...Object.fromEntries(toolRules),
-    },
-    ...(blocked.length === 0
-      ? {}
-      : {
-          mcp: Object.fromEntries(blocked.map((name) => [name, { enabled: false }])),
-          policies: blocked.map((name) => ({ action: "mcp.use", resource: name, effect: "deny" })),
-        }),
-    ...(options.model === undefined ? {} : { model: options.model }),
+  return {
+    ...PERMISSIONS[options.permissionMode],
+    ...externalFolders(options.additionalPaths),
+    ...Object.fromEntries(appRules),
+    ...Object.fromEntries(toolRules),
   };
+}
+
+// OpenCode merges this inline config over the user's own, so nothing on disk is touched.
+function commandOf(config: object, options: LaunchOptions): HarnessCommand {
   return {
     binary: "opencode",
     args: ["acp"],
     env: {
-      OPENCODE_CONFIG_CONTENT: JSON.stringify(config),
+      OPENCODE_CONFIG_CONTENT: JSON.stringify({
+        ...config,
+        ...(options.model === undefined ? {} : { model: options.model }),
+      }),
       ...(options.isolated ? ISOLATED : {}),
       ...(options.accountFolder === undefined ? {} : accounts.env(options.accountFolder)),
     },
   };
+}
+
+const blockedOf = (options: LaunchOptions) => options.blockedApps ?? [];
+
+// OpenCode 1 turns a server off by its `enabled` switch; OpenCode 2, which ignores it, by a policy.
+const policiesOf = (blocked: string[]) =>
+  blocked.map((name) => ({ action: "mcp.use", resource: name, effect: "deny" }));
+
+// OpenCode 1's config, which OpenCode 2 reads too, so it also serves a version not read yet.
+function buildCommand(options: LaunchOptions): HarnessCommand {
+  const blocked = blockedOf(options);
+  const config = {
+    // OpenCode 2's Code Mode would wrap every MCP call in one script, hiding which tool runs.
+    permission: { ...permissionsOf(options), execute: "deny" },
+    ...(blocked.length === 0
+      ? {}
+      : {
+          mcp: Object.fromEntries(blocked.map((name) => [name, { enabled: false }])),
+          policies: policiesOf(blocked),
+        }),
+  };
+  return commandOf(config, options);
+}
+
+// The core's servers whose tools are called one by one, so each shows as a step: the team tools
+// (a handover reads them) and the apps hub. Shared apps each have their own server.
+const DIRECT_SERVERS = new Set([teamToolServer, appsToolServer]);
+
+// OpenCode 2's Code Mode lets an agent chain shared-app calls in one script; each call still
+// reaches the core's hub, which applies the app's permission. Off when a session may use the
+// user's own servers: their asks from inside a script name only the script (D-98).
+function usesCodeMode(options: LaunchOptions): boolean {
+  if ((options.vendorApps ?? []).length > 0) return false;
+  return options.toolServers.some((server) => !DIRECT_SERVERS.has(server.name));
+}
+
+// ACP attaches every server with Code Mode on, so a direct one goes in the config instead, its
+// token with it, in the process's environment and never on its command line.
+function directServerOf(server: AttachedToolServer) {
+  return server.transport === "http"
+    ? { type: "remote", url: server.url, headers: server.headers, oauth: false, codemode: false }
+    : {
+        type: "local",
+        command: [server.command, ...server.args],
+        environment: server.env,
+        codemode: false,
+      };
+}
+
+const configuredServers = (options: LaunchOptions) =>
+  usesCodeMode(options)
+    ? options.toolServers.filter((server) => DIRECT_SERVERS.has(server.name))
+    : [];
+
+// OpenCode 2's own: questions are answered in Needs you, and Code Mode is on for shared apps.
+function buildCommand2(options: LaunchOptions): HarnessCommand {
+  const blocked = blockedOf(options);
+  const direct = configuredServers(options);
+  const config = {
+    permission: {
+      ...permissionsOf(options),
+      question: "allow",
+      ...(usesCodeMode(options) ? {} : { execute: "deny" }),
+    },
+    ...(direct.length === 0
+      ? {}
+      : { mcp: Object.fromEntries(direct.map((server) => [server.name, directServerOf(server)])) }),
+    ...(blocked.length === 0 ? {} : { policies: policiesOf(blocked) }),
+  };
+  return commandOf(config, options);
 }
 
 // Its keys and its sessions live in its data folder, so an account moves that folder (D-61).
@@ -151,9 +220,10 @@ function appsOf(servers: Iterable<[string, Server]>): { apps: VendorApp[]; pendi
 
 const configSchema = z.looseObject({ mcp: z.record(z.string(), serverSchema).optional() });
 
-// OpenCode 1 prints the config it resolved, after anything it logs.
+// OpenCode 1 prints the config it resolved, after anything it logs. Its asks carry no input.
 const vendorApps: VendorAppSupport = {
   command: { binary: "opencode", args: ["debug", "config"] },
+  asksWithoutInput: true,
   read(output) {
     const text = output.join("\n");
     const start = text.indexOf("{");
@@ -185,7 +255,7 @@ const vendorApps2: VendorAppSupport = {
   },
 };
 
-const opencode1 = createAcpAdapter({
+const shared = {
   harness: "opencode",
   name: "OpenCode",
   maker: "Anomaly",
@@ -203,24 +273,35 @@ const opencode1 = createAcpAdapter({
     isolation: "partial",
   },
   isolationNote: "OpenCode's global settings and instructions still load.",
-  toolPrefixes: (server) => [`${server}_`],
+  toolPrefixes: (server: string) => [`${server}_`],
   preferred: PREFERRED,
+  install,
+} satisfies Partial<AcpHarness>;
+
+const opencode1 = createAcpAdapter({
+  ...shared,
   catalog,
   accounts,
-  install,
   recount,
   vendorApps,
   buildCommand,
 });
 
-// OpenCode 2 runs its side commands differently; its sessions start as OpenCode 1's do (D-97).
-const opencode2: Adapter = {
-  ...opencode1,
+// OpenCode 2 runs its side commands differently (D-97), and adds steering, sub-agent steps,
+// questions and Code Mode to its sessions (D-98).
+const opencode2 = createAcpAdapter({
+  ...shared,
   catalog: catalog2,
   accounts: accounts2,
   recount: recount2,
   vendorApps: vendorApps2,
-};
+  buildCommand: buildCommand2,
+  extensions: (options) => ({
+    questions: true,
+    subagentSteps: true,
+    configuredServers: configuredServers(options).map((server) => server.name),
+  }),
+});
 
 const majorOf = (version: string) => Number.parseInt(version, 10);
 

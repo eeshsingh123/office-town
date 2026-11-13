@@ -7,6 +7,7 @@ import {
 import type { z } from "zod";
 import {
   type AdapterEvent,
+  type AnsweredQuestion,
   type AttachedToolServer,
   attachedTool,
   type InlineImage,
@@ -15,16 +16,24 @@ import {
   type Translator,
 } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
+import { contentOf, questionsOf } from "./forms.ts";
 import {
+  type ChildSession,
   type ConfigOption,
+  childUpdateSchema,
   chunkSchema,
   delegationInputSchema,
+  elicitationParamsSchema,
+  type FormField,
   initializeResultSchema,
   permissionParamsSchema,
   planSchema,
   promptResultSchema,
+  scriptOutputSchema,
   sessionResultSchema,
   setOptionResultSchema,
+  steeringResultSchema,
+  subagentOutputSchema,
   type ToolCall,
   todoInputSchema,
   toolCallSchema,
@@ -35,6 +44,12 @@ import {
 const PROTOCOL_VERSION = 1;
 const SESSION_METHODS = new Set(["session/new", "session/resume", "session/load"]);
 const SET_OPTION = "session/set_config_option";
+// OpenCode 2's way into a running turn, until ACP has its own.
+const STEERING = "_session/steering";
+// OpenCode 2 reports its sub-agents' steps apart when the client asks for them.
+const CHILD_UPDATES = "opencode/child-session-updates";
+const CHILD_UPDATE = "opencode/session/child_update";
+const CHILD_ENDED = new Set(["completed", "failed", "interrupted"]);
 const EFFORT_CATEGORY = "thought_level";
 const NOTHING: Translation = { events: [], outgoing: [] };
 // A rough count, only for the size during a turn: the app reports the real one as a prompt ends.
@@ -44,6 +59,7 @@ interface TextStream {
   type: "message" | "reasoning";
   messageId: string | undefined;
   text: string;
+  parentActionId: string | undefined;
 }
 
 interface ActionState {
@@ -56,6 +72,21 @@ function kindOf(call: ToolCall): ActionKind {
   if (delegationInputSchema.safeParse(call.rawInput).success) return "delegate";
   const kind = actionKindSchema.safeParse(call.kind);
   return kind.success ? kind.data : "other";
+}
+
+const parentOf = (parentActionId: string | undefined) =>
+  parentActionId === undefined ? {} : { parentActionId };
+
+const childOf = (meta: ToolCall["_meta"]) => meta?.["opencode/child-session"];
+
+const streamOf = (child: ChildSession | undefined) =>
+  child === undefined ? "" : `child:${child.id}`;
+
+// OpenCode 2 titles a sub-agent's tool calls with the sub-agent's title first.
+function ownTitle(call: ToolCall, child: ChildSession | undefined): ToolCall {
+  const prefix = child?.title === undefined ? undefined : `${child.title}: `;
+  if (prefix === undefined || !call.title?.startsWith(prefix)) return call;
+  return { ...call, title: call.title.slice(prefix.length) };
 }
 
 function outputOf(call: ToolCall): string {
@@ -131,6 +162,22 @@ export interface PreferredModel {
   effort: string;
 }
 
+// What a harness adds to ACP that the session uses (D-98).
+export interface AcpExtensions {
+  // The agent's questions come as ACP forms, which the user answers in Needs you.
+  questions?: boolean;
+  // Its sub-agents' steps come apart, and its background ones report when they end.
+  subagentSteps?: boolean;
+  // The core's servers the harness's own config attaches, so the session does not attach them.
+  configuredServers?: readonly string[];
+}
+
+// The steps of a Code Mode script, by the index of each call it made.
+interface ScriptSteps {
+  started: number;
+  ended: Set<number>;
+}
+
 export class AcpTranslator implements Translator {
   readonly #peer = new JsonRpcPeer();
   readonly #cwd: string;
@@ -138,6 +185,18 @@ export class AcpTranslator implements Translator {
   readonly #actions = new Map<string, ActionState>();
   readonly #planCalls = new Set<string>();
   readonly #permissions = new Map<string, JsonRpcId>();
+  readonly #questions = new Map<string, { id: JsonRpcId; fields: Record<string, FormField> }>();
+  readonly #extensions: AcpExtensions;
+  // The action that started each sub-agent, by its session, and sub-agent calls not yet matched.
+  readonly #childParents = new Map<string, string>();
+  // A background sub-agent's call stays open until the sub-agent ends, as on Claude.
+  readonly #working = new Map<string, string>();
+  readonly #endedChildren = new Set<string>();
+  #delegations: Array<{ actionId: string; description: string }> = [];
+  // Steps inside a sub-agent or a script, which are not the conversation's own.
+  readonly #nested = new Set<string>();
+  readonly #scripts = new Map<string, ScriptSteps>();
+  #nativeSteering = false;
   #model: string | undefined;
   #effort: string | undefined;
   readonly #preferred: PreferredModel | undefined;
@@ -154,8 +213,10 @@ export class AcpTranslator implements Translator {
   // While session/load replays the conversation, whose turns the trace already has.
   #loading = false;
   #turnActive = false;
-  // A waiting message has cancelled the turn, and goes out when the cancel is answered.
-  #steering = false;
+  // A waiting message on its way into the turn: by a cancel, then sent once it is answered, or
+  // by native steering, carrying the message.
+  #steering: "cancel" | "native" | undefined;
+  #steeringPrompt: object[] = [];
   // What the cancelled part of a turn used, counted when the turn ends.
   #carriedUsage: TokenUsage | undefined;
   // The conversation's size as the app last reported it, and the text seen since, so its size
@@ -163,7 +224,8 @@ export class AcpTranslator implements Translator {
   #reportedContext: number | undefined;
   #charsSince = 0;
   #contextWindow: number | undefined;
-  #stream: TextStream | undefined;
+  // Text in progress, by the session it comes from: the conversation's own, or a sub-agent's.
+  readonly #streams = new Map<string, TextStream>();
 
   constructor(
     options: Pick<
@@ -179,7 +241,9 @@ export class AcpTranslator implements Translator {
     toolPrefixes: (server: string) => string[],
     allowOwnToolAsks: boolean,
     preferred?: PreferredModel,
+    extensions: AcpExtensions = {},
   ) {
+    this.#extensions = extensions;
     this.#preferred = preferred;
     this.#cwd = options.workspacePath;
     this.#model = options.model;
@@ -197,6 +261,8 @@ export class AcpTranslator implements Translator {
     const clientCapabilities = {
       fs: { readTextFile: false, writeTextFile: false },
       terminal: false,
+      ...(this.#extensions.questions === true ? { elicitation: { form: {} } } : {}),
+      ...(this.#extensions.subagentSteps === true ? { _meta: { [CHILD_UPDATES]: true } } : {}),
     };
     return [
       this.#peer.request("initialize", { protocolVersion: PROTOCOL_VERSION, clientCapabilities }),
@@ -211,11 +277,20 @@ export class AcpTranslator implements Translator {
       case "error":
         return this.#failure(incoming.method, incoming.message);
       case "notification":
-        if (incoming.method !== "session/update" || this.#loading) return NOTHING;
-        return this.#updated(this.#update(incoming.params));
+        if (this.#loading) return NOTHING;
+        if (incoming.method === "session/update") {
+          return this.#updated(this.#update(incoming.params));
+        }
+        if (incoming.method === CHILD_UPDATE && this.#extensions.subagentSteps === true) {
+          return this.#updated(this.#childUpdate(incoming.params));
+        }
+        return NOTHING;
       case "request":
         if (incoming.method === "session/request_permission") {
           return this.#permissionRequest(incoming.id, incoming.params);
+        }
+        if (incoming.method === "elicitation/create" && this.#extensions.questions === true) {
+          return this.#questionRequest(incoming.id, incoming.params);
         }
         return {
           events: [],
@@ -238,8 +313,9 @@ export class AcpTranslator implements Translator {
 
   // At each tool end, the size so far: what the app last reported plus the text seen since.
   #measured(events: AdapterEvent[]): AdapterEvent[] {
-    for (const event of events) this.#charsSince += charsOf(event);
-    const toolEnded = events.some((event) => event.type === "action.ended");
+    const own = events.filter((event) => !this.#isNested(event));
+    for (const event of own) this.#charsSince += charsOf(event);
+    const toolEnded = own.some((event) => event.type === "action.ended");
     if (!toolEnded || !this.#turnActive || this.#reportedContext === undefined) return [];
     const contextTokens = this.#reportedContext + Math.round(this.#charsSince / CHARS_PER_TOKEN);
     const window = this.#contextWindow;
@@ -257,19 +333,48 @@ export class AcpTranslator implements Translator {
     this.#charsSince = 0;
   }
 
-  // ACP has no way into a running turn, and OpenCode never answers a second prompt sent during one.
-  // So once a tool ends with none at work, a waiting message cancels the turn and goes out at once.
+  // A sub-agent's or a script's step is not part of the conversation the model reads again.
+  #isNested(event: AdapterEvent): boolean {
+    if (event.type === "action.ended") return this.#nested.has(event.payload.actionId);
+    return "payload" in event && "parentActionId" in event.payload;
+  }
+
+  // A waiting message goes in at a tool end, never mid-tool (D-77). OpenCode 2 takes it into the
+  // running turn. ACP itself has no way in, and OpenCode 1 never answers a second prompt sent
+  // during one, so there it cancels the turn once no tool is at work and goes out at once.
   #steer(events: AdapterEvent[]): string[] {
-    const toolEnded = events.some((event) => event.type === "action.ended");
-    if (!toolEnded || this.#steering || !this.#turnActive) return [];
-    if (this.#actions.size > 0 || this.#queuedPrompts.length === 0) return [];
-    this.#steering = true;
+    const toolEnded = events.some(
+      (event) => event.type === "action.ended" && !this.#nested.has(event.payload.actionId),
+    );
+    if (!toolEnded || this.#steering !== undefined || !this.#turnActive) return [];
+    if (this.#queuedPrompts.length === 0) return [];
+    if (this.#nativeSteering) {
+      this.#steering = "native";
+      this.#steeringPrompt = this.#queuedPrompts.splice(0).flat();
+      const params = { sessionId: this.#sessionId, prompt: this.#steeringPrompt };
+      return [this.#peer.request(STEERING, params)];
+    }
+    if (this.#actions.size > 0) return [];
+    this.#steering = "cancel";
     return [this.#peer.notify("session/cancel", { sessionId: this.#sessionId })];
+  }
+
+  // Taken into the turn, it counts as taken; otherwise it waits for the turn to end. A turn that
+  // ended meanwhile may not have read it, so it goes out again rather than be lost.
+  #steeringAnswered(injected: boolean): Translation {
+    const prompt = this.#steeringPrompt;
+    this.#steering = undefined;
+    this.#steeringPrompt = [];
+    if (injected && this.#turnActive) {
+      return { events: [...this.#flush(), { type: "turn.started" }], outgoing: [] };
+    }
+    this.#queuedPrompts.unshift(prompt);
+    return this.#nextPrompt();
   }
 
   // To the rest of the app the turn goes on; a new start means the message counts as taken.
   #steered(): Translation {
-    this.#steering = false;
+    this.#steering = undefined;
     const cut: AdapterEvent[] = [...this.#actions]
       .filter(([, action]) => action.started)
       .map(([actionId]) => ({
@@ -302,14 +407,20 @@ export class AcpTranslator implements Translator {
     return { events: [], outgoing: [this.#peer.respond(id, { outcome })] };
   }
 
-  // The protocol has no way for an agent to ask a question, so there is never one to answer.
-  answerQuestion(requestId: string): Translation {
-    throw new Error(`Unknown question "${requestId}".`);
+  answerQuestion(requestId: string, answered: AnsweredQuestion[]): Translation {
+    const question = this.#questions.get(requestId);
+    if (question === undefined) throw new Error(`Unknown question "${requestId}".`);
+    this.#questions.delete(requestId);
+    const content = contentOf(question.fields, answered);
+    return {
+      events: [],
+      outgoing: [this.#peer.respond(question.id, { action: "accept", content })],
+    };
   }
 
   interrupt(): Translation {
     if (!this.#turnActive) return NOTHING;
-    this.#steering = false;
+    if (this.#steering === "cancel") this.#steering = undefined;
     const events: AdapterEvent[] = [];
     const outgoing = [this.#peer.notify("session/cancel", { sessionId: this.#sessionId })];
     // The protocol requires every pending permission request to be answered as cancelled.
@@ -318,6 +429,11 @@ export class AcpTranslator implements Translator {
       events.push({ type: "permission.resolved", payload: { requestId, outcome: "cancelled" } });
     }
     this.#permissions.clear();
+    for (const [requestId, { id }] of this.#questions) {
+      outgoing.push(this.#peer.respond(id, { action: "cancel" }));
+      events.push({ type: "question.resolved", payload: { requestId, outcome: "cancelled" } });
+    }
+    this.#questions.clear();
     return { events, outgoing };
   }
 
@@ -326,10 +442,14 @@ export class AcpTranslator implements Translator {
     if (SESSION_METHODS.has(method)) return this.#sessionCreated(result);
     if (method === SET_OPTION) return this.#optionSet(result);
     if (method === "session/prompt") return this.#turnEnded(result);
+    if (method === STEERING) {
+      return this.#steeringAnswered(steeringResultSchema.parse(result).outcome === "injected");
+    }
     return NOTHING;
   }
 
   #failure(method: string, message: string): Translation {
+    if (method === STEERING) return this.#steeringAnswered(false);
     if (method === SET_OPTION) {
       const error = `The harness did not apply the chosen settings: ${message}`;
       return this.#configured([{ type: "error", payload: { message: error, fatal: false } }]);
@@ -341,7 +461,7 @@ export class AcpTranslator implements Translator {
         outgoing: [],
       };
     }
-    if (this.#steering) return this.#steered();
+    if (this.#steering === "cancel") return this.#steered();
     this.#turnActive = false;
     const next = this.#nextPrompt();
     const events: AdapterEvent[] = [
@@ -355,11 +475,15 @@ export class AcpTranslator implements Translator {
 
   // A harness that cannot resume a session loads it instead, which replays it first.
   #openSession(result: unknown): Translation {
-    const location = { cwd: this.#cwd, mcpServers: this.#toolServers.map(mcpServerOf) };
+    const initialized = initializeResultSchema.parse(result);
+    this.#nativeSteering = initialized._meta?.steering?.supported === true;
+    const configured = new Set(this.#extensions.configuredServers ?? []);
+    const attached = this.#toolServers.filter((server) => !configured.has(server.name));
+    const location = { cwd: this.#cwd, mcpServers: attached.map(mcpServerOf) };
     if (this.#resumeSessionId === undefined) {
       return { events: [], outgoing: [this.#peer.request("session/new", location)] };
     }
-    const capabilities = initializeResultSchema.parse(result).agentCapabilities;
+    const capabilities = initialized.agentCapabilities;
     const resumes = capabilities?.sessionCapabilities?.resume !== undefined;
     this.#loading = !resumes && capabilities?.loadSession === true;
     const method = resumes || !this.#loading ? "session/resume" : "session/load";
@@ -470,11 +594,11 @@ export class AcpTranslator implements Translator {
     const part = usageOf(usage);
     this.#reported(part?.contextTokens);
     const used = addUsage(this.#carriedUsage, part);
-    if (this.#steering && stopReason === "cancelled") {
+    if (this.#steering === "cancel" && stopReason === "cancelled") {
       this.#carriedUsage = used;
       return this.#steered();
     }
-    this.#steering = false;
+    if (this.#steering === "cancel") this.#steering = undefined;
     this.#carriedUsage = undefined;
     this.#turnActive = false;
     const events = this.#flush();
@@ -502,27 +626,62 @@ export class AcpTranslator implements Translator {
     if (prompt === undefined) return NOTHING;
     this.#turnActive = true;
     const params = { sessionId: this.#sessionId, prompt };
+    // OpenCode 2 wakes a lead by itself once its background sub-agent reports, with no end to that
+    // run; what it said is complete once the next turn starts.
     return {
-      events: [{ type: "turn.started" }],
+      events: [...this.#flush(), { type: "turn.started" }],
       outgoing: [this.#peer.request("session/prompt", params)],
     };
   }
 
   #update(params: unknown): AdapterEvent[] {
     const { update } = updateParamsSchema.parse(params);
+    return this.#sessionUpdate(update, childOf(update._meta));
+  }
+
+  #childUpdate(params: unknown): AdapterEvent[] {
+    const report = childUpdateSchema.parse(params);
+    const child = { id: report.childSessionId, title: report.title };
+    if (report.type === "update" && report.update !== undefined) {
+      return this.#sessionUpdate(report.update, child);
+    }
+    if (report.type !== "status" || !CHILD_ENDED.has(report.status ?? "")) return [];
+    const events = this.#flush(streamOf(child));
+    const actionId = this.#working.get(child.id);
+    if (actionId === undefined) {
+      this.#endedChildren.add(child.id);
+      return events;
+    }
+    this.#working.delete(child.id);
+    const outcome = report.status === "completed" ? "completed" : "failed";
+    const result = `The sub-agent ${report.status}.`;
+    return [...events, { type: "action.ended", payload: { actionId, outcome, result } }];
+  }
+
+  #sessionUpdate(
+    update: z.infer<typeof updateParamsSchema>["update"],
+    child: ChildSession | undefined,
+  ): AdapterEvent[] {
+    const stream = streamOf(child);
+    const parent = child === undefined ? undefined : this.#parentOf(child);
     switch (update.sessionUpdate) {
       case "agent_message_chunk":
-        return this.#chunk("message", update);
+        return this.#chunk("message", update, stream, parent);
       case "agent_thought_chunk":
-        return this.#chunk("reasoning", update);
+        return this.#chunk("reasoning", update, stream, parent);
       case "tool_call":
-      case "tool_call_update":
-        return [...this.#flush(), ...this.#toolCall(toolCallSchema.parse(update))];
+      case "tool_call_update": {
+        const call = ownTitle(toolCallSchema.parse(update), child);
+        return [...this.#flush(stream), ...this.#toolCall(call, parent)];
+      }
+      // A sub-agent's plan and size are its own, not the conversation's.
       case "plan": {
+        if (child !== undefined) return [];
         const steps = stepsOf(planSchema.parse(update).entries);
-        return [...this.#flush(), { type: "plan.updated", payload: { steps } }];
+        return [...this.#flush(stream), { type: "plan.updated", payload: { steps } }];
       }
       case "usage_update": {
+        if (child !== undefined) return [];
         const { used, size } = usageUpdateSchema.parse(update);
         this.#reported(used);
         this.#contextWindow = size ?? this.#contextWindow;
@@ -533,34 +692,69 @@ export class AcpTranslator implements Translator {
     }
   }
 
-  // Text arrives in fragments; a message is complete once something else follows it.
-  #chunk(type: TextStream["type"], update: unknown): AdapterEvent[] {
+  // The action that started a sub-agent: the call whose output named its session, else the
+  // sub-agent call it is titled after, else the latest one not yet matched.
+  #parentOf(child: ChildSession): string | undefined {
+    const known = this.#childParents.get(child.id);
+    if (known !== undefined) return known;
+    const titled = this.#delegations.find(({ description }) => description === child.title);
+    const match = titled ?? this.#delegations.at(-1);
+    if (match === undefined) return undefined;
+    this.#link(child.id, match.actionId);
+    return match.actionId;
+  }
+
+  #link(childSessionId: string, actionId: string): void {
+    this.#childParents.set(childSessionId, actionId);
+    this.#delegations = this.#delegations.filter((entry) => entry.actionId !== actionId);
+  }
+
+  // Text arrives in fragments; a message is complete once something else from its session
+  // follows it.
+  #chunk(
+    type: TextStream["type"],
+    update: unknown,
+    stream: string,
+    parentActionId: string | undefined,
+  ): AdapterEvent[] {
     const { messageId, content } = chunkSchema.parse(update);
     const text = content.text ?? "";
-    const delta: AdapterEvent[] = text === "" ? [] : [{ type: `${type}.delta`, payload: { text } }];
-    if (this.#stream?.type === type && this.#stream.messageId === messageId) {
-      this.#stream.text += text;
+    const delta: AdapterEvent[] =
+      text === ""
+        ? []
+        : [{ type: `${type}.delta`, payload: { text, ...parentOf(parentActionId) } }];
+    const current = this.#streams.get(stream);
+    if (current?.type === type && current.messageId === messageId) {
+      current.text += text;
       return delta;
     }
-    const events = this.#flush();
-    this.#stream = { type, messageId, text };
+    const events = this.#flush(stream);
+    this.#streams.set(stream, { type, messageId, text, parentActionId });
     return [...events, ...delta];
   }
 
-  #flush(): AdapterEvent[] {
-    const stream = this.#stream;
-    this.#stream = undefined;
-    if (stream === undefined || stream.text === "") return [];
-    return stream.type === "message"
-      ? [{ type: "message", payload: { role: "assistant", text: stream.text } }]
-      : [{ type: "reasoning", payload: { text: stream.text } }];
+  // One session's text, or every session's when none is named.
+  #flush(stream?: string): AdapterEvent[] {
+    const keys = stream === undefined ? [...this.#streams.keys()] : [stream];
+    return keys.flatMap((key): AdapterEvent[] => {
+      const flushed = this.#streams.get(key);
+      this.#streams.delete(key);
+      if (flushed === undefined || flushed.text === "") return [];
+      const parent = parentOf(flushed.parentActionId);
+      return flushed.type === "message"
+        ? [{ type: "message", payload: { role: "assistant", text: flushed.text, ...parent } }]
+        : [{ type: "reasoning", payload: { text: flushed.text, ...parent } }];
+    });
   }
 
-  #toolCall(call: ToolCall): AdapterEvent[] {
+  #toolCall(call: ToolCall, parentActionId: string | undefined): AdapterEvent[] {
     if (this.#planCalls.has(call.toolCallId)) return [];
-    // OpenCode reports its todo list as a tool call rather than as a plan update.
+    const subagent = subagentOutputSchema.safeParse(call.rawOutput);
+    if (subagent.success) this.#link(subagent.data.metadata.sessionID, call.toolCallId);
+    // OpenCode reports its todo list as a tool call rather than as a plan update; a sub-agent's
+    // list stays one of its steps.
     const todos = todoInputSchema.safeParse(call.rawInput);
-    if (todos.success) {
+    if (todos.success && parentActionId === undefined) {
       this.#planCalls.add(call.toolCallId);
       this.#actions.delete(call.toolCallId);
       return [{ type: "plan.updated", payload: { steps: stepsOf(todos.data.todos) } }];
@@ -576,12 +770,22 @@ export class AcpTranslator implements Translator {
     // A pending call has no input yet, so the action starts once the harness fills it in.
     if (state.status === "pending") return [];
 
-    const events = this.#started(call, state);
+    const events = [...this.#started(call, state, parentActionId), ...this.#scriptSteps(call)];
     const output = outputOf(call);
     if (state.status === "completed" || state.status === "failed") {
       this.#actions.delete(call.toolCallId);
+      const child = subagent.success ? subagent.data.metadata : undefined;
+      if (
+        this.#extensions.subagentSteps === true &&
+        state.status === "completed" &&
+        child?.status === "running" &&
+        !this.#endedChildren.delete(child.sessionID)
+      ) {
+        this.#working.set(child.sessionID, call.toolCallId);
+        return events;
+      }
       const outcome = state.status;
-      events.push({
+      events.push(...this.#scriptEnded(call.toolCallId), {
         type: "action.ended",
         payload: { actionId: call.toolCallId, outcome, result: output },
       });
@@ -592,11 +796,17 @@ export class AcpTranslator implements Translator {
     return events;
   }
 
-  #started(call: ToolCall, state: ActionState): AdapterEvent[] {
+  #started(call: ToolCall, state: ActionState, parentActionId: string | undefined): AdapterEvent[] {
     if (state.started) return [];
     state.started = true;
     const title = call.title ?? "Tool call";
     const tool = attachedTool(title, this.#toolServers, this.#toolPrefixes);
+    const delegation = delegationInputSchema.safeParse(call.rawInput);
+    const description = delegation.success ? delegation.data.description : undefined;
+    if (typeof description === "string") {
+      this.#delegations.push({ actionId: call.toolCallId, description });
+    }
+    if (parentActionId !== undefined) this.#nested.add(call.toolCallId);
     return [
       {
         type: "action.started",
@@ -607,15 +817,97 @@ export class AcpTranslator implements Translator {
           input: call.rawInput ?? {},
           ...(call.locations?.length ? { locations: call.locations.map((l) => l.path) } : {}),
           ...(tool === undefined ? {} : { tool }),
+          ...parentOf(parentActionId),
         },
       },
     ];
   }
 
+  // OpenCode 2's Code Mode runs a script that calls tools; each call is a step of the script, as
+  // the script reports them (D-98).
+  #scriptSteps(call: ToolCall): AdapterEvent[] {
+    const script = scriptOutputSchema.safeParse(call.rawOutput);
+    if (!script.success) return [];
+    const steps = this.#scripts.get(call.toolCallId) ?? { started: 0, ended: new Set<number>() };
+    this.#scripts.set(call.toolCallId, steps);
+    return script.data.metadata.toolCalls.flatMap((row, index): AdapterEvent[] => {
+      const actionId = `${call.toolCallId}/${index + 1}`;
+      const events: AdapterEvent[] = [];
+      if (index >= steps.started) {
+        steps.started = index + 1;
+        this.#nested.add(actionId);
+        const tool = attachedTool(row.tool, this.#toolServers, (server) => `${server}.`);
+        events.push({
+          type: "action.started",
+          payload: {
+            actionId,
+            kind: "other",
+            title: row.tool,
+            input: row.input ?? {},
+            parentActionId: call.toolCallId,
+            ...(tool === undefined ? {} : { tool }),
+          },
+        });
+      }
+      if (row.status !== "running" && !steps.ended.has(index)) {
+        steps.ended.add(index);
+        const outcome = row.status === "completed" ? "completed" : "failed";
+        events.push({ type: "action.ended", payload: { actionId, outcome, result: "" } });
+      }
+      return events;
+    });
+  }
+
+  // Steps still running when their script ended stopped with it.
+  #scriptEnded(scriptId: string): AdapterEvent[] {
+    const steps = this.#scripts.get(scriptId);
+    if (steps === undefined) return [];
+    this.#scripts.delete(scriptId);
+    return Array.from({ length: steps.started }, (_, index) => index)
+      .filter((index) => !steps.ended.has(index))
+      .map(
+        (index): AdapterEvent => ({
+          type: "action.ended",
+          payload: {
+            actionId: `${scriptId}/${index + 1}`,
+            outcome: "failed",
+            result: "Stopped with its script.",
+          },
+        }),
+      );
+  }
+
+  // A form from the agent's question tool, which the user answers in Needs you (D-98).
+  #questionRequest(id: JsonRpcId, params: unknown): Translation {
+    const { mode, toolCallId, requestedSchema } = elicitationParamsSchema.parse(params);
+    const fields = requestedSchema?.properties ?? {};
+    const questions = mode === undefined || mode === "form" ? questionsOf(fields) : [];
+    if (questions.length === 0) {
+      return { events: [], outgoing: [this.#peer.respond(id, { action: "decline" })] };
+    }
+    const requestId = `question-${id}`;
+    this.#questions.set(requestId, { id, fields });
+    const asking = toolCallId !== undefined && this.#actions.get(toolCallId)?.started === true;
+    return {
+      events: [
+        ...this.#flush(),
+        {
+          type: "question.requested",
+          payload: { requestId, ...(asking ? { actionId: toolCallId } : {}), questions },
+        },
+      ],
+      outgoing: [],
+    };
+  }
+
   // The core's own tools never ask: what they lead to is guarded where it happens. A title can be
   // a shell command or a path, so only a tool call of kind "other" counts as one of them.
   #permissionRequest(id: JsonRpcId, params: unknown): Translation {
-    const { toolCall, options } = permissionParamsSchema.parse(params);
+    const parsed = permissionParamsSchema.parse(params);
+    const { options } = parsed;
+    const child = childOf(parsed.toolCall._meta);
+    const toolCall = ownTitle(parsed.toolCall, child);
+    const parentActionId = child === undefined ? undefined : this.#parentOf(child);
     const allow = options.find((option) => option.kind === "allow_once");
     const own =
       this.#allowOwnToolAsks &&
@@ -635,8 +927,8 @@ export class AcpTranslator implements Translator {
     this.#actions.set(toolCall.toolCallId, state);
     const app = attachedTool(toolCall.title ?? "", this.#vendorApps, this.#toolPrefixes);
     const events: AdapterEvent[] = [
-      ...this.#flush(),
-      ...this.#started(toolCall, state),
+      ...this.#flush(streamOf(child)),
+      ...this.#started(toolCall, state, parentActionId),
       {
         type: "permission.requested",
         payload: {

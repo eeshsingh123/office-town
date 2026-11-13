@@ -165,6 +165,9 @@ export interface VendorAppSupport {
   poll?: string;
   // With none allowed, every app is turned off without a list, so none is read at start.
   allOff?: boolean;
+  // Its ask before an app's call does not say what the call sends, so a new app starts on Don't
+  // ask rather than on Ask me first (D-96, D-98).
+  asksWithoutInput?: boolean;
   // Undefined for any other line, or for a CLI that exits, for an output that has no list yet. An
   // app still connecting is listed as failed, with `pending`.
   read(output: string[]): { apps: VendorApp[]; pending: boolean } | undefined;

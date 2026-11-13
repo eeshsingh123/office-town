@@ -105,7 +105,8 @@ export class HarnessSession implements Session {
   readonly #options: LaunchOptions;
   readonly #adapter: Adapter;
   readonly #environment: Environment;
-  readonly #translator: Translator;
+  // Replaced at start by the installed release's, which may speak differently (D-98).
+  #translator: Translator;
   readonly #listeners = new Set<SessionListener>();
   readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
@@ -277,10 +278,9 @@ export class HarnessSession implements Session {
       this.#environment,
       false,
     );
-    const request = {
-      ...adapter.buildCommand(await this.#withAppsBlocked(adapter)),
-      cwd: this.#options.workspacePath,
-    };
+    const launch = await this.#withAppsBlocked(adapter);
+    this.#translator = adapter.createTranslator(launch);
+    const request = { ...adapter.buildCommand(launch), cwd: this.#options.workspacePath };
     try {
       this.#process = await runProcess(this.#environment, request, {
         onLine: (line) => this.#receive(line),

@@ -15,8 +15,10 @@ const recordings = {
   "two-turns": recording("two-turns"),
   "interrupt-pending-permission": recording("interrupt-pending-permission"),
   "team-tool": recording("team-tool"),
-  // OpenCode 2 (D-97).
+  // OpenCode 2 (D-97, D-98).
   "team-tool-2": recording("team-tool-2"),
+  "features-2": recording("features-2"),
+  "subagent-2": recording("subagent-2"),
 };
 
 describeAdapterConformance(opencodeAdapter, recordings);
@@ -31,7 +33,7 @@ function configOf(options: Parameters<typeof opencodeAdapter.buildCommand>[0]) {
 }
 
 describe("opencode adapter", () => {
-  it("attaches the core's tool servers over ACP, keeps their tokens out of the reported lines, allows their tools, and reports calls to them as theirs on OpenCode 1 and 2", async () => {
+  it("attaches the core's tool servers, keeps their tokens out of the reported lines, reports calls to them as theirs on OpenCode 1 and 2, and uses what OpenCode 2 adds", async () => {
     const toolServer = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
     const attached = {
       transport: "http" as const,
@@ -74,5 +76,71 @@ describe("opencode adapter", () => {
     expect(only(second.events, "action.started").map((event) => event.payload.tool)).toEqual([
       { server: "office-town", name: "search_notes" },
     ]);
+
+    // OpenCode 2 (D-98): a waiting message steered into the turn, script and sub-agent steps
+    // nested, its questions asked in Needs you, and Code Mode kept to shared apps.
+    const opencode2 = opencodeAdapter.forVersion?.("2.3.0") ?? opencodeAdapter;
+    const app = { name: "notes-x", url: "http://127.0.0.1:1/apps/notes-x", token: "secret" };
+    const team = { name: "office-town", url: "http://127.0.0.1:1/mcp", token: "secret" };
+    const http = { transport: "http" as const, token: "secret", headers: {} };
+    const servers = [
+      { ...http, name: team.name, url: team.url },
+      { ...http, name: app.name, url: app.url },
+    ];
+    const config2 = (options: Parameters<typeof opencode2.buildCommand>[0]) =>
+      JSON.parse(opencode2.buildCommand(options).env?.OPENCODE_CONFIG_CONTENT ?? "{}");
+    // The team server goes in the config, out of Code Mode; the user's own servers turn it off.
+    const shared = config2({ ...replayOptions, toolServers: servers });
+    expect(shared.permission.execute).toBeUndefined();
+    expect(shared.mcp).toEqual({
+      "office-town": { type: "remote", url: team.url, headers: {}, oauth: false, codemode: false },
+    });
+    const own = config2({ ...replayOptions, toolServers: servers, vendorApps: ["rea"] });
+    expect(own.permission.execute).toBe("deny");
+    expect(own.mcp).toBeUndefined();
+
+    const features = await replay(opencodeAdapter, recordings["features-2"], replayOptions, {
+      toolServers: [team, app],
+    });
+    const sent = features.written.map((line) => JSON.parse(line));
+    expect(sent[0].params.clientCapabilities).toMatchObject({
+      elicitation: { form: {} },
+      _meta: { "opencode/child-session-updates": true },
+    });
+    expect(sent[1].params.mcpServers.map((server: { name: string }) => server.name)).toEqual([
+      "notes-x",
+    ]);
+    expect(sent.map((message) => message.method)).toContain("_session/steering");
+    expect(sent.map((message) => message.method)).not.toContain("session/cancel");
+    const started = only(features.events, "action.started").map((event) => event.payload);
+    const script = started.find((action) => action.title === "execute");
+    expect(started.filter((action) => action.parentActionId === script?.actionId)).toMatchObject([
+      { tool: { server: "notes-x", name: "create_note" } },
+      { tool: { server: "notes-x", name: "search_notes" } },
+    ]);
+    expect(
+      only(features.events, "question.requested")[0]?.payload.questions[0]?.options,
+    ).toMatchObject([{ label: "Red" }, { label: "Blue" }]);
+    expect(sent.find((message) => message.result?.action === "accept")?.result.content).toEqual({
+      q0: "Blue",
+    });
+
+    // A background sub-agent's call stays open until it ends, with its steps inside it.
+    const sub = await replay(opencodeAdapter, recordings["subagent-2"]);
+    const subagent = only(sub.events, "action.started").find((e) => e.payload.kind === "delegate");
+    const parent = subagent?.payload.actionId;
+    const inside = sub.events.filter(
+      (event) =>
+        (event.type === "action.started" || event.type === "message") &&
+        event.payload.parentActionId === parent,
+    );
+    expect(inside.map((event) => event.type)).toEqual(
+      expect.arrayContaining(["action.started", "message"]),
+    );
+    const firstTurnEnd = sub.events.findIndex((event) => event.type === "turn.ended");
+    const subagentEnd = sub.events.findIndex(
+      (event) => event.type === "action.ended" && event.payload.actionId === parent,
+    );
+    expect(subagentEnd).toBeGreaterThan(firstTurnEnd);
   });
 });
