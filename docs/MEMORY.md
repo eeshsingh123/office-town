@@ -83,7 +83,7 @@ Worth a click when the area is touched:
 - `pnpm dev:run "<prompt>" [--harness claude|opencode] [--wsl Ubuntu] [--workspace path] [--model m] [--effort e] [--permission-mode ask|acceptEdits|bypass] [--resume id]`; `pnpm dev:catalog [--harness ...]` lists models and efforts.
 - `pnpm dev:core [--data-folder path] [--port n] [--hand-over-at tokens]`: prints `{url, token}`; send `Authorization: Bearer <token>`. Stream: `curl -N -H "Authorization: Bearer <token>" "<url>/events?after=0"`. `POST /tasks` needs a `workspaceId`.
 - Git Bash: set `MSYS_NO_PATHCONV=1` before calling the core, and build JSON with Windows paths inside Node, not the shell.
-- Live checks use the cheapest models only: `--model claude-haiku-5-5 --effort low` for Claude; OpenCode's free models (Big Pickle, `opencode-go/longcat-2.5-preview-free`). Beam Free refuses runs with over 128 tools.
+- Live checks use the cheapest models only: `--model claude-haiku-5-5 --effort low` for Claude; for OpenCode `opencode/deepseek-v4.1-flash-free`, `opencode-go/deepseek-v4.1-flash` or `opencode-go/muse-spark-1.3-contributor`; never `gpt-5.4-nano` (refused) or Hugging Face models. Beam Free refuses runs with over 128 tools.
 - New recording: CLI stdout lines and our commands go into `packages/harness/test/fixtures/<harness>/<name>.jsonl` (`{"receive": ...}` and `{"send": ...}`). Strip machine paths, account details and the user's skill and command lists.
 - Mockups are checked at full size before they are shown: the `mockup` entry in `.claude/launch.json` (static server, port 5190), shot with `out/capture` in dark and light.
 
