@@ -65,9 +65,7 @@ export function groupModels(
     .flatMap((id) => byId.get(id) ?? [])
     .filter((model) => !sameFree(model))
     .slice(0, RECENT);
-  const models = [...byId.values()].filter(
-    (model) => recent.includes(model) || !sameFree(model),
-  );
+  const models = [...byId.values()].filter((model) => recent.includes(model) || !sameFree(model));
   const listed = new Set(recent.map((model) => model.id));
   const withAccess = (access: HarnessModel["access"]) => {
     const found = models.filter((model) => model.access === access && !listed.has(model.id));
@@ -105,7 +103,5 @@ export function groupModels(
 function planHeading(plan: readonly HarnessModel[]): string {
   const providers = new Set(plan.map((model) => model.provider));
   const [only] = providers;
-  return providers.size === 1 && only !== undefined
-    ? `${providerName(only)} plan`
-    : "In your plan";
+  return providers.size === 1 && only !== undefined ? `${providerName(only)} plan` : "In your plan";
 }

@@ -43,8 +43,8 @@ export function BypassDialog({ open, who, onBypass, onFull, onKeep }: BypassDial
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>
-                Office Town can't see these actions first, so you won't be asked. "Auto" allows
-                the same, but still records each action.
+                Office Town can't see these actions first, so you won't be asked. "Auto" allows the
+                same, but still records each action.
               </p>
             </div>
           </AlertDialog.Description>
