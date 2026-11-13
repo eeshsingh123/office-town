@@ -33,6 +33,11 @@ export const RELEASES: Release[] = [
       "Office Town works with OpenCode 1 and OpenCode 2, using whichever is installed. Providers shows its version",
       "On OpenCode 2, agents call your apps and team tools one by one, so each call shows as its own step",
       "Installing OpenCode from Office Town now installs OpenCode 2",
+      "On OpenCode 2, a message you send while an agent works goes into its current turn instead of restarting it",
+      "On OpenCode 2, what an agent's own sub-agents do shows inside the step that started them",
+      "On OpenCode 2, agents can ask you questions, which wait in Needs you",
+      "On OpenCode 2, agents can chain your shared apps in one script, each call still following the app's permission and shown as its own step",
+      "OpenCode 2's own servers now start on Ask me first, since its asks show what each call sends",
     ],
   },
   {
