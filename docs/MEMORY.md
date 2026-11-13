@@ -8,7 +8,7 @@ Last updated: 2026-11-13
 - Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
 - Phase 2 C, Milestones (D-95), merged as PR #85.
 - Connectors revamp (D-96) merged as PR #86.
-- OpenCode 1 and 2 (D-97) built on `feat/opencode-2`, PR open. Live on 2.3.0 and on a private 1.19.5 copy (its own data folder): models, a free-model task writing a file, recount (2.x with a sub-agent), the user's servers, key sign-in into an account folder (fake key). Raw ACP probes on both: one inline config, Code Mode off, tools called by name, a blocked server gone; on 2.x an MCP ask carries its input. Providers shows "version 2.3.0".
+- OpenCode 1 and 2 (D-97) built on `feat/opencode-2`, PR open. Live on 2.3.0 and on a private 1.19.5 copy (its own data folder): models, a free-model task writing a file, recount (2.x with a sub-agent), the user's servers, key sign-in into an account folder (fake key). Raw ACP probes on both: one inline config, Code Mode off, tools called by name, a blocked server gone; on 2.x an MCP ask carries its input. Providers shows "version 2.3.0". Mixed, in one process: Windows 2.3.0 and WSL Ubuntu 1.19.4 each list models with their own commands, and a WSL task ran.
 - Next: the public release steps in MODULES.md, on the owner's go-ahead.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in. OpenCode is 2.3.0 (npm `@opencode/cli`, replacing 1.19.5); the 1.x config, `auth.json` and `opencode.db` are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs: `Claude Code Auto Update`, `OpenCode 2 Auto Update` (`@opencode/cli@latest`), and the old `OpenCode Auto Update` (`opencode-ai`), which now fails with EEXIST.
 
@@ -16,7 +16,7 @@ Last updated: 2026-11-13
 
 Each item: how to reach it, what should happen.
 
-- D-97 in the app: an OpenCode agent on 2.x end to end (team tools, a plan from `todowrite`, Needs you asks with edits under Ask me first), a 1.x session resumed on 2.x, key sign-in from Add account, Install on a machine without OpenCode (should install `@opencode/cli`), a WSL agent whose distro has 1.x while Windows has 2.x. Wrong if any shows `execute` as a step or a user's blocked server reaches the agent.
+- D-97 in the app: an OpenCode agent on 2.x end to end (team tools, a plan from `todowrite`, Needs you asks with edits under Ask me first), a 1.x session resumed on 2.x, key sign-in from Add account, Install on a machine without OpenCode (should install `@opencode/cli`) . Wrong if any shows `execute` as a step or a user's blocked server reaches the agent.
 - D-97 sub-agents on 2.x always run in the background, so a turn may end before its sub-agent (as on Claude); only seen in a raw probe.
 - D-96 Codex app connected through ChatGPT: press Set up in Codex on an ask, connect the app on the ChatGPT page, come back. It should show with the Codex tag and the ask answer itself; wrong if Codex lists it only once the plugin is installed (then `plugin/install` with the remote id from `plugin/read`).
 - D-96 handover after a provider app is given mid-task: the agent should call `hand_over` and its new conversation have the app; wrong if it carries on without it or the handover waits in Needs you.
@@ -57,7 +57,7 @@ Worth a click when the area is touched:
 
 ## Owner requirements not yet built
 
-- OpenCode 2 follow-ups (D-97): Ask me first for OpenCode servers, now that 2.x asks carry the input (D-96 keeps Don't ask); its `question` tool through ACP form elicitation, so agents could ask in Needs you (now it tells the model it cannot ask); a second key for the same provider in one account is skipped by `auth import`.
+- OpenCode 2 follow-ups (D-97), measured 2026-11-13: native steering (`_session/steering`, would replace D-77's cancel and resend), sub-agent steps (`_meta.opencode/child-session-updates` in clientCapabilities), its `question` tool through ACP form elicitation (now it tells the model it cannot ask), Ask me first for OpenCode servers (asks carry input). Code Mode stays off: an ask inside a script names only `execute` and its script, so the core cannot apply an app's permission, and team tools would not show as steps; worth it only for chains of app calls, with our tool server kept direct and `execute` expanded from `rawOutput.metadata.toolCalls`. The background service saves about 1.8 s per side command but ignores an account's folder and leaves a process running; `acp` never uses it. A second key for one provider in an account is skipped by `auth import`. Already before D-97: an OpenCode session whose app list cannot be read leaves the user's servers on (blocking needs their names).
 
 - Recovery gaps (D-77): a lead that fails twice has no Needs you card; a message waiting on one long tool shows as sent; a message still waiting when a session ends is lost; a hung worker shows only as "last active N min ago"; results that end while a lead is stopped are not replayed on resume.
 - "Always allow this" rules from a Needs you ask, parked (D-57).
