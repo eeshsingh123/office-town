@@ -36,7 +36,7 @@ export const RELEASES: Release[] = [
       "A task's page starts with the prompt you sent",
       "In Tasks, assistant rows show the model and thinking level, and open tasks stay on top with the rest newest first",
       "A task shows the same status everywhere: in Tasks, on the Board, on Home and in its chat. Each status has its own icon and colour, with To review in violet",
-      "Mark a finished or stopped task done from its menu or from the soft green button above its message box. Send for review stays under the message box in every chat",
+      "Mark a finished or stopped task done from its menu or from the green Mark done above its message box. Send for review stays under the message box in every chat",
       "Send for review has a new layout: pick a reviewer, change its model in place, and open any number of checks or expand them all",
       "Templates has a Reviewers list with five starters: Code reviewer, Tester, UI tester, Security reviewer and Proofreader. A reviewer without its own model uses the agent's",
       'Every "…" menu now looks the same as the right-click menu, with an icon for each action',

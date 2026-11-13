@@ -1,29 +1,29 @@
-/* Same frame as the message box under it: width, padding and button height. */
+/* Same width, padding and height as the message box under it, but quieter: no fill, no shadow. */
 .bar {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
   padding: 6px 6px 6px 16px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  background: transparent;
 }
 
 .bar > button {
   flex: none;
 }
 
-/* Done's green, soft, so it does not outweigh the message box. */
+/* A primary button in the Done icon's green. */
 .done {
-  border-color: transparent;
-  background: var(--ok-soft);
-  color: var(--ok);
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--on-ok);
 }
 
 .done:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ok) 18%, var(--surface));
+  background: var(--ok);
+  filter: brightness(1.08);
 }
 
 .text {
@@ -36,7 +36,8 @@
 
 .text strong {
   overflow: hidden;
-  font-weight: 600;
+  font-weight: 500;
+  color: var(--text-2);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
