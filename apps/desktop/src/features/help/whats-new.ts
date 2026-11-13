@@ -27,6 +27,18 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-13",
+    title: "Sub-agents you can see",
+    icon: Bot,
+    changes: [
+      "A sub-agent an agent starts shows as a card in its work, with what it was asked, its steps and how long it has run. Open shows it in a side panel in Progress's place",
+      "Who works on this lists each agent's sub-agents, and an agent whose sub-agents still work reads \"Waiting on 1 sub-agent\" instead of done",
+      "A worker's result reaches its lead once, after its sub-agents finish, so their findings are no longer lost. The lead gets a short note meanwhile",
+      "An agent whose sub-agent works quietly is no longer stopped as idle",
+      "Where a provider shares only a sub-agent's prompt and result, the panel says so",
+    ],
+  },
+  {
+    date: "2026-11-13",
     title: "OpenCode 2",
     icon: PackageCheck,
     changes: [
