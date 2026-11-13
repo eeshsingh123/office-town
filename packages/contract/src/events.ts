@@ -78,6 +78,12 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
     agentId: z.string().min(1),
     outcome: z.enum(["done", "failed", "stopped"]),
   }),
+  // News of a piece still at work, such as a worker waiting on its sub-agents; never its result.
+  z.object({
+    kind: z.literal("interim"),
+    delegationId: z.string().min(1),
+    agentId: z.string().min(1),
+  }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
   // News such as a change to the agent's team.
