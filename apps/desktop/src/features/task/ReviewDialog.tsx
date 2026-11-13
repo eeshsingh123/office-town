@@ -1,5 +1,4 @@
-import type { HarnessDescription, NewAgent } from "@office-town/contract";
-import { Check, Info } from "lucide-react";
+import type { NewAgent } from "@office-town/contract";
 import { Dialog } from "radix-ui";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -17,18 +16,6 @@ import { modelLine } from "../profiles/model-name.ts";
 import styles from "./ReviewDialog.module.css";
 
 const SAME = "same";
-
-// From what its harness can keep out (D-41).
-function isolationLine(harness: HarnessDescription | undefined): string {
-  switch (harness?.capabilities.isolation) {
-    case "full":
-      return "Your instruction files, memory, plugins and connectors are not loaded.";
-    case "partial":
-      return harness.isolationNote ?? "Some of your own settings still load.";
-    default:
-      return "This provider loads your own settings.";
-  }
-}
 
 interface ReviewDialogProps {
   // The checker starts with this agent's harness, model and effort.
@@ -82,8 +69,6 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
   const { instructions: _, autonomy: __, ...settings } = agent.record.settings;
   const profile = templates.find((known) => known.id === reviewer);
   const modelsOf = useModels([settings, ...templates.map((known) => known.settings)]);
-  const chosenHarness = profile?.settings.harness ?? settings.harness;
-  const isolation = harnesses.find((known) => known.harness === chosenHarness);
   const choices = [
     {
       value: SAME,
@@ -150,14 +135,6 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
                 choices={choices}
                 onChange={setReviewer}
               />
-              <span className={styles.note}>
-                {isolation?.capabilities.isolation === "full" ? (
-                  <Check size={13} className={styles.ok} aria-hidden />
-                ) : (
-                  <Info size={13} aria-hidden />
-                )}
-                {isolationLine(isolation)}
-              </span>
             </div>
             {error === undefined ? null : (
               <p className={dialog.error} role="alert">

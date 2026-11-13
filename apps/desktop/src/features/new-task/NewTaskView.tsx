@@ -7,7 +7,7 @@ export function NewTaskView() {
     <section className={page.page} aria-labelledby="new-task-title">
       <div className={styles.centre}>
         <div className={styles.column}>
-          <h1 id="new-task-title" className={`${page.title} ${styles.title}`}>
+          <h1 id="new-task-title" className={page.title}>
             What do you need done?
           </h1>
           <Composer />

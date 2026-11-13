@@ -37,6 +37,7 @@ export const RELEASES: Release[] = [
       "In Tasks, assistant rows show the model and thinking level, open tasks stay on top with the rest newest first, and a finished task you haven't opened has a green dot",
       "OpenCode's model list shows each free model once, then your OpenCode Go plan, then each provider by name",
       'The task options chip now reads "Efficient & Milestones", and the Stop dialog says only what Stop does',
+      "Stopping an agent that had already finished its work now marks the task finished, not stopped",
     ],
   },
   {

@@ -73,6 +73,7 @@ import {
   deleteTask,
   resumeInTask,
   startTeamTask,
+  stopAgent,
   stopTeam,
 } from "../team/team-tasks.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
@@ -367,7 +368,7 @@ export function apiRoutes(
       method: "POST",
       path: "/sessions/:id/stop",
       reply: async ({ param }) => {
-        await registry.stop(param("id"));
+        await stopAgent(team, param("id"));
         return NO_CONTENT;
       },
     },
