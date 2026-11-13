@@ -129,14 +129,27 @@
   color: var(--text-2);
 }
 
-.firstUse {
+/* The chosen reviewer: what it does, and the model it runs on. */
+.chosen {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.chosenText {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+  color: var(--text-2);
 }
 
 .chips {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;

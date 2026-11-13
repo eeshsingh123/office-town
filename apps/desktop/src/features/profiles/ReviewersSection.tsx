@@ -1,26 +1,61 @@
 import type { ReviewerRecord } from "@office-town/contract";
-import { Eye, Plus } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
-import { useReviewers } from "../../store/reviewers.ts";
+import { deleteReviewer, saveReviewer, useReviewers } from "../../store/reviewers.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
+import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine } from "./model-name.ts";
 import { ReviewerDialog } from "./ReviewerDialog.tsx";
 import styles from "./Templates.module.css";
 
-export const NO_MODEL_YET = "Model picked at first use";
+// A search appears once the list is longer than this.
+const SEARCH_FROM = 8;
 
-// Saved reviewers sit beside the agent templates: each can review any task.
+// Saved reviewers sit beside the agent templates, one line each so a long list stays readable.
 export function ReviewersSection() {
   const harnesses = useApp((state) => state.harnesses);
   const reviewers = useReviewers();
   const all = reviewers ?? [];
   const modelsOf = useModels(all.flatMap((reviewer) => reviewer.settings ?? []));
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<{ reviewer: ReviewerRecord | undefined; key: number }>();
   const open = (reviewer: ReviewerRecord | undefined) =>
     setEditing({ reviewer, key: (editing?.key ?? 0) + 1 });
+
+  const words = query.trim().toLowerCase();
+  const shown =
+    words === ""
+      ? all
+      : all.filter((reviewer) =>
+          `${reviewer.name} ${reviewer.description}`.toLowerCase().includes(words),
+        );
+
+  const menuOf = (reviewer: ReviewerRecord) => ({
+    actions: [
+      { label: "Edit", icon: Pencil, run: () => open(reviewer) },
+      {
+        label: "Duplicate",
+        icon: Copy,
+        run: async () => {
+          const { id: _, createdAt: __, ...request } = reviewer;
+          await saveReviewer(undefined, { ...request, name: `${reviewer.name} copy` });
+        },
+      },
+      {
+        label: "Delete",
+        icon: Trash2,
+        danger: true,
+        run: async () => {
+          await deleteReviewer(reviewer.id);
+          showToast(`Deleted “${reviewer.name}”.`);
+        },
+      },
+    ],
+  });
 
   return (
     <section className={styles.section} aria-labelledby="reviewers-title">
@@ -29,48 +64,63 @@ export function ReviewersSection() {
           <h2 id="reviewers-title" className={styles.sectionTitle}>
             Reviewers
           </h2>
-          <p className={form.hint}>
-            {all.length === 1 ? "1 reviewer" : `${all.length} reviewers`}. Pick one when you send a
-            task for review.
-          </p>
+          {reviewers === undefined ? null : (
+            <p className={form.hint}>
+              {shown.length === all.length
+                ? `${all.length} ${all.length === 1 ? "reviewer" : "reviewers"}`
+                : `${shown.length} of ${all.length} reviewers`}
+            </p>
+          )}
         </div>
-        <Button variant="secondary" onClick={() => open(undefined)}>
-          <Plus size={14} aria-hidden />
-          New reviewer
-        </Button>
+        <div className={styles.headActions}>
+          {all.length > SEARCH_FROM ? (
+            <label className={styles.search}>
+              <Search size={14} aria-hidden />
+              <input
+                type="search"
+                value={query}
+                placeholder="Search reviewers"
+                aria-label="Search reviewers"
+                onChange={(change) => setQuery(change.target.value)}
+              />
+            </label>
+          ) : null}
+          <Button variant="secondary" onClick={() => open(undefined)}>
+            <Plus size={14} aria-hidden />
+            New reviewer
+          </Button>
+        </div>
       </div>
-      {reviewers === undefined ? (
-        <p className={form.hint}>Loading reviewers…</p>
-      ) : all.length === 0 ? (
+      {reviewers === undefined ? null : all.length === 0 ? (
         <div className={styles.empty}>
           <strong>No reviewers yet</strong>
-          <p className={form.hint}>A reviewer checks a finished task the way you set it up.</p>
+        </div>
+      ) : shown.length === 0 ? (
+        <div className={styles.empty}>
+          <strong>No reviewers match</strong>
         </div>
       ) : (
-        <ul className={styles.grid} aria-label="Reviewers">
-          {all.map((reviewer) => (
-            <li key={reviewer.id} className={styles.card}>
+        <ul className={styles.reviewerList} aria-label="Reviewers">
+          {shown.map((reviewer) => (
+            <li key={reviewer.id} className={styles.reviewerRow}>
               <button
                 type="button"
-                className={styles.cardBody}
+                className={styles.reviewerOpen}
                 aria-label={`Edit ${reviewer.name}`}
                 onClick={() => open(reviewer)}
               >
-                <span className={styles.cardTop}>
-                  <span className={styles.reviewerIcon}>
-                    <Eye size={16} aria-hidden />
-                  </span>
-                  <span className={styles.cardText}>
-                    <strong>{reviewer.name}</strong>
-                    <span className={styles.job}>{reviewer.description}</span>
-                  </span>
+                <span className={styles.reviewerIcon}>
+                  <Eye size={15} aria-hidden />
                 </span>
-                <span className={styles.overview}>
+                <strong className={styles.reviewerName}>{reviewer.name}</strong>
+                <span className={styles.reviewerJob}>{reviewer.description}</span>
+                <span className={styles.reviewerModel}>
                   {reviewer.settings === undefined
-                    ? NO_MODEL_YET
+                    ? "Same as the agent"
                     : modelLine(reviewer.settings, harnesses, modelsOf(reviewer.settings))}
                 </span>
               </button>
+              <MoreMenu menu={() => menuOf(reviewer)} label={`More for ${reviewer.name}`} />
             </li>
           ))}
         </ul>

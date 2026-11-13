@@ -10,6 +10,7 @@ export type ChipSettings = RoleSettings;
 interface SettingsChipsProps {
   value: ChipSettings;
   onChange: (next: ChipSettings) => void;
+  placeholder?: string | undefined;
 }
 
 const AUTOMATIC = "~automatic";
@@ -64,10 +65,16 @@ function AccountChip({
   );
 }
 
-export function SettingsChips({ value, onChange }: SettingsChipsProps) {
+export function SettingsChips({ value, onChange, placeholder }: SettingsChipsProps) {
   return (
     <>
-      <ModelChip value={value} recent={[]} onChange={onChange} triggerClassName={menu.chip} />
+      <ModelChip
+        value={value}
+        recent={[]}
+        onChange={onChange}
+        triggerClassName={menu.chip}
+        placeholder={placeholder}
+      />
       <AccountChip value={value} onChange={onChange} />
     </>
   );

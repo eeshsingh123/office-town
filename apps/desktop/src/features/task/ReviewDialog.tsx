@@ -14,7 +14,6 @@ import dialog from "../../ui/Dialog.module.css";
 import { useModels } from "../profiles/model-line.ts";
 import { modelLine } from "../profiles/model-name.ts";
 import { ReviewerDialog } from "../profiles/ReviewerDialog.tsx";
-import { NO_MODEL_YET } from "../profiles/ReviewersSection.tsx";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import styles from "./ReviewDialog.module.css";
 
@@ -30,62 +29,73 @@ interface ReviewDialogProps {
 }
 
 // What the reviewer starts from: the approved list, else the agent's checklist, else nothing (D-73).
+// Any number of checks open at once; Expand all opens or closes them together.
 function WhatToCheck({ agent }: { agent: Agent }) {
   const checks = useChecks(agent.taskId);
   const approved = approvedList(checks, agent.task);
   const written = agent.task.checklist;
   const items = approved?.items ?? (written?.agentId === agent.id ? written.items : []);
   const [shown, setShown] = useState(false);
-  const [opened, setOpened] = useState<number>();
+  const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
   if (items.length === 0) {
     return (
-      <p className={styles.hint}>
-        {agent.name} wrote no checklist, so the reviewer writes one. You approve it before it runs.
-      </p>
+      <p className={styles.hint}>No checklist yet. The reviewer writes one for you to approve.</p>
     );
   }
+  const allOpen = opened.size === items.length;
+  const toggle = (index: number) => {
+    const next = new Set(opened);
+    if (!next.delete(index)) next.add(index);
+    setOpened(next);
+  };
   return (
     <div className={styles.checks}>
       <div className={styles.fold}>
         <ListChecks size={16} aria-hidden />
         <span className={styles.foldText}>
           {items.length === 1 ? "1 check" : `${items.length} checks`}
-          <span>
-            {approved === undefined
-              ? " · the reviewer adds tricky cases, you approve the list"
-              : ` · approved, run again in round ${approved.round + 1}`}
-          </span>
+          {approved === undefined ? null : <span> · approved in round {approved.round}</span>}
         </span>
+        {shown && items.length > 1 ? (
+          <button
+            type="button"
+            className={styles.link}
+            onClick={() => setOpened(allOpen ? new Set() : new Set(items.keys()))}
+          >
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+        ) : null}
         <button type="button" className={styles.link} onClick={() => setShown(!shown)}>
           {shown ? "Hide" : "Show"}
         </button>
       </div>
       {shown ? (
         <ul className={styles.list}>
-          {items.map((item, index) => (
-            <li key={item.check} className={styles.check}>
-              <button
-                type="button"
-                className={styles.checkRow}
-                aria-expanded={opened === index}
-                onClick={() => setOpened(opened === index ? undefined : index)}
-              >
-                <ChevronRight
-                  size={14}
-                  aria-hidden
-                  className={opened === index ? styles.turned : undefined}
-                />
-                <span className={opened === index ? styles.whole : styles.oneLine}>
-                  {item.check}
-                </span>
-              </button>
-              {opened === index ? (
-                <p className={styles.expected}>
-                  <b>Expected</b> {item.expected}
-                </p>
-              ) : null}
-            </li>
-          ))}
+          {items.map((item, index) => {
+            const open = opened.has(index);
+            return (
+              <li key={item.check} className={styles.check}>
+                <button
+                  type="button"
+                  className={styles.checkRow}
+                  aria-expanded={open}
+                  onClick={() => toggle(index)}
+                >
+                  <ChevronRight
+                    size={14}
+                    aria-hidden
+                    className={open ? styles.turned : undefined}
+                  />
+                  <span className={open ? styles.whole : styles.oneLine}>{item.check}</span>
+                </button>
+                {open ? (
+                  <p className={styles.expected}>
+                    <b>Expected</b> {item.expected}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>
@@ -104,16 +114,19 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
 
   const { instructions: _, autonomy: __, ...own } = agent.record.settings;
   const chosen = reviewers.find((known) => known.id === chosenId);
-  // A starter's model, picked here at its first use; it starts from the agent's.
-  const [picked, setPicked] = useState<RoleSettings>(own);
-  const modelsOf = useModels([own, ...reviewers.flatMap((known) => known.settings ?? [])]);
+  // Models changed here, saved to the reviewer when the check starts. A reviewer without a model
+  // starts from the agent's.
+  const [changed, setChanged] = useState<Record<string, RoleSettings>>({});
+  const settingsOf = (reviewer: ReviewerRecord) => changed[reviewer.id] ?? reviewer.settings ?? own;
+  const modelsOf = useModels([own, ...reviewers.map(settingsOf)]);
   const lineOf = (settings: RoleSettings) => modelLine(settings, harnesses, modelsOf(settings));
 
   const reviewerSettings = async (reviewer: ReviewerRecord): Promise<RoleSettings> => {
-    if (reviewer.settings !== undefined) return reviewer.settings;
+    const settings = settingsOf(reviewer);
+    if (reviewer.settings !== undefined && changed[reviewer.id] === undefined) return settings;
     const { id, createdAt: _at, ...request } = reviewer;
-    await saveReviewer(id, { ...request, settings: picked });
-    return picked;
+    await saveReviewer(id, { ...request, settings });
+    return settings;
   };
 
   const submit = async (event: FormEvent) => {
@@ -160,26 +173,17 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className={dialog.overlay} />
-        <Dialog.Content className={`${dialog.content} ${styles.content}`}>
+        <Dialog.Content
+          className={`${dialog.content} ${styles.content}`}
+          aria-describedby={undefined}
+        >
           <form onSubmit={submit} className={styles.form}>
             <div className={styles.head}>
               <Dialog.Title className={dialog.title}>Send for review</Dialog.Title>
-              <Dialog.Description className={styles.hint}>
-                A reviewer agent tests {agent.name}'s work on a temporary copy of the folder. Your
-                files are not changed.
-              </Dialog.Description>
-              <span id="review-reviewer" className={`${styles.label} ${styles.reviewerLabel}`}>
-                Reviewer
-              </span>
+              <span className={`${styles.label} ${styles.reviewerLabel}`}>Reviewer</span>
               <div className={styles.picks}>
                 {pick(SAME, `Same as ${agent.name}`, lineOf(own))}
-                {reviewers.map((known) =>
-                  pick(
-                    known.id,
-                    known.name,
-                    known.settings === undefined ? NO_MODEL_YET : lineOf(known.settings),
-                  ),
-                )}
+                {reviewers.map((known) => pick(known.id, known.name, lineOf(settingsOf(known))))}
                 <button
                   type="button"
                   className={`${styles.pick} ${styles.newPick}`}
@@ -189,14 +193,19 @@ export function ReviewDialog({ agent, open, onOpenChange, onStarted }: ReviewDia
                   New reviewer
                 </button>
               </div>
-              {chosen !== undefined && chosen.settings === undefined ? (
-                <div className={styles.firstUse}>
-                  <span className={styles.hint}>Model for {chosen.name}, kept for next time</span>
+              {chosen === undefined ? null : (
+                <div className={styles.chosen}>
+                  <span className={styles.chosenText}>
+                    {chosen.description === "" ? chosen.name : chosen.description}
+                  </span>
                   <div className={styles.chips}>
-                    <SettingsChips value={picked} onChange={setPicked} />
+                    <SettingsChips
+                      value={settingsOf(chosen)}
+                      onChange={(next) => setChanged({ ...changed, [chosen.id]: next })}
+                    />
                   </div>
                 </div>
-              ) : null}
+              )}
             </div>
             <div className={styles.middle}>
               <span className={styles.label}>What to check</span>

@@ -250,28 +250,28 @@ const NEVER_EDIT =
 // The starters have no model: the user picks one when first sending work to each.
 const STARTER_REVIEWERS: [string, string, string][] = [
   [
-    "Code review",
-    "Reads the changes for bugs, unclear code and missing edge cases.",
+    "Code reviewer",
+    "Finds bugs, edge cases and unclear code in the changes.",
     `Read the changes and run the checklist. Look for bugs, unclear names, missing error handling and edge cases the checklist does not cover. ${NEVER_EDIT}`,
   ],
   [
-    "Run the tests",
-    "Runs the project's build and tests, then reports each failure.",
+    "Tester",
+    "Runs the build and tests, and reports each failure.",
     `Find how the project builds and tests, run both, and report each failure with its output. Then run the checklist. ${NEVER_EDIT}`,
   ],
   [
-    "UI check in the browser",
-    "Opens the app in a browser and walks through each screen.",
+    "UI tester",
+    "Uses the app in a browser at desktop and phone sizes.",
     `Start the app, open it in a browser and walk through every screen the work touched, at desktop and phone widths. Report broken layouts, console errors and steps that do not work. ${NEVER_EDIT}`,
   ],
   [
-    "Security pass",
-    "Looks for exposed secrets, unsafe input handling and risky packages.",
+    "Security reviewer",
+    "Looks for leaked secrets, unsafe input and risky packages.",
     `Look for exposed secrets, unchecked input, injection, unsafe file or shell use, and new packages with known problems. Rate each finding high, medium or low. ${NEVER_EDIT}`,
   ],
   [
-    "Proofread",
-    "Checks wording, spelling and tone in text and documents.",
+    "Proofreader",
+    "Checks spelling, grammar and tone.",
     `Read every text, document and interface label the work changed. Report spelling, grammar, unclear wording and tone that does not fit. ${NEVER_EDIT}`,
   ],
 ];
@@ -296,6 +296,49 @@ function addReviewers(db: DatabaseSync): void {
   STARTER_REVIEWERS.forEach(([name, description, instructions], index) => {
     insert.run(randomUUID(), name, description, instructions, now + index);
   });
+}
+
+// Starters made by a pre-release build of D-101 take their released names, unless edited.
+const STARTER_RENAMES: [string, string, string, string][] = [
+  [
+    "Code review",
+    "Reads the changes for bugs, unclear code and missing edge cases.",
+    "Code reviewer",
+    "Finds bugs, edge cases and unclear code in the changes.",
+  ],
+  [
+    "Run the tests",
+    "Runs the project's build and tests, then reports each failure.",
+    "Tester",
+    "Runs the build and tests, and reports each failure.",
+  ],
+  [
+    "UI check in the browser",
+    "Opens the app in a browser and walks through each screen.",
+    "UI tester",
+    "Uses the app in a browser at desktop and phone sizes.",
+  ],
+  [
+    "Security pass",
+    "Looks for exposed secrets, unsafe input handling and risky packages.",
+    "Security reviewer",
+    "Looks for leaked secrets, unsafe input and risky packages.",
+  ],
+  [
+    "Proofread",
+    "Checks wording, spelling and tone in text and documents.",
+    "Proofreader",
+    "Checks spelling, grammar and tone.",
+  ],
+];
+
+function renameStarterReviewers(db: DatabaseSync): void {
+  const rename = db.prepare(
+    "UPDATE reviewers SET name = ?, description = ? WHERE name = ? AND description = ?",
+  );
+  for (const [oldName, oldDescription, name, description] of STARTER_RENAMES) {
+    rename.run(name, description, oldName, oldDescription);
+  }
 }
 
 function addMilestones(db: DatabaseSync): void {
@@ -829,4 +872,5 @@ export const migrations: readonly Migration[] = [
   addTaskEfficient,
   addMilestones,
   addReviewers,
+  renameStarterReviewers,
 ];

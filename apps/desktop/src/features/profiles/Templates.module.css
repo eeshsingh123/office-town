@@ -391,15 +391,93 @@
   font-weight: 700;
 }
 
+.reviewerList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.reviewerRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+}
+
+.reviewerRow + .reviewerRow {
+  border-top: 1px solid var(--border);
+}
+
+.reviewerRow:hover {
+  background: var(--hover);
+}
+
+.reviewerRow:first-child {
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.reviewerRow:last-child {
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+/* Name, what it does, and its model: one line per reviewer. */
+.reviewerOpen {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 30px 180px minmax(0, 1fr) 220px;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px 6px 12px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
 .reviewerIcon {
   display: grid;
-  flex: none;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent-text);
+}
+
+.reviewerName,
+.reviewerJob,
+.reviewerModel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.reviewerName {
+  font-weight: 600;
+}
+
+.reviewerJob {
+  color: var(--text-2);
+}
+
+.reviewerModel {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+@media (max-width: 760px) {
+  .reviewerOpen {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .reviewerJob,
+  .reviewerModel {
+    display: none;
+  }
 }
 
 .deleteAction {

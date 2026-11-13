@@ -23,7 +23,7 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
   const [name, setName] = useState(reviewer?.name ?? "");
   const [description, setDescription] = useState(reviewer?.description ?? "");
   const [instructions, setInstructions] = useState(reviewer?.instructions ?? "");
-  // None until picked: the starters get theirs at first use.
+  // None runs the reviewer on the reviewed agent's model.
   const [settings, setSettings] = useState<RoleSettings | undefined>(reviewer?.settings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -63,13 +63,13 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className={dialog.overlay} />
-        <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
+        <Dialog.Content
+          className={`${dialog.content} ${styles.dialog}`}
+          aria-describedby={undefined}
+        >
           <Dialog.Title className={dialog.title}>
             {reviewer === undefined ? "New reviewer" : "Edit reviewer"}
           </Dialog.Title>
-          <Dialog.Description className={dialog.description}>
-            Works on any task you send for review.
-          </Dialog.Description>
           <form className={form.form} onSubmit={save}>
             <label className={form.field} htmlFor="reviewer-name">
               <span className={form.label}>Name</span>
@@ -78,17 +78,17 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
                 className={form.input}
                 value={name}
                 required
-                placeholder="For example: Accessibility check"
+                placeholder="Accessibility reviewer"
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
             <label className={form.field} htmlFor="reviewer-description">
-              <span className={form.label}>What it looks for</span>
+              <span className={form.label}>Description</span>
               <input
                 id="reviewer-description"
                 className={form.input}
                 value={description}
-                placeholder="For example: Keyboard use, contrast and screen reader labels"
+                placeholder="Checks keyboard use, contrast and labels"
                 onChange={(event) => setDescription(event.target.value)}
               />
             </label>
@@ -105,26 +105,18 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
             </label>
             <div className={form.field}>
               <span className={form.label}>Model</span>
-              {settings === undefined ? (
-                <div className={form.row}>
-                  <span className={form.hint}>Picked the first time you send work to it.</span>
-                  <Button
-                    variant="secondary"
-                    onClick={() =>
-                      setSettings({
-                        harness: harnesses[0]?.harness ?? "claude",
-                        environment: { kind: "native" },
-                      })
+              <div className={form.row}>
+                <SettingsChips
+                  value={
+                    settings ?? {
+                      harness: harnesses[0]?.harness ?? "claude",
+                      environment: { kind: "native" },
                     }
-                  >
-                    Choose a model
-                  </Button>
-                </div>
-              ) : (
-                <div className={form.row}>
-                  <SettingsChips value={settings} onChange={setSettings} />
-                </div>
-              )}
+                  }
+                  onChange={setSettings}
+                  placeholder={settings === undefined ? "Same as the agent" : undefined}
+                />
+              </div>
             </div>
             {error === undefined ? null : (
               <p className={form.error} role="alert">
