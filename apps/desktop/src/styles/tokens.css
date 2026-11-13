@@ -22,6 +22,8 @@
   --on-attention: light-dark(#ffffff, #2a1a0a);
   --ok: light-dark(#4f7a46, #9dbb93);
   --ok-soft: light-dark(#e5eee2, #243021);
+  /* Finished work waiting for the user's review: apart from Done's green. */
+  --review: light-dark(#76599a, #b9a2d6);
   --bad: light-dark(#a5473a, #df9286);
   --code: light-dark(#f1eee9, #211f1e);
   --floor: light-dark(#efece6, #201f1d);

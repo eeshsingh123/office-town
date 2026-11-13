@@ -10,6 +10,10 @@
   color: var(--ok);
 }
 
+.review {
+  color: var(--review);
+}
+
 .bad {
   color: var(--bad);
 }
