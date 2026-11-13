@@ -79,8 +79,10 @@ const parentOf = (parentActionId: string | undefined) =>
 
 const childOf = (meta: ToolCall["_meta"]) => meta?.["opencode/child-session"];
 
+const CHILD_STREAM = "child:";
+
 const streamOf = (child: ChildSession | undefined) =>
-  child === undefined ? "" : `child:${child.id}`;
+  child === undefined ? "" : `${CHILD_STREAM}${child.id}`;
 
 // OpenCode 2 titles a sub-agent's tool calls with the sub-agent's title first.
 function ownTitle(call: ToolCall, child: ChildSession | undefined): ToolCall {
@@ -192,6 +194,8 @@ export class AcpTranslator implements Translator {
   // A background sub-agent's call stays open until the sub-agent ends, as on Claude.
   readonly #working = new Map<string, string>();
   readonly #endedChildren = new Set<string>();
+  // Each sub-agent's last message, which is its result.
+  readonly #childReplies = new Map<string, string>();
   #delegations: Array<{ actionId: string; description: string }> = [];
   // Steps inside a sub-agent or a script, which are not the conversation's own.
   readonly #nested = new Set<string>();
@@ -359,8 +363,9 @@ export class AcpTranslator implements Translator {
     return [this.#peer.notify("session/cancel", { sessionId: this.#sessionId })];
   }
 
-  // Taken into the turn, it counts as taken; otherwise it waits for the turn to end. A turn that
-  // ended meanwhile may not have read it, so it goes out again rather than be lost.
+  // Taken into the turn, it counts as taken; otherwise it waits for the turn to end. If the turn
+  // ended meanwhile, OpenCode keeps the steer for its next prompt, so sending it again may show it
+  // twice; without a prompt it would wait unread until the user's next message.
   #steeringAnswered(injected: boolean): Translation {
     const prompt = this.#steeringPrompt;
     this.#steering = undefined;
@@ -654,7 +659,7 @@ export class AcpTranslator implements Translator {
     }
     this.#working.delete(child.id);
     const outcome = report.status === "completed" ? "completed" : "failed";
-    const result = `The sub-agent ${report.status}.`;
+    const result = this.#replyOf(child.id) ?? `The sub-agent ${report.status}.`;
     return [...events, { type: "action.ended", payload: { actionId, outcome, result } }];
   }
 
@@ -733,6 +738,12 @@ export class AcpTranslator implements Translator {
     return [...events, ...delta];
   }
 
+  #replyOf(childSessionId: string): string | undefined {
+    const reply = this.#childReplies.get(childSessionId);
+    this.#childReplies.delete(childSessionId);
+    return reply;
+  }
+
   // One session's text, or every session's when none is named.
   #flush(stream?: string): AdapterEvent[] {
     const keys = stream === undefined ? [...this.#streams.keys()] : [stream];
@@ -740,6 +751,9 @@ export class AcpTranslator implements Translator {
       const flushed = this.#streams.get(key);
       this.#streams.delete(key);
       if (flushed === undefined || flushed.text === "") return [];
+      if (key.startsWith(CHILD_STREAM) && flushed.type === "message") {
+        this.#childReplies.set(key.slice(CHILD_STREAM.length), flushed.text);
+      }
       const parent = parentOf(flushed.parentActionId);
       return flushed.type === "message"
         ? [{ type: "message", payload: { role: "assistant", text: flushed.text, ...parent } }]
@@ -785,9 +799,10 @@ export class AcpTranslator implements Translator {
         return events;
       }
       const outcome = state.status;
+      const reply = child === undefined ? undefined : this.#replyOf(child.sessionID);
       events.push(...this.#scriptEnded(call.toolCallId), {
         type: "action.ended",
-        payload: { actionId: call.toolCallId, outcome, result: output },
+        payload: { actionId: call.toolCallId, outcome, result: reply ?? output },
       });
     } else if (output !== "" && output !== state.output) {
       state.output = output;
