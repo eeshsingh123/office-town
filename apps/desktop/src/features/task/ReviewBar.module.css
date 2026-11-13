@@ -14,15 +14,15 @@
   flex: none;
 }
 
-/* A primary button in the Done icon's green. */
+/* A filled button in Done's green, lighter in light mode so it stays quiet. */
 .done {
-  border-color: var(--ok);
-  background: var(--ok);
+  border-color: var(--ok-fill);
+  background: var(--ok-fill);
   color: var(--on-ok);
 }
 
 .done:hover:not(:disabled) {
-  background: var(--ok);
+  background: var(--ok-fill);
   filter: brightness(1.08);
 }
 
