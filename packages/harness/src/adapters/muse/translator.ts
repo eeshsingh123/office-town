@@ -487,7 +487,10 @@ export class MuseTranslator implements Translator {
           actionId: item.itemId,
           kind: delegate ? "delegate" : kindOf(item.tool ?? ""),
           title,
-          input: argsOf(item.args),
+          // A sub-agent's prompt is its objective, kept apart from its arguments.
+          input: delegate
+            ? { objective: item.objective, role: item.role, ...(argsOf(item.args) as object) }
+            : argsOf(item.args),
           ...(tool === undefined ? {} : { tool }),
         },
       },

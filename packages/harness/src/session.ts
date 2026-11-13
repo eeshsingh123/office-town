@@ -14,6 +14,7 @@ import type {
   SessionEvent,
   SessionEventBody,
   SessionOptions,
+  SubAgentSupport,
 } from "@office-town/contract";
 import type {
   Adapter,
@@ -107,6 +108,7 @@ export class HarnessSession implements Session {
   readonly #environment: Environment;
   // Replaced at start by the installed release's, which may speak differently (D-98).
   #translator: Translator;
+  #subAgents: SubAgentSupport;
   readonly #listeners = new Set<SessionListener>();
   readonly #lineListeners = new Set<LineListener>();
   readonly #pendingPermissions = new Map<string, PermissionOption[]>();
@@ -154,6 +156,7 @@ export class HarnessSession implements Session {
     this.#environment = environment;
     this.#translator = adapter.createTranslator(this.#options);
     this.capabilities = adapter.capabilities;
+    this.#subAgents = adapter.capabilities.subAgents;
   }
 
   subscribe(listener: SessionListener): () => void {
@@ -280,6 +283,8 @@ export class HarnessSession implements Session {
     );
     const launch = await this.#withAppsBlocked(adapter);
     this.#translator = adapter.createTranslator(launch);
+    // What the installed release shares, which may differ from the harness's first one (D-97).
+    this.#subAgents = adapter.capabilities.subAgents;
     const request = { ...adapter.buildCommand(launch), cwd: this.#options.workspacePath };
     try {
       this.#process = await runProcess(this.#environment, request, {
@@ -424,7 +429,7 @@ export class HarnessSession implements Session {
       case "session.started":
         this.#emit({
           ...event,
-          payload: { ...event.payload, subAgents: this.capabilities.subAgents },
+          payload: { ...event.payload, subAgents: this.#subAgents },
         });
         break;
       case "plan.updated":

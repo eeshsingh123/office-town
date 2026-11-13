@@ -813,7 +813,8 @@ export class AcpTranslator implements Translator {
         payload: {
           actionId: call.toolCallId,
           kind: kindOf(call),
-          title,
+          // A sub-agent is named by what it was given, not by the tool that started it.
+          title: typeof description === "string" && description !== "" ? description : title,
           input: call.rawInput ?? {},
           ...(call.locations?.length ? { locations: call.locations.map((l) => l.path) } : {}),
           ...(tool === undefined ? {} : { tool }),
