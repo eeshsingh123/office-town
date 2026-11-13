@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-13
+Last updated: 2026-11-14
 
 ## State
 
@@ -8,15 +8,16 @@ Last updated: 2026-11-13
 - Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
 - Phase 2 C, Milestones (D-95), merged as PR #85.
 - Connectors revamp (D-96) merged as PR #86.
-- OpenCode 1 and 2 (D-97) built on `feat/opencode-2`, PR open. Live on 2.3.0 and on a private 1.19.5 copy (its own data folder): models, a free-model task writing a file, recount (2.x with a sub-agent), the user's servers, key sign-in into an account folder (fake key). Raw ACP probes on both: one inline config, Code Mode off, tools called by name, a blocked server gone; on 2.x an MCP ask carries its input. Providers shows "version 2.3.0". Mixed, in one process: Windows 2.3.0 and WSL Ubuntu 1.19.4 each list models with their own commands, and a WSL task ran.
-- What OpenCode 2 adds (D-98), on the same branch and PR. Live on 2.3.0 through the harness with a notes app as team server and shared app: a Code Mode script with both app calls nested and the team tool direct, a message steered into the turn, a `question` answered, a background sub-agent's glob, read and reply nested with its call open past the turn, an OpenCode server ask under Ask me first naming the app with its input. Live on 1.19.5: no steering, no questions, no Code Mode, team tool as before.
-- Sub-agents you can see (D-99), on the same branch and PR: one tracker of open sub-agents, one report per piece with an interim note to the lead, idle stop waiting, the "Waiting on N sub-agents" state, the card, team tree rows, side panel and office chip. Live, a lead and a worker each time: Claude haiku 4 runs (heads-up once, one result after Claude's own wake turn, 91 s and 158 s of quiet with `--idle-after 60` and no stop, panel live in dark and light); OpenCode 2 on `opencode-go/deepseek-v4.1-flash` (heads-up, the core's notice, one result, 100 s quiet with no stop).
+- OpenCode 1 and 2 (D-97), what OpenCode 2 adds (D-98) and sub-agents you can see (D-99) merged as PR #87.
+- Audit round 1 (owner's fix list, 2026-11-14) on `fix/audit-round-1`, PR open: Manual and Auto, Stop wording, the "Efficient & Milestones" chip, model picker (a free model once, plan and providers by name), New task mid-page with one-line chips and sample prompts, the prompt first on a task page, Tasks rows (model and thinking, open on top then newest, green when finished), app tags (D-100). Checked live in browser mode on a smoke data copy. More fixes follow in later sessions: understand each fully, ask, fix without breaking, one sanity check.
 - Next: the public release steps in MODULES.md, on the owner's go-ahead.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in. OpenCode is 2.3.0 (npm `@opencode/cli`, replacing 1.19.5); the 1.x config, `auth.json` and `opencode.db` are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs: `Claude Code Auto Update`, `OpenCode 2 Auto Update` (`@opencode/cli@latest`), and the old `OpenCode Auto Update` (`opencode-ai`), which now fails with EEXIST.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
+
+- Audit round 1: an Assistants row in Tasks (by team) should read the model and thinking, such as "MiMo-V2.6 Flash · High", with no "Assistant ·"; the smoke data had team tasks only. App tags in a task's message box and a lead's chat: `@` should list Apps, the tag show its logo with the caret on the text, and the sent message show the tag with its logo (only New task ran). New task in a window under about 900 px: chips should wrap into whole rows, Start at the right. Samples and tags in light mode.
 
 - D-97 in the app: an OpenCode agent on 2.x end to end (team tools, a plan from `todowrite`, Needs you asks with edits under Ask me first), a 1.x session resumed on 2.x, key sign-in from Add account, Install on a machine without OpenCode (should install `@opencode/cli`). Wrong if any shows `execute` as a step or a user's blocked server reaches the agent.
 - D-98 in the app: an OpenCode 2 agent with a shared app (a Code Mode script should show its app calls nested, and an Ask me first app's change wait in Needs you), a message sent mid-turn (should be taken at the next tool end without the turn restarting), a `question` in Needs you, a sub-agent nested in the trace. Wrong if the lead's team tools show inside an `execute` script, or a sub-agent's call never ends.
