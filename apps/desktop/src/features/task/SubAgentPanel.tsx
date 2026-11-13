@@ -110,10 +110,8 @@ function Panel({
             <Avatar name={agent.name} colour={agent.colour} size={18} />
           )}
           <span>{name}</span>
-          {started.length === 0 ? null : (
-            <span className={styles.meta}>· {started.join(" · ")}</span>
-          )}
         </div>
+        {started.length === 0 ? null : <span className={styles.meta}>{started.join(" · ")}</span>}
         <span className={running ? styles.live : styles.meta}>
           {running ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
           {statusLine(action, now, place.live)}

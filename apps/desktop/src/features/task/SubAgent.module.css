@@ -175,14 +175,15 @@
 
 .foot {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
   padding: 16px 16px 20px 20px;
   border-top: 1px solid var(--border);
 }
 
 .footNote {
-  flex: 1;
+  line-height: 1.5;
   color: var(--text-3);
   font-size: var(--size-meta);
 }
