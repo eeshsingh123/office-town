@@ -79,6 +79,7 @@ function itemOf(message: TraceMessage, files: FileUse[] | undefined): ChatItem |
     case "message":
       return { kind: "passed", id, text, at, brief: false, from: origin.from, ...given };
     case "notice":
+    case "interim":
       return { kind: "notice", id, text: origin.summary };
     case "handover":
       return { kind: "notice", id, text: CONTINUED_LINE };

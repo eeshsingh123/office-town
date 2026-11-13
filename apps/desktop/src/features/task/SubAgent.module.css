@@ -1,0 +1,254 @@
+/* A sub-agent: its card in the trace and the panel that stands in for Progress. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.cardLive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cardHead,
+.cardFoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cardTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardPrompt {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardMeta {
+  flex: 1;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open {
+  flex: none;
+}
+
+.accent {
+  flex: none;
+  color: var(--accent);
+}
+
+.meta {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 16px 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.headLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  color: var(--text-3);
+  font-size: var(--size-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.by {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--size-meta);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  padding: 20px 16px 24px 20px;
+  overflow-y: auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.prompt,
+.result {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--code);
+  font-size: var(--size-meta);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.prompt {
+  white-space: pre-wrap;
+}
+
+.clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 16px 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.footNote {
+  line-height: 1.5;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+/* "Who works on this": an agent's sub-agents, indented under it. */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 6px 36px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--size-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+.rowChosen,
+.rowChosen:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowTime {
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ok {
+  flex: none;
+  color: var(--ok);
+}
+
+.bad {
+  flex: none;
+  color: var(--bad);
+}
+
+.quietIcon {
+  flex: none;
+  color: var(--text-3);
+}

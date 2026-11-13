@@ -5,6 +5,7 @@ import { api } from "../../api/client.ts";
 import { agentOf, stateOf } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, SETTINGS_SHAPE, shaped, useDraft } from "../../store/drafts.ts";
+import { isBusy } from "../../trace/progress.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
@@ -70,7 +71,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
       ({ event }) => event.sessionId === current.latest.id,
     );
     const now = stateOf(current, state.traces, asking);
-    return now === "starting" || now === "working" || now === "waiting";
+    return isBusy(now) || now === "waiting";
   });
   const you = useYou();
   const leads = department?.leadAgentId === agent.id;

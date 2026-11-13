@@ -92,7 +92,10 @@ function expectFragmentsToAddUp(events: SessionEvent[]): void {
     if (event.type === "message.delta" || event.type === "reasoning.delta") {
       const key = `${event.type.replace(".delta", "")}:${event.payload.parentActionId}`;
       streamed.set(key, (streamed.get(key) ?? "") + event.payload.text);
-    } else if (event.type === "message" || event.type === "reasoning") {
+    } else if (
+      (event.type === "message" && event.payload.role === "assistant") ||
+      event.type === "reasoning"
+    ) {
       const key = `${event.type}:${event.payload.parentActionId}`;
       if (streamed.has(key)) expect(streamed.get(key)).toBe(event.payload.text);
       streamed.delete(key);

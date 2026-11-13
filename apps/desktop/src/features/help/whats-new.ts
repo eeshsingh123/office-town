@@ -26,6 +26,31 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-13",
+    title: "Sub-agents you can see",
+    icon: Bot,
+    changes: [
+      "A sub-agent an agent starts shows as a card in its work, with what it was asked, its steps and how long it has run. Open shows it in a side panel in Progress's place",
+      'Who works on this lists each agent\'s sub-agents, and an agent whose sub-agents still work reads "Waiting on 1 sub-agent" instead of done',
+      "A worker's result reaches its lead once, after its sub-agents finish, so their findings are no longer lost. The lead gets a short note meanwhile",
+      "When a sub-agent finishes after its agent's turn, the agent takes in what it found and carries on, on every provider",
+      "An agent whose sub-agent works quietly is no longer stopped as idle",
+      "Where a provider shares only a sub-agent's prompt and result, the panel says so",
+    ],
+  },
+  {
+    date: "2026-11-13",
+    title: "OpenCode 2",
+    icon: PackageCheck,
+    changes: [
+      "Office Town works with OpenCode 1 and OpenCode 2, using whichever is installed. Providers shows its version, and installing OpenCode now installs OpenCode 2",
+      "On OpenCode 2, a message you send while an agent works goes into its current turn instead of restarting it",
+      "On OpenCode 2, agents can ask you questions, which wait in Needs you, and their sub-agents' steps show inside the step that started them",
+      "On OpenCode 2, team tools and your own OpenCode servers are called one by one. Shared apps can be chained in one script, each call still following the app's permission and shown as its own step",
+      "OpenCode 2's own servers start on Ask me first, since its asks show what each call sends",
+    ],
+  },
+  {
     date: "2026-11-12",
     title: "Connectors, simpler",
     icon: Plug,

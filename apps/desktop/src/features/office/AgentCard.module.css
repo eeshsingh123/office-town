@@ -58,6 +58,27 @@
   filter: brightness(1.05);
 }
 
+.subAgents {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: inherit;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.subAgents:hover {
+  filter: brightness(1.05);
+}
+
 .unpin {
   display: grid;
   flex: none;

@@ -5,22 +5,29 @@ import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { useLoadProgress } from "../../store/milestones.ts";
 import { isOpen } from "../../store/records.ts";
-import { type AgentState, type Progress, progressOf, stageOf } from "../../trace/progress.ts";
+import {
+  type AgentState,
+  isBusy,
+  type Progress,
+  progressOf,
+  stageOf,
+} from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
 import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { taskName } from "../../ui/format.ts";
-import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { stateLabel } from "../../ui/StatusIcon.tsx";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
-import { ProgressButton, ProgressColumn } from "./ProgressColumn.tsx";
+import { ProgressButton } from "./ProgressColumn.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
+import { SideColumn } from "./SubAgentPanel.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
@@ -28,8 +35,6 @@ import { TeamTaskView } from "./TeamTaskView.tsx";
 
 // A solo task with a plan this long is offered a review once it is done.
 const LONG_TASK_STEPS = 3;
-
-const isBusy = (state: AgentState) => state === "working" || state === "starting";
 
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
@@ -108,7 +113,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               {asked ??
                 (state === "waiting"
                   ? "Waiting for you"
-                  : (stageOf(state, trace) ?? STATE_LABELS[state]))}
+                  : (stageOf(state, trace) ?? stateLabel(state, progress?.subAgents.length ?? 0)))}
             </span>
             {waiting === undefined ? null : (
               <button
@@ -164,7 +169,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               />
             </div>
           </div>
-          <ProgressColumn taskId={taskId} soloAgentId={agent.id} />
+          <SideColumn taskId={taskId} soloAgentId={agent.id} />
         </div>
       )}
       <ReviewDialog agent={agent} open={asking} onOpenChange={setAsking} />

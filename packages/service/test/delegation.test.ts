@@ -52,7 +52,7 @@ afterEach(async () => {
 });
 
 describe("delegation", () => {
-  it("starts workers on their pieces at once and hands each result to the lead, resuming it if it was left idle", async () => {
+  it("starts workers on their pieces at once and hands each result to the lead, resuming it if it was left idle, and once per piece when a sub-agent outlives the worker's turn", async () => {
     const { writer, tester } = await teamAtWork();
     const lead = core.sessions[0];
     const leadAgentId = core.store.getSession(lead?.id ?? "")?.agentId;
@@ -124,6 +124,44 @@ describe("delegation", () => {
     playTurn(worker, "Hours are in.");
     await settle();
     expect(resumed?.sent.at(-1)).toMatchObject({ text: `${writer} finished:\nHours are in.` });
+
+    // A turn that ends with a background sub-agent at work: the lead hears once, the result waits.
+    await core.callTool(resumed, "delegate", { agent: writer, brief: "Check every page" });
+    worker?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    worker?.emit({
+      type: "action.started",
+      payload: { actionId: "sub", kind: "delegate", title: "Find every page", input: {} },
+    });
+    worker?.emit({ type: "message", payload: { role: "assistant", text: "A sub-agent looks." } });
+    worker?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    await settle();
+    const heard = resumed?.sent.length ?? 0;
+    expect(resumed?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("1 sub-agent is still running (Find every page)"),
+      origin: { kind: "interim" },
+    });
+    expect((await core.callTool(resumed, "team_status", {})).text).toContain(
+      `${writer}, Writer (claude): is waiting on 1 sub-agent`,
+    );
+    // With the lead's turn over too, the goal is at work while the sub-agent works.
+    playTurn(resumed, "Noted.");
+    await settle();
+    const taskId = core.store.getSession(worker?.id ?? "")?.taskId ?? "";
+    expect(core.store.getTask(taskId)?.state).toBe("working");
+    // Its CLI starts no turn of its own, so the worker is asked to take the sub-agent's work in.
+    worker?.emit({
+      type: "action.ended",
+      payload: { actionId: "sub", outcome: "completed", result: "Found 4 pages." },
+    });
+    await settle();
+    expect(worker?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("Your sub-agents have finished"),
+    });
+    playTurn(worker, "All 4 pages checked.");
+    await settle();
+    expect(resumed?.sent.slice(heard)).toEqual([
+      expect.objectContaining({ text: `${writer} finished:\nAll 4 pages checked.` }),
+    ]);
   });
 
   it("hands an idle lead every result that comes at once, in order; with Milestones on, a part with every milestone met is done at once, and a lead sends a part back at most twice before the user decides", async () => {

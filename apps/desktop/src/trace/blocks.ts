@@ -20,7 +20,8 @@ export function toBlocks(trace: Trace): TraceBlock[] {
   if (cached !== undefined) return cached;
   const blocks: TraceBlock[] = [];
   let shownStep: string | undefined;
-  // A result an agent showed stands alone with its card, never folded into a run (M8).
+  // A result an agent showed stands alone with its card, never folded into a run (M8), and so
+  // does a sub-agent's.
   let shut = false;
   for (const id of trace.order) {
     const item = trace.items.get(id);
@@ -29,7 +30,8 @@ export function toBlocks(trace: Trace): TraceBlock[] {
       blocks.push({ kind: "item", id });
       continue;
     }
-    const alone = item.shows !== undefined && item.status === "completed";
+    const alone =
+      (item.shows !== undefined && item.status === "completed") || item.subAgent === true;
     const last = blocks.at(-1);
     if (!alone && !shut && last?.kind === "actions" && last.stepId === item.planStepId) {
       last.ids.push(id);

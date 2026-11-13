@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sentAttachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
+import { subAgentSupportSchema } from "./capabilities.ts";
 import { checkItemSchema } from "./checks.ts";
 import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
@@ -77,6 +78,14 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
     agentId: z.string().min(1),
     outcome: z.enum(["done", "failed", "stopped"]),
   }),
+  // News of a piece still at work, such as a worker waiting on its sub-agents; never its result.
+  z.object({
+    kind: z.literal("interim"),
+    delegationId: z.string().min(1),
+    agentId: z.string().min(1),
+    // One line for the user, such as "Sam is waiting on 2 sub-agents; its result follows".
+    summary: z.string().min(1),
+  }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
   // News such as a change to the agent's team.
@@ -128,6 +137,8 @@ const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
     model: z.string().optional(),
+    // What the release this session runs on shares of its sub-agents.
+    subAgents: subAgentSupportSchema.optional(),
   }),
   "session.ended": z.object({
     reason: z.enum(["stopped", "exited", "failed"]),

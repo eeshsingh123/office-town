@@ -196,13 +196,15 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
           provider,
           key,
         );
-        if (!saved || !hasSignIn(account, store)) {
+        if (!saved) {
           throw new RequestError(
             400,
             "invalid_request",
             `${description.name} did not take the key. Try again.`,
           );
         }
+        // OpenCode 2 keeps the key in its database, where no file shows it (D-97).
+        rememberSignIn(store, account.id, true);
         const plan = accountProviders.find((one) => one.id === provider)?.label;
         return { status: 200, json: { signedIn: true, ...(plan && { plan }) } };
       },

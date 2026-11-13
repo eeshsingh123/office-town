@@ -43,7 +43,7 @@ What later work builds on; the why is in DECISIONS.md.
 - **M8 Outputs and preview.** `show_result`, changed files and local sites in a sandboxed viewer. `service/src/outputs`.
 - **M9 Packaging.** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, betas on every green merge, setup installing harnesses.
 - **M10 More providers.** Codex, Muse Code, Copilot and Cursor; the Providers page; an estimate at API prices where a provider shares no usage.
-- **After M10.** Team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
+- **After M10.** OpenCode 1 and 2 under one provider (`harness/src/versions.ts`) with steering, sub-agent steps, questions and Code Mode on 2, sub-agents in a side panel with one report per piece (D-99), team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
 - **Phase 2.** Efficient mode: carrying on in a new session with a handover (`team/handover.ts`). Milestones with one Progress view and a Settings page (`service/src/goal`).
 
 ## Next

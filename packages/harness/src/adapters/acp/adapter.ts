@@ -1,5 +1,5 @@
-import type { Adapter } from "../../adapter.ts";
-import { AcpTranslator, type PreferredModel } from "./translator.ts";
+import type { Adapter, LaunchOptions } from "../../adapter.ts";
+import { type AcpExtensions, AcpTranslator, type PreferredModel } from "./translator.ts";
 
 export type AcpHarness = Pick<
   Adapter,
@@ -26,6 +26,8 @@ export type AcpHarness = Pick<
   allowOwnToolAsks?: boolean;
   // What a new session runs on when nothing is picked and the harness lists the model.
   preferred?: PreferredModel;
+  // What the harness adds to ACP for a session launched with these options (D-98).
+  extensions?: (options: LaunchOptions) => AcpExtensions;
 };
 
 // Any harness whose own binary speaks the Agent Client Protocol only has to say how to launch it.
@@ -33,11 +35,12 @@ export function createAcpAdapter({
   toolPrefixes,
   allowOwnToolAsks = false,
   preferred,
+  extensions,
   ...harness
 }: AcpHarness): Adapter {
   return {
     ...harness,
     createTranslator: (options) =>
-      new AcpTranslator(options, toolPrefixes, allowOwnToolAsks, preferred),
+      new AcpTranslator(options, toolPrefixes, allowOwnToolAsks, preferred, extensions?.(options)),
   };
 }

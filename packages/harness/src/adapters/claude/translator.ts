@@ -112,9 +112,11 @@ function allowAlwaysOption(changes: StandingChange[]): PermissionOption {
   return { optionId: "allow_always", label, kind: "allow_always" };
 }
 
+// A sub-agent is named by what it was given, as on every provider.
 function titleOf(name: string, input: Record<string, unknown>): string {
   const detail = TITLE_FIELDS.map((field) => input[field]).find((v) => typeof v === "string");
-  return detail === undefined ? name : `${name}: ${detail}`;
+  if (detail === undefined) return name;
+  return ACTION_KINDS[name] === "delegate" ? detail : `${name}: ${detail}`;
 }
 
 function locationsOf(input: Record<string, unknown>): { locations?: string[] } {

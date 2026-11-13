@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { PassThrough, Writable } from "node:stream";
 import type { PermissionOption, SessionCommand, SessionEvent } from "@office-town/contract";
+import { z } from "zod";
 import type {
   Adapter,
   AttachedToolServer,
@@ -16,6 +17,7 @@ import type {
   ProcessExit,
 } from "../../src/environment/environment.ts";
 import { type HarnessLine, HarnessSession } from "../../src/session.ts";
+import { forgetVersion } from "../../src/versions.ts";
 
 type RecordedCommand =
   | { type: "prompt"; text: string }
@@ -35,14 +37,37 @@ export function loadRecording(file: string): RecordingEntry[] {
     .map((line) => JSON.parse(line) as RecordingEntry);
 }
 
+function endedProcess(output = ""): LaunchedProcess {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  stdout.end(output);
+  stderr.end();
+  return {
+    stdin: new Writable({ write: (_chunk, _encoding, done) => done() }),
+    stdout,
+    stderr,
+    exited: Promise.resolve({ code: 0, signal: null }),
+    killTree: async () => {},
+  };
+}
+
 export class ScriptedEnvironment implements Environment {
   readonly written: string[] = [];
+  // What the recorded CLI said it was, so the adapter for its release replays it (D-97).
+  readonly #version: string;
+
+  constructor(version = "") {
+    this.#version = version;
+  }
+
   request: LaunchRequest | undefined;
   readonly #stdout = new PassThrough();
   readonly #stderr = new PassThrough();
   readonly #exited = Promise.withResolvers<ProcessExit>();
 
   async launch(request: LaunchRequest): Promise<LaunchedProcess> {
+    // A session's version check ends at once, so the recording plays to the session.
+    if (request.args.includes("--version")) return endedProcess(this.#version);
     this.request = request;
     const stdin = new Writable({
       write: (chunk: Buffer, _encoding, done) => {
@@ -124,6 +149,18 @@ function commandFor(recorded: RecordedCommand, events: SessionEvent[]): SessionC
   };
 }
 
+const handshakeSchema = z.object({
+  receive: z.object({ result: z.object({ agentInfo: z.object({ version: z.string() }) }) }),
+});
+
+function recordedVersion(recording: RecordingEntry[]): string {
+  for (const entry of recording) {
+    const handshake = handshakeSchema.safeParse(entry);
+    if (handshake.success) return handshake.data.receive.result.agentInfo.version;
+  }
+  return "";
+}
+
 export interface ReceivedLine {
   partial: boolean;
   events: SessionEvent[];
@@ -142,7 +179,8 @@ export async function replay(
   options: LaunchOptions = replayOptions,
   extras: LaunchExtras = {},
 ): Promise<Replay> {
-  const environment = new ScriptedEnvironment();
+  const environment = new ScriptedEnvironment(recordedVersion(recording));
+  forgetVersion(adapter.harness, options.environment);
   const session = new HarnessSession(options, adapter, environment, extras);
   const events: SessionEvent[] = [];
   const lines: HarnessLine[] = [];

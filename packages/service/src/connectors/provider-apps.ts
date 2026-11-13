@@ -31,15 +31,18 @@ const STATUS: Record<VendorApp["status"], ConnectorStatus> = {
   failed: "failing",
 };
 
-// Who the user reads a provider app comes from, and the permission a new one starts with. OpenCode
-// never says which of its servers' actions only read, so they keep Don't ask, as before D-96; any
-// other level would ask before, or block, every action (owner).
-const NEW_APP: Partial<Record<ConnectorKind, { maker: string; permission: ConnectorPermission }>> =
-  {
-    claude: { maker: "Claude", permission: "ask" },
-    codex: { maker: "ChatGPT", permission: "ask" },
-    opencode: { maker: "OpenCode", permission: "dont_ask" },
-  };
+// Who the user reads a provider app comes from.
+const MAKERS: Partial<Record<ConnectorKind, string>> = {
+  claude: "Claude",
+  codex: "ChatGPT",
+  opencode: "OpenCode",
+};
+
+// A new app starts on Ask me first where the ask shows what each call sends. OpenCode 1's shows
+// nothing, so its servers start on Don't ask, as before D-96 (owner); OpenCode 2's shows the
+// input (D-98). Neither says which actions only read, so Ask me first asks before each one.
+const startingPermission = (asksShowInput: boolean): ConnectorPermission =>
+  asksShowInput ? "ask" : "dont_ask";
 
 // "claude.ai Google Drive" is shown as "Google Drive".
 const shownName = (app: string) => app.replace(/^claude\.ai /, "");
@@ -103,13 +106,13 @@ export class ProviderApps {
       accounts.map(async (account) => {
         try {
           const { signal } = this.#stop;
-          const apps = await listVendorApps(
+          const { apps, asksShowInput } = await listVendorApps(
             account.harness,
             account.environment,
             account.folder,
             signal,
           );
-          if (!signal.aborted) this.#sync(account, apps);
+          if (!signal.aborted) this.#sync(account, apps, startingPermission(asksShowInput));
         } catch (error) {
           if (this.#stop.signal.aborted) return;
           console.error(`Could not list the apps of ${account.name}.`, error);
@@ -211,10 +214,10 @@ export class ProviderApps {
   }
 
   // A new app goes to everyone; one gone from the provider goes with its settings.
-  #sync(account: Account, apps: VendorApp[]): void {
+  #sync(account: Account, apps: VendorApp[], permission: ConnectorPermission): void {
     const kind = kindOf(account.harness);
-    const defaults = kind === undefined ? undefined : NEW_APP[kind];
-    if (kind === undefined || defaults === undefined) return;
+    const maker = kind === undefined ? undefined : MAKERS[kind];
+    if (kind === undefined || maker === undefined) return;
     const known = this.#store
       .listConnectors()
       .filter(({ setup }) => setup.kind === kind && setup.account === account.id);
@@ -235,7 +238,7 @@ export class ProviderApps {
             slug: this.#freeSlug(account.harness, app.name),
             name: shownName(app.name),
             kind,
-            maker: defaults.maker,
+            maker,
             official: true,
             account: account.id,
             app: appId,
@@ -243,7 +246,7 @@ export class ProviderApps {
             keys: [],
           },
           audience: { everyone: true, departmentIds: [], agentIds: [] },
-          permission: defaults.permission,
+          permission,
           status,
           tools,
         });

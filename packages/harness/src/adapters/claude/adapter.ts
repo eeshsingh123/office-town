@@ -267,6 +267,7 @@ export const claudeAdapter: Adapter = {
     usageLimits: true,
     images: true,
     isolation: "full",
+    subAgents: { steps: true, wakes: true },
   },
   catalog,
   accounts,

@@ -40,6 +40,7 @@ import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
 import { useMemberLinks } from "./members.ts";
+import { SubAgentCard } from "./SubAgentCard.tsx";
 import styles from "./Trace.module.css";
 
 const KIND_ICONS: Record<TraceAction["actionKind"], LucideIcon> = {
@@ -233,6 +234,8 @@ const ActionRow = memo(function ActionRow({
   const [open, setOpen] = useState(false);
   const taken = useUpdateTaken(action, place.sessionId);
   const Icon = KIND_ICONS[action.actionKind];
+  // Its steps open in the side panel, so the trace keeps to the agent's own work.
+  if (action.subAgent) return <SubAgentCard action={action} place={place} />;
   return (
     <div>
       <button
@@ -502,7 +505,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         );
       }
       if (item.origin?.kind === "result") return <Result item={item} />;
-      if (item.origin?.kind === "notice") {
+      if (item.origin?.kind === "notice" || item.origin?.kind === "interim") {
         return <FromOffice summary={item.origin.summary} text={item.text} />;
       }
       if (item.origin?.kind === "answer") {

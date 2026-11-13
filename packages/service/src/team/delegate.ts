@@ -281,7 +281,13 @@ function stateOf(
   if (working !== undefined) {
     const minutes = Math.round((Date.now() - Date.parse(working.createdAt)) / 60_000);
     const piece = shortened(working.brief, SHOWN_BRIEF);
-    const active = activity.of(session.id)?.lastActive;
+    const seen = activity.of(session.id);
+    const subAgents = seen?.subAgents.size ?? 0;
+    if (seen !== undefined && !seen.turnOpen && subAgents > 0) {
+      const count = subAgents === 1 ? "1 sub-agent" : `${subAgents} sub-agents`;
+      return `is waiting on ${count} for "${piece}" (for ${minutes} min); its result follows`;
+    }
+    const active = seen?.lastActive;
     const quiet = active === undefined ? 0 : Math.round((Date.now() - active) / 60_000);
     const last = quiet === 0 ? "" : `, last active ${quiet} min ago`;
     return `is working on "${piece}" (for ${minutes} min${last})`;

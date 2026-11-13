@@ -1,9 +1,18 @@
 import { ArrowUp } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, type ReactNode, useId, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
+import { useKept, writeKept } from "../../store/kept.ts";
 import { track } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
 import { Button } from "../../ui/Button.tsx";
@@ -13,6 +22,7 @@ import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useLibrary } from "../library/library.ts";
 import { useLibraryPicker } from "../library/use-library-picker.tsx";
+import { COMPOSER_FOCUS } from "./sub-agent-state.ts";
 import styles from "./TaskView.module.css";
 
 interface MessageBoxProps {
@@ -26,6 +36,12 @@ interface MessageBoxProps {
 export function MessageBox({ agent, className, actions }: MessageBoxProps) {
   const id = useId();
   const field = useRef<HTMLTextAreaElement>(null);
+  const [focusFor] = useKept(COMPOSER_FOCUS);
+  useEffect(() => {
+    if (focusFor !== agent.id) return;
+    field.current?.focus();
+    writeKept(COMPOSER_FOCUS, undefined);
+  }, [focusFor, agent.id]);
   const [text, setText] = useDraft(`message.${agent.id}`, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();

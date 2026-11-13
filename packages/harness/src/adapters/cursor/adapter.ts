@@ -74,6 +74,7 @@ export const cursorAdapter = createAcpAdapter({
     usageLimits: false,
     images: true,
     isolation: "partial",
+    subAgents: { steps: false, wakes: false },
   },
   isolationNote: "Cursor's own rules and settings still load.",
   // Its tool calls name an MCP tool by its server, in one of these forms.

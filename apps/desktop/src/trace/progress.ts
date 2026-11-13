@@ -1,10 +1,13 @@
 import type { SessionRecord } from "@office-town/contract";
+import { subAgentsOf } from "./sub-agents.ts";
 import type { Trace, TraceAction } from "./trace.ts";
 
 // "idle": a session still open after its turn finished, ready for another message.
+// "background": its turn ended with its own sub-agents still at work.
 export type AgentState =
   | "starting"
   | "working"
+  | "background"
   | "waiting"
   | "idle"
   | "done"
@@ -21,7 +24,12 @@ export interface Progress {
   current?: TraceAction;
   // Newest first.
   recent: TraceAction[];
+  // The agent's own sub-agents still at work, top level only, oldest first.
+  subAgents: TraceAction[];
 }
+
+export const isBusy = (state: AgentState) =>
+  state === "working" || state === "starting" || state === "background";
 
 const RECENT = 3;
 // Past this, an agent has stopped keeping its plan, so the step it names is no longer true.
@@ -48,6 +56,7 @@ export function progressOf(trace: Trace): Progress {
     stepCount: trace.plan.length,
     stepsDone: trace.plan.filter((step) => step.status === "completed").length,
     recent: actions.slice(-RECENT).reverse(),
+    subAgents: subAgentsOf(trace).filter((action) => action.status === "running"),
     ...(step === undefined ? {} : { step: { number: stepIndex + 1, title: step.title } }),
     ...(current === undefined ? {} : { current }),
   };
@@ -73,9 +82,10 @@ export function agentState(
     case "starting":
       return "starting";
     case "running": {
-      if (trace === undefined || trace.turnOpen || progressOf(trace).current !== undefined) {
-        return "working";
-      }
+      if (trace === undefined || trace.turnOpen) return "working";
+      const progress = progressOf(trace);
+      if (progress.subAgents.length > 0) return "background";
+      if (progress.current !== undefined) return "working";
       return trace.lastTurn === "failed" ? "failed" : "idle";
     }
     case "exited":

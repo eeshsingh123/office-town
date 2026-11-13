@@ -5,6 +5,7 @@ import type {
   PlanStep,
   SentAttachment,
   SessionEvent,
+  SubAgentSupport,
   TokenUsage,
   UserRequestEvent,
 } from "@office-town/contract";
@@ -38,6 +39,8 @@ export interface TraceAction {
   shows?: ShownInput;
   // A delegate to a busy worker, which reads it when its current tool ends.
   queued?: true;
+  // A sub-agent the agent's own CLI started, not a team tool.
+  subAgent?: true;
   startedAt: string;
   endedAt?: string;
   // In order.
@@ -112,6 +115,8 @@ export interface Trace {
   lastTurn?: "completed" | "interrupted" | "failed";
   usage: TokenTotals;
   model?: string;
+  // What its provider's release shares of its sub-agents.
+  subAgents?: SubAgentSupport;
   ended?: Extract<SessionEvent, { type: "session.ended" }>["payload"];
 }
 
@@ -176,6 +181,7 @@ function apply(trace: Trace, event: SessionEvent): void {
   switch (event.type) {
     case "session.started":
       if (event.payload.model !== undefined) trace.model = event.payload.model;
+      if (event.payload.subAgents !== undefined) trace.subAgents = event.payload.subAgents;
       return;
     case "session.ended":
       trace.ended = event.payload;
@@ -265,6 +271,7 @@ function apply(trace: Trace, event: SessionEvent): void {
         title: team?.title ?? app?.title ?? title,
         ...(app === undefined || app.app === "" ? {} : { app: app.app }),
         ...(shows === undefined ? {} : { shows }),
+        ...(kind === "delegate" && tool?.server !== teamToolServer ? { subAgent: true } : {}),
         input,
         status: "running",
         startedAt: event.timestamp,

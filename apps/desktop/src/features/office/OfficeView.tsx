@@ -8,6 +8,7 @@ import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { taskName } from "../../ui/format.ts";
+import { stateLabel } from "../../ui/StatusIcon.tsx";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
 import { newTokens, usageByPerson } from "../departments/usage.ts";
@@ -50,6 +51,8 @@ function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progre
     text = `Step ${progress.step.number} of ${progress.stepCount} · ${progress.step.title}`;
   } else if (state === "working") {
     text = progress?.current?.title ?? "Working";
+  } else if (state === "background") {
+    text = stateLabel(state, progress?.subAgents.length ?? 0);
   }
   if (text === undefined) return {};
   return { bubble: text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text };

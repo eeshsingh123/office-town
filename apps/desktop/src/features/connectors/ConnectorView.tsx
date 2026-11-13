@@ -333,7 +333,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                 </fieldset>
                 <p className={styles.hint}>
                   {onlyOpenCode
-                    ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, showing only its name, and Read only blocks them all."
+                    ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, and Read only blocks them all. OpenCode 1 shows only the action's name, OpenCode 2 also what it sends."
                     : "Reads never ask. Changes follow this."}
                 </p>
               </span>

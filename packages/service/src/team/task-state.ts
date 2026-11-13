@@ -46,10 +46,15 @@ const checkOpen: WorkOut = (store, taskId) =>
 
 const workOutChecks: WorkOut[] = [delegationsOut, piecesOut, checkOpen];
 
-// The store's turn record covers open and cut-off sessions, and is current whichever listener runs first.
-function isWorking(store: Store, session: SessionRecord): boolean {
+// Whether a session's own sub-agents still work, from the one tracker (D-99).
+export type SubAgentsAt = (sessionId: string) => boolean;
+
+// The store's turn record covers open and cut-off sessions, and is current whichever listener runs
+// first. A session whose sub-agents work on after its turn is at work too.
+function isWorking(store: Store, session: SessionRecord, subAgentsAt: SubAgentsAt): boolean {
   if (session.status === "starting") return true;
-  return session.status === "running" && store.latestTurn(session.id)?.ended !== true;
+  if (session.status !== "running") return false;
+  return store.latestTurn(session.id)?.ended !== true || subAgentsAt(session.id);
 }
 
 // Its lead, or else its first agent.
@@ -64,13 +69,13 @@ function finished(store: Store, session: SessionRecord): boolean {
   return store.latestTurn(session.id)?.ended === true;
 }
 
-function stateOf(store: Store, task: TaskRecord): TaskState {
+function stateOf(store: Store, task: TaskRecord, subAgentsAt: SubAgentsAt): TaskState {
   const sessions = store.listSessions(task.id);
   // A task starts its first agent at once, so until then it keeps the state it was made with.
   if (sessions.length === 0) return task.state;
   const asking = store.listPendingRequests().requests.some(({ taskId }) => taskId === task.id);
   if (asking) return "waiting";
-  if (sessions.some((session) => isWorking(store, session))) return "working";
+  if (sessions.some((session) => isWorking(store, session, subAgentsAt))) return "working";
   const top = topSession(task, sessions);
   if (top === undefined) return "idle";
   // A prompt or answer it has yet to act on: its next turn is about to start.
@@ -82,6 +87,7 @@ function stateOf(store: Store, task: TaskRecord): TaskState {
 // Recomputed after each event or record change that can affect it, restart interruptions included.
 export class TaskStates {
   readonly #store: Store;
+  #subAgentsAt: SubAgentsAt = () => false;
 
   // Subscribes before the registry exists, so it hears the restart's interruptions.
   constructor(store: Store) {
@@ -94,9 +100,13 @@ export class TaskStates {
     });
   }
 
-  follow(registry: SessionRegistry): void {
+  follow(registry: SessionRegistry, subAgentsAt?: SubAgentsAt): void {
+    if (subAgentsAt !== undefined) this.#subAgentsAt = subAgentsAt;
     registry.subscribe(({ event }) => {
-      if (!STATE_EVENTS.has(event.type)) return;
+      // A sub-agent's start or end changes the state only once its turn has ended.
+      const subAgent = event.type === "action.started" || event.type === "action.ended";
+      if (subAgent && this.#store.latestTurn(event.sessionId)?.ended !== true) return;
+      if (!subAgent && !STATE_EVENTS.has(event.type)) return;
       const taskId = this.#store.getSession(event.sessionId)?.taskId;
       if (taskId !== undefined) this.#update(taskId);
     });
@@ -104,6 +114,8 @@ export class TaskStates {
 
   #update(taskId: string): void {
     const task = this.#store.getTask(taskId);
-    if (task !== undefined) this.#store.setTaskState(taskId, stateOf(this.#store, task));
+    if (task !== undefined) {
+      this.#store.setTaskState(taskId, stateOf(this.#store, task, this.#subAgentsAt));
+    }
   }
 }

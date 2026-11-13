@@ -8,6 +8,7 @@ const configOptionSchema = z.looseObject({
 });
 export type ConfigOption = z.infer<typeof configOptionSchema>;
 
+// `_meta.steering`: OpenCode 2 takes a message into a running turn (D-98).
 export const initializeResultSchema = z.looseObject({
   agentCapabilities: z
     .looseObject({
@@ -15,7 +16,12 @@ export const initializeResultSchema = z.looseObject({
       sessionCapabilities: z.looseObject({ resume: z.unknown().optional() }).nullish(),
     })
     .optional(),
+  _meta: z
+    .looseObject({ steering: z.looseObject({ supported: z.boolean().optional() }).optional() })
+    .nullish(),
 });
+
+export const steeringResultSchema = z.looseObject({ outcome: z.string() });
 
 // A resumed session answers without its id: it is the one that was asked for.
 export const sessionResultSchema = z.looseObject({
@@ -40,8 +46,18 @@ export const promptResultSchema = z.looseObject({
     .optional(),
 });
 
+// OpenCode 2 marks what one of its sub-agents does with the sub-agent's own session.
+const childSessionSchema = z.looseObject({
+  "opencode/child-session": z
+    .looseObject({ id: z.string(), title: z.string().optional() })
+    .optional(),
+});
+export type ChildSession = NonNullable<
+  z.infer<typeof childSessionSchema>["opencode/child-session"]
+>;
+
 export const updateParamsSchema = z.looseObject({
-  update: z.looseObject({ sessionUpdate: z.string() }),
+  update: z.looseObject({ sessionUpdate: z.string(), _meta: childSessionSchema.nullish() }),
 });
 
 // How long the conversation is and how much the model holds; OpenCode sends it as a prompt ends.
@@ -61,6 +77,8 @@ export const toolCallSchema = z.looseObject({
   kind: z.string().optional(),
   status: z.string().optional(),
   rawInput: z.unknown().optional(),
+  rawOutput: z.unknown().optional(),
+  _meta: childSessionSchema.nullish(),
   locations: z.array(z.looseObject({ path: z.string() })).nullish(),
   content: z
     .array(
@@ -82,7 +100,61 @@ export const todoInputSchema = z.looseObject({
   todos: z.array(z.looseObject({ content: z.string(), status: planStatusSchema })),
 });
 
-export const delegationInputSchema = z.looseObject({ subagent_type: z.string() });
+// OpenCode 1's `task` names the sub-agent's type; OpenCode 2's `subagent` names its agent.
+export const delegationInputSchema = z.union([
+  z.looseObject({ subagent_type: z.string() }),
+  z.looseObject({ agent: z.string(), description: z.string(), prompt: z.string() }),
+]);
+
+// What a sub-agent started by OpenCode 2 runs in, once the call that started it reports it;
+// "running" while it works on in the background.
+export const subagentOutputSchema = z.looseObject({
+  metadata: z.looseObject({ sessionID: z.string(), status: z.string().optional() }),
+});
+
+// OpenCode 2's report of one of its sub-agents (`opencode/session/child_update`): a step of its
+// own, or its status. It keeps reporting after the turn that started it ends.
+export const childUpdateSchema = z.looseObject({
+  childSessionId: z.string(),
+  title: z.string().optional(),
+  type: z.string(),
+  status: z.string().optional(),
+  update: z.looseObject({ sessionUpdate: z.string() }).optional(),
+});
+
+// The calls an OpenCode 2 Code Mode script made, in the order they started.
+export const scriptOutputSchema = z.looseObject({
+  metadata: z.looseObject({
+    toolCalls: z.array(
+      z.looseObject({ tool: z.string(), status: z.string(), input: z.unknown().optional() }),
+    ),
+  }),
+});
+
+const formOptionSchema = z.looseObject({
+  const: z.unknown(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+});
+
+export const formFieldSchema = z.looseObject({
+  type: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  oneOf: z.array(formOptionSchema).optional(),
+  items: z.looseObject({ anyOf: z.array(formOptionSchema).optional() }).optional(),
+});
+export type FormField = z.infer<typeof formFieldSchema>;
+
+// A question the agent asks the user, as an ACP form (`elicitation/create`).
+export const elicitationParamsSchema = z.looseObject({
+  mode: z.string().optional(),
+  toolCallId: z.string().optional(),
+  message: z.string().optional(),
+  requestedSchema: z
+    .looseObject({ properties: z.record(z.string(), formFieldSchema).optional() })
+    .optional(),
+});
 
 export const permissionParamsSchema = z.looseObject({
   toolCall: toolCallSchema,

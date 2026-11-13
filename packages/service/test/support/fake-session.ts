@@ -20,6 +20,7 @@ export class FakeSession implements Session {
     usageLimits: false,
     images: false,
     isolation: "none" as const,
+    subAgents: { steps: false, wakes: false },
   };
   readonly sent: SessionCommand[] = [];
   readonly extras: LaunchExtras;

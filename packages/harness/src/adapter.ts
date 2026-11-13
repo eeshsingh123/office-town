@@ -119,8 +119,13 @@ export interface AccountSupport {
   credentials?: string;
   // Signs in, printing a page to open and reading a code from stdin if the page shows one.
   login?: HarnessCommand;
-  // Signs in with a key from the provider's console, read from stdin; the CLI saves it.
-  keyLogin?: (provider: string) => HarnessCommand;
+  // Signs in with a key from the provider's console, written to stdin as `input` gives it; the CLI
+  // saves it. `replaces` first removes a key an earlier sign-in saved, for a CLI that would keep it.
+  keyLogin?: (provider: string) => {
+    command: HarnessCommand;
+    input(key: string): string;
+    replaces?: HarnessCommand;
+  };
   status?: HarnessQuery<AccountStatus>;
   // The default login's folder, inside the home folder.
   home?: string;
@@ -164,6 +169,9 @@ export interface VendorAppSupport {
   poll?: string;
   // With none allowed, every app is turned off without a list, so none is read at start.
   allOff?: boolean;
+  // Its ask before an app's call does not say what the call sends, so a new app starts on Don't
+  // ask rather than on Ask me first (D-96, D-98).
+  asksWithoutInput?: boolean;
   // Undefined for any other line, or for a CLI that exits, for an output that has no list yet. An
   // app still connecting is listed as failed, with `pending`.
   read(output: string[]): { apps: VendorApp[]; pending: boolean } | undefined;
@@ -201,6 +209,9 @@ export interface Adapter {
   readonly install?: InstallSupport;
   readonly vendorApps?: VendorAppSupport;
   readonly recount?: RecountSupport;
+  // For a CLI whose major releases differ in their commands: the adapter for the version installed
+  // where it runs (D-97). Sessions start the same way on every version.
+  forVersion?(version: string): Adapter;
   buildCommand(options: LaunchOptions): HarnessCommand;
   createTranslator(options: LaunchOptions): Translator;
 }
