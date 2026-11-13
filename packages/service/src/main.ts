@@ -45,7 +45,7 @@ import { delegate, teamStatus } from "./team/delegate.ts";
 import { Handovers } from "./team/handover.ts";
 import { proposeChange } from "./team/propose-change.ts";
 import { proposeTeam } from "./team/propose-team.ts";
-import { recoverLeads, reportResults } from "./team/results.ts";
+import { recoverLeads, reportResults, wakeAfterSubAgents } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
 import { TaskStates } from "./team/task-state.ts";
 import { UsagePauses } from "./team/usage-pause.ts";
@@ -131,6 +131,7 @@ toolServer.offerApps({
   endpointOf: (slug) => connectors.gateway.endpointOf(slug),
 });
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
+wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 recoverLeads(team, activity);
 taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
 const pauses = new UsagePauses(team);

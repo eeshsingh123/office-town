@@ -29,8 +29,12 @@ function waitingText(name: string, titles: readonly string[]): string {
   return `${name}'s turn ended; ${running} (${titles.join("; ")}). ${name}'s full result comes when ${them}. Nothing to do yet; do not hand this piece out again.`;
 }
 
-const takeInResults = (lead: string): Message => ({
-  text: `Your sub-agents have finished. Take in what they found, finish your piece, then reply with your full result for ${lead}.`,
+// A worker owes its lead a result; anyone else carries on.
+const takeInResults = (lead: string | undefined): Message => ({
+  text:
+    lead === undefined
+      ? "Your sub-agents have finished. Take in what they found and carry on with your work."
+      : `Your sub-agents have finished. Take in what they found, finish your piece, then reply with your full result for ${lead}.`,
   origin: { kind: "notice", summary: "Your sub-agents finished" },
 });
 
@@ -53,7 +57,7 @@ export function reportResults(
   const { store, registry } = context;
   const retried = new Set<string>();
   // Pieces whose worker ended a turn with sub-agents at work: the lead has heard, the result waits.
-  const waiting = new Map<string, "sub-agents" | "follow-up">();
+  const waiting = new Set<string>();
 
   const finish = (delegation: DelegationRecord, outcome: Outcome, result: string) => {
     waiting.delete(delegation.id);
@@ -140,40 +144,25 @@ export function reportResults(
   // Told once, so the lead neither waits in silence nor hands the piece out again. It wakes the
   // lead, which keeps its cache warm (owner).
   const tellWaiting = (delegation: DelegationRecord, titles: readonly string[]) => {
-    const told = waiting.has(delegation.id);
-    waiting.set(delegation.id, "sub-agents");
-    if (told) return;
+    if (waiting.has(delegation.id)) return;
+    waiting.add(delegation.id);
     const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
+    const count = titles.length === 1 ? "1 sub-agent" : `${titles.length} sub-agents`;
     tellLead(context, delegation.taskId, {
       text: waitingText(name, titles),
-      origin: { kind: "interim", delegationId: delegation.id, agentId: delegation.workerAgentId },
+      origin: {
+        kind: "interim",
+        delegationId: delegation.id,
+        agentId: delegation.workerAgentId,
+        summary: `${name} is waiting on ${count}; its result follows`,
+      },
     }).catch((error: unknown) => {
       console.error(`Could not tell the lead that ${name} waits on its sub-agents.`, error);
     });
   };
 
-  // A CLI that starts no turn of its own when its sub-agents end is asked to take them in, and
-  // the turn that answers ends the piece.
-  const followUp = (delegation: DelegationRecord, sessionId: string) => {
-    const seen = activity.of(sessionId);
-    if (waiting.get(delegation.id) !== "sub-agents" || seen === undefined) return;
-    if (seen.turnOpen || seen.subAgents.size > 0) return;
-    waiting.set(delegation.id, "follow-up");
-    if (seen.wakes) return;
-    const task = store.getTask(delegation.taskId);
-    const lead = task?.leadAgentId === undefined ? undefined : store.getAgent(task.leadAgentId);
-    registry.tell(sessionId, takeInResults(lead?.name ?? "your lead")).catch((error: unknown) => {
-      console.error("Could not tell a worker its sub-agents finished.", error);
-    });
-  };
-
   const onEvent = (event: SessionEvent) => {
     followUpdates(event);
-    if (event.type === "action.ended") {
-      const delegation = store.workingDelegation(event.sessionId);
-      if (delegation !== undefined) followUp(delegation, event.sessionId);
-      return;
-    }
     if (event.type !== "turn.ended" && event.type !== "session.ended") return;
     if (handingOver(event.sessionId)) return;
     const delegation = store.workingDelegation(event.sessionId);
@@ -203,6 +192,43 @@ export function reportResults(
   };
 
   registry.subscribe(({ event }) => onEvent(event));
+}
+
+// A CLI that starts no turn of its own when its sub-agents end (D-99) is asked to take them in,
+// once the last one ends after its turn: a worker's answering turn ends its piece, and a lead's or
+// solo agent's reply is saved as a turn of its own. A turn the user interrupted stays stopped.
+export function wakeAfterSubAgents(
+  context: TeamContext,
+  activity: SessionActivity,
+  handingOver: (sessionId: string) => boolean = () => false,
+): void {
+  const { store, registry } = context;
+  // Sessions whose last turn ended with sub-agents at work.
+  const waiting = new Set<string>();
+
+  registry.subscribe(({ event }) => {
+    const { sessionId } = event;
+    if (event.type === "session.ended") waiting.delete(sessionId);
+    const seen = activity.of(sessionId);
+    if (seen === undefined) return;
+    if (event.type === "turn.ended") {
+      if (event.payload.outcome === "completed" && seen.subAgents.size > 0) waiting.add(sessionId);
+      else waiting.delete(sessionId);
+      return;
+    }
+    if (event.type !== "action.ended" || !waiting.has(sessionId)) return;
+    if (seen.turnOpen || seen.subAgents.size > 0) return;
+    waiting.delete(sessionId);
+    // A handover's new conversation starts from the record instead.
+    if (seen.wakes || handingOver(sessionId)) return;
+    const delegation = store.workingDelegation(sessionId);
+    const task = delegation === undefined ? undefined : store.getTask(delegation.taskId);
+    const lead = task?.leadAgentId === undefined ? undefined : store.getAgent(task.leadAgentId);
+    const owed = delegation === undefined ? undefined : (lead?.name ?? "your lead");
+    registry.tell(sessionId, takeInResults(owed)).catch((error: unknown) => {
+      console.error("Could not tell an agent its sub-agents finished.", error);
+    });
+  });
 }
 
 // A lead has no one above it, so its failed turn is tried once more. Listens before the task's

@@ -31,7 +31,7 @@ import { Handovers } from "../../src/team/handover.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { proposeChange } from "../../src/team/propose-change.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
-import { recoverLeads, reportResults } from "../../src/team/results.ts";
+import { recoverLeads, reportResults, wakeAfterSubAgents } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { UsagePauses } from "../../src/team/usage-pause.ts";
@@ -114,6 +114,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const activity = new SessionActivity(registry);
   const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
+  wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   recoverLeads(team, activity);
   taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
   const pauses = new UsagePauses(team);
