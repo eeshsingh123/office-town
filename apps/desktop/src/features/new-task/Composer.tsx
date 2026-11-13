@@ -6,6 +6,7 @@ import type {
 } from "@office-town/contract";
 import { CornerDownLeft, LayoutTemplate, ShieldCheck, X } from "lucide-react";
 import {
+  Fragment,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -31,6 +32,8 @@ import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
 import { useChief } from "../chief/use-chief.ts";
+import { AppLogo } from "../connectors/AppLogo.tsx";
+import { TagLayer, tagOf, useTaggableApps } from "../connectors/AppTags.tsx";
 import { keptLevel } from "../departments/team-form.ts";
 import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
@@ -77,6 +80,8 @@ interface Option {
   id: string;
   name: string;
   note: string;
+  // An app to tag in the text, listed under "@" after who does it.
+  app?: true;
 }
 
 const LIST_NAMES: Record<Mention["kind"], string> = {
@@ -206,6 +211,17 @@ export function Composer({ home = false }: ComposerProps) {
         },
   );
   const files = attached.ids.length === 0 ? {} : { attachments: attached.ids };
+  // The apps whoever reads the task first can use.
+  const lead = department === undefined ? undefined : agents[department.leadAgentId];
+  const apps = useTaggableApps(
+    target === CHIEF
+      ? chief?.record
+      : department !== undefined
+        ? lead
+        : description === undefined
+          ? undefined
+          : { id: "", settings: { harness: description.harness } },
+  );
   // A chief's goal has no workspace of its own.
   const library = useLibrary(target === CHIEF ? undefined : workspace?.id);
 
@@ -367,9 +383,15 @@ export function Composer({ home = false }: ComposerProps) {
     name: file.name,
     note: file.kind === "folder" ? "Linked folder" : sizeText(file.bytes ?? 0),
   }));
+  const appOptions: Option[] = apps.map((name) => ({
+    id: `app:${name}`,
+    name,
+    note: "App",
+    app: true,
+  }));
   const optionsOf = (kind: Mention["kind"]): Option[] =>
     kind === "@"
-      ? people
+      ? [...people, ...appOptions]
       : kind === "#"
         ? libraryOptions
         : (templates ?? []).map((known) => ({ id: known.id, name: known.name, note: known.role }));
@@ -380,9 +402,19 @@ export function Composer({ home = false }: ComposerProps) {
   const listId = useId();
   const noTemplates = mention?.kind === "/" && (templates ?? []).length === 0;
 
-  const pickMention = (id: string) => {
+  const pickMention = (option: Option) => {
+    const { id } = option;
     const element = box.current;
     if (mention === undefined || element === null) return;
+    if (option.app) {
+      const written = `${tagOf(option.name)} `;
+      const at = mention.start + written.length;
+      setPrompt(prompt.slice(0, mention.start) + written + prompt.slice(element.selectionStart));
+      setMention(undefined);
+      element.focus();
+      requestAnimationFrame(() => element.setSelectionRange(at, at));
+      return;
+    }
     setPrompt(withoutMention(prompt, mention, element.selectionStart));
     if (mention.kind === "@") setChosen(id);
     else if (mention.kind === "#") {
@@ -415,7 +447,7 @@ export function Composer({ home = false }: ComposerProps) {
       if (event.key === "Enter" || event.key === "Tab") {
         event.preventDefault();
         const option = listed[active];
-        if (option !== undefined) pickMention(option.id);
+        if (option !== undefined) pickMention(option);
         return;
       }
       if (event.key === "Escape") {
@@ -477,6 +509,7 @@ export function Composer({ home = false }: ComposerProps) {
           <label htmlFor="task-prompt" className="visually-hidden">
             Your task
           </label>
+          <TagLayer field={box} text={prompt} names={apps} />
           <textarea
             ref={box}
             id="task-prompt"
@@ -500,7 +533,7 @@ export function Composer({ home = false }: ComposerProps) {
             onKeyDown={onKeyDown}
             onBlur={() => setMention(undefined)}
             onPaste={attached.onPaste}
-            placeholder="Describe the task. Type @ to choose who does it, / to use a template."
+            placeholder="Describe the task. Type @ to choose who does it or tag an app, / to use a template."
             // biome-ignore lint/a11y/noAutofocus: New task exists to take this text
             autoFocus={!home}
           />
@@ -534,37 +567,45 @@ export function Composer({ home = false }: ComposerProps) {
                 </div>
               ) : null}
               {listed.map((option, index) => (
-                <button
-                  key={option.id}
-                  id={`${listId}-${index}`}
-                  type="button"
-                  tabIndex={-1}
-                  role="option"
-                  aria-selected={index === active}
-                  className={styles.mention}
-                  // Keeps the caret in the box.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => pickMention(option.id)}
-                >
-                  <span className={styles.itemIcon}>
-                    {mention.kind === "@" ? (
-                      targetIcon(option.id)
-                    ) : mention.kind === "#" ? (
-                      <span className={styles.fileIcon}>
-                        {typeLabel(
-                          option.name,
-                          library.find((known) => known.id === option.id)?.file.kind ?? "file",
-                        )}
-                      </span>
-                    ) : (
-                      <LayoutTemplate size={14} aria-hidden />
-                    )}
-                  </span>
-                  <span className={styles.mentionText}>
-                    {option.name}
-                    <span>{option.note}</span>
-                  </span>
-                </button>
+                <Fragment key={option.id}>
+                  {option.app && listed[index - 1]?.app !== true ? (
+                    <div className={styles.menuHeading} role="presentation">
+                      Apps
+                    </div>
+                  ) : null}
+                  <button
+                    id={`${listId}-${index}`}
+                    type="button"
+                    tabIndex={-1}
+                    role="option"
+                    aria-selected={index === active}
+                    className={styles.mention}
+                    // Keeps the caret in the box.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pickMention(option)}
+                  >
+                    <span className={styles.itemIcon}>
+                      {option.app ? (
+                        <AppLogo app={option.name} size="sm" />
+                      ) : mention.kind === "@" ? (
+                        targetIcon(option.id)
+                      ) : mention.kind === "#" ? (
+                        <span className={styles.fileIcon}>
+                          {typeLabel(
+                            option.name,
+                            library.find((known) => known.id === option.id)?.file.kind ?? "file",
+                          )}
+                        </span>
+                      ) : (
+                        <LayoutTemplate size={14} aria-hidden />
+                      )}
+                    </span>
+                    <span className={styles.mentionText}>
+                      {option.name}
+                      <span>{option.note}</span>
+                    </span>
+                  </button>
+                </Fragment>
               ))}
             </div>
           ) : null}
@@ -648,8 +689,8 @@ export function Composer({ home = false }: ComposerProps) {
           </span>
         )}
         <span className={styles.keys}>
-          <Kbd>@</Kbd> who · <Kbd>#</Kbd> Library file · <Kbd>/</Kbd> template · <Kbd>Enter</Kbd>{" "}
-          start · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> new line
+          <Kbd>@</Kbd> who or app · <Kbd>#</Kbd> Library file · <Kbd>/</Kbd> template ·{" "}
+          <Kbd>Enter</Kbd> start · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> new line
         </span>
       </div>
       {error === undefined ? null : (

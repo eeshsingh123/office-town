@@ -1,0 +1,69 @@
+/* A tag in a message already sent. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px 0 2px;
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--accent-text);
+  font-weight: 600;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.tag > [role="img"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.tag > [role="img"] img {
+  width: 12px;
+  height: 12px;
+}
+
+/* Drawn under a message box's clear text; it must not change a single width, or the caret drifts. */
+.layer {
+  position: absolute;
+  box-sizing: border-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}
+
+.mark {
+  border-radius: 4px;
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.at {
+  position: relative;
+  color: transparent;
+}
+
+.atLogo {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.atLogo > [role="img"] {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.atLogo > [role="img"] img {
+  width: 11px;
+  height: 11px;
+}

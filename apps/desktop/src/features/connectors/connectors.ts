@@ -1,5 +1,5 @@
 import {
-  type AgentRecord,
+  type AgentSettings,
   type AppAudience,
   appKeyOf,
   type CatalogEntry,
@@ -139,9 +139,17 @@ export function useConnectorNeedsUser(): boolean {
   return useApp((state) => Object.values(state.connectors).some(needsRenewing));
 }
 
+// Who an app would reach: an agent, or the one a new task is about to start.
+export interface AppHolder {
+  id: string;
+  guest?: true | undefined;
+  departmentId?: string | undefined;
+  settings: Pick<AgentSettings, "harness" | "accountId">;
+}
+
 // The core's rule, so the side panel shows what an agent gets: guests get none, and a provider's
 // apps go to its agents only, by the account it is set to (Automatic shows each app once).
-export function usableBy(connectors: ConnectorRecord[], agent: AgentRecord) {
+export function usableBy(connectors: ConnectorRecord[], agent: AppHolder) {
   const seen = new Set<string>();
   return connectors.filter(({ enabled, audience, setup, status }) => {
     if (agent.guest === true || !enabled) return false;

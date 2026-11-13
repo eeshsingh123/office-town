@@ -10,6 +10,7 @@ import fileStyles from "../attachments/Attachments.module.css";
 import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
+import { TagLayer, useAppPicker, useTaggableApps } from "../connectors/AppTags.tsx";
 import { useLibrary } from "../library/library.ts";
 import { useLibraryPicker } from "../library/use-library-picker.tsx";
 import { useOffice } from "../office/office-state.ts";
@@ -76,6 +77,9 @@ export function Composer({
     onPick: attached.addFromLibrary,
   });
 
+  const apps = useTaggableApps(agent);
+  const appPicker = useAppPicker({ apps, text, setText, field });
+
   useEffect(() => {
     if (compose === undefined) return;
     setFollowUp(compose.taskId);
@@ -105,7 +109,7 @@ export function Composer({
   const target = followUp ?? latestGoal;
   const to = target === undefined ? undefined : nameOf(target);
   const onKeyDown = (event: KeyboardEvent) => {
-    if (picker.onKeyDown(event)) return;
+    if (picker.onKeyDown(event) || appPicker.onKeyDown(event)) return;
     // Enter while an input method composes picks a word; it does not send.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       void send(event);
@@ -131,22 +135,28 @@ export function Composer({
       <PickedFiles files={attached} seesImages={seesImages} />
       <div className={styles.box}>
         {picker.list}
+        {appPicker.list}
         <AttachButton files={attached} library={library} className={fileStyles.attach} />
         <label htmlFor={id} className="visually-hidden">
           Message {agent.name}
         </label>
+        <TagLayer field={field} text={text} names={apps} />
         <textarea
           id={id}
           ref={field}
           rows={1}
           value={text}
           placeholder={`Message ${agent.name}`}
-          {...picker.comboboxProps}
+          {...(appPicker.open ? appPicker.comboboxProps : picker.comboboxProps)}
           onChange={(change) => {
             setText(change.target.value);
             picker.onInput(change.target.value, change.target.selectionStart);
+            appPicker.onInput(change.target.value, change.target.selectionStart);
           }}
-          onBlur={picker.close}
+          onBlur={() => {
+            picker.close();
+            appPicker.close();
+          }}
           onKeyDown={onKeyDown}
           onPaste={attached.onPaste}
         />

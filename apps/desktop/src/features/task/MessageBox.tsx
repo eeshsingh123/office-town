@@ -20,6 +20,7 @@ import fileStyles from "../attachments/Attachments.module.css";
 import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
 import { useAttachments } from "../attachments/use-attachments.ts";
 import { useSeesImages } from "../attachments/use-sees-images.ts";
+import { TagLayer, useAppPicker, useTaggableApps } from "../connectors/AppTags.tsx";
 import { useLibrary } from "../library/library.ts";
 import { useLibraryPicker } from "../library/use-library-picker.tsx";
 import { COMPOSER_FOCUS } from "./sub-agent-state.ts";
@@ -56,6 +57,8 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
     field,
     onPick: attached.addFromLibrary,
   });
+  const apps = useTaggableApps(agent.record);
+  const appPicker = useAppPicker({ apps, text, setText, field });
   const canResume = useApp(
     (state) =>
       state.harnesses.find((known) => known.harness === agent.latest.options.harness)?.capabilities
@@ -82,7 +85,7 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
     }
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (picker.onKeyDown(event)) return;
+    if (picker.onKeyDown(event) || appPicker.onKeyDown(event)) return;
     // Enter while an input method composes picks a word; it does not send.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       void send(event);
@@ -108,12 +111,14 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
       <PickedFiles files={attached} seesImages={seesImages} className={styles.picked} />
       <div className={styles.messageBox}>
         {picker.list}
+        {appPicker.list}
         {open ? (
           <AttachButton files={attached} library={library} className={fileStyles.attach} />
         ) : null}
         <label htmlFor={id} className="visually-hidden">
           {placeholder}
         </label>
+        <TagLayer field={field} text={text} names={apps} />
         <textarea
           id={id}
           ref={field}
@@ -121,12 +126,16 @@ export function MessageBox({ agent, className, actions }: MessageBoxProps) {
           value={text}
           placeholder={placeholder}
           disabled={!open}
-          {...picker.comboboxProps}
+          {...(appPicker.open ? appPicker.comboboxProps : picker.comboboxProps)}
           onChange={(change) => {
             setText(change.target.value);
             picker.onInput(change.target.value, change.target.selectionStart);
+            appPicker.onInput(change.target.value, change.target.selectionStart);
           }}
-          onBlur={picker.close}
+          onBlur={() => {
+            picker.close();
+            appPicker.close();
+          }}
           onKeyDown={onKeyDown}
           onPaste={open ? attached.onPaste : undefined}
         />

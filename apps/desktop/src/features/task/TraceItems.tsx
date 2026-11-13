@@ -35,6 +35,7 @@ import { Markdown } from "../../ui/Markdown.tsx";
 import { SentFiles, useFileUses } from "../attachments/SentFiles.tsx";
 import { MessageMenu } from "../chat/MessageMenu.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
+import { TaggedText, useAppNames } from "../connectors/AppTags.tsx";
 import { ShownResult } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
@@ -356,12 +357,15 @@ function MessageFiles({ item, sessionId }: { item: TraceMessage; sessionId: stri
 // The user's own words sit on the right in their colour, apart from the agent's.
 function UserSaid({ text, children }: { text: string; children?: ReactNode }) {
   const name = useYourName();
+  const appNames = useAppNames();
   return (
     <div className={styles.user}>
       <div className={styles.userSaid}>
         <span className={styles.userName}>{name}</span>
         <MessageMenu text={text}>
-          <div className={styles.userBubble}>{text}</div>
+          <div className={styles.userBubble}>
+            <TaggedText text={text} names={appNames} />
+          </div>
         </MessageMenu>
         {children}
       </div>
