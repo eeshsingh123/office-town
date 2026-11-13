@@ -19,7 +19,7 @@ export function AskChip({ value, onChoose, align = "start", note }: AskChipProps
   const item = (level: Autonomy) => (
     <DropdownMenu.RadioItem value={level} className={menu.item}>
       <span className={menu.itemText}>
-        {AUTONOMY[level].short}
+        {AUTONOMY[level].label}
         <span className={menu.itemDescription}>{AUTONOMY[level].description}</span>
       </span>
       <DropdownMenu.ItemIndicator>
@@ -31,10 +31,10 @@ export function AskChip({ value, onChoose, align = "start", note }: AskChipProps
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
         className={styles.chip}
-        aria-label={`Permissions: ${AUTONOMY[value].short}`}
+        aria-label={`Permissions: ${AUTONOMY[value].label}`}
       >
         <ShieldCheck size={14} aria-hidden />
-        <span className={styles.chipText}>{AUTONOMY[value].short}</span>
+        <span className={styles.chipText}>{AUTONOMY[value].label}</span>
         <ChevronDown size={13} aria-hidden />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
