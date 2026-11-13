@@ -28,7 +28,7 @@ import { attachmentNote } from "./attachments.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { type RunningProcess, runProcess } from "./process-runner.ts";
 import { readVendorApps } from "./vendor-apps.ts";
-import { installedAdapter } from "./versions.ts";
+import { forgetVersion, installedAdapter } from "./versions.ts";
 
 const STOP_GRACE_MS = 3000;
 const APPS_TIMEOUT_MS = 10_000;
@@ -252,6 +252,7 @@ export class HarnessSession implements Session {
         .filter((name) => !allowed.includes(name));
       return { ...this.#options, blockedApps };
     } catch (error) {
+      forgetVersion(adapter.harness, this.#options.environment);
       const message = `Its apps are off for this run: ${errorMessage(error)}`;
       this.#emit({ type: "error", payload: { message, fatal: false } });
       return { ...this.#options, vendorApps: [] };

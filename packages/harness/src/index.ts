@@ -234,6 +234,7 @@ export async function saveAccountKey(
   const timer = setTimeout(() => void running.killTree(), 30_000);
   const code = await exited.promise;
   clearTimeout(timer);
+  if (code !== 0) forgetVersion(harness, spec);
   return code === 0;
 }
 
