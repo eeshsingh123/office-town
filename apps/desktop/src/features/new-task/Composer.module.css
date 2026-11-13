@@ -61,7 +61,7 @@
 }
 
 /* Too narrow for one line even with names shortened: rows of whole chips instead. */
-@container (width < 600px) {
+@container (width < 700px) {
   .chips {
     flex-wrap: wrap;
   }
@@ -69,10 +69,9 @@
 
 .chip {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: none;
   align-items: center;
   gap: 6px;
-  min-width: 0;
   max-width: 100%;
   height: 30px;
   padding: 0 9px;
@@ -109,8 +108,14 @@
   cursor: default;
 }
 
+/* Only the long names, the model and the workspace, shorten to keep the line. */
+.shrinks {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .chipText {
-  min-width: 40px;
+  min-width: 48px;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;

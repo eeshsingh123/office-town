@@ -646,11 +646,16 @@ export function Composer({ home = false }: ComposerProps) {
               <WorkspacePicker
                 value={workspace?.id}
                 onChange={setWorkspaceId}
-                chipClassName={styles.chip}
+                chipClassName={`${styles.chip} ${styles.shrinks}`}
               />
             )}
             {picksAgent && settings !== undefined ? (
-              <ModelChip value={settings} recent={choices.recentModels} onChange={changeSettings} />
+              <ModelChip
+                value={settings}
+                recent={choices.recentModels}
+                onChange={changeSettings}
+                triggerClassName={`${styles.chip} ${styles.shrinks}`}
+              />
             ) : null}
             {picksAgent ? (
               <AskChip value={level} onChoose={gate.choose} />
