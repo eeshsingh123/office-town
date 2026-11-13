@@ -505,11 +505,8 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
         );
       }
       if (item.origin?.kind === "result") return <Result item={item} />;
-      if (item.origin?.kind === "notice") {
+      if (item.origin?.kind === "notice" || item.origin?.kind === "interim") {
         return <FromOffice summary={item.origin.summary} text={item.text} />;
-      }
-      if (item.origin?.kind === "interim") {
-        return <FromOffice summary="Not finished yet" text={item.text} />;
       }
       if (item.origin?.kind === "answer") {
         return <FromOffice summary="Your answer" text={item.text} />;

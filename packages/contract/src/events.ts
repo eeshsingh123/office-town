@@ -83,6 +83,8 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
     kind: z.literal("interim"),
     delegationId: z.string().min(1),
     agentId: z.string().min(1),
+    // One line for the user, such as "Sam is waiting on 2 sub-agents; its result follows".
+    summary: z.string().min(1),
   }),
   // The user's answer to a request a tool put in Needs you.
   z.object({ kind: z.literal("answer"), requestId: z.string().min(1) }),
