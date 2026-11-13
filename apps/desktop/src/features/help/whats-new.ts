@@ -26,6 +26,20 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-14",
+    title: "A clearer New task and Tasks list",
+    icon: MousePointerClick,
+    changes: [
+      "Permission levels are now named Manual and Auto. Manual asks before editing files, running commands or using the web; Auto does not",
+      "New task puts the box in the middle of the page, keeps its choices on one line, and lists sample prompts under it. Click one to fill the box",
+      "Type @ in a message to tag an app the agent can use. The tag shows the app's logo",
+      "A task's page starts with the prompt you sent",
+      "In Tasks, assistant rows show the model and thinking level, open tasks stay on top with the rest newest first, and a finished task you haven't opened has a green dot",
+      "OpenCode's model list shows each free model once, then your OpenCode Go plan, then each provider by name",
+      'The task options chip now reads "Efficient & Milestones", and the Stop dialog says only what Stop does',
+    ],
+  },
+  {
     date: "2026-11-13",
     title: "Sub-agents you can see",
     icon: Bot,
