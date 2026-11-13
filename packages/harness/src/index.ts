@@ -222,11 +222,16 @@ export async function saveAccountKey(
   const environment = environmentFor(environmentSpecSchema.parse(spec));
   const { accounts } = await installedAdapter(findAdapter(harness), spec, environment);
   if (accounts?.keyLogin === undefined) return false;
-  const { command, input } = accounts.keyLogin(provider);
+  const { command, input, replaces } = accounts.keyLogin(provider);
+  const env = accounts.env(environment.toEnvironmentPath(folder));
+  // Fails when there is no earlier key, which is fine.
+  if (replaces !== undefined) {
+    await runIn(environment, { ...replaces, env: { ...replaces.env, ...env } });
+  }
   const exited = Promise.withResolvers<number | null>();
   const running = await runProcess(
     environment,
-    { ...command, env: { ...command.env, ...accounts.env(environment.toEnvironmentPath(folder)) } },
+    { ...command, env: { ...command.env, ...env } },
     { onLine: () => {}, onExit: (exit) => exited.resolve(exit.code) },
   );
   running.writeLine(input(key));

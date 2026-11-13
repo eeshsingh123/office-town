@@ -148,15 +148,22 @@ const accounts: AccountSupport = {
 };
 
 // OpenCode 2 asks for a key only in a terminal, but imports one from stdin; it keeps keys in its
-// database, so the app remembers the sign-ins it saw finish.
+// database, so the app remembers the sign-ins it saw finish. An import skips a key whose id it
+// already has, so a new key for the provider first removes the app's earlier one.
+const credentialOf = (provider: string) => `cred_officetown_${provider}`;
+
 const accounts2: AccountSupport = {
   env: accounts.env,
   keyLogin: (provider) => ({
+    replaces: {
+      binary: "opencode",
+      args: ["auth", "logout", provider, credentialOf(provider), "--standalone"],
+    },
     command: { binary: "opencode", args: ["auth", "import", "--standalone"] },
     input: (key) =>
       JSON.stringify([
         {
-          id: `cred_officetown_${provider}`,
+          id: credentialOf(provider),
           integrationID: provider,
           label: "Office Town",
           active: true,

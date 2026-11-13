@@ -120,8 +120,12 @@ export interface AccountSupport {
   // Signs in, printing a page to open and reading a code from stdin if the page shows one.
   login?: HarnessCommand;
   // Signs in with a key from the provider's console, written to stdin as `input` gives it; the CLI
-  // saves it.
-  keyLogin?: (provider: string) => { command: HarnessCommand; input(key: string): string };
+  // saves it. `replaces` first removes a key an earlier sign-in saved, for a CLI that would keep it.
+  keyLogin?: (provider: string) => {
+    command: HarnessCommand;
+    input(key: string): string;
+    replaces?: HarnessCommand;
+  };
   status?: HarnessQuery<AccountStatus>;
   // The default login's folder, inside the home folder.
   home?: string;
