@@ -421,6 +421,12 @@ export class HarnessSession implements Session {
       case "turn.ended":
         this.#endTurn(event.payload);
         break;
+      case "session.started":
+        this.#emit({
+          ...event,
+          payload: { ...event.payload, subAgents: this.capabilities.subAgents },
+        });
+        break;
       case "plan.updated":
         this.#plan = event.payload.steps;
         this.#emit(event);

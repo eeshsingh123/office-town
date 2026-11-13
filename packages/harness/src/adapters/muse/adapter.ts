@@ -112,6 +112,7 @@ export const museAdapter: Adapter = {
     usageLimits: true,
     images: true,
     isolation: "partial",
+    subAgents: { steps: false, wakes: false },
   },
   isolationNote: "Your own Muse settings still load; the workspace's skills and rules do not.",
   catalog,

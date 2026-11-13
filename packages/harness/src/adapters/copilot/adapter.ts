@@ -74,6 +74,7 @@ export const copilotAdapter = createAcpAdapter({
     usageLimits: false,
     images: true,
     isolation: "partial",
+    subAgents: { steps: false, wakes: false },
   },
   isolationNote: "Copilot's own settings and instructions still load.",
   // Its tool calls name an MCP tool by its server, in one of these forms.

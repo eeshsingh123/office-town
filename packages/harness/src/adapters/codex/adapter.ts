@@ -298,6 +298,7 @@ export const codexAdapter: Adapter = {
     usageLimits: true,
     images: true,
     isolation: "partial",
+    subAgents: { steps: false, wakes: false },
   },
   isolationNote: "Your Codex settings file and AGENTS.md files still load.",
   catalog,

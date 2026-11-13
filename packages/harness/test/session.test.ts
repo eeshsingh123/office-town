@@ -21,6 +21,7 @@ const passthroughAdapter: Adapter = {
     usageLimits: false,
     images: false,
     isolation: "none",
+    subAgents: { steps: false, wakes: false },
   },
   buildCommand: () => ({ binary: "replayed", args: [] }),
   createTranslator: () => ({

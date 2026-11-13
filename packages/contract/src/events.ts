@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { sentAttachmentSchema } from "./attachments.ts";
 import { answeredBySchema } from "./autonomy.ts";
+import { subAgentSupportSchema } from "./capabilities.ts";
 import { checkItemSchema } from "./checks.ts";
 import { approvedPieceSchema, proposedPieceSchema } from "./plans.ts";
 import { proposalPlaceSchema, teamSchema } from "./team.ts";
@@ -128,6 +129,8 @@ const payloadSchemas = {
   "session.started": z.object({
     harnessSessionId: z.string().min(1),
     model: z.string().optional(),
+    // What the release this session runs on shares of its sub-agents.
+    subAgents: subAgentSupportSchema.optional(),
   }),
   "session.ended": z.object({
     reason: z.enum(["stopped", "exited", "failed"]),

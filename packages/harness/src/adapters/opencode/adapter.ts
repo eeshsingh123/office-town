@@ -271,6 +271,7 @@ const shared = {
     usageLimits: false,
     images: true,
     isolation: "partial",
+    subAgents: { steps: false, wakes: false },
   },
   isolationNote: "OpenCode's global settings and instructions still load.",
   toolPrefixes: (server: string) => [`${server}_`],
@@ -291,6 +292,7 @@ const opencode1 = createAcpAdapter({
 // questions and Code Mode to its sessions (D-98).
 const opencode2 = createAcpAdapter({
   ...shared,
+  capabilities: { ...shared.capabilities, subAgents: { steps: true, wakes: false } },
   catalog: catalog2,
   accounts: accounts2,
   recount: recount2,
