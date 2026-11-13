@@ -1,20 +1,23 @@
 # Memory
 
-Last updated: 2026-11-12
+Last updated: 2026-11-13
 
 ## State
 
 - Built and merged to `main`: M1 to M10, the feedback and optimization rounds, and the performance phase (PR #83). MODULES.md lists what each built.
 - Phase 2 B, Efficient mode (D-94), merged as PR #84. Live smoke: two solo OpenCode runs on the free model with `--hand-over-at`.
 - Phase 2 C, Milestones (D-95), merged as PR #85.
-- Connectors revamp (D-96) built on `feat/connectors-revamp`, PR open. Live smoke on the dev web app: a Claude Haiku agent asked for Exa, it was added and the agent searched with it (recorded); a Codex agent (ChatGPT Free, default model) called Plugin Management through the core (allowed as a read, recorded with its input), then asked for Notion and got "Set up in Codex"; Codex's setup page for Hugging Face came from `plugin/read`.
+- Connectors revamp (D-96) merged as PR #86.
+- OpenCode 1 and 2 (D-97) built on `feat/opencode-2`, PR open. Live on 2.3.0 and on a private 1.19.5 copy (its own data folder): models, a free-model task writing a file, recount (2.x with a sub-agent), the user's servers, key sign-in into an account folder (fake key). Raw ACP probes on both: one inline config, Code Mode off, tools called by name, a blocked server gone; on 2.x an MCP ask carries its input. Providers shows "version 2.3.0".
 - Next: the public release steps in MODULES.md, on the owner's go-ahead.
-- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in.
+- The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in. OpenCode is 2.3.0 (npm `@opencode/cli`, replacing 1.19.5); the 1.x config, `auth.json` and `opencode.db` are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs: `Claude Code Auto Update`, `OpenCode 2 Auto Update` (`@opencode/cli@latest`), and the old `OpenCode Auto Update` (`opencode-ai`), which now fails with EEXIST.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
 
+- D-97 in the app: an OpenCode agent on 2.x end to end (team tools, a plan from `todowrite`, Needs you asks with edits under Ask me first), a 1.x session resumed on 2.x, key sign-in from Add account, Install on a machine without OpenCode (should install `@opencode/cli`), a WSL agent whose distro has 1.x while Windows has 2.x. Wrong if any shows `execute` as a step or a user's blocked server reaches the agent.
+- D-97 sub-agents on 2.x always run in the background, so a turn may end before its sub-agent (as on Claude); only seen in a raw probe.
 - D-96 Codex app connected through ChatGPT: press Set up in Codex on an ask, connect the app on the ChatGPT page, come back. It should show with the Codex tag and the ask answer itself; wrong if Codex lists it only once the plugin is installed (then `plugin/install` with the remote id from `plugin/read`).
 - D-96 handover after a provider app is given mid-task: the agent should call `hand_over` and its new conversation have the app; wrong if it carries on without it or the handover waits in Needs you.
 - D-96 a Codex app change under Ask me first: Plugin Management's uninstall should wait in Needs you with its input. Only reads ran live.
@@ -54,6 +57,8 @@ Worth a click when the area is touched:
 
 ## Owner requirements not yet built
 
+- OpenCode 2 follow-ups (D-97): Ask me first for OpenCode servers, now that 2.x asks carry the input (D-96 keeps Don't ask); its `question` tool through ACP form elicitation, so agents could ask in Needs you (now it tells the model it cannot ask); a second key for the same provider in one account is skipped by `auth import`.
+
 - Recovery gaps (D-77): a lead that fails twice has no Needs you card; a message waiting on one long tool shows as sent; a message still waiting when a session ends is lost; a hung worker shows only as "last active N min ago"; results that end while a lead is stopped are not replayed on resume.
 - "Always allow this" rules from a Needs you ask, parked (D-57).
 - Telling the user a CLI is out of date (needs the CLI's version in the catalog: a contract change).
@@ -91,7 +96,7 @@ Worth a click when the area is touched:
 ## What the harnesses do
 
 - Claude Code (2.1.287 fixtures; 2.1.316 latest probed). Every turn starts with `system/init`. A message sent during a turn folds into it at the next tool end, with no new `system/init`; `--replay-user-messages` echoes it when taken. MCP tools are deferred behind `ToolSearch`. In `ask` mode a tool not in `--allowedTools` comes as `can_use_tool`. The plan comes from `TaskCreate`/`TaskUpdate`; read the CLI's own record in `tool_use_result`, since the model names fields loosely. Sub-agents run in the background, so a turn can end before its sub-agent. Thinking text arrives empty. `AskUserQuestion` comes as a permission request; answer with `answers` in `updatedInput`. `initialize` lists models and efforts. `--resume <id>` keeps the id. `rate_limit_event` carries `five_hour` and `seven_day` utilisation (0 to 1) and `resetsAt`; a refused turn has `status: "rejected"`. `claude auth status --json` gives `loggedIn`, `email`, `subscriptionType`. `CLAUDE_CONFIG_DIR` moves the login. `mcp_status` lists claude.ai apps with `readOnly` markers without a turn; Gmail, Drive and Calendar need `claude mcp login --no-browser "<app>"` in headless runs.
-- OpenCode (1.18.34 fixtures, 1.19.5 probed) over ACP. An `ask` rule on an MCP tool asks with an empty `rawInput` (why the core decides connector calls). The todo list is `todowrite`. Sub-agents' steps are not forwarded. ACP cannot ask the user a question. `session/new` gives models and the current model's `effort`; `opencode models --verbose` lists every model's variants, inputs and window. Reports context size as a prompt ends, no plan limit. It waits for every MCP server in the user's global config before `session/new` answers: an `npx` server cost 14 s per start, so the owner's `rea` server is disabled in `~/.config/opencode/opencode.jsonc`. It calls `fs/write_text_file` although the client says it cannot; refused, it writes the file itself, and once its idle process later exited on that refusal (code 1, D-77).
+- OpenCode 1 (1.18.34 fixtures, 1.19.5 probed) and 2 (2.3.0, `team-tool-2` fixture) over ACP, one adapter (D-97). 2.x: every command but `acp` uses a shared background service unless `--standalone` (`acp` starts its own); `opencode2` is an alias; config sources print from `debug config`; Code Mode wraps MCP calls in an `execute` script unless `execute` is denied. 1.x: An `ask` rule on an MCP tool asks with an empty `rawInput` (why the core decides connector calls). The todo list is `todowrite`. Sub-agents' steps are not forwarded. ACP cannot ask the user a question. `session/new` gives models and the current model's `effort`; `opencode models --verbose` lists every model's variants, inputs and window. Reports context size as a prompt ends, no plan limit. It waits for every MCP server in the user's global config before `session/new` answers: an `npx` server cost 14 s per start, so the owner's `rea` server is disabled in `~/.config/opencode/opencode.jsonc`. It calls `fs/write_text_file` although the client says it cannot; refused, it writes the file itself, and once its idle process later exited on that refusal (code 1, D-77).
 - Codex 0.167.2 (`codex app-server`; the 0.164 fixtures still pass). It reports a user message as an item with object parts, and asks before every MCP call as `mcpServer/elicitation/request` (`_meta.codex_approval_kind: "mcp_tool_call"` with the tool, connector id and input), ignoring an `auto` approval mode, so the translator accepts the core's own. ChatGPT apps are the `codex_apps` server's tools grouped by `_meta.connector_id` (not always `connector_*`). Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`). Sign-in: `codex login`, `copilot login` (token in the OS store), `cursor-agent login`, `muse login` (`META_API_KEY` wins).
 - DeepSeek V4.1 Flash on OpenCode Go: first token 1 to 3 s on a cache hit, up to 55 s on a miss at 370k. Misses are the provider's.
 

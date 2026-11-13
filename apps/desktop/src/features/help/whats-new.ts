@@ -26,6 +26,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-13",
+    title: "OpenCode 2",
+    icon: PackageCheck,
+    changes: [
+      "Office Town works with OpenCode 1 and OpenCode 2, using whichever is installed. Providers shows its version",
+      "On OpenCode 2, agents call your apps and team tools one by one, so each call shows as its own step",
+      "Installing OpenCode from Office Town now installs OpenCode 2",
+    ],
+  },
+  {
     date: "2026-11-12",
     title: "Connectors, simpler",
     icon: Plug,
