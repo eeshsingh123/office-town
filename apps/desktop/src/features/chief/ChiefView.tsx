@@ -1,4 +1,3 @@
-import type { TaskState } from "@office-town/contract";
 import { CircleHelp, Settings, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -13,19 +12,12 @@ import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
+import { TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
 import { CHIEF_STEPS } from "../team/guides.tsx";
 import styles from "./Chief.module.css";
 import { ChiefSetup } from "./ChiefSetup.tsx";
 import { DepartmentList } from "./DepartmentList.tsx";
 import { useChief } from "./use-chief.ts";
-
-const GOAL_STATE: Record<TaskState, string> = {
-  queued: "Waiting its turn",
-  working: "Working",
-  waiting: "Needs you",
-  idle: "Paused",
-  ended: "Done",
-};
 
 function GoalBox({ name }: { name: string }) {
   const [goal, setGoal] = useDraft("chief-goal", "");
@@ -114,7 +106,7 @@ function ChiefHome() {
   const rules = (record.settings.instructions ?? "")
     .split("\n")
     .filter((line) => line.trim() !== "");
-  const status = waiting !== undefined ? "Needs you" : busy ? "Working" : "Idle";
+  const status = waiting !== undefined ? "Needs you" : busy ? "Working" : "Free";
 
   return (
     <section className={page.page} aria-labelledby="chief-title">
@@ -174,7 +166,7 @@ function ChiefHome() {
                 <>
                   <div className={styles.goalHead}>
                     <span className={page.panelTitle}>{taskName(current)}</span>
-                    <span className={page.hint}>{GOAL_STATE[current.state]}</span>
+                    <TaskStatusOf taskId={current.id} />
                   </div>
                   {waiting === undefined ? null : (
                     <RequestCard key={waiting.event.id} event={waiting.event} />
@@ -196,7 +188,7 @@ function ChiefHome() {
                   {queue.map((task) => (
                     <li key={task.id}>
                       <span>{taskName(task)}</span>
-                      <span className={page.hint}>Waiting its turn</span>
+                      <TaskStatusTag status="queued" />
                     </li>
                   ))}
                 </ol>

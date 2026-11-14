@@ -20,9 +20,8 @@ const SUMMARY: { label: string; states: AgentState[]; tone: string }[] = [
   { label: "needs you", states: ["waiting"], tone: "chipNeedsYou" },
   { label: "working", states: ["working", "starting", "background"], tone: "" },
   { label: "failed", states: ["failed"], tone: "chipFailed" },
-  { label: "done", states: ["done"], tone: "chipDone" },
   { label: "stopped", states: ["interrupted", "stopped"], tone: "chipQuiet" },
-  { label: "idle", states: ["idle"], tone: "chipQuiet" },
+  { label: "free", states: ["idle", "done"], tone: "chipQuiet" },
 ];
 
 function Summary({ members }: { members: FloorAgent[] }) {

@@ -110,7 +110,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
               {asked ??
                 (state === "waiting"
-                  ? "Waiting for you"
+                  ? "Needs you"
                   : (stageOf(state, trace) ?? stateLabel(state, progress?.subAgents.length ?? 0)))}
             </span>
             {waiting === undefined ? null : (

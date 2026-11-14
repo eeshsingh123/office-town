@@ -46,7 +46,7 @@
 .board {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(5, minmax(240px, 1fr));
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
   gap: 16px;
   min-height: 0;
   padding: 0 24px 24px;

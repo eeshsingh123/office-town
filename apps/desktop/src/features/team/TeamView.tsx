@@ -116,7 +116,7 @@ function DepartmentCard({
           </span>
         </button>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Idle"}
+          {working ? "Working" : "Free"}
         </span>
         <Button variant="ghost" className={styles.small} onClick={() => selectRoom(department.id)}>
           Open in office
@@ -184,7 +184,7 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
           </span>
         </span>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Idle"}
+          {working ? "Working" : "Free"}
         </span>
       </button>
     );

@@ -3,7 +3,7 @@ import { Check, CircleMinus, Clock, LoaderCircle, X } from "lucide-react";
 import styles from "../../ui/StatusIcon.module.css";
 
 const LABELS: Record<PieceStatus, string> = {
-  waiting: "Waiting",
+  waiting: "Queued",
   queued: "Queued",
   working: "Working",
   done: "Done",

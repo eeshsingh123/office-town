@@ -607,11 +607,6 @@
   color: var(--bad);
 }
 
-.chipDone {
-  background: color-mix(in srgb, var(--ok) 14%, transparent);
-  color: var(--ok);
-}
-
 .chipQuiet {
   background: var(--hover);
   color: var(--text-3);

@@ -125,7 +125,7 @@ function RouteRow({ route, first }: { route: ConnectorRecord; first: boolean }) 
 const OUTCOMES: Partial<Record<ConnectorCall["outcome"], string>> = {
   refused: "Not allowed",
   failed: "Failed",
-  asked: "Waiting for you",
+  asked: "Needs you",
 };
 
 function CallRow({ call }: { call: ConnectorCall }) {

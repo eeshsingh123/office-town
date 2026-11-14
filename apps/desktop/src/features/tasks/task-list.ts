@@ -34,7 +34,7 @@ export const STATUS_ORDER: RowStatus[] = [
 export const STATUS_LABELS: Record<RowStatus, string> = {
   needs: "Needs you",
   working: "Working",
-  queued: "Waiting",
+  queued: "Queued",
   review: "To review",
   done: "Done",
   failed: "Failed",

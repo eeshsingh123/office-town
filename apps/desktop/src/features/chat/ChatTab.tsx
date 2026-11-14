@@ -10,6 +10,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
 import { useFollow } from "../task/follow.ts";
+import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import styles from "./Chat.module.css";
 import { ChatEntry } from "./ChatEntry.tsx";
 import { Composer } from "./Composer.tsx";
@@ -167,7 +168,9 @@ function GoalChat({
               </span>
             </span>
             {/* The panel's own status already speaks for the latest goal. */}
-            {ended && !current ? <span className={styles.done}>Done</span> : null}
+            {ended && !current && task !== undefined ? (
+              <TaskStatusOf taskId={task.id} task={task} />
+            ) : null}
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>

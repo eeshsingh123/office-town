@@ -202,7 +202,8 @@ function GroupSection(props: GroupSectionProps) {
           <span className={styles.groupMeta}>{group.meta}</span>
         </div>
         <span className={styles.waiting}>
-          {group.asks.length} waiting · oldest {waitedFor(group.oldestAt, now)}
+          {group.asks.length} {group.asks.length === 1 ? "needs" : "need"} you · oldest{" "}
+          {waitedFor(group.oldestAt, now)}
         </span>
         {approvals === 0 ? null : (
           <div className={styles.groupActions}>
@@ -355,9 +356,9 @@ export function NeedsYouView() {
           </h1>
           <p className={page.lead}>
             {asks.length === 0
-              ? "No agent is waiting for you."
+              ? "Nothing needs you."
               : [
-                  `${asks.length} waiting across ${plural(taskCount, "task", "tasks")}`,
+                  `${asks.length} ${asks.length === 1 ? "needs" : "need"} you across ${plural(taskCount, "task", "tasks")}`,
                   decisions === 0
                     ? undefined
                     : `${plural(decisions, "plan or team", "plans or teams")} to approve`,
@@ -451,7 +452,7 @@ export function NeedsYouView() {
                 aria-pressed={olderThanHour}
                 onClick={() => setOlderThanHour(!olderThanHour)}
               >
-                Waiting over 1h <span className={styles.count}>{oldCount}</span>
+                Older than 1 h <span className={styles.count}>{oldCount}</span>
               </button>
             </div>
             {narrowing && visibleApprovals.length > 0 ? (

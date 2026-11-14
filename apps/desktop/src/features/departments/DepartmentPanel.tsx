@@ -72,12 +72,12 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const step = trace === undefined ? undefined : progressOf(trace).step;
   const doing =
     state === undefined
-      ? (lastWork ?? "Idle")
+      ? (lastWork ?? "Free")
       : (stageOf(state, trace) ??
         (state === "working" && step !== undefined
           ? `Step ${step.number} · ${step.title}`
           : state === "waiting"
-            ? "Waiting for you"
+            ? "Needs you"
             : STATE_LABELS[state]));
   return (
     <button type="button" className={styles.member} onClick={() => select([record.id])}>

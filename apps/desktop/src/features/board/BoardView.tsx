@@ -16,8 +16,9 @@ import { boardColumns, type ColumnId, DONE_SHOWN } from "./board.ts";
 const COLUMNS: { id: ColumnId; title: string; status: RowStatus }[] = [
   { id: "needs-you", title: "Needs you", status: "needs" },
   { id: "working", title: "Working", status: "working" },
-  { id: "waiting", title: "Waiting", status: "queued" },
+  { id: "queued", title: "Queued", status: "queued" },
   { id: "review", title: "To review", status: "review" },
+  { id: "ended", title: "Failed or stopped", status: "failed" },
   { id: "done", title: "Done", status: "done" },
 ];
 

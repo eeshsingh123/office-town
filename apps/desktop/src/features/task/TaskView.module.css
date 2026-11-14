@@ -82,30 +82,6 @@
   color: var(--text-2);
 }
 
-.count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  font-size: var(--size-small);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent-text);
-}
-
-.countIdle {
-  background: var(--hover);
-  color: var(--text-3);
-}
-
-.countWaiting {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
 .jump {
   flex: none;
   padding: 0;

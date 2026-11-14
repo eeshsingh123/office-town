@@ -102,16 +102,6 @@
   color: var(--text-3);
 }
 
-.done {
-  flex: none;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--ok-soft);
-  color: var(--ok);
-  font-size: var(--size-small);
-  font-weight: 600;
-}
-
 .tip {
   z-index: 40;
   max-width: 280px;
