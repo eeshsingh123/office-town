@@ -1,17 +1,19 @@
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import { Meter } from "./AccountCard.tsx";
-import { clock, fullest, percent, toneOf, windowLabel } from "./limits.ts";
+import { useAccountLabels } from "./identity.ts";
+import { fullest, limitLine, runsOutAt, toneOf } from "./limits.ts";
+import { Meter } from "./Meter.tsx";
 import styles from "./Usage.module.css";
 import { useLiveLimits, useMinute } from "./use-usage.ts";
 
 const SHOWN = 5;
 
-// Each account's fullest window, the fullest first; the whole picture is on Usage.
+// Each account's fullest window, what runs out first on top; the whole picture is on Usage.
 export function PlanUsageCard({ className = "" }: { className?: string | undefined }) {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
+  const labelOf = useAccountLabels();
   const now = useMinute();
   useLiveLimits();
   const rows = accounts
@@ -19,10 +21,14 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
       const window = fullest(limits[account.id], now);
       if (window === undefined) return [];
       const harness = harnesses.find((known) => known.harness === account.harness)?.name;
-      return [{ account, window, name: `${harness ?? account.harness} · ${account.name}` }];
+      const out = runsOutAt(window, now) ?? Number.POSITIVE_INFINITY;
+      return [
+        { account, window, out, name: `${harness ?? account.harness} · ${labelOf(account)}` },
+      ];
     })
-    .toSorted((a, b) => b.window.usedFraction - a.window.usedFraction);
+    .toSorted((a, b) => a.out - b.out || b.window.usedFraction - a.window.usedFraction);
   if (rows.length === 0) return null;
+  const more = rows.length - SHOWN;
   return (
     <section className={`${className} ${styles.planCard}`} aria-labelledby="plan-usage-title">
       <div className={styles.planHead}>
@@ -30,18 +36,15 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
           Plan usage
         </h2>
         <Button variant="ghost" onClick={() => navigate({ name: "usage" })}>
-          Open Usage
+          {more > 0 ? `+${more} more on Usage` : "Usage"}
         </Button>
       </div>
       <div className={styles.planRows}>
         {rows.slice(0, SHOWN).map(({ account, window, name }) => {
           const tone = toneOf(window.usedFraction);
-          const full = window.usedFraction >= 1 && window.resetsAt !== undefined;
           return (
             <div key={account.id} className={styles.planRow}>
-              <span className={styles.planName}>
-                {name} <span>· {windowLabel(window).toLowerCase()}</span>
-              </span>
+              <span className={styles.planName}>{name}</span>
               <Meter usedFraction={window.usedFraction} thin />
               <span
                 className={[
@@ -52,9 +55,7 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
                   .filter(Boolean)
                   .join(" ")}
               >
-                {full && window.resetsAt !== undefined
-                  ? `Resets ${clock(Date.parse(window.resetsAt), now)}`
-                  : percent(window.usedFraction)}
+                {limitLine(window, now)}
               </span>
             </div>
           );

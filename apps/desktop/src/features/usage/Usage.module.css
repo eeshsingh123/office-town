@@ -12,81 +12,32 @@
   animation: spin 1s linear infinite;
 }
 
-/* At a glance */
-.glance {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.tile {
+/* Only when something needs the user: amber runs out early, red at a limit or over 90% */
+.banners {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
+  gap: 12px;
 }
 
-.tileNumber {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.tileName {
-  font-size: var(--size-title);
-  font-weight: 700;
-  line-height: 1.35;
-  padding-top: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tileLabel {
-  color: var(--text-2);
-}
-
-.tileHigh {
-  border-color: color-mix(in srgb, var(--bad) 35%, var(--border));
-  background: color-mix(in srgb, var(--bad) 8%, var(--surface));
-}
-
-.tileHigh .tileNumber {
-  color: var(--bad);
-}
-
-@media (max-width: 900px) {
-  .glance {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* A used-up account */
 .banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 20px;
-  padding: 16px 20px;
-  border: 1px solid color-mix(in srgb, var(--bad) 30%, var(--border));
+  padding: 12px 16px;
+  border: 1px solid var(--warn-border);
   border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--bad) 8%, var(--surface));
+  background: var(--warn-soft);
+}
+
+.bannerHigh {
+  border-color: color-mix(in srgb, var(--bad) 35%, var(--border));
+  background: var(--bad-soft);
 }
 
 .bannerText {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 2px;
   min-width: 240px;
-}
-
-.bannerText span {
-  color: var(--text-2);
 }
 
 /* Search and filters */
@@ -95,19 +46,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-/* One harness and its accounts */
-.tool {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.toolHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .toolName {
@@ -121,139 +59,7 @@
   font-size: var(--size-meta);
 }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-  padding: 22px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-
-.cardHigh {
-  border-color: color-mix(in srgb, var(--bad) 40%, var(--border));
-}
-
-.cardNear {
-  border-color: var(--warn-border);
-}
-
-.cardHead {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.initial {
-  display: grid;
-  flex: none;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-weight: 700;
-}
-
-.who {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.sub {
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: var(--size-meta);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chip {
-  padding: 2px 7px;
-  border-radius: 5px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.chipHigh {
-  background: color-mix(in srgb, var(--bad) 14%, var(--surface));
-  color: var(--bad);
-}
-
-.chipNear {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
-.chipMuted {
-  background: var(--hover);
-  color: var(--text-3);
-}
-
-.window {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.windowLine {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.windowName {
-  font-weight: 600;
-}
-
-.windowValue {
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.windowValue strong {
-  color: var(--text);
-}
-
-.pace {
-  color: var(--text-3);
-  font-size: var(--size-meta);
-}
-
-.paceHigh {
-  color: var(--bad);
-}
-
-.paceOk {
-  color: var(--ok);
-}
-
-/* A meter, with a tick where an even pace would be */
+/* A meter */
 .bar {
   position: relative;
   height: 8px;
@@ -276,76 +82,8 @@
   background: var(--bad);
 }
 
-.tick {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--text-2);
-  opacity: 0.5;
-}
-
 .thin {
   height: 6px;
-}
-
-.tokens {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.tokens div {
-  display: flex;
-  flex-direction: column;
-  padding: 12px 14px;
-  border-radius: var(--radius-control);
-  background: var(--bg);
-}
-
-.tokens strong {
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-.tokens span {
-  color: var(--text-3);
-  font-size: var(--size-meta);
-}
-
-.info {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: var(--radius-control);
-  background: var(--bg);
-  color: var(--text-2);
-  font-size: var(--size-meta);
-}
-
-.info a {
-  color: var(--accent-text);
-  font-weight: 600;
-}
-
-.cardFoot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  color: var(--text-2);
-  font-size: var(--size-meta);
-}
-
-.users {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
 }
 
 .stack {
@@ -354,10 +92,6 @@
 
 .stack > * + * {
   margin-left: -6px;
-}
-
-.more {
-  flex: none;
 }
 
 /* Where it went */
@@ -418,6 +152,17 @@
   font-weight: 600;
 }
 
+div.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+div.empty p {
+  margin: 0;
+}
+
 .empty {
   margin: 0;
   padding: 28px;
@@ -472,7 +217,7 @@
 
 .planRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px 96px;
+  grid-template-columns: minmax(0, 1fr) 96px minmax(0, max-content);
   align-items: center;
   gap: 16px;
 }
@@ -481,10 +226,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.planName span {
-  color: var(--text-3);
 }
 
 .planValue {
@@ -506,27 +247,6 @@
 }
 
 /* Add account */
-.steps {
-  display: flex;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-3);
-}
-
-.steps li {
-  flex: 1;
-  padding: 6px 0;
-  border-bottom: 2px solid var(--border);
-}
-
-.steps li[aria-current="step"] {
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
 .choices {
   display: flex;
   min-width: 0;
@@ -640,54 +360,105 @@
   gap: 18px;
 }
 
-/* An estimate at API prices, under the token counts (D-76). */
-.estimate {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin: 0;
-  font-size: var(--size-meta);
-  color: var(--text-2);
-}
-
-.estimate strong {
-  color: var(--text);
-}
-
-.tipButton {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text-3);
-  cursor: help;
-}
-
-.tipButton:hover,
-.tipButton:focus-visible {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.tip {
-  z-index: 40;
-  max-width: 300px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-size: var(--size-meta);
-  line-height: 1.45;
-  box-shadow: var(--shadow-raised);
-}
-
 /* A code the CLI shows for its sign-in page, large enough to read across. */
 .signInCode code {
   font-size: 20px;
   letter-spacing: 0.08em;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* Used | Left */
+.segment {
+  display: inline-flex;
+  margin: 0;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.segment button {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--size-meta);
+  cursor: pointer;
+}
+
+.segment button[aria-pressed="true"] {
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.agents {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--size-meta);
+  cursor: pointer;
+}
+
+.agents:hover,
+.agents[data-state="open"] {
+  background: var(--hover);
+}
+
+.agentList {
+  max-height: min(420px, var(--radix-dropdown-menu-content-available-height));
+  overflow-y: auto;
+}
+
+.agentState {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  font-size: var(--size-small);
+}
+
+.unreported {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.costCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.costCell a {
+  color: var(--accent-text);
+}
+
+/* Use it for: several teams, the list scrolls so Done stays in view */
+.teamPick {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.teamPick .choices {
+  max-height: 260px;
+  overflow-y: auto;
 }

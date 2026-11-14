@@ -3,7 +3,8 @@ import { useApp } from "../../store/app-store.ts";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import menu from "../../ui/Menu.module.css";
 import { ModelChip } from "../new-task/ModelChip.tsx";
-import { fullest, percent, roomiest, sameEnvironment } from "../usage/limits.ts";
+import { useAccountLabels } from "../usage/identity.ts";
+import { fullest, limitLine, roomiest, sameEnvironment } from "../usage/limits.ts";
 
 export type ChipSettings = RoleSettings;
 
@@ -25,6 +26,7 @@ function AccountChip({
 }) {
   const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
+  const labelOf = useAccountLabels();
   const mine = accounts.filter(
     (account) =>
       account.harness === value.harness && sameEnvironment(account.environment, value.environment),
@@ -32,8 +34,7 @@ function AccountChip({
   if (mine.length < 2) return null;
   const room = (accountId: string) => {
     const full = fullest(limits[accountId]);
-    if (full === undefined) return undefined;
-    return full.usedFraction >= 1 ? "At its limit" : `${percent(full.usedFraction)} used`;
+    return full === undefined ? undefined : limitLine(full);
   };
   const best = roomiest(mine, limits);
   return (
@@ -46,13 +47,13 @@ function AccountChip({
           label: "Automatic",
           ...(best === undefined
             ? {}
-            : { description: `The account with the most usage left (now ${best.name})` }),
+            : { description: `The account with the most usage left (now ${labelOf(best)})` }),
         },
         ...mine.map((account) => {
           const description = room(account.id);
           return {
             value: account.id,
-            label: account.name,
+            label: labelOf(account),
             ...(description === undefined ? {} : { description }),
           };
         }),

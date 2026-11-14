@@ -27,6 +27,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "Providers and Usage, each with one job",
+    icon: Gauge,
+    changes: [
+      "Usage is one table of limits, one row per account window, sorted by what runs out first. Sort by most used, resets soonest or provider, filter by status, and switch between used and left",
+      "Runs out has its own column in full contrast, amber from 70% and red from 90%. A banner shows only when an account is at a limit or will run out before it resets, and paused tasks show there with Resume now",
+      "The Agents cell lists who uses an account, working or free; each opens the agent",
+      "Providers that share no limits get one small table with tokens today and this week, the cost at API prices and a link to the provider's own page",
+      "Add account on Usage opens the dialog straight away. Its title names the provider, it uses the Install sheet's steps, and Use it for takes several teams",
+      "Providers lists each provider with its accounts under it, the ones that need you first. An account shows its plan, how many agents use it, where it runs when not on this PC, and one limit line that opens Usage",
+      "An account is named by its nickname, or by the email it signed in with, never Default. The same name and the same limit line show on Home, in the Office bar, in the account picker and on a run card",
+      "The model menu shows how much is left under each provider",
+      "A provider's page shows its status once and lists Runs on only when WSL is there too",
+      "Usage keeps its search, filters and sort while the app runs",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "Connectors that scale",
     icon: Plug,
     changes: [

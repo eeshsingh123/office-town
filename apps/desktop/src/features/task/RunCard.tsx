@@ -15,6 +15,8 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import chip from "../new-task/Composer.module.css";
 import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
+import { accountLabel, useIdentities } from "../usage/identity.ts";
+import { sessionAccountId } from "../usage/limits.ts";
 import styles from "./RunCard.module.css";
 import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
 import { optionsOf, setTaskOption, TASK_OPTIONS } from "./task-options.ts";
@@ -171,6 +173,14 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
 function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
   const traces = useApp((state) => state.traces);
   const waiting = useWaitingSessions().has(agent.latest.id);
+  // The account it runs on, when it has a name to show: a nickname or the login's email.
+  const accountId = sessionAccountId(agent.latest.options);
+  const account = useApp((app) => app.accounts.find((one) => one.id === accountId));
+  const identity = useIdentities((known) => known[accountId]);
+  const accountName =
+    account?.folder !== undefined || identity?.email !== undefined
+      ? accountLabel(account, identity)
+      : undefined;
   const state = stateOf(agent, traces, waiting);
   const { tokens, folder } = facts;
   return (
@@ -194,6 +204,9 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
           <AppWindow size={14} aria-hidden />
           <span className={styles.text}>
             {facts.harness}
+            {accountName === undefined ? null : (
+              <span className={styles.muted}> · {accountName}</span>
+            )}
             <span className={styles.muted}> · {facts.machine}</span>
           </span>
         </li>

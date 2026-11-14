@@ -14,9 +14,11 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import { environmentName } from "../../ui/format.ts";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { CopyCommand } from "../providers/InstallSheet.tsx";
+import { CopyCommand, StepBar } from "../providers/InstallSheet.tsx";
 import { checkHarnesses, useHarnessStatuses } from "../providers/providers.ts";
+import { planName, useIdentities } from "./identity.ts";
 import { sameEnvironment } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { reloadAccounts } from "./use-usage.ts";
@@ -78,7 +80,8 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
   const [provider, setProvider] = useState<string>(accountProviders[0].id);
   const [key, setKey] = useState("");
   const [status, setStatus] = useState<AccountStatus>();
-  const [team, setTeam] = useState("");
+  const [teams, setTeams] = useState<ReadonlySet<string>>(new Set());
+  const [teamQuery, setTeamQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const description = harnesses.find((known) => known.harness === harness);
@@ -104,7 +107,9 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
         .then(async (next) => {
           setLogin(next);
           if (next.state === "done") {
-            setStatus((await api.readAccountStatus(account.id, true)) ?? undefined);
+            const signedIn = await api.readAccountStatus(account.id, true);
+            if (signedIn !== null) useIdentities.setState({ [account.id]: signedIn });
+            setStatus(signedIn ?? undefined);
             setStep("use");
             void checkHarnesses({ now: true }).catch(() => {});
           }
@@ -162,10 +167,11 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
 
   const finish = () =>
     run(async () => {
-      if (account !== undefined && team !== "") {
+      if (account !== undefined && teams.size > 0) {
         const members = Object.values(agents).filter(
           (agent) =>
-            agent.departmentId === team &&
+            agent.departmentId !== undefined &&
+            teams.has(agent.departmentId) &&
             agent.settings.harness === account.harness &&
             sameEnvironment(agent.settings.environment, account.environment),
         );
@@ -181,11 +187,31 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
       onClose();
     });
 
-  const teams = Object.values(departments).filter((department) =>
+  const teamChoices = Object.values(departments).filter((department) =>
     Object.values(agents).some(
       (agent) => agent.departmentId === department.id && agent.settings.harness === harness,
     ),
   );
+  const teamNeedle = teamQuery.trim().toLowerCase();
+  const shownTeams = teamChoices.filter((department) =>
+    department.name.toLowerCase().includes(teamNeedle),
+  );
+  const toggleTeam = (id: string) =>
+    setTeams((known) => {
+      const next = new Set(known);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const steps = STEP_NAMES.filter(([value]) => preset === undefined || value !== "tool");
+  const at = steps.findIndex(([value]) => value === step);
+  // Named by the provider, never by the account, so the user can see where it goes.
+  const title =
+    again !== undefined
+      ? `Sign in to ${harnessName}`
+      : step === "tool"
+        ? "Add account"
+        : `Add ${harnessName} account`;
 
   return (
     <Dialog.Root
@@ -197,23 +223,11 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
       <Dialog.Portal>
         <Dialog.Overlay className={dialog.overlay} />
         <Dialog.Content className={dialog.content}>
-          <Dialog.Title className={dialog.title}>
-            {again === undefined ? "Add account" : `Sign in to ${again.name}`}
-          </Dialog.Title>
+          <Dialog.Title className={dialog.title}>{title}</Dialog.Title>
           <Dialog.Description className="visually-hidden">
             Connect another {harnessName} sign-in for your agents to use.
           </Dialog.Description>
-          {again === undefined ? (
-            <ol className={styles.steps} aria-label="Steps">
-              {STEP_NAMES.filter(([value]) => preset === undefined || value !== "tool").map(
-                ([value, label]) => (
-                  <li key={value} aria-current={value === step ? "step" : undefined}>
-                    {label}
-                  </li>
-                ),
-              )}
-            </ol>
-          ) : null}
+          {again === undefined ? <StepBar steps={steps.map(([, label]) => label)} at={at} /> : null}
 
           {step === "tool" ? (
             <fieldset className={styles.choices}>
@@ -312,16 +326,17 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
                 <div className={styles.waiting} role="status">
                   <span className={styles.spin} aria-hidden />
                   <div>
-                    <strong>Finish signing in in your browser</strong>
-                    <br />
-                    <span>
+                    <strong>
                       {login?.code === undefined
-                        ? `${harnessName}'s sign-in page opened.`
-                        : "Enter this code on the page that opened."}{" "}
-                      {account?.folder === undefined
-                        ? ""
-                        : `This account stays separate from your other ${harnessName} sign-ins.`}
-                    </span>
+                        ? "Sign in on the page that opened in your browser"
+                        : "Enter this code on the page that opened"}
+                    </strong>
+                    {description?.needs === undefined ? null : (
+                      <>
+                        <br />
+                        <span>{description.needs}</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 {login?.code === undefined ? null : <SignInCode code={login.code} />}
@@ -358,38 +373,30 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
             <>
               <p className={styles.done} role="status">
                 Signed in{status?.email === undefined ? "" : ` as ${status.email}`}
-                {status?.plan === undefined ? "" : ` · ${status.plan}`}
+                {status?.plan === undefined ? "" : ` · ${planName(status.plan)}`}
               </p>
-              {again === undefined && teams.length > 0 ? (
-                <fieldset className={styles.choices}>
-                  <legend className="visually-hidden">Use it for</legend>
-                  <button
-                    type="button"
-                    className={styles.choice}
-                    aria-pressed={team === ""}
-                    onClick={() => setTeam("")}
-                  >
-                    <span>
-                      <strong>Nothing yet</strong>
-                      <small>Pick it per team or agent later</small>
-                    </span>
-                  </button>
-                  {teams.map((department) => (
-                    <button
-                      key={department.id}
-                      type="button"
-                      className={styles.choice}
-                      aria-pressed={team === department.id}
-                      onClick={() => setTeam(department.id)}
-                    >
-                      <span>
-                        <strong>{department.name}</strong>
-                        <small>
-                          Its {harnessName} agents use this account from their next task
-                        </small>
-                      </span>
-                    </button>
-                  ))}
+              {again === undefined && teamChoices.length > 0 ? (
+                <fieldset className={styles.teamPick}>
+                  <legend className={dialog.label}>Use it for</legend>
+                  {teamChoices.length > 6 ? (
+                    <SearchBox value={teamQuery} onChange={setTeamQuery} label="Find a team" />
+                  ) : null}
+                  <div className={styles.choices}>
+                    {shownTeams.map((department) => (
+                      <button
+                        key={department.id}
+                        type="button"
+                        className={styles.choice}
+                        aria-pressed={teams.has(department.id)}
+                        onClick={() => toggleTeam(department.id)}
+                      >
+                        <span>
+                          <strong>{department.name}</strong>
+                          <small>Its {harnessName} agents use it from their next task</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </fieldset>
               ) : null}
             </>

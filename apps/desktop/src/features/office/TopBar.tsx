@@ -3,6 +3,7 @@ import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { HistoryButtons } from "../sidebar/HistoryButtons.tsx";
 import { useSidebarCollapsed } from "../sidebar/sidebar-state.ts";
+import { useAccountLabels } from "../usage/identity.ts";
 import { fullest } from "../usage/limits.ts";
 import { useMinute } from "../usage/use-usage.ts";
 import { setPanelOpen, showMode, useOffice } from "./office-state.ts";
@@ -15,12 +16,13 @@ function useFullAccounts(): string[] {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
+  const labelOf = useAccountLabels();
   const now = useMinute();
   return accounts
     .filter((account) => (fullest(limits[account.id], now)?.usedFraction ?? 0) >= 1)
     .map((account) => {
       const harness = harnesses.find((known) => known.harness === account.harness)?.name;
-      return `${harness ?? account.harness} · ${account.name}`;
+      return `${harness ?? account.harness} · ${labelOf(account)}`;
     });
 }
 

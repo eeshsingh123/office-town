@@ -61,10 +61,11 @@ export function CopyCommand({ command }: { command: string }) {
   );
 }
 
-function Steps({ at }: { at: number }) {
+// One step bar for the Install sheet and the Add account dialog: numbered, done steps ticked.
+export function StepBar({ steps, at }: { steps: readonly string[]; at: number }) {
   return (
     <ol className={styles.steps} aria-label="Steps">
-      {STEPS.map((label, index) => (
+      {steps.map((label, index) => (
         <li
           key={label}
           className={`${styles.step} ${index < at ? styles.stepDone : ""}`}
@@ -112,7 +113,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
       </Button>
     ) : at === 1 ? (
       <>
-        <Button onClick={onClose}>Later</Button>
+        <Button onClick={onClose}>Cancel</Button>
         <Button variant="primary" onClick={onSignIn}>
           Sign in
         </Button>
@@ -121,14 +122,14 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
       <>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="primary" disabled={install?.state === "running"} onClick={start}>
-          {install?.state === "running" ? "Installing…" : "Install"}
+          {install?.state === "running" ? "Installing" : "Install"}
         </Button>
       </>
     ) : (
       <>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>Cancel</Button>
         <Button variant="primary" disabled={checking} onClick={checkAgain}>
-          {checking ? "Checking…" : "Check again"}
+          {checking ? "Checking" : "Check again"}
         </Button>
       </>
     );
@@ -141,15 +142,12 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
       foot={foot}
       onClose={onClose}
     >
-      <Steps at={at} />
+      <StepBar steps={STEPS} at={at} />
       {status === undefined ? (
         <p className={styles.muted}>Checking this computer…</p>
       ) : at === 2 ? (
         <div className={styles.note} role="status">
           <strong>{name} is ready</strong>
-          <span className={styles.muted}>
-            Pick it for an agent in the model menu, or in a template or team.
-          </span>
         </div>
       ) : at === 1 ? (
         <div className={styles.note} role="status">
@@ -175,11 +173,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
                 {install.line ?? "Starting…"}
               </p>
             </>
-          ) : (
-            <p className={styles.muted}>
-              Runs {description?.maker}'s own installer. It takes a minute or two.
-            </p>
-          )}
+          ) : null}
         </section>
       ) : (
         <section className={styles.block}>

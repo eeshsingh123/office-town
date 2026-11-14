@@ -10,6 +10,7 @@ import { useCatalog, useEnvironments, useModels } from "../profiles/model-line.t
 import { accessNote, effortLabel, effortsOf, modelName } from "../profiles/model-name.ts";
 import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import { useOfferedHarnesses } from "../providers/providers.ts";
+import { fullest, limitLine, roomiest, sameEnvironment } from "../usage/limits.ts";
 import styles from "./Composer.module.css";
 import { ModelList } from "./ModelList.tsx";
 
@@ -37,8 +38,24 @@ function AppRows({
 }) {
   const { environment } = value;
   const modelsOf = useModels(harnesses.map(({ harness }) => ({ harness, environment })));
+  const accounts = useApp((state) => state.accounts);
+  const limits = useApp((state) => state.limits);
+  // How much is left where the agent would run: its picked account, else Automatic's pick.
+  const limitOf = (harness: string) => {
+    const mine = accounts.filter(
+      (account) =>
+        account.harness === harness &&
+        sameEnvironment(account.environment, environment ?? { kind: "native" }),
+    );
+    const picked =
+      harness === value.harness && value.accountId !== undefined
+        ? mine.find((account) => account.id === value.accountId)
+        : roomiest(mine, limits);
+    const full = picked === undefined ? undefined : fullest(limits[picked.id]);
+    return full === undefined ? undefined : limitLine(full);
+  };
   return harnesses.map(({ harness, name }) => {
-    const note = accessNote(modelsOf({ harness, environment }));
+    const note = accessNote(modelsOf({ harness, environment })) ?? limitOf(harness);
     return (
       <button
         key={harness}

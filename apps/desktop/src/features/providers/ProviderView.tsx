@@ -8,24 +8,33 @@ import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { Pill } from "../../ui/Pill.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
-import { AccountGrid, useSpend } from "../usage/AccountGrid.tsx";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
+import { useSpend } from "../usage/accounts.tsx";
 import { reloadAccounts, useLiveLimits } from "../usage/use-usage.ts";
+import { AccountRows } from "./AccountRows.tsx";
 import { CopyCommand, InstallSheet } from "./InstallSheet.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
 import { defaultLogin, isReady, useHarnessStatuses } from "./providers.ts";
 
 // Where it can run: this computer, and each WSL distro, which the user installs it in by hand.
+// Shown only when there is somewhere besides this PC.
 function RunsOn({ harness }: { harness: string }) {
   const environments = useLoaded("environments", api.listEnvironments).value ?? [];
+  if (environments.length < 2) return null;
   return (
-    <ul className={styles.places} aria-label="Runs on">
-      {environments.map((environment) => (
-        <Place key={environmentKey(environment)} harness={harness} environment={environment} />
-      ))}
-    </ul>
+    <div className={page.section}>
+      <div className={page.sectionHead}>
+        <h2 className={page.sectionTitle}>Runs on</h2>
+      </div>
+      <ul className={styles.places} aria-label="Runs on">
+        {environments.map((environment) => (
+          <Place key={environmentKey(environment)} harness={harness} environment={environment} />
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -42,13 +51,13 @@ function Place({ harness, environment }: { harness: string; environment: Environ
       <div className={styles.placeHead}>
         <span className={styles.placeName}>{name}</span>
         {status === undefined ? (
-          <span className={styles.muted}>Checking…</span>
+          <span className={styles.spinner} role="img" aria-label="Checking" />
         ) : isReady(status) ? (
-          <span className={`${styles.chip} ${styles.chipOk}`}>Ready</span>
+          <Pill tone="ok">Ready</Pill>
         ) : status.installed ? (
-          <span className={`${styles.chip} ${styles.chipWarn}`}>Not signed in</span>
+          <Pill tone="warn">Not signed in</Pill>
         ) : (
-          <span className={styles.chip}>Not installed</span>
+          <Pill tone="muted">Not installed</Pill>
         )}
       </div>
       {native ||
@@ -107,16 +116,16 @@ export function ProviderView({ harness }: { harness: string }) {
                   {description.name}
                 </h1>
                 {status === undefined ? null : ready ? (
-                  <span className={`${styles.chip} ${styles.chipOk}`}>Ready</span>
+                  <Pill tone="ok">Ready</Pill>
                 ) : installed ? (
-                  <span className={`${styles.chip} ${styles.chipWarn}`}>Not signed in</span>
+                  <Pill tone="warn">Not signed in</Pill>
                 ) : (
-                  <span className={styles.chip}>Not installed</span>
+                  <Pill tone="muted">Not installed</Pill>
                 )}
               </div>
               <span className={styles.muted}>
                 Official, by {description.maker}
-                {status?.version ? ` · version ${status.version}` : ""} · {description.needs}
+                {status?.version ? ` · version ${status.version}` : ""}
               </span>
             </div>
             {status === undefined ? null : !installed ? (
@@ -132,7 +141,7 @@ export function ProviderView({ harness }: { harness: string }) {
           <p className={page.lead}>{description.summary}</p>
         </div>
 
-        {!installed ? null : (
+        {!ready ? null : (
           <div className={page.section}>
             <div className={page.sectionHead}>
               <h2 className={page.sectionTitle}>
@@ -145,16 +154,13 @@ export function ProviderView({ harness }: { harness: string }) {
                 </Button>
               ) : null}
             </div>
-            <AccountGrid accounts={mine} spend={spend} showLeft={false} />
+            <div className={`${styles.pblock} ${styles.bare}`}>
+              <AccountRows description={description} accounts={mine} spend={spend} />
+            </div>
           </div>
         )}
 
-        <div className={page.section}>
-          <div className={page.sectionHead}>
-            <h2 className={page.sectionTitle}>Runs on</h2>
-          </div>
-          <RunsOn harness={harness} />
-        </div>
+        <RunsOn harness={harness} />
       </div>
 
       {sheet === "install" ? (
