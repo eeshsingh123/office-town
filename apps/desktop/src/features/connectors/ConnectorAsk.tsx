@@ -18,7 +18,7 @@ export const appAskOf = (event: UserRequestEvent) =>
 
 export function appAskLabel(tool: { name: string }): string {
   if (tool.name === "request") return "Wants an app";
-  return "Asks your approval";
+  return "Asks your permission";
 }
 
 const text = (value: unknown) =>
@@ -103,7 +103,7 @@ function AppAskBody({ event, context }: { event: PermissionEvent; context: React
       <strong>{title}</strong>
       {ask.provider === undefined ? null : <ProviderTags tags={[ask.provider]} named />}
       <label className={styles.giveTo}>
-        Give it to
+        Who can use it
         <select
           value={audience}
           onChange={(change) => setAudience(change.target.value as AppAudience)}
@@ -122,7 +122,7 @@ function AppAskBody({ event, context }: { event: PermissionEvent; context: React
           ? ` · ${agent?.name ?? "The agent"} suggested this`
           : null}
       </label>
-      {waiting ? <p className={styles.hint}>Waiting for the sign-in in your browser…</p> : null}
+      {waiting ? <p className={styles.hint}>Waiting for the sign-in in your browser</p> : null}
       <div className={requests.buttons}>
         {give ? (
           <Button

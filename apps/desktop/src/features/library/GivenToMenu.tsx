@@ -1,7 +1,7 @@
 import type { Audience, LibraryItem } from "@office-town/contract";
 import { Check, ChevronDown } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -59,9 +59,29 @@ interface AudienceMenuProps {
   everyone: string;
   empty: string;
   label: string;
+  // Shown on the chip in place of the names, such as "Mixed".
+  summary?: string;
 }
 
-// Ticks stay open, so several can be given at once; the last one cannot be taken away.
+// "Everyone", one or two names, or how many of each.
+function summaryOf(
+  audience: Audience,
+  departments: Record<string, { name: string }>,
+  names: string,
+) {
+  if (audience.everyone) return "Everyone";
+  const teams = audience.departmentIds.filter((id) => departments[id] !== undefined).length;
+  const people = audience.agentIds.length;
+  if (teams + people <= 2) return names;
+  const parts = [
+    teams === 0 ? "" : `${teams} ${teams === 1 ? "department" : "departments"}`,
+    people === 0 ? "" : `${people} ${people === 1 ? "agent" : "agents"}`,
+  ];
+  return parts.filter((part) => part !== "").join(", ");
+}
+
+// Ticks stay open, so several can be given at once; the last one cannot be taken away. Members
+// show under their department once searched for or picked, so a long team list stays short.
 export function AudienceMenu({
   audience: givenTo,
   holders,
@@ -69,10 +89,13 @@ export function AudienceMenu({
   everyone,
   empty,
   label: purpose,
+  summary,
 }: AudienceMenuProps) {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
-  const label = audienceNames(givenTo, departments, agents);
+  const [query, setQuery] = useState("");
+  const label =
+    summary ?? summaryOf(givenTo, departments, audienceNames(givenTo, departments, agents));
   const toggle = (holder: Holder, on: boolean) => {
     const next = withHolder(givenTo, holder, on);
     if (givenToSomeone(next)) onChange(next);
@@ -88,14 +111,25 @@ export function AudienceMenu({
       onCheckedChange={(on) => toggle(holder, on)}
       onSelect={(event) => event.preventDefault()}
     >
+      <span className={`${styles.box} ${checked ? styles.boxOn : ""}`} aria-hidden>
+        {checked ? <Check size={11} /> : null}
+      </span>
       {label}
-      <DropdownMenu.ItemIndicator>
-        <Check size={14} className={menu.check} aria-hidden />
-      </DropdownMenu.ItemIndicator>
     </DropdownMenu.CheckboxItem>
   );
+  const searching = holders.length > 3;
+  const words = query.trim().toLowerCase();
+  const shown = holders.flatMap(({ department, members }) => {
+    const teamMatches = department.name.toLowerCase().includes(words);
+    const found = members.filter((agent) =>
+      words === ""
+        ? !searching || (!givenTo.everyone && givenTo.agentIds.includes(agent.id))
+        : agent.name.toLowerCase().includes(words),
+    );
+    return teamMatches || found.length > 0 ? [{ department, members: found }] : [];
+  });
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={(open) => (open ? undefined : setQuery(""))}>
       <DropdownMenu.Trigger
         className={`${menu.chip} ${styles.givenTo}`}
         aria-label={`${purpose} ${label}. Change`}
@@ -109,28 +143,46 @@ export function AudienceMenu({
           align="start"
           sideOffset={4}
         >
+          {searching ? (
+            <input
+              className={styles.menuSearch}
+              type="search"
+              value={query}
+              placeholder="Search teams and agents"
+              aria-label="Search teams and agents"
+              onChange={(event) => setQuery(event.target.value)}
+              // The menu's own letter keys would move the focus away from the box.
+              onKeyDown={(event) => event.stopPropagation()}
+            />
+          ) : null}
           <DropdownMenu.CheckboxItem
             className={menu.item}
             checked={givenTo.everyone}
             disabled={givenTo.everyone}
             onCheckedChange={() => onChange(EVERYONE)}
           >
+            <span className={`${styles.box} ${givenTo.everyone ? styles.boxOn : ""}`} aria-hidden>
+              {givenTo.everyone ? <Check size={11} /> : null}
+            </span>
             <span className={menu.itemText}>
               Everyone
               <span className={menu.itemDescription}>{everyone}</span>
             </span>
-            <DropdownMenu.ItemIndicator>
-              <Check size={14} className={menu.check} aria-hidden />
-            </DropdownMenu.ItemIndicator>
           </DropdownMenu.CheckboxItem>
-          {holders.map(({ department, members }) => (
+          {shown.map(({ department, members }) => (
             <DropdownMenu.Group key={department.id}>
-              <DropdownMenu.Separator className={styles.separator} />
               {tick(
                 department.id,
                 { departmentId: department.id },
                 !givenTo.everyone && givenTo.departmentIds.includes(department.id),
-                <span className={menu.itemText}>{department.name}</span>,
+                <>
+                  <Avatar
+                    name={department.name}
+                    colour={agents[department.leadAgentId]?.colour ?? "var(--text-3)"}
+                    size={18}
+                  />
+                  <span className={menu.itemText}>{department.name}</span>
+                </>,
               )}
               {members.map((agent) =>
                 tick(
@@ -151,6 +203,9 @@ export function AudienceMenu({
             </DropdownMenu.Group>
           ))}
           {holders.length === 0 ? <p className={styles.menuNote}>{empty}</p> : null}
+          {holders.length > 0 && shown.length === 0 ? (
+            <p className={styles.menuNote}>No team or agent matches.</p>
+          ) : null}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

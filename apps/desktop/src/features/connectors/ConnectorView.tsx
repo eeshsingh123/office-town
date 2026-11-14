@@ -3,10 +3,10 @@ import {
   type ConnectorCall,
   type ConnectorChange,
   type ConnectorRecord,
+  claudeConnectorsPage,
   providerOf,
-  workPlacesOf,
 } from "@office-town/contract";
-import { CircleAlert, CircleCheck, Globe, KeyRound, Monitor, Power, Unplug } from "lucide-react";
+import { Globe, KeyRound, Monitor, Power, SquareArrowOutUpRight, Unplug } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -14,6 +14,7 @@ import { knowAgents } from "../../store/live.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { ago, taskName } from "../../ui/format.ts";
@@ -21,20 +22,26 @@ import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { AudienceMenu, useHolders } from "../library/GivenToMenu.tsx";
 import { ProviderLogo } from "../providers/ProviderLogo.tsx";
-import { ActionGroups, actionWords } from "./ActionGroups.tsx";
+import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
+import { AppStatus } from "./AppStatus.tsx";
 import styles from "./Connectors.module.css";
 import {
+  type AppGroup,
+  audienceOf,
   groupApps,
-  isOffer,
   isProviderApp,
   needsRenewing,
   PERMISSIONS,
-  tagsOf,
+  permissionOf,
+  permissionTitle,
+  setUpThrough,
+  sourceLine,
+  stateOf,
   useCatalog,
   useConnectors,
+  usedAtOf,
 } from "./connectors.ts";
-import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
 
 const errorText = (failure: unknown) =>
@@ -48,87 +55,131 @@ async function changeAll(routes: ConnectorRecord[], update: ConnectorChange) {
   }
 }
 
-const PLACES = { app: "In the app", background: "In the background", cloud: "In the cloud" };
-
-function signedInText(route: ConnectorRecord, accountName: string | undefined): string {
-  const { setup } = route;
-  if (isOffer(route)) return "Not set up";
-  if (setup.kind === "claude")
-    return `Signed in on claude.ai${accountName ? ` · ${accountName}` : ""}`;
-  // Codex names a server from the user's own Codex settings "server:<name>"; the rest are ChatGPT's.
-  if (setup.kind === "codex") {
-    return setup.app?.startsWith("server:")
-      ? "From your Codex settings"
-      : "Signed in through ChatGPT";
-  }
-  if (setup.kind === "opencode") return "Signed in through OpenCode";
-  if (setup.kind === "local") return "A program on this computer";
-  return setup.auth === "key" ? "Key saved on this computer" : "No sign-in needed";
+function SharedIcon({ route }: { route: ConnectorRecord }) {
+  return (
+    <span className={`${styles.logo} ${styles.sm}`} aria-hidden>
+      {route.setup.kind === "local" ? (
+        <Monitor size={14} />
+      ) : route.setup.auth === "key" ? (
+        <KeyRound size={14} />
+      ) : (
+        <Globe size={14} />
+      )}
+    </span>
+  );
 }
 
-function RouteRow({ route, first }: { route: ConnectorRecord; first: boolean }) {
+// One row per provider: where the app works, each account it is on, and where it could be added.
+function Providers({ group, mixed }: { group: AppGroup; mixed: boolean }) {
   const harnesses = useApp((state) => state.harnesses);
+  const statuses = useApp((state) => state.harnessStatuses);
   const accounts = useApp((state) => state.accounts);
-  const provider = providerOf(route.setup.kind);
-  const name =
-    provider === undefined
-      ? "Office Town"
-      : (harnesses.find(({ harness }) => harness === provider)?.name ?? provider);
-  const account = accounts.find(({ id }) => id === route.setup.account)?.name;
-  const renewing = needsRenewing(route);
+  const nameOf = (harness: string) =>
+    harnesses.find((known) => known.harness === harness)?.name ?? harness;
+  const shared = group.routes.filter((route) => !isProviderApp(route));
+  const byProvider = new Map<string, ConnectorRecord[]>();
+  for (const route of group.routes) {
+    const provider = providerOf(route.setup.kind);
+    if (provider !== undefined)
+      byProvider.set(provider, [...(byProvider.get(provider) ?? []), route]);
+  }
+  const entry = group.entry;
+  const ways = entry === undefined ? [] : [providerOf(entry.setup.kind), ...entry.signIn];
+  const missing = harnesses
+    .map(({ harness }) => harness)
+    .filter(
+      (harness) =>
+        !byProvider.has(harness) &&
+        ways.includes(harness) &&
+        statuses?.[harness]?.installed !== false,
+    );
+  const permissionLine = (routes: ConnectorRecord[]) => {
+    const permission = permissionOf(routes);
+    return mixed && permission !== undefined && permission !== "mixed"
+      ? ` · ${permissionTitle(permission)}`
+      : "";
+  };
   return (
-    <div className={styles.routeRow}>
-      {provider === undefined ? (
-        <span className={`${styles.logo} ${styles.md}`} aria-hidden>
-          {route.setup.kind === "local" ? (
-            <Monitor size={16} />
-          ) : route.setup.auth === "key" ? (
-            <KeyRound size={16} />
-          ) : (
-            <Globe size={16} />
-          )}
-        </span>
-      ) : (
-        <ProviderLogo harness={provider} />
-      )}
-      <span className={styles.connText}>
-        <span className={styles.connName}>
-          {name}{" "}
-          {first && provider === undefined ? (
-            <span className={styles.first}>Used first</span>
-          ) : null}
-        </span>
-        <span className={styles.sub}>{signedInText(route, account)}</span>
-        <span className={styles.sub}>
-          {workPlacesOf(route.setup.kind)
-            .map((place) => PLACES[place])
-            .join(" · ")}
-        </span>
-      </span>
-      {isOffer(route) ? (
-        <RenewAction route={route} label="Set up" />
-      ) : renewing ? (
-        <RenewAction route={route} label="Renew" />
-      ) : (
-        <span className={`${styles.routeStatus} ${route.enabled ? "" : styles.warn}`}>
-          {!route.enabled ? (
-            "Turned off"
-          ) : route.status === "failing" ? (
-            <>
-              <CircleAlert size={14} aria-hidden /> Not answering
-            </>
-          ) : (
-            <>
-              <CircleCheck size={14} aria-hidden /> Ready
-            </>
-          )}
-        </span>
+    <div className={styles.list}>
+      {shared.map((route) => (
+        <div key={route.id} className={styles.routeRow}>
+          <SharedIcon route={route} />
+          <span className={styles.connText}>
+            <span className={styles.connName}>Any provider</span>
+            <span className={styles.sub}>
+              {[byProvider.size > 0 ? "Used first" : "", sourceLine(route)]
+                .filter((part) => part !== "")
+                .join(" · ")}
+              {permissionLine([route])}
+            </span>
+          </span>
+          <AppStatus state={stateOf([route])} />
+        </div>
+      ))}
+      {[...byProvider.entries()].map(([provider, routes]) => {
+        const [first] = routes;
+        const names = routes.flatMap(
+          ({ setup }) => accounts.find(({ id }) => id === setup.account)?.name ?? [],
+        );
+        const renewing = routes.find(needsRenewing);
+        return first === undefined ? null : (
+          <div key={provider} className={styles.routeRow}>
+            <ProviderLogo harness={provider} size="sm" />
+            <span className={styles.connText}>
+              <span className={styles.connName}>{nameOf(provider)}</span>
+              <span className={styles.sub}>
+                {sourceLine(first)}
+                {names.length > 1 ? ` · ${names.join(" and ")}` : ""}
+                {permissionLine(routes)}
+              </span>
+            </span>
+            <span className={styles.rowEnd}>
+              <AppStatus state={stateOf(routes)} />
+              {renewing === undefined ? null : <RenewAction route={renewing} label="Renew" />}
+            </span>
+          </div>
+        );
+      })}
+      {missing.map((provider) => (
+        <div key={provider} className={styles.routeRow}>
+          <ProviderLogo harness={provider} size="sm" />
+          <span className={styles.connText}>
+            <span className={styles.connName}>{nameOf(provider)}</span>
+            <span className={styles.sub}>Not set up on this provider</span>
+          </span>
+          <Button
+            onClick={() =>
+              setUpThrough(provider, entry?.setup.slug ?? group.name).catch((failure: unknown) =>
+                showToast(errorText(failure)),
+              )
+            }
+          >
+            Set up in {nameOf(provider)}
+          </Button>
+        </div>
+      ))}
+      {entry === undefined ||
+      shared.length > 0 ||
+      providerOf(entry.setup.kind) !== undefined ? null : (
+        <div className={styles.routeRow}>
+          <span className={`${styles.logo} ${styles.sm}`} aria-hidden>
+            <Globe size={14} />
+          </span>
+          <span className={styles.connText}>
+            <span className={styles.connName}>Any provider</span>
+            <span className={styles.sub}>Not set up</span>
+          </span>
+          <Button onClick={() => navigate({ name: "connectors", connect: entry.setup.slug })}>
+            Set up
+          </Button>
+        </div>
       )}
     </div>
   );
 }
 
-const OUTCOMES: Partial<Record<ConnectorCall["outcome"], string>> = {
+const OUTCOMES: Record<ConnectorCall["outcome"], string> = {
+  done: "",
   refused: "Not allowed",
   failed: "Failed",
   asked: "Needs you",
@@ -136,8 +187,11 @@ const OUTCOMES: Partial<Record<ConnectorCall["outcome"], string>> = {
 
 function CallRow({ call }: { call: ConnectorCall }) {
   const agent = useApp((state) => state.agents[call.agentId]);
+  const team = useApp((state) =>
+    call.departmentId === undefined ? undefined : state.departments[call.departmentId],
+  );
   const task = useApp((state) => state.tasks[call.taskId]?.task);
-  const outcome = OUTCOMES[call.outcome];
+  const outcome = OUTCOMES[call.outcome] || (call.change ? "Changed" : "Read");
   return (
     <li>
       <button
@@ -147,14 +201,15 @@ function CallRow({ call }: { call: ConnectorCall }) {
       >
         <Avatar name={agent?.name ?? "?"} colour={agent?.colour ?? "#736d64"} size={28} />
         <span className={styles.connText}>
-          <span className={styles.actWhat}>{actionWords(call.tool)}</span>
+          <code className={styles.actionName}>{call.tool}</code>
           <span className={styles.sub}>
-            {agent?.name ?? "An agent"}
-            {task === undefined ? "" : ` · ${taskName(task)}`}
+            {[agent?.name ?? "An agent", team?.name, task === undefined ? "" : taskName(task)]
+              .filter((part) => part !== undefined && part !== "")
+              .join(" · ")}
           </span>
         </span>
         <span className={styles.when}>
-          {outcome === undefined ? null : <span className={styles.badge}>{outcome}</span>}
+          <span className={styles.badge}>{outcome}</span>
           {ago(call.at)}
         </span>
       </button>
@@ -164,56 +219,86 @@ function CallRow({ call }: { call: ConnectorCall }) {
 
 const SHORT = 5;
 
-// This week's calls through every way in, newest first: a short list, then more on request.
-function RecentUse({ routes }: { routes: ConnectorRecord[] }) {
-  const [calls, setCalls] = useState<ConnectorCall[]>();
-  const [next, setNext] = useState<Record<string, number | undefined>>({});
-  const [shown, setShown] = useState(SHORT);
+interface Week {
+  calls: ConnectorCall[];
+  total: number;
+  teams: string[];
+  next: Record<string, number | undefined>;
+}
+
+// This week's calls through every way in, newest first, by team and changes only on request.
+function useWeek(routes: ConnectorRecord[], team: string, changes: boolean) {
+  const [week, setWeek] = useState<Week>();
   const ids = routes.map(({ id }) => id).join(",");
   useEffect(() => {
     let current = true;
     const routeIds = ids.split(",");
-    Promise.all(routeIds.map((id) => api.connectorActivity(id, {}))).then(
+    const query = { ...(team === "" ? {} : { team }), ...(changes ? { changes } : {}) };
+    Promise.all(routeIds.map((id) => api.connectorActivity(id, query))).then(
       (pages) => {
         if (!current) return;
-        const all = pages.flatMap((read) => read.calls);
-        knowAgents(all.map((call) => call.agentId)).catch(() => undefined);
-        setCalls(all.toSorted((a, b) => b.at.localeCompare(a.at)));
-        setNext(Object.fromEntries(routeIds.map((id, index) => [id, pages[index]?.next])));
-        setShown(SHORT);
+        const calls = pages.flatMap((read) => read.calls);
+        knowAgents(calls.map((call) => call.agentId)).catch(() => undefined);
+        setWeek({
+          calls: calls.toSorted((a, b) => b.at.localeCompare(a.at)),
+          total: pages.reduce((sum, read) => sum + read.total, 0),
+          teams: [
+            ...new Set(
+              pages.flatMap((read) => read.teams.map((one) => one.departmentId ?? "none")),
+            ),
+          ],
+          next: Object.fromEntries(routeIds.map((id, index) => [id, pages[index]?.next])),
+        });
       },
       (failure: unknown) => showToast(errorText(failure)),
     );
     return () => {
       current = false;
     };
-  }, [ids]);
-  if (calls === undefined) return null;
+  }, [ids, team, changes]);
   const more = async () => {
-    const wanted = shown + 10;
-    setShown(wanted);
-    if (wanted <= calls.length) return;
+    if (week === undefined) return;
+    const query = { ...(team === "" ? {} : { team }), ...(changes ? { changes } : {}) };
     const pages = await Promise.all(
-      Object.entries(next)
+      Object.entries(week.next)
         .filter(([, before]) => before !== undefined)
-        .map(async ([id, before]) => [id, await api.connectorActivity(id, { before })] as const),
+        .map(
+          async ([id, before]) =>
+            [id, await api.connectorActivity(id, { ...query, before })] as const,
+        ),
     );
     const older = pages.flatMap(([, read]) => read.calls);
     knowAgents(older.map((call) => call.agentId)).catch(() => undefined);
-    setCalls([...calls, ...older].toSorted((a, b) => b.at.localeCompare(a.at)));
-    setNext({ ...next, ...Object.fromEntries(pages.map(([id, read]) => [id, read.next])) });
+    setWeek({
+      ...week,
+      calls: [...week.calls, ...older].toSorted((a, b) => b.at.localeCompare(a.at)),
+      next: { ...week.next, ...Object.fromEntries(pages.map(([id, read]) => [id, read.next])) },
+    });
   };
+  return { week, more };
+}
+
+function RecentUse({ week, more }: ReturnType<typeof useWeek>) {
+  const [shown, setShown] = useState(SHORT);
+  if (week === undefined) return null;
   const hasMore =
-    shown < calls.length || Object.values(next).some((before) => before !== undefined);
-  if (calls.length === 0) return <p className={styles.empty}>Not used this week.</p>;
+    shown < week.calls.length || Object.values(week.next).some((before) => before !== undefined);
+  if (week.calls.length === 0) return <p className={styles.empty}>Not used this week.</p>;
   return (
     <ul className={styles.list} aria-label="Recent use">
-      {calls.slice(0, shown).map((call) => (
+      {week.calls.slice(0, shown).map((call) => (
         <CallRow key={call.id} call={call} />
       ))}
       {hasMore ? (
         <li className={styles.more}>
-          <Button variant="ghost" onClick={() => void more()}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              const wanted = shown + 10;
+              setShown(wanted);
+              if (wanted > week.calls.length) void more();
+            }}
+          >
             Show more
           </Button>
         </li>
@@ -247,16 +332,23 @@ function useActions(routes: ConnectorRecord[]): ConnectorAction[] | "failed" | u
   return actions;
 }
 
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
 export function ConnectorView({ connectorId }: { connectorId: string }) {
   const connectors = useConnectors();
   const catalog = useCatalog();
   const holders = useHolders();
+  const harnesses = useApp((state) => state.harnesses);
+  const departments = useApp((state) => state.departments);
   const [confirming, setConfirming] = useState(false);
+  const [team, setTeam] = useState("");
+  const [changesOnly, setChangesOnly] = useState(false);
   const group = groupApps(connectors, catalog?.entries).find(({ routes }) =>
     routes.some(({ id }) => id === connectorId),
   );
   const routes = group?.routes ?? [];
   const actions = useActions(routes);
+  const use = useWeek(routes, team, changesOnly);
   const [main] = routes;
   if (group === undefined || main === undefined) {
     return (
@@ -267,7 +359,30 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
   }
   const shared = routes.filter((route) => !isProviderApp(route));
   const enabled = routes.some((route) => route.enabled);
+  const state = stateOf(routes);
+  const offer = state === "offer";
+  const permission = permissionOf(routes);
+  const audience = audienceOf(routes);
+  const mixed = permission === "mixed" || audience === "mixed";
   const onlyOpenCode = routes.every(({ setup }) => setup.kind === "opencode");
+  const usedAt = usedAtOf(routes);
+  const claude = routes.find(({ setup }) => setup.kind === "claude");
+  const providerName = (harness: string) =>
+    harnesses.find((known) => known.harness === harness)?.name ?? harness;
+  const managedIn = [
+    ...new Set(routes.flatMap(({ setup }) => providerOf(setup.kind) ?? [])),
+  ].filter((provider) => provider !== "claude");
+  const renewing = routes.find(needsRenewing);
+  const lead = [
+    group.entry?.description.replace(/\.$/, ""),
+    offer || use.week === undefined || use.week.total === 0
+      ? undefined
+      : `${plural(use.week.total, "call")} this week`,
+    offer ? undefined : usedAt === undefined ? "Never used" : `last used ${ago(usedAt)}`,
+  ]
+    .filter((part) => part !== undefined)
+    .join(" · ");
+
   return (
     <section className={page.page} aria-labelledby="connector-title">
       <div className={styles.column}>
@@ -280,115 +395,169 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
             <h1 id="connector-title" className={page.title}>
               {group.name}
             </h1>
-            <ProviderTags tags={tagsOf(routes)} named />
+            {lead === "" ? null : <p className={page.lead}>{lead}</p>}
           </span>
-          <MoreMenu
-            label={`More for ${group.name}`}
-            menu={() => ({
-              actions: [
-                {
-                  label: enabled ? "Turn off" : "Turn on",
-                  icon: Power,
-                  run: () => changeAll(routes, { enabled: !enabled }),
-                },
-                ...(shared.length === 0
-                  ? []
-                  : [
-                      {
-                        label: "Disconnect",
-                        icon: Unplug,
-                        danger: true,
-                        run: () => setConfirming(true),
-                      },
-                    ]),
-              ],
-            })}
-          />
+          <span className={styles.rowEnd}>
+            <AppStatus state={state} />
+            {offer ? (
+              <RenewAction route={main} label="Set up" primary />
+            ) : renewing !== undefined ? (
+              <RenewAction route={renewing} label="Renew" primary />
+            ) : state === "off" ? (
+              <Button onClick={() => void changeAll(routes, { enabled: true })}>Turn on</Button>
+            ) : null}
+          </span>
+          {offer ? null : (
+            <MoreMenu
+              label={`More for ${group.name}`}
+              menu={() => ({
+                actions: [
+                  {
+                    label: enabled ? "Turn off" : "Turn on",
+                    icon: Power,
+                    run: () => changeAll(routes, { enabled: !enabled }),
+                  },
+                  ...(claude === undefined
+                    ? []
+                    : [
+                        {
+                          label: "Remove on claude.ai",
+                          icon: SquareArrowOutUpRight,
+                          run: () => {
+                            window.open(claudeConnectorsPage, "_blank", "noopener");
+                          },
+                        },
+                      ]),
+                  ...(shared.length === 0
+                    ? []
+                    : [
+                        {
+                          label: "Disconnect",
+                          icon: Unplug,
+                          danger: true,
+                          run: () => setConfirming(true),
+                        },
+                      ]),
+                ],
+              })}
+            />
+          )}
         </header>
 
-        <div className={page.section}>
-          <div className={page.sectionHead}>
-            <h2 className={page.sectionTitle}>Works with</h2>
-          </div>
-          <div className={styles.list}>
-            {routes.map((route, index) => (
-              <RouteRow key={route.id} route={route} first={index === 0 && routes.length > 1} />
-            ))}
-          </div>
-        </div>
-
-        {routes.every(isOffer) ? (
+        {offer ? (
           <p className={styles.sub}>Set it up to choose who can use it and to see its actions.</p>
         ) : (
           <>
-            <div className={page.section}>
-              <div className={page.sectionHead}>
-                <h2 className={page.sectionTitle}>Access</h2>
-              </div>
-              <div className={styles.list}>
-                <div className={styles.accessRow}>
-                  <span className={styles.accessKey}>Permission</span>
-                  <span>
-                    <fieldset className={styles.segments}>
-                      <legend className="visually-hidden">Permission</legend>
-                      {PERMISSIONS.map(({ value, title, description }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          title={description}
-                          aria-pressed={main.permission === value}
-                          onClick={() => void changeAll(routes, { permission: value })}
-                        >
-                          {title}
-                        </button>
-                      ))}
-                    </fieldset>
+            <div className={styles.list}>
+              <div className={styles.accessRow}>
+                <span className={styles.accessKey}>Permission</span>
+                <span>
+                  <fieldset className={styles.segments}>
+                    <legend className="visually-hidden">Permission</legend>
+                    {PERMISSIONS.map(({ value, title, description }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        title={description}
+                        aria-pressed={permission === value}
+                        onClick={() => void changeAll(routes, { permission: value })}
+                      >
+                        {title}
+                      </button>
+                    ))}
+                  </fieldset>
+                  {permission === "mixed" ? (
+                    <p className={styles.hint}>Mixed: each provider's is under Providers.</p>
+                  ) : onlyOpenCode ? (
                     <p className={styles.hint}>
-                      {onlyOpenCode
-                        ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, and Read only blocks them all. OpenCode 1 shows only the action's name, OpenCode 2 also what it sends."
-                        : "Reads never ask. Changes follow this."}
+                      OpenCode can't tell reads from changes, so Ask me first asks before every
+                      action.
                     </p>
-                  </span>
-                </div>
-                <div className={styles.accessRow}>
-                  <span className={styles.accessKey}>Who can use it</span>
-                  <span>
-                    <AudienceMenu
-                      audience={main.audience}
-                      holders={holders}
-                      onChange={(next) => void changeAll(routes, { audience: next })}
-                      everyone="Every agent, in any department"
-                      empty="There are no departments yet."
-                      label="Can use it:"
-                    />
-                  </span>
-                </div>
+                  ) : null}
+                </span>
+              </div>
+              <div className={styles.accessRow}>
+                <span className={styles.accessKey}>Who can use it</span>
+                <span>
+                  <AudienceMenu
+                    audience={
+                      audience === "mixed" || audience === undefined ? main.audience : audience
+                    }
+                    {...(audience === "mixed" ? { summary: "Mixed" } : {})}
+                    holders={holders}
+                    onChange={(next) => void changeAll(routes, { audience: next })}
+                    everyone="Every agent, in any department"
+                    empty="There are no departments yet."
+                    label="Who can use it:"
+                  />
+                </span>
               </div>
             </div>
 
             <div className={page.section}>
               <div className={page.sectionHead}>
-                <h2 className={page.sectionTitle}>What agents can do</h2>
+                <h2 className={page.sectionTitle}>Providers</h2>
+              </div>
+              <Providers group={group} mixed={mixed} />
+              {managedIn.length === 0 ? null : (
+                <p className={styles.hint}>
+                  Managed in {managedIn.map(providerName).join(" and ")}. Remove it there.
+                </p>
+              )}
+            </div>
+
+            <div className={page.section}>
+              <div className={page.sectionHead}>
+                <h2 className={page.sectionTitle}>
+                  What agents can do
+                  {Array.isArray(actions) && actions.length > 0 ? (
+                    <span className={styles.chipCount}>{actions.length}</span>
+                  ) : null}
+                </h2>
               </div>
               {actions === undefined ? (
                 <p className={styles.sub}>Reading its actions</p>
               ) : actions === "failed" ? (
                 <p className={styles.sub}>Could not read this app's actions.</p>
               ) : (
-                <ActionGroups actions={actions} permission={main.permission} />
+                <ActionGroups actions={actions} />
               )}
+            </div>
+
+            <div className={page.section}>
+              <div className={page.sectionHead}>
+                <h2 className={page.sectionTitle}>
+                  Recent use <span className={styles.chipCount}>This week</span>
+                </h2>
+                {use.week === undefined || use.week.total === 0 ? null : (
+                  <span className={styles.rowEnd}>
+                    <ChoiceMenu
+                      label="Team"
+                      value={team}
+                      choices={[
+                        { value: "", label: "All" },
+                        ...use.week.teams.map((id) => ({
+                          value: id,
+                          label: id === "none" ? "No team" : (departments[id]?.name ?? "A team"),
+                        })),
+                      ]}
+                      onChange={setTeam}
+                    />
+                    <button
+                      type="button"
+                      className={`${styles.toggleChip} ${changesOnly ? styles.toggleOn : ""}`}
+                      aria-pressed={changesOnly}
+                      onClick={() => setChangesOnly(!changesOnly)}
+                    >
+                      Only changes
+                    </button>
+                  </span>
+                )}
+              </div>
+              <RecentUse {...use} />
             </div>
           </>
         )}
-
-        <div className={page.section}>
-          <div className={page.sectionHead}>
-            <h2 className={page.sectionTitle}>
-              Recent use <span className={styles.chipCount}>This week</span>
-            </h2>
-          </div>
-          <RecentUse routes={routes} />
-        </div>
       </div>
       <ConfirmDialog
         open={confirming}
