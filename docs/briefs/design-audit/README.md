@@ -1,6 +1,6 @@
 # Design audit and revamp (2026-11-14): handover
 
-Status: the owner approved the mockup and took every suggested pick below. Round 1 is merged (D-103, PR #89); round 2 is built (D-104) on `fix/design-round-2`; rounds 3 to 7 are not. Delete this folder once the last round is merged; its decisions go to DECISIONS.md.
+Status: the owner approved the mockup and took every suggested pick below. Rounds 1 and 2 are merged (D-103, PR #89; D-104, PR #90); round 3 is built (D-105) on `fix/design-round-3`; rounds 4 to 7 are not. Delete this folder once the last round is merged; its decisions go to DECISIONS.md.
 
 - Mockup and plan: https://claude.ai/artifact/B3LCNGtF35Z66FBkH6NqyN (tabs: Plan, Sidebar and Home, Task page and status, Office, Connectors, App page, Usage, Providers).
 - Findings, with what the user sees, why it hurts, the fix and `file:line` evidence:
