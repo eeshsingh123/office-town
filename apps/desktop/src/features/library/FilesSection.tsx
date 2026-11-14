@@ -1,9 +1,12 @@
 import type { LibraryItem } from "@office-town/contract";
 import { Plus, X } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
+import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import form from "../../ui/Form.module.css";
 import menu from "../../ui/Menu.module.css";
 import { showToast } from "../../ui/Toast.tsx";
@@ -29,14 +32,20 @@ async function give(item: LibraryItem, holder: Holder, on: boolean): Promise<voi
 
 // What a department or one agent gets in every task, from its workspace's Library.
 export function FilesSection({
-  workspaceId,
+  workspaceId: first,
+  workspaceIds = [first],
   holder,
   name,
 }: {
   workspaceId: string;
+  // A department that works in several workspaces picks whose Library to show.
+  workspaceIds?: readonly string[];
   holder: Holder;
   name: string;
 }) {
+  const [picked, setPicked] = useState(first);
+  const workspaceId = workspaceIds.includes(picked) ? picked : first;
+  const workspaces = useWorkspaces();
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const items = useLibrary(workspaceId);
@@ -49,6 +58,17 @@ export function FilesSection({
       <div className={styles.filesHead}>
         <span className={form.label}>Files</span>
         <span className={form.row}>
+          {workspaceIds.length < 2 ? null : (
+            <ChoiceMenu
+              label="Workspace"
+              value={workspaceId}
+              choices={workspaceIds.map((id) => ({
+                value: id,
+                label: workspaces?.find((workspace) => workspace.id === id)?.name ?? "A workspace",
+              }))}
+              onChange={setPicked}
+            />
+          )}
           <Button variant="ghost" onClick={openLibrary}>
             Open Library
           </Button>

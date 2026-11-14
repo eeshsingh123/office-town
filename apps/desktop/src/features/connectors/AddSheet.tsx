@@ -20,13 +20,16 @@ import { EVERYONE, givenToSomeone } from "../library/library.ts";
 import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
-import { entryTags, setUpThrough } from "./connectors.ts";
+import { type AppGroup, entryTags, setUpThrough, tagsOf } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
+import { RenewAction } from "./RenewAction.tsx";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
 
 interface AddSheetProps {
   keysAt: ConnectorCatalog["keys"];
   entries: CatalogEntry[];
+  // Provider apps never set up, such as claude.ai's Gmail: listed here too, set up in the provider.
+  offers: AppGroup[];
   // An app to open at once, by slug or name, such as one an agent asked for.
   app?: string;
   audience?: Audience;
@@ -214,7 +217,14 @@ function ProviderWays({ entry, onDone }: { entry: CatalogEntry; onDone: () => vo
   );
 }
 
-export function AddSheet({ keysAt, entries, app, audience: asked, onClose }: AddSheetProps) {
+export function AddSheet({
+  keysAt,
+  entries,
+  offers,
+  app,
+  audience: asked,
+  onClose,
+}: AddSheetProps) {
   const [query, setQuery] = useState("");
   const [entry, setEntry] = useState(() => findEntry(entries, app));
   const [advanced, setAdvanced] = useState(
@@ -265,6 +275,9 @@ export function AddSheet({ keysAt, entries, app, audience: asked, onClose }: Add
     });
 
   const words = query.trim().toLowerCase();
+  const offered = offers.filter((group) =>
+    `${group.name} ${group.entry?.description ?? ""}`.toLowerCase().includes(words),
+  );
   const found = entries.filter((candidate) =>
     `${candidate.setup.name} ${candidate.setup.maker ?? ""} ${candidate.description}`
       .toLowerCase()
@@ -338,6 +351,20 @@ export function AddSheet({ keysAt, entries, app, audience: asked, onClose }: Add
         <>
           <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
           <ul className={styles.list} aria-label="Apps to add">
+            {offered.map((group) => {
+              const [route] = group.routes;
+              return route === undefined ? null : (
+                <li key={group.key} className={styles.connRow}>
+                  <AppLogo app={group.logo} />
+                  <span className={styles.connText}>
+                    <span className={styles.connName}>{group.name}</span>
+                    <span className={styles.sub}>{group.entry?.description}</span>
+                  </span>
+                  <ProviderTags tags={tagsOf(group.routes)} />
+                  <RenewAction route={route} label="Set up" />
+                </li>
+              );
+            })}
             {found.map((candidate) => (
               <li key={candidate.setup.slug}>
                 <button type="button" className={styles.connRow} onClick={() => pick(candidate)}>
@@ -351,7 +378,9 @@ export function AddSheet({ keysAt, entries, app, audience: asked, onClose }: Add
               </li>
             ))}
           </ul>
-          {found.length === 0 ? <p className={styles.empty}>No app matches.</p> : null}
+          {found.length + offered.length === 0 ? (
+            <p className={styles.empty}>No app matches.</p>
+          ) : null}
           <button
             type="button"
             className={styles.fold}

@@ -133,6 +133,8 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         a.name.localeCompare(b.name),
     );
   const offers = groups.filter((group) => group.routes.every(isOffer) && matches(group.name));
+  // The Add sheet lists every catalog app and every offer, so the count is the same there.
+  const allOffers = groups.filter((group) => group.routes.every(isOffer)).length;
   const known = new Set(groups.map(({ key }) => key));
   const matching = entries.filter(
     (entry) => !known.has(entry.setup.slug) && matches(`${entry.setup.name} ${entry.description}`),
@@ -212,7 +214,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
           ) : null}
           {listed.length < matching.length ? (
             <Button variant="ghost" className={styles.seeAll} onClick={() => setAdding({})}>
-              See all {matching.length + offers.length} apps
+              See all {entries.length + allOffers} apps
             </Button>
           ) : null}
         </div>
@@ -221,6 +223,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         <AddSheet
           keysAt={catalog?.keys ?? "store"}
           entries={entries}
+          offers={groups.filter((group) => group.routes.every(isOffer))}
           {...(sheet.app === undefined ? {} : { app: sheet.app })}
           {...(sheet.audience === undefined ? {} : { audience: sheet.audience })}
           onClose={() => setAdding(null)}

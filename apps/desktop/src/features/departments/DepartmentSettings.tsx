@@ -278,6 +278,7 @@ function Settings({
 
       <FilesSection
         workspaceId={department.workspaceId}
+        workspaceIds={department.workspaceIds}
         holder={{ departmentId: department.id }}
         name={department.name}
       />

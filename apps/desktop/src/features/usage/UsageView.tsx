@@ -19,6 +19,8 @@ type Period = "today" | "week";
 
 // Each account's plan limits, who uses it, and where the tokens went (D-61). Accounts are added
 // on the Providers page (D-76).
+const TEAMS_SHOWN = 8;
+
 export function UsageView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
@@ -83,10 +85,11 @@ export function UsageView() {
     .filter((group) => group.accounts.length > 0);
 
   const rows = spend === undefined ? undefined : period === "today" ? spend.today : spend.week;
+  const [allTeams, setAllTeams] = useState(false);
   const byTeam = useMemo(() => {
     const teams = new Map<
       string,
-      { team: string; accountId: string; tasks: number; tokens: number }
+      { key: string; team: string; accountId: string; tasks: number; tokens: number }
     >();
     for (const row of rows ?? []) {
       const record = useApp.getState().agents[row.agentId];
@@ -94,8 +97,15 @@ export function UsageView() {
         record?.departmentId === undefined
           ? "Assistants"
           : (departments[record.departmentId]?.name ?? "A team");
-      const key = `${team}/${row.accountId}`;
-      const known = teams.get(key) ?? { team, accountId: row.accountId, tasks: 0, tokens: 0 };
+      // By id: two departments may share a name.
+      const key = `${record?.departmentId ?? "assistants"}/${row.accountId}`;
+      const known = teams.get(key) ?? {
+        key,
+        team,
+        accountId: row.accountId,
+        tasks: 0,
+        tokens: 0,
+      };
       known.tasks += row.tasks;
       known.tokens += tokensOf([row]);
       teams.set(key, known);
@@ -251,14 +261,14 @@ export function UsageView() {
                   <tr>
                     <th>Team</th>
                     <th>Account</th>
-                    <th>Share of the account's tokens</th>
+                    <th>Share of account</th>
                     <th className={styles.number}>Tasks</th>
                     <th className={styles.number}>Tokens</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {byTeam.map((entry) => (
-                    <tr key={`${entry.team}/${entry.accountId}`}>
+                  {(allTeams ? byTeam : byTeam.slice(0, TEAMS_SHOWN)).map((entry) => (
+                    <tr key={entry.key}>
                       <td>
                         <span className={styles.team}>{entry.team}</span>
                       </td>
@@ -275,6 +285,11 @@ export function UsageView() {
                   ))}
                 </tbody>
               </table>
+              {allTeams || byTeam.length <= TEAMS_SHOWN ? null : (
+                <Button variant="ghost" onClick={() => setAllTeams(true)}>
+                  Show all {byTeam.length}
+                </Button>
+              )}
             </div>
           )}
         </section>
