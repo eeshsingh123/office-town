@@ -1,12 +1,51 @@
 import { ArrowRight, LoaderCircle, Network, Plus, Users } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
+import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { teamAtWork } from "../../store/records.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
+import { Avatar } from "../../ui/Avatar.tsx";
 import menu from "../../ui/Menu.module.css";
 import { departmentMenu } from "../departments/department-menu.tsx";
 import { selectRoom } from "../office/office-state.ts";
+import type { RowStatus } from "../tasks/task-list.ts";
+import { useNow, useTaskItems } from "../tasks/use-items.ts";
 import styles from "./Sidebar.module.css";
+
+// Past this many, the list shows a box to find one and a link to all of them on Team.
+const SHOWN = 8;
+
+type DepartmentState = Extract<RowStatus, "needs" | "working" | "review">;
+
+const STATE_LABELS: Record<DepartmentState, string> = {
+  needs: "Needs you",
+  working: "Working",
+  review: "To review",
+};
+
+// What a department is doing, from its tasks' statuses: asking wins over working over review.
+function useDepartmentStates(): Map<string, DepartmentState> {
+  const items = useTaskItems(useNow());
+  const states = new Map<string, DepartmentState>();
+  for (const status of ["review", "working", "needs"] as const) {
+    for (const item of items) if (item.status === status) states.set(item.team, status);
+  }
+  return states;
+}
+
+function StateMark({ state }: { state: DepartmentState | undefined }) {
+  if (state === undefined) return null;
+  const label = STATE_LABELS[state];
+  if (state === "working") {
+    return <LoaderCircle size={12} className={`${styles.stateWorking} spin`} aria-label={label} />;
+  }
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      className={`${styles.stateDot} ${state === "needs" ? styles.stateNeeds : styles.stateReview}`}
+    />
+  );
+}
 
 // Shown once a chief exists; it spins while one of its goals is at work.
 function ChiefEntry() {
@@ -30,39 +69,13 @@ function ChiefEntry() {
       aria-current={current ? "page" : undefined}
       onClick={() => navigate({ name: "chief" })}
     >
-      {working ? (
-        <LoaderCircle size={11} className={`${styles.chiefWorking} spin`} aria-label="Working" />
-      ) : (
-        <span className={styles.chiefMark} aria-hidden />
-      )}
+      <Avatar name={chief.name} colour={chief.colour} size={18} />
       <span className={styles.text}>{chief.name}</span>
       <span className={styles.members}>Chief</span>
+      {working ? (
+        <LoaderCircle size={12} className={`${styles.stateWorking} spin`} aria-label="Working" />
+      ) : null}
     </button>
-  );
-}
-
-// Until there is a chief, its place in the list offers one; it needs a department to plan for.
-function ChiefCard() {
-  const show = useApp(
-    (state) => state.chiefId === undefined && Object.keys(state.departments).length > 0,
-  );
-  if (!show) return null;
-  return (
-    <div className={styles.teamCard}>
-      <div className={styles.teamCardHead}>
-        <span className={styles.teamCardIcon} aria-hidden>
-          <Network size={13} />
-        </span>
-        <strong>Add a chief</strong>
-      </div>
-      <span className={styles.teamHint}>
-        Give it one goal and it splits the work across your departments.
-      </span>
-      <button type="button" onClick={() => navigate({ name: "chief" })}>
-        Set up a chief
-        <ArrowRight size={14} aria-hidden />
-      </button>
-    </div>
   );
 }
 
@@ -106,28 +119,25 @@ function AddMenu() {
   );
 }
 
-// A dot marks one at work.
+// Each department in its lead's colour, with what it is doing and a one-click New task.
 export function Departments() {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
-  const tasks = useApp((state) => state.tasks);
-  const sessions = useApp((state) => state.sessions);
-  const list = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
-  const working = new Set(
-    Object.values(tasks).flatMap(({ task, sessionIds }) => {
-      const open = sessionIds.flatMap((id) => sessions[id] ?? []);
-      return teamAtWork(task, open) && task.departmentId !== undefined ? [task.departmentId] : [];
-    }),
-  );
+  const room = useApp((state) => (state.view.name === "office" ? state.view.room : undefined));
+  const states = useDepartmentStates();
+  const [find, setFind] = useState("");
+  const all = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
+  const words = find.trim().toLowerCase();
+  const matching = all.filter((department) => department.name.toLowerCase().includes(words));
+  const shown = matching.slice(0, SHOWN);
   return (
     <>
       <div className={`${styles.label} ${styles.labelRow}`}>
-        Your team
-        {list.length === 0 ? null : <AddMenu />}
+        Departments
+        {all.length === 0 ? null : <AddMenu />}
       </div>
       <ChiefEntry />
-      <ChiefCard />
-      {list.length === 0 ? (
+      {all.length === 0 ? (
         <div className={styles.teamCard}>
           <strong>Build your team</strong>
           <span className={styles.teamHint}>
@@ -139,26 +149,51 @@ export function Departments() {
           </button>
         </div>
       ) : null}
-      {list.map((department) => {
-        const members = Object.values(agents).filter(
-          (agent) => agent.departmentId === department.id,
-        ).length;
+      {all.length > SHOWN ? (
+        <input
+          className={styles.find}
+          type="search"
+          value={find}
+          placeholder="Find a department"
+          aria-label="Find a department"
+          onChange={(event) => setFind(event.target.value)}
+        />
+      ) : null}
+      {shown.map((department) => {
+        const lead = agents[department.leadAgentId];
         return (
           <ContextMenu key={department.id} menu={() => departmentMenu(department.id)}>
-            <button type="button" className={styles.nav} onClick={() => selectRoom(department.id)}>
-              <span
-                className={`${styles.dot} ${working.has(department.id) ? styles.dotWorking : ""}`}
-                aria-hidden
-              />
-              {department.name}
-              <span className={styles.members}>
-                {members}
-                <span className="visually-hidden"> members</span>
-              </span>
-            </button>
+            <div className={styles.department}>
+              <button
+                type="button"
+                className={styles.nav}
+                aria-current={room === department.id ? "page" : undefined}
+                onClick={() => selectRoom(department.id)}
+              >
+                <Avatar name={department.name} colour={lead?.colour ?? "#8f897f"} size={18} />
+                <span className={styles.text}>{department.name}</span>
+                <StateMark state={states.get(department.id)} />
+              </button>
+              <button
+                type="button"
+                className={styles.departmentNew}
+                aria-label={`New task for ${department.name}`}
+                title="New task"
+                onClick={() =>
+                  navigate({ name: "new-task", who: "team", departmentId: department.id })
+                }
+              >
+                <Plus size={14} aria-hidden />
+              </button>
+            </div>
           </ContextMenu>
         );
       })}
+      {all.length > SHOWN ? (
+        <button type="button" className={styles.all} onClick={() => navigate({ name: "team" })}>
+          All {all.length} departments
+        </button>
+      ) : null}
     </>
   );
 }

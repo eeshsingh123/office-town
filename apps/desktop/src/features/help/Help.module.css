@@ -55,3 +55,26 @@
 .rowText span {
   color: var(--text-2);
 }
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+}
+
+.key {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+
+.key dt,
+.key dd {
+  margin: 0;
+}
+
+.key dd {
+  color: var(--text-2);
+}

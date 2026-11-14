@@ -20,14 +20,48 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
   min-height: 0;
-  padding: 14px 10px;
-  overflow: hidden auto;
+  overflow: hidden;
   border-right: 1px solid var(--border);
   background: var(--side);
   white-space: nowrap;
+}
+
+/* Three zones: the top and the footer stay put, only the departments and tasks between scroll. */
+.top,
+.middle,
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-inline: 10px;
+}
+
+.top {
+  flex: none;
+  padding-top: 14px;
+  padding-bottom: 4px;
+}
+
+.middle {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  padding-bottom: 8px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.groupLabel {
+  padding: 10px 10px 2px;
+  font-size: var(--size-small);
+  font-weight: 500;
+  color: var(--text-3);
 }
 
 .text {
@@ -52,25 +86,20 @@
 
 .history {
   display: flex;
-}
-
-.brand .history {
-  margin-left: auto;
+  gap: 2px;
 }
 
 .history .collapse {
   margin-left: 0;
 }
 
-.history + .collapse {
-  margin-left: 0;
-}
-
-/* Its own row, so it never covers a page's header. */
+/* Its own thin row above every page, so it never covers a page's header. */
 .historyRow {
   display: flex;
   flex: none;
-  padding: 10px 12px 0;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
 }
 
 .collapse:disabled {
@@ -309,11 +338,10 @@
 }
 
 .footer {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: auto;
-  padding-top: 12px;
+  flex: none;
+  padding-top: 8px;
+  padding-bottom: 12px;
+  border-top: 1px solid var(--border);
 }
 
 .count {
@@ -342,17 +370,98 @@
   background: var(--attention);
 }
 
-.dot {
-  width: 7px;
-  height: 7px;
-  margin: 0 4px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--text-3);
+/* A department row keeps room on the right for its New task button, shown on hover. */
+.department {
+  position: relative;
 }
 
-.dotWorking {
-  background: var(--accent);
+.department .nav {
+  padding-right: 34px;
+}
+
+.departmentNew {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.department:hover .departmentNew,
+.departmentNew:focus-visible {
+  opacity: 1;
+}
+
+.departmentNew:hover {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.stateDot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+}
+
+.stateNeeds {
+  background: var(--attention);
+}
+
+.stateReview {
+  background: var(--review);
+}
+
+.stateWorking {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent);
+}
+
+/* The state sits where the button appears, and gives way to it on hover. */
+.department:hover .stateDot,
+.department:hover .stateWorking {
+  visibility: hidden;
+}
+
+.find {
+  height: 30px;
+  margin: 2px 0 4px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: var(--size-meta);
+}
+
+.find:focus {
+  outline: 0;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.all {
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.all:hover {
+  color: var(--text);
 }
 
 .members {
@@ -361,27 +470,10 @@
   color: var(--text-3);
 }
 
-.chiefMark {
-  width: 9px;
-  height: 9px;
-  margin: 0 3px;
-  flex: none;
-  border: 1.5px solid var(--text-2);
-  border-radius: 3px;
-}
-
-.chiefWorking {
-  flex: none;
-  margin: 0 2px;
-  color: var(--accent);
-}
-
 .you {
   height: auto;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 var(--radius-control) var(--radius-control);
+  margin-top: 4px;
+  padding: 6px 10px;
 }
 
 .youText {
@@ -393,14 +485,18 @@
   color: var(--text);
 }
 
-.youHint {
-  font-size: var(--size-small);
-  color: var(--text-3);
+/* Collapsed: icons only, each label in its tooltip. */
+.rail .top,
+.rail .middle,
+.rail .footer {
+  padding-inline: 8px;
 }
 
-/* Collapsed: icons only, each label in its tooltip. */
-.rail {
-  padding-inline: 8px;
+.rail .groupLabel {
+  height: 12px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
 }
 
 .rail .text,

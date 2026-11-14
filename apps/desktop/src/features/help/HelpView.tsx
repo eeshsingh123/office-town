@@ -3,6 +3,7 @@ import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
+import { Kbd } from "../../ui/Kbd.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
@@ -57,6 +58,38 @@ function Tutorials() {
   );
 }
 
+const SHORTCUTS: { keys: string; does: string }[] = [
+  { keys: "Ctrl N", does: "New task" },
+  { keys: "Ctrl K", does: "Search" },
+  { keys: "Ctrl B", does: "Show or hide the sidebar" },
+  { keys: "Alt ← / Alt →", does: "Back and forward" },
+  { keys: "F1", does: "Help" },
+  { keys: "@", does: "In a task: choose who does it, or tag an app" },
+  { keys: "#", does: "In a task: add a Library file" },
+  { keys: "/", does: "In a task: use a template" },
+  { keys: "Shift Enter", does: "In a task: a new line" },
+];
+
+function Shortcuts() {
+  return (
+    <section className={page.panel} aria-labelledby="help-keys">
+      <h2 id="help-keys" className={page.sectionTitle}>
+        Keyboard shortcuts
+      </h2>
+      <dl className={styles.keys}>
+        {SHORTCUTS.map((shortcut) => (
+          <div key={shortcut.keys} className={styles.key}>
+            <dt>
+              <Kbd>{shortcut.keys}</Kbd>
+            </dt>
+            <dd>{shortcut.does}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function useAppVersion(): string | undefined {
   const [version, setVersion] = useState<string>();
   useEffect(() => {
@@ -102,6 +135,7 @@ export function HelpView() {
         <PageHeader id="help-title" title="Help" />
         <Tutorials />
         <WhatsNew />
+        <Shortcuts />
       </div>
     </section>
   );

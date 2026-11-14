@@ -197,10 +197,6 @@
   color: var(--warn);
 }
 
-.keys {
-  white-space: nowrap;
-}
-
 .link {
   margin-left: 8px;
   padding: 0;
@@ -401,29 +397,6 @@
   color: var(--text-2);
 }
 
-/* Scrolls inside the window however many departments there are. */
-.goesMenu {
-  max-height: var(--radix-dropdown-menu-content-available-height);
-  overflow-y: auto;
-}
-
-.menuFind {
-  width: 100%;
-  height: 34px;
-  margin-bottom: 4px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.menuFind:focus {
-  outline: 0;
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
 .menuNote {
   margin: 0;
   padding: 14px 12px;
@@ -522,12 +495,6 @@
   text-overflow: ellipsis;
 }
 
-@media (width < 640px) {
-  .keys {
-    display: none;
-  }
-}
-
 .fileIcon {
   font-size: 9px;
   font-weight: 700;
@@ -567,30 +534,7 @@
   font-size: var(--size-meta);
 }
 
-.menuModels /* Scrolls inside the window however many departments there are. */
-.goesMenu {
-  max-height: var(--radix-dropdown-menu-content-available-height);
-  overflow-y: auto;
-}
-
-.menuFind {
-  width: 100%;
-  height: 34px;
-  margin-bottom: 4px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.menuFind:focus {
-  outline: 0;
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.menuNote {
+.menuModels .menuNote {
   display: flex;
   flex: 1;
   align-items: center;
@@ -609,11 +553,7 @@
   padding: 16px;
 }
 
-.optionsNote {
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-  font-size: var(--size-small);
-  line-height: 1.5;
+/* Both options off reads quieter than a choice that is on. */
+.chipOff {
   color: var(--text-3);
 }

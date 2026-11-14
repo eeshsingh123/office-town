@@ -25,7 +25,6 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { taskName } from "../../ui/format.ts";
-import { Kbd } from "../../ui/Kbd.tsx";
 import fileStyles from "../attachments/Attachments.module.css";
 import { sizeText, typeLabel } from "../attachments/kinds.ts";
 import { AttachButton, PickedFiles } from "../attachments/PickedFiles.tsx";
@@ -152,7 +151,8 @@ export function Composer({ home = false }: ComposerProps) {
   const chief = useChief();
   const busy = useBusyDepartments();
   const templates = useTemplates();
-  const workspaces = useWorkspaces() ?? [];
+  const loaded = useWorkspaces();
+  const workspaces = loaded ?? [];
 
   // A department removed since it was last chosen falls back to an assistant.
   const target =
@@ -228,7 +228,7 @@ export function Composer({ home = false }: ComposerProps) {
   const missing =
     target === CHIEF
       ? chief === undefined
-        ? "Set up your chief first."
+        ? "Add a chief first."
         : undefined
       : department !== undefined
         ? busy.has(department.id)
@@ -236,10 +236,15 @@ export function Composer({ home = false }: ComposerProps) {
           : undefined
         : description === undefined
           ? "No provider is installed yet."
-          : workspace === undefined
+          : workspace === undefined && loaded !== undefined
             ? "Choose a workspace."
             : undefined;
-  const ready = goal !== "" && missing === undefined && !starting && !attached.adding;
+  const ready =
+    goal !== "" &&
+    missing === undefined &&
+    (department !== undefined || target === CHIEF || workspace !== undefined) &&
+    !starting &&
+    !attached.adding;
 
   // The box grows with the text instead of showing a resize handle.
   // biome-ignore lint/correctness/useExhaustiveDependencies: measured again whenever the text changes
@@ -362,7 +367,7 @@ export function Composer({ home = false }: ComposerProps) {
 
   // "@" lists who can take the task, "/" the templates.
   const people: Option[] = [
-    { id: SOLO, name: "An assistant", note: "One agent" },
+    { id: SOLO, name: "Assistant", note: "One agent" },
     ...Object.values(departments)
       .filter((known) => !busy.has(known.id))
       .toSorted((a, b) => a.name.localeCompare(b.name))
@@ -533,7 +538,7 @@ export function Composer({ home = false }: ComposerProps) {
             onKeyDown={onKeyDown}
             onBlur={() => setMention(undefined)}
             onPaste={attached.onPaste}
-            placeholder="Describe the task. Type @ to choose who does it or tag an app, / to use a template."
+            placeholder="Describe the task. Type @ to choose who does it or tag an app."
             // biome-ignore lint/a11y/noAutofocus: New task exists to take this text
             autoFocus={!home}
           />
@@ -670,34 +675,38 @@ export function Composer({ home = false }: ComposerProps) {
               onChange={(key, on) => setChangedOptions({ ...changedOptions, [key]: on })}
             />
           </div>
-          <Button variant="primary" className={styles.start} disabled={!ready} onClick={start}>
+          <Button
+            variant="primary"
+            className={styles.start}
+            disabled={!ready}
+            onClick={start}
+            title="Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
+          >
             {starting ? "Starting…" : "Start"}
             <CornerDownLeft size={14} aria-hidden />
           </Button>
         </div>
       </div>
-      <div className={styles.below}>
-        {missing === undefined ? (
-          <span>{plan}</span>
-        ) : (
-          <span className={styles.missing}>
-            {missing}
-            {target === CHIEF && chief === undefined ? (
-              <button
-                type="button"
-                className={styles.link}
-                onClick={() => navigate({ name: "chief" })}
-              >
-                Set up your chief
-              </button>
-            ) : null}
-          </span>
-        )}
-        <span className={styles.keys}>
-          <Kbd>@</Kbd> who or app · <Kbd>#</Kbd> Library file · <Kbd>/</Kbd> template ·{" "}
-          <Kbd>Enter</Kbd> start · <Kbd>Shift</Kbd> <Kbd>Enter</Kbd> new line
-        </span>
-      </div>
+      {missing === undefined && plan === null ? null : (
+        <div className={styles.below}>
+          {missing === undefined ? (
+            <span>{plan}</span>
+          ) : (
+            <span className={styles.missing}>
+              {missing}
+              {target === CHIEF && chief === undefined ? (
+                <button
+                  type="button"
+                  className={styles.link}
+                  onClick={() => navigate({ name: "chief" })}
+                >
+                  Add a chief
+                </button>
+              ) : null}
+            </span>
+          )}
+        </div>
+      )}
       {error === undefined ? null : (
         <p className={styles.error} role="alert">
           {error}

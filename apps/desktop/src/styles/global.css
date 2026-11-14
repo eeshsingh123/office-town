@@ -69,3 +69,9 @@ kbd {
     animation: none;
   }
 }
+
+/* One slim scrollbar everywhere, without the arrow buttons. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}

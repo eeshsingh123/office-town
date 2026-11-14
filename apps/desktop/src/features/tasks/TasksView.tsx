@@ -1,9 +1,16 @@
 import { Check, ChevronDown, Database, Plus } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { forSession, type Keep, oneOf, useKept, useKeptScroll } from "../../store/kept.ts";
+import {
+  forSession,
+  type Keep,
+  oneOf,
+  useKept,
+  useKeptScroll,
+  writeKept,
+} from "../../store/kept.ts";
 import { isLive } from "../../store/records.ts";
 import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -20,7 +27,6 @@ import { useModelLine } from "../profiles/model-line.ts";
 import { TaskRow, type Team } from "./TaskRow.tsx";
 import styles from "./TasksView.module.css";
 import {
-  buildItems,
   DAY_LABELS,
   type Filters,
   type Group,
@@ -33,6 +39,7 @@ import {
   type Tab,
   tabCounts,
 } from "./task-list.ts";
+import { useNow, useTaskItems } from "./use-items.ts";
 import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
@@ -78,18 +85,15 @@ const GROUPED_BY: Keep<GroupBy> = {
 };
 const NONE: ReadonlySet<string> = new Set();
 const FILTERS = forSession("tasks.filters", NO_FILTERS);
+
+// Tasks on one tab, with no other filter, such as from Home's status line.
+export function showTasksTab(tab: Tab): void {
+  writeKept(FILTERS, { ...NO_FILTERS, tab });
+  navigate({ name: "tasks" });
+}
 const FOLDED = forSession("tasks.folded", NONE);
 const TOGGLED = forSession("tasks.toggled", NONE);
 const SHOW_DONE = forSession("tasks.show-done", NONE);
-
-function useNow(): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(timer);
-  }, []);
-  return now;
-}
 
 // The chief, then each department by name, then the agents working alone.
 export function useTeams(): Map<string, Team & { leadId: string | undefined; role: string }> {
@@ -218,12 +222,7 @@ const OPEN_STATUSES = new Set(["needs", "working", "queued"]);
 export function TasksView() {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const agents = useApp((state) => state.agents);
   const departments = useApp((state) => state.departments);
-  const pieces = useApp((state) => state.pieces);
-  const waiting = useApp((state) => state.waiting);
-  const traces = useApp((state) => state.traces);
-  const chiefId = useApp((state) => state.chiefId);
   const workspaces = useWorkspaces();
   const teams = useTeams();
   const now = useNow();
@@ -235,11 +234,7 @@ export function TasksView() {
   const scroll = useKeptScroll("tasks");
   const [loading, setLoading] = useState(false);
 
-  const items = useMemo(
-    () =>
-      buildItems({ tasks, sessions, agents, departments, pieces, waiting, traces, chiefId }, now),
-    [tasks, sessions, agents, departments, pieces, waiting, traces, chiefId, now],
-  );
+  const items = useTaskItems(now);
   // The core searches the tasks no agent is at work on; the app answers for the live ones.
   const live = useMemo(
     () =>

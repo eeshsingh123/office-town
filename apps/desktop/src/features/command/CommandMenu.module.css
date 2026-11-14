@@ -26,3 +26,9 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.hint {
+  margin-left: auto;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}

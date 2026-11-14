@@ -1,13 +1,16 @@
-import { ArrowRight, Check, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
-import type { ReactNode } from "react";
 import {
-  type Agent,
-  stateOf,
-  useAgents,
-  useTasksWithAgents,
-  useWaitingSessions,
-} from "../../store/agents.ts";
-import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Network,
+  Plus,
+  Sparkles,
+  SwatchBook,
+  Users,
+} from "lucide-react";
+import { Fragment, type ReactNode, useState } from "react";
+import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
@@ -15,16 +18,17 @@ import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
-import { clockTime, taskName } from "../../ui/format.ts";
+import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
-import { requestLabel } from "../needs-you/request-label.ts";
 import { Composer } from "../new-task/Composer.tsx";
-import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
-import { useCounts } from "../office/use-counts.ts";
+import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { sharedApps, TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
-import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
+import { TaskStatusIcon, TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
+import { showTasksTab } from "../tasks/TasksView.tsx";
+import type { Item, RowStatus } from "../tasks/task-list.ts";
+import { useNow, useTaskItems } from "../tasks/use-items.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
@@ -32,86 +36,112 @@ import { UsagePauses } from "../usage/UsagePauses.tsx";
 import { useGreeting } from "./greeting.ts";
 import styles from "./Home.module.css";
 
-const SHOWN_REQUESTS = 3;
-const SHOWN_TASKS = 6;
+// Rows per task list on Home, then a link to the rest.
+const SHOWN = 3;
+const SHOWN_RECENT = 6;
+const SHOWN_TEAM = 6;
 
-function openBoard() {
-  showMode("board");
-  navigate({ name: "office" });
-}
-
-function Tiles() {
-  const { working, queued, toReview, order } = useCounts();
-  const tiles = [
-    { label: "working", count: working, open: () => navigate({ name: "office" }) },
-    { label: "need you", count: order.length, open: () => navigate({ name: "needs-you" }) },
-    { label: "queued", count: queued, open: openBoard },
-    { label: "to review", count: toReview, open: openBoard },
-  ];
+// One line of counts, each a link; tasks are counted as the Tasks tabs count them.
+function StatusLine({ items }: { items: Item[] }) {
+  const count = (status: RowStatus) => items.filter((item) => item.status === status).length;
+  const needs = count("needs");
+  const parts = [
+    {
+      key: "working",
+      count: count("working"),
+      text: "working",
+      tone: styles.countWorking,
+      open: () => showTasksTab("active"),
+    },
+    {
+      key: "needs",
+      count: needs,
+      text: needs === 1 ? "needs you" : "need you",
+      tone: styles.countNeeds,
+      open: () => navigate({ name: "needs-you" }),
+    },
+    {
+      key: "review",
+      count: count("review"),
+      text: "to review",
+      tone: styles.countReview,
+      open: () => showTasksTab("review"),
+    },
+  ].filter((part) => part.count > 0);
+  if (parts.length === 0) return <>Nothing is working.</>;
   return (
-    <section className={styles.section} aria-labelledby="now-title">
-      <h2 id="now-title" className={styles.sectionTitle}>
-        Right now
-      </h2>
-      <div className={styles.tiles}>
-        {tiles.map((tile) => (
-          <button
-            key={tile.label}
-            type="button"
-            className={`${styles.tile} ${tile.label === "need you" && tile.count > 0 ? styles.tileWarn : ""}`}
-            onClick={tile.open}
-          >
-            <span className={styles.tileCount}>{tile.count}</span>
-            {tile.label}
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={part.key}>
+          {index === 0 ? null : " · "}
+          <button type="button" className={`${styles.count} ${part.tone}`} onClick={part.open}>
+            {part.count} {part.text}
           </button>
-        ))}
-      </div>
-    </section>
+        </Fragment>
+      ))}
+    </>
   );
 }
 
-// The longest waiting first, each one click from its card.
-function Waiting() {
-  const waiting = useApp((state) => state.waiting);
-  const sessions = useApp((state) => state.sessions);
-  const agents = useApp((state) => state.agents);
-  const requests = Object.values(waiting).toSorted((a, b) => a.position - b.position);
-  if (requests.length === 0) return null;
+function TaskItemRow({ item, meta, now }: { item: Item; meta: "line" | "ago"; now: number }) {
+  const [first] = item.agents;
+  const answerTaskId = item.status === "needs" ? item.answerTaskId : undefined;
+  const detail = meta === "ago" ? ago(item.activityAt, now) : item.line?.text;
   return (
-    <section className={styles.waiting} aria-label="Needs you">
-      <h2 className={styles.waitingTitle}>
-        {requests.length === 1 ? "1 request needs you" : `${requests.length} requests need you`}
-      </h2>
-      <ul className={styles.list}>
-        {requests.slice(0, SHOWN_REQUESTS).map((request) => {
-          const agentId = sessions[request.event.sessionId]?.agentId;
-          const agent = agentId === undefined ? undefined : agents[agentId];
-          return (
-            <li key={`${request.event.sessionId}/${request.position}`}>
-              <button
-                type="button"
-                className={styles.row}
-                onClick={() => {
-                  if (agentId === undefined) return navigate({ name: "needs-you" });
-                  selectAgent(agentId);
-                  focusAgent(agentId);
-                }}
-              >
-                <span className={styles.waitDot} aria-hidden />
-                <span className={styles.rowText}>
-                  <strong>{agent?.name ?? "An agent"}</strong> · {requestLabel(request)}
-                </span>
-                <span className={styles.rowAction}>Open</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {requests.length > SHOWN_REQUESTS ? (
-        <Button variant="ghost" onClick={() => navigate({ name: "needs-you" })}>
-          See all {requests.length}
+    <li className={`${styles.item} ${item.status === "needs" ? styles.itemNeeds : ""}`}>
+      <button
+        type="button"
+        className={styles.itemOpen}
+        onClick={() => navigate({ name: "task", taskId: item.id })}
+      >
+        <TaskStatusIcon status={item.status} />
+        <span className={styles.rowText}>
+          <span className={styles.rowName}>{item.title}</span>
+          <span className={styles.rowLine}>
+            {first === undefined ? null : <WorkerName agent={first} />}
+            {detail === undefined ? null : `${first === undefined ? "" : " · "}${detail}`}
+          </span>
+        </span>
+      </button>
+      {answerTaskId === undefined ? null : (
+        <Button
+          className={styles.answer}
+          onClick={() => navigate({ name: "task", taskId: answerTaskId })}
+        >
+          Answer
         </Button>
-      ) : null}
+      )}
+    </li>
+  );
+}
+
+function TaskSection(props: {
+  id: string;
+  title: string;
+  items: Item[];
+  meta: "line" | "ago";
+  now: number;
+  all?: { label: string; open: () => void };
+}) {
+  if (props.items.length === 0) return null;
+  return (
+    <section className={styles.section} aria-labelledby={props.id}>
+      <div className={styles.sectionHead}>
+        <h2 id={props.id} className={styles.sectionTitle}>
+          {props.title}
+        </h2>
+        <span className={styles.sectionCount}>{props.items.length}</span>
+        {props.all === undefined || props.items.length <= SHOWN ? null : (
+          <button type="button" className={styles.sectionLink} onClick={props.all.open}>
+            {props.all.label}
+          </button>
+        )}
+      </div>
+      <ul className={styles.panel}>
+        {props.items.slice(0, SHOWN).map((item) => (
+          <TaskItemRow key={item.id} item={item} meta={props.meta} now={props.now} />
+        ))}
+      </ul>
     </section>
   );
 }
@@ -184,15 +214,7 @@ function Team() {
         Your team
       </h2>
       <ul className={styles.list}>
-        {chiefId === undefined ? (
-          <TeamRow
-            icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
-            name="Chief"
-            line="Plans big goals across departments"
-            state={<span className={styles.chip}>Set up</span>}
-            onOpen={() => navigate({ name: "chief" })}
-          />
-        ) : (
+        {chiefId === undefined ? null : (
           <TeamRow
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name={records[chiefId]?.name ?? "Chief"}
@@ -201,7 +223,7 @@ function Team() {
             onOpen={() => navigate({ name: "chief" })}
           />
         )}
-        {list.map((department) => {
+        {list.slice(0, SHOWN_TEAM).map((department) => {
           const goal = activeGoal((_, id) => id === department.id);
           const members = Object.values(records).filter(
             (agent) => agent.departmentId === department.id,
@@ -237,6 +259,11 @@ function Team() {
           );
         })}
       </ul>
+      {list.length > SHOWN_TEAM ? (
+        <Button variant="ghost" onClick={() => navigate({ name: "team" })}>
+          All {list.length} departments
+        </Button>
+      ) : null}
       <div className={styles.create}>
         <Button onClick={() => navigate({ name: "new-department" })}>
           <Plus size={14} aria-hidden />
@@ -255,35 +282,34 @@ function Team() {
   );
 }
 
-function Recent() {
-  const tasks = useTasksWithAgents();
-  const shown = tasks.filter((entry) => entry.task.parentTaskId === undefined);
+function Recent({ items, now }: { items: Item[]; now: number }) {
+  const shown = items.toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
   return (
     <section className={styles.card} aria-labelledby="recent-title">
       <h2 id="recent-title" className={styles.cardTitle}>
         Recent tasks
       </h2>
       <ul className={styles.list}>
-        {shown.slice(0, SHOWN_TASKS).map((entry) => (
-          <li key={entry.task.id}>
+        {shown.slice(0, SHOWN_RECENT).map((item) => (
+          <li key={item.id}>
             <button
               type="button"
               className={styles.row}
-              onClick={() => navigate({ name: "task", taskId: entry.task.id })}
+              onClick={() => navigate({ name: "task", taskId: item.id })}
             >
               <span className={styles.rowText}>
-                <span className={styles.rowName}>{taskName(entry.task)}</span>
+                <span className={styles.rowName}>{item.title}</span>
                 <span className={styles.rowLine}>
-                  {entry.agents[0] === undefined ? null : <WorkerName agent={entry.agents[0]} />}
-                  {` · ${clockTime(entry.task.createdAt)}`}
+                  {item.agents[0] === undefined ? null : <WorkerName agent={item.agents[0]} />}
+                  {` · ${ago(item.createdAt, now)}`}
                 </span>
               </span>
-              <TaskStatusOf taskId={entry.task.id} />
+              <TaskStatusTag status={item.status} />
             </button>
           </li>
         ))}
       </ul>
-      {shown.length > SHOWN_TASKS ? (
+      {shown.length > SHOWN_RECENT ? (
         <Button variant="ghost" onClick={() => navigate({ name: "tasks" })}>
           All tasks
         </Button>
@@ -328,7 +354,7 @@ function BuildTeam() {
           Build your team
         </h2>
         <p className={styles.buildLead}>
-          Describe the team you want, or set up a chief or department below.
+          Describe the team you want, or build a department by hand.
         </p>
       </div>
       <div className={styles.buildBox}>
@@ -356,21 +382,6 @@ function BuildTeam() {
         <button
           type="button"
           className={styles.buildChoice}
-          onClick={() => navigate({ name: "chief" })}
-        >
-          <Network size={18} aria-hidden />
-          <strong>Set up a chief</strong>
-          <span>
-            One assistant that takes a big goal, splits it into parts and gives each part to the
-            right department.
-          </span>
-          <span className={styles.buildGo}>
-            Start <ArrowRight size={13} aria-hidden />
-          </span>
-        </button>
-        <button
-          type="button"
-          className={styles.buildChoice}
           onClick={() => navigate({ name: "new-department" })}
         >
           <Users size={18} aria-hidden />
@@ -387,10 +398,11 @@ function BuildTeam() {
   );
 }
 
-// Shown until the first task, so a new user always sees the next thing to do.
+// Folded to one line until opened, so a returning user sees their work first.
 // Each step ticks itself off from what the user really did, and opens its tutorial.
 function GettingStarted() {
   const state = useApp();
+  const [open, setOpen] = useState(false);
   const hidden = state.onboarding?.checklistHidden === true;
   const done: Record<TutorialId, boolean> = {
     "first-task": Object.values(state.tasks).some(
@@ -406,76 +418,113 @@ function GettingStarted() {
   return (
     <section className={styles.card} aria-labelledby="start-title">
       <div className={styles.cardHead}>
-        <h2 id="start-title" className={styles.cardTitle}>
-          Getting started · {count} of {TUTORIALS.length}
+        <h2 id="start-title" className={styles.foldTitle}>
+          <button
+            type="button"
+            className={styles.fold}
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+          >
+            <ChevronDown size={15} className={open ? undefined : styles.foldClosed} aria-hidden />
+            Getting started · {count} of {TUTORIALS.length}
+          </button>
         </h2>
         <Button variant="ghost" onClick={() => void saveOnboarding({ checklistHidden: true })}>
           Hide
         </Button>
       </div>
-      <ol className={styles.list}>
-        {TUTORIALS.map((tutorial, index) => {
-          const blocked = tutorial.blocked?.(state);
-          return (
-            <Step
-              key={tutorial.id}
-              number={index + 1}
-              done={done[tutorial.id]}
-              title={tutorial.title}
-              action={
-                <Button
-                  disabled={blocked !== undefined}
-                  onClick={() => void startTutorial(tutorial.id)}
-                >
-                  Start
-                </Button>
-              }
-            >
-              {blocked ?? tutorial.summary}
-            </Step>
-          );
-        })}
-      </ol>
+      {open ? (
+        <ol className={`${styles.list} ${styles.steps}`}>
+          {TUTORIALS.map((tutorial, index) => {
+            const blocked = tutorial.blocked?.(state);
+            return (
+              <Step
+                key={tutorial.id}
+                number={index + 1}
+                done={done[tutorial.id]}
+                title={tutorial.title}
+                action={
+                  <Button
+                    disabled={blocked !== undefined}
+                    onClick={() => void startTutorial(tutorial.id)}
+                  >
+                    Start
+                  </Button>
+                }
+              >
+                {blocked ?? tutorial.summary}
+              </Step>
+            );
+          })}
+        </ol>
+      ) : null}
     </section>
   );
 }
 
-// The screen the app opens on: what is happening, what needs you, and a box to start more.
+// The screen the app opens on: what needs you, what is at work and what to review, then the rest.
 export function HomeView() {
   const greeting = useGreeting();
-  const { working, order } = useCounts();
-  const anyTask = useApp((state) => Object.keys(state.tasks).length > 0);
+  const now = useNow();
+  const items = useTaskItems(now).filter((item) => item.goalId === undefined);
   const hasTeam = useApp(
     (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
   );
-  const summary =
-    working === 0 && order.length === 0
-      ? "No agents are working."
-      : [
-          working > 0 ? `${working} ${working === 1 ? "agent is" : "agents are"} working` : "",
-          order.length > 0 ? `${order.length} ${order.length === 1 ? "needs" : "need"} you` : "",
-        ]
-          .filter(Boolean)
-          .join(" · ");
+  const byActivity = (status: RowStatus) =>
+    items
+      .filter((item) => item.status === status)
+      .toSorted((a, b) => b.activityAt.localeCompare(a.activityAt));
+  const working = byActivity("working");
+  const review = byActivity("review");
   return (
     <section className={styles.page} aria-labelledby="home-title">
       <div className={styles.column}>
-        <h1 id="home-title" className={styles.title}>
-          {greeting}
-        </h1>
-        <p className={styles.summary}>{summary}</p>
+        <header className={styles.header}>
+          <h1 id="home-title" className={styles.title}>
+            {greeting}
+          </h1>
+          <p className={styles.summary}>
+            <StatusLine items={items} />
+          </p>
+        </header>
         <Composer home />
-        <Waiting />
         <UsagePauses />
         <LimitStops />
-        <Tiles />
-        <GettingStarted />
         {hasTeam ? null : <BuildTeam />}
-        <PlanUsageCard className={styles.card} />
+        <TaskSection
+          id="needs-title"
+          title="Needs you"
+          items={byActivity("needs")}
+          meta="line"
+          now={now}
+          all={{ label: "All in Needs you", open: () => navigate({ name: "needs-you" }) }}
+        />
+        {working.length + review.length === 0 ? null : (
+          <div className={styles.columns}>
+            <TaskSection
+              id="working-title"
+              title="Working"
+              items={working}
+              meta="line"
+              now={now}
+              all={{ label: "All in Tasks", open: () => showTasksTab("active") }}
+            />
+            <TaskSection
+              id="review-title"
+              title="To review"
+              items={review}
+              meta="ago"
+              now={now}
+              all={{ label: "All in Tasks", open: () => showTasksTab("review") }}
+            />
+          </div>
+        )}
         <div className={styles.columns}>
+          {items.length === 0 ? null : <Recent items={items} now={now} />}
           <Team />
-          {anyTask ? <Recent /> : null}
         </div>
+        <PlanUsageCard className={styles.card} />
+        <GettingStarted />
       </div>
     </section>
   );
