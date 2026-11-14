@@ -81,6 +81,7 @@ function useMember(agentId: string, onFloor: FloorAgent | undefined): FloorAgent
 }
 
 // A department member that has never worked: who it is and its profile, until its first task.
+// Chat stays hidden until then: there is no conversation to message yet (the core refuses).
 function FreeMemberSide({ agentId }: { agentId: string }) {
   const record = useApp((state) => state.agents[agentId]);
   const department = useApp((state) =>
@@ -101,7 +102,7 @@ function FreeMemberSide({ agentId }: { agentId: string }) {
           subtitle={`${role} · ${harness}`}
         />
       }
-      chatAgentId={agentId}
+      chatAgentId={undefined}
       now={
         <p className={styles.empty}>
           {lead

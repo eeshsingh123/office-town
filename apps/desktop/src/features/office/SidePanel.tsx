@@ -145,8 +145,9 @@ interface SidePanelProps {
   kind: PanelKind;
   label: string;
   header: ReactNode;
-  // The agent, a department's lead, or the chief.
-  chatAgentId: string;
+  // The agent, a department's lead, or the chief. None for a member that has never worked: there
+  // is no conversation to message yet, and Chat appears once it has one.
+  chatAgentId: string | undefined;
   now: ReactNode;
   activity: ReactNode;
   // An agent's own settings; the chief and departments have their own pages.
@@ -159,7 +160,11 @@ interface SidePanelProps {
 export function SidePanel(props: SidePanelProps) {
   const { kind, label, header, chatAgentId, now, activity, profile, footer } = props;
   const chosen = useOffice((state) => state.tabs[kind]);
-  const tab = chosen === "profile" && profile === undefined ? "now" : chosen;
+  const tab =
+    (chosen === "profile" && profile === undefined) ||
+    (chosen === "chat" && chatAgentId === undefined)
+      ? "now"
+      : chosen;
   return (
     <Tabs.Root
       className={styles.panel}
@@ -181,9 +186,11 @@ export function SidePanel(props: SidePanelProps) {
           <Tabs.Trigger value="activity" className={styles.tab}>
             Activity
           </Tabs.Trigger>
-          <Tabs.Trigger value="chat" className={styles.tab}>
-            Chat
-          </Tabs.Trigger>
+          {chatAgentId === undefined ? null : (
+            <Tabs.Trigger value="chat" className={styles.tab}>
+              Chat
+            </Tabs.Trigger>
+          )}
           {profile === undefined ? null : (
             <Tabs.Trigger value="profile" className={styles.tab}>
               Profile
@@ -196,9 +203,11 @@ export function SidePanel(props: SidePanelProps) {
         <Tabs.Content value="activity" className={styles.content}>
           {activity}
         </Tabs.Content>
-        <Tabs.Content value="chat" className={styles.chat}>
-          <ChatTab agentId={chatAgentId} named={kind !== "agent"} />
-        </Tabs.Content>
+        {chatAgentId === undefined ? null : (
+          <Tabs.Content value="chat" className={styles.chat}>
+            <ChatTab agentId={chatAgentId} named={kind !== "agent"} />
+          </Tabs.Content>
+        )}
         {profile === undefined ? null : (
           <Tabs.Content value="profile" className={styles.content}>
             {profile}
