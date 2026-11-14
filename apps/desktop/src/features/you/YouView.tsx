@@ -1,5 +1,4 @@
 import type { UserProfile } from "@office-town/contract";
-import { Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -13,9 +12,8 @@ import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { Switch } from "../../ui/Switch.tsx";
 import { showToast } from "../../ui/Toast.tsx";
-import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import styles from "./YouView.module.css";
-import { ANSWER_PICKS, useYou, youPreview } from "./you.ts";
+import { ANSWER_PICKS, useYou } from "./you.ts";
 
 const DRAFT = "you";
 
@@ -41,40 +39,12 @@ function NotifySwitch({
   );
 }
 
-// Applies at once, apart from the profile's Save.
-function Appearance() {
-  const theme = useTheme();
-  return (
-    <div className={page.panel}>
-      <span className={page.eyebrow}>Appearance</span>
-      <fieldset className={`${form.row} ${form.group}`}>
-        <legend className="visually-hidden">Theme</legend>
-        {(["light", "dark"] as const).map((pick) => (
-          <button
-            key={pick}
-            type="button"
-            className={`${form.chip} ${styles.themeChip}`}
-            aria-pressed={theme === pick}
-            onClick={() => {
-              if (theme !== pick) toggleTheme();
-            }}
-          >
-            {pick === "light" ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
-            {pick === "light" ? "Light" : "Dark"}
-          </button>
-        ))}
-      </fieldset>
-    </div>
-  );
-}
-
 export function YouView() {
   const saved = useYou();
   const [draft, setDraft] = useDraft<UserProfile>(DRAFT, saved);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const set = (change: Partial<UserProfile>) => setDraft({ ...draft, ...change });
-  const preview = youPreview(draft);
 
   const save = async () => {
     setSaving(true);
@@ -93,7 +63,7 @@ export function YouView() {
 
   return (
     <section className={page.page} aria-labelledby="you-title">
-      <div className={page.layout}>
+      <div className={styles.column}>
         <div className={page.main}>
           <header className={page.header}>
             <h1 id="you-title" className={page.title}>
@@ -213,27 +183,6 @@ export function YouView() {
             </div>
           </div>
         </div>
-
-        <aside className={page.aside}>
-          <Appearance />
-          <div className={page.panel}>
-            <span className={page.eyebrow}>What your agents will read</span>
-            {preview.length === 0 ? (
-              <p className={form.hint}>Nothing yet. Fill in your profile and it shows here.</p>
-            ) : (
-              preview.map((section) => (
-                <div key={section.title} className={styles.preview}>
-                  <h3 className={styles.previewTitle}>{section.title}</h3>
-                  <ul className={styles.previewPoints}>
-                    {section.points.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
       </div>
     </section>
   );
