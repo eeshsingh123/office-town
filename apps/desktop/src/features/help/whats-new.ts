@@ -27,6 +27,28 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "One status, one page layout",
+    icon: LayoutGrid,
+    changes: [
+      "Tasks use seven statuses everywhere: Needs you, Working, Queued, To review, Done, Failed and Stopped. Waiting is now Queued, and Home, the Chief page, workspaces and chats use the same words and icons as Tasks",
+      "Agents use five words: Working, Needs you, Free, Failed and Stopped. An agent that finished is Free, never Done",
+      "The Board has its own Failed or stopped column",
+      "A task's page shows its status once, next to its name, and Mark done is also on the Outputs tab",
+      "Every page has the same header, width and search box, so the title no longer moves between pages. Sort and filters use the same menu everywhere",
+      "Give it a goal on a department starts the task for that department, and picking a department in the sidebar while on the Board opens its room",
+      "The menu that picks who does a task scrolls in a small window and has a box to find a department",
+      "In a narrow window, Progress and sub-agents open over the chat, and the Office side panel opens over the floor",
+      "An empty Tasks tab says so, such as Nothing needs you",
+      "Add app lists every app, Gmail and the other apps you set up in Claude Code included. An app you have not set up shows Set up on its page instead of Ready, and servers from your Codex settings say so",
+      "The profile's name field takes any name and turns it into a handle, as the pencil does",
+      "Deleting a template or a reviewer asks first. Run setup again moved to the bottom of Tutorials in Help and asks first",
+      "Usage by team keeps departments that share a name apart and shows eight at first. An account's email and plan show sooner",
+      "Paused tasks name the limit as Usage does, such as 5-hour or weekly",
+      "Given to and a department's Files reach every workspace the department works in",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "A clearer New task and Tasks list",
     icon: MousePointerClick,
     changes: [
