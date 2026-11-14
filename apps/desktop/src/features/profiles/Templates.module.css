@@ -2,17 +2,9 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  max-width: 1180px;
+  gap: var(--section-gap);
+  max-width: var(--page-list);
   margin: 0 auto;
-}
-
-.head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
 }
 
 .headActions {
@@ -30,34 +22,6 @@
   margin-top: 4px;
   padding-top: 28px;
   border-top: 1px solid var(--border);
-}
-
-.search {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 8px;
-  min-width: 220px;
-  max-width: 380px;
-  padding: 0 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-3);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.search input {
-  width: 100%;
-  padding: 10px 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
 }
 
 .toolsEnd {
@@ -94,22 +58,6 @@
   background: var(--hover);
   color: var(--text);
   font-weight: 600;
-}
-
-.sort {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--size-meta);
-  color: var(--text-3);
-}
-
-.sort select {
-  padding: 5px 8px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text);
 }
 
 /* The count sits close to the list it counts. */

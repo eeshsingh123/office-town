@@ -2,23 +2,10 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  max-width: 1120px;
+  gap: var(--section-gap);
+  max-width: var(--page-list);
   margin: 0 auto;
   padding-bottom: 96px;
-}
-
-.top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.topActions {
-  display: flex;
-  flex: none;
-  gap: 8px;
 }
 
 .turning {
@@ -108,33 +95,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.search {
-  display: flex;
-  flex: 1 1 280px;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-3);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.search input {
-  width: 100%;
-  padding: 7px 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
 }
 
 /* One harness and its accounts */

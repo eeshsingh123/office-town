@@ -1,11 +1,13 @@
 import type { Account } from "@office-town/contract";
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { compactCount } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { isReady, useHarnessStatuses } from "../providers/providers.ts";
 import { Meter } from "./AccountCard.tsx";
 import { AccountGrid, tokensOf, useAccountUsers, useSpend } from "./AccountGrid.tsx";
@@ -115,25 +117,24 @@ export function UsageView() {
   return (
     <section className={page.page} aria-labelledby="usage-title">
       <div className={styles.column}>
-        <div className={styles.top}>
-          <header className={page.header}>
-            <h1 id="usage-title" className={page.title}>
-              Usage
-            </h1>
-            <p className={page.lead}>Plan limits for each account your agents use.</p>
-          </header>
-          <div className={styles.topActions}>
-            <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
-              <RefreshCw
-                size={14}
-                className={live.refreshing ? styles.turning : undefined}
-                aria-hidden
-              />
-              {live.refreshing ? "Refreshing" : "Refresh"}
-            </Button>
-            <Button onClick={() => navigate({ name: "providers" })}>Manage accounts</Button>
-          </div>
-        </div>
+        <PageHeader
+          id="usage-title"
+          title="Usage"
+          lead="Plan limits for each account your agents use."
+          actions={
+            <>
+              <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
+                <RefreshCw
+                  size={14}
+                  className={live.refreshing ? styles.turning : undefined}
+                  aria-hidden
+                />
+                {live.refreshing ? "Refreshing" : "Refresh"}
+              </Button>
+              <Button onClick={() => navigate({ name: "providers" })}>Manage accounts</Button>
+            </>
+          }
+        />
 
         {atLimit.map((account) => {
           const full = fullest(limits[account.id], now);
@@ -190,16 +191,7 @@ export function UsageView() {
         )}
 
         <div className={styles.filters}>
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search accounts"
-              aria-label="Search accounts"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox value={query} onChange={(value) => setQuery(value)} label="Search accounts" />
           <ChoiceMenu
             label="Provider"
             value={tool}

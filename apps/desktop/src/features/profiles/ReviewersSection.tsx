@@ -1,11 +1,12 @@
 import type { ReviewerRecord } from "@office-town/contract";
-import { Copy, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { deleteReviewer, saveReviewer, useReviewers } from "../../store/reviewers.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine } from "./model-name.ts";
@@ -74,16 +75,7 @@ export function ReviewersSection() {
         </div>
         <div className={styles.headActions}>
           {all.length > SEARCH_FROM ? (
-            <label className={styles.search}>
-              <Search size={14} aria-hidden />
-              <input
-                type="search"
-                value={query}
-                placeholder="Search reviewers"
-                aria-label="Search reviewers"
-                onChange={(change) => setQuery(change.target.value)}
-              />
-            </label>
+            <SearchBox value={query} onChange={setQuery} label="Search reviewers" />
           ) : null}
           <Button variant="secondary" onClick={() => open(undefined)}>
             <Plus size={14} aria-hidden />

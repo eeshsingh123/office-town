@@ -1,8 +1,9 @@
 import type { Display } from "@office-town/contract";
 import { Moon, Sun } from "lucide-react";
 import { useApp } from "../../store/app-store.ts";
-import page from "../../ui/CardPage.module.css";
 import form from "../../ui/Form.module.css";
+import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { saveDisplay } from "../onboarding/onboarding.ts";
@@ -15,8 +16,8 @@ const TEXT_SIZES: NonNullable<Display["textSize"]>[] = [100, 115, 130];
 function NewTasks() {
   const defaults = useTaskDefaults();
   return (
-    <section className={page.card} aria-labelledby="settings-new-tasks">
-      <h2 id="settings-new-tasks" className={page.cardTitle}>
+    <section className={page.panel} aria-labelledby="settings-new-tasks">
+      <h2 id="settings-new-tasks" className={page.sectionTitle}>
         New tasks
       </h2>
       <div className={styles.switches}>
@@ -42,8 +43,8 @@ function NewTasks() {
 function Appearance() {
   const theme = useTheme();
   return (
-    <section className={page.card} aria-labelledby="settings-appearance">
-      <h2 id="settings-appearance" className={page.cardTitle}>
+    <section className={page.panel} aria-labelledby="settings-appearance">
+      <h2 id="settings-appearance" className={page.sectionTitle}>
         Appearance
       </h2>
       <fieldset className={styles.sizes}>
@@ -76,8 +77,8 @@ function DisplaySettings() {
     { key: "announceRequests", label: "Read out new requests with a screen reader" },
   ];
   return (
-    <section className={page.card} aria-labelledby="settings-display">
-      <h2 id="settings-display" className={page.cardTitle}>
+    <section className={page.panel} aria-labelledby="settings-display">
+      <h2 id="settings-display" className={page.sectionTitle}>
         Display
       </h2>
       <fieldset className={styles.sizes}>
@@ -111,12 +112,8 @@ function DisplaySettings() {
 export function SettingsView() {
   return (
     <section className={page.page} aria-labelledby="settings-title">
-      <div className={page.column}>
-        <div className={page.head}>
-          <h1 id="settings-title" className={page.title}>
-            Settings
-          </h1>
-        </div>
+      <div className={page.form}>
+        <PageHeader id="settings-title" title="Settings" />
         <NewTasks />
         <Appearance />
         <DisplaySettings />

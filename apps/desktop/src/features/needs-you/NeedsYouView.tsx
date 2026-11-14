@@ -1,5 +1,5 @@
 import type { UserRequestEvent } from "@office-town/contract";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useLevel, useSessionAgent } from "../../store/agents.ts";
@@ -9,8 +9,11 @@ import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
@@ -350,12 +353,11 @@ export function NeedsYouView() {
       aria-labelledby="needs-you-title"
     >
       <div className={styles.column}>
-        <header className={page.header}>
-          <h1 id="needs-you-title" className={page.title}>
-            Needs you
-          </h1>
-          <p className={page.lead}>
-            {asks.length === 0
+        <PageHeader
+          id="needs-you-title"
+          title="Needs you"
+          lead={
+            asks.length === 0
               ? "Nothing needs you."
               : [
                   `${asks.length} ${asks.length === 1 ? "needs" : "need"} you across ${plural(taskCount, "task", "tasks")}`,
@@ -365,9 +367,9 @@ export function NeedsYouView() {
                   `oldest waiting ${waitedFor(oldest, now)}`,
                 ]
                   .filter(Boolean)
-                  .join(" · ")}
-          </p>
-        </header>
+                  .join(" · ")
+          }
+        />
 
         <UsagePauses title="Paused near a plan limit" />
         <LimitStops title="Stopped at a plan limit" />
@@ -388,16 +390,12 @@ export function NeedsYouView() {
         {asks.length === 0 ? null : (
           <div className={styles.tools}>
             <div className={styles.toolsRow}>
-              <label className={styles.search}>
-                <Search size={15} aria-hidden />
-                <input
-                  type="search"
-                  value={filters.query}
-                  placeholder="Search requests, tasks, agents, commands"
-                  aria-label="Search what needs you"
-                  onChange={(event) => update({ query: event.target.value })}
-                />
-              </label>
+              <SearchBox
+                value={filters.query}
+                onChange={(value) => update({ query: value })}
+                label="Search what needs you"
+                placeholder="Search requests, tasks, agents, commands"
+              />
               <fieldset className={`${styles.segment} ${form.group}`}>
                 <legend className={styles.segmentLabel}>Group by</legend>
                 {GROUP_BY.map((choice) => (
@@ -574,22 +572,18 @@ interface FilterSelectProps {
   onChange: (value: string | undefined) => void;
 }
 
+// The shared filter chip; "" stands for All.
 function FilterSelect({ label, value, options, onChange }: FilterSelectProps) {
+  const choices = [
+    { value: "", label: "All" },
+    ...options.map(([id, name]) => ({ value: id ?? "", label: name })),
+  ];
   return (
-    <label className={styles.select}>
-      <span className="visually-hidden">{label}</span>
-      <select
-        value={value ?? ""}
-        data-set={value !== undefined}
-        onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
-      >
-        <option value="">{label}: All</option>
-        {options.map(([id, name]) => (
-          <option key={id} value={id}>
-            {label}: {name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ChoiceMenu
+      label={label}
+      value={value ?? ""}
+      choices={choices}
+      onChange={(chosen) => onChange(chosen === "" ? undefined : chosen)}
+    />
   );
 }

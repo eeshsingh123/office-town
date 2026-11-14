@@ -1,6 +1,6 @@
 .page {
   height: 100%;
-  padding: 48px 48px 64px;
+  padding: 48px 56px 72px;
   overflow-y: auto;
   background: var(--bg);
 }
@@ -8,16 +8,16 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 44px;
+  gap: var(--section-gap);
   width: 100%;
-  max-width: 1020px;
+  max-width: var(--page-list);
   margin: 0 auto;
 }
 
 .title {
   margin: 0;
   font-size: var(--size-page);
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 

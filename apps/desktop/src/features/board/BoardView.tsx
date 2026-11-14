@@ -1,10 +1,10 @@
 import { agentColours, type TaskRecord } from "@office-town/contract";
-import { Search } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ago, taskName } from "../../ui/format.ts";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
 import { TeamFilter, useTeams } from "../tasks/TasksView.tsx";
@@ -236,16 +236,12 @@ export function BoardView() {
   return (
     <div className={styles.page}>
       <div className={styles.filters}>
-        <label className={styles.search}>
-          <Search size={15} aria-hidden />
-          <input
-            type="search"
-            value={query}
-            placeholder="Search tasks, agents, teams"
-            aria-label="Search the board"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <SearchBox
+          value={query}
+          onChange={(value) => setQuery(value)}
+          label="Search the board"
+          placeholder="Search tasks, agents, teams"
+        />
         <TeamFilter teams={present} chosen={chosenTeams} onChange={setChosenTeams} />
       </div>
       <div className={styles.board}>

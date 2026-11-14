@@ -7,13 +7,14 @@ import type {
   ConnectorPermission,
   ConnectorSetup,
 } from "@office-town/contract";
-import { ArrowLeft, BadgeCheck, Check, ChevronDown, Search } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import page from "../../ui/Page.module.css";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
 import { ActionGroups } from "./ActionGroups.tsx";
@@ -335,18 +336,7 @@ export function AddSheet({ keysAt, entries, app, audience: asked, onClose }: Add
     >
       {choosing ? (
         <>
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search apps"
-              aria-label="Search apps"
-              // biome-ignore lint/a11y/noAutofocus: the sheet opens to search.
-              autoFocus
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
           <ul className={styles.list} aria-label="Apps to add">
             {found.map((candidate) => (
               <li key={candidate.setup.slug}>

@@ -46,6 +46,9 @@
   --size-small: 11.5px;
   --size-title: 16px;
   --size-page: 28px;
+  --page-list: 1120px;
+  --page-form: 760px;
+  --section-gap: 40px;
 
   --radius-control: 8px;
   --radius-card: 12px;

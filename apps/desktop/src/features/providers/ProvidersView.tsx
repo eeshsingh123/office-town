@@ -5,6 +5,7 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { compactCount } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
 import { Meter } from "../usage/AccountCard.tsx";
 import { type Spend, tokensOf, useSpend } from "../usage/AccountGrid.tsx";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
@@ -89,12 +90,11 @@ export function ProvidersView() {
   return (
     <section className={page.page} aria-labelledby="providers-title">
       <div className={styles.column}>
-        <header className={page.header}>
-          <h1 id="providers-title" className={page.title}>
-            Providers
-          </h1>
-          <p className={page.lead}>The providers your agents run on, and your accounts on them.</p>
-        </header>
+        <PageHeader
+          id="providers-title"
+          title="Providers"
+          lead="The providers your agents run on, and your accounts on them."
+        />
 
         {statuses === undefined ? (
           <p className={styles.muted}>Checking this computer…</p>

@@ -9,6 +9,7 @@ import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { Switch } from "../../ui/Switch.tsx";
 import { showToast } from "../../ui/Toast.tsx";
@@ -65,12 +66,11 @@ export function YouView() {
     <section className={page.page} aria-labelledby="you-title">
       <div className={styles.column}>
         <div className={page.main}>
-          <header className={page.header}>
-            <h1 id="you-title" className={page.title}>
-              Your profile
-            </h1>
-            <p className={page.lead}>Every agent reads this before it starts a task.</p>
-          </header>
+          <PageHeader
+            id="you-title"
+            title="Your profile"
+            lead="Every agent reads this before it starts a task."
+          />
 
           <div className={form.form}>
             <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-who">

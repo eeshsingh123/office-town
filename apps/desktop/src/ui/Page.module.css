@@ -13,14 +13,14 @@
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: start;
   gap: 56px;
-  max-width: 1180px;
+  max-width: var(--page-list);
   margin: 0 auto;
 }
 
 .main {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: var(--section-gap);
   min-width: 0;
 }
 
@@ -30,6 +30,21 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* Three widths: forms and Settings, lists and Home, and full width for the Office and a task. */
+.list,
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  width: 100%;
+  max-width: var(--page-list);
+  margin: 0 auto;
+}
+
+.form {
+  max-width: var(--page-form);
 }
 
 /* A narrow window keeps the same rhythm with less of the width spent on padding. */
@@ -50,10 +65,25 @@
   }
 }
 
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .header {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .back {
