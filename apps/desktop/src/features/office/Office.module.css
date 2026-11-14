@@ -20,47 +20,57 @@
   min-width: 0;
 }
 
-/* Muted until pointed at, so it never competes with the rooms. */
-.addCorner {
-  position: absolute;
-  right: 20px;
-  bottom: 20px;
+/* Free rooms folded into one strip under the floor (design audit a2-2). */
+.quiet {
   display: flex;
-  gap: 10px;
-  opacity: 0.55;
-  transition: opacity var(--motion);
-}
-
-.addCorner:hover,
-.addCorner:focus-within {
-  opacity: 1;
-}
-
-.addBox {
-  display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  width: 128px;
-  height: 72px;
-  border: 1.5px dashed var(--border-strong);
-  border-radius: 12px;
-  background: var(--bg);
-  color: var(--text-2);
+  gap: 8px 10px;
+  margin: 0 30px 30px;
+  padding: 10px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface);
   font-size: var(--size-meta);
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    border-color var(--motion),
-    color var(--motion),
-    background var(--motion);
+  color: var(--text-3);
 }
 
-.addBox:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-text);
+.quietTitle {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.quietRoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 3px 9px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font: inherit;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.quietRoom:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.quietRoom i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.quietGrow {
+  flex: 1;
 }
 
 .scroll {
@@ -135,8 +145,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  /* One line; in a narrow room the opened usage runs past the room's edge rather than being cut. */
+  /* One line, never past the room's edge: the name is cut first (design audit a2-9). */
   width: max-content;
+  max-width: calc(100% - 32px);
   padding: 3px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
@@ -150,6 +161,14 @@
 .sign span {
   font-weight: 400;
   color: var(--text-3);
+}
+
+.sign .signTitle {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  color: var(--text);
+  text-overflow: ellipsis;
 }
 
 .signButton {
@@ -239,24 +258,14 @@
   background: var(--desk);
 }
 
-.desk::after {
-  position: absolute;
-  top: 5px;
-  left: 20px;
-  width: 24px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--desk-line);
-  content: "";
-}
-
 .agent {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  width: 80px;
+  /* Wide enough for a full "@name-1234"; desks are 150 px apart. */
+  width: 120px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -298,7 +307,10 @@
 }
 
 .nameTag {
+  max-width: 100%;
   padding: 1px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface);
@@ -331,15 +343,16 @@
   color: var(--warn);
 }
 
-/* Only for the agent the user points at or walks up to, so a busy floor stays clear. */
+/* Always shown (design audit a2-1), as narrow as a desk's pitch so neighbours never overlap; the
+   whole line shows for the agent pointed at or walked up to. */
 .bubbleWork {
-  opacity: 0;
-  transition: opacity var(--motion);
+  max-width: 140px;
 }
 
 .seat:has(.agent:hover, .agent:focus-visible) .bubbleWork,
 .bubbleNear {
-  opacity: 1;
+  max-width: 240px;
+  z-index: 2;
 }
 
 .you {
@@ -438,9 +451,9 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   min-width: 0;
-  padding: 24px 20px;
+  padding: 24px 28px;
   overflow-y: auto;
 }
 
@@ -755,23 +768,6 @@
   margin-left: 0;
 }
 
-/* What a member used on its department's goal, above its head. */
-.tokens {
-  position: absolute;
-  padding: 1px 9px;
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 18px;
-  white-space: nowrap;
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
 .roomLines span {
   overflow: hidden;
   white-space: nowrap;
@@ -1001,17 +997,6 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-3);
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.podLabel:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.podLabel:disabled {
-  cursor: default;
 }
 
 .podName {
@@ -1019,18 +1004,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.podCount {
-  flex: none;
-  min-width: 16px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--surface);
-  font-size: 10px;
-  letter-spacing: 0;
-  text-align: center;
-  color: var(--text-2);
 }
 
 /* A free department member sleeps at its desk: two small z's drifting up, until work comes. */

@@ -20,6 +20,7 @@ import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { peopleLine } from "../departments/team-line.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
@@ -231,12 +232,16 @@ function Team() {
           return (
             <TeamRow
               key={department.id}
-              icon={<Users size={16} className={styles.rowIcon} aria-hidden />}
+              icon={
+                <Avatar
+                  name={department.name}
+                  colour={records[department.leadAgentId]?.colour ?? "var(--text-3)"}
+                  size={20}
+                />
+              }
               name={department.name}
               line={
-                goal === undefined
-                  ? `${members} ${members === 1 ? "member" : "members"} · no task in progress`
-                  : taskName(goal)
+                goal === undefined ? `${peopleLine(members)} · no task in progress` : taskName(goal)
               }
               state={goal === undefined ? undefined : <TaskStatusOf taskId={goal.id} />}
               onOpen={() => selectRoom(department.id)}

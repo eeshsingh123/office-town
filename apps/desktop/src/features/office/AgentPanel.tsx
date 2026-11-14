@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, X } from "lucide-react";
+import { ArrowUpRight, Check, Pin, PinOff, X } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen } from "../../store/records.ts";
@@ -21,6 +21,9 @@ import type { FloorAgent } from "./Floor.tsx";
 import styles from "./Office.module.css";
 import { pin, unpin, usePinned } from "./pins.ts";
 import { Facts, PanelHeader, PanelSection, SectionAction, StateChip } from "./SidePanel.tsx";
+
+// A CLI's own lookups before it acts, shown nowhere as work.
+const HELPER_STEP = /^(ToolSearch|tool_search)\b/i;
 
 function DoneLine({ action }: { action: TraceAction }) {
   return (
@@ -71,14 +74,18 @@ export function AgentNow({ member }: { member: FloorAgent }) {
   const facts = useRunFacts(agent);
   const results = useResults(agent.taskId).filter((output) => output.agentId === agent.id);
   const progress = trace === undefined ? undefined : progressOf(trace);
-  const done = progress?.recent.filter((action) => action.status !== "running") ?? [];
+  // Helper steps, such as a tool search, are no work to show (design audit a2-17).
+  const done =
+    progress?.recent.filter(
+      (action) => action.status !== "running" && !HELPER_STEP.test(action.title),
+    ) ?? [];
   const busy = isBusy(state);
 
   return (
     <>
       {waiting === undefined ? null : <RequestCard event={waiting.event} />}
 
-      <PanelSection title="Working on">
+      <PanelSection title={busy ? "Working on" : "Last task"}>
         <button
           type="button"
           className={styles.taskLink}
@@ -163,6 +170,7 @@ export function AgentFooter({ member }: { member: FloorAgent }) {
         </Button>
       )}
       <Button variant="ghost" onClick={() => (pinned ? unpin([agent.id]) : pin([agent.id]))}>
+        {pinned ? <PinOff size={14} aria-hidden /> : <Pin size={14} aria-hidden />}
         {pinned ? "Unpin" : "Pin"}
       </Button>
       {isOpen(agent.latest) ? (

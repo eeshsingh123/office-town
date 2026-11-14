@@ -146,7 +146,11 @@ function Settings({
   };
   const change = (next: Partial<DepartmentForm>) => keepTeam({ ...team, ...next });
   const gate = useBypassGate(team.autonomy, (autonomy) => change({ autonomy }), department.name);
-  const missing = missingIn(team);
+  const departments = useApp((state) => state.departments);
+  const otherNames = Object.values(departments)
+    .filter((one) => one.id !== department.id)
+    .map((one) => one.name);
+  const missing = missingIn(team, otherNames);
 
   const redraft = async (notes: string[], drafter: RoleSettings) => {
     const reply = await api.draftDepartments({

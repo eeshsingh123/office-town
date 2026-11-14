@@ -1,13 +1,11 @@
 import type { AgentRecord, DepartmentRecord, TaskRecord } from "@office-town/contract";
-import { ArrowUpRight, Users } from "lucide-react";
-import { useMemo, useState } from "react";
-import { api } from "../../api/client.ts";
+import { ArrowUpRight } from "lucide-react";
+import { useMemo } from "react";
 import { type Agent, stateOf, useWaitingSessions, workOf } from "../../store/agents.ts";
 import { navigate, select, useApp } from "../../store/app-store.ts";
 import { teamAtWork } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ago, taskName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
@@ -25,8 +23,7 @@ import { useResults } from "../outputs/use-task-outputs.ts";
 import { tokenLine } from "../task/run-facts.ts";
 import { StopTeamButton } from "../task/StopButton.tsx";
 import styles from "./DepartmentPanel.module.css";
-import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
-import { settingsOf } from "./team-form.ts";
+import { peopleLine } from "./team-line.ts";
 import { totalOf } from "./usage.ts";
 
 interface Member {
@@ -152,15 +149,12 @@ function useDepartmentGoal(department: DepartmentRecord) {
 
 export function DepartmentHeader({ department }: { department: DepartmentRecord }) {
   const { members, working } = useDepartmentGoal(department);
+  const lead = useApp((state) => state.agents[department.leadAgentId]);
   return (
     <PanelHeader
-      picture={
-        <span className={styles.picture} aria-hidden>
-          <Users size={18} />
-        </span>
-      }
+      picture={<Avatar name={department.name} colour={lead?.colour ?? "var(--text-3)"} size={36} />}
       title={department.name}
-      subtitle={`Department · ${members.length === 1 ? "1 member" : `${members.length} members`}`}
+      subtitle={`Department · ${peopleLine(members.length)}`}
       status={working ? <StateChip state="working" /> : undefined}
       actions={
         <PanelSettings
@@ -206,19 +200,9 @@ function DepartmentAppsSection(props: { departmentId: string; harnesses: string[
 export function DepartmentNow({ department }: { department: DepartmentRecord }) {
   const { task, members, goalSessions, working } = useDepartmentGoal(department);
   const usage = useMemo(() => totalOf(task?.usage ?? []), [task]);
-  const [failure, setFailure] = useState<string>();
-  const setWorkspaces = async (workspaceIds: string[]) => {
-    setFailure(undefined);
-    try {
-      await api.updateDepartment(department.id, { ...settingsOf(department), workspaceIds });
-    } catch (error) {
-      setFailure(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   return (
     <>
-      <PanelSection title="Working on">
+      <PanelSection title={working ? "Working on" : "Last task"}>
         {task === undefined ? (
           <p className={styles.faint}>No task yet</p>
         ) : (
@@ -254,38 +238,6 @@ export function DepartmentNow({ department }: { department: DepartmentRecord }) 
 
       {task === undefined ? null : <DepartmentOutputs taskId={task.id} />}
 
-      <PanelSection title="Workspaces">
-        <DepartmentWorkspaces
-          value={department.workspaceIds}
-          onChange={setWorkspaces}
-          departmentName={department.name}
-          departmentId={department.id}
-          goalWorkspaceId={working ? task?.workspaceId : undefined}
-          compact
-        />
-        {working ? <p className={styles.note}>Changes apply from the next task.</p> : null}
-        {failure === undefined ? null : (
-          <p className={styles.failure} role="alert">
-            {failure}
-          </p>
-        )}
-      </PanelSection>
-
-      <PanelSection
-        title="Permissions"
-        action={
-          <SectionAction
-            label="Change"
-            onClick={() => navigate({ name: "department", departmentId: department.id })}
-          />
-        }
-      >
-        <div className={styles.permission}>
-          <strong>{AUTONOMY[department.autonomy].label}</strong>
-          <span>{AUTONOMY[department.autonomy].description}</span>
-        </div>
-      </PanelSection>
-
       {goalSessions.length === 0 ? null : (
         <PanelSection title="Usage on this task">
           <p className={styles.usage}>{tokenLine(usage)}</p>
@@ -303,14 +255,14 @@ export function DepartmentFooter({ department }: { department: DepartmentRecord 
         variant="primary"
         onClick={() => navigate({ name: "new-task", who: "team", departmentId: department.id })}
       >
-        Give it a goal
+        New task
       </Button>
     );
   }
   return (
     <>
       <Button variant="primary" onClick={() => navigate({ name: "task", taskId: task.id })}>
-        Open goal
+        Open task
       </Button>
       {working ? <StopTeamButton taskId={task.id} label="Stop team" /> : null}
     </>

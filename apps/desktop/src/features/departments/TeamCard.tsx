@@ -9,7 +9,7 @@ import {
   memberColour,
   type PersonForm,
 } from "./team-form.ts";
-import { teamLine } from "./team-line.ts";
+import { peopleLine } from "./team-line.ts";
 
 const CHART_COLUMNS = 4;
 
@@ -104,7 +104,7 @@ export function TeamCard({
         <Avatar name={name} colour={LEAD_COLOUR} size={40} />
         <div className={styles.text}>
           <strong className={styles.name}>{name}</strong>
-          <span>{form.purpose.trim() || teamLine(form.members.length)}</span>
+          <span>{form.purpose.trim() || peopleLine(form.members.length + 1)}</span>
         </div>
       </header>
       {chart ? (

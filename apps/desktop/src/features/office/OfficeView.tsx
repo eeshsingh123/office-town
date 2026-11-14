@@ -1,6 +1,5 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { Plus } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
@@ -11,11 +10,17 @@ import { taskName } from "../../ui/format.ts";
 import { stateLabel } from "../../ui/StatusIcon.tsx";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
-import { newTokens, usageByPerson } from "../departments/usage.ts";
+import { newTokens } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { fraction, goalStatuses, partStatuses, pieceStatuses } from "../task/goal-progress.ts";
 import { chiefGoal } from "./doors.ts";
-import { Floor, type FloorAgent, type FreeMember, type RoomSign } from "./Floor.tsx";
+import {
+  Floor,
+  type FloorAgent,
+  type FreeMember,
+  type RoomSign,
+  scrollbarWidth,
+} from "./Floor.tsx";
 import {
   ADD_CHIEF,
   ADD_DEPARTMENT,
@@ -27,6 +32,7 @@ import {
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
 import {
+  FOLD_AFTER,
   OPEN_FLOOR,
   openChat,
   type PanelKind,
@@ -35,6 +41,7 @@ import {
   setPanelOpen,
   useOffice,
 } from "./office-state.ts";
+import { QuietRooms } from "./QuietRooms.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { CHIEF_ROOM, useCommandFloor } from "./use-command-floor.ts";
 
@@ -113,6 +120,9 @@ interface Layout {
   state: Known;
   chiefId: string | undefined;
   positions: Record<string, Point>;
+  // Free departments folded into the strip under the floor; their members are not drawn.
+  folded: ReadonlySet<string>;
+  paneWidth: number;
 }
 
 // A department member that is not at work and not asking is free: it sleeps at its desk.
@@ -133,6 +143,12 @@ function layOut(layout: Layout) {
         agent.id === chiefId ||
         onTheFloor(agent.latest, asking.has(agent.latest.id)) ||
         roomOf(agent, byId, chiefId) === agent.record.departmentId,
+    )
+    .filter(
+      (agent) =>
+        agent.id === chiefId ||
+        agent.record.departmentId === undefined ||
+        !layout.folded.has(agent.record.departmentId),
     )
     .reverse();
   const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId, chiefId));
@@ -158,20 +174,14 @@ function layOut(layout: Layout) {
     ...(departments.length > 0 || chiefId !== undefined
       ? []
       : [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const]),
-    // Two desks, more only while more assistants work alone.
-    { id: OPEN, kind: "open", desks: Math.max(2, solo.length) },
+    // Only while an assistant works alone today (design audit a2-11).
+    ...(solo.length === 0 ? [] : [{ id: OPEN, kind: "open", desks: solo.length } as const]),
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),
   ];
-  const plan = floorPlan(specs, layout.positions);
+  const plan = floorPlan(specs, layout.positions, layout.paneWidth);
 
-  // Each department's current or last goal, and what each member used on it once its traces are in.
+  // Each department's current or last goal; its sessions' traces give each desk its work line.
   const goals = new Map(departments.map((one) => [one.id, goalOf(one, state)]));
-  const memberTokens = new Map<string, number>();
-  for (const goal of goals.values()) {
-    const people = usageByPerson(goal.sessions, traces);
-    for (const person of people ?? []) memberTokens.set(person.agentId, person.tokens);
-  }
-  // The token counts need every one of their traces.
   const goalSessions = [...goals.values()].flatMap((goal) => goal.sessions.map((one) => one.id));
 
   const floorAgents = present.map((agent): FloorAgent => {
@@ -187,7 +197,7 @@ function layOut(layout: Layout) {
             : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
     const inDepartment = roomId === agent.record.departmentId;
-    const tokens = inDepartment ? memberTokens.get(agent.id) : undefined;
+    const lead = byId[roomId]?.leadAgentId === agent.id;
     const trace = traces[agent.latest.id];
     // Its part of the department's goal, or the goal itself at the lead's desk (D-95).
     const goalTask = inDepartment ? goals.get(roomId)?.task : undefined;
@@ -206,11 +216,11 @@ function layOut(layout: Layout) {
         roomId === CHIEF_ROOM
           ? "Chief"
           : roomId === OPEN
-            ? "Open floor"
+            ? "Assistants"
             : roomId === GUESTS
-              ? "Guests"
+              ? "Reviewers"
               : (byId[roomId]?.name ?? ""),
-      ...(tokens === undefined ? {} : { tokens }),
+      ...(inDepartment ? { role: lead ? "Lead" : (agent.record.role ?? "Member") } : {}),
       ...(part.length === 0 ? {} : { part }),
       // Today's outcome stays on its badge; an older one is no longer news.
       ...(inDepartment && freeAt(agentState)
@@ -238,14 +248,15 @@ function layOut(layout: Layout) {
           colour: record.colour,
           position: room?.seats[seat]?.agent ?? plan.start,
           detail: harnessName(record.settings.harness),
+          where: `${record.id === department.leadAgentId ? "Lead" : (record.role ?? "Member")} · ${department.name}`,
         },
       ];
     });
   });
 
   const signs: Record<string, RoomSign> = {
-    [OPEN]: { title: "Open floor", note: "Assistants", lines: [] },
-    [GUESTS]: { title: "Review desk", note: "Reviewers", lines: [] },
+    [OPEN]: { title: "Assistants", lines: [] },
+    [GUESTS]: { title: "Reviewers", lines: [] },
   };
   for (const department of departments) {
     const goal = goals.get(department.id);
@@ -260,8 +271,8 @@ function layOut(layout: Layout) {
       title: department.name,
       lines:
         task === undefined
-          ? ["No goal in progress"]
-          : [working ? taskName(task) : `Last goal · ${taskName(task)}`],
+          ? ["No task yet"]
+          : [working ? taskName(task) : `Last task · ${taskName(task)}`],
       ...(statuses.length === 0 ? {} : { progress: { statuses, label: fraction(statuses) } }),
       ...(apps.length === 0
         ? {}
@@ -307,14 +318,27 @@ export function OfficeView() {
   const view = useApp((state) => state.view);
   const chiefId = useApp((state) => state.chiefId);
   const positions = useApp((state) => state.roomPositions);
+  const showAllRooms = useOffice((state) => state.showAllRooms);
   const room = view.name === "office" ? view.room : undefined;
+  const scroll = useRef<HTMLDivElement>(null);
+  const paneWidth = useWidthOf(scroll);
 
-  // Oldest first, so a new or renamed department never moves the rooms already there.
+  // By name, as every other list of departments (design audit a2-19).
   const departments = useMemo(
-    () =>
-      Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    () => Object.values(departmentRecords).toSorted((a, b) => a.name.localeCompare(b.name)),
     [departmentRecords],
   );
+  const { links, goalId, doors } = useCommandFloor(departments);
+  // Past FOLD_AFTER departments, a room with nothing on its door folds, unless it is open or
+  // holds someone picked (design audit a2-2).
+  const folded = useMemo(() => {
+    if (departments.length <= FOLD_AFTER || showAllRooms) return new Set<string>();
+    const picked = new Set(selection.flatMap((id) => records[id]?.departmentId ?? []));
+    const quiet = departments.filter(
+      (one) => (doors[one.id] ?? []).length === 0 && one.id !== room && !picked.has(one.id),
+    );
+    return new Set(quiet.map((one) => one.id));
+  }, [departments, showAllRooms, doors, room, selection, records]);
   const { plan, floorAgents, freeMembers, signs, goalSessions, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
@@ -323,10 +347,12 @@ export function OfficeView() {
       traces,
       waiting,
       harnessName,
-      departments,
+      departments: departments.filter((one) => !folded.has(one.id)),
       state: { agents: records, tasks, sessions, delegations, milestones, pieces },
       chiefId,
       positions,
+      folded,
+      paneWidth,
     });
   }, [
     agents,
@@ -342,9 +368,10 @@ export function OfficeView() {
     pieces,
     chiefId,
     positions,
+    folded,
+    paneWidth,
   ]);
   useTraces(goalSessions);
-  const { links, goalId, doors } = useCommandFloor(departments);
 
   // Back from another screen, the room left open opens again.
   useEffect(() => {
@@ -380,7 +407,7 @@ export function OfficeView() {
       ) : (
         <div className={styles.body}>
           <div className={styles.stage}>
-            <div className={styles.scroll}>
+            <div ref={scroll} className={styles.scroll}>
               <Floor
                 plan={plan}
                 agents={floorAgents}
@@ -396,8 +423,12 @@ export function OfficeView() {
                 onOpenRoom={onOpenRoom}
                 onOpenChat={onOpenChat}
               />
+              <QuietRooms
+                folded={departments.filter((one) => folded.has(one.id))}
+                foldable={departments.length > FOLD_AFTER}
+                onOpenRoom={onOpenRoom}
+              />
             </div>
-            {departments.length === 0 ? null : <AddCorner chief={chiefId === undefined} />}
           </div>
           <OfficePanel
             selection={selection}
@@ -405,7 +436,6 @@ export function OfficeView() {
             room={openRoom}
             openFloor={openFloor}
             assistants={assistants}
-            floorCount={floorAgents.length + freeMembers.length}
           />
         </div>
       )}
@@ -413,33 +443,27 @@ export function OfficeView() {
   );
 }
 
-// Once the office has a team, setup waits quietly in the corner instead of taking floor space.
-function AddCorner({ chief }: { chief: boolean }) {
-  return (
-    <div className={styles.addCorner}>
-      {chief ? (
-        <button type="button" className={styles.addBox} onClick={() => navigate({ name: "chief" })}>
-          <Plus size={14} aria-hidden />
-          Chief's office
-        </button>
-      ) : null}
-      <button
-        type="button"
-        className={styles.addBox}
-        onClick={() => navigate({ name: "new-department" })}
-      >
-        <Plus size={14} aria-hidden />
-        New department
-      </button>
-    </div>
-  );
-}
-
-// Picking someone or a room brings a hidden side panel back.
+// Picking someone or a room opens the side panel; picking nothing closes it (design audit a2-4).
 function OpenOnSelect({ selection, room }: { selection: string[]; room: string | undefined }) {
   const key = `${selection.join(",")}|${room ?? ""}`;
   useEffect(() => {
-    if (key !== "|") setPanelOpen(true);
+    setPanelOpen(key !== "|");
   }, [key]);
   return null;
+}
+
+// The pane's width less a scrollbar, in steps of 10 px so a small resize does not lay out again.
+function useWidthOf(element: RefObject<HTMLDivElement | null>): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const node = element.current;
+    if (node === null) return;
+    const bar = scrollbarWidth();
+    const observer = new ResizeObserver(() => {
+      setWidth(Math.floor((node.offsetWidth - bar) / 10) * 10);
+    });
+    observer.observe(node, { box: "border-box" });
+    return () => observer.disconnect();
+  }, [element]);
+  return width;
 }

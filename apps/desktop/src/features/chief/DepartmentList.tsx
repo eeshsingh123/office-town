@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { teamLine } from "../departments/team-line.ts";
+import { peopleLine } from "../departments/team-line.ts";
 import { selectRoom } from "../office/office-state.ts";
 import styles from "./Chief.module.css";
 
@@ -27,7 +27,7 @@ export function DepartmentList() {
             <Avatar name={department.name} colour={lead?.colour ?? "#4F5D75"} size={32} />
             <span className={styles.departmentText}>
               <strong>{department.name}</strong>
-              <span>{teamLine(workers)}</span>
+              <span>{peopleLine(workers + 1)}</span>
             </span>
           </button>
         );

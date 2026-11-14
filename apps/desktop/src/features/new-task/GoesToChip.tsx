@@ -3,7 +3,7 @@ import { DropdownMenu } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import menu from "../../ui/Menu.module.css";
-import { teamLine } from "../departments/team-line.ts";
+import { peopleLine } from "../departments/team-line.ts";
 import styles from "./Composer.module.css";
 import { CHIEF, PROPOSE, SOLO } from "./targets.ts";
 import { useBusyDepartments } from "./use-targets.ts";
@@ -102,7 +102,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
                   title={department.name}
                   note={
                     busyWith === undefined
-                      ? teamLine(workers(department.id))
+                      ? peopleLine(workers(department.id) + 1)
                       : `Busy with "${busyWith}"`
                   }
                   disabled={busyWith !== undefined}

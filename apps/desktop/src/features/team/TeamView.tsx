@@ -1,5 +1,5 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { ChevronDown, Lock, Network, Plus, UserPlus } from "lucide-react";
+import { ChevronDown, Plus, Settings, UserPlus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
@@ -10,7 +10,6 @@ import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { selectRoom } from "../office/office-state.ts";
 import { useModelLine, useModelName } from "../profiles/model-line.ts";
-import { useYou } from "../you/you.ts";
 import styles from "./Team.module.css";
 import { useTeamFolds } from "./team-folds.ts";
 
@@ -28,13 +27,6 @@ const EXAMPLES = [
     text: "A developer who builds features in our app and a reviewer who checks the code and tests before it merges.",
   },
 ];
-
-// "Newsletter and Research", "A, B and C", or "your 5 departments".
-function listNames(names: string[]): string {
-  if (names.length > 3) return `your ${names.length} departments`;
-  if (names.length === 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-}
 
 function Person({
   agent,
@@ -63,6 +55,7 @@ function Person({
           (agent.role ?? "Member")
         )}
       </span>
+      <span className={styles.handle}>{agent.name}</span>
       <span className={styles.model}>{model}</span>
     </button>
   );
@@ -108,8 +101,8 @@ function DepartmentCard({
         <button
           type="button"
           className={styles.openTeam}
-          title={`Open ${department.name}`}
-          onClick={() => navigate({ name: "department", departmentId: department.id })}
+          title={`Open ${department.name} in the office`}
+          onClick={() => selectRoom(department.id)}
         >
           <Avatar name={department.name} colour={lead?.colour ?? "#4F5D75"} size={32} />
           <span className={styles.text}>
@@ -120,9 +113,15 @@ function DepartmentCard({
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
           {working ? "Working" : "Free"}
         </span>
-        <Button variant="ghost" className={styles.small} onClick={() => selectRoom(department.id)}>
-          Open in office
-        </Button>
+        <button
+          type="button"
+          className={styles.gear}
+          aria-label={`${department.name} settings`}
+          title="Department settings"
+          onClick={() => navigate({ name: "department", departmentId: department.id })}
+        >
+          <Settings size={15} aria-hidden />
+        </button>
       </header>
       {folded ? null : (
         <div className={styles.people}>
@@ -158,8 +157,8 @@ function DepartmentCard({
   );
 }
 
-// The chief's place in the tree: the chief, an offer to add one, or locked until a department exists.
-function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
+// The chief's row, first in the list, only once one is set up.
+function ChiefRow({ departments }: { departments: number }) {
   const chief = useApp((state) =>
     state.chiefId === undefined ? undefined : state.agents[state.chiefId],
   );
@@ -169,10 +168,10 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
     ),
   );
   const model = useModelLine(chief?.settings);
-  if (chief !== undefined) {
-    const across =
-      departmentNames.length === 1 ? "1 department" : `${departmentNames.length} departments`;
-    return (
+  if (chief === undefined) return null;
+  const across = departments === 1 ? "1 department" : `${departments} departments`;
+  return (
+    <li>
       <button
         type="button"
         className={`${styles.node} ${styles.chief}`}
@@ -180,48 +179,16 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
       >
         <Avatar name={chief.name} colour={chief.colour} size={32} />
         <span className={styles.text}>
-          <strong>{chief.name}</strong>
+          <strong>Chief</strong>
           <span>
-            Chief · plans across {across} · {model}
+            {chief.name} · plans across {across} · {model}
           </span>
         </span>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
           {working ? "Working" : "Free"}
         </span>
       </button>
-    );
-  }
-  if (departmentNames.length === 0) {
-    return (
-      <div className={styles.slot}>
-        <span className={styles.ring}>
-          <Lock size={15} aria-hidden />
-        </span>
-        <span className={styles.text}>
-          <strong>Chief</strong>
-          <span>
-            Optional. Splits one big goal across departments. Available once you have a department.
-          </span>
-        </span>
-      </div>
-    );
-  }
-  return (
-    <div className={styles.slot}>
-      <span className={styles.ring}>
-        <Network size={15} aria-hidden />
-      </span>
-      <span className={styles.text}>
-        <strong>No chief</strong>
-        <span>
-          You give each department its own tasks. A chief takes one goal and splits it across{" "}
-          {listNames(departmentNames)}.
-        </span>
-      </span>
-      <Button className={styles.small} onClick={() => navigate({ name: "chief" })}>
-        Add a chief
-      </Button>
-    </div>
+    </li>
   );
 }
 
@@ -296,13 +263,12 @@ function Starter() {
 
 const QUERY = forSession("team.query", "");
 
-// Everyone who works for the user, as one vertical tree: you, the chief, each department and
-// its people.
+// Everyone who works for the user: the chief when there is one, then each department and its
+// people (design audit a2-23).
 export function TeamView() {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const hasChief = useApp((state) => state.chiefId !== undefined);
-  const you = useYou();
   const [query, setQuery] = useKept(QUERY);
   const scroll = useKeptScroll("team");
   const needle = query.trim().toLowerCase();
@@ -342,57 +308,48 @@ export function TeamView() {
             ? {}
             : {
                 actions: (
-                  <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
-                    <Plus size={14} aria-hidden />
-                    New department
-                  </Button>
+                  <>
+                    {hasChief ? null : (
+                      <Button onClick={() => navigate({ name: "chief" })}>Add a chief</Button>
+                    )}
+                    <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
+                      <Plus size={14} aria-hidden />
+                      New department
+                    </Button>
+                  </>
                 ),
               })}
         />
 
         {empty ? null : (
-          <SearchBox
-            value={query}
-            onChange={(value) => setQuery(value)}
-            label="Search the team"
-            placeholder="Search departments, roles and names"
-          />
+          // In a row, so the box keeps its height in the page's column.
+          <div className={styles.tools}>
+            <SearchBox
+              value={query}
+              onChange={(value) => setQuery(value)}
+              label="Search the team"
+              placeholder="Search departments, roles and names"
+            />
+          </div>
         )}
 
-        <ul className={styles.tree}>
-          <li>
-            <div className={styles.node}>
-              <Avatar name={you.name || "You"} colour={you.colour} size={32} />
-              <span className={styles.text}>
-                <strong>You</strong>
-                <span>Give goals, approve plans</span>
-              </span>
-            </div>
-            <ul>
-              <li className={!hasChief && empty ? styles.future : undefined}>
-                <ChiefSlot departmentNames={all.map((department) => department.name)} />
-                <ul>
-                  {empty ? (
-                    <li>
-                      <Starter />
-                    </li>
-                  ) : (
-                    shown.map((department) => (
-                      <li key={department.id}>
-                        <DepartmentCard
-                          department={department}
-                          members={membersOf(department)}
-                          folded={needle === "" && folded(department.id)}
-                          onFold={() => toggle(department.id)}
-                        />
-                      </li>
-                    ))
-                  )}
-                </ul>
+        {empty ? (
+          <Starter />
+        ) : (
+          <ul className={styles.list}>
+            {needle === "" ? <ChiefRow departments={all.length} /> : null}
+            {shown.map((department) => (
+              <li key={department.id}>
+                <DepartmentCard
+                  department={department}
+                  members={membersOf(department)}
+                  folded={needle === "" && folded(department.id)}
+                  onFold={() => toggle(department.id)}
+                />
               </li>
-            </ul>
-          </li>
-        </ul>
+            ))}
+          </ul>
+        )}
         {!empty && shown.length === 0 ? (
           <p className={page.hint}>No department, role or name matches "{query.trim()}".</p>
         ) : null}

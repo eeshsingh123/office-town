@@ -19,36 +19,17 @@ import styles from "./Office.module.css";
 import sideStyles from "./SidePanel.module.css";
 import { PanelFrame, PanelHeader, SidePanel } from "./SidePanel.tsx";
 
-function EmptyPanel({ count }: { count: number }) {
-  return (
-    <aside className={styles.panel} aria-label="Office">
-      <p className={styles.empty}>
-        {count === 0
-          ? "No agents at work yet."
-          : "Select an agent or a room, double-click to chat, or drag to select several."}
-      </p>
-      {count === 0 ? (
-        <div>
-          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
-            New task
-          </Button>
-        </div>
-      ) : null}
-    </aside>
-  );
-}
-
-// The open floor holds assistants that work alone, so it starts a task for one.
+// Assistants work alone, outside any department, so their room starts a task for one.
 function OpenFloorPanel({ working }: { working: number }) {
   return (
-    <aside className={sideStyles.panel} aria-label="Open floor">
+    <aside className={sideStyles.panel} aria-label="Assistants">
       <PanelHeader
         picture={
           <span className={styles.openPicture} aria-hidden>
             <User size={18} />
           </span>
         }
-        title="Open floor"
+        title="Assistants"
         subtitle={
           working === 0
             ? "No assistant here"
@@ -56,9 +37,6 @@ function OpenFloorPanel({ working }: { working: number }) {
         }
       />
       <div className={sideStyles.content}>
-        <p className={styles.empty}>
-          An assistant works here on its own task, outside any department.
-        </p>
         <div>
           <Button variant="primary" onClick={() => navigate({ name: "new-task", who: "one" })}>
             New task for an assistant
@@ -144,7 +122,6 @@ interface OfficePanelProps {
   openFloor: boolean;
   // Those working alone on the open floor.
   assistants: number;
-  floorCount: number;
 }
 
 export function OfficePanel(props: OfficePanelProps) {
@@ -156,7 +133,7 @@ export function OfficePanel(props: OfficePanelProps) {
 }
 
 function PanelContent(props: OfficePanelProps) {
-  const { selection, chosen, room, openFloor, assistants, floorCount } = props;
+  const { selection, chosen, room, openFloor, assistants } = props;
   const chiefId = useApp((state) => state.chiefId);
   const [single] = selection;
   if (selection.length > 1) return <GroupPanel members={chosen} />;
@@ -190,5 +167,6 @@ function PanelContent(props: OfficePanelProps) {
     );
   }
   if (openFloor) return <OpenFloorPanel working={assistants} />;
-  return <EmptyPanel count={floorCount} />;
+  // Nothing picked: the panel is closed (design audit a2-4).
+  return null;
 }

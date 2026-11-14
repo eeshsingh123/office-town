@@ -286,8 +286,13 @@ export function teamOf(form: DepartmentForm): Team {
 }
 
 // The first thing that stops this department from being created or saved.
-export function missingIn(form: DepartmentForm): string | undefined {
+// `taken` holds the names of the other departments; no two share one (design audit a2-20).
+export function missingIn(form: DepartmentForm, taken: readonly string[] = []): string | undefined {
   if (form.name.trim() === "") return "Give the department a name.";
+  const name = form.name.trim().toLowerCase();
+  if (taken.some((other) => other.trim().toLowerCase() === name)) {
+    return `A department named "${form.name.trim()}" already exists.`;
+  }
   if (form.lead.role.trim() === "") return "Give the lead a role name.";
   if (form.members.some((member) => member.role.trim() === "")) {
     return "Give every member a role name.";

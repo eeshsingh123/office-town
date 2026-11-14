@@ -79,6 +79,12 @@ export function checkTeam(
   department: DepartmentRecord | undefined,
   team: Team,
 ): void {
+  // Names tell departments apart on every list, so no two share one (design audit a2-20).
+  const name = team.name.trim().toLowerCase();
+  const taken = store
+    .listDepartments()
+    .some((other) => other.id !== department?.id && other.name.trim().toLowerCase() === name);
+  if (taken) throw new TeamError(`A department named "${team.name.trim()}" already exists.`);
   const workers = department === undefined ? [] : workersOf(store, department);
   for (const role of team.roles) {
     if (role.profileId !== undefined && store.getProfile(role.profileId) === undefined) {

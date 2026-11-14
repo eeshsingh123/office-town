@@ -27,6 +27,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "An Office that grows with your team",
+    icon: LayoutGrid,
+    changes: [
+      "A working agent's step stays on the floor above its desk, not only when you point at it",
+      "Rooms fill the window's width. Past six departments, free ones fold into one strip under the floor; a name opens its room, Show all rooms brings them back",
+      "Find a team or person from the Office's top bar. New department sits there too, in place of the tiles over the floor",
+      "The side panel stays closed until you pick someone or a room",
+      "No token count above heads (the panel keeps it under Runs on), no count beside a role, no empty bar on each desk. Long names are cut instead of running into the next room",
+      "The Assistants room shows only while an assistant works alone today",
+      "A department's panel shows its work: Working on or Last task, its people, apps and outputs. Workspaces and permissions stay on its settings page",
+      "Team is a plain list: the chief first when you have one, then each department. Its name opens its room, the gear its settings. Each person shows their @name, as on the floor",
+      "Two departments can no longer share a name",
+      "The Board gives its width to columns with cards; an empty one is only its header. Each card shows its team on its own line with its AI app's logo",
+      "Departments are counted the same way everywhere: 2 people",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "One status on a task's page",
     icon: ListChecks,
     changes: [

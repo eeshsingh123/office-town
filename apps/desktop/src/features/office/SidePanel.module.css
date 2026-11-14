@@ -44,7 +44,7 @@
   flex: none;
   align-items: center;
   gap: 12px;
-  padding: 18px 16px 14px 20px;
+  padding: 20px 20px 16px 28px;
 }
 
 .headerText {
@@ -92,7 +92,7 @@
   display: flex;
   flex: none;
   gap: 4px;
-  padding: 0 14px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -120,10 +120,10 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
   min-height: 0;
   --scroll-pad-bottom: 24px;
-  padding: 24px 20px;
+  padding: 24px 28px;
   overflow-y: auto;
 }
 
@@ -152,7 +152,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 14px 20px;
+  padding: 14px 28px;
   border-top: 1px solid var(--border);
 }
 

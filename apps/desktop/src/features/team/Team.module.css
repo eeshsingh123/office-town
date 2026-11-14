@@ -1,4 +1,4 @@
-/* One vertical org tree: you, the chief, then each department with its own small tree of people. */
+/* The chief when there is one, then each department with its own small tree of people. */
 .column {
   display: flex;
   flex-direction: column;
@@ -83,13 +83,13 @@
   display: none;
 }
 
-/* Not there yet; what hangs below it is drawn as usual. */
-.future {
-  --line: 2px dashed var(--border-strong);
-}
-
-.future ul {
-  --line: 2px solid var(--border-strong);
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .node {
@@ -114,6 +114,7 @@ button.node:hover {
 }
 
 .chief {
+  max-width: none;
   border-color: var(--accent);
 }
 
@@ -169,33 +170,6 @@ button.chief:hover {
   height: 30px;
   padding: 0 12px;
   font-size: 13px;
-}
-
-/* The chief's place when there is no chief: the same row shape, quieter. */
-.slot {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 640px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--bg);
-}
-
-.slot .text strong {
-  color: var(--text-2);
-}
-
-.ring {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1.5px dashed var(--border-strong);
-  border-radius: 50%;
-  color: var(--text-3);
 }
 
 .department {
@@ -320,6 +294,30 @@ button.chief:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.handle {
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+}
+
+.gear {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.gear:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 .model {
@@ -456,4 +454,8 @@ button.chief:hover {
   .starter {
     padding: 20px;
   }
+}
+
+.tools {
+  display: flex;
 }

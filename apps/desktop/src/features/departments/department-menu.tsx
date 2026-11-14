@@ -7,6 +7,7 @@ import { taskName } from "../../ui/format.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { pin, pinnedNow, unpin } from "../office/pins.ts";
 import { stopTeamAsk } from "../task/stop-asks.ts";
+import { peopleLine } from "./team-line.ts";
 
 // Read when the menu opens; Stop team asks first, as on the department's panel.
 export function departmentMenu(departmentId: string): MenuContent | undefined {
@@ -62,7 +63,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
       <MenuHeader
         face={<Avatar name={department.name} colour={lead?.colour ?? "var(--text-3)"} size={22} />}
         title={department.name}
-        detail={`${members.length} ${members.length === 1 ? "agent" : "agents"} · ${working ? "Working" : "Free"}`}
+        detail={`${peopleLine(members.length)} · ${working ? "Working" : "Free"}`}
       />
     ),
     actions,

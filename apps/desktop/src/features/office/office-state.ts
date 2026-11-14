@@ -20,16 +20,27 @@ interface OfficeState {
   // both as they were. Memory only: a restart starts at the door.
   player: Point | undefined;
   room: string | undefined;
+  // Free rooms fold into one strip past FOLD_AFTER departments, unless the user shows them all.
+  showAllRooms: boolean;
 }
+
+// More departments than this and the free ones fold (design audit a2-2).
+export const FOLD_AFTER = 6;
 
 export const useOffice = create<OfficeState>(() => ({
   mode: "floor",
   tabs: { chief: "now", department: "now", agent: "now" },
-  panelOpen: true,
+  // Closed until something is picked, so the floor has the width (design audit a2-4).
+  panelOpen: false,
   compose: undefined,
   player: undefined,
   room: undefined,
+  showAllRooms: false,
 }));
+
+export function setShowAllRooms(showAllRooms: boolean): void {
+  useOffice.setState({ showAllRooms });
+}
 
 export function setPlayer(update: (at: Point | undefined) => Point): void {
   useOffice.setState((state) => ({ player: update(state.player) }));
