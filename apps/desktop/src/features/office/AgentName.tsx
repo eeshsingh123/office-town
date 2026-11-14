@@ -5,7 +5,7 @@ import { keepAgent } from "../../store/live.ts";
 import styles from "./Office.module.css";
 
 // "Ben Smith" reads as "@ben-smith".
-function toHandle(text: string): string {
+export function toHandle(text: string): string {
   const words = text
     .trim()
     .toLowerCase()

@@ -223,7 +223,12 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
         ) : null}
       </header>
       {tab.outputs ? (
-        <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+        <>
+          <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+          <div className={styles.outputsReview}>
+            <ReviewBar agent={lead} />
+          </div>
+        </>
       ) : (
         <div className={styles.body}>
           <nav className={team.members} aria-label="Who works on this">

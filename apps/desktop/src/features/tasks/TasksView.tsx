@@ -38,6 +38,16 @@ import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
 
+// An empty tab with nothing filtered is good news, not a failed search.
+const EMPTY_TAB: Record<Tab, string> = {
+  all: "No tasks yet.",
+  needs: "Nothing needs you.",
+  active: "Nothing is working.",
+  review: "Nothing to review.",
+  done: "Nothing is done yet.",
+  ended: "Nothing failed or stopped.",
+};
+
 const TABS: { value: Tab; label: string }[] = [
   { value: "all", label: "All" },
   { value: "needs", label: "Needs you" },
@@ -440,10 +450,20 @@ export function TasksView() {
 
         {!failed && taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyTitle}>No tasks match</p>
-            <button type="button" className={styles.link} onClick={() => setFilters(NO_FILTERS)}>
-              Clear filters
-            </button>
+            {narrowing ? (
+              <>
+                <p className={styles.emptyTitle}>No tasks match</p>
+                <button
+                  type="button"
+                  className={styles.link}
+                  onClick={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : (
+              <p className={styles.emptyTitle}>{EMPTY_TAB[filters.tab]}</p>
+            )}
           </div>
         ) : null}
 

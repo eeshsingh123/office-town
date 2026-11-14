@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { deleteReviewer, saveReviewer } from "../../store/reviewers.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
 import { showToast } from "../../ui/Toast.tsx";
@@ -125,14 +126,19 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
             )}
             <div className={form.actions}>
               {reviewer === undefined ? null : (
-                <Button
+                <ConfirmButton
                   variant="ghost"
                   className={styles.deleteAction}
                   disabled={busy}
-                  onClick={() => void remove(reviewer)}
+                  ask={{
+                    title: `Delete “${reviewer.name}”?`,
+                    description: "Its instructions are lost; this cannot be undone.",
+                    confirmLabel: "Delete reviewer",
+                    run: () => remove(reviewer),
+                  }}
                 >
                   Delete
-                </Button>
+                </ConfirmButton>
               )}
               <Dialog.Close asChild>
                 <Button variant="ghost">Cancel</Button>

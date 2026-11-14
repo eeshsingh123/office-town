@@ -8,6 +8,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import form from "../../ui/Form.module.css";
 import { useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
@@ -76,12 +77,18 @@ function Actions({
               label: "Delete",
               icon: Trash2,
               danger: true,
-              run: () =>
-                deleteTemplate(template.id).then(() =>
-                  showToast(
-                    `Deleted “${template.name}”. Agents made from it keep working as before.`,
-                  ),
-                ),
+              dialog: (props) => (
+                <ConfirmDialog
+                  {...props}
+                  title={`Delete “${template.name}”?`}
+                  description="Agents made from it keep working as before. Its instructions are lost; this cannot be undone."
+                  confirmLabel="Delete template"
+                  danger
+                  onConfirm={() =>
+                    deleteTemplate(template.id).then(() => showToast(`Deleted “${template.name}”.`))
+                  }
+                />
+              ),
             },
           ],
         })}

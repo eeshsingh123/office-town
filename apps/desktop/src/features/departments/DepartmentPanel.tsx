@@ -303,7 +303,10 @@ export function DepartmentFooter({ department }: { department: DepartmentRecord 
   const { task, working } = useDepartmentGoal(department);
   if (task === undefined) {
     return (
-      <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+      <Button
+        variant="primary"
+        onClick={() => navigate({ name: "new-task", who: "team", departmentId: department.id })}
+      >
         Give it a goal
       </Button>
     );

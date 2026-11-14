@@ -94,12 +94,15 @@ export function appsOf(store: Store) {
 // Unmarked counts as a change.
 export const isRead = (tool: ConnectorTool) => tool.annotations?.readOnlyHint === true;
 
+// A tool with a blank name cannot be called, so it is not one of the app's actions.
 export const actionsOf = (tools: ConnectorTool[]): ConnectorAction[] =>
-  tools.map((tool) => ({
-    name: tool.name,
-    ...(tool.description === undefined ? {} : { description: tool.description }),
-    readOnly: isRead(tool),
-  }));
+  tools
+    .filter((tool) => tool.name.trim() !== "")
+    .map((tool) => ({
+      name: tool.name,
+      ...(tool.description === undefined ? {} : { description: tool.description }),
+      readOnly: isRead(tool),
+    }));
 
 export type Decision = "go" | "ask" | "refuse";
 

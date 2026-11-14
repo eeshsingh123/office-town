@@ -26,16 +26,20 @@ const WINDOWS: Record<string, { label: string; hours?: number }> = {
 };
 
 // Readings stored before windows were named by length kept an id of minutes ("43200_minutes").
-function windowOf(limit: UsageLimit): { label: string; hours?: number } | undefined {
+function windowOf(limit: Pick<UsageLimit, "id">): { label: string; hours?: number } | undefined {
   const minutes = /^(\d+)_minutes$/.exec(limit.id)?.[1];
   if (minutes !== undefined && Number(minutes) === 30 * 1440) return WINDOWS.month;
   return WINDOWS[limit.id];
 }
 
-export function windowLabel(limit: UsageLimit): string {
+export function windowLabel(limit: Pick<UsageLimit, "id" | "label">): string {
   const known = windowOf(limit)?.label;
   return known ?? `${limit.label.charAt(0).toUpperCase()}${limit.label.slice(1)}`;
 }
+
+// A pause keeps only the core's label ("five hour"), whose id spells it with underscores.
+export const pausedWindowLabel = (label: string) =>
+  windowLabel({ id: label.replaceAll(" ", "_"), label });
 
 // A window that has reset since it was reported starts again from nothing.
 export function currentLimits(limits: AccountLimits | undefined, now = Date.now()): UsageLimit[] {

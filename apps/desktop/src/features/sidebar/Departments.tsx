@@ -5,6 +5,7 @@ import { teamAtWork } from "../../store/records.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import menu from "../../ui/Menu.module.css";
 import { departmentMenu } from "../departments/department-menu.tsx";
+import { selectRoom } from "../office/office-state.ts";
 import styles from "./Sidebar.module.css";
 
 // Shown once a chief exists; it spins while one of its goals is at work.
@@ -144,11 +145,7 @@ export function Departments() {
         ).length;
         return (
           <ContextMenu key={department.id} menu={() => departmentMenu(department.id)}>
-            <button
-              type="button"
-              className={styles.nav}
-              onClick={() => navigate({ name: "office", room: department.id })}
-            >
+            <button type="button" className={styles.nav} onClick={() => selectRoom(department.id)}>
               <span
                 className={`${styles.dot} ${working.has(department.id) ? styles.dotWorking : ""}`}
                 aria-hidden

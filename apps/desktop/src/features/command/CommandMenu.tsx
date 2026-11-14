@@ -32,6 +32,7 @@ import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
 import { useConnectors } from "../connectors/connectors.ts";
 import picker from "../new-task/ModelPicker.module.css";
+import { selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
 import styles from "./CommandMenu.module.css";
@@ -119,9 +120,12 @@ export function CommandMenu() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const go = (view: View) => {
+  const close = () => {
     setCommandMenuOpen(false);
     setSearch("");
+  };
+  const go = (view: View) => {
+    close();
     navigate(view);
   };
   const typed = search.trim();
@@ -224,7 +228,10 @@ export function CommandMenu() {
                         icon={Users}
                         label={department.name}
                         value={`department ${department.id}`}
-                        onSelect={() => go({ name: "office", room: department.id })}
+                        onSelect={() => {
+                          close();
+                          selectRoom(department.id);
+                        }}
                       />
                     ))}
                 </Command.Group>
