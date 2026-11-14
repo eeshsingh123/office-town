@@ -206,7 +206,7 @@ function GroupSection(props: GroupSectionProps) {
           <span className={styles.groupMeta}>{group.meta}</span>
         </div>
         <span className={styles.waiting}>
-          {group.asks.length} {group.asks.length === 1 ? "needs" : "need"} you · oldest{" "}
+          {plural(group.asks.length, "request", "requests")} · oldest{" "}
           {waitedFor(group.oldestAt, now)}
         </span>
         {approvals === 0 ? null : (
@@ -361,7 +361,7 @@ export function NeedsYouView() {
             asks.length === 0
               ? "Nothing needs you."
               : [
-                  `${asks.length} ${asks.length === 1 ? "needs" : "need"} you across ${plural(taskCount, "task", "tasks")}`,
+                  `${plural(asks.length, "request", "requests")} across ${plural(taskCount, "task", "tasks")}`,
                   decisions === 0
                     ? undefined
                     : `${plural(decisions, "plan or team", "plans or teams")} to approve`,

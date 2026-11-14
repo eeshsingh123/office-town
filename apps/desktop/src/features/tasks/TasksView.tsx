@@ -21,6 +21,7 @@ import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { TabRow } from "../../ui/TabRow.tsx";
+import composer from "../new-task/Composer.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
 import { LARGE_STORE_BYTES, useStoreSize } from "./store-size.ts";
 import { TaskRow, type Team } from "./TaskRow.tsx";
@@ -143,6 +144,8 @@ function StoreSize() {
   );
 }
 
+const FIND_FROM = 8;
+
 export function TeamFilter(props: {
   teams: Team[];
   chosen: string[];
@@ -154,8 +157,11 @@ export function TeamFilter(props: {
     names.length === 0 ? "All" : names.length <= 2 ? names.join(", ") : `${names.length} teams`;
   const toggle = (key: string, on: boolean) =>
     onChange(on ? [...chosen, key] : chosen.filter((known) => known !== key));
+  const [find, setFind] = useState("");
+  const words = find.trim().toLowerCase();
+  const shown = teams.filter((team) => team.name.toLowerCase().includes(words));
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={() => setFind("")}>
       <DropdownMenu.Trigger className={`${menu.chip} ${chosen.length > 0 ? styles.set : ""}`}>
         <span className={menu.chipLabel}>Team</span>
         {label}
@@ -163,7 +169,22 @@ export function TeamFilter(props: {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content className={menu.surface} align="start" sideOffset={4}>
-          {teams.map((team) => (
+          {/* Past this many teams, a box to find one (a3-14). */}
+          {teams.length > FIND_FROM ? (
+            <input
+              className={composer.menuFind}
+              type="search"
+              value={find}
+              placeholder="Find a team"
+              aria-label="Find a team"
+              onChange={(event) => setFind(event.target.value)}
+              // Typing goes to the box, not to the menu's jump-to-item.
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") event.stopPropagation();
+              }}
+            />
+          ) : null}
+          {shown.map((team) => (
             <DropdownMenu.CheckboxItem
               key={team.key}
               className={menu.item}

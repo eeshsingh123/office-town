@@ -38,6 +38,9 @@ export const RELEASES: Release[] = [
       "Tasks: the Working tab is In progress, the line under the title counts what is to review, teams that need you come first, and Collapse all folds every group. A team task shows its number of agents. A running task's menu has Stop",
       "The task history size moves to Settings, under Storage; Tasks shows it only past 1 GB",
       "Needs you uses the same tabs and filters as Tasks, with filters only from 6 requests. Plans, teams and checklists ask Approve, Send back or Decline",
+      "Needs you and its sidebar badge count requests and say so; Tasks and Home count tasks",
+      "A chief's goal lists its parts beside the chief, each with its status, and opens the one you pick",
+      "Past 8 teams, the Team filter on Tasks and the Board has a box to find one",
     ],
   },
   {

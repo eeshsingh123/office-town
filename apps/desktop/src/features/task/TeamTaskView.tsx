@@ -12,6 +12,7 @@ import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useModelName } from "../profiles/model-line.ts";
 import { useFollow } from "./follow.ts";
+import { GoalParts } from "./GoalParts.tsx";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
@@ -254,6 +255,9 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 ))}
               </div>
             )}
+            {task.leadAgentId !== undefined && task.leadAgentId === chiefId ? (
+              <GoalParts taskId={taskId} />
+            ) : null}
             {visitors.length === 0 ? null : (
               <>
                 <span className={`${team.label} ${team.visiting}`}>Reviewers</span>
