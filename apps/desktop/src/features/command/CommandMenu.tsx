@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useTasksWithAgents } from "../../store/agents.ts";
 import { navigate, useApp, type View } from "../../store/app-store.ts";
@@ -30,7 +30,8 @@ import dialog from "../../ui/Dialog.module.css";
 import { taskName } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
-import { useConnectors } from "../connectors/connectors.ts";
+import { AppLogo } from "../connectors/AppLogo.tsx";
+import { groupApps, isOffer, useCatalog, useConnectors } from "../connectors/connectors.ts";
 import picker from "../new-task/ModelPicker.module.css";
 import { selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
@@ -77,8 +78,11 @@ function useFoundTasks(typed: string): TaskRecord[] {
 
 function Row(props: {
   icon: LucideIcon;
+  // Drawn in place of the icon, such as an app's logo.
+  leading?: ReactNode;
   label: string;
   value?: string;
+  keywords?: string[];
   shortcut?: string;
   onSelect: () => void;
 }) {
@@ -86,11 +90,11 @@ function Row(props: {
   return (
     <Command.Item
       value={props.value ?? props.label}
-      keywords={[props.label]}
+      keywords={[props.label, ...(props.keywords ?? [])]}
       className={menu.item}
       onSelect={props.onSelect}
     >
-      <Icon size={15} className={styles.icon} aria-hidden />
+      {props.leading ?? <Icon size={15} className={styles.icon} aria-hidden />}
       <span className={menu.itemText}>{props.label}</span>
       {props.shortcut === undefined ? null : <Kbd>{props.shortcut}</Kbd>}
     </Command.Item>
@@ -103,6 +107,10 @@ export function CommandMenu() {
   const [search, setSearch] = useState("");
   const departments = useApp((state) => state.departments);
   const connectors = useConnectors();
+  const catalog = useCatalog();
+  const apps = groupApps(connectors, catalog?.entries).filter(
+    (group) => !group.routes.every(isOffer),
+  );
   const chief = useApp((state) =>
     state.chiefId === undefined ? undefined : state.agents[state.chiefId],
   );
@@ -236,17 +244,22 @@ export function CommandMenu() {
                     ))}
                 </Command.Group>
               )}
-              {connectors.length === 0 ? null : (
-                <Command.Group heading="Connectors">
-                  {connectors.map((connector) => (
-                    <Row
-                      key={connector.id}
-                      icon={Plug}
-                      label={connector.setup.name}
-                      value={`connector ${connector.id}`}
-                      onSelect={() => go({ name: "connector", connectorId: connector.id })}
-                    />
-                  ))}
+              {apps.length === 0 ? null : (
+                <Command.Group heading="Apps">
+                  {apps.map((group) => {
+                    const [first] = group.routes;
+                    return first === undefined ? null : (
+                      <Row
+                        key={group.key}
+                        icon={Plug}
+                        leading={<AppLogo app={group.logo} size="xs" />}
+                        label={group.name}
+                        value={`connector ${group.key}`}
+                        keywords={group.routes.map(({ setup }) => setup.name)}
+                        onSelect={() => go({ name: "connector", connectorId: first.id })}
+                      />
+                    );
+                  })}
                 </Command.Group>
               )}
               {typed === "" || found.length === 0 ? null : (
