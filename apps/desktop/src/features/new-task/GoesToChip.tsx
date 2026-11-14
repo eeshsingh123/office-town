@@ -1,6 +1,6 @@
 import { Check, ChevronDown, Network, Plus, User, Users, UsersRound } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import menu from "../../ui/Menu.module.css";
 import { teamLine } from "../departments/team-line.ts";
@@ -42,18 +42,24 @@ function Item(props: { value: string; title: string; note: string; disabled?: bo
   );
 }
 
+// More departments than this get a box to find one.
+const SEARCH_FROM = 6;
+
 // Who takes the task: one assistant, a department, a new team, or the chief.
 export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps) {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   const busy = useBusyDepartments();
-  const sorted = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
+  const [find, setFind] = useState("");
+  const all = Object.values(departments).toSorted((a, b) => a.name.localeCompare(b.name));
+  const words = find.trim().toLowerCase();
+  const sorted = all.filter((department) => department.name.toLowerCase().includes(words));
   // The lead is one of the department's agents.
   const workers = (departmentId: string) =>
     Object.values(agents).filter((agent) => agent.departmentId === departmentId).length - 1;
 
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={() => setFind("")}>
       <DropdownMenu.Trigger className={styles.chip} aria-label={`Goes to: ${label}`}>
         {targetIcon(value)}
         <span className={styles.chipText}>{label}</span>
@@ -61,10 +67,25 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={`${menu.surface} ${styles.menu}`}
+          className={`${menu.surface} ${styles.menu} ${styles.goesMenu}`}
           align="start"
           sideOffset={6}
+          collisionPadding={12}
         >
+          {all.length > SEARCH_FROM ? (
+            <input
+              className={styles.menuFind}
+              type="search"
+              value={find}
+              placeholder="Find a department"
+              aria-label="Find a department"
+              onChange={(event) => setFind(event.target.value)}
+              // Typing goes to the box, not to the menu's jump-to-item.
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") event.stopPropagation();
+              }}
+            />
+          ) : null}
           <DropdownMenu.RadioGroup value={value} onValueChange={onChange}>
             <Item value={SOLO} title="An assistant" note="One agent" />
             <DropdownMenu.Label className={styles.menuHeading}>Departments</DropdownMenu.Label>

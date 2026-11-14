@@ -104,7 +104,7 @@ export function AddAccountDialog({ again, harness: preset, onClose }: AddAccount
         .then(async (next) => {
           setLogin(next);
           if (next.state === "done") {
-            setStatus((await api.readAccountStatus(account.id)) ?? undefined);
+            setStatus((await api.readAccountStatus(account.id, true)) ?? undefined);
             setStep("use");
             void checkHarnesses({ now: true }).catch(() => {});
           }
