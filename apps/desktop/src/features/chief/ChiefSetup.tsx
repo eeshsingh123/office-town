@@ -141,7 +141,6 @@ export function ChiefSetup() {
         title={editing ? "Chief settings" : "Add a chief"}
         note={
           <>
-            {editing ? <span className={page.hint}>Changes apply from its next goal.</span> : null}
             <DraftNote scope={scope} editing={editing} />
           </>
         }
@@ -155,12 +154,11 @@ export function ChiefSetup() {
       <div className={steps.setupBody}>
         <div className={page.main}>
           <header className={page.header}>
-            <span className={steps.stepCount}>
-              Step {step + 1} of {STEPS.length}
-            </span>
             {step === 0 ? (
               <>
-                <h2 className={page.title}>Name your chief</h2>
+                <h2 className={page.title}>
+                  {describing ? "Describe your chief" : "Name your chief"}
+                </h2>
                 <p className={page.lead}>
                   The chief splits a big goal into parts and gives each part to a department. You
                   approve the plan before any work starts.
@@ -323,11 +321,12 @@ export function ChiefSetup() {
               </Button>
             )}
             {last || editing ? (
-              <Button variant="primary" onClick={save} disabled={!validName || saving}>
-                {saving ? "Saving…" : editing ? "Save changes" : "Finish setup"}
+              <Button variant="primary" onClick={save} disabled={!validName} busy={saving}>
+                {editing ? "Save changes" : "Finish setup"}
               </Button>
             ) : null}
-            {last ? null : (
+            {/* While describing, the box's Draft chief is the one way on until it drafts (a2-34). */}
+            {last || (step === 0 && describing && !drafted && !editing) ? null : (
               <Button
                 variant={editing ? "secondary" : "primary"}
                 onClick={() => go(step + 1)}

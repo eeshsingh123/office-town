@@ -69,7 +69,7 @@
 
 .badge {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: var(--size-small);

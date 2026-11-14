@@ -160,7 +160,7 @@ export function ModelChip({
               {checking ? (
                 <span className={styles.menuChecking} role="status">
                   <LoaderCircle size={14} className="spin" aria-hidden />
-                  Checking providers…
+                  Checking providers
                 </span>
               ) : null}
               {draft === undefined ? (
@@ -183,7 +183,7 @@ export function ModelChip({
               ) : models === undefined ? (
                 <p className={styles.menuNote} role="status">
                   <LoaderCircle size={14} className="spin" aria-hidden />
-                  Reading the models…
+                  Reading the models
                 </p>
               ) : (
                 <ModelList

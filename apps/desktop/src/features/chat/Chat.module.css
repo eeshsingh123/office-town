@@ -106,7 +106,7 @@
   z-index: 40;
   max-width: 280px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--text);
   color: var(--bg);
   font-size: var(--size-meta);

@@ -1,13 +1,4 @@
-import {
-  ArrowRight,
-  Check,
-  ChevronDown,
-  Network,
-  Plus,
-  Sparkles,
-  SwatchBook,
-  Users,
-} from "lucide-react";
+import { ArrowRight, ChevronDown, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
 import { Fragment, type ReactNode, useState } from "react";
 import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -24,8 +15,8 @@ import { peopleLine } from "../departments/team-line.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
-import { startTutorial } from "../onboarding/tutorial-state.ts";
-import { sharedApps, TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
+import { TutorialList, useTutorialsDone } from "../onboarding/TutorialList.tsx";
+import { TUTORIALS } from "../onboarding/tutorials.ts";
 import { TaskStatusIcon, TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
 import { showTasksTab } from "../tasks/TasksView.tsx";
 import type { Item, RowStatus } from "../tasks/task-list.ts";
@@ -274,14 +265,6 @@ function Team() {
           <Plus size={14} aria-hidden />
           New department
         </Button>
-        <Button onClick={() => navigate({ name: "team" })}>
-          <Users size={14} aria-hidden />
-          Open Team
-        </Button>
-        <Button onClick={() => navigate({ name: "templates" })}>
-          <SwatchBook size={14} aria-hidden />
-          Templates
-        </Button>
       </div>
     </section>
   );
@@ -320,27 +303,6 @@ function Recent({ items, now }: { items: Item[]; now: number }) {
         </Button>
       ) : null}
     </section>
-  );
-}
-
-function Step(props: {
-  number: number;
-  done: boolean;
-  title: string;
-  children: ReactNode;
-  action?: ReactNode;
-}) {
-  return (
-    <li className={styles.step}>
-      <span className={`${styles.stepMark} ${props.done ? styles.stepDone : ""}`}>
-        {props.done ? <Check size={12} aria-label="Done" /> : props.number}
-      </span>
-      <span className={styles.rowText}>
-        <span className={styles.rowName}>{props.title}</span>
-        <span className={styles.rowLine}>{props.children}</span>
-      </span>
-      {props.done ? null : props.action}
-    </li>
   );
 }
 
@@ -404,20 +366,10 @@ function BuildTeam() {
 }
 
 // Folded to one line until opened, so a returning user sees their work first.
-// Each step ticks itself off from what the user really did, and opens its tutorial.
 function GettingStarted() {
-  const state = useApp();
   const [open, setOpen] = useState(false);
-  const hidden = state.onboarding?.checklistHidden === true;
-  const done: Record<TutorialId, boolean> = {
-    "first-task": Object.values(state.tasks).some(
-      ({ task }) => task.state === "idle" || task.state === "ended",
-    ),
-    department: Object.keys(state.departments).length > 0,
-    chief: Object.keys(state.pieces).length > 0,
-    library: Object.keys(state.library).length > 0,
-    apps: sharedApps(state) > 0,
-  };
+  const hidden = useApp((state) => state.onboarding?.checklistHidden === true);
+  const done = useTutorialsDone();
   const count = TUTORIALS.filter((tutorial) => done[tutorial.id]).length;
   if (hidden || count === TUTORIALS.length) return null;
   return (
@@ -439,29 +391,9 @@ function GettingStarted() {
         </Button>
       </div>
       {open ? (
-        <ol className={`${styles.list} ${styles.steps}`}>
-          {TUTORIALS.map((tutorial, index) => {
-            const blocked = tutorial.blocked?.(state);
-            return (
-              <Step
-                key={tutorial.id}
-                number={index + 1}
-                done={done[tutorial.id]}
-                title={tutorial.title}
-                action={
-                  <Button
-                    disabled={blocked !== undefined}
-                    onClick={() => void startTutorial(tutorial.id)}
-                  >
-                    Start
-                  </Button>
-                }
-              >
-                {blocked ?? tutorial.summary}
-              </Step>
-            );
-          })}
-        </ol>
+        <div className={styles.steps}>
+          <TutorialList />
+        </div>
       ) : null}
     </section>
   );

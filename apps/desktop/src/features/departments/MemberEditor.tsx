@@ -390,7 +390,7 @@ export function MemberEditor({
                   />
                 </label>
                 <label className={form.field}>
-                  <span className={form.label}>What they do</span>
+                  <span className={form.label}>What it does</span>
                   <LineField
                     value={person.purpose}
                     placeholder="One line, shown on cards and to the lead"
@@ -503,11 +503,10 @@ export function MemberEditor({
             <Dialog.Content className={`${dialog.content} ${styles.dialog}`}>
               <Dialog.Title className={dialog.title}>Start from a template</Dialog.Title>
               <Dialog.Description className={dialog.description}>
-                Fills in the role, instructions and model. Changes here won't change the template.
+                Fills in the role, instructions and model.
               </Dialog.Description>
               <TemplatePicker
                 chosen={person?.profileId}
-                who={isLead ? "the lead" : "this member"}
                 onPick={(template) => {
                   setOpened(undefined);
                   if (template !== undefined && person !== undefined) {

@@ -1,9 +1,11 @@
 import type { ProfileRecord } from "@office-town/contract";
+import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useTemplates } from "../../store/templates.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine } from "./model-name.ts";
 import styles from "./Templates.module.css";
@@ -12,8 +14,6 @@ interface TemplatePickerProps {
   // The template the form was filled in from; none for a blank start.
   chosen: string | undefined;
   onPick: (template: ProfileRecord | undefined) => void;
-  // Such as "this agent" or "the lead".
-  who?: string;
   title?: string;
 }
 
@@ -21,13 +21,17 @@ interface TemplatePickerProps {
 export function TemplatePicker({
   chosen,
   onPick,
-  who = "this agent",
   title = "Start from a template",
 }: TemplatePickerProps) {
   const harnesses = useApp((state) => state.harnesses);
   const templates = useTemplates() ?? [];
   const modelsOf = useModels(templates.map((template) => template.settings));
   const picked = templates.find((template) => template.id === chosen);
+  const [query, setQuery] = useState("");
+  const words = query.trim().toLowerCase();
+  const shown = templates
+    .filter((template) => `${template.name} ${template.role}`.toLowerCase().includes(words))
+    .toSorted((a, b) => Number(b.id === chosen) - Number(a.id === chosen));
 
   return (
     <section className={page.section} aria-label={title}>
@@ -48,8 +52,16 @@ export function TemplatePicker({
         </div>
       ) : (
         <>
+          {templates.length >= 8 ? (
+            <SearchBox
+              value={query}
+              onChange={(value) => setQuery(value)}
+              label="Search templates"
+              placeholder="Search templates by name or job"
+            />
+          ) : null}
           <div className={styles.picker}>
-            {templates.map((template) => (
+            {shown.map((template) => (
               <button
                 key={template.id}
                 type="button"
@@ -78,8 +90,7 @@ export function TemplatePicker({
           </div>
           {picked === undefined ? null : (
             <p className={form.info}>
-              Filled in from <strong>{picked.name}</strong>. Changing {who} won't change the
-              template.
+              Filled in from <strong>{picked.name}</strong>.
             </p>
           )}
         </>

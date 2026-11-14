@@ -81,10 +81,10 @@
 
 .tag {
   padding: 1px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 10.5px;
+  font-size: var(--size-label);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;

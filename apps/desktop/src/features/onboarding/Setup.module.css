@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: center;
   height: 100vh;
-  padding: 40px 24px 64px;
+  padding: 48px 56px 64px;
   overflow-y: auto;
   background: var(--bg);
 }
@@ -24,7 +24,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--hover);
   color: var(--text-2);
 }
@@ -70,7 +70,7 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .sectionTitle {
@@ -81,18 +81,17 @@
 .ways {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  gap: 20px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.way,
-.tutorial {
+.way {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 18px;
+  padding: 24px 28px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -111,22 +110,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.tutorials {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tutorial {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
 }
 
 .appText {

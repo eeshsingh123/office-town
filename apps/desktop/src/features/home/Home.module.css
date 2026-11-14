@@ -217,9 +217,9 @@
 .chip {
   flex: none;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--hover);
-  font-size: 10.5px;
+  font-size: var(--size-label);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -232,18 +232,6 @@
   gap: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
-}
-
-.step {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px;
-}
-
-.step > button {
-  flex: none;
-  align-self: center;
 }
 
 .cardHead {
@@ -282,29 +270,6 @@
 
 .steps {
   margin: 12px 0 0;
-}
-
-.step .rowLine {
-  white-space: normal;
-}
-
-.stepMark {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--border-strong);
-  border-radius: 50%;
-  font-size: var(--size-small);
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.stepDone {
-  border-color: var(--ok);
-  background: var(--ok);
-  color: var(--surface);
 }
 
 @media (width < 760px) {

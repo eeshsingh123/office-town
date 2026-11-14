@@ -1,5 +1,5 @@
 import { autonomySchema, type DepartmentRecord, type RoleSettings } from "@office-town/contract";
-import { CircleHelp } from "lucide-react";
+import { MessageSquareText } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -11,14 +11,12 @@ import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
-import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { DepartmentApps } from "../connectors/DepartmentApps.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
-import { DEPARTMENT_STEPS } from "../team/guides.tsx";
 import styles from "./DepartmentSettings.module.css";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
@@ -64,11 +62,10 @@ function RemoveDepartment({ department }: { department: DepartmentRecord }) {
   const [open, setOpen] = useState(false);
   const [withHistory, setWithHistory] = useState(false);
   return (
-    <section className={styles.danger} aria-labelledby="remove-title">
+    <section className={styles.danger} aria-label="Remove department">
       <div className={styles.dangerText}>
-        <strong id="remove-title">Remove department</strong>
         <span className={form.hint}>
-          You can remove it once its task is done. You choose what happens to its agents and tasks.
+          You can remove it once its task is done, and choose what happens to its agents and tasks.
         </span>
       </div>
       <Button variant="danger" onClick={() => setOpen(true)}>
@@ -122,9 +119,12 @@ function RemoveDepartment({ department }: { department: DepartmentRecord }) {
 function Settings({
   department,
   member,
+  wording,
 }: {
   department: DepartmentRecord;
   member: string | undefined;
+  // "Change with words" is open, from the header.
+  wording: boolean;
 }) {
   const agents = useApp((state) => state.agents);
   const draft = `department.${department.id}`;
@@ -186,7 +186,7 @@ function Settings({
       });
       await api.changeTeam(department.id, teamOf(team));
       clearDrafts(draft);
-      setMessage({ error: false, text: "Saved. Changes apply from the next task." });
+      setMessage({ error: false, text: "Saved. Applies from the next task." });
     } catch (failure) {
       setMessage({
         error: true,
@@ -199,17 +199,19 @@ function Settings({
 
   return (
     <form className={styles.form} onSubmit={save}>
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Change with words</h2>
-        <DraftBox
-          name={`${draft}.box`}
-          label="Describe a change to the team"
-          placeholder=""
-          action="Update draft"
-          drafted
-          run={redraft}
-        />
-      </section>
+      {wording ? (
+        <section className={page.section}>
+          <h2 className={page.sectionTitle}>Change with words</h2>
+          <DraftBox
+            name={`${draft}.box`}
+            label="Describe a change to the team"
+            placeholder=""
+            action="Update draft"
+            drafted
+            run={redraft}
+          />
+        </section>
+      ) : null}
 
       <section className={page.section}>
         <h2 className={page.sectionTitle}>About</h2>
@@ -223,7 +225,7 @@ function Settings({
             />
           </label>
           <label className={form.field}>
-            <span className={form.label}>What it's for</span>
+            <span className={form.label}>What it does</span>
             <LineField
               value={team.purpose}
               placeholder="One line; the chief reads it when it plans"
@@ -231,29 +233,6 @@ function Settings({
             />
           </label>
         </div>
-      </section>
-
-      <section className={page.section}>
-        <div>
-          <h2 className={page.sectionTitle}>Workspaces</h2>
-          <p className={form.hint}>
-            Folders this team can edit. New tasks use the default. Changes apply from the next task.
-          </p>
-        </div>
-        <DepartmentWorkspaces
-          value={team.workspaceIds}
-          onChange={(workspaceIds) => change({ workspaceIds })}
-          departmentName={department.name}
-          departmentId={department.id}
-        />
-      </section>
-
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Apps</h2>
-        <DepartmentApps
-          departmentId={department.id}
-          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
-        />
       </section>
 
       <section className={page.section}>
@@ -312,6 +291,27 @@ function Settings({
       </section>
 
       <section className={page.section}>
+        <div>
+          <h2 className={page.sectionTitle}>Workspaces</h2>
+          <p className={form.hint}>Folders this team can edit. New tasks use the default.</p>
+        </div>
+        <DepartmentWorkspaces
+          value={team.workspaceIds}
+          onChange={(workspaceIds) => change({ workspaceIds })}
+          departmentName={department.name}
+          departmentId={department.id}
+        />
+      </section>
+
+      <section className={page.section}>
+        <h2 className={page.sectionTitle}>Apps</h2>
+        <DepartmentApps
+          departmentId={department.id}
+          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
+        />
+      </section>
+
+      <section className={page.section}>
         <h2 className={page.sectionTitle}>Code</h2>
         <fieldset className={styles.fieldset}>
           <legend className="visually-hidden">Code</legend>
@@ -355,8 +355,8 @@ function Settings({
         )}
         {missing === undefined ? null : <span className={form.hint}>{missing}</span>}
         <DraftNote scope={draft} editing />
-        <Button type="submit" variant="primary" disabled={saving || missing !== undefined}>
-          {saving ? "Saving…" : "Save"}
+        <Button type="submit" variant="primary" disabled={missing !== undefined} busy={saving}>
+          Save
         </Button>
       </div>
 
@@ -374,7 +374,7 @@ export function DepartmentSettings({
   member?: string;
 }) {
   const department = useApp((state) => state.departments[departmentId]);
-  const [guideHidden, setGuideHidden] = useGuideHidden("department");
+  const [wording, setWording] = useState(false);
   return (
     <section className={page.page} aria-labelledby="department-title">
       <div className={styles.column}>
@@ -393,26 +393,17 @@ export function DepartmentSettings({
               {department?.purpose || "A lead and the people it hands work to."}
             </p>
           </div>
-          {guideHidden ? (
-            <Button variant="ghost" onClick={() => setGuideHidden(false)}>
-              <CircleHelp size={14} aria-hidden />
-              How a department works
+          {department === undefined ? null : (
+            <Button aria-pressed={wording} onClick={() => setWording(!wording)}>
+              <MessageSquareText size={14} aria-hidden />
+              Change with words
             </Button>
-          ) : null}
+          )}
         </header>
-        {guideHidden ? null : (
-          <Guide
-            id="department-guide"
-            title="How a department works"
-            intro="A lead and its members, with their own workspaces and one set of rules. The lead decides who does what."
-            steps={DEPARTMENT_STEPS}
-            onHide={() => setGuideHidden(true)}
-          />
-        )}
         {department === undefined ? (
           <p className={form.hint}>This department no longer exists.</p>
         ) : (
-          <Settings key={department.id} department={department} member={member} />
+          <Settings key={department.id} department={department} member={member} wording={wording} />
         )}
       </div>
     </section>

@@ -238,7 +238,7 @@ button.open {
   padding: 1px 5px;
   border: 1px solid var(--border-strong);
   border-radius: 5px;
-  font-size: 10.5px;
+  font-size: var(--size-label);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;

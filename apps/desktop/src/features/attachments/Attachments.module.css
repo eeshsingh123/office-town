@@ -17,7 +17,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
 }
 
 .chip.warn {
@@ -31,7 +31,7 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--hover);
   font-size: 9.5px;
   font-weight: 700;
@@ -73,7 +73,7 @@
   margin-left: auto;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -129,7 +129,7 @@
   gap: 10px;
   min-width: 0;
   padding: 7px 10px;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
 }
 
 .sentRow + .sentRow {
@@ -158,7 +158,7 @@
 .status {
   flex: none;
   padding: 1px 8px;
-  border-radius: 99px;
+  border-radius: var(--radius-chip);
   font-size: var(--size-small);
   font-weight: 600;
 }

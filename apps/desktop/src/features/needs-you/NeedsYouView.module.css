@@ -150,7 +150,7 @@
 
 .waiting {
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--warn-soft);
   font-size: var(--size-small);
   font-weight: 600;
@@ -211,9 +211,9 @@
   flex: none;
   width: 74px;
   padding: 3px 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--accent-soft);
-  font-size: 10.5px;
+  font-size: var(--size-label);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-align: center;

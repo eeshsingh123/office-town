@@ -120,9 +120,7 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
             {template === undefined ? "New template" : `Edit ${template.name}`}
           </Dialog.Title>
           <Dialog.Description className={dialog.description}>
-            {template === undefined
-              ? "A saved agent setup you can reuse."
-              : "Agents already made from it keep their settings."}
+            A saved agent setup you can reuse.
           </Dialog.Description>
           <form className={form.form} onSubmit={save}>
             <div className={styles.identity}>
@@ -157,10 +155,10 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
               />
             </label>
             <div className={form.field}>
-              <span className={form.label}>Notes</span>
+              <span className={form.label}>Instructions</span>
               <span className={form.hint}>Agents made from it follow these notes.</span>
               <PointsField
-                label="Notes"
+                label="Instructions"
                 value={draft.notes}
                 placeholder="For example: Write for small business owners"
                 addLabel="Add a note"

@@ -14,7 +14,8 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { LibraryTab } from "../library/LibraryTab.tsx";
 import { useLibrary } from "../library/library.ts";
 import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
-import { KIND_LABEL, WorkspaceIcon } from "./WorkspaceParts.tsx";
+import { showWorkspaceTasks } from "../tasks/TasksView.tsx";
+import { KIND_LABEL, ShortPath, WorkspaceIcon } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
 import { WorkspaceMenu } from "./WorkspacesView.tsx";
@@ -38,7 +39,7 @@ export function WorkspaceView({
     return (
       <section className={page.page}>
         <p className={form.hint}>
-          {workspaces === undefined ? "Loading…" : "This workspace is no longer on the list."}
+          {workspaces === undefined ? "" : "This workspace is no longer on the list."}
         </p>
       </section>
     );
@@ -80,7 +81,7 @@ export function WorkspaceView({
               </Button>
             )}
             <Button onClick={() => setEditing(true)}>Edit</Button>
-            <WorkspaceMenu workspace={workspace} usage={usage} onEdit={() => setEditing(true)} />
+            <WorkspaceMenu workspace={workspace} usage={usage} />
           </span>
         </header>
 
@@ -112,9 +113,7 @@ export function WorkspaceView({
                 <TriangleAlert size={16} aria-hidden />
                 <span>
                   <b>{used.map((department) => department.name).join(" and ")}</b>{" "}
-                  {used.length === 2 ? "both" : "all"} edit this workspace. Their agents can change
-                  the same files at the same time. Give one of them its own workspace if that is a
-                  problem.
+                  {used.length === 2 ? "both" : "all"} edit this workspace.
                 </span>
               </p>
             ) : null}
@@ -154,7 +153,18 @@ export function WorkspaceView({
                 </section>
 
                 <section className={styles.block}>
-                  <h2 className={page.eyebrow}>Recent tasks</h2>
+                  <div className={styles.blockHead}>
+                    <h2 className={page.eyebrow}>Recent tasks</h2>
+                    {(usage?.taskCount ?? 0) > (usage?.recentTasks.length ?? 0) ? (
+                      <button
+                        type="button"
+                        className={styles.blockLink}
+                        onClick={() => showWorkspaceTasks(workspaceId)}
+                      >
+                        All {usage?.taskCount} tasks
+                      </button>
+                    ) : null}
+                  </div>
                   {(usage?.recentTasks.length ?? 0) === 0 ? (
                     <p className={form.hint}>No tasks here yet.</p>
                   ) : (
@@ -195,9 +205,7 @@ export function WorkspaceView({
                     {workspace.folders.map((folder, index) => (
                       <li key={folder.path} className={styles.row}>
                         <span className={styles.optionText}>
-                          <span className={styles.path} title={folder.path}>
-                            {folder.path}
-                          </span>
+                          <ShortPath path={folder.path} className={styles.path} />
                           <span className={form.hint}>
                             {index > 0
                               ? "Extra folder"
@@ -242,14 +250,14 @@ export function WorkspaceView({
 
                 {(usage?.worktrees.length ?? 0) === 0 ? null : (
                   <section className={styles.block}>
-                    <h2 className={page.eyebrow}>Agents' own copies</h2>
+                    <h2 className={page.eyebrow}>Branches</h2>
                     <ul className={styles.list}>
                       {usage?.worktrees.map((copy) => (
                         <li key={`${copy.taskId}/${copy.agentId}`} className={styles.row}>
                           <span className={styles.optionText}>
                             <span className={styles.path}>{copy.branch ?? "Own copy"}</span>
                             <span className={form.hint}>
-                              {agents[copy.agentId]?.name ?? "A worker"} · merged by its lead
+                              {agents[copy.agentId]?.name ?? "A worker"}
                             </span>
                           </span>
                         </li>

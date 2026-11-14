@@ -15,7 +15,7 @@
   gap: 2px;
   margin-right: 4px;
   padding: 2px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--hover);
 }
 
@@ -26,7 +26,7 @@
   height: 24px;
   padding: 0 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: transparent;
   font-size: var(--size-meta);
   font-weight: 500;
@@ -59,7 +59,7 @@
   height: 24px;
   padding: 0 10px;
   border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--border));
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: color-mix(in srgb, var(--bad) 10%, var(--surface));
   color: var(--bad);
   font-size: var(--size-meta);
@@ -74,7 +74,7 @@
   height: 24px;
   padding: 0 10px;
   border: 1px solid var(--warn-border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--warn-soft);
   color: var(--warn);
   font-size: var(--size-meta);

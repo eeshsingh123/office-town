@@ -1,5 +1,5 @@
 import type { Account, Autonomy, Onboarding } from "@office-town/contract";
-import { Check } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -26,6 +26,7 @@ import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
 import { DEFAULT_YOU, useYou } from "../you/you.ts";
 import { saveOnboarding } from "./onboarding.ts";
 import styles from "./Setup.module.css";
+import { TutorialList } from "./TutorialList.tsx";
 import { startTutorial } from "./tutorial-state.ts";
 import { TUTORIALS } from "./tutorials.ts";
 
@@ -111,7 +112,9 @@ function AiApps() {
         </p>
       </div>
       {statuses === undefined ? (
-        <p className={styles.lead}>Checking this computer…</p>
+        <p className={styles.lead} role="status">
+          <LoaderCircle size={14} className="spin" aria-hidden /> Checking this computer
+        </p>
       ) : (
         <ul className={styles.apps} aria-live="polite">
           {harnesses.map((description) => (
@@ -233,7 +236,7 @@ function YourWork(props: YourWorkProps) {
 }
 
 function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void }) {
-  const state = useApp();
+  const _state = useApp();
   return (
     <>
       <div className={styles.head}>
@@ -242,22 +245,7 @@ function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void })
           Try a short tutorial. It does real work on a low-cost model, and you can stop any time.
         </p>
       </div>
-      <ul className={styles.tutorials}>
-        {TUTORIALS.map((tutorial) => {
-          const blocked = tutorial.blocked?.(state);
-          return (
-            <li key={tutorial.id} className={styles.tutorial}>
-              <span className={styles.appText}>
-                <strong>{tutorial.title}</strong>
-                <span>{blocked ?? tutorial.summary}</span>
-              </span>
-              <Button disabled={blocked !== undefined} onClick={() => onStart(tutorial.id)}>
-                Start
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
+      <TutorialList onStart={onStart} />
       <p className={styles.lead}>You can find tutorials later in Help.</p>
     </>
   );

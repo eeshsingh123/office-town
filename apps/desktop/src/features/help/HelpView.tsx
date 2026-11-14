@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { shell } from "../../shell.ts";
-import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
+import { FoldedGuide } from "../../ui/Guide.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
-import { startTutorial } from "../onboarding/tutorial-state.ts";
-import { TUTORIALS } from "../onboarding/tutorials.ts";
+import { TutorialList } from "../onboarding/TutorialList.tsx";
+import { TEMPLATE_STEPS } from "../profiles/TemplatesGuide.tsx";
+import { CHIEF_STEPS, DEPARTMENT_STEPS } from "../team/guides.tsx";
 import styles from "./Help.module.css";
 import { ReleaseList } from "./Releases.tsx";
 import { LATEST, RELEASES } from "./whats-new.ts";
@@ -16,31 +17,12 @@ import { LATEST, RELEASES } from "./whats-new.ts";
 const RECENT_RELEASES = 3;
 
 function Tutorials() {
-  const state = useApp();
   return (
     <section className={page.panel} aria-labelledby="help-tutorials">
       <h2 id="help-tutorials" className={page.sectionTitle}>
         Tutorials
       </h2>
-      <ul className={styles.list}>
-        {TUTORIALS.map((tutorial) => {
-          const blocked = tutorial.blocked?.(state);
-          return (
-            <li key={tutorial.id} className={styles.row}>
-              <span className={styles.rowText}>
-                <strong>{tutorial.title}</strong>
-                <span>{blocked ?? tutorial.summary}</span>
-              </span>
-              <Button
-                disabled={blocked !== undefined}
-                onClick={() => void startTutorial(tutorial.id)}
-              >
-                Start
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
+      <TutorialList />
       <div>
         <ConfirmButton
           variant="ghost"
@@ -54,6 +36,20 @@ function Tutorials() {
           Run setup again
         </ConfirmButton>
       </div>
+    </section>
+  );
+}
+
+// The pictured steps once at the top of Department settings, Templates and the chief (a2-31).
+function HowItWorks() {
+  return (
+    <section className={page.panel} aria-labelledby="help-how">
+      <h2 id="help-how" className={page.sectionTitle}>
+        How it works
+      </h2>
+      <FoldedGuide title="How a department works" steps={DEPARTMENT_STEPS} columns={2} />
+      <FoldedGuide title="How your chief works" steps={CHIEF_STEPS} columns={2} />
+      <FoldedGuide title="How templates work" steps={TEMPLATE_STEPS} columns={3} />
     </section>
   );
 }
@@ -134,6 +130,7 @@ export function HelpView() {
       <div className={page.form}>
         <PageHeader id="help-title" title="Help" />
         <Tutorials />
+        <HowItWorks />
         <WhatsNew />
         <Shortcuts />
       </div>

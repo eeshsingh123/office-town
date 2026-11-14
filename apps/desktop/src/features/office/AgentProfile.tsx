@@ -2,10 +2,8 @@ import type { AgentRecord, AgentSettings, Autonomy } from "@office-town/contract
 import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { agentOf, stateOf } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, SETTINGS_SHAPE, shaped, useDraft } from "../../store/drafts.ts";
-import { isBusy } from "../../trace/progress.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
@@ -64,16 +62,6 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
   const department = useApp((state) =>
     agent.departmentId === undefined ? undefined : state.departments[agent.departmentId],
   );
-  // By the state its panel shows: a session stays "running" after its turn, while the agent is done.
-  const working = useApp((state) => {
-    const current = agentOf(state, agent.id);
-    if (current === undefined) return false;
-    const asking = Object.values(state.waiting).some(
-      ({ event }) => event.sessionId === current.latest.id,
-    );
-    const now = stateOf(current, state.traces, asking);
-    return isBusy(now) || now === "waiting";
-  });
   const you = useYou();
   const leads = department?.leadAgentId === agent.id;
   const scope = `agent.${agent.id}`;
@@ -97,7 +85,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         settings: settingsOf(draft),
       });
       clearDrafts(scope);
-      showToast("Saved. Changes apply from the next task.");
+      showToast("Saved. Applies from the next task.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -123,7 +111,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           },
         ]),
     {
-      title: `Notes for ${who}`,
+      title: "Instructions",
       from: "above",
       text: draft.notes.trim() === "" ? "None written yet." : shorten(draft.notes),
       edit: undefined,
@@ -141,11 +129,6 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
 
   return (
     <div className={`${form.form} ${styles.profile}`}>
-      {working ? (
-        <p className={form.notice}>
-          {who} is working on a task right now. Your changes start with {who}'s next task.
-        </p>
-      ) : null}
       <label className={form.field} htmlFor={`agent-name-${id}`}>
         <span className={form.label}>Name</span>
         <input
@@ -162,7 +145,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         <p className={form.hint}>{who}'s colour in the office and in chats.</p>
       </div>
       <label className={form.field} htmlFor={`agent-job-${id}`}>
-        <span className={form.label}>What {who} does</span>
+        <span className={form.label}>What it does</span>
         <LineField
           id={`agent-job-${id}`}
           value={draft.job}
@@ -176,10 +159,10 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
         </span>
       </label>
       <div className={form.field}>
-        <span className={form.label}>Notes for {who}</span>
+        <span className={form.label}>Instructions</span>
         <span className={form.hint}>Only {who} reads these, before every task.</span>
         <PointsField
-          label={`Notes for ${who}`}
+          label="Instructions"
           value={draft.notes}
           placeholder="For example: Work only on your own branch"
           addLabel="Add a note"
@@ -247,8 +230,8 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           }}
         />
         <Button onClick={() => setSavingTemplate(true)}>Save as template</Button>
-        <Button variant="primary" disabled={saving} onClick={() => void save()}>
-          {saving ? "Saving…" : "Save changes"}
+        <Button variant="primary" busy={saving} onClick={() => void save()}>
+          Save changes
         </Button>
       </div>
       {savingTemplate ? (

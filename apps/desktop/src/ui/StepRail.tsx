@@ -56,9 +56,6 @@ export function StepRail({
           );
         })}
       </ol>
-      <div className={styles.progress} aria-hidden>
-        <span style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
-      </div>
     </nav>
   );
 }

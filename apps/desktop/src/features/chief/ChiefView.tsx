@@ -1,4 +1,4 @@
-import { CircleHelp, Settings, Trash2 } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -8,12 +8,10 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { taskName } from "../../ui/format.ts";
-import { Guide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
-import { CHIEF_STEPS } from "../team/guides.tsx";
 import styles from "./Chief.module.css";
 import { ChiefSetup } from "./ChiefSetup.tsx";
 import { DepartmentList } from "./DepartmentList.tsx";
@@ -50,8 +48,8 @@ function GoalBox({ name }: { name: string }) {
         placeholder="Give it a goal, for example: launch a pricing page with the new plans"
         onChange={(change) => setGoal(change.target.value)}
       />
-      <Button type="submit" variant="primary" disabled={goal.trim() === "" || sending}>
-        {sending ? "Sending…" : `Give to ${name}`}
+      <Button type="submit" variant="primary" disabled={goal.trim() === ""} busy={sending}>
+        {`Give to ${name}`}
       </Button>
       {error === undefined ? null : (
         <p className={styles.goalError} role="alert">
@@ -94,7 +92,6 @@ function RemoveChief({ name, busy }: { name: string; busy: boolean }) {
 
 function ChiefHome() {
   const chief = useChief();
-  const [guideHidden, setGuideHidden] = useGuideHidden("chief");
   const summary = useModelLine(chief?.record.settings);
   const waiting = useApp((state) =>
     Object.values(state.waiting).find(
@@ -126,28 +123,11 @@ function ChiefHome() {
             </div>
             <span className={page.hint}>Chief</span>
           </div>
-          {guideHidden ? (
-            <Button variant="ghost" onClick={() => setGuideHidden(false)}>
-              <CircleHelp size={14} aria-hidden />
-              How your chief works
-            </Button>
-          ) : null}
           <Button onClick={() => navigate({ name: "chief", edit: true })}>
             <Settings size={14} aria-hidden />
             Settings
           </Button>
-          <RemoveChief name={record.name} busy={busy || queue.length > 0} />
         </header>
-
-        {guideHidden ? null : (
-          <Guide
-            id="chief-guide"
-            title="How your chief works"
-            intro="Use the chief when a goal needs more than one department. For one department's work, give the task to that department."
-            steps={CHIEF_STEPS}
-            onHide={() => setGuideHidden(true)}
-          />
-        )}
 
         <GoalBox name={record.name} />
 
@@ -228,6 +208,10 @@ function ChiefHome() {
               <span className={page.hint}>{summary}</span>
             </section>
           </aside>
+        </div>
+        {/* Last on the page, away from Settings (a2-32). */}
+        <div>
+          <RemoveChief name={record.name} busy={busy || queue.length > 0} />
         </div>
       </div>
     </section>

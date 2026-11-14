@@ -11,34 +11,15 @@ import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
-import { Switch } from "../../ui/Switch.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import styles from "./YouView.module.css";
 import { ANSWER_PICKS, useYou } from "./you.ts";
 
 const DRAFT = "you";
 
-function NotifySwitch({
-  label,
-  hint,
-  on,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  on: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  return (
-    <div className={styles.switchRow}>
-      <Switch label={label} on={on} onChange={onChange} />
-      <div>
-        <strong>{label}</strong>
-        {hint === undefined ? null : <p className={form.hint}>{hint}</p>}
-      </div>
-    </div>
-  );
-}
+// What this page saves; notifications are saved from Settings (a1-17).
+const profileOf = ({ name, colour, about, answerStyle, answerNotes }: UserProfile) =>
+  JSON.stringify({ name, colour, about, answerStyle, answerNotes });
 
 export function YouView() {
   const saved = useYou();
@@ -46,15 +27,20 @@ export function YouView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const set = (change: Partial<UserProfile>) => setDraft({ ...draft, ...change });
+  const changed = profileOf(draft) !== profileOf(saved);
 
   const save = async () => {
     setSaving(true);
     setError(undefined);
     try {
-      const you = await api.saveYou(draft);
+      const you = await api.saveYou({
+        ...draft,
+        notifyNeedsYou: saved.notifyNeedsYou,
+        notifyFinished: saved.notifyFinished,
+      });
       useApp.setState({ you });
       clearDrafts(DRAFT);
-      showToast("Saved. Your agents will use this from their next task.");
+      showToast("Saved. Applies from the next task.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -152,24 +138,6 @@ export function YouView() {
               </fieldset>
             </section>
 
-            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-notify">
-              <div className={styles.sectionHead}>
-                <h2 id="you-notify" className={page.sectionTitle}>
-                  Notifications
-                </h2>
-                <p className={form.hint}>Shown while the app is in the background.</p>
-              </div>
-              <NotifySwitch
-                label="When an agent needs you"
-                on={draft.notifyNeedsYou}
-                onChange={(notifyNeedsYou) => set({ notifyNeedsYou })}
-              />
-              <NotifySwitch
-                label="When a task is finished"
-                on={draft.notifyFinished}
-                onChange={(notifyFinished) => set({ notifyFinished })}
-              />
-            </section>
             {error === undefined ? null : (
               <p className={form.error} role="alert">
                 {error}
@@ -177,8 +145,13 @@ export function YouView() {
             )}
             <div className={`${form.actions} ${form.sticky}`}>
               <DraftNote scope={DRAFT} editing />
-              <Button variant="primary" disabled={saving} onClick={() => void save()}>
-                {saving ? "Saving…" : "Save"}
+              <Button
+                variant="primary"
+                disabled={!changed}
+                busy={saving}
+                onClick={() => void save()}
+              >
+                Save
               </Button>
             </div>
           </div>

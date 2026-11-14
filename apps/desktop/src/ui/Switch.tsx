@@ -21,13 +21,14 @@ export function Switch({ label, on, onChange, disabled = false }: SwitchProps) {
   );
 }
 
-// A named choice with a one-line hint, the switch at the end of the row.
-export function SwitchRow({ label, hint, ...props }: SwitchProps & { hint: string }) {
+// A named choice with an optional one-line hint, the switch at the end of the row. The one look for
+// every on and off in the app (a1-16).
+export function SwitchRow({ label, hint, ...props }: SwitchProps & { hint?: string }) {
   return (
     <div className={styles.row}>
       <span className={styles.text}>
         <strong>{label}</strong>
-        <span className={styles.hint}>{hint}</span>
+        {hint === undefined ? null : <span className={styles.hint}>{hint}</span>}
       </span>
       <Switch label={label} {...props} />
     </div>

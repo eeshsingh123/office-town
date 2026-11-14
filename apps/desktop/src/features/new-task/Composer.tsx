@@ -679,11 +679,12 @@ export function Composer({ home = false }: ComposerProps) {
             variant="primary"
             className={styles.start}
             disabled={!ready}
+            busy={starting}
             onClick={start}
             title="Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
           >
-            {starting ? "Starting…" : "Start"}
-            <CornerDownLeft size={14} aria-hidden />
+            Start
+            {starting ? null : <CornerDownLeft size={14} aria-hidden />}
           </Button>
         </div>
       </div>

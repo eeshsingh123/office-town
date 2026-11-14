@@ -2,6 +2,7 @@ import {
   Bot,
   CircleHelp,
   Eye,
+  FolderGit2,
   Gauge,
   History,
   LayoutGrid,
@@ -25,6 +26,27 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-15",
+    title: "Workspaces, Templates, Settings and Help, tidied",
+    icon: FolderGit2,
+    changes: [
+      "Workspace paths keep their last folders, so workspaces under one parent folder can be told apart. One New workspace button, and a card opens with a click",
+      "The workspace picker lists your current pick first with a tick, and always shows its folder",
+      "A task's Details name its workspace, with a link to its Library",
+      "A workspace page links to all its tasks, and Edit shows once",
+      "A Library item has one menu, the same on its \u2026 button and on right-click. Click a file's name to open it. Filters show once there is something to filter",
+      "Templates: how-it-works folds to one line once you have a template. Search, filters and sort show only when they help, and the template picker has search from eight templates",
+      "Department settings: Change with words is a button at the top, the team comes first, and Remove is at the end. The chief's Remove moved to the end of its page",
+      "Profile, member, template and reviewer forms use the same words: What it does, Instructions, Model",
+      "Settings: Notifications moved here from your profile, and every on and off is the same switch. Appearance holds theme, text size, contrast and motion",
+      "Your profile saves only once something has changed",
+      "Tutorials look the same on Home, in Help and in setup, with a tick once done. Help also has the how-it-works pictures for departments, the chief and templates",
+      "Buttons that are working show a spinner instead of \u201cSaving\u2026\u201d, and lines that only reassured are gone",
+      "Home always says Good morning, afternoon or evening",
+      "Small text is a little larger, and sizes and corners come from one set of values",
+    ],
+  },
   {
     date: "2026-11-14",
     title: "An Office that grows with your team",

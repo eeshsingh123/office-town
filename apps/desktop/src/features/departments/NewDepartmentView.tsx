@@ -191,9 +191,6 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
       <div className={`${steps.setupBody} ${wide ? steps.wide : ""}`}>
         <div className={page.main}>
           <header className={page.header}>
-            <span className={steps.stepCount}>
-              Step {step + 1} of {STEPS.length}
-            </span>
             <h2 className={page.title}>
               {step === 0
                 ? "Describe the team you need"
@@ -207,17 +204,19 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                         ? `Review ${forms.length} departments`
                         : "Review and create"}
             </h2>
-            <p className={page.lead}>
-              {step === 0
-                ? "Say who leads, who else is on the team and what each person does. You review everything before it's created."
-                : step === 1
-                  ? "The lead splits each task among the members. Pick a person to set their role, instructions and model."
-                  : step === WORKSPACES_STEP
-                    ? "Choose the folders this team can edit. New tasks use the default. You can pick another when you start a task."
-                    : step === RULES_STEP
-                      ? "The rules every member follows, and what it may do without asking you."
-                      : "Nothing is created until you press Create."}
-            </p>
+            {step === STEPS.length - 1 ? null : (
+              <p className={page.lead}>
+                {step === 0
+                  ? "Say who leads, who else is on the team and what each person does."
+                  : step === 1
+                    ? "The lead splits each task among the members. Pick a person to set their role, instructions and model."
+                    : step === WORKSPACES_STEP
+                      ? "Choose the folders this team can edit. New tasks use the default. You can pick another when you start a task."
+                      : step === RULES_STEP
+                        ? "The rules every member follows, and what it may do without asking you."
+                        : null}
+              </p>
+            )}
           </header>
 
           {step === 0 ? (
@@ -267,7 +266,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                   />
                 </label>
                 <label className={form.field}>
-                  <span className={form.label}>What it's for</span>
+                  <span className={form.label}>What it does</span>
                   <LineField
                     value={current.purpose}
                     placeholder="One line; the chief reads it when it plans"
@@ -392,13 +391,12 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 <Button
                   variant="primary"
                   onClick={create}
-                  disabled={missing !== undefined || saving}
+                  disabled={missing !== undefined}
+                  busy={saving}
                 >
-                  {saving
-                    ? "Creating…"
-                    : forms.length > 1
-                      ? `Create ${forms.length} departments`
-                      : `Create ${current.name.trim() || "department"}`}
+                  {forms.length > 1
+                    ? `Create ${forms.length} departments`
+                    : `Create ${current.name.trim() || "department"}`}
                 </Button>
               )}
               {step === STEPS.length - 1 && missing !== undefined ? (

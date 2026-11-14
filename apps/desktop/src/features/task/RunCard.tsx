@@ -1,11 +1,12 @@
 import type { RoleSettings } from "@office-town/contract";
-import { AppWindow, Cpu, ExternalLink, Folder, Info } from "lucide-react";
+import { AppWindow, Cpu, ExternalLink, Folder, FolderGit2, Info } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useWorkspaces } from "../../store/workspaces.ts";
 import { isBusy } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -171,6 +172,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
       : undefined;
   const state = stateOf(agent, traces, waiting);
   const { tokens, folder } = facts;
+  const workspace = useWorkspaces()?.find((known) => known.id === agent.task.workspaceId);
   return (
     <>
       <div className={styles.who}>
@@ -198,6 +200,23 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
             <span className={styles.muted}> · {facts.machine}</span>
           </span>
         </li>
+        {workspace === undefined ? null : (
+          <li title="Workspace">
+            <FolderGit2 size={14} aria-hidden />
+            <button
+              type="button"
+              className={styles.folder}
+              onClick={() =>
+                navigate({ name: "workspace", workspaceId: workspace.id, tab: "library" })
+              }
+            >
+              <span className={styles.text}>
+                {workspace.name}
+                <span className={styles.muted}> · Library</span>
+              </span>
+            </button>
+          </li>
+        )}
         {folder === undefined ? null : (
           <li title={folder}>
             <Folder size={14} aria-hidden />

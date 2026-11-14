@@ -46,7 +46,7 @@
 .badge,
 .goal {
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   font-size: var(--size-small);
   font-weight: 600;
   white-space: nowrap;

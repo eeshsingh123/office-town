@@ -162,21 +162,11 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
                 label={kind === "scratch" ? "folder for new task folders" : "main folder"}
                 value={main}
                 onChange={setMain}
-                hint={
-                  kind === "scratch"
-                    ? "Each task gets a new folder in here."
-                    : "Agents work in this folder."
-                }
               />
             </div>
 
             <div className={styles.field}>
               <span className={styles.fieldLabel}>Extra folders</span>
-              {extras.length === 0 ? (
-                <span className={form.hint}>
-                  Other folders the agents need, read-only or editable.
-                </span>
-              ) : null}
               {extras.map((extra, index) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: rows keep their place until removed
                 <div key={index} className={styles.extra}>
@@ -232,8 +222,8 @@ export function WorkspaceSheet({ workspace, open, onOpenChange, onSaved }: Works
                   Cancel
                 </Button>
               </Dialog.Close>
-              <Button type="submit" variant="primary" disabled={!ready || saving}>
-                {saving ? "Saving…" : workspace === undefined ? "Create workspace" : "Save"}
+              <Button type="submit" variant="primary" disabled={!ready} busy={saving}>
+                {workspace === undefined ? "Create workspace" : "Save"}
               </Button>
             </div>
           </form>

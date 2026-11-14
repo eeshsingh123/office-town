@@ -28,7 +28,7 @@
 }
 
 .name {
-  font-size: 16px;
+  font-size: var(--size-title);
   overflow-wrap: anywhere;
 }
 
@@ -85,7 +85,7 @@
   padding: 2px 9px;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--bg);
   font-size: var(--size-small);
   color: var(--text-2);
@@ -197,7 +197,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent-soft);
   font-size: var(--size-small);
   font-weight: 700;

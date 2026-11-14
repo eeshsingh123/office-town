@@ -1,0 +1,56 @@
+/* The tutorials as numbered steps, ticked once done. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+}
+
+.step > button {
+  flex: none;
+  align-self: center;
+}
+
+.mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.done {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--surface);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+}
+
+.line {
+  font-size: var(--size-meta);
+  color: var(--text-2);
+}

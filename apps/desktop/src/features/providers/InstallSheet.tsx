@@ -1,5 +1,5 @@
 import type { HarnessInstall } from "@office-town/contract";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, ExternalLink, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiRequestError, api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -144,7 +144,9 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
     >
       <StepBar steps={STEPS} at={at} />
       {status === undefined ? (
-        <p className={styles.muted}>Checking this computer…</p>
+        <p className={styles.muted} role="status">
+          <LoaderCircle size={14} className="spin" aria-hidden /> Checking this computer
+        </p>
       ) : at === 2 ? (
         <div className={styles.note} role="status">
           <strong>{name} is ready</strong>
@@ -170,7 +172,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
                 <i />
               </div>
               <p className={styles.installLine} aria-live="polite">
-                {install.line ?? "Starting…"}
+                {install.line ?? "Starting"}
               </p>
             </>
           ) : null}
