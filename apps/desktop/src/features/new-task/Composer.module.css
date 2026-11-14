@@ -152,7 +152,7 @@
   border-radius: 7px;
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   font-weight: 600;
 }
 
@@ -422,7 +422,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   color: var(--text-2);
   cursor: pointer;
 }

@@ -4,7 +4,7 @@
   align-items: center;
   gap: 4px;
   padding: 0 6px 0 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--border);
   color: var(--accent-text);

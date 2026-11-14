@@ -31,6 +31,20 @@ export function WorkspaceTip() {
   );
 }
 
+// A folder path cut from the start, so its last two folders (what tells workspaces apart) show.
+export function shortPath(path: string): string {
+  const parts = path.split(/[\\/]/).filter((part) => part !== "");
+  return parts.length <= 3 ? path : `…/${parts.slice(-2).join("/")}`;
+}
+
+export function ShortPath({ path, className }: { path: string; className?: string | undefined }) {
+  return (
+    <span className={className} title={path}>
+      {shortPath(path)}
+    </span>
+  );
+}
+
 export const KIND_LABEL: Record<WorkspaceKind, string> = {
   folders: "Your folders",
   scratch: "Scratch",

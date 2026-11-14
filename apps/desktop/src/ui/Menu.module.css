@@ -7,7 +7,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   cursor: pointer;
 }
 
@@ -45,7 +45,7 @@
   min-height: 30px;
   padding: 4px 8px;
   border-radius: var(--radius-control);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   outline: none;
   cursor: pointer;
 }
@@ -106,7 +106,7 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
 }
 
 /* Wraps a right-click area without changing its layout. */

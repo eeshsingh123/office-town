@@ -8,7 +8,6 @@ import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
 import { showToast } from "../../ui/Toast.tsx";
-import styles from "./Templates.module.css";
 
 export interface TemplateSource {
   // Such as "@mae-0427", or a new team member's role.
@@ -75,19 +74,6 @@ export function SaveTemplateDialog({ source, open, onOpenChange }: SaveTemplateD
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <div className={form.field}>
-              <span className={form.label}>What the template keeps</span>
-              <ul className={styles.kept}>
-                <li>What {who} does</li>
-                <li>Notes for {who}</li>
-                <li>Which AI {who} uses</li>
-                <li>When {who} asks you first</li>
-              </ul>
-              <p className={form.hint}>
-                Not kept: {who}'s name, team and past work. Each agent made from it gets its own
-                name.
-              </p>
-            </div>
             {error === undefined ? null : (
               <p className={form.error} role="alert">
                 {error}

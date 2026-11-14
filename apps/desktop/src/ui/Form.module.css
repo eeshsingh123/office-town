@@ -62,7 +62,7 @@ textarea.input.line {
 .chip {
   padding: 6px 14px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--surface);
   font-size: var(--size-meta);
   color: var(--text-2);
@@ -75,15 +75,17 @@ textarea.input.line {
   color: var(--accent-text);
 }
 
+/* One row of eight; the swatches shrink a little in a narrow side panel rather than wrap one alone. */
 .swatches {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 28px));
   gap: 12px;
 }
 
 .swatch {
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  max-width: 28px;
+  aspect-ratio: 1;
   padding: 0;
   border: 0;
   border-radius: 50%;

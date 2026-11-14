@@ -1,5 +1,5 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
-import { ListX, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Copy, ListX, Pencil, Plus, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
@@ -10,7 +10,7 @@ import {
   useWorkspaces,
   useWorkspaceUsage,
 } from "../../store/workspaces.ts";
-import { MoreMenu } from "../../ui/ActionMenu.tsx";
+import { copyText, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
@@ -19,7 +19,7 @@ import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
-import { KIND_LABEL, WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
+import { KIND_LABEL, ShortPath, WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
 
@@ -28,7 +28,7 @@ type Filter = "all" | "folders" | "scratch" | "busy";
 export async function removeFromList(workspace: WorkspaceRecord): Promise<boolean> {
   try {
     await removeWorkspace(workspace.id);
-    showToast(`Removed ${workspace.name} from the list. Its folders and files are untouched.`);
+    showToast(`Removed ${workspace.name}`);
     return true;
   } catch (failure) {
     showToast(failure instanceof Error ? failure.message : String(failure));
@@ -43,7 +43,8 @@ export function WorkspaceMenu({
 }: {
   workspace: WorkspaceRecord;
   usage: WorkspaceUsage | undefined;
-  onEdit: () => void;
+  // Left out where an Edit button sits beside the menu.
+  onEdit?: () => void;
 }) {
   const scratches = (useWorkspaces() ?? []).filter((known) => known.kind === "scratch");
   const blocked =
@@ -57,7 +58,12 @@ export function WorkspaceMenu({
       label={`More for ${workspace.name}`}
       menu={() => ({
         actions: [
-          { label: "Edit", icon: Pencil, run: onEdit },
+          ...(onEdit === undefined ? [] : [{ label: "Edit", icon: Pencil, run: onEdit }]),
+          {
+            label: "Copy path",
+            icon: Copy,
+            run: () => copyText(mainPath(workspace)),
+          },
           {
             label: "Remove from list",
             icon: ListX,
@@ -104,8 +110,8 @@ function Card({
           <WorkspaceIcon kind={workspace.kind} />
           <span className={styles.optionText}>
             <strong className={styles.name}>{workspace.name}</strong>
-            <span className={styles.path} title={mainPath(workspace)}>
-              {mainPath(workspace)}
+            <span className={styles.path}>
+              <ShortPath path={mainPath(workspace)} />
               {usage?.branch === undefined ? "" : ` · ${usage.branch}`}
             </span>
           </span>
@@ -120,13 +126,7 @@ function Card({
             <span className={styles.dot} aria-hidden />
             {working.length} agent{working.length === 1 ? "" : "s"} working now
           </span>
-        ) : (
-          <span className={form.hint}>
-            {workspace.kind === "scratch"
-              ? "Each task gets its own new folder"
-              : "No one working here now"}
-          </span>
-        )}
+        ) : null}
         <span className={form.hint}>{meta.join(" · ")}</span>
         {names.length > 1 ? (
           <span className={styles.warnChip}>Shared by {names.length} departments</span>
@@ -143,7 +143,6 @@ function Card({
         </span>
         <span className={styles.actions}>
           <WorkspaceMenu workspace={workspace} usage={usage} onEdit={onEdit} />
-          <Button onClick={open}>Open</Button>
         </span>
       </div>
     </li>
@@ -225,9 +224,7 @@ export function WorkspacesView() {
           </fieldset>
         </div>
 
-        {workspaces === undefined ? (
-          <p className={form.hint}>Loading workspaces…</p>
-        ) : shown.length === 0 && all.length > 0 ? (
+        {workspaces === undefined ? null : shown.length === 0 && all.length > 0 ? (
           <div className={styles.empty}>
             <strong>No workspaces match</strong>
             <p className={form.hint}>Try a different word, or show all.</p>
@@ -242,12 +239,6 @@ export function WorkspacesView() {
                 onEdit={() => edit(workspace)}
               />
             ))}
-            <li>
-              <button type="button" className={styles.newCard} onClick={() => edit()}>
-                <Plus size={16} aria-hidden />
-                New workspace
-              </button>
-            </li>
           </ul>
         )}
       </div>

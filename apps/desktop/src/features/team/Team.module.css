@@ -146,7 +146,7 @@ button.chief:hover {
   align-items: center;
   gap: 6px;
   padding: 2px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--hover);
   color: var(--text-2);
   font-size: var(--size-small);
@@ -229,7 +229,7 @@ button.chief:hover {
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -370,7 +370,7 @@ button.chief:hover {
 
 .starterLead {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--size-ui);
   line-height: 1.55;
   color: var(--text-2);
 }
@@ -421,7 +421,7 @@ button.chief:hover {
 .example {
   padding: 6px 12px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--surface);
   color: var(--text-2);
   font-size: var(--size-meta);

@@ -49,8 +49,8 @@
   margin: 0;
   padding: 8px 10px;
   border-radius: var(--radius-control);
-  background: var(--warn-soft);
-  color: var(--warn);
+  background: var(--hover);
+  color: var(--text-2);
   font-size: var(--size-meta);
   line-height: 1.5;
 }

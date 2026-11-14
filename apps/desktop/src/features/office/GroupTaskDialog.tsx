@@ -137,8 +137,8 @@ export function GroupTaskDialog({ members, onOpenChange }: GroupTaskDialogProps)
                   Cancel
                 </Button>
               </Dialog.Close>
-              <Button type="submit" variant="primary" disabled={!ready || starting}>
-                {starting ? "Starting…" : "Start task"}
+              <Button type="submit" variant="primary" disabled={!ready} busy={starting}>
+                Start task
               </Button>
             </div>
           </form>

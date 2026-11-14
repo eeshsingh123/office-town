@@ -96,10 +96,7 @@ function AddMenu() {
             onSelect={() => navigate({ name: "new-department" })}
           >
             <Users size={15} aria-hidden />
-            <span>
-              <strong>New department</strong>
-              <span className={styles.addHint}>A lead and its people</span>
-            </span>
+            New department
           </DropdownMenu.Item>
           {hasChief ? null : (
             <DropdownMenu.Item
@@ -107,10 +104,7 @@ function AddMenu() {
               onSelect={() => navigate({ name: "chief" })}
             >
               <Network size={15} aria-hidden />
-              <span>
-                <strong>Add a chief</strong>
-                <span className={styles.addHint}>Plans goals across departments</span>
-              </span>
+              Add a chief
             </DropdownMenu.Item>
           )}
         </DropdownMenu.Content>

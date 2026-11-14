@@ -84,7 +84,7 @@ export function ReviewerDialog({ reviewer, open, onOpenChange, onSaved }: Review
               />
             </label>
             <label className={form.field} htmlFor="reviewer-description">
-              <span className={form.label}>Description</span>
+              <span className={form.label}>What it does</span>
               <input
                 id="reviewer-description"
                 className={form.input}

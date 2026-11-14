@@ -72,45 +72,46 @@ export function FilesSection({
           <Button variant="ghost" onClick={openLibrary}>
             Open Library
           </Button>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button disabled={others.length === 0}>
-                <Plus size={14} aria-hidden />
-                Add from Library
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                className={`${menu.surface} ${styles.menu}`}
-                align="end"
-                sideOffset={4}
-              >
-                {others.map((item) => (
-                  <DropdownMenu.Item
-                    key={item.id}
-                    className={menu.item}
-                    onSelect={() => void give(item, holder, true)}
-                  >
-                    <span className={styles.tile} aria-hidden>
-                      {typeLabel(item.file.name, item.file.kind)}
-                    </span>
-                    <span className={menu.itemText}>
-                      {item.file.name}
-                      <span className={menu.itemDescription}>
-                        Given to: {audienceNames(item.givenTo, departments, agents)}
+          {items.length === 0 ? null : (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <Button disabled={others.length === 0}>
+                  <Plus size={14} aria-hidden />
+                  Add from Library
+                </Button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className={`${menu.surface} ${styles.menu}`}
+                  align="end"
+                  sideOffset={4}
+                >
+                  {others.map((item) => (
+                    <DropdownMenu.Item
+                      key={item.id}
+                      className={menu.item}
+                      onSelect={() => void give(item, holder, true)}
+                    >
+                      <span className={styles.tile} aria-hidden>
+                        {typeLabel(item.file.name, item.file.kind)}
                       </span>
-                    </span>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+                      <span className={menu.itemText}>
+                        {item.file.name}
+                        <span className={menu.itemDescription}>
+                          Given to: {audienceNames(item.givenTo, departments, agents)}
+                        </span>
+                      </span>
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          )}
         </span>
       </div>
-      {given.length === 0 ? (
-        <p className={form.hint}>
-          {items.length === 0 ? "The Library is empty." : `Nothing given to ${name} yet.`}
-        </p>
+      {/* An empty Library shows only its link (a2-32). */}
+      {items.length === 0 ? null : given.length === 0 ? (
+        <p className={form.hint}>Nothing given to {name} yet.</p>
       ) : (
         <ul className={styles.fileList} aria-label={`Files ${name} gets`}>
           {given.map((item) => {

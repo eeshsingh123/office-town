@@ -287,7 +287,7 @@
 
 .deleted {
   flex: none;
-  font-size: 11px;
+  font-size: var(--size-small);
   font-weight: 600;
   color: var(--bad);
 }
@@ -302,7 +302,7 @@
   border: 0;
   background: none;
   color: var(--accent-text);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   font-weight: 600;
   cursor: pointer;
 }
@@ -358,7 +358,7 @@
 
 .kindChip {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent-soft);
   font-size: var(--size-small);
   font-weight: 600;
@@ -449,7 +449,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   font-weight: 550;
   color: var(--text-2);
   cursor: pointer;
@@ -544,7 +544,7 @@
   border-radius: var(--radius-control);
   background: var(--surface);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   color: var(--text-3);
 }
 
@@ -587,7 +587,7 @@
 .frame {
   width: 100%;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: #ffffff;
   box-shadow: var(--shadow-raised);
 }
@@ -598,7 +598,7 @@
   display: grid;
   place-items: center;
   margin: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--text-3);
   pointer-events: none;
@@ -626,7 +626,7 @@
   position: absolute;
   inset: 0;
   border: 2px dashed var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: rgb(0 0 0 / 4%);
   cursor: crosshair;
 }
@@ -695,7 +695,7 @@
   margin: 0;
   padding: 16px 20px;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   line-height: 1.6;
   white-space: pre;
   tab-size: 2;
@@ -720,7 +720,7 @@
 
 .table {
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
 
@@ -811,7 +811,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   color: var(--text-2);
 }
 
@@ -942,7 +942,7 @@
   width: 100%;
   padding: 6px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: none;
   text-align: left;
   cursor: pointer;
@@ -964,9 +964,9 @@
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent-soft);
-  font-size: 11px;
+  font-size: var(--size-small);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1;

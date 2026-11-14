@@ -1,13 +1,12 @@
-import { ArrowRight, Copy, Plus } from "lucide-react";
+import { ArrowRight, Copy } from "lucide-react";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { Button } from "../../ui/Button.tsx";
 import { Guide, type GuideStep } from "../../ui/Guide.tsx";
 import styles from "./TemplatesGuide.module.css";
 
 const BLUE = "#3A6EA5";
 
 // The three steps of a template, each with a small picture of the screen it happens on.
-const STEPS: GuideStep[] = [
+export const TEMPLATE_STEPS: GuideStep[] = [
   {
     title: "Set it up once",
     text: "Press New template, or open any agent's profile and choose Save as template.",
@@ -42,7 +41,7 @@ const STEPS: GuideStep[] = [
   },
   {
     title: "Get a ready agent",
-    text: "A new agent starts with the same job, model and notes. Changing it later leaves the template as it was.",
+    text: "A new agent starts with the same job, model and instructions.",
     picture: (
       <span className={styles.miniCopy}>
         <span className={`${styles.miniFace} ${styles.miniTemplate}`}>
@@ -64,24 +63,15 @@ const STEPS: GuideStep[] = [
   },
 ];
 
-// onNew is passed only while there are no templates yet.
-export function TemplatesGuide({ onHide, onNew }: { onHide: () => void; onNew?: () => void }) {
+// Shown in full until the first template exists; then folded to one line (owner).
+export function TemplatesGuide({ onHide }: { onHide: () => void }) {
   return (
     <Guide
       id="templates-guide"
       title="How templates work"
-      intro="A template is an agent you set up once: its job, model and notes. Start new agents from it whenever you need one."
-      steps={STEPS}
+      intro="A template is an agent you set up once: its job, model and instructions. Start new agents from it whenever you need one."
+      steps={TEMPLATE_STEPS}
       onHide={onHide}
-    >
-      {onNew === undefined ? null : (
-        <div>
-          <Button variant="primary" onClick={onNew}>
-            <Plus size={14} aria-hidden />
-            Make your first template
-          </Button>
-        </div>
-      )}
-    </Guide>
+    />
   );
 }

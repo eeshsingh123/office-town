@@ -51,7 +51,7 @@
 
 .free {
   padding: 1px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--ok-soft);
   color: var(--ok);
   font-size: var(--size-small);
@@ -60,7 +60,7 @@
 
 .plan {
   padding: 1px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: var(--size-small);

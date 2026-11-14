@@ -199,7 +199,7 @@
   width: 22px;
   height: 22px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;
@@ -213,27 +213,11 @@
 }
 
 .addItem {
-  align-items: flex-start;
   padding: 8px 10px;
 }
 
 .addItem svg {
-  margin-top: 2px;
   color: var(--text-2);
-}
-
-.addItem > span {
-  display: flex;
-  flex-direction: column;
-}
-
-.addItem strong {
-  font-size: 13.5px;
-  font-weight: 600;
-}
-
-.addHint {
-  color: var(--text-3);
 }
 
 /* Until there is a department: one quiet invitation instead of empty rows. */
@@ -262,7 +246,7 @@
   place-items: center;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--accent-soft);
   color: var(--accent-text);
 }
@@ -331,7 +315,7 @@
 .taskMeta {
   padding-left: 22px;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--size-small);
   color: var(--text-3);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -347,7 +331,7 @@
 .count {
   margin-left: auto;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--attention);
   color: var(--on-attention);
   font-size: var(--size-small);
@@ -388,7 +372,7 @@
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--text-3);
   cursor: pointer;

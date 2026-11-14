@@ -127,7 +127,7 @@
 .leadBadge {
   flex: none;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: var(--size-small);
@@ -243,7 +243,7 @@
   align-self: flex-start;
   padding: 3px 10px;
   border: 1px dashed var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   font-size: var(--size-meta);
   color: var(--text-2);
 }

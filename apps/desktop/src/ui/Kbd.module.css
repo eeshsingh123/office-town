@@ -3,6 +3,6 @@
   border: 1px solid var(--border-strong);
   border-bottom-width: 2px;
   border-radius: 4px;
-  font-size: 10.5px;
+  font-size: var(--size-label);
   color: var(--text-3);
 }

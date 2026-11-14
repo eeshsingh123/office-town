@@ -238,12 +238,6 @@
   flex: 1;
 }
 
-.kept {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--text-2);
-}
-
 /* The "Start from a template" row in New task and when adding to a team. */
 .picker {
   display: grid;
@@ -335,7 +329,7 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--size-title);
   font-weight: 700;
 }
 

@@ -150,7 +150,7 @@
   max-width: calc(100% - 32px);
   padding: 3px 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--surface);
   font-size: var(--size-meta);
   font-weight: 600;
@@ -194,7 +194,7 @@
   flex-direction: column;
   gap: 1px;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--size-small);
   color: var(--text-2);
 }
 
@@ -312,7 +312,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--surface);
   font-size: var(--size-small);
   font-weight: 500;
@@ -328,7 +328,7 @@
   border-radius: 9px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  font-size: 11.5px;
+  font-size: var(--size-small);
   font-weight: 500;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -536,7 +536,7 @@
 }
 
 .step {
-  font-size: 12.5px;
+  font-size: var(--size-meta);
   color: var(--text-2);
 }
 
@@ -544,14 +544,14 @@
   height: 6px;
   margin-top: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--hover);
 }
 
 .bar i {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--accent);
 }
 
@@ -603,7 +603,7 @@
 
 .summaryChip {
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--accent-soft);
   color: var(--accent-text);
   font-size: var(--size-small);
@@ -803,7 +803,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11.5px;
+  font-size: var(--size-small);
   font-weight: 500;
   color: var(--text-2);
 }
@@ -885,7 +885,7 @@
   border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  font-size: 11.5px;
+  font-size: var(--size-small);
   color: var(--text-2);
   pointer-events: none;
 }
@@ -974,7 +974,7 @@
 .pod {
   position: absolute;
   border: 1px solid var(--desk-line);
-  border-radius: 12px;
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--desk) 45%, transparent);
   pointer-events: none;
 }
@@ -992,7 +992,7 @@
   border-radius: var(--radius-control);
   background: transparent;
   font: inherit;
-  font-size: 10.5px;
+  font-size: var(--size-label);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1025,7 +1025,7 @@
 }
 
 .doze:last-child {
-  font-size: 14px;
+  font-size: var(--size-ui);
   animation-delay: 0.5s;
 }
 

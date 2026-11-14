@@ -1,5 +1,5 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { CircleHelp, Copy, LayoutGrid, List, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, LayoutGrid, List, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { type Keep, oneOf, useKept } from "../../store/kept.ts";
@@ -10,7 +10,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import form from "../../ui/Form.module.css";
-import { useGuideHidden } from "../../ui/Guide.tsx";
+import { FoldedGuide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -20,7 +20,7 @@ import { modelLine, modelName } from "./model-name.ts";
 import { ReviewersSection } from "./ReviewersSection.tsx";
 import { draftOf, TemplateDialog, type TemplateDraft } from "./TemplateDialog.tsx";
 import styles from "./Templates.module.css";
-import { TemplatesGuide } from "./TemplatesGuide.tsx";
+import { TEMPLATE_STEPS, TemplatesGuide } from "./TemplatesGuide.tsx";
 
 type Sort = "used" | "name" | "new";
 
@@ -81,11 +81,11 @@ function Actions({
                 <ConfirmDialog
                   {...props}
                   title={`Delete “${template.name}”?`}
-                  description="Agents made from it keep working as before. Its instructions are lost; this cannot be undone."
+                  description="Its instructions are lost. This cannot be undone."
                   confirmLabel="Delete template"
                   danger
                   onConfirm={() =>
-                    deleteTemplate(template.id).then(() => showToast(`Deleted “${template.name}”.`))
+                    deleteTemplate(template.id).then(() => showToast(`Deleted “${template.name}”`))
                   }
                 />
               ),
@@ -111,7 +111,6 @@ export function TemplatesView() {
   const [layout, chooseLayout] = useKept(LAYOUT);
   const [editing, setEditing] = useState<Editing>();
   const [guideHidden, setGuideHidden] = useGuideHidden("templates");
-  const showGuide = (show: boolean) => setGuideHidden(!show);
   const open = (template: ProfileRecord | undefined, start?: TemplateDraft) =>
     setEditing({ template, start, key: (editing?.key ?? 0) + 1 });
 
@@ -136,6 +135,9 @@ export function TemplatesView() {
           : (uses?.[b.id] ?? 0) - (uses?.[a.id] ?? 0) || a.name.localeCompare(b.name),
     );
 
+  // Tools show only once they have something to act on (a2-35); Cards or List past 20.
+  const many = all.length > 20;
+  const shownLayout = many ? layout : "cards";
   const filters: { value: Filter; label: string }[] = [
     { value: "", label: "All" },
     ...apps.map((known) => ({ value: known.harness, label: known.name })),
@@ -157,84 +159,78 @@ export function TemplatesView() {
           title="Templates"
           lead="Saved agent setups and reviewers you can reuse."
           actions={
-            <>
-              {guideHidden ? (
-                <Button variant="ghost" onClick={() => showGuide(true)}>
-                  <CircleHelp size={14} aria-hidden />
-                  How templates work
-                </Button>
-              ) : null}
-              <Button variant="primary" onClick={() => open(undefined)}>
-                <Plus size={14} aria-hidden />
-                New template
-              </Button>
-            </>
+            <Button variant="primary" onClick={() => open(undefined)}>
+              <Plus size={14} aria-hidden />
+              New template
+            </Button>
           }
         />
 
-        {guideHidden ? null : (
-          <TemplatesGuide
-            onHide={() => showGuide(false)}
-            {...(templates !== undefined && all.length === 0
-              ? { onNew: () => open(undefined) }
-              : {})}
-          />
+        {templates === undefined ? null : all.length === 0 && !guideHidden ? (
+          <TemplatesGuide onHide={() => setGuideHidden(true)} />
+        ) : (
+          <FoldedGuide title="How templates work" steps={TEMPLATE_STEPS} />
         )}
 
-        <div className={styles.tools}>
-          <SearchBox
-            value={query}
-            onChange={(value) => setQuery(value)}
-            label="Search templates"
-            placeholder="Search templates by name or job"
-          />
-          <fieldset className={`${form.row} ${form.group}`}>
-            <legend className="visually-hidden">Filter by provider</legend>
-            {filters.map((choice) => (
-              <button
-                key={choice.value}
-                type="button"
-                className={form.chip}
-                aria-pressed={filter === choice.value}
-                onClick={() => setFilter(choice.value)}
-              >
-                {choice.label}
-              </button>
-            ))}
-          </fieldset>
-          <div className={styles.toolsEnd}>
-            <fieldset className={`${styles.segment} ${form.group}`}>
-              <legend className="visually-hidden">View as</legend>
-              <button
-                type="button"
-                aria-pressed={layout === "cards"}
-                onClick={() => chooseLayout("cards")}
-              >
-                <LayoutGrid size={14} aria-hidden />
-                Cards
-              </button>
-              <button
-                type="button"
-                aria-pressed={layout === "list"}
-                onClick={() => chooseLayout("list")}
-              >
-                <List size={14} aria-hidden />
-                List
-              </button>
-            </fieldset>
-            <ChoiceMenu label="Sort" value={sort} choices={SORTS} onChange={setSort} />
+        {all.length === 0 ? null : (
+          <div className={styles.tools}>
+            {all.length >= 8 || query !== "" ? (
+              <SearchBox
+                value={query}
+                onChange={(value) => setQuery(value)}
+                label="Search templates"
+                placeholder="Search templates by name or job"
+              />
+            ) : null}
+            {filters.length <= 2 && filter === "" ? null : (
+              <fieldset className={`${form.row} ${form.group}`}>
+                <legend className="visually-hidden">Filter by provider</legend>
+                {filters.map((choice) => (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    className={form.chip}
+                    aria-pressed={filter === choice.value}
+                    onClick={() => setFilter(choice.value)}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </fieldset>
+            )}
+            <div className={styles.toolsEnd}>
+              {many ? (
+                <fieldset className={`${styles.segment} ${form.group}`}>
+                  <legend className="visually-hidden">View as</legend>
+                  <button
+                    type="button"
+                    aria-pressed={layout === "cards"}
+                    onClick={() => chooseLayout("cards")}
+                  >
+                    <LayoutGrid size={14} aria-hidden />
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={layout === "list"}
+                    onClick={() => chooseLayout("list")}
+                  >
+                    <List size={14} aria-hidden />
+                    List
+                  </button>
+                </fieldset>
+              ) : null}
+              {all.length < 2 ? null : (
+                <ChoiceMenu label="Sort" value={sort} choices={SORTS} onChange={setSort} />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        {templates === undefined ? (
-          <p className={form.hint}>Loading templates…</p>
-        ) : all.length === 0 ? (
-          <div className={styles.empty}>
-            <strong>No templates yet</strong>
-            <p className={form.hint}>
-              Use New template, or Save as template on any agent's profile.
-            </p>
-          </div>
+        {templates === undefined ? null : all.length === 0 ? (
+          guideHidden ? (
+            <p className={form.hint}>No templates yet.</p>
+          ) : null
         ) : (
           <div className={styles.results}>
             <p className={form.hint}>
@@ -247,7 +243,7 @@ export function TemplatesView() {
                 <strong>No templates match</strong>
                 <p className={form.hint}>Try a different word, or clear the filter.</p>
               </div>
-            ) : layout === "cards" ? (
+            ) : shownLayout === "cards" ? (
               <ul className={styles.grid} aria-label="Templates">
                 {shown.map((template) => (
                   <li key={template.id} className={styles.card}>

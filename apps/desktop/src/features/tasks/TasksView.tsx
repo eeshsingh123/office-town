@@ -88,6 +88,12 @@ export function showTasksTab(tab: Tab): void {
   writeKept(FILTERS, { ...NO_FILTERS, tab });
   navigate({ name: "tasks" });
 }
+
+// Every task in one workspace, such as from its page.
+export function showWorkspaceTasks(workspaceId: string): void {
+  writeKept(FILTERS, { ...NO_FILTERS, workspaceId });
+  navigate({ name: "tasks" });
+}
 const FOLDED = forSession("tasks.folded", NONE);
 const TOGGLED = forSession("tasks.toggled", NONE);
 const SHOW_DONE = forSession("tasks.show-done", NONE);

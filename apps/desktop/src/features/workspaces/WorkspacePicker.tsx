@@ -1,5 +1,13 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
-import { ChevronDown, FolderGit2, Plus, Search, Sparkles, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  FolderGit2,
+  Plus,
+  Search,
+  Sparkles,
+  TriangleAlert,
+} from "lucide-react";
 import { Popover } from "radix-ui";
 import { type ReactElement, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
@@ -10,7 +18,7 @@ import {
   useWorkspaceUsage,
 } from "../../store/workspaces.ts";
 import form from "../../ui/Form.module.css";
-import { WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
+import { shortPath, WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
 
@@ -49,15 +57,19 @@ function useUsageLine() {
       names.join(", "),
       working > 0 ? `${working} agent${working === 1 ? "" : "s"} working now` : "",
     ].filter(Boolean);
-    const text =
-      parts.length > 0
-        ? parts.join(" · ")
-        : workspace.kind === "scratch"
-          ? "New folder for each task"
-          : mainPath(workspace);
-    // Only a folder's path is drawn as code.
-    const path = parts.length === 0 && workspace.kind === "folders";
-    return <span className={path ? styles.path : styles.usage}>{text}</span>;
+    // The folder always shows, so same-named workspaces can be told apart (a5-27).
+    return (
+      <>
+        {workspace.kind === "scratch" ? (
+          <span className={styles.usage}>New folder for each task</span>
+        ) : (
+          <span className={styles.path} title={mainPath(workspace)}>
+            {shortPath(mainPath(workspace))}
+          </span>
+        )}
+        {parts.length > 0 ? <span className={styles.usage}>{parts.join(" · ")}</span> : null}
+      </>
+    );
   };
 }
 
@@ -79,9 +91,10 @@ export function WorkspacePicker({
   const [query, setQuery] = useState("");
   const chosen = workspaces.find((known) => known.id === value);
   const words = query.trim().toLowerCase();
-  const matching = workspaces.filter((workspace) =>
-    `${workspace.name} ${mainPath(workspace)}`.toLowerCase().includes(words),
-  );
+  // The current pick first, then by last use.
+  const matching = workspaces
+    .filter((workspace) => `${workspace.name} ${mainPath(workspace)}`.toLowerCase().includes(words))
+    .toSorted((a, b) => Number(b.id === value) - Number(a.id === value));
   const groups =
     words === ""
       ? [
@@ -175,6 +188,9 @@ export function WorkspacePicker({
                         <strong>{workspace.name}</strong>
                         {usageLine(workspace, usage?.[workspace.id])}
                       </span>
+                      {workspace.id === value ? (
+                        <Check size={15} aria-hidden className={styles.check} />
+                      ) : null}
                     </button>
                   ))}
                 </div>

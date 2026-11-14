@@ -17,19 +17,3 @@
 .card {
   gap: 24px;
 }
-
-.sectionHead {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.switchRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.switchRow > button {
-  margin-top: 2px;
-}

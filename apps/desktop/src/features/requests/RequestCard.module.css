@@ -77,7 +77,7 @@
   padding: 10px 12px;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--code);
   white-space: pre-wrap;
   overflow-wrap: anywhere;

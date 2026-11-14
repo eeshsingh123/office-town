@@ -90,8 +90,8 @@ export function ConfirmDialog({
             <AlertDialog.Cancel asChild>
               <Button variant="ghost">Cancel</Button>
             </AlertDialog.Cancel>
-            <Button variant={danger ? "dangerFilled" : "primary"} onClick={confirm} disabled={busy}>
-              {busy ? `${confirmLabel}…` : confirmLabel}
+            <Button variant={danger ? "dangerFilled" : "primary"} onClick={confirm} busy={busy}>
+              {confirmLabel}
             </Button>
           </div>
         </AlertDialog.Content>

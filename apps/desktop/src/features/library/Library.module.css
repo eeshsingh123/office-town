@@ -124,7 +124,7 @@
   place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--hover);
   font-size: 9.5px;
   font-weight: 700;
@@ -146,6 +146,25 @@
 
 .nameText b {
   font-weight: 600;
+}
+
+.nameButton {
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nameButton:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
 }
 
 .nameText span {
@@ -173,7 +192,7 @@
   background: var(--bg);
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--size-meta);
 }
 
 /* One tick box for Everyone, departments and members alike. */

@@ -93,21 +93,6 @@
   font-weight: 600;
 }
 
-.progress {
-  height: 5px;
-  margin: auto 10px 0;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--hover);
-}
-
-.progress span {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-  transition: width var(--motion);
-}
-
 .setupBody {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -138,17 +123,7 @@
     flex-wrap: wrap;
   }
 
-  .progress {
-    display: none;
-  }
-
   .setupBody {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-
-.stepCount {
-  font-size: var(--size-meta);
-  font-weight: 700;
-  color: var(--accent-text);
 }

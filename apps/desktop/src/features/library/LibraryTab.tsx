@@ -1,11 +1,11 @@
 import type { AttachmentKind, LibraryAudience, LibraryItem } from "@office-town/contract";
-import { Check, ChevronDown, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { type DragEvent, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
-import { ContextMenu } from "../../ui/ActionMenu.tsx";
+import { ContextMenu, type MenuContent, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
@@ -32,65 +32,32 @@ const KINDS: { value: Kind; label: string }[] = [
 const errorText = (failure: unknown) =>
   failure instanceof Error ? failure.message : String(failure);
 
-const folderOf = (item: LibraryItem) =>
-  item.file.kind === "folder" ? item.file.path : item.file.path.replace(/[\\/][^\\/]*$/, "");
-
-function ItemMenu({ item }: { item: LibraryItem }) {
-  const input = useRef<HTMLInputElement>(null);
-  const name = item.file.name;
-  const run = (work: () => Promise<void>, done: string) =>
-    work()
-      .then(() => showToast(done))
-      .catch((failure: unknown) => showToast(errorText(failure)));
-  return (
-    <>
-      <input
-        ref={input}
-        type="file"
-        hidden
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file !== undefined) void run(() => replaceFile(item.id, file), `Replaced ${name}.`);
-        }}
-      />
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button icon variant="ghost" aria-label={`More actions for ${name}`}>
-            <MoreHorizontal size={16} aria-hidden />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-            {shell === undefined ? null : (
-              <DropdownMenu.Item
-                className={menu.item}
-                onSelect={() => void shell?.openFolder(folderOf(item))}
-              >
-                Show in folder
-              </DropdownMenu.Item>
-            )}
-            {item.file.kind === "folder" ? null : (
-              <DropdownMenu.Item className={menu.item} onSelect={() => input.current?.click()}>
-                Replace with a new version
-              </DropdownMenu.Item>
-            )}
-            <DropdownMenu.Item
-              className={`${menu.item} ${styles.danger}`}
-              onSelect={() =>
-                void run(() => api.removeLibraryItem(item.id), `Removed ${name} from the Library.`)
-              }
-            >
-              Remove from Library
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
-    </>
-  );
+// One list for a Library item's "…" and right-click menus (D-89): the file's own actions, then
+// Replace and Remove.
+function itemMenu(item: LibraryItem, replace: () => void): MenuContent {
+  const { file } = item;
+  const own = fileMenu(file.path, file.kind).actions;
+  return {
+    actions: [
+      ...own,
+      ...(file.kind === "folder"
+        ? []
+        : [{ label: "Replace with a new version", icon: RefreshCw, run: replace }]),
+      {
+        label: "Remove from Library",
+        icon: Trash2,
+        danger: true,
+        run: async () => {
+          await api.removeLibraryItem(item.id);
+          showToast(`Removed ${file.name}`);
+        },
+      },
+    ],
+  };
 }
 
 function Row({ item }: { item: LibraryItem }) {
+  const input = useRef<HTMLInputElement>(null);
   const adder = useApp((state) =>
     item.addedByAgentId === undefined ? undefined : state.agents[item.addedByAgentId],
   );
@@ -101,21 +68,48 @@ function Row({ item }: { item: LibraryItem }) {
       ? `Added ${ago(item.createdAt)}`
       : `Added by ${adder.name} ${ago(item.createdAt)}`,
   ];
+  const menuOf = () => itemMenu(item, () => input.current?.click());
+  // Clicking the name opens it, where it can be opened safely.
+  const open = fileMenu(file.path, file.kind).actions.find((action) => action.label === "Open");
   return (
-    <ContextMenu menu={() => fileMenu(file.path, file.kind)}>
+    <ContextMenu menu={menuOf}>
       <li className={styles.row}>
+        <input
+          ref={input}
+          type="file"
+          hidden
+          onChange={(event) => {
+            const chosen = event.target.files?.[0];
+            event.target.value = "";
+            if (chosen === undefined) return;
+            replaceFile(item.id, chosen)
+              .then(() => showToast(`Replaced ${file.name}`))
+              .catch((failure: unknown) => showToast(errorText(failure)));
+          }}
+        />
         <span className={styles.nameCell}>
           <span className={styles.tile} aria-hidden>
             {typeLabel(file.name, file.kind)}
           </span>
           <span className={styles.nameText}>
-            <b title={file.path}>{file.name}</b>
+            {open?.run === undefined ? (
+              <b title={file.path}>{file.name}</b>
+            ) : (
+              <button
+                type="button"
+                className={styles.nameButton}
+                title={file.path}
+                onClick={() => void open.run?.()}
+              >
+                {file.name}
+              </button>
+            )}
             <span>{meta.join(" · ")}</span>
           </span>
         </span>
         <GivenToMenu item={item} />
         <span className={styles.used}>{usedText(item)}</span>
-        <ItemMenu item={item} />
+        <MoreMenu label={`More for ${file.name}`} menu={menuOf} />
       </li>
     </ContextMenu>
   );
@@ -210,6 +204,8 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
 
   const counts = (value: Kind) =>
     value === "all" ? items.length : items.filter((item) => item.file.kind === value).length;
+  // Filters show only once they have something to narrow (a5-31).
+  const kinds = new Set(items.map((item) => item.file.kind)).size;
 
   return (
     <section
@@ -228,53 +224,63 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
         }}
       />
       <div className={styles.tools}>
-        <SearchBox value={query} onChange={(value) => setQuery(value)} label="Search the Library" />
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger className={`${menu.chip} ${styles.filter}`}>
-            <span className={menu.chipLabel}>Given to</span>
-            {audienceLabel}
-            <ChevronDown size={13} aria-hidden />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={menu.surface} align="start" sideOffset={4}>
-              <DropdownMenu.RadioGroup value={audience} onValueChange={setAudience}>
-                {[
-                  { value: "", label: "All" },
-                  { value: "everyone", label: "Everyone" },
-                  ...holders.map(({ department }) => ({
-                    value: department.id,
-                    label: department.name,
-                  })),
-                ].map((choice) => (
-                  <DropdownMenu.RadioItem
-                    key={choice.value}
-                    value={choice.value}
-                    className={menu.item}
-                  >
-                    <span className={menu.itemText}>{choice.label}</span>
-                    <DropdownMenu.ItemIndicator>
-                      <Check size={14} className={menu.check} aria-hidden />
-                    </DropdownMenu.ItemIndicator>
-                  </DropdownMenu.RadioItem>
-                ))}
-              </DropdownMenu.RadioGroup>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
-        <fieldset className={`${form.row} ${form.group}`}>
-          <legend className="visually-hidden">Type</legend>
-          {KINDS.map((choice) => (
-            <button
-              key={choice.value}
-              type="button"
-              className={form.chip}
-              aria-pressed={kind === choice.value}
-              onClick={() => setKind(choice.value)}
-            >
-              {choice.label} {counts(choice.value)}
-            </button>
-          ))}
-        </fieldset>
+        {items.length >= 8 || query !== "" ? (
+          <SearchBox
+            value={query}
+            onChange={(value) => setQuery(value)}
+            label="Search the Library"
+          />
+        ) : null}
+        {items.length === 0 ? null : (
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger className={`${menu.chip} ${styles.filter}`}>
+              <span className={menu.chipLabel}>Given to</span>
+              {audienceLabel}
+              <ChevronDown size={13} aria-hidden />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content className={menu.surface} align="start" sideOffset={4}>
+                <DropdownMenu.RadioGroup value={audience} onValueChange={setAudience}>
+                  {[
+                    { value: "", label: "All" },
+                    { value: "everyone", label: "Everyone" },
+                    ...holders.map(({ department }) => ({
+                      value: department.id,
+                      label: department.name,
+                    })),
+                  ].map((choice) => (
+                    <DropdownMenu.RadioItem
+                      key={choice.value}
+                      value={choice.value}
+                      className={menu.item}
+                    >
+                      <span className={menu.itemText}>{choice.label}</span>
+                      <DropdownMenu.ItemIndicator>
+                        <Check size={14} className={menu.check} aria-hidden />
+                      </DropdownMenu.ItemIndicator>
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        )}
+        {kinds < 2 && kind === "all" ? null : (
+          <fieldset className={`${form.row} ${form.group}`}>
+            <legend className="visually-hidden">Type</legend>
+            {KINDS.map((choice) => (
+              <button
+                key={choice.value}
+                type="button"
+                className={form.chip}
+                aria-pressed={kind === choice.value}
+                onClick={() => setKind(choice.value)}
+              >
+                {choice.label} {counts(choice.value)}
+              </button>
+            ))}
+          </fieldset>
+        )}
         <span className={styles.add} data-tour="library-add">
           {shell === undefined ? null : (
             <Button onClick={() => void pickFolder()}>
@@ -291,7 +297,7 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
 
       {adding > 0 ? (
         <p className={form.hint} role="status">
-          Adding {adding} {adding === 1 ? "item" : "items"}…
+          Adding {adding} {adding === 1 ? "item" : "items"}
         </p>
       ) : null}
       {errors.length === 0 ? null : (

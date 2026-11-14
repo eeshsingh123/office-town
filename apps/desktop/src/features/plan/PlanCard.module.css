@@ -96,7 +96,7 @@
   height: 22px;
   padding: 0 4px 0 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: var(--bg);
   font-size: var(--size-meta);
 }
@@ -126,7 +126,7 @@
   height: 22px;
   padding: 0 8px;
   border: 1px dashed var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-chip);
   background: transparent;
   font-size: var(--size-meta);
   color: var(--text-2);
