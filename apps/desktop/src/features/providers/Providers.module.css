@@ -2,8 +2,8 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  max-width: 880px;
+  gap: var(--section-gap);
+  max-width: var(--page-list);
   margin: 0 auto;
 }
 

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import page from "../../ui/CardPage.module.css";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
+import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
@@ -15,8 +17,8 @@ const RECENT_RELEASES = 3;
 function Tutorials() {
   const state = useApp();
   return (
-    <section className={page.card} aria-labelledby="help-tutorials">
-      <h2 id="help-tutorials" className={page.cardTitle}>
+    <section className={page.panel} aria-labelledby="help-tutorials">
+      <h2 id="help-tutorials" className={page.sectionTitle}>
         Tutorials
       </h2>
       <ul className={styles.list}>
@@ -38,6 +40,19 @@ function Tutorials() {
           );
         })}
       </ul>
+      <div>
+        <ConfirmButton
+          variant="ghost"
+          ask={{
+            title: "Run setup again?",
+            description: "The setup steps replace the app until you finish or skip them.",
+            confirmLabel: "Run setup",
+            run: () => saveOnboarding({ setupDone: false }),
+          }}
+        >
+          Run setup again
+        </ConfirmButton>
+      </div>
     </section>
   );
 }
@@ -55,9 +70,9 @@ function WhatsNew() {
   const [showAll, setShowAll] = useState(false);
   const earlier = RELEASES.length - RECENT_RELEASES;
   return (
-    <section className={page.card} aria-labelledby="help-new">
+    <section className={page.panel} aria-labelledby="help-new">
       <div className={styles.cardHead}>
-        <h2 id="help-new" className={page.cardTitle}>
+        <h2 id="help-new" className={page.sectionTitle}>
           What's new
         </h2>
         {version === undefined ? null : <span className={styles.version}>Version {version}</span>}
@@ -83,13 +98,8 @@ function WhatsNew() {
 export function HelpView() {
   return (
     <section className={page.page} aria-labelledby="help-title">
-      <div className={page.column}>
-        <div className={page.head}>
-          <h1 id="help-title" className={page.title}>
-            Help
-          </h1>
-          <Button onClick={() => void saveOnboarding({ setupDone: false })}>Run setup again</Button>
-        </div>
+      <div className={page.form}>
+        <PageHeader id="help-title" title="Help" />
         <Tutorials />
         <WhatsNew />
       </div>

@@ -1,4 +1,5 @@
-import { Clock, Eye, LoaderCircle } from "lucide-react";
+import { Clock } from "lucide-react";
+import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
 import type { DoorChip } from "./doors.ts";
 import styles from "./Office.module.css";
 
@@ -14,14 +15,14 @@ function Chip({ chip }: { chip: DoorChip }) {
     case "working":
       return (
         <span className={styles.chip}>
-          <LoaderCircle size={11} className={`${styles.running} spin`} aria-hidden />
+          <TaskStatusIcon status="working" size={11} />
           Working
         </span>
       );
     case "review":
       return (
         <span className={styles.chip}>
-          <Eye size={11} className={styles.ok} aria-hidden />
+          <TaskStatusIcon status="review" size={11} />
           To review
           <span className={styles.unread} role="img" aria-label="unread" />
         </span>
@@ -29,7 +30,7 @@ function Chip({ chip }: { chip: DoorChip }) {
     case "queued":
       return (
         <span className={styles.chip}>
-          <Clock size={11} aria-hidden />
+          <TaskStatusIcon status="queued" size={11} />
           Queued
         </span>
       );
@@ -41,7 +42,7 @@ function Chip({ chip }: { chip: DoorChip }) {
         </span>
       );
     case "idle":
-      return <span className={styles.chip}>Idle</span>;
+      return <span className={styles.chip}>Free</span>;
   }
 }
 

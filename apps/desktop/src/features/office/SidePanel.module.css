@@ -12,6 +12,19 @@
   transition: none;
 }
 
+/* A narrow window keeps the floor whole: the panel opens over it. */
+@media (max-width: 1100px) {
+  .frame {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    max-width: calc(100% - 48px);
+    box-shadow: var(--shadow-raised);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .frame {
     transition: none;
@@ -145,14 +158,12 @@
 
 .chip {
   flex: none;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
   background: var(--hover);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .chipWorking {
@@ -166,6 +177,7 @@
 }
 
 .chipFailed {
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
   color: var(--bad);
 }
 

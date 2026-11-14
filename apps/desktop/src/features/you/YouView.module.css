@@ -1,6 +1,6 @@
 /* One column now that the side column is gone, at the width of the other forms. */
 .column {
-  max-width: 760px;
+  max-width: var(--page-form);
   margin: 0 auto;
 }
 

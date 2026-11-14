@@ -1,10 +1,8 @@
-import type { TaskState } from "@office-town/contract";
 import { ArrowRight, Check, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   type Agent,
   stateOf,
-  taskStateOf,
   useAgents,
   useTasksWithAgents,
   useWaitingSessions,
@@ -18,7 +16,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { clockTime, taskName } from "../../ui/format.ts";
-import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom, showMode } from "../office/office-state.ts";
@@ -26,6 +24,7 @@ import { useCounts } from "../office/use-counts.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { sharedApps, TUTORIALS, type TutorialId } from "../onboarding/tutorials.ts";
+import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
 import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
@@ -35,14 +34,6 @@ import styles from "./Home.module.css";
 
 const SHOWN_REQUESTS = 3;
 const SHOWN_TASKS = 6;
-
-const GOAL_STATE: Record<TaskState, string> = {
-  queued: "Queued",
-  working: "Working",
-  waiting: "Needs you",
-  idle: "Idle",
-  ended: "Done",
-};
 
 function openBoard() {
   showMode("board");
@@ -129,7 +120,7 @@ function TeamRow(props: {
   icon: ReactNode;
   name: ReactNode;
   line: string;
-  state?: string | undefined;
+  state?: ReactNode;
   onOpen: () => void;
 }) {
   return (
@@ -140,7 +131,7 @@ function TeamRow(props: {
           <span className={styles.rowName}>{props.name}</span>
           <span className={styles.rowLine}>{props.line}</span>
         </span>
-        {props.state === undefined ? null : <span className={styles.chip}>{props.state}</span>}
+        {props.state}
       </button>
     </li>
   );
@@ -198,7 +189,7 @@ function Team() {
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name="Chief"
             line="Plans big goals across departments"
-            state="Set up"
+            state={<span className={styles.chip}>Set up</span>}
             onOpen={() => navigate({ name: "chief" })}
           />
         ) : (
@@ -206,7 +197,7 @@ function Team() {
             icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
             name={records[chiefId]?.name ?? "Chief"}
             line={chiefGoal === undefined ? "No goal in progress" : taskName(chiefGoal)}
-            state={chiefGoal === undefined ? undefined : GOAL_STATE[chiefGoal.state]}
+            state={chiefGoal === undefined ? undefined : <TaskStatusOf taskId={chiefGoal.id} />}
             onOpen={() => navigate({ name: "chief" })}
           />
         )}
@@ -225,7 +216,7 @@ function Team() {
                   ? `${members} ${members === 1 ? "member" : "members"} · no task in progress`
                   : taskName(goal)
               }
-              state={goal === undefined ? undefined : GOAL_STATE[goal.state]}
+              state={goal === undefined ? undefined : <TaskStatusOf taskId={goal.id} />}
               onOpen={() => selectRoom(department.id)}
             />
           );
@@ -238,7 +229,9 @@ function Team() {
               icon={<Avatar name={agent.name} colour={agent.colour} size={20} />}
               name={<WorkerName agent={agent} />}
               line={nowLine(agent, waiting, traces)}
-              state={STATE_LABELS[stateOf(agent, traces, waiting)]}
+              state={
+                <span className={styles.chip}>{STATE_LABELS[stateOf(agent, traces, waiting)]}</span>
+              }
               onOpen={() => selectAgent(agent.id)}
             />
           );
@@ -264,8 +257,6 @@ function Team() {
 
 function Recent() {
   const tasks = useTasksWithAgents();
-  const traces = useApp((state) => state.traces);
-  const waiting = useWaitingSessions();
   const shown = tasks.filter((entry) => entry.task.parentTaskId === undefined);
   return (
     <section className={styles.card} aria-labelledby="recent-title">
@@ -273,28 +264,24 @@ function Recent() {
         Recent tasks
       </h2>
       <ul className={styles.list}>
-        {shown.slice(0, SHOWN_TASKS).map((entry) => {
-          const state = taskStateOf(entry.agents, traces, waiting);
-          return (
-            <li key={entry.task.id}>
-              <button
-                type="button"
-                className={styles.row}
-                onClick={() => navigate({ name: "task", taskId: entry.task.id })}
-              >
-                {state === undefined ? null : <StatusIcon state={state} />}
-                <span className={styles.rowText}>
-                  <span className={styles.rowName}>{taskName(entry.task)}</span>
-                  <span className={styles.rowLine}>
-                    {entry.agents[0] === undefined ? null : <WorkerName agent={entry.agents[0]} />}
-                    {` · ${clockTime(entry.task.createdAt)}`}
-                    {state === undefined ? "" : ` · ${STATE_LABELS[state]}`}
-                  </span>
+        {shown.slice(0, SHOWN_TASKS).map((entry) => (
+          <li key={entry.task.id}>
+            <button
+              type="button"
+              className={styles.row}
+              onClick={() => navigate({ name: "task", taskId: entry.task.id })}
+            >
+              <span className={styles.rowText}>
+                <span className={styles.rowName}>{taskName(entry.task)}</span>
+                <span className={styles.rowLine}>
+                  {entry.agents[0] === undefined ? null : <WorkerName agent={entry.agents[0]} />}
+                  {` · ${clockTime(entry.task.createdAt)}`}
                 </span>
-              </button>
-            </li>
-          );
-        })}
+              </span>
+              <TaskStatusOf taskId={entry.task.id} />
+            </button>
+          </li>
+        ))}
       </ul>
       {shown.length > SHOWN_TASKS ? (
         <Button variant="ghost" onClick={() => navigate({ name: "tasks" })}>
@@ -466,7 +453,7 @@ export function HomeView() {
       ? "No agents are working."
       : [
           working > 0 ? `${working} ${working === 1 ? "agent is" : "agents are"} working` : "",
-          order.length > 0 ? `${order.length} waiting for you` : "",
+          order.length > 0 ? `${order.length} ${order.length === 1 ? "needs" : "need"} you` : "",
         ]
           .filter(Boolean)
           .join(" · ");

@@ -110,7 +110,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
               {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
               {asked ??
                 (state === "waiting"
-                  ? "Waiting for you"
+                  ? "Needs you"
                   : (stageOf(state, trace) ?? stateLabel(state, progress?.subAgents.length ?? 0)))}
             </span>
             {waiting === undefined ? null : (
@@ -134,7 +134,12 @@ function SoloTaskView({ taskId }: { taskId: string }) {
       </header>
 
       {tab.outputs ? (
-        <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+        <>
+          <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+          <div className={styles.outputsReview}>
+            <ReviewBar agent={agent} />
+          </div>
+        </>
       ) : (
         <div className={styles.body}>
           <div className={styles.column}>

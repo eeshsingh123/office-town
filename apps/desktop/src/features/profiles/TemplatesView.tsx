@@ -1,5 +1,5 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { CircleHelp, Copy, LayoutGrid, List, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { CircleHelp, Copy, LayoutGrid, List, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { type Keep, oneOf, useKept } from "../../store/kept.ts";
@@ -7,9 +7,13 @@ import { deleteTemplate, usedText, useTemplates, useTemplateUses } from "../../s
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import form from "../../ui/Form.module.css";
 import { useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine, modelName } from "./model-name.ts";
@@ -19,6 +23,12 @@ import styles from "./Templates.module.css";
 import { TemplatesGuide } from "./TemplatesGuide.tsx";
 
 type Sort = "used" | "name" | "new";
+
+const SORTS: { value: Sort; label: string }[] = [
+  { value: "used", label: "Most used" },
+  { value: "name", label: "Name" },
+  { value: "new", label: "Newest" },
+];
 type Layout = "cards" | "list";
 // "free" or an AI app's id; empty for all.
 type Filter = string;
@@ -67,12 +77,18 @@ function Actions({
               label: "Delete",
               icon: Trash2,
               danger: true,
-              run: () =>
-                deleteTemplate(template.id).then(() =>
-                  showToast(
-                    `Deleted “${template.name}”. Agents made from it keep working as before.`,
-                  ),
-                ),
+              dialog: (props) => (
+                <ConfirmDialog
+                  {...props}
+                  title={`Delete “${template.name}”?`}
+                  description="Agents made from it keep working as before. Its instructions are lost; this cannot be undone."
+                  confirmLabel="Delete template"
+                  danger
+                  onConfirm={() =>
+                    deleteTemplate(template.id).then(() => showToast(`Deleted “${template.name}”.`))
+                  }
+                />
+              ),
             },
           ],
         })}
@@ -136,26 +152,25 @@ export function TemplatesView() {
   return (
     <section className={page.page} aria-labelledby="templates-title">
       <div className={styles.page}>
-        <header className={styles.head}>
-          <div className={page.header}>
-            <h1 id="templates-title" className={page.title}>
-              Templates
-            </h1>
-            <p className={page.lead}>Saved agent setups and reviewers you can reuse.</p>
-          </div>
-          <div className={styles.headActions}>
-            {guideHidden ? (
-              <Button variant="ghost" onClick={() => showGuide(true)}>
-                <CircleHelp size={14} aria-hidden />
-                How templates work
+        <PageHeader
+          id="templates-title"
+          title="Templates"
+          lead="Saved agent setups and reviewers you can reuse."
+          actions={
+            <>
+              {guideHidden ? (
+                <Button variant="ghost" onClick={() => showGuide(true)}>
+                  <CircleHelp size={14} aria-hidden />
+                  How templates work
+                </Button>
+              ) : null}
+              <Button variant="primary" onClick={() => open(undefined)}>
+                <Plus size={14} aria-hidden />
+                New template
               </Button>
-            ) : null}
-            <Button variant="primary" onClick={() => open(undefined)}>
-              <Plus size={14} aria-hidden />
-              New template
-            </Button>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         {guideHidden ? null : (
           <TemplatesGuide
@@ -167,16 +182,12 @@ export function TemplatesView() {
         )}
 
         <div className={styles.tools}>
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search templates by name or job"
-              aria-label="Search templates"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox
+            value={query}
+            onChange={(value) => setQuery(value)}
+            label="Search templates"
+            placeholder="Search templates by name or job"
+          />
           <fieldset className={`${form.row} ${form.group}`}>
             <legend className="visually-hidden">Filter by provider</legend>
             {filters.map((choice) => (
@@ -211,14 +222,7 @@ export function TemplatesView() {
                 List
               </button>
             </fieldset>
-            <label className={styles.sort}>
-              Sort
-              <select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>
-                <option value="used">Most used</option>
-                <option value="name">Name</option>
-                <option value="new">Newest</option>
-              </select>
-            </label>
+            <ChoiceMenu label="Sort" value={sort} choices={SORTS} onChange={setSort} />
           </div>
         </div>
 

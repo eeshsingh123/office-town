@@ -6,9 +6,11 @@
 }
 
 .body {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .stage {
@@ -605,11 +607,6 @@
 .chipFailed {
   background: color-mix(in srgb, var(--bad) 14%, transparent);
   color: var(--bad);
-}
-
-.chipDone {
-  background: color-mix(in srgb, var(--ok) 14%, transparent);
-  color: var(--ok);
 }
 
 .chipQuiet {

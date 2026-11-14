@@ -13,6 +13,7 @@ import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useModelName } from "../profiles/model-line.ts";
+import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
@@ -58,7 +59,7 @@ function MemberRow({
     (state === "working" && step !== undefined
       ? `Step ${step.number} of ${progress?.stepCount} · ${step.title}`
       : state === "waiting"
-        ? "Waiting for you"
+        ? "Needs you"
         : stateLabel(state, progress?.subAgents.length ?? 0));
   const role = agent.record.role?.trim();
   const classes = [
@@ -97,18 +98,19 @@ function MemberRow({
 }
 
 const SUMMARY: [string, readonly AgentState[]][] = [
-  ["waiting", ["waiting"]],
+  ["need you", ["waiting"]],
   ["at work", ["starting", "working", "background"]],
-  ["done", ["idle", "done"]],
+  ["free", ["idle", "done"]],
   ["failed", ["failed"]],
   ["stopped", ["stopped", "interrupted"]],
 ];
 
-// "1 at work · 2 done", with what needs the user first.
+// "1 at work · 2 free", with what needs the user first.
 function summaryOf(states: readonly AgentState[]): string {
   return SUMMARY.flatMap(([word, kinds]) => {
     const count = states.filter((state) => kinds.includes(state)).length;
-    return count === 0 ? [] : `${count} ${word}`;
+    if (count === 0) return [];
+    return `${count} ${count === 1 && word === "need you" ? "needs you" : word}`;
   }).join(" · ");
 }
 
@@ -169,7 +171,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const states = [...stateById.values()];
   const groups = byRole(workers, (worker) => worker.record.role);
   const working = states.filter((state) => isBusy(state)).length;
-  const waitingCount = states.filter((state) => state === "waiting").length;
   const open = teamAtWork(
     task,
     members.map((member) => member.latest),
@@ -207,17 +208,8 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 </span>
               )}
               <span className={styles.chip}>
-                <span className={`${styles.count} ${working === 0 ? styles.countIdle : ""}`}>
-                  {working}
-                </span>
-                working
+                <TaskStatusOf taskId={taskId} task={task} />
               </span>
-              {waitingCount === 0 ? null : (
-                <span className={styles.chip}>
-                  <span className={`${styles.count} ${styles.countWaiting}`}>{waitingCount}</span>
-                  waiting for you
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -231,7 +223,12 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
         ) : null}
       </header>
       {tab.outputs ? (
-        <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+        <>
+          <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
+          <div className={styles.outputsReview}>
+            <ReviewBar agent={lead} />
+          </div>
+        </>
       ) : (
         <div className={styles.body}>
           <nav className={team.members} aria-label="Who works on this">

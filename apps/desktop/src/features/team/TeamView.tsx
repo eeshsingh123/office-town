@@ -1,11 +1,13 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { ChevronDown, Lock, Network, Plus, Search, UserPlus } from "lucide-react";
+import { ChevronDown, Lock, Network, Plus, UserPlus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { selectRoom } from "../office/office-state.ts";
 import { useModelLine, useModelName } from "../profiles/model-line.ts";
 import { useYou } from "../you/you.ts";
@@ -116,7 +118,7 @@ function DepartmentCard({
           </span>
         </button>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Idle"}
+          {working ? "Working" : "Free"}
         </span>
         <Button variant="ghost" className={styles.small} onClick={() => selectRoom(department.id)}>
           Open in office
@@ -184,7 +186,7 @@ function ChiefSlot({ departmentNames }: { departmentNames: string[] }) {
           </span>
         </span>
         <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Idle"}
+          {working ? "Working" : "Free"}
         </span>
       </button>
     );
@@ -332,31 +334,29 @@ export function TeamView() {
       aria-labelledby="team-title"
     >
       <div className={styles.column}>
-        <header className={styles.head}>
-          <div className={page.header}>
-            <h1 id="team-title" className={page.title}>
-              Team
-            </h1>
-            <p className={page.lead}>Your departments, their people and your chief.</p>
-          </div>
-          {empty ? null : (
-            <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
-              <Plus size={14} aria-hidden />
-              New department
-            </Button>
-          )}
-        </header>
+        <PageHeader
+          id="team-title"
+          title="Team"
+          lead="Your departments, their people and your chief."
+          {...(empty
+            ? {}
+            : {
+                actions: (
+                  <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
+                    <Plus size={14} aria-hidden />
+                    New department
+                  </Button>
+                ),
+              })}
+        />
 
         {empty ? null : (
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <span className="visually-hidden">Search the team</span>
-            <input
-              value={query}
-              placeholder="Search departments, roles and names"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox
+            value={query}
+            onChange={(value) => setQuery(value)}
+            label="Search the team"
+            placeholder="Search departments, roles and names"
+          />
         )}
 
         <ul className={styles.tree}>

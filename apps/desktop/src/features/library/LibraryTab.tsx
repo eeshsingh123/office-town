@@ -1,5 +1,5 @@
 import type { AttachmentKind, LibraryAudience, LibraryItem } from "@office-town/contract";
-import { Check, ChevronDown, FolderOpen, MoreHorizontal, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { type DragEvent, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -10,6 +10,7 @@ import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { fileMenu } from "../attachments/file-menu.ts";
 import { sizeText, typeLabel } from "../attachments/kinds.ts";
@@ -227,16 +228,7 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
         }}
       />
       <div className={styles.tools}>
-        <label className={styles.search}>
-          <Search size={15} aria-hidden />
-          <input
-            type="search"
-            value={query}
-            placeholder="Search the Library"
-            aria-label="Search the Library"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <SearchBox value={query} onChange={(value) => setQuery(value)} label="Search the Library" />
         <DropdownMenu.Root>
           <DropdownMenu.Trigger className={`${menu.chip} ${styles.filter}`}>
             <span className={menu.chipLabel}>Given to</span>

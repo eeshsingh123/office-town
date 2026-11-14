@@ -15,7 +15,9 @@ export function useHolders(workspaceId?: string) {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
   return Object.values(departments)
-    .filter((department) => workspaceId === undefined || department.workspaceId === workspaceId)
+    .filter(
+      (department) => workspaceId === undefined || department.workspaceIds.includes(workspaceId),
+    )
     .toSorted((a, b) => a.name.localeCompare(b.name))
     .map((department) => ({
       department,

@@ -31,6 +31,9 @@ import { allAccounts, hasSignIn, rememberedSignIns, rememberSignIn } from "./acc
 import { estimatedUsage } from "./usage.ts";
 
 const NO_CONTENT = { status: 204 } as const;
+
+// Who is signed in takes a CLI run of up to 5 s; Usage, Providers and a provider page share one.
+const STATUS_FRESH_MS = 60_000;
 // A sign-in left open in a closed browser tab ends on its own.
 const SIGN_IN_TIMEOUT_MS = 10 * 60_000;
 // Reads closer together than this reuse the last one, so opening pages cannot flood the vendor.
@@ -58,6 +61,19 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
   const waits = new Map<string, NodeJS.Timeout>();
   let refreshing: Promise<void> | undefined;
   let refreshedAt = 0;
+  type Status = Awaited<ReturnType<typeof readAccountStatus>>;
+  const statuses = new Map<string, { at: number; read: Promise<Status | undefined> }>();
+
+  // One run per account at a time; `fresh` reads again, as after a sign-in.
+  const statusOf = (account: Account, fresh: boolean) => {
+    const known = statuses.get(account.id);
+    if (!fresh && known !== undefined && Date.now() - known.at < STATUS_FRESH_MS) return known.read;
+    const read = readAccountStatus(account.harness, account.environment, account.folder).catch(
+      () => undefined,
+    );
+    statuses.set(account.id, { at: Date.now(), read });
+    return read;
+  };
 
   // Asks each signed-in account's harness for its plan usage now; one that cannot keeps its last.
   const refreshLimits = async () => {
@@ -149,6 +165,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
           });
         }
         store.deleteAccount(account.id);
+        statuses.delete(account.id);
         rememberSignIn(store, account.id, false);
         if (account.folder !== undefined) await removeFolder(account.folder);
         return NO_CONTENT;
@@ -157,13 +174,9 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
     {
       method: "GET",
       path: "/accounts/:id/status",
-      reply: async ({ param }) => {
+      reply: async ({ param, query }) => {
         const account = anyAccount(param("id"));
-        const status = await readAccountStatus(
-          account.harness,
-          account.environment,
-          account.folder,
-        ).catch(() => undefined);
+        const status = await statusOf(account, query.get("fresh") === "1");
         if (status !== undefined) {
           rememberSignIn(store, account.id, status.signedIn);
           return { status: 200, json: status };
@@ -196,6 +209,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
           provider,
           key,
         );
+        statuses.delete(account.id);
         if (!saved) {
           throw new RequestError(
             400,
@@ -242,6 +256,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
         const timer = setTimeout(() => void process.stop(), SIGN_IN_TIMEOUT_MS);
         void process.exited.then((code) => {
           clearTimeout(timer);
+          statuses.delete(account.id);
           if (code === 0) rememberSignIn(store, account.id, true);
           signIn.login =
             code === 0

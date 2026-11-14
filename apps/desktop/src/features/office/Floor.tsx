@@ -1,3 +1,4 @@
+import type { SessionOptions } from "@office-town/contract";
 import { FileText, GripVertical, Plus } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import {
@@ -11,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { lastCatalog } from "../../api/catalogs.ts";
 import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
@@ -20,6 +22,7 @@ import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { departmentMenu } from "../departments/department-menu.tsx";
+import { modelName } from "../profiles/model-name.ts";
 import { fraction, metCount, type ShownStatus } from "../task/goal-progress.ts";
 import { Segments } from "../task/Milestones.tsx";
 import { useYou } from "../you/you.ts";
@@ -151,8 +154,8 @@ const LINK_CLASSES: Record<LinkState, string | undefined> = {
   failed: styles.linkFailed,
 };
 const LEGEND: [LinkState, string][] = [
-  ["waiting", "Waiting"],
-  ["active", "Active"],
+  ["waiting", "Queued"],
+  ["active", "Working"],
   ["done", "Done"],
   ["failed", "Failed"],
 ];
@@ -260,6 +263,14 @@ function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] 
   );
 }
 
+// "Claude Code · Haiku 5.5": a model by its display name (D-66).
+function detailOf(harness: string, options: SessionOptions): string {
+  if (options.model === undefined) return harness;
+  const models = lastCatalog(options.harness, options.environment)?.models;
+  const name = modelName(models, options.model);
+  return name === undefined ? harness : `${harness} · ${name}`;
+}
+
 function seatedOf(
   agents: readonly FloorAgent[],
   free: readonly FreeMember[],
@@ -281,7 +292,7 @@ function seatedOf(
       ...(asleep === undefined ? {} : { asleep: true }),
       position: shift(position),
       sessionId: agent.latest.id,
-      detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
+      detail: detailOf(harness, agent.latest.options),
       ...(bubble === undefined ? {} : { bubble }),
       ...(tokens === undefined ? {} : { tokens }),
       ...(part === undefined ? {} : { part }),
@@ -780,7 +791,7 @@ export function Floor(props: FloorProps) {
                     className={`${styles.agent} ${finished || asleep === true ? styles.finished : ""}`}
                     style={{ left: position.x - 40, top: position.y - 18 }}
                     aria-pressed={selected}
-                    aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}${asleep === true ? ", free" : ""}`}
+                    aria-label={`${name}, ${detail}, ${(state === undefined ? "Free" : STATE_LABELS[state]).toLowerCase()}`}
                     onClick={(event) => {
                       const adding = event.shiftKey || event.ctrlKey || event.metaKey;
                       if (!adding) onSelect([id]);

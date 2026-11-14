@@ -34,6 +34,8 @@ const order = (limit: UsageLimit) => {
 };
 
 // Drawn only: the percentage is always written beside it.
+const lastStatus = new Map<string, AccountStatus | null>();
+
 export function Meter({
   usedFraction,
   tick,
@@ -147,12 +149,18 @@ const planName = (plan: string) =>
 export function AccountCard(props: AccountCardProps) {
   const { account, harnessName, reportsLimits, limits, users, working, tokens, showLeft, now } =
     props;
-  const [status, setStatus] = useState<AccountStatus | null>();
+  // The last email and plan show at once while they are read again.
+  const [status, setStatus] = useState<AccountStatus | null | undefined>(() =>
+    lastStatus.get(account.id),
+  );
   useEffect(() => {
     let current = true;
     api
       .readAccountStatus(account.id)
-      .then((next) => current && setStatus(next))
+      .then((next) => {
+        lastStatus.set(account.id, next);
+        if (current) setStatus(next);
+      })
       .catch(() => current && setStatus(null));
     return () => {
       current = false;

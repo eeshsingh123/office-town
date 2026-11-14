@@ -1,11 +1,13 @@
 import type { ReviewerRecord } from "@office-town/contract";
-import { Copy, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { deleteReviewer, saveReviewer, useReviewers } from "../../store/reviewers.ts";
-import { MoreMenu } from "../../ui/ActionMenu.tsx";
+import { type MenuContent, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import form from "../../ui/Form.module.css";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { useModels } from "./model-line.ts";
 import { modelLine } from "./model-name.ts";
@@ -34,7 +36,7 @@ export function ReviewersSection() {
           `${reviewer.name} ${reviewer.description}`.toLowerCase().includes(words),
         );
 
-  const menuOf = (reviewer: ReviewerRecord) => ({
+  const menuOf = (reviewer: ReviewerRecord): MenuContent => ({
     actions: [
       { label: "Edit", icon: Pencil, run: () => open(reviewer) },
       {
@@ -49,10 +51,19 @@ export function ReviewersSection() {
         label: "Delete",
         icon: Trash2,
         danger: true,
-        run: async () => {
-          await deleteReviewer(reviewer.id);
-          showToast(`Deleted “${reviewer.name}”.`);
-        },
+        dialog: (props) => (
+          <ConfirmDialog
+            {...props}
+            title={`Delete “${reviewer.name}”?`}
+            description="Its instructions are lost; this cannot be undone."
+            confirmLabel="Delete reviewer"
+            danger
+            onConfirm={async () => {
+              await deleteReviewer(reviewer.id);
+              showToast(`Deleted “${reviewer.name}”.`);
+            }}
+          />
+        ),
       },
     ],
   });
@@ -74,16 +85,7 @@ export function ReviewersSection() {
         </div>
         <div className={styles.headActions}>
           {all.length > SEARCH_FROM ? (
-            <label className={styles.search}>
-              <Search size={14} aria-hidden />
-              <input
-                type="search"
-                value={query}
-                placeholder="Search reviewers"
-                aria-label="Search reviewers"
-                onChange={(change) => setQuery(change.target.value)}
-              />
-            </label>
+            <SearchBox value={query} onChange={setQuery} label="Search reviewers" />
           ) : null}
           <Button variant="secondary" onClick={() => open(undefined)}>
             <Plus size={14} aria-hidden />

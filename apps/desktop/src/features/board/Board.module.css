@@ -16,37 +16,10 @@
   padding: 20px 24px;
 }
 
-.search {
-  display: flex;
-  flex: 0 1 360px;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-3);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.search input {
-  width: 100%;
-  padding: 7px 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-}
-
 .board {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(5, minmax(240px, 1fr));
+  grid-template-columns: repeat(6, minmax(220px, 1fr));
   gap: 16px;
   min-height: 0;
   padding: 0 24px 24px;

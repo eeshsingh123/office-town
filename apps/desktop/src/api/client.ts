@@ -440,8 +440,12 @@ export const api = {
     write("PUT", `/accounts/${id(accountId)}`, { name }, accountSchema),
   deleteAccount: (accountId: string): Promise<void> => send("DELETE", `/accounts/${id(accountId)}`),
   // Null where the harness cannot say who is signed in.
-  readAccountStatus: (accountId: string): Promise<AccountStatus | null> =>
-    read(`/accounts/${id(accountId)}/status`, accountStatusSchema.nullable()),
+  // The core keeps a reading for a minute; `fresh` asks again, as right after a sign-in.
+  readAccountStatus: (accountId: string, fresh = false): Promise<AccountStatus | null> =>
+    read(
+      `/accounts/${id(accountId)}/status${fresh ? "?fresh=1" : ""}`,
+      accountStatusSchema.nullable(),
+    ),
   saveAccountKey: (accountId: string, key: AccountKeyRequest): Promise<AccountStatus> =>
     write("POST", `/accounts/${id(accountId)}/key`, key, accountStatusSchema),
   installHarness: (harness: string): Promise<HarnessInstall> =>

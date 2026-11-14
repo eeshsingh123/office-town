@@ -1,11 +1,13 @@
 import type { Account } from "@office-town/contract";
-import { RefreshCw, Search } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { compactCount } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { isReady, useHarnessStatuses } from "../providers/providers.ts";
 import { Meter } from "./AccountCard.tsx";
 import { AccountGrid, tokensOf, useAccountUsers, useSpend } from "./AccountGrid.tsx";
@@ -17,6 +19,8 @@ type Period = "today" | "week";
 
 // Each account's plan limits, who uses it, and where the tokens went (D-61). Accounts are added
 // on the Providers page (D-76).
+const TEAMS_SHOWN = 8;
+
 export function UsageView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
@@ -81,10 +85,11 @@ export function UsageView() {
     .filter((group) => group.accounts.length > 0);
 
   const rows = spend === undefined ? undefined : period === "today" ? spend.today : spend.week;
+  const [allTeams, setAllTeams] = useState(false);
   const byTeam = useMemo(() => {
     const teams = new Map<
       string,
-      { team: string; accountId: string; tasks: number; tokens: number }
+      { key: string; team: string; accountId: string; tasks: number; tokens: number }
     >();
     for (const row of rows ?? []) {
       const record = useApp.getState().agents[row.agentId];
@@ -92,8 +97,15 @@ export function UsageView() {
         record?.departmentId === undefined
           ? "Assistants"
           : (departments[record.departmentId]?.name ?? "A team");
-      const key = `${team}/${row.accountId}`;
-      const known = teams.get(key) ?? { team, accountId: row.accountId, tasks: 0, tokens: 0 };
+      // By id: two departments may share a name.
+      const key = `${record?.departmentId ?? "assistants"}/${row.accountId}`;
+      const known = teams.get(key) ?? {
+        key,
+        team,
+        accountId: row.accountId,
+        tasks: 0,
+        tokens: 0,
+      };
       known.tasks += row.tasks;
       known.tokens += tokensOf([row]);
       teams.set(key, known);
@@ -115,25 +127,24 @@ export function UsageView() {
   return (
     <section className={page.page} aria-labelledby="usage-title">
       <div className={styles.column}>
-        <div className={styles.top}>
-          <header className={page.header}>
-            <h1 id="usage-title" className={page.title}>
-              Usage
-            </h1>
-            <p className={page.lead}>Plan limits for each account your agents use.</p>
-          </header>
-          <div className={styles.topActions}>
-            <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
-              <RefreshCw
-                size={14}
-                className={live.refreshing ? styles.turning : undefined}
-                aria-hidden
-              />
-              {live.refreshing ? "Refreshing" : "Refresh"}
-            </Button>
-            <Button onClick={() => navigate({ name: "providers" })}>Manage accounts</Button>
-          </div>
-        </div>
+        <PageHeader
+          id="usage-title"
+          title="Usage"
+          lead="Plan limits for each account your agents use."
+          actions={
+            <>
+              <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
+                <RefreshCw
+                  size={14}
+                  className={live.refreshing ? styles.turning : undefined}
+                  aria-hidden
+                />
+                {live.refreshing ? "Refreshing" : "Refresh"}
+              </Button>
+              <Button onClick={() => navigate({ name: "providers" })}>Manage accounts</Button>
+            </>
+          }
+        />
 
         {atLimit.map((account) => {
           const full = fullest(limits[account.id], now);
@@ -190,16 +201,7 @@ export function UsageView() {
         )}
 
         <div className={styles.filters}>
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search accounts"
-              aria-label="Search accounts"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox value={query} onChange={(value) => setQuery(value)} label="Search accounts" />
           <ChoiceMenu
             label="Provider"
             value={tool}
@@ -259,14 +261,14 @@ export function UsageView() {
                   <tr>
                     <th>Team</th>
                     <th>Account</th>
-                    <th>Share of the account's tokens</th>
+                    <th>Share of account</th>
                     <th className={styles.number}>Tasks</th>
                     <th className={styles.number}>Tokens</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {byTeam.map((entry) => (
-                    <tr key={`${entry.team}/${entry.accountId}`}>
+                  {(allTeams ? byTeam : byTeam.slice(0, TEAMS_SHOWN)).map((entry) => (
+                    <tr key={entry.key}>
                       <td>
                         <span className={styles.team}>{entry.team}</span>
                       </td>
@@ -283,6 +285,11 @@ export function UsageView() {
                   ))}
                 </tbody>
               </table>
+              {allTeams || byTeam.length <= TEAMS_SHOWN ? null : (
+                <Button variant="ghost" onClick={() => setAllTeams(true)}>
+                  Show all {byTeam.length}
+                </Button>
+              )}
             </div>
           )}
         </section>

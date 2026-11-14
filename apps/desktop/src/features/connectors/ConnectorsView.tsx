@@ -1,10 +1,12 @@
 import type { Audience, CatalogEntry } from "@office-town/contract";
-import { CircleAlert, Plus, Search } from "lucide-react";
+import { CircleAlert, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { navigate } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { AddSheet } from "./AddSheet.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
@@ -131,6 +133,8 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         a.name.localeCompare(b.name),
     );
   const offers = groups.filter((group) => group.routes.every(isOffer) && matches(group.name));
+  // The Add sheet lists every catalog app and every offer, so the count is the same there.
+  const allOffers = groups.filter((group) => group.routes.every(isOffer)).length;
   const known = new Set(groups.map(({ key }) => key));
   const matching = entries.filter(
     (entry) => !known.has(entry.setup.slug) && matches(`${entry.setup.name} ${entry.description}`),
@@ -147,30 +151,18 @@ export function ConnectorsView(props: ConnectorsViewProps) {
       aria-labelledby="connectors-title"
     >
       <div className={styles.column}>
-        <header className={`${page.header} ${styles.head}`}>
-          <span>
-            <h1 id="connectors-title" className={page.title}>
-              Connectors
-            </h1>
-            <p className={page.lead}>Apps your agents can use.</p>
-          </span>
-          <span className={styles.headTools}>
-            <label className={styles.search}>
-              <Search size={15} aria-hidden />
-              <input
-                type="search"
-                value={query}
-                placeholder="Search apps"
-                aria-label="Search apps"
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
+        <PageHeader
+          id="connectors-title"
+          title="Connectors"
+          lead="Apps your agents can use."
+          actions={
             <Button variant="primary" data-tour="connectors-add" onClick={() => setAdding({})}>
-              <Plus size={15} aria-hidden />
+              <Plus size={14} aria-hidden />
               Add app
             </Button>
-          </span>
-        </header>
+          }
+        />
+        <SearchBox value={query} onChange={setQuery} label="Search apps" />
 
         {mine.length === 0 ? null : (
           <div className={page.section}>
@@ -222,7 +214,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
           ) : null}
           {listed.length < matching.length ? (
             <Button variant="ghost" className={styles.seeAll} onClick={() => setAdding({})}>
-              See all {matching.length + offers.length} apps
+              See all {entries.length + allOffers} apps
             </Button>
           ) : null}
         </div>
@@ -231,6 +223,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         <AddSheet
           keysAt={catalog?.keys ?? "store"}
           entries={entries}
+          offers={groups.filter((group) => group.routes.every(isOffer))}
           {...(sheet.app === undefined ? {} : { app: sheet.app })}
           {...(sheet.audience === undefined ? {} : { audience: sheet.audience })}
           onClose={() => setAdding(null)}

@@ -26,6 +26,7 @@ import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
 import {
   groupApps,
+  isOffer,
   isProviderApp,
   needsRenewing,
   PERMISSIONS,
@@ -51,11 +52,14 @@ const PLACES = { app: "In the app", background: "In the background", cloud: "In 
 
 function signedInText(route: ConnectorRecord, accountName: string | undefined): string {
   const { setup } = route;
+  if (isOffer(route)) return "Not set up";
   if (setup.kind === "claude")
     return `Signed in on claude.ai${accountName ? ` · ${accountName}` : ""}`;
   // Codex names a server from the user's own Codex settings "server:<name>"; the rest are ChatGPT's.
   if (setup.kind === "codex") {
-    return `Signed in through ${setup.app?.startsWith("server:") ? "Codex" : "ChatGPT"}`;
+    return setup.app?.startsWith("server:")
+      ? "From your Codex settings"
+      : "Signed in through ChatGPT";
   }
   if (setup.kind === "opencode") return "Signed in through OpenCode";
   if (setup.kind === "local") return "A program on this computer";
@@ -101,7 +105,9 @@ function RouteRow({ route, first }: { route: ConnectorRecord; first: boolean }) 
             .join(" · ")}
         </span>
       </span>
-      {renewing ? (
+      {isOffer(route) ? (
+        <RenewAction route={route} label="Set up" />
+      ) : renewing ? (
         <RenewAction route={route} label="Renew" />
       ) : (
         <span className={`${styles.routeStatus} ${route.enabled ? "" : styles.warn}`}>
@@ -125,7 +131,7 @@ function RouteRow({ route, first }: { route: ConnectorRecord; first: boolean }) 
 const OUTCOMES: Partial<Record<ConnectorCall["outcome"], string>> = {
   refused: "Not allowed",
   failed: "Failed",
-  asked: "Waiting for you",
+  asked: "Needs you",
 };
 
 function CallRow({ call }: { call: ConnectorCall }) {
@@ -216,8 +222,9 @@ function RecentUse({ routes }: { routes: ConnectorRecord[] }) {
   );
 }
 
-function useActions(routes: ConnectorRecord[]): ConnectorAction[] | undefined {
-  const [actions, setActions] = useState<ConnectorAction[]>();
+// "failed" when the app's actions cannot be read; the section says so in place.
+function useActions(routes: ConnectorRecord[]): ConnectorAction[] | "failed" | undefined {
+  const [actions, setActions] = useState<ConnectorAction[] | "failed">();
   const source = routes.toSorted((a, b) => b.actions - a.actions)[0];
   const sourceId = source?.id;
   const count = source?.actions ?? 0;
@@ -229,7 +236,9 @@ function useActions(routes: ConnectorRecord[]): ConnectorAction[] | undefined {
       (read) => {
         if (current) setActions(read);
       },
-      (failure: unknown) => showToast(errorText(failure)),
+      () => {
+        if (current) setActions("failed");
+      },
     );
     return () => {
       current = false;
@@ -308,59 +317,69 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
           </div>
         </div>
 
-        <div className={page.section}>
-          <div className={page.sectionHead}>
-            <h2 className={page.sectionTitle}>Access</h2>
-          </div>
-          <div className={styles.list}>
-            <div className={styles.accessRow}>
-              <span className={styles.accessKey}>Permission</span>
-              <span>
-                <fieldset className={styles.segments}>
-                  <legend className="visually-hidden">Permission</legend>
-                  {PERMISSIONS.map(({ value, title, description }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      title={description}
-                      aria-pressed={main.permission === value}
-                      onClick={() => void changeAll(routes, { permission: value })}
-                    >
-                      {title}
-                    </button>
-                  ))}
-                </fieldset>
-                <p className={styles.hint}>
-                  {onlyOpenCode
-                    ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, and Read only blocks them all. OpenCode 1 shows only the action's name, OpenCode 2 also what it sends."
-                    : "Reads never ask. Changes follow this."}
-                </p>
-              </span>
+        {routes.every(isOffer) ? (
+          <p className={styles.sub}>Set it up to choose who can use it and to see its actions.</p>
+        ) : (
+          <>
+            <div className={page.section}>
+              <div className={page.sectionHead}>
+                <h2 className={page.sectionTitle}>Access</h2>
+              </div>
+              <div className={styles.list}>
+                <div className={styles.accessRow}>
+                  <span className={styles.accessKey}>Permission</span>
+                  <span>
+                    <fieldset className={styles.segments}>
+                      <legend className="visually-hidden">Permission</legend>
+                      {PERMISSIONS.map(({ value, title, description }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          title={description}
+                          aria-pressed={main.permission === value}
+                          onClick={() => void changeAll(routes, { permission: value })}
+                        >
+                          {title}
+                        </button>
+                      ))}
+                    </fieldset>
+                    <p className={styles.hint}>
+                      {onlyOpenCode
+                        ? "OpenCode doesn't say which actions only read: Ask me first asks before each one, and Read only blocks them all. OpenCode 1 shows only the action's name, OpenCode 2 also what it sends."
+                        : "Reads never ask. Changes follow this."}
+                    </p>
+                  </span>
+                </div>
+                <div className={styles.accessRow}>
+                  <span className={styles.accessKey}>Who can use it</span>
+                  <span>
+                    <AudienceMenu
+                      audience={main.audience}
+                      holders={holders}
+                      onChange={(next) => void changeAll(routes, { audience: next })}
+                      everyone="Every agent, in any department"
+                      empty="There are no departments yet."
+                      label="Can use it:"
+                    />
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className={styles.accessRow}>
-              <span className={styles.accessKey}>Who can use it</span>
-              <span>
-                <AudienceMenu
-                  audience={main.audience}
-                  holders={holders}
-                  onChange={(next) => void changeAll(routes, { audience: next })}
-                  everyone="Every agent, in any department"
-                  empty="There are no departments yet."
-                  label="Can use it:"
-                />
-              </span>
-            </div>
-          </div>
-        </div>
 
-        <div className={page.section}>
-          <div className={page.sectionHead}>
-            <h2 className={page.sectionTitle}>What agents can do</h2>
-          </div>
-          {actions === undefined ? null : (
-            <ActionGroups actions={actions} permission={main.permission} />
-          )}
-        </div>
+            <div className={page.section}>
+              <div className={page.sectionHead}>
+                <h2 className={page.sectionTitle}>What agents can do</h2>
+              </div>
+              {actions === undefined ? (
+                <p className={styles.sub}>Reading its actions</p>
+              ) : actions === "failed" ? (
+                <p className={styles.sub}>Could not read this app's actions.</p>
+              ) : (
+                <ActionGroups actions={actions} permission={main.permission} />
+              )}
+            </div>
+          </>
+        )}
 
         <div className={page.section}>
           <div className={page.sectionHead}>

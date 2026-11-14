@@ -13,18 +13,11 @@ import page from "../../ui/Page.module.css";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { LibraryTab } from "../library/LibraryTab.tsx";
 import { useLibrary } from "../library/library.ts";
+import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import { KIND_LABEL, WorkspaceIcon } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
 import { WorkspaceMenu } from "./WorkspacesView.tsx";
-
-const TASK_STATE: Record<string, string> = {
-  queued: "Waiting its turn",
-  working: "In progress",
-  waiting: "Needs you",
-  idle: "Paused",
-  ended: "Done",
-};
 
 export function WorkspaceView({
   workspaceId,
@@ -186,11 +179,7 @@ export function WorkspaceView({
                                   .join(" · ")}
                               </span>
                             </span>
-                            <span className={styles.pill}>
-                              {task.state === "ended" && task.reviewedAt === undefined
-                                ? "To review"
-                                : TASK_STATE[task.state]}
-                            </span>
+                            <TaskStatusOf taskId={task.id} task={task} />
                           </button>
                         </li>
                       ))}

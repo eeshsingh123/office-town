@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Database, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, Database, Plus } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -12,6 +12,9 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { byteSize } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
+import { TabRow } from "../../ui/TabRow.tsx";
 import { useLoaded } from "../../ui/use-loaded.ts";
 import { useModelLine } from "../profiles/model-line.ts";
 import { TaskRow, type Team } from "./TaskRow.tsx";
@@ -34,6 +37,16 @@ import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
 // Past this, the history is worth pruning; deleting tasks is the only way to free it.
 const LARGE_STORE_BYTES = 1024 ** 3;
+
+// An empty tab with nothing filtered is good news, not a failed search.
+const EMPTY_TAB: Record<Tab, string> = {
+  all: "No tasks yet.",
+  needs: "Nothing needs you.",
+  active: "Nothing is working.",
+  review: "Nothing to review.",
+  done: "Nothing is done yet.",
+  ended: "Nothing failed or stopped.",
+};
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "all", label: "All" },
@@ -356,59 +369,42 @@ export function TasksView() {
       aria-labelledby="tasks-title"
     >
       <div className={styles.column}>
-        <div className={styles.top}>
-          <header className={page.header}>
-            <h1 id="tasks-title" className={page.title}>
-              Tasks
-            </h1>
-            <p className={styles.summary}>
-              {taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing running."}
-            </p>
-          </header>
-          <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
-            <Plus size={14} aria-hidden />
-            New task
-          </Button>
-        </div>
+        <PageHeader
+          id="tasks-title"
+          title="Tasks"
+          lead={
+            taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing running."
+          }
+          actions={
+            <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+              <Plus size={14} aria-hidden />
+              New task
+            </Button>
+          }
+        />
 
         {taskItems.length === 0 ? null : (
           <div className={styles.tools}>
             <div className={styles.tabsRow}>
-              <div className={styles.tabs} role="tablist" aria-label="Show">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={filters.tab === tab.value}
-                    className={styles.tab}
-                    onClick={() => update({ tab: tab.value })}
-                  >
-                    {tab.label}
-                    <span
-                      className={
-                        tab.value === "needs" && counts.needs > 0 ? styles.needsBadge : styles.count
-                      }
-                    >
-                      {/* Blank until the core has counted, rather than a wrong number. */}
-                      {found === undefined ? null : counts[tab.value]}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <TabRow
+                label="Show"
+                tabs={TABS.map((tab) => ({
+                  ...tab,
+                  count: found === undefined ? undefined : counts[tab.value],
+                  urgent: tab.value === "needs" && counts.needs > 0,
+                }))}
+                value={filters.tab}
+                onChange={(tab) => update({ tab })}
+              />
               <StoreSize />
             </div>
             <div className={styles.filters}>
-              <label className={styles.search}>
-                <Search size={15} aria-hidden />
-                <input
-                  type="search"
-                  value={filters.query}
-                  placeholder="Search tasks, agents, teams"
-                  aria-label="Search tasks"
-                  onChange={(event) => update({ query: event.target.value })}
-                />
-              </label>
+              <SearchBox
+                value={filters.query}
+                onChange={(value) => update({ query: value })}
+                label="Search tasks"
+                placeholder="Search tasks, agents, teams"
+              />
               <TeamFilter
                 teams={presentTeams}
                 chosen={filters.teams}
@@ -454,10 +450,20 @@ export function TasksView() {
 
         {!failed && taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
           <div className={styles.empty}>
-            <p className={styles.emptyTitle}>No tasks match</p>
-            <button type="button" className={styles.link} onClick={() => setFilters(NO_FILTERS)}>
-              Clear filters
-            </button>
+            {narrowing ? (
+              <>
+                <p className={styles.emptyTitle}>No tasks match</p>
+                <button
+                  type="button"
+                  className={styles.link}
+                  onClick={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
+                >
+                  Clear filters
+                </button>
+              </>
+            ) : (
+              <p className={styles.emptyTitle}>{EMPTY_TAB[filters.tab]}</p>
+            )}
           </div>
         ) : null}
 

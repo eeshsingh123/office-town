@@ -1,5 +1,5 @@
 import type { UserRequestEvent } from "@office-town/contract";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useLevel, useSessionAgent } from "../../store/agents.ts";
@@ -9,8 +9,11 @@ import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
@@ -202,7 +205,8 @@ function GroupSection(props: GroupSectionProps) {
           <span className={styles.groupMeta}>{group.meta}</span>
         </div>
         <span className={styles.waiting}>
-          {group.asks.length} waiting · oldest {waitedFor(group.oldestAt, now)}
+          {group.asks.length} {group.asks.length === 1 ? "needs" : "need"} you · oldest{" "}
+          {waitedFor(group.oldestAt, now)}
         </span>
         {approvals === 0 ? null : (
           <div className={styles.groupActions}>
@@ -349,24 +353,23 @@ export function NeedsYouView() {
       aria-labelledby="needs-you-title"
     >
       <div className={styles.column}>
-        <header className={page.header}>
-          <h1 id="needs-you-title" className={page.title}>
-            Needs you
-          </h1>
-          <p className={page.lead}>
-            {asks.length === 0
-              ? "No agent is waiting for you."
+        <PageHeader
+          id="needs-you-title"
+          title="Needs you"
+          lead={
+            asks.length === 0
+              ? "Nothing needs you."
               : [
-                  `${asks.length} waiting across ${plural(taskCount, "task", "tasks")}`,
+                  `${asks.length} ${asks.length === 1 ? "needs" : "need"} you across ${plural(taskCount, "task", "tasks")}`,
                   decisions === 0
                     ? undefined
                     : `${plural(decisions, "plan or team", "plans or teams")} to approve`,
                   `oldest waiting ${waitedFor(oldest, now)}`,
                 ]
                   .filter(Boolean)
-                  .join(" · ")}
-          </p>
-        </header>
+                  .join(" · ")
+          }
+        />
 
         <UsagePauses title="Paused near a plan limit" />
         <LimitStops title="Stopped at a plan limit" />
@@ -387,16 +390,12 @@ export function NeedsYouView() {
         {asks.length === 0 ? null : (
           <div className={styles.tools}>
             <div className={styles.toolsRow}>
-              <label className={styles.search}>
-                <Search size={15} aria-hidden />
-                <input
-                  type="search"
-                  value={filters.query}
-                  placeholder="Search requests, tasks, agents, commands"
-                  aria-label="Search what needs you"
-                  onChange={(event) => update({ query: event.target.value })}
-                />
-              </label>
+              <SearchBox
+                value={filters.query}
+                onChange={(value) => update({ query: value })}
+                label="Search what needs you"
+                placeholder="Search requests, tasks, agents, commands"
+              />
               <fieldset className={`${styles.segment} ${form.group}`}>
                 <legend className={styles.segmentLabel}>Group by</legend>
                 {GROUP_BY.map((choice) => (
@@ -451,7 +450,7 @@ export function NeedsYouView() {
                 aria-pressed={olderThanHour}
                 onClick={() => setOlderThanHour(!olderThanHour)}
               >
-                Waiting over 1h <span className={styles.count}>{oldCount}</span>
+                Older than 1 h <span className={styles.count}>{oldCount}</span>
               </button>
             </div>
             {narrowing && visibleApprovals.length > 0 ? (
@@ -573,22 +572,18 @@ interface FilterSelectProps {
   onChange: (value: string | undefined) => void;
 }
 
+// The shared filter chip; "" stands for All.
 function FilterSelect({ label, value, options, onChange }: FilterSelectProps) {
+  const choices = [
+    { value: "", label: "All" },
+    ...options.map(([id, name]) => ({ value: id ?? "", label: name })),
+  ];
   return (
-    <label className={styles.select}>
-      <span className="visually-hidden">{label}</span>
-      <select
-        value={value ?? ""}
-        data-set={value !== undefined}
-        onChange={(event) => onChange(event.target.value === "" ? undefined : event.target.value)}
-      >
-        <option value="">{label}: All</option>
-        {options.map(([id, name]) => (
-          <option key={id} value={id}>
-            {label}: {name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <ChoiceMenu
+      label={label}
+      value={value ?? ""}
+      choices={choices}
+      onChange={(chosen) => onChange(chosen === "" ? undefined : chosen)}
+    />
   );
 }

@@ -2,8 +2,8 @@
 .page {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  max-width: 1180px;
+  gap: var(--section-gap);
+  max-width: var(--page-list);
   margin: 0 auto;
 }
 
@@ -29,26 +29,6 @@
   margin-top: 4px;
 }
 
-.search {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 8px;
-  min-width: 220px;
-  max-width: 360px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-3);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.search input,
 .popSearch input {
   width: 100%;
   padding: 8px 0;

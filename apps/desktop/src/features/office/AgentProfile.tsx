@@ -19,6 +19,7 @@ import { AsksFirst } from "../profiles/AsksFirst.tsx";
 import { SaveTemplateDialog } from "../profiles/SaveTemplateDialog.tsx";
 import { type ChipSettings, SettingsChips } from "../profiles/SettingsChips.tsx";
 import { useYou } from "../you/you.ts";
+import { toHandle } from "./AgentName.tsx";
 import styles from "./AgentProfile.module.css";
 
 interface Draft {
@@ -88,7 +89,8 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
     setSaving(true);
     setError(undefined);
     try {
-      if (draft.name !== agent.name) await api.renameAgent(id, draft.name);
+      const handle = toHandle(draft.name);
+      if (handle !== agent.name) await api.renameAgent(id, handle);
       await api.updateAgent(id, {
         colour: draft.colour,
         purpose: draft.job,
@@ -152,10 +154,7 @@ export function AgentProfile({ agent }: { agent: AgentRecord }) {
           value={draft.name}
           onChange={(event) => set({ name: event.target.value })}
         />
-        <span className={form.hint}>
-          Teammates use this name to give {who} work. It starts with @ and uses lowercase letters,
-          numbers and dashes.
-        </span>
+        <span className={form.hint}>Teammates give work to {toHandle(draft.name)}.</span>
       </label>
       <div className={form.field}>
         <span className={form.label}>Colour</span>

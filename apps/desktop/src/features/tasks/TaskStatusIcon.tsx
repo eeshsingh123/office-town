@@ -1,6 +1,8 @@
+import { type TaskRecord, taskStatus } from "@office-town/contract";
 import { CircleCheck, CircleMinus, CircleX, Clock, LoaderCircle } from "lucide-react";
+import { useApp } from "../../store/app-store.ts";
 import styles from "../../ui/StatusIcon.module.css";
-import { type RowStatus, STATUS_LABELS } from "./task-list.ts";
+import { type RowStatus, STATUS_LABELS, statusOfTask } from "./task-list.ts";
 
 // A half-filled circle on the same 24-unit grid and ring as Done, so the two line up.
 function HalfCircle({ size, label }: { size: number; label: string }) {
@@ -52,4 +54,34 @@ export function TaskStatusIcon({ status, size = 14 }: { status: RowStatus; size?
     case "failed":
       return <CircleX size={size} aria-label={label} className={`${styles.icon} ${styles.bad}`} />;
   }
+}
+
+// The icon and the word, for rows outside Tasks that name a task's status.
+export function TaskStatusTag({ status }: { status: RowStatus }) {
+  return (
+    <span className={styles.tag}>
+      <TaskStatusIcon status={status} size={13} />
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+// A task's live status, for screens that hold only the task. A task the app has not loaded is
+// read from its record alone, as the core counts it.
+export function TaskStatusOf({ taskId, task }: { taskId: string; task?: TaskRecord }) {
+  const live = useApp((state) => statusOfTask(state, taskId));
+  const status =
+    live ??
+    (task === undefined
+      ? undefined
+      : taskStatus(
+          {
+            state: task.state,
+            reviewed: task.reviewedAt !== undefined,
+            isPart: task.parentTaskId !== undefined,
+            openPieces: false,
+          },
+          undefined,
+        ));
+  return status === undefined ? null : <TaskStatusTag status={status} />;
 }

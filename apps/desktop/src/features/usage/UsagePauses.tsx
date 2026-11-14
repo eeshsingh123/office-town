@@ -6,7 +6,7 @@ import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskName } from "../../ui/format.ts";
 import { showToast } from "../../ui/Toast.tsx";
-import { accountName, clock, inTime } from "./limits.ts";
+import { accountName, clock, inTime, pausedWindowLabel } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { useMinute } from "./use-usage.ts";
 
@@ -63,7 +63,8 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
       <Pause size={22} aria-hidden="true" />
       <div className={styles.stopText}>
         <strong>
-          Paused at {Math.round(pause.usedFraction * 100)}% of the {pause.window} limit
+          Paused at {Math.round(pause.usedFraction * 100)}% of the{" "}
+          {pausedWindowLabel(pause.window).toLowerCase()} limit
         </strong>
         <span>
           {accountName(accounts, harnessName, accountId)}: {names}.

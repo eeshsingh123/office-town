@@ -5,22 +5,10 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  max-width: 1120px;
+  gap: var(--section-gap);
+  max-width: var(--page-list);
   margin: 0 auto;
   padding-bottom: 96px;
-}
-
-.top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.summary {
-  margin: 0;
-  color: var(--text-3);
 }
 
 /* Tabs, then search and filters, then the groups. */
@@ -37,55 +25,6 @@
   gap: 16px;
   align-self: stretch;
   border-bottom: 1px solid var(--border);
-}
-
-.tabs {
-  display: flex;
-  flex: 1;
-  gap: 4px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-bottom: -1px;
-  padding: 9px 12px 10px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--text-2);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--text);
-}
-
-.tab[aria-selected="true"] {
-  border-bottom-color: var(--text);
-  color: var(--text);
-  font-weight: 600;
-}
-
-.count {
-  font-size: var(--size-small);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.needsBadge {
-  padding: 0 7px;
-  border-radius: 10px;
-  background: var(--attention);
-  color: var(--on-attention);
-  font-size: var(--size-small);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 .storage {
@@ -110,33 +49,6 @@
   align-items: center;
   gap: 8px;
   align-self: stretch;
-}
-
-.search {
-  display: flex;
-  flex: 1 1 280px;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--text-3);
-}
-
-.search:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.search input {
-  width: 100%;
-  padding: 7px 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
 }
 
 .set {

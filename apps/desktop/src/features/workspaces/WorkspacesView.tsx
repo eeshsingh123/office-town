@@ -1,5 +1,5 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
-import { ListX, Pencil, Plus, Search, TriangleAlert } from "lucide-react";
+import { ListX, Pencil, Plus, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
@@ -16,6 +16,8 @@ import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { KIND_LABEL, WorkspaceIcon, WorkspaceTip } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
@@ -184,30 +186,29 @@ export function WorkspacesView() {
       aria-labelledby="workspaces-title"
     >
       <div className={styles.page}>
-        <header className={styles.head}>
-          <div className={page.header}>
-            <h1 id="workspaces-title" className={`${page.title} ${styles.titleRow}`}>
+        <PageHeader
+          id="workspaces-title"
+          title={
+            <span className={styles.titleRow}>
               Workspaces
               <WorkspaceTip />
-            </h1>
-          </div>
-          <Button variant="primary" onClick={() => edit()}>
-            <Plus size={14} aria-hidden />
-            New workspace
-          </Button>
-        </header>
+            </span>
+          }
+          actions={
+            <Button variant="primary" onClick={() => edit()}>
+              <Plus size={14} aria-hidden />
+              New workspace
+            </Button>
+          }
+        />
 
         <div className={styles.tools}>
-          <label className={styles.search}>
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              value={query}
-              placeholder="Search by name or folder"
-              aria-label="Search workspaces"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
+          <SearchBox
+            value={query}
+            onChange={(value) => setQuery(value)}
+            label="Search workspaces"
+            placeholder="Search by name or folder"
+          />
           <fieldset className={`${form.row} ${form.group}`}>
             <legend className="visually-hidden">Show</legend>
             {filters.map((choice) => (

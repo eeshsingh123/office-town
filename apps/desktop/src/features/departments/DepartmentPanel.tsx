@@ -72,12 +72,12 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const step = trace === undefined ? undefined : progressOf(trace).step;
   const doing =
     state === undefined
-      ? (lastWork ?? "Idle")
+      ? (lastWork ?? "Free")
       : (stageOf(state, trace) ??
         (state === "working" && step !== undefined
           ? `Step ${step.number} · ${step.title}`
           : state === "waiting"
-            ? "Waiting for you"
+            ? "Needs you"
             : STATE_LABELS[state]));
   return (
     <button type="button" className={styles.member} onClick={() => select([record.id])}>
@@ -303,7 +303,10 @@ export function DepartmentFooter({ department }: { department: DepartmentRecord 
   const { task, working } = useDepartmentGoal(department);
   if (task === undefined) {
     return (
-      <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+      <Button
+        variant="primary"
+        onClick={() => navigate({ name: "new-task", who: "team", departmentId: department.id })}
+      >
         Give it a goal
       </Button>
     );
