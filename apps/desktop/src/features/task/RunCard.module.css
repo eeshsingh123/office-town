@@ -202,20 +202,3 @@
   font-weight: 600;
   color: var(--text-3);
 }
-
-.settingsLink {
-  align-self: flex-start;
-  margin: -4px -6px 0;
-  padding: 2px 6px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  font: inherit;
-  font-size: var(--size-small);
-  color: var(--accent-text);
-  cursor: pointer;
-}
-
-.settingsLink:hover {
-  background: var(--hover);
-}

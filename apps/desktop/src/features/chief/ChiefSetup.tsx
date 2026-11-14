@@ -139,11 +139,7 @@ export function ChiefSetup() {
           onClick: () => navigate(editing ? { name: "chief" } : { name: "home" }),
         }}
         title={editing ? "Chief settings" : "Add a chief"}
-        note={
-          <>
-            <DraftNote scope={scope} editing={editing} />
-          </>
-        }
+        note={<DraftNote scope={scope} editing={editing} />}
         steps={STEPS}
         step={step}
         reached={reached}

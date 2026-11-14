@@ -148,13 +148,6 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
           onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
       ))}
-      <button
-        type="button"
-        className={styles.settingsLink}
-        onClick={() => navigate({ name: "settings" })}
-      >
-        Defaults for new tasks are in Settings
-      </button>
     </section>
   );
 }

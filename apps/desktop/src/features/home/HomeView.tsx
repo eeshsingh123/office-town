@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, Network, Plus, Sparkles, SwatchBook, Users } from "lucide-react";
+import { ArrowRight, ChevronDown, Network, Plus, Sparkles, Users } from "lucide-react";
 import { Fragment, type ReactNode, useState } from "react";
 import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
