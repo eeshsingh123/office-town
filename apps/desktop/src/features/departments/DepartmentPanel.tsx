@@ -11,7 +11,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ago, taskName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
-import { DepartmentApps } from "../connectors/DepartmentApps.tsx";
+import { DepartmentAppList, useTeamAppCount } from "../connectors/DepartmentApps.tsx";
 import office from "../office/Office.module.css";
 import {
   PanelHeader,
@@ -193,16 +193,12 @@ function DepartmentOutputs({ taskId }: { taskId: string }) {
   );
 }
 
-// Shown only when the department was given apps of its own (D-96).
+// Every app the team can use, including those given to everyone (D-96).
 function DepartmentAppsSection(props: { departmentId: string; harnesses: string[] }) {
-  const connectors = useApp((state) => state.connectors);
-  const has = Object.values(connectors).some(({ audience }) =>
-    audience.departmentIds.includes(props.departmentId),
-  );
-  if (!has) return null;
+  const count = useTeamAppCount(props.departmentId, props.harnesses);
   return (
-    <PanelSection title="Apps">
-      <DepartmentApps {...props} />
+    <PanelSection title={count === 0 ? "Apps" : `Apps · ${count}`}>
+      <DepartmentAppList {...props} />
     </PanelSection>
   );
 }

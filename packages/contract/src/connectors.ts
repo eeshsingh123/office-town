@@ -102,6 +102,8 @@ export const connectorRecordSchema = z.object({
   // How many actions it is known to have; a provider app with none has never been signed in.
   actions: z.number().int().nonnegative(),
   createdAt: z.iso.datetime(),
+  // Its newest call, for "Last used" on the list.
+  usedAt: z.iso.datetime().optional(),
 });
 export type ConnectorRecord = z.infer<typeof connectorRecordSchema>;
 

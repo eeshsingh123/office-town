@@ -7,7 +7,7 @@ import { DEEP, LOGOS } from "./logos.ts";
 interface AppLogoProps {
   // A slug, or an app's name as an agent wrote it.
   app: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
 }
 
 // The app's own logo on a tile, or its first letter.

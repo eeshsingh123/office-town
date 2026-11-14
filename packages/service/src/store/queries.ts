@@ -124,7 +124,8 @@ const LIBRARY_SELECT = `
 
 const CONNECTOR_SELECT = `
   SELECT ref, id, setup, audience, permission, enabled, status, created_at AS createdAt,
-    json_array_length(tools) AS actions
+    json_array_length(tools) AS actions,
+    (SELECT max(at) FROM connector_calls WHERE connector_ref = connectors.ref) AS usedAt
   FROM connectors`;
 
 const CONNECTOR_CALL_SELECT = `

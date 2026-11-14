@@ -245,6 +245,14 @@ function Settings({
       </section>
 
       <section className={page.section}>
+        <h2 className={page.sectionTitle}>Apps</h2>
+        <DepartmentApps
+          departmentId={department.id}
+          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
+        />
+      </section>
+
+      <section className={page.section}>
         <h2 className={page.sectionTitle}>Team</h2>
         <MemberEditor
           team={team}
@@ -254,11 +262,6 @@ function Settings({
           defaults={team.lead.settings}
           departmentId={department.id}
           workspaceId={department.workspaceId}
-        />
-        <DepartmentApps
-          departmentId={department.id}
-          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
-          warnOnly
         />
       </section>
 

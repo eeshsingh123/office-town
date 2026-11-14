@@ -5,13 +5,23 @@ import { showToast } from "../../ui/Toast.tsx";
 import styles from "./Connectors.module.css";
 import { renewsHere, signIn } from "./connectors.ts";
 
-// Signs a provider app in again: a button where its provider gives a page, else where to do it.
-export function RenewAction({ route, label }: { route: ConnectorRecord; label: string }) {
+// Signs a provider app in: a button where its provider gives a page, else where to do it. Filled
+// only where the app needs the user; a Set up in a list stays quiet.
+export function RenewAction({
+  route,
+  label,
+  primary = false,
+}: {
+  route: ConnectorRecord;
+  label: string;
+  primary?: boolean;
+}) {
   const harnesses = useApp((state) => state.harnesses);
   if (renewsHere(route)) {
     return (
       <Button
-        variant="primary"
+        variant={primary ? "primary" : "secondary"}
+        className={styles.raised}
         onClick={() =>
           signIn(route.id).catch((failure: unknown) =>
             showToast(failure instanceof Error ? failure.message : String(failure)),
@@ -24,5 +34,5 @@ export function RenewAction({ route, label }: { route: ConnectorRecord; label: s
   }
   const provider = providerOf(route.setup.kind) ?? "";
   const name = harnesses.find(({ harness }) => harness === provider)?.name ?? provider;
-  return <span className={styles.hint}>Sign in in {name}</span>;
+  return <span className={styles.hint}>Sign in through {name}</span>;
 }

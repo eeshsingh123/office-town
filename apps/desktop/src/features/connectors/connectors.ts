@@ -62,9 +62,114 @@ export const isProviderApp = ({ setup }: { setup: ConnectorRecord["setup"] }) =>
 export const isOffer = (connector: ConnectorRecord) =>
   isProviderApp(connector) && connector.status === "signed_out" && connector.actions === 0;
 
-// The only alert the page shows (D-96): a sign-in that worked before and has to be renewed.
+// A sign-in that worked before and has to be renewed.
 export const needsRenewing = (connector: ConnectorRecord) =>
   connector.enabled && connector.status === "signed_out" && !isOffer(connector);
+
+const notAnswering = (connector: ConnectorRecord) =>
+  connector.enabled && connector.status === "failing";
+
+// One status per app, the worst of its routes: what needs the user first.
+export type AppState = "renew" | "failing" | "off" | "ready" | "offer";
+
+export function stateOf(routes: ConnectorRecord[]): AppState {
+  if (routes.every(isOffer)) return "offer";
+  if (routes.some(needsRenewing)) return "renew";
+  if (routes.some(notAnswering)) return "failing";
+  if (routes.every(({ enabled }) => !enabled)) return "off";
+  return "ready";
+}
+
+export const needsUser = (routes: ConnectorRecord[]) => {
+  const state = stateOf(routes);
+  return state === "renew" || state === "failing";
+};
+
+// Codex's own tools rather than apps the user connected: servers from the user's Codex settings
+// ("server:<name>") and OpenAI's built-in apps.
+export const isCodexOwn = ({ setup }: ConnectorRecord) =>
+  setup.kind === "codex" &&
+  (setup.app?.startsWith("server:") === true ||
+    setup.app?.startsWith("connector_openai_") === true);
+
+const KNOWN_NAMES: Record<string, string> = {
+  codex_app: "Codex app",
+  cua_repl: "Computer use",
+  node_repl: "Node runner",
+};
+
+// A raw server id such as "cua_repl" reads as words; a name with capitals is kept as written.
+export function displayName(name: string): string {
+  const known = KNOWN_NAMES[name];
+  if (known !== undefined) return known;
+  if (!name.includes("_") && name !== name.toLowerCase()) return name;
+  const words = name.replaceAll(/[_-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+// Where an app not on the vetted list comes from, as the one line under its name.
+export function sourceLine(route: ConnectorRecord): string {
+  const { setup } = route;
+  if (isOffer(route)) return "Not set up";
+  if (isCodexOwn(route)) {
+    return setup.app?.startsWith("server:") === true
+      ? "From your Codex settings"
+      : "Built into Codex";
+  }
+  if (setup.kind === "claude") return "Signed in on claude.ai";
+  if (setup.kind === "codex") return "Signed in through ChatGPT";
+  if (setup.kind === "opencode") return "From your OpenCode settings";
+  if (setup.kind === "local") return "A program on this computer";
+  return setup.auth === "key" ? "Key saved on this computer" : "No sign-in needed";
+}
+
+const sameAudience = (a: AppAudienceRecord, b: AppAudienceRecord) =>
+  a.everyone === b.everyone &&
+  a.departmentIds.join() === b.departmentIds.join() &&
+  a.agentIds.join() === b.agentIds.join();
+
+type AppAudienceRecord = ConnectorRecord["audience"];
+
+// "Mixed" when its routes were set apart, such as a Codex route that arrived after the Claude one.
+export function audienceOf(routes: ConnectorRecord[]): AppAudienceRecord | "mixed" | undefined {
+  const [first] = routes;
+  if (first === undefined) return undefined;
+  return routes.every(({ audience }) => sameAudience(audience, first.audience))
+    ? first.audience
+    : "mixed";
+}
+
+export function permissionOf(routes: ConnectorRecord[]): ConnectorPermission | "mixed" | undefined {
+  const [first] = routes;
+  if (first === undefined) return undefined;
+  return routes.every(({ permission }) => permission === first.permission)
+    ? first.permission
+    : "mixed";
+}
+
+// "Everyone", or the first two names and how many more.
+export function whoText(
+  audience: AppAudienceRecord | "mixed" | undefined,
+  nameOf: (kind: "department" | "agent", id: string) => string | undefined,
+): string {
+  if (audience === undefined) return "";
+  if (audience === "mixed") return "Mixed";
+  if (audience.everyone) return "Everyone";
+  const names = [
+    ...audience.departmentIds.flatMap((id) => nameOf("department", id) ?? []),
+    ...audience.agentIds.flatMap((id) => nameOf("agent", id) ?? []),
+  ];
+  if (names.length === 0) return "No one";
+  return names.length <= 2
+    ? names.join(", ")
+    : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+}
+
+export const usedAtOf = (routes: ConnectorRecord[]) =>
+  routes
+    .flatMap(({ usedAt }) => usedAt ?? [])
+    .toSorted()
+    .at(-1);
 
 // Only Claude gives a page to sign an app in again; Codex and OpenCode do it in their own app.
 export const renewsHere = ({ setup }: ConnectorRecord) => setup.kind === "claude";
@@ -99,7 +204,7 @@ export function groupApps(connectors: ConnectorRecord[], entries: CatalogEntry[]
     }
     groups.set(key, {
       key,
-      name: entry?.setup.name ?? connector.setup.name,
+      name: entry?.setup.name ?? displayName(connector.setup.name),
       logo: entry?.setup.slug ?? logoSlug(connector),
       ...(entry === undefined ? {} : { entry }),
       routes: [connector],
@@ -136,7 +241,9 @@ export function refreshOnReturn(): void {
 }
 
 export function useConnectorNeedsUser(): boolean {
-  return useApp((state) => Object.values(state.connectors).some(needsRenewing));
+  return useApp((state) =>
+    Object.values(state.connectors).some((route) => needsRenewing(route) || notAnswering(route)),
+  );
 }
 
 // Who an app would reach: an agent, or the one a new task is about to start.

@@ -327,6 +327,7 @@ interface ConnectorRow {
   status: ConnectorStatus;
   createdAt: number;
   actions: number;
+  usedAt: number | null;
 }
 
 interface ConnectorCallRow {
@@ -651,6 +652,7 @@ function toConnector(row: ConnectorRow): ConnectorRecord {
     status: row.status,
     actions: row.actions,
     createdAt: iso(row.createdAt),
+    ...(row.usedAt === null ? {} : { usedAt: iso(row.usedAt) }),
   };
 }
 
@@ -2209,6 +2211,7 @@ class SqliteStore implements Store {
     );
     const row = one<ConnectorCallRow>(this.#statements.connectorCallById, id);
     if (row === undefined) throw new RecordNotFoundError("connector");
+    this.#publishConnector(call.connectorId);
     return toConnectorCall(row);
   }
 
