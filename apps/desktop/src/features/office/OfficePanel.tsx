@@ -2,6 +2,7 @@ import type { DepartmentRecord } from "@office-town/contract";
 import { User } from "lucide-react";
 import { stateOf, useAgent, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChiefFooter, ChiefHeader, ChiefNow } from "../chief/ChiefOverview.tsx";
 import {
@@ -79,9 +80,44 @@ function useMember(agentId: string, onFloor: FloorAgent | undefined): FloorAgent
   return { agent, state, harness, position: { x: 0, y: 0 }, group: "" };
 }
 
+// A department member that has never worked: who it is and its profile, until its first task.
+function FreeMemberSide({ agentId }: { agentId: string }) {
+  const record = useApp((state) => state.agents[agentId]);
+  const department = useApp((state) =>
+    record?.departmentId === undefined ? undefined : state.departments[record.departmentId],
+  );
+  const harness = useHarnessName(record?.settings.harness ?? "");
+  if (record === undefined) return null;
+  const lead = department?.leadAgentId === record.id;
+  const role = `${lead ? "Lead" : (record.role ?? "Member")}${department === undefined ? "" : ` · ${department.name}`}`;
+  return (
+    <SidePanel
+      kind="agent"
+      label={`${record.name}, selected agent`}
+      header={
+        <PanelHeader
+          picture={<Avatar name={record.name} colour={record.colour} size={36} />}
+          title={record.name}
+          subtitle={`${role} · ${harness}`}
+        />
+      }
+      chatAgentId={agentId}
+      now={
+        <p className={styles.empty}>
+          {lead
+            ? "Free. Not on a task yet. Give the department a task and it starts."
+            : "Free. Not on a task yet. It starts when its lead hands it work."}
+        </p>
+      }
+      activity={<p className={styles.empty}>Nothing done yet.</p>}
+      profile={<AgentProfile key={record.id} agent={record} />}
+    />
+  );
+}
+
 function AgentSide({ agentId, onFloor }: { agentId: string; onFloor: FloorAgent | undefined }) {
   const member = useMember(agentId, onFloor);
-  if (member === undefined) return null;
+  if (member === undefined) return <FreeMemberSide agentId={agentId} />;
   return (
     <SidePanel
       kind="agent"

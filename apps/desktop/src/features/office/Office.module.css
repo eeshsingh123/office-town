@@ -1035,3 +1035,44 @@
   text-align: center;
   color: var(--text-2);
 }
+
+/* A free department member sleeps at its desk: two small z's drifting up, until work comes. */
+.sleep {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  transform: translateX(-50%);
+  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.doze {
+  animation: doze 2.6s ease-in-out infinite;
+}
+
+.doze:last-child {
+  font-size: 14px;
+  animation-delay: 0.5s;
+}
+
+@keyframes doze {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(2px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doze {
+    animation: none;
+  }
+}

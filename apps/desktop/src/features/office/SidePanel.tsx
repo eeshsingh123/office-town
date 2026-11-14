@@ -151,7 +151,7 @@ interface SidePanelProps {
   activity: ReactNode;
   // An agent's own settings; the chief and departments have their own pages.
   profile?: ReactNode;
-  // Stays in view under Now and Activity.
+  // Stays in view under Overview and Activity.
   footer?: ReactNode;
 }
 
@@ -176,7 +176,7 @@ export function SidePanel(props: SidePanelProps) {
         {header}
         <Tabs.List className={styles.tabs} aria-label="Show">
           <Tabs.Trigger value="now" className={styles.tab}>
-            Now
+            Overview
           </Tabs.Trigger>
           <Tabs.Trigger value="activity" className={styles.tab}>
             Activity

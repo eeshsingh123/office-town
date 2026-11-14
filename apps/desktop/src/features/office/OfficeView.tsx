@@ -5,7 +5,7 @@ import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
 import { teamAtWork, type WaitingRequest } from "../../store/records.ts";
-import { type AgentState, type Progress, progressOf } from "../../trace/progress.ts";
+import { type AgentState, isBusy, type Progress, progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { taskName } from "../../ui/format.ts";
 import { stateLabel } from "../../ui/StatusIcon.tsx";
@@ -15,7 +15,7 @@ import { newTokens, usageByPerson } from "../departments/usage.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { fraction, goalStatuses, partStatuses, pieceStatuses } from "../task/goal-progress.ts";
 import { chiefGoal } from "./doors.ts";
-import { Floor, type FloorAgent, type RoomSign } from "./Floor.tsx";
+import { Floor, type FloorAgent, type FreeMember, type RoomSign } from "./Floor.tsx";
 import {
   ADD_CHIEF,
   ADD_DEPARTMENT,
@@ -115,7 +115,11 @@ interface Layout {
   positions: Record<string, Point>;
 }
 
-// Every agent at work or done today, at a desk. The chief keeps its office whenever it is set up.
+// A department member that is not at work and not asking is free: it sleeps at its desk.
+const freeAt = (state: AgentState) => !isBusy(state) && state !== "waiting";
+
+// Every agent at work or done today, at a desk, and every department member, free or not. The
+// chief keeps its office whenever it is set up.
 function layOut(layout: Layout) {
   const { agents, traces, waiting, harnessName, departments, state, chiefId } = layout;
   const asking = new Map(
@@ -125,7 +129,10 @@ function layOut(layout: Layout) {
   // Oldest first, so each agent keeps its desk as others arrive.
   const present = agents
     .filter(
-      (agent) => agent.id === chiefId || onTheFloor(agent.latest, asking.has(agent.latest.id)),
+      (agent) =>
+        agent.id === chiefId ||
+        onTheFloor(agent.latest, asking.has(agent.latest.id)) ||
+        roomOf(agent, byId, chiefId) === agent.record.departmentId,
     )
     .reverse();
   const inRoom = Map.groupBy(present, (agent) => roomOf(agent, byId, chiefId));
@@ -179,10 +186,11 @@ function layOut(layout: Layout) {
             ? guests.indexOf(agent)
             : (members.get(roomId) ?? []).findIndex((member) => member.id === agent.id);
     const agentState = stateOf(agent, traces, asking.has(agent.latest.id));
-    const tokens = roomId === agent.record.departmentId ? memberTokens.get(agent.id) : undefined;
+    const inDepartment = roomId === agent.record.departmentId;
+    const tokens = inDepartment ? memberTokens.get(agent.id) : undefined;
     const trace = traces[agent.latest.id];
     // Its part of the department's goal, or the goal itself at the lead's desk (D-95).
-    const goalTask = roomId === agent.record.departmentId ? goals.get(roomId)?.task : undefined;
+    const goalTask = inDepartment ? goals.get(roomId)?.task : undefined;
     const part =
       goalTask === undefined
         ? []
@@ -204,12 +212,35 @@ function layOut(layout: Layout) {
               : (byId[roomId]?.name ?? ""),
       ...(tokens === undefined ? {} : { tokens }),
       ...(part.length === 0 ? {} : { part }),
+      // Today's outcome stays on its badge; an older one is no longer news.
+      ...(inDepartment && freeAt(agentState)
+        ? { free: onTheFloor(agent.latest, false) ? "today" : "before" }
+        : {}),
       ...bubbleOf(
         agentState,
         asking.get(agent.latest.id),
         trace === undefined ? undefined : progressOf(trace),
       ),
     };
+  });
+
+  // Members that have never worked have no session to show, only a desk.
+  const seatedIds = new Set(present.map((agent) => agent.id));
+  const freeMembers = departments.flatMap((department) => {
+    const room = plan.rooms.find((one) => one.id === department.id);
+    const people = members.get(department.id) ?? [];
+    return people.flatMap((record, seat): FreeMember[] => {
+      if (seatedIds.has(record.id) || record.id === chiefId || record.guest) return [];
+      return [
+        {
+          id: record.id,
+          name: record.name,
+          colour: record.colour,
+          position: room?.seats[seat]?.agent ?? plan.start,
+          detail: harnessName(record.settings.harness),
+        },
+      ];
+    });
   });
 
   const signs: Record<string, RoomSign> = {
@@ -255,7 +286,7 @@ function layOut(layout: Layout) {
       progress: { statuses: pieces, label: `${fraction(pieces)} departments` },
     };
   }
-  return { plan, floorAgents, signs, goalSessions, assistants: solo.length };
+  return { plan, floorAgents, freeMembers, signs, goalSessions, assistants: solo.length };
 }
 
 // The home screen (D-35).
@@ -284,7 +315,7 @@ export function OfficeView() {
       Object.values(departmentRecords).toSorted((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [departmentRecords],
   );
-  const { plan, floorAgents, signs, goalSessions, assistants } = useMemo(() => {
+  const { plan, floorAgents, freeMembers, signs, goalSessions, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
     return layOut({
@@ -353,6 +384,7 @@ export function OfficeView() {
               <Floor
                 plan={plan}
                 agents={floorAgents}
+                free={freeMembers}
                 signs={signs}
                 doors={doors}
                 links={links}
@@ -373,7 +405,7 @@ export function OfficeView() {
             room={openRoom}
             openFloor={openFloor}
             assistants={assistants}
-            floorCount={floorAgents.length}
+            floorCount={floorAgents.length + freeMembers.length}
           />
         </div>
       )}

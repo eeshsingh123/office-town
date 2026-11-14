@@ -63,6 +63,18 @@ export interface FloorAgent {
   group: string;
   // Its part's milestones, or the goal's at the lead's desk (D-95).
   part?: ShownStatus[];
+  // A department member with nothing to do: it sleeps at its desk. "today" keeps the badge of
+  // what it finished today; "before" shows sleep only.
+  free?: "today" | "before";
+}
+
+// A department member that has never worked: a desk, a name and its AI app.
+export interface FreeMember {
+  id: string;
+  name: string;
+  colour: string;
+  position: Point;
+  detail: string;
 }
 
 // From the agent's centre to the top of its token count, and to the top of its desk.
@@ -93,11 +105,14 @@ interface Seated {
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
   detail: string;
+  // Sleeping at its desk until work comes.
+  asleep?: boolean;
 }
 
 interface FloorProps {
   plan: FloorPlan;
   agents: FloorAgent[];
+  free: FreeMember[];
   // By room id.
   signs: Record<string, RoomSign>;
   // By room id, the chief's included.
@@ -247,6 +262,7 @@ function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] 
 
 function seatedOf(
   agents: readonly FloorAgent[],
+  free: readonly FreeMember[],
   chief: FloorProps["chief"],
   rooms: readonly Room[],
   move: RoomMove | undefined,
@@ -255,18 +271,25 @@ function seatedOf(
     move === undefined || !contains(move.from, position)
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
-  const seated = agents.map(({ agent, state, position, harness, bubble, tokens, part }) => ({
-    id: agent.id,
-    name: agent.name,
-    colour: agent.colour,
-    state,
-    position: shift(position),
-    sessionId: agent.latest.id,
-    detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
-    ...(bubble === undefined ? {} : { bubble }),
-    ...(tokens === undefined ? {} : { tokens }),
-    ...(part === undefined ? {} : { part }),
-  }));
+  const seated: Seated[] = agents.map((one) => {
+    const { agent, state, position, harness, bubble, tokens, part, free: asleep } = one;
+    return {
+      id: agent.id,
+      name: agent.name,
+      colour: agent.colour,
+      ...(asleep === "before" ? {} : { state }),
+      ...(asleep === undefined ? {} : { asleep: true }),
+      position: shift(position),
+      sessionId: agent.latest.id,
+      detail: `${harness}${agent.latest.options.model === undefined ? "" : ` · ${agent.latest.options.model}`}`,
+      ...(bubble === undefined ? {} : { bubble }),
+      ...(tokens === undefined ? {} : { tokens }),
+      ...(part === undefined ? {} : { part }),
+    };
+  });
+  for (const member of free) {
+    seated.push({ ...member, position: shift(member.position), asleep: true });
+  }
   const office = rooms.find((room) => room.kind === "chief")?.seats[0];
   if (chief === undefined || office === undefined || seated.some(({ id }) => id === chief.id)) {
     return seated;
@@ -365,7 +388,7 @@ const outsideFloor = (event: SyntheticEvent) =>
   !(event.target instanceof Node && event.currentTarget.contains(event.target));
 
 export function Floor(props: FloorProps) {
-  const { plan, agents, signs, doors, links, linksGoal, chief, selection, room } = props;
+  const { plan, agents, free, signs, doors, links, linksGoal, chief, selection, room } = props;
   const { onSelect, onOpenRoom, onOpenChat } = props;
   const floor = useRef<HTMLDivElement>(null);
   const scale = useFitScale(floor, plan.width);
@@ -377,7 +400,7 @@ export function Floor(props: FloorProps) {
   const [drag, setDrag] = useState<{ from: Point; to: Point }>();
   const { move, handlers, wasClick } = useRoomDrag(plan, scale);
   const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
-  const seated = seatedOf(agents, chief, rooms, move);
+  const seated = seatedOf(agents, free, chief, rooms, move);
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
@@ -701,7 +724,8 @@ export function Floor(props: FloorProps) {
           </>
         )}
       </button>
-      {seated.map(({ id, name, colour, state, position, bubble, tokens, detail, part }) => {
+      {seated.map((one) => {
+        const { id, name, colour, state, position, bubble, tokens, detail, part, asleep } = one;
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
@@ -729,7 +753,17 @@ export function Floor(props: FloorProps) {
                 <span>{fraction(part)}</span>
               </div>
             )}
-            {bubble === undefined ? null : (
+            {asleep !== true ? null : (
+              <div
+                className={styles.sleep}
+                style={{ left: position.x, top: position.y - (tokens === undefined ? 44 : 86) }}
+                aria-hidden
+              >
+                <span className={styles.doze}>z</span>
+                <span className={styles.doze}>z</span>
+              </div>
+            )}
+            {bubble === undefined || asleep === true ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : styles.bubbleWork} ${id === near?.id ? styles.bubbleNear : ""}`}
                 // Above the token count, when there is one.
@@ -743,10 +777,10 @@ export function Floor(props: FloorProps) {
                 <Tooltip.Trigger asChild>
                   <button
                     type="button"
-                    className={`${styles.agent} ${finished ? styles.finished : ""}`}
+                    className={`${styles.agent} ${finished || asleep === true ? styles.finished : ""}`}
                     style={{ left: position.x - 40, top: position.y - 18 }}
                     aria-pressed={selected}
-                    aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}`}
+                    aria-label={`${name}, ${detail}${state === undefined ? "" : `, ${STATE_LABELS[state].toLowerCase()}`}${asleep === true ? ", free" : ""}`}
                     onClick={(event) => {
                       const adding = event.shiftKey || event.ctrlKey || event.metaKey;
                       if (!adding) onSelect([id]);
