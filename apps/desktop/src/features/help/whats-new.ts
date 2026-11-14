@@ -46,6 +46,10 @@ export const RELEASES: Release[] = [
       "Stopping an agent that had already finished its work now marks the task finished, not stopped",
       "Stop on an assistant's task is red, like a department's",
       'An agent\'s Activity tab names the task you gave it, instead of an empty "Your task:" line',
+      "Every department member now stays at their desk in the Office. A free member sleeps there and wakes when work comes, so you can open anyone from the Office",
+      "The Now tab in the side panel is now called Overview",
+      "Light and dark theme moved from Your profile to Settings, under Appearance. Your profile no longer shows the preview of what agents read",
+      "Codex on ChatGPT Free shows its usage as Monthly, the only limit that plan reports, instead of 43200 minutes",
     ],
   },
   {
