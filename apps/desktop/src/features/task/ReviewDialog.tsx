@@ -38,9 +38,7 @@ function WhatToCheck({ agent }: { agent: Agent }) {
   const [shown, setShown] = useState(false);
   const [opened, setOpened] = useState<ReadonlySet<number>>(new Set());
   if (items.length === 0) {
-    return (
-      <p className={styles.hint}>No checklist yet. The reviewer writes one for you to approve.</p>
-    );
+    return <p className={styles.hint}>No checklist yet</p>;
   }
   const allOpen = opened.size === items.length;
   const toggle = (index: number) => {

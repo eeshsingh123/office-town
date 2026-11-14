@@ -28,67 +28,26 @@
   margin-left: auto;
 }
 
-/* Search, grouping and filters. */
+/* Tabs, then search and filters: the same as Tasks (a3-15). */
 .tools {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 24px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
+  gap: 14px;
 }
 
-.toolsRow {
+.tabsRow {
+  border-bottom: 1px solid var(--border);
+}
+
+.filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.segment {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 9px;
-  background: var(--hover);
-}
-
-.segmentLabel {
-  float: left;
-  padding: 0 8px 0 6px;
-  font-size: var(--size-meta);
-  color: var(--text-3);
-}
-
-.segment button {
-  padding: 6px 11px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-3);
-  cursor: pointer;
-}
-
-.segment button[aria-pressed="true"] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
-}
-
-.count {
-  margin-left: 2px;
-  opacity: 0.75;
-}
-
-.divider {
-  width: 1px;
-  height: 22px;
-  background: var(--border);
+.spacer {
+  flex: 1;
 }
 
 .filteredBar {

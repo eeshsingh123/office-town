@@ -224,12 +224,15 @@
   font-weight: 600;
 }
 
+/* Two lines, so the part of the name that matters shows. */
 .rowTitle {
+  display: -webkit-box;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .rowTime {

@@ -183,7 +183,7 @@
 .open {
   display: grid;
   flex: 1;
-  grid-template-columns: 18px minmax(0, 1fr) 230px 110px 84px;
+  grid-template-columns: 18px minmax(0, 1fr) 110px 230px 84px;
   align-items: center;
   gap: 14px;
   min-width: 0;
@@ -212,6 +212,11 @@ button.open {
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+}
+
+/* No progress: the title runs into its column. */
+.wide {
+  grid-column: span 2;
 }
 
 .title {
@@ -329,7 +334,6 @@ button.open {
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  width: 112px;
 }
 
 .answer {
@@ -359,13 +363,13 @@ button.open {
   color: var(--text);
 }
 
+/* Narrow, the time stays: it is the sort and the only sign of age (a3-7). */
 @media (max-width: 1100px) {
   .open {
-    grid-template-columns: 18px minmax(0, 1fr) 120px;
+    grid-template-columns: 18px minmax(0, 1fr) 110px 84px;
   }
 
-  .who,
-  .when {
+  .who {
     display: none;
   }
 }
@@ -376,9 +380,14 @@ button.open {
   }
 
   .progress,
+  .when,
   .groupCounts,
   .storage {
     display: none;
+  }
+
+  .wide {
+    grid-column: auto;
   }
 
   .actions {

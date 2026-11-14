@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
 import { isOpen } from "../../store/records.ts";
-import { stepCount, subAgentDetails } from "../../trace/sub-agents.ts";
+import { stepCount, subAgentDetails, subAgentTitle } from "../../trace/sub-agents.ts";
 import type { Trace, TraceAction } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -103,7 +103,7 @@ function Panel({
             <X size={15} aria-hidden />
           </button>
         </div>
-        <h2 className={styles.title}>{action.title}</h2>
+        <h2 className={styles.title}>{subAgentTitle(action)}</h2>
         <div className={styles.by}>
           <span className={styles.meta}>Started by</span>
           {agent === undefined ? null : (

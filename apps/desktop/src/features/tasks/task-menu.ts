@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Play,
+  Square,
   SquareArrowOutUpRight,
   Trash2,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { markDone, openReview } from "../../store/reviewers.ts";
 import { confirmed, copyText, type MenuAction, type MenuContent } from "../../ui/ActionMenu.tsx";
 import { taskName } from "../../ui/format.ts";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
+import { stopTeamAsk } from "../task/stop-asks.ts";
 import { statusOfTask } from "./task-list.ts";
 
 // A team picks up where it was cut off; a solo agent is asked to go on in its own conversation.
@@ -75,8 +77,14 @@ export function taskMenu(taskId: string, followUp?: () => void): MenuContent | u
   if (showInOffice !== undefined) {
     actions.push({ label: "Show in office", icon: LayoutGrid, run: showInOffice });
   }
+  actions.push({ label: "Copy title", icon: Copy, run: () => copyText(taskName(task)) });
+  // Delete waits on a stop, so the menu offers it (a3-10).
+  if (running) {
+    actions.push(
+      confirmed({ label: "Stop", icon: Square }, stopTeamAsk(taskId, "Stop", taskName(task))),
+    );
+  }
   actions.push(
-    { label: "Copy title", icon: Copy, run: () => copyText(taskName(task)) },
     confirmed(
       {
         label: "Delete task",

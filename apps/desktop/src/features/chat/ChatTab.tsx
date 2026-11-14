@@ -179,7 +179,7 @@ function GoalChat({
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
-      {open && waiting ? <p className={styles.quiet}>Loading…</p> : null}
+      {open && waiting ? <p className={styles.quiet}>Loading</p> : null}
       {open
         ? items.map((item) => (
             <ChatEntry

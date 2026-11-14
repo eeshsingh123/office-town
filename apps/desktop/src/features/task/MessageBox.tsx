@@ -95,7 +95,7 @@ export function MessageBox({ agent, className, actions, above }: MessageBoxProps
   };
 
   const placeholder = live
-    ? "Message the agent"
+    ? `Message ${agent.name}`
     : open
       ? "Send a message to continue"
       : "This task can't be continued";

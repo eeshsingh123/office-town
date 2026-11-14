@@ -240,11 +240,7 @@ function GoalList({
           </button>
         ) : null}
       </div>
-      {milestones.length === 0 ? (
-        <p className={styles.note}>
-          None yet. {owner ?? "The agent"} writes them first, and you can add your own.
-        </p>
-      ) : null}
+      {milestones.length === 0 ? <p className={styles.note}>No milestones yet</p> : null}
       <MilestoneList
         milestones={shown}
         statusOf={(milestone) => shownStatus(milestone, false, finished)}
@@ -325,11 +321,7 @@ export function ProgressColumn({ taskId, soloAgentId }: { taskId: string; soloAg
         ) : (
           <>
             {goal.length === 0 ? null : <Segments statuses={goalStatuses} />}
-            {on ? null : (
-              <p className={styles.note}>
-                Milestones are off for this task, so nothing is checked against these.
-              </p>
-            )}
+            {on ? null : <p className={styles.note}>Milestones are off for this task</p>}
             <GoalList
               taskId={taskId}
               milestones={goal}

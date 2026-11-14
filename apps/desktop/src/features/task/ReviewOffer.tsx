@@ -1,18 +1,15 @@
 import type { CheckRecord, CheckResult } from "@office-town/contract";
 import { CircleCheck, CircleMinus, CircleX, ListChecks } from "lucide-react";
-import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { OPEN_CHECK, useChecks } from "../../store/checks.ts";
 import { type Keep, readKept, useKept, writeKept } from "../../store/kept.ts";
-import { markDone } from "../../store/reviewers.ts";
 import { isBusy } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import checks from "../checks/Checks.module.css";
 import { RequestCard } from "../requests/RequestCard.tsx";
-import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./ReviewOffer.module.css";
 
 const idList = (name: string): Keep<string[]> => ({ name, lasts: "saved", start: [] });
@@ -120,31 +117,13 @@ function Results({
   onReview: () => void;
   onShow?: ((agentId: string) => void) | undefined;
 }) {
-  const checker = useApp((state) => state.agents[check.checkerAgentId]);
   const sent = useKept(FIXES_SENT)[0].includes(check.id);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
   const results = new Map(check.results?.map((result) => [result.id, result]));
   const earlier = new Map(before?.results?.map((result) => [result.id, result]));
   const count = (outcome: CheckResult["outcome"]) =>
     check.items.filter((item) => results.get(item.id)?.outcome === outcome).length;
   const failed = count("fail");
   const notRun = count("not_run");
-  const finished = useApp((state) => statusOfTask(state, agent.taskId) === "review");
-  const accepted = agent.task.reviewedAt !== undefined;
-
-  const act = async (work: () => Promise<unknown>) => {
-    setBusy(true);
-    setError(undefined);
-    try {
-      await work();
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const fixes = () => act(() => sendFixes(check));
 
   const summary =
     failed === 0
@@ -160,13 +139,7 @@ function Results({
           <strong>
             Round {check.round} · {summary}
           </strong>
-          <span>
-            {accepted
-              ? "You accepted this work."
-              : sent
-                ? `Fixes went to ${agent.name}. Check again once it is done.`
-                : `Checked by ${checker?.name ?? "a fresh agent"} on a temporary copy.`}
-          </span>
+          {sent ? <span>Fixes sent to {agent.name}</span> : null}
         </div>
       </div>
       <ul className={checks.outcomes}>
@@ -190,39 +163,21 @@ function Results({
         </div>
       )}
       <div className={checks.actions}>
-        {failed > 0 && !sent && !accepted ? (
-          <Button variant="primary" disabled={busy} onClick={() => void fixes()}>
-            Send fixes to the team
-          </Button>
-        ) : null}
-        <Button variant={sent ? "primary" : "secondary"} disabled={busy} onClick={onReview}>
+        <Button variant={sent ? "primary" : "secondary"} onClick={onReview}>
           Check again
         </Button>
-        {finished && !accepted ? (
-          <Button
-            variant="ghost"
-            disabled={busy}
-            onClick={() => void act(() => markDone(check.taskId))}
-          >
-            {failed === 0 ? "Accept" : "Accept as is"}
-          </Button>
-        ) : null}
         {onShow === undefined ? null : (
           <Button variant="ghost" onClick={() => onShow(check.checkerAgentId)}>
             Read the check
           </Button>
         )}
       </div>
-      {error === undefined ? null : (
-        <p className={checks.outcomeDetail} role="alert">
-          {error}
-        </p>
-      )}
     </section>
   );
 }
 
-// The end of the chat: a check under way, then its results. The bar above the box offers it (D-73).
+// The end of the chat: a check under way, then its results. Send fixes and Mark done live in the
+// review bar only (a3-8).
 export function ReviewOffer({ agent, members, onReview, onShow }: ReviewOfferProps) {
   const traces = useApp((state) => state.traces);
   const waitingRequests = useApp((state) => state.waiting);
@@ -256,11 +211,6 @@ export function ReviewOffer({ agent, members, onReview, onShow }: ReviewOfferPro
               ? `${name} is running ${latest.items.length} checks · round ${latest.round}.`
               : `${name} is writing the checklist.`}
           </strong>
-          <span>
-            {latest.status === "running"
-              ? "The results will appear here."
-              : "You approve it here before anything runs."}
-          </span>
         </p>
         {onShow === undefined ? null : (
           <Button variant="ghost" onClick={() => onShow(latest.checkerAgentId)}>

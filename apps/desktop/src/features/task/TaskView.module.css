@@ -40,46 +40,14 @@
   text-overflow: ellipsis;
 }
 
-.pill {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  height: 22px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+/* What a solo agent is doing, after the task's status. */
+.doing {
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--size-meta);
-  font-weight: 500;
-  color: var(--text-2);
-}
-
-.pillWaiting {
-  border-color: var(--warn-border);
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-
-.pillWorking {
-  border-color: transparent;
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-/* A long title gives way, so the counts stay in view. */
-.chips {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 16px;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--size-meta);
-  color: var(--text-2);
+  color: var(--text-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .jump {
@@ -100,16 +68,12 @@
   min-height: 0;
 }
 
-/* Wide enough, the run card takes the right margin, and the trace and its box centre in the rest. */
 .column {
-  --run-card-space: 328px;
-
   position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
-  container: trace / inline-size;
 }
 
 .scroll {
@@ -122,17 +86,6 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-}
-
-@container trace (min-width: 1120px) {
-  .scroll {
-    padding-right: calc(28px + var(--run-card-space));
-  }
-
-  .dock {
-    position: relative;
-    left: calc(var(--run-card-space) / -2);
-  }
 }
 
 .divider {

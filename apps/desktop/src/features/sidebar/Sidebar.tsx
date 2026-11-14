@@ -102,13 +102,15 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Requests, as the Needs you page counts them; tabs and Home count tasks (a3-13).
 function WaitingCount() {
   const count = useApp((state) => Object.keys(state.waiting).length);
   if (count === 0) return null;
+  const label = count === 1 ? "1 request" : `${count} requests`;
   return (
-    <span className={styles.count}>
+    <span className={styles.count} title={label}>
       {count}
-      <span className="visually-hidden"> waiting</span>
+      <span className="visually-hidden"> {count === 1 ? "request" : "requests"}</span>
     </span>
   );
 }

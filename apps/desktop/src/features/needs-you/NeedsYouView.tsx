@@ -10,10 +10,10 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
-import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
+import { TabRow } from "../../ui/TabRow.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import { LimitStops } from "../usage/LimitStops.tsx";
@@ -38,6 +38,8 @@ import {
 } from "./queue.ts";
 
 const PAGE = 25;
+// Fewer requests than this show only the tabs and search.
+const FILTERS_FROM = 6;
 const GROUP_PAGE = 10;
 const HOUR = 3_600_000;
 
@@ -83,6 +85,7 @@ function useNow(): number {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
+// Under Manual, a link to where the level is set; nothing that restates the card (a3-17).
 function LevelNote({ event }: { event: UserRequestEvent }) {
   const agent = useSessionAgent(event.sessionId);
   const level = useLevel(agent?.record);
@@ -91,18 +94,16 @@ function LevelNote({ event }: { event: UserRequestEvent }) {
   if (level !== "supervised") {
     return <p className={styles.levelNote}>It wants to change a read-only folder.</p>;
   }
+  if (departmentId === undefined) return null;
   return (
     <p className={styles.levelNote}>
-      Permissions are set to "{AUTONOMY[level].label}".{" "}
-      {departmentId === undefined ? null : (
-        <button
-          type="button"
-          className={styles.link}
-          onClick={() => navigate({ name: "department", departmentId })}
-        >
-          Change
-        </button>
-      )}
+      <button
+        type="button"
+        className={styles.link}
+        onClick={() => navigate({ name: "department", departmentId })}
+      >
+        Permissions: {AUTONOMY[level].label}
+      </button>
     </p>
   );
 }
@@ -150,7 +151,7 @@ function AskRow({ ask, now, open, selected, onToggle, onSelect }: AskRowProps) {
         </button>
       </div>
       {open ? (
-        <div className={styles.open}>
+        <div className={styles.open} data-queue>
           <RequestCard
             event={ask.event}
             context={
@@ -205,7 +206,7 @@ function GroupSection(props: GroupSectionProps) {
           <span className={styles.groupMeta}>{group.meta}</span>
         </div>
         <span className={styles.waiting}>
-          {group.asks.length} {group.asks.length === 1 ? "needs" : "need"} you · oldest{" "}
+          {plural(group.asks.length, "request", "requests")} · oldest{" "}
           {waitedFor(group.oldestAt, now)}
         </span>
         {approvals === 0 ? null : (
@@ -360,7 +361,7 @@ export function NeedsYouView() {
             asks.length === 0
               ? "Nothing needs you."
               : [
-                  `${asks.length} ${asks.length === 1 ? "needs" : "need"} you across ${plural(taskCount, "task", "tasks")}`,
+                  `${plural(asks.length, "request", "requests")} across ${plural(taskCount, "task", "tasks")}`,
                   decisions === 0
                     ? undefined
                     : `${plural(decisions, "plan or team", "plans or teams")} to approve`,
@@ -389,75 +390,60 @@ export function NeedsYouView() {
 
         {asks.length === 0 ? null : (
           <div className={styles.tools}>
-            <div className={styles.toolsRow}>
+            <div className={styles.tabsRow}>
+              <TabRow
+                label="Show"
+                tabs={TYPES.map((choice) => ({ ...choice, count: counts[choice.value] }))}
+                value={filters.type}
+                onChange={(type) => update({ type })}
+              />
+            </div>
+            <div className={styles.filters}>
               <SearchBox
                 value={filters.query}
                 onChange={(value) => update({ query: value })}
                 label="Search what needs you"
                 placeholder="Search requests, tasks, agents, commands"
               />
-              <fieldset className={`${styles.segment} ${form.group}`}>
-                <legend className={styles.segmentLabel}>Group by</legend>
-                {GROUP_BY.map((choice) => (
-                  <button
-                    key={choice.value}
-                    type="button"
-                    aria-pressed={by === choice.value}
-                    onClick={() => chooseBy(choice.value)}
-                  >
-                    {choice.label}
-                  </button>
-                ))}
-              </fieldset>
-            </div>
-            <div className={styles.toolsRow}>
-              <fieldset className={`${form.row} ${form.group}`}>
-                <legend className="visually-hidden">Show</legend>
-                {TYPES.map((choice) => (
-                  <button
-                    key={choice.value}
-                    type="button"
-                    className={form.chip}
-                    aria-pressed={filters.type === choice.value}
-                    onClick={() => update({ type: choice.value })}
-                  >
-                    {choice.label} <span className={styles.count}>{counts[choice.value]}</span>
-                  </button>
-                ))}
-              </fieldset>
-              <span className={styles.divider} aria-hidden />
-              <FilterSelect
-                label="Workspace"
-                value={filters.workspaceId}
-                options={workspaceOptions}
-                onChange={(workspaceId) => update({ workspaceId })}
-              />
-              <FilterSelect
-                label="Department"
-                value={filters.departmentId}
-                options={departmentOptions}
-                onChange={(departmentId) => update({ departmentId })}
-              />
-              <FilterSelect
-                label="Provider"
-                value={filters.harness}
-                options={harnessOptions}
-                onChange={(harness) => update({ harness })}
-              />
-              <button
-                type="button"
-                className={form.chip}
-                aria-pressed={olderThanHour}
-                onClick={() => setOlderThanHour(!olderThanHour)}
-              >
-                Older than 1 h <span className={styles.count}>{oldCount}</span>
-              </button>
+              {/* A few requests need no filters (a3-15). */}
+              {asks.length < FILTERS_FROM ? null : (
+                <>
+                  <FilterSelect
+                    label="Workspace"
+                    value={filters.workspaceId}
+                    options={workspaceOptions}
+                    onChange={(workspaceId) => update({ workspaceId })}
+                  />
+                  <FilterSelect
+                    label="Department"
+                    value={filters.departmentId}
+                    options={departmentOptions}
+                    onChange={(departmentId) => update({ departmentId })}
+                  />
+                  <FilterSelect
+                    label="Provider"
+                    value={filters.harness}
+                    options={harnessOptions}
+                    onChange={(harness) => update({ harness })}
+                  />
+                  <ChoiceMenu
+                    label="Waiting"
+                    value={olderThanHour ? "hour" : "any"}
+                    choices={[
+                      { value: "any", label: "Any time" },
+                      { value: "hour", label: `Over 1 h (${oldCount})` },
+                    ]}
+                    onChange={(value) => setOlderThanHour(value === "hour")}
+                  />
+                  <span className={styles.spacer} />
+                  <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={chooseBy} />
+                </>
+              )}
             </div>
             {narrowing && visibleApprovals.length > 0 ? (
               <div className={styles.filteredBar}>
                 <span>
-                  {plural(visibleApprovals.length, "approval matches", "approvals match")} these
-                  filters. Questions and plans are left out; answer them one by one.
+                  {plural(visibleApprovals.length, "approval matches", "approvals match")}
                 </span>
                 <div className={styles.groupActions}>
                   <Button
@@ -473,7 +459,7 @@ export function NeedsYouView() {
                       setBulk({ decision: "allow", asks: visibleApprovals, scope: "filtered" })
                     }
                   >
-                    Allow {visibleApprovals.length} filtered
+                    Allow {visibleApprovals.length}
                   </Button>
                 </div>
               </div>
@@ -519,7 +505,7 @@ export function NeedsYouView() {
               Show {Math.min(GROUP_PAGE, groups.length - groupsShown)} more of{" "}
               {groups.length - groupsShown} groups (
               {groups.slice(groupsShown).reduce((sum, group) => sum + group.asks.length, 0)}{" "}
-              waiting)
+              requests)
             </Button>
           ) : null}
         </div>

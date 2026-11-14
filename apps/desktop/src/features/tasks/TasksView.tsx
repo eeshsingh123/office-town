@@ -1,7 +1,6 @@
 import { Check, ChevronDown, Database, Plus } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useMemo, useState } from "react";
-import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import {
   forSession,
@@ -22,8 +21,9 @@ import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { TabRow } from "../../ui/TabRow.tsx";
-import { useLoaded } from "../../ui/use-loaded.ts";
+import composer from "../new-task/Composer.module.css";
 import { useModelLine } from "../profiles/model-line.ts";
+import { LARGE_STORE_BYTES, useStoreSize } from "./store-size.ts";
 import { TaskRow, type Team } from "./TaskRow.tsx";
 import styles from "./TasksView.module.css";
 import {
@@ -42,14 +42,11 @@ import {
 import { useNow, useTaskItems } from "./use-items.ts";
 import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
-// Past this, the history is worth pruning; deleting tasks is the only way to free it.
-const LARGE_STORE_BYTES = 1024 ** 3;
-
 // An empty tab with nothing filtered is good news, not a failed search.
 const EMPTY_TAB: Record<Tab, string> = {
   all: "No tasks yet.",
   needs: "Nothing needs you.",
-  active: "Nothing is working.",
+  active: "Nothing is in progress.",
   review: "Nothing to review.",
   done: "Nothing is done yet.",
   ended: "Nothing failed or stopped.",
@@ -58,7 +55,7 @@ const EMPTY_TAB: Record<Tab, string> = {
 const TABS: { value: Tab; label: string }[] = [
   { value: "all", label: "All" },
   { value: "needs", label: "Needs you" },
-  { value: "active", label: "Working" },
+  { value: "active", label: "In progress" },
   { value: "review", label: "To review" },
   { value: "done", label: "Done" },
   { value: "ended", label: "Failed or stopped" },
@@ -95,13 +92,15 @@ const FOLDED = forSession("tasks.folded", NONE);
 const TOGGLED = forSession("tasks.toggled", NONE);
 const SHOW_DONE = forSession("tasks.show-done", NONE);
 
+type TeamInfo = Team & { leadId: string | undefined; role: string };
+
 // The chief, then each department by name, then the agents working alone.
-export function useTeams(): Map<string, Team & { leadId: string | undefined; role: string }> {
+export function useTeams(): Map<string, TeamInfo> {
   const chiefId = useApp((state) => state.chiefId);
   const agents = useApp((state) => state.agents);
   const departments = useApp((state) => state.departments);
   return useMemo(() => {
-    const teams = new Map<string, Team & { leadId: string | undefined; role: string }>();
+    const teams = new Map<string, TeamInfo>();
     const chief = chiefId === undefined ? undefined : agents[chiefId];
     if (chief !== undefined) {
       const team = { key: "chief", name: chief.name, colour: chief.colour };
@@ -130,25 +129,22 @@ export function useTeams(): Map<string, Team & { leadId: string | undefined; rol
   }, [chiefId, agents, departments]);
 }
 
+// Only once it is large; Settings always shows it (a3-19).
 function StoreSize() {
-  const size = useLoaded("store-size", api.readStoreSize);
-  if (size.value === undefined) return null;
-  const total = size.value.databaseBytes + size.value.resultBytes;
-  const large = total >= LARGE_STORE_BYTES;
+  const total = useStoreSize();
+  if (total === undefined || total < LARGE_STORE_BYTES) return null;
   return (
     <span
-      className={`${styles.storage} ${large ? styles.storageLarge : ""}`}
-      title={
-        large
-          ? "Task history on this computer. Deleting old tasks frees the space."
-          : "Task history on this computer"
-      }
+      className={`${styles.storage} ${styles.storageLarge}`}
+      title="Task history on this computer. Deleting old tasks frees the space."
     >
       <Database size={13} aria-hidden />
-      {byteSize(total)}
+      History {byteSize(total)}
     </span>
   );
 }
+
+const FIND_FROM = 8;
 
 export function TeamFilter(props: {
   teams: Team[];
@@ -161,8 +157,11 @@ export function TeamFilter(props: {
     names.length === 0 ? "All" : names.length <= 2 ? names.join(", ") : `${names.length} teams`;
   const toggle = (key: string, on: boolean) =>
     onChange(on ? [...chosen, key] : chosen.filter((known) => known !== key));
+  const [find, setFind] = useState("");
+  const words = find.trim().toLowerCase();
+  const shown = teams.filter((team) => team.name.toLowerCase().includes(words));
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={() => setFind("")}>
       <DropdownMenu.Trigger className={`${menu.chip} ${chosen.length > 0 ? styles.set : ""}`}>
         <span className={menu.chipLabel}>Team</span>
         {label}
@@ -170,7 +169,22 @@ export function TeamFilter(props: {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content className={menu.surface} align="start" sideOffset={4}>
-          {teams.map((team) => (
+          {/* Past this many teams, a box to find one (a3-14). */}
+          {teams.length > FIND_FROM ? (
+            <input
+              className={composer.menuFind}
+              type="search"
+              value={find}
+              placeholder="Find a team"
+              aria-label="Find a team"
+              onChange={(event) => setFind(event.target.value)}
+              // Typing goes to the box, not to the menu's jump-to-item.
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") event.stopPropagation();
+              }}
+            />
+          ) : null}
+          {shown.map((team) => (
             <DropdownMenu.CheckboxItem
               key={team.key}
               className={menu.item}
@@ -191,12 +205,25 @@ export function TeamFilter(props: {
   );
 }
 
-// The lead's model; agent names are handles, which mean little in a heading.
-function LeadLine({ leadId, role }: { leadId: string | undefined; role: string }) {
+// The lead's model is team information: on hover only, so a heading stays one name (a3-14).
+function useLeadLine(leadId: string | undefined): string {
   const lead = useApp((state) => (leadId === undefined ? undefined : state.agents[leadId]));
-  const model = useModelLine(lead?.settings);
-  const text = [role, model].filter((part) => part !== "").join(" · ");
-  return text === "" ? null : <span className={styles.groupLead}>{text}</span>;
+  return useModelLine(lead?.settings);
+}
+
+function TeamHead({ team }: { team: TeamInfo | undefined }) {
+  const model = useLeadLine(team?.leadId);
+  return (
+    <>
+      <Avatar name={team?.name ?? "?"} colour={team?.colour ?? "var(--text-3)"} size={22} />
+      <span className={styles.groupName} title={model === "" ? undefined : model}>
+        {team?.name ?? "Assistants"}
+      </span>
+      {team === undefined || team.role === "" ? null : (
+        <span className={styles.groupLead}>{team.role}</span>
+      )}
+    </>
+  );
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -286,6 +313,7 @@ export function TasksView() {
     ]),
   ) as Record<Tab, number>;
   const groups = groupRows(shown, filters, by, haystack, [...teams.keys()], now);
+  const allFolded = groups.length > 0 && groups.every((group) => folded.has(group.key));
   const presentTeams = [...teams.values()].filter(
     (team) => found?.teams.has(team.key) || known.some((item) => item.team === team.key),
   );
@@ -305,14 +333,19 @@ export function TasksView() {
 
   const taskItems = items.filter((item) => item.task !== undefined);
   const midnight = new Date(now).setHours(0, 0, 0, 0);
-  const running = taskItems.filter((item) => item.status === "working").length;
-  const needYou = taskItems.filter((item) => item.status === "needs" && item.parts.length === 0);
+  const count = (status: Item["status"]) =>
+    taskItems.filter((item) => item.status === status).length;
+  const working = count("working");
+  const needYou = count("needs");
+  const toReview = count("review");
   const doneToday = taskItems.filter(
     (item) => item.status === "done" && Date.parse(item.activityAt) >= midnight,
   ).length;
+  // Counted and worded as Home's status line (a3-25).
   const summary = [
-    running === 0 ? undefined : `${running} running`,
-    needYou.length === 0 ? undefined : `${needYou.length} need you`,
+    working === 0 ? undefined : `${working} working`,
+    needYou === 0 ? undefined : `${needYou} ${needYou === 1 ? "needs" : "need"} you`,
+    toReview === 0 ? undefined : `${toReview} to review`,
     doneToday === 0 ? undefined : `${doneToday} done today`,
   ].filter(Boolean);
 
@@ -336,16 +369,7 @@ export function TasksView() {
   };
 
   const groupHead = (group: Group) => {
-    if (by === "team") {
-      const team = teams.get(group.key);
-      return (
-        <>
-          <Avatar name={team?.name ?? "?"} colour={team?.colour ?? "var(--text-3)"} size={22} />
-          <span className={styles.groupName}>{team?.name ?? "Assistants"}</span>
-          {team === undefined ? null : <LeadLine leadId={team.leadId} role={team.role} />}
-        </>
-      );
-    }
+    if (by === "team") return <TeamHead team={teams.get(group.key)} />;
     const label =
       by === "status" ? STATUS_LABELS[group.key as Item["status"]] : DAY_LABELS[group.key];
     return (
@@ -368,7 +392,7 @@ export function TasksView() {
           id="tasks-title"
           title="Tasks"
           lead={
-            taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing running."
+            taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing is working."
           }
           actions={
             <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
@@ -421,6 +445,16 @@ export function TasksView() {
               />
               <span className={styles.spacer} />
               <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={chooseBy} />
+              {groups.length < 2 ? null : (
+                <Button
+                  variant="ghost"
+                  onClick={() =>
+                    setFolded(allFolded ? new Set() : new Set(groups.map((group) => group.key)))
+                  }
+                >
+                  {allFolded ? "Expand all" : "Collapse all"}
+                </Button>
+              )}
             </div>
             {narrowing ? (
               <button
@@ -549,7 +583,7 @@ export function TasksView() {
 
         {found?.next === undefined ? null : (
           <Button variant="ghost" onClick={loadMore} disabled={loading}>
-            {loading ? "Loading…" : "Show older tasks"}
+            {loading ? "Loading" : "Show older tasks"}
           </Button>
         )}
       </div>

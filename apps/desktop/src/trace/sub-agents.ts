@@ -10,6 +10,10 @@ export interface SubAgentDetails {
 const textOf = (value: unknown) =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
 
+// The step's title without the tool's own "Agent:" in front, which the card already says (a3-23).
+export const subAgentTitle = (action: TraceAction): string =>
+  action.title.replace(/^agent:\s*/i, "");
+
 // Each provider names a sub-agent's fields its own way, so the first one present wins.
 export function subAgentDetails(input: unknown): SubAgentDetails {
   const fields =

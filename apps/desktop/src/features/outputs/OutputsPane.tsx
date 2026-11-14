@@ -92,7 +92,7 @@ export function OutputsPane({
   if (outputs === undefined && results.length === 0) {
     return (
       <div className={styles.empty}>
-        <p>{failed ? "The outputs could not be read." : "Reading the outputs…"}</p>
+        <p>{failed ? "The outputs could not be read." : "Reading the outputs"}</p>
       </div>
     );
   }
@@ -104,11 +104,7 @@ export function OutputsPane({
   ) {
     return (
       <div className={styles.empty}>
-        <strong>Nothing to show yet</strong>
-        <p>
-          When an agent makes a page, image, document or site for you to look at, it shows up here.
-          So do the files the agents change.
-        </p>
+        <strong>No outputs yet</strong>
       </div>
     );
   }

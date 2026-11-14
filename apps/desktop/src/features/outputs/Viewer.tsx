@@ -622,9 +622,7 @@ function FrameStage({
             />
           )}
           {loadedKey === frameKey ? null : (
-            <p className={styles.frameLoading}>
-              {site ? "Opening the site…" : "Loading the page…"}
-            </p>
+            <p className={styles.frameLoading}>{site ? "Opening the site" : "Loading the page"}</p>
           )}
           {spots.map((spot) => (
             <span
@@ -839,7 +837,7 @@ function TextBody({
   }, [kind, older, taskId, path]);
 
   if (failed) return <NoPreview path={path || undefined} failed />;
-  if (text === undefined) return <p className={styles.loading}>Reading the file…</p>;
+  if (text === undefined) return <p className={styles.loading}>Reading the file</p>;
   const cut =
     text.size > MAX_PREVIEW_TEXT_BYTES
       ? `Showing the first ${byteSize(MAX_PREVIEW_TEXT_BYTES)} of ${byteSize(text.size)}.`
