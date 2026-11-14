@@ -4,15 +4,6 @@
   gap: 18px;
 }
 
-.note {
-  margin: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  font-size: var(--size-meta);
-  line-height: 1.5;
-  color: var(--text-3);
-}
-
 .sizes {
   display: flex;
   flex-wrap: wrap;

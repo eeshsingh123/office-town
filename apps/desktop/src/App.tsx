@@ -13,6 +13,7 @@ import { WhatsNewDialog } from "./features/help/WhatsNewDialog.tsx";
 import { HomeView } from "./features/home/HomeView.tsx";
 import { NeedsYouView } from "./features/needs-you/NeedsYouView.tsx";
 import { NewTaskView } from "./features/new-task/NewTaskView.tsx";
+import { startNewTask } from "./features/new-task/start-new-task.ts";
 import { OfficeView } from "./features/office/OfficeView.tsx";
 import { PinnedStrip } from "./features/office/PinnedStrip.tsx";
 import { useWaitingKeys } from "./features/office/waiting-keys.ts";
@@ -127,7 +128,7 @@ export function App() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
         event.preventDefault();
-        navigate({ name: "new-task" });
+        startNewTask();
       }
       if (event.key === "b" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
         event.preventDefault();

@@ -13,18 +13,18 @@ interface OptionsChipProps {
 // This task's own choices, starting from the defaults in Settings.
 export function OptionsChip({ value, onChange }: OptionsChipProps) {
   const on = TASK_OPTIONS.filter((option) => value[option.key]);
-  // Names what is inside, as "Options" alone said nothing.
+  // Says what is on, so both off never reads as both on.
+  const short = (option: (typeof TASK_OPTIONS)[number]) => option.label.replace(/ mode$/, "");
   const label =
-    on.length === 1
-      ? `${on[0]?.label} on`
-      : on.length === TASK_OPTIONS.length
-        ? "Efficient & Milestones on"
-        : "Efficient & Milestones";
+    on.length === 0
+      ? `${TASK_OPTIONS.map(short).join(" & ")} off`
+      : `${on.map(short).join(" & ")} on`;
   return (
     <Popover.Root>
       <Popover.Trigger
-        className={styles.chip}
+        className={`${styles.chip} ${on.length === 0 ? styles.chipOff : ""}`}
         aria-label={`Efficient mode and Milestones: ${on.length === 0 ? "both off" : label}`}
+        title="Efficient mode and Milestones"
       >
         <SlidersHorizontal size={14} aria-hidden />
         <span className={styles.chipText}>{label}</span>
@@ -45,9 +45,6 @@ export function OptionsChip({ value, onChange }: OptionsChipProps) {
               onChange={(next) => onChange(option.key, next)}
             />
           ))}
-          <p className={styles.optionsNote}>
-            Starts from your defaults in Settings. A change here is for this task only.
-          </p>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

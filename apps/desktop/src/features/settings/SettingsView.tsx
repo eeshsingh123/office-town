@@ -31,10 +31,6 @@ function NewTasks() {
           />
         ))}
       </div>
-      <p className={styles.note}>
-        A new task starts with these. You can change them for one task as you start it, or on its
-        run card while it runs.
-      </p>
     </section>
   );
 }

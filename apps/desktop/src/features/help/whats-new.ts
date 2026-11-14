@@ -27,6 +27,25 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "A calmer sidebar and Home",
+    icon: LayoutGrid,
+    changes: [
+      "The sidebar keeps New task, Search and the pages at the top and Settings, Help and You at the bottom; only Departments and Active scroll between them",
+      "Pages are in three groups: Work, Organise and Setup. Needs you sits second, under Home",
+      "Each department shows in its lead's colour with what it is doing: needs you, working or to review. Hover it for a New task button that picks the department for you",
+      "Past 8 departments the sidebar shows a box to find one, and Active shows 5 tasks with a link to the rest. A team task shows its lead's step",
+      "Back and forward sit in one thin row above every page, so the app name is no longer cut short",
+      "Home opens with one status line (working, needs you, to review, each a link), then what needs you, what is working and what is waiting for review, then Recent tasks and Your team. Getting started folds to one line",
+      "Home and Tasks count the same tasks with the same words, and Recent tasks says how long ago",
+      "New task on Home puts the cursor in the box instead of opening another page",
+      "The row of keys under the task box is gone; Help has a Keyboard shortcuts card",
+      "The options chip says Efficient & Milestones off, or names what is on",
+      "Ctrl+K opens on your recent tasks and also finds members, workspaces, templates, providers and apps, adds an app, opens What's new and switches the theme",
+      "The chief is added in one place, with one name: Add a chief",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "Providers and Usage, each with one job",
     icon: Gauge,
     changes: [

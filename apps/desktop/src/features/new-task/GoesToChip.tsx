@@ -60,7 +60,11 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
 
   return (
     <DropdownMenu.Root onOpenChange={() => setFind("")}>
-      <DropdownMenu.Trigger className={styles.chip} aria-label={`Goes to: ${label}`}>
+      <DropdownMenu.Trigger
+        className={styles.chip}
+        aria-label={`Who does it: ${label}`}
+        title="Who does it"
+      >
         {targetIcon(value)}
         <span className={styles.chipText}>{label}</span>
         <ChevronDown size={13} aria-hidden />
@@ -87,7 +91,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             />
           ) : null}
           <DropdownMenu.RadioGroup value={value} onValueChange={onChange}>
-            <Item value={SOLO} title="An assistant" note="One agent" />
+            <Item value={SOLO} title="Assistant" note="One agent" />
             <DropdownMenu.Label className={styles.menuHeading}>Departments</DropdownMenu.Label>
             {sorted.map((department) => {
               const busyWith = busy.get(department.id);
@@ -116,7 +120,7 @@ export function GoesToChip({ value, label, hasChief, onChange }: GoesToChipProps
             <Item
               value={CHIEF}
               title="Chief"
-              note={hasChief ? "Plans across departments for you to approve" : "Not set up yet"}
+              note={hasChief ? "Plans across departments for you to approve" : "No chief yet"}
             />
           </DropdownMenu.RadioGroup>
           <DropdownMenu.Separator className={styles.separator} />

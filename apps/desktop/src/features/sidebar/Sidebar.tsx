@@ -29,11 +29,11 @@ import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { openCommandMenu } from "../command/command-menu.ts";
 import { useConnectorNeedsUser } from "../connectors/connectors.ts";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
 import { ConnectionStatus } from "./ConnectionStatus.tsx";
 import { Departments } from "./Departments.tsx";
-import { HistoryButtons } from "./HistoryButtons.tsx";
 import { RunningAgents } from "./RunningAgents.tsx";
 import styles from "./Sidebar.module.css";
 import { toggleSidebar, useSidebarCollapsed } from "./sidebar-state.ts";
@@ -90,6 +90,15 @@ export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
       <span className={styles.text}>{label}</span>
       {badge}
     </button>
+  );
+}
+
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className={styles.group}>
+      <div className={styles.groupLabel}>{label}</div>
+      {children}
+    </div>
   );
 }
 
@@ -171,10 +180,7 @@ function YouItem() {
       {...rail}
     >
       <Avatar name={name || "You"} colour={you.colour} size={26} />
-      <span className={styles.youText}>
-        {name || "You"}
-        <span className={styles.youHint}>Your profile</span>
-      </span>
+      <span className={styles.youText}>{name || "You"}</span>
     </button>
   );
 }
@@ -191,58 +197,62 @@ export function Sidebar() {
       style={{ width: collapsed ? RAIL : width }}
     >
       <nav aria-label="Main" className={`${styles.sidebar} ${collapsed ? styles.rail : ""}`}>
-        <div className={styles.brand}>
-          <img className={styles.logo} src={appIcon} alt="" />
-          <span className={styles.text}>Office Town</span>
-          {/* Collapsed, back and forward move to the top of the main area. */}
-          {collapsed ? null : <HistoryButtons />}
-          <button
-            type="button"
-            className={styles.collapse}
-            onClick={toggleSidebar}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
-          >
-            {collapsed ? (
-              <PanelLeftOpen size={16} aria-hidden />
-            ) : (
-              <PanelLeftClose size={16} aria-hidden />
-            )}
+        <div className={styles.top}>
+          <div className={styles.brand}>
+            <img className={styles.logo} src={appIcon} alt="" />
+            <span className={styles.text}>Office Town</span>
+            <button
+              type="button"
+              className={styles.collapse}
+              onClick={toggleSidebar}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+            >
+              {collapsed ? (
+                <PanelLeftOpen size={16} aria-hidden />
+              ) : (
+                <PanelLeftClose size={16} aria-hidden />
+              )}
+            </button>
+          </div>
+          <Button variant="primary" className={styles.newTask} onClick={startNewTask} {...newTask}>
+            <Plus size={16} aria-hidden />
+            <span className={styles.text}>New task</span>
+            <Kbd>Ctrl N</Kbd>
+          </Button>
+          <button type="button" className={styles.nav} onClick={openCommandMenu} {...search}>
+            <Search size={16} aria-hidden />
+            <span className={styles.text}>Search</span>
+            <span className={styles.shortcut}>
+              <Kbd>Ctrl K</Kbd>
+            </span>
           </button>
+          <Group label="Work">
+            <NavItem view="home" icon={House} label="Home" />
+            <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
+            <NavItem view="tasks" icon={List} label="Tasks" />
+            <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
+          </Group>
+          <Group label="Organise">
+            <NavItem view="team" icon={Users} label="Team" />
+            <NavItem view="templates" icon={SwatchBook} label="Templates" />
+            <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
+          </Group>
+          <Group label="Setup">
+            <NavItem view="providers" icon={Bot} label="Providers" />
+            <NavItem view="connectors" icon={Plug} label="Connectors" badge={<ConnectorDot />} />
+            <NavItem view="usage" icon={Gauge} label="Usage" badge={<UsageDot />} />
+          </Group>
         </div>
-        <Button
-          variant="primary"
-          className={styles.newTask}
-          onClick={() => navigate({ name: "new-task" })}
-          {...newTask}
-        >
-          <Plus size={16} aria-hidden />
-          <span className={styles.text}>New task</span>
-          <Kbd>Ctrl N</Kbd>
-        </Button>
-        <button type="button" className={styles.nav} onClick={openCommandMenu} {...search}>
-          <Search size={16} aria-hidden />
-          <span className={styles.text}>Search</span>
-          <span className={styles.shortcut}>
-            <Kbd>Ctrl K</Kbd>
-          </span>
-        </button>
-        <NavItem view="home" icon={House} label="Home" />
-        <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
-        <NavItem view="team" icon={Users} label="Team" />
-        <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
-        <NavItem view="tasks" icon={List} label="Tasks" />
-        <NavItem view="templates" icon={SwatchBook} label="Templates" />
-        <NavItem view="workspaces" icon={FolderGit2} label="Workspaces" />
-        <NavItem view="providers" icon={Bot} label="Providers" />
-        <NavItem view="connectors" icon={Plug} label="Connectors" badge={<ConnectorDot />} />
-        <NavItem view="usage" icon={Gauge} label="Usage" badge={<UsageDot />} />
-        {collapsed ? null : (
-          <>
-            <Departments />
-            <RunningAgents />
-          </>
-        )}
+        {/* The only part that scrolls, so the top and the footer never leave the screen. */}
+        <div className={styles.middle}>
+          {collapsed ? null : (
+            <>
+              <Departments />
+              <RunningAgents />
+            </>
+          )}
+        </div>
         <div className={styles.footer}>
           <UpdateItem />
           <NavItem view="settings" icon={Settings} label="Settings" />

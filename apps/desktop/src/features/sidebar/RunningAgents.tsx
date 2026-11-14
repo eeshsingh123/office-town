@@ -6,12 +6,15 @@ import { progressOf, stageOf } from "../../trace/progress.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { taskName } from "../../ui/format.ts";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
+import { showTasksTab } from "../tasks/TasksView.tsx";
 import { STATUS_LABELS, statusOfTask } from "../tasks/task-list.ts";
 import { taskMenu } from "../tasks/task-menu.ts";
 import { WorkerName } from "../tasks/WorkerName.tsx";
 import styles from "./Sidebar.module.css";
 
-// A team's task shows once, by its lead.
+const SHOWN = 5;
+
+// A team's task shows once, by its lead, with the lead's step.
 export function RunningAgents() {
   const tasks = useTasksWithAgents().filter((entry) =>
     entry.agents.some((agent) => isOpen(agent.latest)),
@@ -27,7 +30,7 @@ export function RunningAgents() {
   return (
     <>
       <div className={styles.label}>Active</div>
-      {tasks.map(({ task, agents }, index) => {
+      {tasks.slice(0, SHOWN).map(({ task, agents }, index) => {
         const [first, ...others] = agents;
         const state = taskStateOf(agents, traces, waiting);
         const status = statuses[index];
@@ -38,7 +41,7 @@ export function RunningAgents() {
         const detail =
           stage !== undefined
             ? stage.charAt(0).toLowerCase() + stage.slice(1)
-            : state === "working" && step !== undefined && others.length === 0
+            : state === "working" && step !== undefined
               ? `step ${step.number} of ${trace?.plan.length}`
               : STATUS_LABELS[status].toLowerCase();
         const current = view.name === "task" && view.taskId === task.id;
@@ -61,6 +64,11 @@ export function RunningAgents() {
           </ContextMenu>
         );
       })}
+      {tasks.length > SHOWN ? (
+        <button type="button" className={styles.all} onClick={() => showTasksTab("active")}>
+          All {tasks.length} active
+        </button>
+      ) : null}
     </>
   );
 }

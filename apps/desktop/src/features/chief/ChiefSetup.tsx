@@ -132,13 +132,13 @@ export function ChiefSetup() {
   };
 
   return (
-    <section className={steps.setup} aria-label={editing ? "Chief settings" : "Set up your chief"}>
+    <section className={steps.setup} aria-label={editing ? "Chief settings" : "Add a chief"}>
       <StepRail
         back={{
           label: editing ? "Back to your chief" : "Back to Home",
           onClick: () => navigate(editing ? { name: "chief" } : { name: "home" }),
         }}
-        title={editing ? "Chief settings" : "Set up your chief"}
+        title={editing ? "Chief settings" : "Add a chief"}
         note={
           <>
             {editing ? <span className={page.hint}>Changes apply from its next goal.</span> : null}
