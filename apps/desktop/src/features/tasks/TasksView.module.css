@@ -271,7 +271,7 @@
 .open {
   display: grid;
   flex: 1;
-  grid-template-columns: 18px minmax(0, 1fr) 170px 120px 84px;
+  grid-template-columns: 18px minmax(0, 1fr) 230px 110px 84px;
   align-items: center;
   gap: 14px;
   min-width: 0;
@@ -293,17 +293,6 @@ button.open {
 .icon {
   display: grid;
   place-items: center;
-}
-
-.quiet {
-  color: var(--text-3);
-}
-
-.unread {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent);
 }
 
 .text {

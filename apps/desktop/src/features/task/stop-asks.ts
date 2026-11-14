@@ -3,11 +3,11 @@ import type { Ask } from "../../ui/ConfirmDialog.tsx";
 
 // Every Stop asks first, with the same words wherever it is clicked.
 
-const AFTER = "Work already done stays. Send a message to carry on later.";
+const AFTER = "Send a message to resume.";
 
 export const stopAgentAsk = (name: string, sessionId: string): Ask => ({
   title: `Stop ${name}?`,
-  description: `${name} stops right away, even in the middle of a step. ${AFTER}`,
+  description: `${name} stops now. ${AFTER}`,
   confirmLabel: "Stop",
   run: () => api.stop(sessionId),
 });
@@ -15,7 +15,7 @@ export const stopAgentAsk = (name: string, sessionId: string): Ask => ({
 // Away from the task's own page, the title names the task.
 export const stopTeamAsk = (taskId: string, label: string, title?: string): Ask => ({
   title: title === undefined ? "Stop everyone on this task?" : `Stop everyone on “${title}”?`,
-  description: `They stop right away, even in the middle of a step. ${AFTER}`,
+  description: `They stop now. ${AFTER}`,
   confirmLabel: label,
   run: () => api.stopTeam(taskId),
 });
@@ -23,7 +23,7 @@ export const stopTeamAsk = (taskId: string, label: string, title?: string): Ask 
 // Agents picked together on the floor; `run` reports any that could not be stopped.
 export const stopPickedAsk = (count: number, run: () => Promise<void>): Ask => ({
   title: `Stop ${count} ${count === 1 ? "agent" : "agents"}?`,
-  description: `They stop right away, even in the middle of a step. ${AFTER}`,
+  description: `They stop now. ${AFTER}`,
   confirmLabel: "Stop",
   run,
 });
@@ -31,7 +31,7 @@ export const stopPickedAsk = (count: number, run: () => Promise<void>): Ask => (
 // A lead waiting on its proposed team; `run` shows a failure on the card.
 export const stopProposalAsk = (lead: string, run: () => Promise<void>): Ask => ({
   title: "Stop this task?",
-  description: `${lead} stops right away and the proposed team is not created. ${AFTER}`,
+  description: `${lead} stops now and the proposed team is not created. ${AFTER}`,
   confirmLabel: "Stop the task",
   run,
 });

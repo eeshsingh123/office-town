@@ -43,8 +43,9 @@
   color: var(--text-3);
 }
 
-/* Chips wrap in their own column; Start keeps its place at the bottom right whatever they do. */
+/* Chips keep to one line, long names shortening first; Start keeps its place at the right. */
 .bar {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -54,14 +55,21 @@
 
 .chips {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   min-width: 0;
 }
 
+/* Too narrow for one line even with names shortened: rows of whole chips instead. */
+@container (width < 700px) {
+  .chips {
+    flex-wrap: wrap;
+  }
+}
+
 .chip {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 6px;
   max-width: 100%;
@@ -100,13 +108,21 @@
   cursor: default;
 }
 
+/* Only the long names, the model and the workspace, shorten to keep the line. */
+.shrinks {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .chipText {
+  min-width: 48px;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .chipMuted {
+  flex: none;
   font-weight: 400;
   color: var(--text-3);
 }
@@ -460,134 +476,7 @@
   text-overflow: ellipsis;
 }
 
-/* Under the box on New task: examples, or recent tasks to send again. */
-.suggestions {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 44px;
-}
-
-.suggestionsHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.suggestionsHead h2 {
-  margin: 0;
-  font-size: var(--size-ui);
-  font-weight: 700;
-  color: var(--text-2);
-}
-
-.suggestionsHead .link {
-  margin: 0;
-  font-weight: 500;
-}
-
-.examples {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.example {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--motion);
-}
-
-.example:hover {
-  border-color: var(--border-strong);
-}
-
-.example strong {
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.example span {
-  font-size: var(--size-meta);
-  color: var(--text-3);
-}
-
-.recent {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  list-style: none;
-}
-
-.recentRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-}
-
-.recentRow + .recentRow {
-  border-top: 1px solid var(--border);
-}
-
-.recentRow:hover {
-  background: var(--hover);
-}
-
-.recentText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.recentText strong {
-  overflow: hidden;
-  font-weight: 500;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.recentText span {
-  font-size: var(--size-meta);
-  color: var(--text-3);
-}
-
-.again {
-  flex: none;
-  height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--accent-text);
-  font-size: var(--size-meta);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.again:hover {
-  background: var(--accent-soft);
-}
-
 @media (width < 640px) {
-  .examples {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .keys {
     display: none;
   }

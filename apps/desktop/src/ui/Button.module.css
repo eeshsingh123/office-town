@@ -70,6 +70,7 @@
 }
 
 .icon {
+  flex: none;
   width: 36px;
   padding: 0;
 }

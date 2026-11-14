@@ -1,4 +1,4 @@
-import { LoaderCircle, Square } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -13,7 +13,6 @@ import {
   stageOf,
 } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
-import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { taskName } from "../../ui/format.ts";
 import { stateLabel } from "../../ui/StatusIcon.tsx";
@@ -23,18 +22,17 @@ import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
+import { ReviewBar } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
+import { StopButton } from "./StopButton.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
-
-// A solo task with a plan this long is offered a review once it is done.
-const LONG_TASK_STEPS = 3;
 
 function pillStyle(state: AgentState): string | undefined {
   if (state === "waiting") return styles.pillWaiting;
@@ -132,12 +130,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
         </div>
         <TaskTabs taskId={taskId} />
         {tab.outputs ? null : <ProgressButton taskId={taskId} soloAgentId={agent.id} />}
-        {live ? (
-          <ConfirmButton ask={stopAgentAsk(agent.name, latest.id)}>
-            <Square size={12} aria-hidden />
-            Stop
-          </ConfirmButton>
-        ) : null}
+        {live ? <StopButton ask={stopAgentAsk(agent.name, latest.id)} /> : null}
       </header>
 
       {tab.outputs ? (
@@ -149,17 +142,13 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
                 <AgentTrace key={agent.id} sessions={agent.sessions} />
-                <ReviewOffer
-                  agent={agent}
-                  members={[agent]}
-                  suggest={(progress?.stepCount ?? 0) >= LONG_TASK_STEPS}
-                  onReview={() => setAsking(true)}
-                />
+                <ReviewOffer agent={agent} members={[agent]} onReview={() => setAsking(true)} />
               </div>
             </div>
             <div className={`${styles.traceWidth} ${styles.dock}`}>
               <MessageBox
                 agent={agent}
+                above={<ReviewBar agent={agent} />}
                 actions={
                   <>
                     <ReviewAction onClick={() => setAsking(true)} />

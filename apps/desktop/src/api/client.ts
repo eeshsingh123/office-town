@@ -89,7 +89,10 @@ import {
   previewReplySchema,
   profileRecordSchema,
   profileUsesSchema,
+  type ReviewerRecord,
+  type ReviewerRequest,
   type RoomPosition,
+  reviewerRecordSchema,
   type SessionPage,
   type SessionRecord,
   type Settings,
@@ -419,6 +422,13 @@ export const api = {
   updateProfile: (profileId: string, profile: ProfileRequest): Promise<ProfileRecord> =>
     write("PUT", `/profiles/${id(profileId)}`, profile, profileRecordSchema),
   deleteProfile: (profileId: string): Promise<void> => send("DELETE", `/profiles/${id(profileId)}`),
+  listReviewers: (): Promise<ReviewerRecord[]> => read("/reviewers", listOf(reviewerRecordSchema)),
+  createReviewer: (reviewer: ReviewerRequest): Promise<ReviewerRecord> =>
+    write("POST", "/reviewers", reviewer, reviewerRecordSchema),
+  updateReviewer: (reviewerId: string, reviewer: ReviewerRequest): Promise<ReviewerRecord> =>
+    write("PUT", `/reviewers/${id(reviewerId)}`, reviewer, reviewerRecordSchema),
+  deleteReviewer: (reviewerId: string): Promise<void> =>
+    send("DELETE", `/reviewers/${id(reviewerId)}`),
   listLimits: (): Promise<AccountLimits[]> => read("/limits", listOf(accountLimitsSchema)),
   // Asks each account's harness for its plan usage now; the latest come back.
   refreshLimits: (): Promise<AccountLimits[]> =>

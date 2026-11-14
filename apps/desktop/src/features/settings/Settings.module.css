@@ -42,3 +42,10 @@
   height: 16px;
   accent-color: var(--accent);
 }
+
+/* Theme picks carry an icon beside the word. */
+.themeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

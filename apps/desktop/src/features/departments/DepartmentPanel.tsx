@@ -23,7 +23,7 @@ import {
 import { ResultRows } from "../outputs/OutputCards.tsx";
 import { useResults } from "../outputs/use-task-outputs.ts";
 import { tokenLine } from "../task/run-facts.ts";
-import { StopTeamButton } from "../task/StopTeamButton.tsx";
+import { StopTeamButton } from "../task/StopButton.tsx";
 import styles from "./DepartmentPanel.module.css";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { settingsOf } from "./team-form.ts";

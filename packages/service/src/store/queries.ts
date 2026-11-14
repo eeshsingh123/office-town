@@ -103,6 +103,8 @@ const ACCOUNT_COLUMNS = "id, harness, environment, name, folder, created_at AS c
 
 const PROFILE_COLUMNS = "ref, id, name, role, colour, settings, created_at AS createdAt";
 
+const REVIEWER_COLUMNS = "id, name, description, instructions, settings, created_at AS createdAt";
+
 const WORKSPACE_COLUMNS =
   "ref, id, name, kind, folders, created_at AS createdAt, used_at AS usedAt";
 
@@ -373,6 +375,16 @@ export const queries = {
     WHERE a.guest = 0 GROUP BY p.id`,
   updateProfile: "UPDATE profiles SET name = ?, role = ?, colour = ?, settings = ? WHERE ref = ?",
   deleteProfile: "DELETE FROM profiles WHERE ref = ?",
+
+  insertReviewer: `
+    INSERT INTO reviewers (id, name, description, instructions, settings, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)`,
+  // Reads the whole table on purpose: one row per reviewer the user keeps.
+  allReviewers: `SELECT ${REVIEWER_COLUMNS} FROM reviewers ORDER BY created_at`,
+  reviewerById: `SELECT ${REVIEWER_COLUMNS} FROM reviewers WHERE id = ?`,
+  updateReviewer: `
+    UPDATE reviewers SET name = ?, description = ?, instructions = ?, settings = ? WHERE id = ?`,
+  deleteReviewer: "DELETE FROM reviewers WHERE id = ?",
 
   insertEvent: `
     INSERT INTO events (session_ref, sequence, id, type, timestamp, payload)

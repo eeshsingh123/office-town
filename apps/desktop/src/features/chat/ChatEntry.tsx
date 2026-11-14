@@ -7,6 +7,7 @@ import { clockTime } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import menu from "../../ui/Menu.module.css";
 import { SentFiles } from "../attachments/SentFiles.tsx";
+import { TaggedText, useAppNames } from "../connectors/AppTags.tsx";
 import { ShownResult } from "../outputs/OutputCards.tsx";
 import { DELEGATION_STATUS } from "../work/delegation-status.ts";
 import { PieceIcon } from "../work/PieceIcon.tsx";
@@ -175,13 +176,17 @@ export function ChatEntry({ item, speaker, noted, goalId }: ChatEntryProps) {
     return department === undefined ? undefined : state.agents[department.leadAgentId];
   });
   const yourName = useYourName();
+  const appNames = useAppNames();
   switch (item.kind) {
     case "user":
       return (
         <div className={styles.mine}>
           <MessageMenu text={item.text}>
             <div className={styles.bubble}>
-              <Markdown text={item.text} />
+              <Markdown
+                text={item.text}
+                renderText={(text) => <TaggedText text={text} names={appNames} />}
+              />
             </div>
           </MessageMenu>
           <SentFiles uses={item.files} />

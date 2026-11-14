@@ -43,8 +43,8 @@ export function BypassDialog({ open, who, onBypass, onFull, onKeep }: BypassDial
                 <li>use the web, push code or open pull requests</li>
               </ul>
               <p>
-                Office Town can't see these actions first, so you won't be asked. "Don't ask" allows
-                the same, but still records each action.
+                Office Town can't see these actions first, so you won't be asked. "Auto" allows the
+                same, but still records each action.
               </p>
             </div>
           </AlertDialog.Description>
@@ -57,7 +57,7 @@ export function BypassDialog({ open, who, onBypass, onFull, onKeep }: BypassDial
             I understand nothing will be checked
           </label>
           <div className={dialog.actions}>
-            <Button onClick={settle(onFull)}>Use "Don't ask" instead</Button>
+            <Button onClick={settle(onFull)}>Use "Auto" instead</Button>
             <AlertDialog.Cancel asChild>
               <Button variant="ghost">Cancel</Button>
             </AlertDialog.Cancel>

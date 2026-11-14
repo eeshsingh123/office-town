@@ -22,10 +22,18 @@ const WINDOWS: Record<string, { label: string; hours?: number }> = {
   seven_day: { label: "Weekly", hours: 7 * 24 },
   seven_day_opus: { label: "Weekly · Opus", hours: 7 * 24 },
   seven_day_sonnet: { label: "Weekly · Sonnet", hours: 7 * 24 },
+  month: { label: "Monthly", hours: 30 * 24 },
 };
 
+// Readings stored before windows were named by length kept an id of minutes ("43200_minutes").
+function windowOf(limit: UsageLimit): { label: string; hours?: number } | undefined {
+  const minutes = /^(\d+)_minutes$/.exec(limit.id)?.[1];
+  if (minutes !== undefined && Number(minutes) === 30 * 1440) return WINDOWS.month;
+  return WINDOWS[limit.id];
+}
+
 export function windowLabel(limit: UsageLimit): string {
-  const known = WINDOWS[limit.id]?.label;
+  const known = windowOf(limit)?.label;
   return known ?? `${limit.label.charAt(0).toUpperCase()}${limit.label.slice(1)}`;
 }
 
@@ -54,7 +62,7 @@ export interface Pace {
 
 // Only for windows of a known length, once a little of it has passed.
 export function paceOf(limit: UsageLimit, now = Date.now()): Pace | undefined {
-  const hours = WINDOWS[limit.id]?.hours;
+  const hours = windowOf(limit)?.hours;
   if (hours === undefined || limit.resetsAt === undefined) return undefined;
   const length = hours * 3600_000;
   const resetsAt = Date.parse(limit.resetsAt);

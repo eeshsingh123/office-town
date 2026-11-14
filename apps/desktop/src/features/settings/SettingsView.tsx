@@ -1,8 +1,10 @@
 import type { Display } from "@office-town/contract";
+import { Moon, Sun } from "lucide-react";
 import { useApp } from "../../store/app-store.ts";
 import page from "../../ui/CardPage.module.css";
 import form from "../../ui/Form.module.css";
 import { SwitchRow } from "../../ui/Switch.tsx";
+import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { saveDisplay } from "../onboarding/onboarding.ts";
 import { saveTaskDefault, TASK_OPTIONS, useTaskDefaults } from "../task/task-options.ts";
 import styles from "./Settings.module.css";
@@ -32,6 +34,35 @@ function NewTasks() {
         A new task starts with these. You can change them for one task as you start it, or on its
         run card while it runs.
       </p>
+    </section>
+  );
+}
+
+// Kept on this computer and applied at once (ui/theme.ts).
+function Appearance() {
+  const theme = useTheme();
+  return (
+    <section className={page.card} aria-labelledby="settings-appearance">
+      <h2 id="settings-appearance" className={page.cardTitle}>
+        Appearance
+      </h2>
+      <fieldset className={styles.sizes}>
+        <legend className={styles.legend}>Theme</legend>
+        {(["light", "dark"] as const).map((pick) => (
+          <button
+            key={pick}
+            type="button"
+            className={`${form.chip} ${styles.themeChip}`}
+            aria-pressed={theme === pick}
+            onClick={() => {
+              if (theme !== pick) toggleTheme();
+            }}
+          >
+            {pick === "light" ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}
+            {pick === "light" ? "Light" : "Dark"}
+          </button>
+        ))}
+      </fieldset>
     </section>
   );
 }
@@ -87,6 +118,7 @@ export function SettingsView() {
           </h1>
         </div>
         <NewTasks />
+        <Appearance />
         <DisplaySettings />
       </div>
     </section>

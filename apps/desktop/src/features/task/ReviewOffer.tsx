@@ -1,23 +1,22 @@
 import type { CheckRecord, CheckResult } from "@office-town/contract";
-import { CircleCheck, CircleMinus, CircleX, Eye, FolderOpen, ListChecks } from "lucide-react";
+import { CircleCheck, CircleMinus, CircleX, ListChecks } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { shell } from "../../shell.ts";
 import { type Agent, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { OPEN_CHECK, useChecks } from "../../store/checks.ts";
 import { type Keep, readKept, useKept, writeKept } from "../../store/kept.ts";
+import { markDone } from "../../store/reviewers.ts";
 import { isBusy } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import checks from "../checks/Checks.module.css";
-import { ReviewResults } from "../outputs/OutputCards.tsx";
 import { RequestCard } from "../requests/RequestCard.tsx";
+import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./ReviewOffer.module.css";
 
 const idList = (name: string): Keep<string[]> => ({ name, lasts: "saved", start: [] });
-const DECLINED = idList("review-declined");
-const FIXES_SENT = idList("check-fixes-sent");
+export const FIXES_SENT = idList("check-fixes-sent");
 
 function remember(keep: Keep<string[]>, id: string) {
   writeKept(keep, [...readKept(keep), id]);
@@ -28,8 +27,6 @@ interface ReviewOfferProps {
   agent: Agent;
   // Everyone on the task, so a running team is not interrupted.
   members: readonly Agent[];
-  // Short solo tasks do not get the offer; the composer still has the button.
-  suggest: boolean;
   onReview: () => void;
   // Shows a checker's work; only a team view can.
   onShow?: ((agentId: string) => void) | undefined;
@@ -50,6 +47,15 @@ ${failing.join("\n")}
 
 Fix only these, with the smallest change. Do not change what passes, and never edit a test or a check to make it pass. When you are done, say what you changed for each.`;
 }
+
+// Only the failing items go back, and the check remembers they went.
+export async function sendFixes(check: CheckRecord): Promise<void> {
+  await api.messageAgent(check.ownerAgentId, fixMessage(check), check.taskId);
+  remember(FIXES_SENT, check.id);
+}
+
+export const failingCount = (check: CheckRecord) =>
+  (check.results ?? []).filter((result) => result.outcome === "fail").length;
 
 const ICONS = { pass: CircleCheck, fail: CircleX, not_run: CircleMinus } as const;
 
@@ -124,7 +130,7 @@ function Results({
     check.items.filter((item) => results.get(item.id)?.outcome === outcome).length;
   const failed = count("fail");
   const notRun = count("not_run");
-  const finished = agent.task.state === "ended";
+  const finished = useApp((state) => statusOfTask(state, agent.taskId) === "review");
   const accepted = agent.task.reviewedAt !== undefined;
 
   const act = async (work: () => Promise<unknown>) => {
@@ -138,11 +144,7 @@ function Results({
       setBusy(false);
     }
   };
-  const sendFixes = () =>
-    act(async () => {
-      await api.messageAgent(check.ownerAgentId, fixMessage(check), check.taskId);
-      remember(FIXES_SENT, check.id);
-    });
+  const fixes = () => act(() => sendFixes(check));
 
   const summary =
     failed === 0
@@ -189,7 +191,7 @@ function Results({
       )}
       <div className={checks.actions}>
         {failed > 0 && !sent && !accepted ? (
-          <Button variant="primary" disabled={busy} onClick={() => void sendFixes()}>
+          <Button variant="primary" disabled={busy} onClick={() => void fixes()}>
             Send fixes to the team
           </Button>
         ) : null}
@@ -200,7 +202,7 @@ function Results({
           <Button
             variant="ghost"
             disabled={busy}
-            onClick={() => void act(() => api.markReviewed(check.taskId))}
+            onClick={() => void act(() => markDone(check.taskId))}
           >
             {failed === 0 ? "Accept" : "Accept as is"}
           </Button>
@@ -220,14 +222,13 @@ function Results({
   );
 }
 
-// The end of the chat: once the work is done, a check is the natural next step (D-54, D-73).
-export function ReviewOffer({ agent, members, suggest, onReview, onShow }: ReviewOfferProps) {
+// The end of the chat: a check under way, then its results. The bar above the box offers it (D-73).
+export function ReviewOffer({ agent, members, onReview, onShow }: ReviewOfferProps) {
   const traces = useApp((state) => state.traces);
   const waitingRequests = useApp((state) => state.waiting);
   const agents = useApp((state) => state.agents);
   const waiting = useWaitingSessions();
   const all = useChecks(agent.taskId);
-  const declined = useKept(DECLINED)[0].includes(agent.taskId);
   const states = new Map(
     members.map((member) => [member.id, stateOf(member, traces, waiting.has(member.latest.id))]),
   );
@@ -236,7 +237,6 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
     return state !== undefined && (isBusy(state) || state === "waiting");
   };
   const latest = all.at(-1);
-  const folder = agent.latest.options.workspacePath;
 
   if (latest !== undefined && OPEN_CHECK.has(latest.status)) {
     const name = agents[latest.checkerAgentId]?.name ?? "The checker";
@@ -279,34 +279,5 @@ export function ReviewOffer({ agent, members, suggest, onReview, onShow }: Revie
       <Results check={shown} before={before} agent={agent} onReview={onReview} onShow={onShow} />
     );
   }
-  // Interrupted, stopped or failed work is not done, so it is not offered.
-  const finished = states.get(agent.id) === "idle" || states.get(agent.id) === "done";
-  if (!suggest || declined || !finished) return null;
-  const unfinished = latest !== undefined;
-  return (
-    <div className={styles.card}>
-      <Eye size={18} className={styles.icon} aria-hidden />
-      <p className={styles.text}>
-        <strong>
-          {unfinished ? "The last check did not finish." : "Done. Get this work checked?"}
-        </strong>
-        <span>A new agent outside the team runs a checklist you approve, on a temporary copy.</span>
-      </p>
-      <ReviewResults taskId={agent.taskId} />
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={onReview}>
-          Send for review
-        </Button>
-        {shell === undefined || folder === undefined ? null : (
-          <Button variant="ghost" onClick={() => void shell?.openFolder(folder)}>
-            <FolderOpen size={14} aria-hidden />
-            See the files
-          </Button>
-        )}
-        <Button variant="ghost" onClick={() => remember(DECLINED, agent.taskId)}>
-          No thanks
-        </Button>
-      </div>
-    </div>
-  );
+  return null;
 }

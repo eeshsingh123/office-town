@@ -1,26 +1,24 @@
-import { agentColours, type PlanPiece, type TaskRecord } from "@office-town/contract";
-import { Check, Clock, LoaderCircle, MessageSquare } from "lucide-react";
-import { memo, type ReactNode, useMemo, useState } from "react";
-import { api } from "../../api/client.ts";
-import { type AppState, useApp } from "../../store/app-store.ts";
-import { track } from "../../store/live.ts";
+import { agentColours, type TaskRecord } from "@office-town/contract";
+import { Search } from "lucide-react";
+import { type ReactNode, useMemo, useState } from "react";
+import { type AppState, navigate, useApp } from "../../store/app-store.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
-import { clockTime, taskName } from "../../ui/format.ts";
-import { StatusIcon } from "../../ui/StatusIcon.tsx";
+import { ago, taskName } from "../../ui/format.ts";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
-import { ReviewResults } from "../outputs/OutputCards.tsx";
-import { requestSummary } from "../requests/summary.ts";
-import { PieceIcon } from "../work/PieceIcon.tsx";
-import { departmentName } from "../work/use-plan.ts";
+import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
+import { TeamFilter, useTeams } from "../tasks/TasksView.tsx";
+import { buildItems, type Item, type RowStatus } from "../tasks/task-list.ts";
+import { continueWork, taskMenu } from "../tasks/task-menu.ts";
 import styles from "./Board.module.css";
-import { type BoardCard, boardColumns, type CardNote, type ColumnId } from "./board.ts";
+import { boardColumns, type ColumnId, DONE_SHOWN } from "./board.ts";
 
-const COLUMNS: { id: ColumnId; title: string; icon: ReactNode }[] = [
-  { id: "needs-you", title: "Needs you", icon: <StatusIcon state="waiting" /> },
-  { id: "working", title: "Working", icon: <LoaderCircle size={14} className={styles.accent} /> },
-  { id: "waiting", title: "Waiting", icon: <Clock size={14} className={styles.quiet} /> },
-  { id: "review", title: "To review", icon: <span className={styles.unread} /> },
-  { id: "done", title: "Done", icon: <Check size={14} className={styles.ok} /> },
+const COLUMNS: { id: ColumnId; title: string; status: RowStatus }[] = [
+  { id: "needs-you", title: "Needs you", status: "needs" },
+  { id: "working", title: "Working", status: "working" },
+  { id: "waiting", title: "Waiting", status: "queued" },
+  { id: "review", title: "To review", status: "review" },
+  { id: "done", title: "Done", status: "done" },
 ];
 
 // One colour per harness wherever it shows, without a list of harnesses to keep up.
@@ -29,7 +27,6 @@ function harnessColour(harness: string): string {
   return agentColours[sum % agentColours.length]?.value ?? "";
 }
 
-// Plain values, so a card's props stay equal while its owner does.
 type Known = Pick<AppState, "chiefId" | "agents" | "departments" | "sessions" | "tasks">;
 
 interface Owner {
@@ -50,7 +47,7 @@ function ownerOf(task: TaskRecord, state: Known): Owner {
   const harness = firstSession?.options.harness ?? (isChief ? chief?.settings.harness : undefined);
   const kind: PanelKind = department !== undefined ? "department" : isChief ? "chief" : "agent";
   return {
-    who: department?.name ?? (isChief ? chief?.name : firstAgent?.name) ?? "An agent",
+    who: department?.name ?? (isChief ? chief?.name : "Assistant") ?? "An agent",
     harness,
     kind,
     roomId: department?.id,
@@ -76,257 +73,218 @@ function Harness({ harness }: { harness: string | undefined }) {
   );
 }
 
-function NoteLine({ note, task }: { note: CardNote | undefined; task?: TaskRecord }) {
-  const departments = useApp((state) => state.departments);
-  const chiefName = useApp((state) =>
-    state.chiefId === undefined ? "the chief" : (state.agents[state.chiefId]?.name ?? "the chief"),
-  );
+const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
+
+// One line under the owner: what it asks, does, waits on, or how it ended.
+function StatusLine({ item, outputs }: { item: Item; outputs: number }): ReactNode {
   const [error, setError] = useState<string>();
-  if (note === undefined) return null;
-  switch (note.kind) {
-    case "waits-on": {
-      const names = [...new Set(note.pieces.map((piece) => departmentName(piece, departments)))];
-      return <span className={styles.note}>waits on {names.join(" and ") || "its turn"}</span>;
-    }
-    case "queued":
-      return <span className={styles.note}>queued</span>;
-    case "reported":
-      return <span className={styles.note}>reported to {chiefName}</span>;
-    case "reviewed":
-      return <span className={styles.note}>Reviewed {clockTime(note.at)}</span>;
-    case "cut-off": {
-      const goal = task;
-      return (
-        <span className={styles.note}>
-          Stopped when the app restarted
-          {goal?.leadAgentId === undefined ? null : (
-            <>
-              {" · "}
-              <button
-                type="button"
-                className={styles.inline}
-                onClick={() =>
-                  void api
-                    .continueTask(goal.id, "")
-                    .then(() => track(goal.id))
-                    .catch((failure: unknown) =>
-                      setError(failure instanceof Error ? failure.message : String(failure)),
-                    )
-                }
-              >
-                Continue
-              </button>
-            </>
-          )}
-          {error === undefined ? null : <span className={styles.error}> {error}</span>}
-        </span>
-      );
-    }
-  }
-}
-
-function PartOf({ taskId }: { taskId: string | undefined }) {
-  const goal = useApp((state) => (taskId === undefined ? undefined : state.tasks[taskId]?.task));
-  if (goal === undefined) return null;
-  return <span className={styles.note}>Part of {taskName(goal)}</span>;
-}
-
-// By task id: the agent's name and its oldest request.
-function askingOf(state: Pick<AppState, "sessions" | "agents" | "waiting">) {
-  const asking: Record<string, string> = {};
-  const newestFirst = Object.values(state.waiting).sort((a, b) => b.position - a.position);
-  for (const request of newestFirst) {
-    const session = state.sessions[request.event.sessionId];
-    if (session === undefined) continue;
-    const name = state.agents[session.agentId]?.name;
-    asking[session.taskId] = `${name ?? "An agent"}: ${requestSummary(request.event)}`;
-  }
-  return asking;
-}
-
-function ReviewActions({ task, owner }: { task: TaskRecord; owner: Owner }) {
-  const [error, setError] = useState<string>();
-  const markReviewed = async () => {
-    try {
-      const reviewed = await api.markReviewed(task.id);
-      useApp.setState((state) => {
-        const entry = state.tasks[task.id];
-        return entry === undefined
-          ? {}
-          : { tasks: { ...state.tasks, [task.id]: { ...entry, task: reviewed } } };
-      });
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure));
-    }
-  };
-  return (
-    <div className={styles.actions}>
-      <Button onClick={() => void markReviewed()}>
-        <Check size={14} aria-hidden />
-        Mark reviewed
-      </Button>
-      <Button
-        variant="ghost"
-        onClick={() => {
-          openOwner(owner);
-          composeIn(owner.kind, task.id);
-        }}
-      >
-        <MessageSquare size={14} aria-hidden />
-        Follow up
-      </Button>
-      {error === undefined ? null : <p className={styles.error}>{error}</p>}
-    </div>
-  );
-}
-
-function lastEnd(task: TaskRecord, state: Known): string | undefined {
-  return (state.tasks[task.id]?.sessionIds ?? [])
-    .flatMap((id) => state.sessions[id]?.endedAt ?? [])
-    .sort()
-    .at(-1);
-}
-
-interface TaskCardProps extends Owner {
-  task: TaskRecord;
-  note: CardNote | undefined;
-  column: ColumnId;
-  asking: string | undefined;
-  ended: string | undefined;
-}
-
-const TaskCard = memo(function TaskCard({
-  task,
-  note,
-  column,
-  asking,
-  ended,
-  ...owner
-}: TaskCardProps) {
-  return (
-    <article className={styles.card}>
-      <button type="button" className={styles.main} onClick={() => openOwner(owner)}>
-        <span className={styles.titleLine}>
-          {column === "review" ? (
-            <span role="img" className={styles.unread} aria-label="Not reviewed" />
-          ) : null}
-          <strong>{taskName(task)}</strong>
-        </span>
-        <span className={styles.owner}>
-          {owner.who}
-          <Harness harness={owner.harness} />
-        </span>
-        {asking === undefined ? null : <span className={styles.asking}>{asking}</span>}
-        {ended === undefined ? null : (
-          <span className={styles.note}>Finished {clockTime(ended)}</span>
-        )}
-        <PartOf taskId={task.parentTaskId} />
-      </button>
-      <NoteLine note={note} task={task} />
-      {column === "review" ? <ReviewResults taskId={task.id} /> : null}
-      {column === "review" ? <ReviewActions task={task} owner={owner} /> : null}
-    </article>
-  );
-});
-
-const PieceCard = memo(function PieceCard({
-  piece,
-  note,
-  department,
-  harness,
-}: {
-  piece: PlanPiece;
-  note: CardNote;
-  department: string;
-  harness: string | undefined;
-}) {
-  const { departmentId } = piece;
-  return (
-    <article className={styles.card}>
+  const taskId = item.task?.id;
+  const cont =
+    taskId === undefined ? null : (
       <button
         type="button"
-        className={styles.main}
-        onClick={() => {
-          if (departmentId !== undefined) selectRoom(departmentId);
-        }}
+        className={styles.inline}
+        onClick={() =>
+          void continueWork(taskId).catch((failure: unknown) =>
+            setError(failure instanceof Error ? failure.message : String(failure)),
+          )
+        }
       >
-        <span className={styles.titleLine}>
-          <PieceIcon status={piece.status} />
-          <strong>{piece.title}</strong>
-        </span>
-        <span className={styles.owner}>
-          {department}
-          <Harness harness={harness} />
-        </span>
-        <PartOf taskId={piece.taskId} />
+        Continue
       </button>
-      <NoteLine note={note} />
+    );
+  switch (item.status) {
+    case "needs":
+      return (
+        <span className={`${styles.line} ${styles.ask}`}>{item.line?.text ?? "Asks you"}</span>
+      );
+    case "working":
+    case "queued":
+      return item.line === undefined ? null : (
+        <span className={styles.line}>
+          <span className={styles.clip}>{item.line.text}</span>
+        </span>
+      );
+    case "stopped":
+    case "failed":
+      return (
+        <span className={`${styles.line} ${item.status === "failed" ? styles.bad : ""}`}>
+          <TaskStatusIcon status={item.status} size={13} />
+          <span className={styles.clip}>
+            {item.status === "failed" ? "Failed" : (item.line?.text ?? "Stopped")}
+          </span>
+          {cont}
+          {error === undefined ? null : <span className={styles.error}>{error}</span>}
+        </span>
+      );
+    case "review":
+    case "done":
+      return outputs === 0 || taskId === undefined ? null : (
+        <button
+          type="button"
+          className={styles.chip}
+          onClick={() => navigate({ name: "task", taskId, tab: "outputs" })}
+        >
+          {plural(outputs, "output")}
+        </button>
+      );
+  }
+}
+
+function Card({ item, known, outputs }: { item: Item; known: Known; outputs: number }) {
+  const { task } = item;
+  const owner = task === undefined ? undefined : ownerOf(task, known);
+  const goal = item.goalId === undefined ? undefined : known.tasks[item.goalId]?.task;
+  const followUp =
+    owner === undefined || task === undefined
+      ? undefined
+      : () => {
+          openOwner(owner);
+          composeIn(owner.kind, task.id);
+        };
+  return (
+    <article className={`${styles.card} ${item.status === "needs" ? styles.needs : ""}`}>
+      <div className={styles.titleRow}>
+        <button
+          type="button"
+          className={styles.title}
+          onClick={() => {
+            if (owner !== undefined) openOwner(owner);
+            else if (item.goalId !== undefined) navigate({ name: "task", taskId: item.goalId });
+          }}
+        >
+          {item.title}
+        </button>
+        {task === undefined ? null : (
+          <MoreMenu menu={() => taskMenu(task.id, followUp)} label={`More for ${item.title}`} />
+        )}
+      </div>
+      <span className={styles.owner}>
+        <span className={styles.who}>{owner?.who ?? "Not started"}</span>
+        <Harness harness={owner?.harness} />
+      </span>
+      {goal === undefined ? null : (
+        <span className={styles.line}>
+          <span className={styles.clip}>Part of {taskName(goal)}</span>
+        </span>
+      )}
+      <StatusLine item={item} outputs={outputs} />
+      <div className={styles.foot}>
+        {item.status === "needs" && item.answerTaskId !== undefined ? (
+          <Button
+            variant="primary"
+            onClick={() => navigate({ name: "task", taskId: item.answerTaskId ?? item.id })}
+          >
+            Answer
+          </Button>
+        ) : item.progress !== undefined && item.status === "working" ? (
+          <span className={styles.meta}>
+            {item.progress.done} of {item.progress.total} {item.progress.unit}
+          </span>
+        ) : null}
+        {task === undefined ? null : <span className={styles.time}>{ago(item.activityAt)}</span>}
+      </div>
     </article>
   );
-});
+}
 
-// Cards get what they show as props, so a streamed change renders only the cards it touches.
+// The same statuses as Tasks. Each column scrolls on its own under a header that stays put.
 export function BoardView() {
   const tasks = useApp((state) => state.tasks);
   const sessions = useApp((state) => state.sessions);
-  const pieces = useApp((state) => state.pieces);
-  const delegations = useApp((state) => state.delegations);
   const agents = useApp((state) => state.agents);
   const departments = useApp((state) => state.departments);
-  const chiefId = useApp((state) => state.chiefId);
+  const pieces = useApp((state) => state.pieces);
   const waiting = useApp((state) => state.waiting);
-  const columns = useMemo(
-    () => boardColumns({ tasks, sessions, pieces, delegations }),
-    [tasks, sessions, pieces, delegations],
-  );
-  const asking = useMemo(
-    () => askingOf({ sessions, agents, waiting }),
-    [sessions, agents, waiting],
-  );
-  const known = { chiefId, agents, departments, sessions, tasks };
+  const traces = useApp((state) => state.traces);
+  const chiefId = useApp((state) => state.chiefId);
+  const outputs = useApp((state) => state.outputs);
+  const teams = useTeams();
+  const [query, setQuery] = useState("");
+  const [chosenTeams, setChosenTeams] = useState<string[]>([]);
 
-  const cardOf = (card: BoardCard, column: ColumnId) => {
-    if (card.kind === "piece") {
-      const { piece } = card;
-      const department =
-        piece.departmentId === undefined ? undefined : departments[piece.departmentId];
-      const lead = department === undefined ? undefined : agents[department.leadAgentId];
-      return (
-        <PieceCard
-          key={piece.id}
-          piece={piece}
-          note={card.note}
-          department={departmentName(piece, departments)}
-          harness={lead?.settings.harness ?? piece.newDepartment?.lead.harness}
-        />
-      );
+  const items = useMemo(
+    () =>
+      buildItems(
+        { tasks, sessions, agents, departments, pieces, waiting, traces, chiefId },
+        Date.now(),
+      ),
+    [tasks, sessions, agents, departments, pieces, waiting, traces, chiefId],
+  );
+  const outputCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const output of Object.values(outputs)) {
+      counts.set(output.taskId, (counts.get(output.taskId) ?? 0) + 1);
     }
-    const { task } = card;
-    return (
-      <TaskCard
-        key={task.id}
-        task={task}
-        note={card.note}
-        column={column}
-        {...ownerOf(task, known)}
-        asking={asking[task.id]}
-        ended={column === "review" ? lastEnd(task, known) : undefined}
-      />
-    );
-  };
+    return counts;
+  }, [outputs]);
+  const known = { chiefId, agents, departments, sessions, tasks };
+  const words = query.trim().toLowerCase();
+  const shown = items.filter((item) => {
+    if (chosenTeams.length > 0 && !chosenTeams.includes(item.team)) return false;
+    if (words === "") return true;
+    const names = item.agents.map((agent) => agent.name).join(" ");
+    const team = teams.get(item.team)?.name ?? "";
+    return `${item.title} ${names} ${team}`.toLowerCase().includes(words);
+  });
+  const columns = boardColumns(shown);
+  const present = [...teams.values()].filter((team) =>
+    items.some((item) => item.team === team.key),
+  );
 
   return (
-    <div className={styles.board}>
-      {COLUMNS.map((column) => (
-        <section key={column.id} className={styles.column} aria-label={column.title}>
-          <h2 className={styles.head}>
-            {column.icon}
-            {column.title}
-            <span className={styles.count}>{columns[column.id].length}</span>
-          </h2>
-          {columns[column.id].map((card) => cardOf(card, column.id))}
-        </section>
-      ))}
+    <div className={styles.page}>
+      <div className={styles.filters}>
+        <label className={styles.search}>
+          <Search size={15} aria-hidden />
+          <input
+            type="search"
+            value={query}
+            placeholder="Search tasks, agents, teams"
+            aria-label="Search the board"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <TeamFilter teams={present} chosen={chosenTeams} onChange={setChosenTeams} />
+      </div>
+      <div className={styles.board}>
+        {COLUMNS.map((column) => {
+          const cards = columns[column.id];
+          const visible = column.id === "done" ? cards.slice(0, DONE_SHOWN) : cards;
+          return (
+            <section key={column.id} className={styles.column} aria-label={column.title}>
+              <h2 className={styles.head}>
+                <TaskStatusIcon status={column.status} />
+                {column.title}
+                <span
+                  className={`${styles.count} ${column.id === "needs-you" && cards.length > 0 ? styles.badge : ""}`}
+                >
+                  {cards.length}
+                </span>
+              </h2>
+              <div className={styles.lane}>
+                {visible.map((item) => (
+                  <Card
+                    key={item.id}
+                    item={item}
+                    known={known}
+                    outputs={outputCounts.get(item.id) ?? 0}
+                  />
+                ))}
+                {cards.length > visible.length ? (
+                  <button
+                    type="button"
+                    className={styles.seeAll}
+                    onClick={() => navigate({ name: "tasks" })}
+                  >
+                    Latest {DONE_SHOWN} shown · See all in Tasks
+                  </button>
+                ) : null}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

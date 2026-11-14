@@ -35,12 +35,16 @@ export function taskStatus(task: StatusFacts, lead: string | undefined): TaskSta
       return "queued";
     case "idle":
       if (task.openPieces) return "working";
-      return lead === "interrupted" ? "stopped" : "done";
+      if (lead === "interrupted") return "stopped";
+      // Finished with its session still open: the same as once that session closes.
+      return task.isPart ? "done" : "review";
     case "ended":
       if (lead === "failed") return "failed";
+      // Marked done by the user, a stopped task included.
+      if (task.reviewed) return "done";
       if (lead === "stopped" || lead === "interrupted") return "stopped";
       // A part reports to the chief, so only the whole goal waits for review.
-      return task.reviewed || task.isPart ? "done" : "review";
+      return task.isPart ? "done" : "review";
   }
 }
 

@@ -1,13 +1,13 @@
 import type { Account, AccountLimits, AccountStatus, UsageLimit } from "@office-town/contract";
-import { Info, MoreHorizontal } from "lucide-react";
-import { DropdownMenu, Tooltip } from "radix-ui";
+import { Info, LogIn, Pencil, Trash2 } from "lucide-react";
+import { Tooltip } from "radix-ui";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import type { Agent } from "../../store/agents.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ago, compactCount } from "../../ui/format.ts";
-import menu from "../../ui/Menu.module.css";
 import {
   clock,
   currentLimits,
@@ -198,31 +198,16 @@ export function AccountCard(props: AccountCardProps) {
           <span className={styles.sub}>{sub}</span>
         </div>
         {added ? (
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Button
-                variant="ghost"
-                icon
-                className={styles.more}
-                aria-label={`More for ${account.name}`}
-              >
-                <MoreHorizontal size={16} aria-hidden />
-              </Button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                <DropdownMenu.Item className={menu.item} onSelect={() => props.onRename(account)}>
-                  Rename
-                </DropdownMenu.Item>
-                <DropdownMenu.Item className={menu.item} onSelect={() => props.onSignIn(account)}>
-                  Sign in again
-                </DropdownMenu.Item>
-                <DropdownMenu.Item className={menu.item} onSelect={() => props.onRemove(account)}>
-                  Remove
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+          <MoreMenu
+            label={`More for ${account.name}`}
+            menu={() => ({
+              actions: [
+                { label: "Rename", icon: Pencil, run: () => props.onRename(account) },
+                { label: "Sign in again", icon: LogIn, run: () => props.onSignIn(account) },
+                { label: "Remove", icon: Trash2, danger: true, run: () => props.onRemove(account) },
+              ],
+            })}
+          />
         ) : null}
       </div>
 

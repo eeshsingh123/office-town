@@ -1,0 +1,48 @@
+/* Same width, padding and height as the message box under it, but quieter: no fill, no shadow. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 6px 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: transparent;
+}
+
+.bar > button {
+  flex: none;
+}
+
+/* A filled button in Done's green, lighter in light mode so it stays quiet. */
+.done {
+  border-color: var(--ok-fill);
+  background: var(--ok-fill);
+  color: var(--on-ok);
+}
+
+.done:hover:not(:disabled) {
+  background: var(--ok-fill);
+  filter: brightness(1.08);
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.text strong {
+  overflow: hidden;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.error {
+  font-size: var(--size-meta);
+  color: var(--bad);
+}

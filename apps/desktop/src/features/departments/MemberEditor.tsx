@@ -1,14 +1,14 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { MoreHorizontal, Plus, Search, SwatchBook, Trash2 } from "lucide-react";
-import { Dialog, DropdownMenu } from "radix-ui";
+import { BookmarkPlus, Copy, Plus, Search, SwatchBook, Trash2, UserRound } from "lucide-react";
+import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
+import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
 import { LineField } from "../../ui/LineField.tsx";
-import menu from "../../ui/Menu.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { AgentProfileDialog } from "../office/AgentProfile.tsx";
@@ -321,29 +321,23 @@ export function MemberEditor({
                   {agent === undefined ? "" : ` · ${agent.name}`}
                 </span>
               </div>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    variant="ghost"
-                    icon
-                    aria-label={`More for ${person.role || "this member"}`}
-                  >
-                    <MoreHorizontal size={14} aria-hidden />
-                  </Button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>
-                    {agent === undefined ? null : (
-                      <DropdownMenu.Item
-                        className={menu.item}
-                        onSelect={() => setOpened({ kind: "profile", agent })}
-                      >
-                        Open profile
-                      </DropdownMenu.Item>
-                    )}
-                    <DropdownMenu.Item
-                      className={menu.item}
-                      onSelect={() =>
+              <MoreMenu
+                label={`More for ${person.role || "this member"}`}
+                menu={() => ({
+                  actions: [
+                    ...(agent === undefined
+                      ? []
+                      : [
+                          {
+                            label: "Open profile",
+                            icon: UserRound,
+                            run: () => setOpened({ kind: "profile", agent }),
+                          },
+                        ]),
+                    {
+                      label: "Save as template",
+                      icon: BookmarkPlus,
+                      run: () =>
                         setOpened({
                           kind: "save",
                           source: {
@@ -358,19 +352,14 @@ export function MemberEditor({
                                 : { instructions: person.instructions.trim() }),
                             },
                           },
-                        })
-                      }
-                    >
-                      Save as template
-                    </DropdownMenu.Item>
-                    {isLead ? null : (
-                      <DropdownMenu.Item className={menu.item} onSelect={() => duplicate(person)}>
-                        Duplicate
-                      </DropdownMenu.Item>
-                    )}
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
+                        }),
+                    },
+                    ...(isLead
+                      ? []
+                      : [{ label: "Duplicate", icon: Copy, run: () => duplicate(person) }]),
+                  ],
+                })}
+              />
               {locked ? null : (
                 <div className={styles.headActions}>
                   <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>

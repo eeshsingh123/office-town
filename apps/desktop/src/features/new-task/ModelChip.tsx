@@ -21,6 +21,8 @@ interface ModelChipProps {
   // On a running agent: it stays on its machine, and the picks wait for the footer's Apply.
   draft?: { footer: (close: () => void) => ReactNode; onDiscard: () => void } | undefined;
   triggerClassName?: string | undefined;
+  // Shown instead of the model until one is picked, such as a reviewer on the agent's model.
+  placeholder?: string | undefined;
 }
 
 // A part of its own so the other AI apps' model lists are read only once the menu opens.
@@ -62,6 +64,7 @@ export function ModelChip({
   onChange,
   draft,
   triggerClassName = styles.chip,
+  placeholder,
 }: ModelChipProps) {
   const description = useApp((state) =>
     state.harnesses.find((known) => known.harness === value.harness),
@@ -117,10 +120,14 @@ export function ModelChip({
   return (
     // Modal, so the list still scrolls inside a dialog, whose scroll lock would cancel the wheel.
     <Popover.Root modal open={open} onOpenChange={changeOpen}>
-      <Popover.Trigger className={triggerClassName} aria-label={`Model: ${name}`}>
-        {draft === undefined ? <ProviderLogo harness={value.harness} size="sm" /> : null}
-        <span className={styles.chipText}>{name}</span>
-        {thinking === undefined ? null : <span className={styles.chipMuted}>· {thinking}</span>}
+      <Popover.Trigger className={triggerClassName} aria-label={`Model: ${placeholder ?? name}`}>
+        {draft === undefined && placeholder === undefined ? (
+          <ProviderLogo harness={value.harness} size="sm" />
+        ) : null}
+        <span className={styles.chipText}>{placeholder ?? name}</span>
+        {thinking === undefined || placeholder !== undefined ? null : (
+          <span className={styles.chipMuted}>· {thinking}</span>
+        )}
         <ChevronDown size={13} aria-hidden />
       </Popover.Trigger>
       <Popover.Portal>

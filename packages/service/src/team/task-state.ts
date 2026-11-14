@@ -80,6 +80,8 @@ function stateOf(store: Store, task: TaskRecord, subAgentsAt: SubAgentsAt): Task
   if (top === undefined) return "idle";
   // A prompt or answer it has yet to act on: its next turn is about to start.
   if (top.status === "running" && store.owesTurn(top.id)) return "working";
+  // Marked done by the user: nothing left over keeps it open.
+  if (task.reviewedAt !== undefined) return "ended";
   if (!finished(store, top)) return "idle";
   return workOutChecks.some((check) => check(store, task.id)) ? "idle" : "ended";
 }

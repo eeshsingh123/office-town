@@ -29,11 +29,3 @@
   font-size: var(--size-meta);
   color: var(--text-2);
 }
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  width: 100%;
-  padding-left: 30px;
-}

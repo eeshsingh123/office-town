@@ -18,11 +18,12 @@ import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
+import { ReviewBar } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
 import { RunCard } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
-import { StopTeamButton } from "./StopTeamButton.tsx";
+import { StopTeamButton } from "./StopButton.tsx";
 import { SubAgentRows } from "./SubAgentCard.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
@@ -142,7 +143,8 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   const [chosenId, setChosenId] = useKept(
     forSession<string | undefined>(`team-task.${taskId}.member`, undefined),
   );
-  const [asking, setAsking] = useState(false);
+  // Whose work the review dialog is open for: any chat's agent, or the lead from its results.
+  const [reviewing, setReviewing] = useState<Agent>();
   const tab = useTaskTab(taskId);
   useLoadProgress(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
@@ -312,8 +314,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                     <ReviewOffer
                       agent={lead}
                       members={members}
-                      suggest
-                      onReview={() => setAsking(true)}
+                      onReview={() => setReviewing(lead)}
                       onShow={setChosenId}
                     />
                   ) : null}
@@ -323,10 +324,11 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 <MessageBox
                   key={shown.id}
                   agent={shown}
+                  above={<ReviewBar agent={lead} />}
                   actions={
                     shown.record.guest ? undefined : (
                       <>
-                        <ReviewAction onClick={() => setAsking(true)} />
+                        <ReviewAction onClick={() => setReviewing(shown)} />
                         <PermissionChip agent={shown} />
                       </>
                     )
@@ -338,13 +340,17 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           <SideColumn taskId={taskId} onMessage={setChosenId} />
         </div>
       )}
-      <ReviewDialog
-        key={shown.id}
-        agent={shown}
-        open={asking}
-        onOpenChange={setAsking}
-        onStarted={setChosenId}
-      />
+      {reviewing === undefined ? null : (
+        <ReviewDialog
+          key={reviewing.id}
+          agent={reviewing}
+          open
+          onOpenChange={(next) => {
+            if (!next) setReviewing(undefined);
+          }}
+          onStarted={setChosenId}
+        />
+      )}
     </section>
   );
 }

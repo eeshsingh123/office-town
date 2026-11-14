@@ -39,6 +39,8 @@ import {
   type ProfileRecord,
   type ProfileRequest,
   type ProfileUses,
+  type ReviewerRecord,
+  type ReviewerRequest,
   SEND_BACK_LIMIT,
   type SendBack,
   type SessionEvent,
@@ -588,6 +590,23 @@ function toAccount(row: AccountRow): Account {
     name: row.name,
     folder: row.folder,
     createdAt: iso(row.createdAt),
+  };
+}
+
+interface ReviewerRow {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  settings: string | null;
+  createdAt: number;
+}
+
+function toReviewer({ settings, createdAt, ...row }: ReviewerRow): ReviewerRecord {
+  return {
+    ...row,
+    ...(settings === null ? {} : { settings: JSON.parse(settings) as ReviewerRecord["settings"] }),
+    createdAt: iso(createdAt),
   };
 }
 
@@ -1835,6 +1854,38 @@ class SqliteStore implements Store {
 
   deleteProfile(id: string): void {
     this.#statements.deleteProfile.run(this.#profileRow(id).ref);
+  }
+
+  listReviewers(): ReviewerRecord[] {
+    return all<ReviewerRow>(this.#statements.allReviewers).map(toReviewer);
+  }
+
+  createReviewer(reviewer: ReviewerRequest): ReviewerRecord {
+    const id = randomUUID();
+    const createdAt = Date.now();
+    const { name, description, instructions, settings } = reviewer;
+    const json = settings === undefined ? null : JSON.stringify(settings);
+    this.#statements.insertReviewer.run(id, name, description, instructions, json, createdAt);
+    return { ...reviewer, id, createdAt: iso(createdAt) };
+  }
+
+  updateReviewer(id: string, reviewer: ReviewerRequest): ReviewerRecord {
+    const { name, description, instructions, settings } = reviewer;
+    const json = settings === undefined ? null : JSON.stringify(settings);
+    const { changes } = this.#statements.updateReviewer.run(
+      name,
+      description,
+      instructions,
+      json,
+      id,
+    );
+    const row = one<ReviewerRow>(this.#statements.reviewerById, id);
+    if (changes === 0 || row === undefined) throw new RecordNotFoundError("reviewer");
+    return toReviewer(row);
+  }
+
+  deleteReviewer(id: string): void {
+    this.#statements.deleteReviewer.run(id);
   }
 
   createWorkspace({ name, kind, folders }: WorkspaceRequest): WorkspaceRecord {

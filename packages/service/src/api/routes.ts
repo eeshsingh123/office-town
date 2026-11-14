@@ -22,6 +22,7 @@ import {
   renameAgentRequestSchema,
   resumePausedRequestSchema,
   resumeSessionRequestSchema,
+  reviewerRequestSchema,
   roomPositionSchema,
   sessionPageQuerySchema,
   startTaskRequestSchema,
@@ -71,8 +72,10 @@ import type { TeamContext } from "../team/members.ts";
 import {
   continueTeam,
   deleteTask,
+  markDone,
   resumeInTask,
   startTeamTask,
+  stopAgent,
   stopTeam,
 } from "../team/team-tasks.ts";
 import type { UsagePauses } from "../team/usage-pause.ts";
@@ -283,13 +286,17 @@ export function apiRoutes(
     {
       method: "POST",
       path: "/tasks/:id/reviewed",
-      reply: ({ param }) => {
+      reply: async ({ param }) => {
         const task = store.getTask(param("id"));
         if (task === undefined) throw new RecordNotFoundError("task");
-        if (task.state !== "ended") {
-          throw new RequestError(409, "conflict", "Only a finished goal can be marked reviewed.");
+        if (task.state !== "ended" && task.state !== "idle") {
+          throw new RequestError(
+            409,
+            "conflict",
+            "Only finished or stopped work can be marked done.",
+          );
         }
-        return { status: 200, json: store.markReviewed(task.id) };
+        return { status: 200, json: await markDone(team, task.id) };
       },
     },
     {
@@ -367,7 +374,7 @@ export function apiRoutes(
       method: "POST",
       path: "/sessions/:id/stop",
       reply: async ({ param }) => {
-        await registry.stop(param("id"));
+        await stopAgent(team, param("id"));
         return NO_CONTENT;
       },
     },
@@ -589,6 +596,35 @@ export function apiRoutes(
       path: "/profiles/:id",
       reply: ({ param }) => {
         store.deleteProfile(param("id"));
+        return NO_CONTENT;
+      },
+    },
+    {
+      method: "GET",
+      path: "/reviewers",
+      reply: () => ({ status: 200, json: store.listReviewers() }),
+    },
+    {
+      method: "POST",
+      path: "/reviewers",
+      reply: async ({ body }) => ({
+        status: 201,
+        json: store.createReviewer(reviewerRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "PUT",
+      path: "/reviewers/:id",
+      reply: async ({ param, body }) => ({
+        status: 200,
+        json: store.updateReviewer(param("id"), reviewerRequestSchema.parse(await body())),
+      }),
+    },
+    {
+      method: "DELETE",
+      path: "/reviewers/:id",
+      reply: ({ param }) => {
+        store.deleteReviewer(param("id"));
         return NO_CONTENT;
       },
     },

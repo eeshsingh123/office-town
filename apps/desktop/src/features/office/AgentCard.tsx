@@ -1,6 +1,6 @@
 import { CornerDownRight, X } from "lucide-react";
 import { useMemo } from "react";
-import { type Agent, stateOf, useAgent } from "../../store/agents.ts";
+import { type Agent, agentsInTask, stateOf, useAgent } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { isOpen, type WaitingRequest } from "../../store/records.ts";
 import { type AgentState, progressOf, stageOf } from "../../trace/progress.ts";
@@ -12,6 +12,7 @@ import { taskName } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon, subAgentCount } from "../../ui/StatusIcon.tsx";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { showSubAgent } from "../task/sub-agent-state.ts";
+import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./AgentCard.module.css";
 import { agentMenu } from "./agent-menu.tsx";
 import { selectAgent } from "./office-state.ts";
@@ -34,12 +35,15 @@ export function isBusy(agent: Agent): boolean {
   return isOpen(agent.latest) && (agent.task.state === "working" || agent.task.state === "waiting");
 }
 
-// Finished on its own and not reviewed yet; a stopped or failed task is not offered for review.
-export const toReview = (agent: Agent, state: AgentState) =>
-  state === "done" &&
-  agent.task.state === "ended" &&
-  agent.task.reviewedAt === undefined &&
-  agent.task.parentTaskId === undefined;
+// Its task waits for review as Tasks and the Board show it; only the agent that owns it offers it.
+export function toReview(agent: Agent, state: AgentState): boolean {
+  if (state !== "done" && state !== "idle") return false;
+  const known = useApp.getState();
+  return (
+    statusOfTask(known, agent.taskId) === "review" &&
+    agentsInTask(known, agent.taskId)[0]?.id === agent.id
+  );
+}
 
 export interface AgentStatus {
   agent: Agent;

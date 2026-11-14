@@ -1,3 +1,9 @@
+/* One column now that the side column is gone, at the width of the other forms. */
+.column {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
 .identity {
   display: flex;
   align-items: flex-end;
@@ -26,38 +32,4 @@
 
 .switchRow > button {
   margin-top: 2px;
-}
-
-.preview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: var(--radius-control);
-  background: var(--bg);
-}
-
-.previewTitle {
-  margin: 0;
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.previewPoints {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding-left: 18px;
-  line-height: 1.55;
-  color: var(--text-2);
-  font-size: var(--size-meta);
-}
-
-/* Theme picks carry an icon beside the word. */
-.themeChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }

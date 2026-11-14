@@ -1,8 +1,15 @@
+/* The box sits in the middle of the page when there is room, and from the top when there is not. */
+.centre {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .column {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   width: 100%;
-  max-width: 780px;
-  margin: 24px auto 0;
+  max-width: 940px;
+  margin: auto;
 }

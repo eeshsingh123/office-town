@@ -4,6 +4,7 @@ import type {
   EnvironmentSpec,
   SessionRecord,
   StartTeamTaskRequest,
+  TaskRecord,
 } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
 import { createAgent } from "../agents/agents.ts";
@@ -339,19 +340,39 @@ export function finishedWork(store: Store, session: SessionRecord, waiting: Set<
   return !waiting.has(session.id) && store.workingDelegation(session.id) === undefined;
 }
 
+// A lead whose workers still work has not finished, however quiet it is.
+function stopsAsDone(store: Store, session: SessionRecord, waiting: Set<string>): boolean {
+  const leadId = store.getTask(session.taskId)?.leadAgentId;
+  const awaitsTeam =
+    session.agentId === leadId &&
+    store.listDelegations(session.taskId).some((delegation) => delegation.status === "working");
+  return !awaitsTeam && finishedWork(store, session, waiting);
+}
+
+// The user's stop of one agent: one that had finished ends as done, as in stopTeam.
+export async function stopAgent({ store, registry }: TeamContext, sessionId: string) {
+  const session = store.getSession(sessionId);
+  const waiting = new Set(store.listPendingRequests().requests.map(({ event }) => event.sessionId));
+  await registry.stop(sessionId, session !== undefined && stopsAsDone(store, session, waiting));
+}
+
+// Done on the user's word. Its finished agents close as an idle stop closes them, so a message
+// resumes them and takes the task back to work.
+export async function markDone(context: TeamContext, taskId: string): Promise<TaskRecord> {
+  const marked = context.store.markReviewed(taskId);
+  if (!context.store.listSessions(taskId).some(isOpen)) return marked;
+  await stopTeam(context, taskId);
+  return context.store.getTask(taskId) ?? marked;
+}
+
 // A member that had finished ends as done, like one stopped for being idle; the rest as stopped.
 export async function stopTeam({ store, registry }: TeamContext, taskId: string): Promise<void> {
   const delegations = store.listDelegations(taskId);
-  const handedOut = delegations.some((delegation) => delegation.status === "working");
-  const leadId = store.getTask(taskId)?.leadAgentId;
   const waiting = new Set(store.listPendingRequests().requests.map(({ event }) => event.sessionId));
   const open = store
     .listSessions(taskId)
     .filter(isOpen)
-    .map((session) => {
-      const awaitsTeam = session.agentId === leadId && handedOut;
-      return { session, done: !awaitsTeam && finishedWork(store, session, waiting) };
-    });
+    .map((session) => ({ session, done: stopsAsDone(store, session, waiting) }));
   for (const delegation of delegations) {
     if (delegation.status === "working") store.endDelegation(delegation.id, "stopped");
   }

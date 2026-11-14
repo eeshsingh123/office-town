@@ -26,6 +26,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-14",
+    title: "A clearer New task and Tasks list",
+    icon: MousePointerClick,
+    changes: [
+      "Permission levels are now named Manual and Auto. Manual asks before editing files, running commands or using the web; Auto does not",
+      "New task puts the box in the middle of the page, keeps its choices on one line, and lists sample prompts under it. Click one to fill the box",
+      "Type @ in a message to tag an app the agent can use. The tag shows the app's logo",
+      "A task's page starts with the prompt you sent",
+      "In Tasks, assistant rows show the model and thinking level, and open tasks stay on top with the rest newest first",
+      "A task shows the same status everywhere: in Tasks, on the Board, on Home and in its chat. Each status has its own icon and colour, with To review in violet",
+      "Mark a finished or stopped task done from its menu or from the green Mark done above its message box. Send for review stays under the message box in every chat",
+      "Send for review has a new layout: pick a reviewer, change its model in place, and open any number of checks or expand them all",
+      "Templates has a Reviewers list with five starters: Code reviewer, Tester, UI tester, Security reviewer and Proofreader. A reviewer without its own model uses the agent's",
+      'Every "…" menu now looks the same as the right-click menu, with an icon for each action',
+      "The Board scales to many tasks: each column scrolls, cards are smaller, actions are in each card's menu, and you can search and filter by team",
+      "OpenCode's model list shows each free model once, then your OpenCode Go plan, then each provider by name",
+      'The task options chip now reads "Efficient & Milestones", and the Stop dialog says only what Stop does',
+      "Stopping an agent that had already finished its work now marks the task finished, not stopped",
+      "Stop on an assistant's task is red, like a department's",
+      'An agent\'s Activity tab names the task you gave it, instead of an empty "Your task:" line',
+      "Every department member now stays at their desk in the Office. A free member sleeps there and wakes when work comes, so you can open anyone from the Office. Chat shows for a member once they have worked",
+      "The Now tab in the side panel is now called Overview",
+      "Light and dark theme moved from Your profile to Settings, under Appearance. Your profile no longer shows the preview of what agents read",
+      "Codex on ChatGPT Free shows its usage as Monthly, the only limit that plan reports, instead of 43200 minutes",
+    ],
+  },
+  {
     date: "2026-11-13",
     title: "Sub-agents you can see",
     icon: Bot,

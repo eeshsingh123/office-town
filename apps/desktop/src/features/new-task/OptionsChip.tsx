@@ -12,11 +12,20 @@ interface OptionsChipProps {
 
 // This task's own choices, starting from the defaults in Settings.
 export function OptionsChip({ value, onChange }: OptionsChipProps) {
-  const on = TASK_OPTIONS.filter((option) => value[option.key]).length;
-  const label = on === 0 ? "Options" : `Options · ${on} on`;
+  const on = TASK_OPTIONS.filter((option) => value[option.key]);
+  // Names what is inside, as "Options" alone said nothing.
+  const label =
+    on.length === 1
+      ? `${on[0]?.label} on`
+      : on.length === TASK_OPTIONS.length
+        ? "Efficient & Milestones on"
+        : "Efficient & Milestones";
   return (
     <Popover.Root>
-      <Popover.Trigger className={styles.chip} aria-label={`Task options: ${on} on`}>
+      <Popover.Trigger
+        className={styles.chip}
+        aria-label={`Efficient mode and Milestones: ${on.length === 0 ? "both off" : label}`}
+      >
         <SlidersHorizontal size={14} aria-hidden />
         <span className={styles.chipText}>{label}</span>
         <ChevronDown size={13} aria-hidden />

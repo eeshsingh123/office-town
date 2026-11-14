@@ -33,8 +33,9 @@ function finish(group: Open, now: boolean): ActivityGroup {
   };
 }
 
-// The core puts the user's words after the agent's instructions under this line (briefs.ts).
-const TASK_LINE = "\nYour task:\n";
+// The core puts the user's words under this line, after the agent's instructions or at the very
+// start when it has none (briefs.ts).
+const TASK_LINE = /(?:^|\n)Your task:\n/;
 
 // Where a session that carries on from a handover starts: one quiet line, never "You asked" (owner).
 export const CONTINUED_LINE = "Continued in a new session with complete handover";
