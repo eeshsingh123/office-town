@@ -1,91 +1,131 @@
 import type { Account, HarnessDescription, HarnessStatus } from "@office-town/contract";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import { compactCount } from "../../ui/format.ts";
+import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
-import { Meter } from "../usage/AccountCard.tsx";
-import { type Spend, tokensOf, useSpend } from "../usage/AccountGrid.tsx";
+import { Pill } from "../../ui/Pill.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
-import { fullest, percent, windowLabel } from "../usage/limits.ts";
-import { reloadAccounts, useLiveLimits, useMinute } from "../usage/use-usage.ts";
+import { type Spend, useSpend } from "../usage/accounts.tsx";
+import { accountLabel, useIdentities } from "../usage/identity.ts";
+import { reloadAccounts, useLiveLimits } from "../usage/use-usage.ts";
+import { AccountRows } from "./AccountRows.tsx";
 import { InstallSheet } from "./InstallSheet.tsx";
 import { ProviderCard } from "./ProviderCard.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
 import { defaultLogin, isReady, useHarnessStatuses } from "./providers.ts";
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+// Search shows once there are more accounts than fit on a screen.
+const SEARCH_FROM = 8;
 
-function subOf(status: HarnessStatus, accounts: number) {
-  if (status.signedIn === false) return "Installed · not signed in";
-  const version = status.version ? ` · version ${status.version}` : "";
-  return `${plural(accounts, "account")}${version}`;
+// Where its accounts run: always this PC, and each WSL distro an account was added in.
+function placesOf(accounts: readonly Account[]): string {
+  const wsl = new Set(
+    accounts.flatMap((account) =>
+      account.environment.kind === "wsl" ? [environmentName(account.environment)] : [],
+    ),
+  );
+  return ["This PC", ...wsl].join(", ");
 }
 
-// The fullest window across the app's accounts, or its tokens this week where it reports none.
-function Side(props: { description: HarnessDescription; accounts: Account[]; spend?: Spend }) {
-  const limits = useApp((state) => state.limits);
-  const now = useMinute();
-  const { description, accounts, spend } = props;
-  if (description.capabilities.usageLimits) {
-    const windows = accounts.flatMap((account) => {
-      const full = fullest(limits[account.id], now);
-      return full === undefined ? [] : [full];
-    });
-    const top = windows.toSorted((a, b) => b.usedFraction - a.usedFraction)[0];
-    if (top === undefined) return <span className={styles.rowSpacer} />;
-    return (
-      <span className={styles.rowSide}>
-        <span className={styles.rowSideLine}>
-          <span>
-            {windowLabel(top)}
-            {accounts.length > 1 ? ", account with the least left" : ""}
-          </span>
-          <span>{percent(top.usedFraction)}</span>
-        </span>
-        <Meter usedFraction={top.usedFraction} thin />
-      </span>
-    );
-  }
-  const ids = new Set(accounts.map((account) => account.id));
-  const week = tokensOf((spend?.week ?? []).filter((row) => ids.has(row.accountId)));
+function ProviderBlock(props: {
+  description: HarnessDescription;
+  status: HarnessStatus;
+  accounts: Account[];
+  spend: Spend | undefined;
+  onSignIn: () => void;
+  onAdd: () => void;
+}) {
+  const { description, status, accounts } = props;
+  const ready = isReady(status);
+  const { version } = status;
+  const sub = ready
+    ? [version && `Version ${version}`, placesOf(accounts)]
+    : ["Installed", version && `version ${version}`, "This PC"];
   return (
-    <span className={styles.rowSide}>
-      {spend === undefined ? "" : `${compactCount(week)} tokens this week`}
-    </span>
+    <li className={styles.pblock}>
+      <div className={styles.pblockHead}>
+        <button
+          type="button"
+          className={styles.pblockLink}
+          onClick={() => navigate({ name: "provider", harness: description.harness })}
+        >
+          <ProviderLogo harness={description.harness} />
+          <span className={styles.rowText}>
+            <span className={styles.rowName}>{description.name}</span>
+            <span className={styles.rowSub}>{sub.filter(Boolean).join(" · ")}</span>
+          </span>
+        </button>
+        {ready ? <Pill tone="ok">Ready</Pill> : <Pill tone="warn">Not signed in</Pill>}
+        {!ready ? (
+          <Button variant="primary" onClick={props.onSignIn}>
+            Sign in
+          </Button>
+        ) : description.manyAccounts ? (
+          <Button onClick={props.onAdd}>
+            <Plus size={14} aria-hidden />
+            Add account
+          </Button>
+        ) : null}
+        <ChevronRight size={16} className={styles.go} aria-hidden />
+      </div>
+      {ready ? (
+        <AccountRows description={description} accounts={accounts} spend={props.spend} />
+      ) : null}
+    </li>
   );
 }
 
-type Sheet = { kind: "install"; harness: string } | { kind: "sign-in"; account: Account };
+type Sheet =
+  | { kind: "install"; harness: string }
+  | { kind: "sign-in"; account: Account }
+  | { kind: "add"; harness: string };
 
-// The AI apps agents run on: the ones here with their accounts, and the ones to get (D-76).
+// Where the user gets ready: install, sign in and accounts (D-76). How much is left is on Usage.
 export function ProvidersView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
+  const identities = useIdentities();
   const statuses = useHarnessStatuses({ recheckOnFocus: true });
   const spend = useSpend();
   useLiveLimits();
   const [sheet, setSheet] = useState<Sheet>();
+  const [query, setQuery] = useState("");
   useEffect(() => {
     void reloadAccounts().catch(() => {});
   }, []);
 
   const statusOf = (harness: string) => statuses?.[harness];
-  const installed = harnesses.filter((known) => statusOf(known.harness)?.installed);
+  // Those that need the user come first.
+  const installed = harnesses
+    .filter((known) => statusOf(known.harness)?.installed)
+    .toSorted(
+      (a, b) => Number(isReady(statusOf(a.harness))) - Number(isReady(statusOf(b.harness))),
+    );
   const missing = harnesses.filter((known) => statusOf(known.harness)?.installed === false);
   // Each provider shows once its own check is in.
   const unchecked = harnesses.filter((known) => statusOf(known.harness) === undefined);
-  const accountsOf = (harness: string) =>
+  const needle = query.trim().toLowerCase();
+  const accountsOf = (description: HarnessDescription) =>
     accounts.filter(
-      (account) => account.harness === harness && account.environment.kind === "native",
+      (account) =>
+        account.harness === description.harness &&
+        (needle === "" ||
+          `${description.name} ${accountLabel(account, identities[account.id])} ${account.name}`
+            .toLowerCase()
+            .includes(needle)),
     );
   const signIn = (harness: string) => {
     const account = defaultLogin(accounts, harness);
     setSheet(account === undefined ? undefined : { kind: "sign-in", account });
   };
+  const shown = installed.filter(
+    (description) => needle === "" || accountsOf(description).length > 0,
+  );
 
   return (
     <section className={page.page} aria-labelledby="providers-title">
@@ -93,68 +133,45 @@ export function ProvidersView() {
         <PageHeader
           id="providers-title"
           title="Providers"
-          lead="The providers your agents run on, and your accounts on them."
+          lead="The programs your agents run on, and your accounts on them."
         />
 
         {statuses === undefined ? (
-          <p className={styles.muted}>Checking this computer…</p>
+          <p className={styles.muted}>Checking this computer</p>
         ) : (
           <>
             <div className={page.section}>
-              <div className={page.sectionHead}>
-                <h2 className={page.sectionTitle}>
-                  Your providers <span className={styles.count}>{installed.length}</span>
-                </h2>
-              </div>
+              {accounts.length > SEARCH_FROM ? (
+                <SearchBox value={query} onChange={setQuery} label="Search accounts" />
+              ) : null}
               {installed.length === 0 && unchecked.length === 0 ? (
                 <p className={styles.muted}>None yet. Install one below to get started.</p>
-              ) : installed.length === 0 ? null : (
-                <ul className={styles.list} aria-label="Your providers">
-                  {installed.map((description) => {
+              ) : shown.length === 0 ? (
+                needle === "" ? null : (
+                  <p className={styles.muted}>No accounts match.</p>
+                )
+              ) : (
+                <ul className={styles.pblocks} aria-label="Your providers">
+                  {shown.map((description) => {
                     const status = statusOf(description.harness);
                     if (status === undefined) return null;
-                    const mine = accountsOf(description.harness);
-                    const needsSignIn = !isReady(status);
                     return (
-                      <li key={description.harness} className={styles.item}>
-                        <button
-                          type="button"
-                          className={styles.row}
-                          onClick={() =>
-                            navigate({ name: "provider", harness: description.harness })
-                          }
-                        >
-                          <ProviderLogo harness={description.harness} />
-                          <span className={styles.rowText}>
-                            <span className={styles.rowName}>{description.name}</span>
-                            <span className={styles.rowSub}>{subOf(status, mine.length)}</span>
-                          </span>
-                          {needsSignIn ? (
-                            <span className={styles.rowSpacer} />
-                          ) : (
-                            <Side
-                              description={description}
-                              accounts={mine}
-                              {...(spend ? { spend } : {})}
-                            />
-                          )}
-                          <ChevronRight size={16} className={styles.go} aria-hidden />
-                        </button>
-                        {needsSignIn ? (
-                          <span className={styles.rowAction}>
-                            <Button variant="primary" onClick={() => signIn(description.harness)}>
-                              Sign in
-                            </Button>
-                          </span>
-                        ) : null}
-                      </li>
+                      <ProviderBlock
+                        key={description.harness}
+                        description={description}
+                        status={status}
+                        accounts={accountsOf(description)}
+                        spend={spend}
+                        onSignIn={() => signIn(description.harness)}
+                        onAdd={() => setSheet({ kind: "add", harness: description.harness })}
+                      />
                     );
                   })}
                 </ul>
               )}
               {unchecked.length === 0 ? null : (
                 <p className={styles.muted} role="status">
-                  Checking {unchecked.map((known) => known.name).join(", ")}…
+                  Checking {unchecked.map((known) => known.name).join(", ")}
                 </p>
               )}
             </div>
@@ -192,6 +209,9 @@ export function ProvidersView() {
       ) : null}
       {sheet?.kind === "sign-in" ? (
         <AddAccountDialog again={sheet.account} onClose={() => setSheet(undefined)} />
+      ) : null}
+      {sheet?.kind === "add" ? (
+        <AddAccountDialog harness={sheet.harness} onClose={() => setSheet(undefined)} />
       ) : null}
     </section>
   );

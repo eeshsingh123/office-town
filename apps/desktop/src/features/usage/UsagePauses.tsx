@@ -6,7 +6,8 @@ import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { taskName } from "../../ui/format.ts";
 import { showToast } from "../../ui/Toast.tsx";
-import { accountName, clock, inTime, pausedWindowLabel } from "./limits.ts";
+import { useAccountLabels } from "./identity.ts";
+import { clock, inTime, pausedWindowLabel } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { useMinute } from "./use-usage.ts";
 
@@ -43,6 +44,7 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
   const harnessName = useApp(
     (state) => state.harnesses.find((known) => known.harness === harness)?.name ?? harness,
   );
+  const labelOf = useAccountLabels();
   const [busy, setBusy] = useState(false);
   const resetsAt = pause.resetsAt === undefined ? undefined : Date.parse(pause.resetsAt);
   const resumeAt = pause.resumeAt === undefined ? undefined : Date.parse(pause.resumeAt);
@@ -67,7 +69,7 @@ function Paused({ paused, now }: { paused: PausedAccount; now: number }) {
           {pausedWindowLabel(pause.window).toLowerCase()} limit
         </strong>
         <span>
-          {accountName(accounts, harnessName, accountId)}: {names}.
+          {harnessName} · {labelOf(accounts.find((account) => account.id === accountId))}: {names}.
           {resetsAt === undefined
             ? ""
             : ` It resets at ${clock(resetsAt, now)}, ${inTime(resetsAt, now)}.`}

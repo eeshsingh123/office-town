@@ -83,15 +83,6 @@ export function sessionAccountId(options: SessionOptions): string {
   return options.accountId ?? defaultAccountId(options.harness, options.environment);
 }
 
-export function accountName(
-  accounts: readonly Account[],
-  harnessName: string,
-  accountId: string,
-): string {
-  const account = accounts.find((known) => known.id === accountId);
-  return `${harnessName} · ${account?.name ?? "Default"}`;
-}
-
 // The account Automatic would pick now: the most room, the default login first on a tie.
 export function roomiest(
   accounts: readonly Account[],
@@ -119,6 +110,19 @@ export function clock(at: number, now = Date.now()): string {
     return `${date.toLocaleDateString([], { weekday: "short" })} ${time}`;
   }
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+// One way to say a window everywhere: "Weekly 91% used · resets Tue 6:29 PM".
+export function limitLine(limit: UsageLimit, now = Date.now()): string {
+  const resetsAt = limit.resetsAt === undefined ? undefined : Date.parse(limit.resetsAt);
+  const used = limit.usedFraction >= 1 ? "at limit" : `${percent(limit.usedFraction)} used`;
+  return `${windowLabel(limit)} ${used}${resetsAt === undefined ? "" : ` · resets ${clock(resetsAt, now)}`}`;
+}
+
+// When the window runs out at this pace, before its reset; the time of a full one's reset.
+export function runsOutAt(limit: UsageLimit, now = Date.now()): number | undefined {
+  if (limit.usedFraction >= 1) return now;
+  return paceOf(limit, now)?.runsOutAt;
 }
 
 // "in 1 h 12 min".

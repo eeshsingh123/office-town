@@ -1,6 +1,7 @@
 import type { HarnessDescription, HarnessStatus } from "@office-town/contract";
 import { BadgeCheck, Check } from "lucide-react";
 import { Button } from "../../ui/Button.tsx";
+import { Pill } from "../../ui/Pill.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
 import { isReady } from "./providers.ts";
@@ -28,13 +29,13 @@ export function ProviderCard({
       <div className={styles.cardTop}>
         <ProviderLogo harness={description.harness} />
         {ready ? (
-          <span className={`${styles.chip} ${styles.chipOk}`}>
+          <Pill tone="ok">
             <Check size={12} aria-hidden /> Ready
-          </span>
+          </Pill>
         ) : status?.installed ? (
-          <span className={`${styles.chip} ${styles.chipWarn}`}>Not signed in</span>
+          <Pill tone="warn">Not signed in</Pill>
         ) : status === undefined ? (
-          <span className={styles.muted}>Checking…</span>
+          <span className={styles.muted}>Checking</span>
         ) : null}
       </div>
       <span className={styles.cardName}>

@@ -4,6 +4,7 @@ import { useApp } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { showToast } from "../../ui/Toast.tsx";
+import { useAccountLabels } from "./identity.ts";
 import { clock, inTime } from "./limits.ts";
 import styles from "./Usage.module.css";
 import { continueElsewhere, type LimitStop, useLimitStops, useMinute } from "./use-usage.ts";
@@ -17,7 +18,8 @@ function Stop({ stop, now }: { stop: LimitStop; now: number }) {
   const [waitingUntil, setWaitingUntil] = useState<number>();
   const [busy, setBusy] = useState(false);
   const { agent, account, next, resetsAt } = stop;
-  const accountName = `${harnessName} · ${account?.name ?? "Default"}`;
+  const labelOf = useAccountLabels();
+  const accountName = `${harnessName} · ${labelOf(account)}`;
   const act = async (work: () => Promise<void>, done: string) => {
     setBusy(true);
     try {
@@ -35,7 +37,7 @@ function Stop({ stop, now }: { stop: LimitStop; now: number }) {
       <div className={styles.stopText}>
         <strong>{agent.name} stopped</strong>
         <span>
-          {accountName} hit its plan limit.
+          {accountName} is at its limit.
           {resetsAt === undefined
             ? ""
             : ` It resets at ${clock(resetsAt, now)}, ${inTime(resetsAt, now)}.`}
@@ -47,10 +49,10 @@ function Stop({ stop, now }: { stop: LimitStop; now: number }) {
             variant="primary"
             disabled={busy}
             onClick={() =>
-              void act(() => continueElsewhere(stop), `${agent.name} continues on ${next.name}`)
+              void act(() => continueElsewhere(stop), `${agent.name} continues on ${labelOf(next)}`)
             }
           >
-            Continue on {next.name}
+            Continue on {labelOf(next)}
           </Button>
         )}
         {resetsAt === undefined ? null : waitingUntil !== undefined ? (
