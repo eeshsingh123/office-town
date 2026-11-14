@@ -7,10 +7,11 @@ import type {
   ConnectorPermission,
   ConnectorSetup,
 } from "@office-town/contract";
-import { ArrowLeft, BadgeCheck, Check, ChevronDown } from "lucide-react";
+import { providerOf } from "@office-town/contract";
+import { ArrowLeft, BadgeCheck, Check, Plug } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { useApp } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import page from "../../ui/Page.module.css";
@@ -20,7 +21,7 @@ import { EVERYONE, givenToSomeone } from "../library/library.ts";
 import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
-import { type AppGroup, entryTags, setUpThrough, tagsOf } from "./connectors.ts";
+import { type AppGroup, CATEGORIES, isOffer, setUpThrough } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
@@ -28,8 +29,9 @@ import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./S
 interface AddSheetProps {
   keysAt: ConnectorCatalog["keys"];
   entries: CatalogEntry[];
-  // Provider apps never set up, such as claude.ai's Gmail: listed here too, set up in the provider.
-  offers: AppGroup[];
+  // Every app the user has; provider apps never set up, such as claude.ai's Gmail, are listed here
+  // too and set up in the provider.
+  groups: AppGroup[];
   // An app to open at once, by slug or name, such as one an agent asked for.
   app?: string;
   audience?: Audience;
@@ -183,6 +185,25 @@ function OwnFields({ own, change }: { own: OwnSetup; change: (next: Partial<OwnS
   );
 }
 
+// How the user gets an app, in words: "Key, or sign in through Codex".
+function waysIn(entry: CatalogEntry, nameOf: (harness: string) => string): string {
+  const providers = [
+    ...(entry.setup.kind === "claude" ? ["claude"] : []),
+    ...entry.signIn.filter((provider) => provider !== entry.setup.kind),
+  ].map(nameOf);
+  const through = providers.length === 0 ? "" : `sign in through ${providers.join(" or ")}`;
+  const own =
+    entry.setup.kind === "local"
+      ? "Runs on this computer"
+      : entry.setup.kind === "remote"
+        ? entry.setup.auth === "key"
+          ? "Key"
+          : "No sign-in"
+        : "";
+  if (own === "") return through.charAt(0).toUpperCase() + through.slice(1);
+  return through === "" ? own : `${own}, or ${through}`;
+}
+
 // The ways a provider signs in to the app itself, which only its agents then use.
 function ProviderWays({ entry, onDone }: { entry: CatalogEntry; onDone: () => void }) {
   const harnesses = useApp((state) => state.harnesses);
@@ -206,13 +227,12 @@ function ProviderWays({ entry, onDone }: { entry: CatalogEntry; onDone: () => vo
                 )
               }
             >
-              <ProviderTags tags={[provider]} />
+              <ProviderTags tags={[provider]} named={false} />
               Set up in {name}
             </Button>
           );
         })}
       </div>
-      <p className={styles.hint}>The provider keeps the sign-in; only its agents use the app.</p>
     </Field>
   );
 }
@@ -220,12 +240,14 @@ function ProviderWays({ entry, onDone }: { entry: CatalogEntry; onDone: () => vo
 export function AddSheet({
   keysAt,
   entries,
-  offers,
+  groups,
   app,
   audience: asked,
   onClose,
 }: AddSheetProps) {
+  const harnesses = useApp((state) => state.harnesses);
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
   const [entry, setEntry] = useState(() => findEntry(entries, app));
   const [advanced, setAdvanced] = useState(
     app !== undefined && findEntry(entries, app) === undefined,
@@ -274,15 +296,35 @@ export function AddSheet({
       onClose();
     });
 
+  const nameOf = (harness: string) =>
+    harnesses.find((known) => known.harness === harness)?.name ?? harness;
   const words = query.trim().toLowerCase();
-  const offered = offers.filter((group) =>
-    `${group.name} ${group.entry?.description ?? ""}`.toLowerCase().includes(words),
+  const inCategory = (listed: CatalogEntry | undefined) =>
+    category === "" || listed?.category === category;
+  const offers = groups.filter((group) => group.routes.every(isOffer));
+  const offered = offers.filter(
+    (group) =>
+      inCategory(group.entry) &&
+      `${group.name} ${group.entry?.description ?? ""}`.toLowerCase().includes(words),
   );
-  const found = entries.filter((candidate) =>
-    `${candidate.setup.name} ${candidate.setup.maker ?? ""} ${candidate.description}`
-      .toLowerCase()
-      .includes(words),
+  // An app the user already has opens its page; listed first, so what is set up is seen first.
+  const added = new Map(
+    groups
+      .filter((group) => !group.routes.every(isOffer))
+      .flatMap((group) =>
+        group.entry === undefined ? [] : [[group.entry.setup.slug, group] as const],
+      ),
   );
+  const found = entries
+    .filter(
+      (candidate) =>
+        !offers.some((group) => group.entry?.setup.slug === candidate.setup.slug) &&
+        inCategory(candidate) &&
+        `${candidate.setup.name} ${candidate.setup.maker ?? ""} ${candidate.description}`
+          .toLowerCase()
+          .includes(words),
+    )
+    .toSorted((a, b) => Number(added.has(b.setup.slug)) - Number(added.has(a.setup.slug)));
 
   const choosing = entry === undefined && !advanced;
   return (
@@ -332,7 +374,7 @@ export function AddSheet({
                 disabled={!filled || !keysGiven || busy}
                 onClick={() => void tryIt()}
               >
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? "Connecting" : "Connect"}
               </Button>
             ) : shared ? (
               <Button
@@ -350,46 +392,81 @@ export function AddSheet({
       {choosing ? (
         <>
           <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
+          <fieldset className={styles.categories}>
+            <legend className="visually-hidden">Kind of app</legend>
+            {[{ value: "", label: "All" }, ...CATEGORIES].map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`${styles.toggleChip} ${category === value ? styles.toggleOn : ""}`}
+                aria-pressed={category === value}
+                onClick={() => setCategory(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </fieldset>
           <ul className={styles.list} aria-label="Apps to add">
+            <li>
+              <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
+                <span className={`${styles.logo} ${styles.md}`} aria-hidden>
+                  <Plug size={16} />
+                </span>
+                <span className={styles.connText}>
+                  <span className={styles.connName}>Add your own</span>
+                  <span className={styles.sub}>An address or a program on this computer</span>
+                </span>
+              </button>
+            </li>
             {offered.map((group) => {
               const [route] = group.routes;
-              return route === undefined ? null : (
+              if (route === undefined) return null;
+              const provider = providerOf(route.setup.kind);
+              return (
                 <li key={group.key} className={styles.connRow}>
                   <AppLogo app={group.logo} />
                   <span className={styles.connText}>
                     <span className={styles.connName}>{group.name}</span>
-                    <span className={styles.sub}>{group.entry?.description}</span>
+                    <span className={styles.twoLines}>{group.entry?.description}</span>
                   </span>
-                  <ProviderTags tags={tagsOf(group.routes)} />
-                  <RenewAction route={route} label="Set up" />
+                  <RenewAction
+                    route={route}
+                    label={`Set up in ${provider === undefined ? "the provider" : nameOf(provider)}`}
+                  />
                 </li>
               );
             })}
-            {found.map((candidate) => (
-              <li key={candidate.setup.slug}>
-                <button type="button" className={styles.connRow} onClick={() => pick(candidate)}>
-                  <AppLogo app={candidate.setup.slug} />
-                  <span className={styles.connText}>
-                    <span className={styles.connName}>{candidate.setup.name}</span>
-                    <span className={styles.sub}>{candidate.description}</span>
-                  </span>
-                  <ProviderTags tags={entryTags(candidate)} />
-                </button>
-              </li>
-            ))}
+            {found.map((candidate) => {
+              const [first] = added.get(candidate.setup.slug)?.routes ?? [];
+              return (
+                <li key={candidate.setup.slug}>
+                  <button
+                    type="button"
+                    className={styles.connRow}
+                    onClick={() => {
+                      if (first === undefined) {
+                        pick(candidate);
+                        return;
+                      }
+                      onClose();
+                      navigate({ name: "connector", connectorId: first.id });
+                    }}
+                  >
+                    <AppLogo app={candidate.setup.slug} />
+                    <span className={styles.connText}>
+                      <span className={styles.connName}>{candidate.setup.name}</span>
+                      <span className={styles.twoLines}>{candidate.description}</span>
+                      <span className={styles.sub}>{waysIn(candidate, nameOf)}</span>
+                    </span>
+                    {first === undefined ? null : <span className={styles.when}>Added</span>}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
           {found.length + offered.length === 0 ? (
             <p className={styles.empty}>No app matches.</p>
           ) : null}
-          <button
-            type="button"
-            className={styles.fold}
-            aria-expanded={false}
-            onClick={() => setAdvanced(true)}
-          >
-            <ChevronDown size={14} aria-hidden />
-            Advanced: add by address or command
-          </button>
         </>
       ) : (
         <>
@@ -399,9 +476,7 @@ export function AddSheet({
           {shared && setup !== undefined ? (
             <>
               {setup.auth === "key" ? (
-                <Field label="Account">
-                  <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysAt={keysAt} />
-                </Field>
+                <KeyFields keys={setup.keys} values={keys} onChange={setKeys} keysAt={keysAt} />
               ) : null}
               {setup.kind === "local" ? (
                 <Field label="Runs on this computer">
@@ -417,7 +492,7 @@ export function AddSheet({
                     Connected · works for <ProviderTags tags={["all"]} />
                   </p>
                   <Field label="What agents can do">
-                    <ActionGroups actions={tested} permission={permission} />
+                    <ActionGroups actions={tested} />
                   </Field>
                   <PermissionField value={permission} onChange={setPermission} />
                   <WhoField audience={audience} onChange={setAudience} />
