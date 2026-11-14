@@ -9,6 +9,7 @@ import type {
   Translator,
 } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
+import { usageWindow } from "../../usage-window.ts";
 import {
   appApprovalParamsSchema,
   approvalParamsSchema,
@@ -108,20 +109,12 @@ function resultOf(item: Item): string {
 const failed = (status: string | undefined) =>
   status === "failed" || status === "declined" || status === "error";
 
-// Window lengths in minutes, named as the Usage page knows them.
-const WINDOW_IDS: Record<number, { id: string; label: string }> = {
-  300: { id: "five_hour", label: "5 hours" },
-  10080: { id: "seven_day", label: "week" },
-};
-
 export function limitsOf(limits: RateLimits): UsageLimit[] {
   return [limits.primary, limits.secondary].flatMap((window) => {
     if (!window) return [];
-    const minutes = window.windowDurationMins ?? 0;
-    const named = WINDOW_IDS[minutes] ?? { id: `${minutes}_minutes`, label: `${minutes} minutes` };
     return [
       {
-        ...named,
+        ...usageWindow(window.windowDurationMins ?? 0),
         usedFraction: Math.max(0, window.usedPercent) / 100,
         ...(window.resetsAt ? { resetsAt: new Date(window.resetsAt * 1000).toISOString() } : {}),
       },

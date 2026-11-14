@@ -11,6 +11,7 @@ import {
   type Translator,
 } from "../../adapter.ts";
 import { type JsonRpcId, JsonRpcPeer, METHOD_NOT_FOUND } from "../../json-rpc.ts";
+import { usageWindow } from "../../usage-window.ts";
 import {
   type Approval,
   approvalResolvedSchema,
@@ -94,12 +95,9 @@ function mcpServersOf(servers: AttachedToolServer[]) {
 }
 
 export function limitsOf({ window, weekly }: Subscription): UsageLimit[] {
-  const minutes = window.windowDurationMins;
   return [
     {
-      ...(minutes === 300
-        ? { id: "five_hour", label: "5 hours" }
-        : { id: `${minutes}_minutes`, label: `${minutes} minutes` }),
+      ...usageWindow(window.windowDurationMins),
       usedFraction: Math.max(0, window.usedPercent) / 100,
       resetsAt: new Date(window.resetsAtMs).toISOString(),
     },
