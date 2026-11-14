@@ -38,7 +38,7 @@ What later work builds on; the why is in DECISIONS.md.
 - **M5 Command center.** A standing chief splits a goal into department pieces run in order, passing results and read-only folders; task state, usage and limits live in the core. `service/src/chief`.
 - **Feedback after M5.** Home, creation flows, the Dusk look, review in the chat, templates, workspaces, Needs you, one composer, plain naming, accounts and Usage, team building.
 - **M6 Files and Library, M6.5 Onboarding.** Attachments and a workspace Library; setup, tutorials, Help.
-- **M7 Connectors, revamped (D-96).** Shared apps through the core's hub for every provider; provider apps (claude.ai, Codex's ChatGPT apps, OpenCode's servers) read from each provider, one card per app with provider tags, every call decided by the core; Add over a vetted list; asks that name the provider. `service/src/connectors`, `features/connectors`.
+- **M7 Connectors, revamped (D-96).** Shared apps through the core's hub for every provider; provider apps (claude.ai, Codex's ChatGPT apps, OpenCode's servers) read from each provider, one row per app with provider tags, every call decided by the core; Add over a vetted list; asks that name the provider. `service/src/connectors`, `features/connectors`.
 - **After M7.** Several workspaces per department, usage recount, a lead stopping workers, lean runs with a usage pause, the check loop outside the team.
 - **M8 Outputs and preview.** `show_result`, changed files and local sites in a sandboxed viewer. `service/src/outputs`.
 - **M9 Packaging.** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, betas on every green merge, setup installing harnesses.

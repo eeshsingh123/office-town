@@ -27,6 +27,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "Connectors that scale",
+    icon: Plug,
+    changes: [
+      "Connectors lists your apps as rows: where each works, who can use it, its permission, its status and when it was last used. Tabs for Needs you and Turned off, filters for provider, who and permission, and Group by",
+      "Codex's own tools, such as Computer use and Node runner, fold into one group, From your Codex settings, with readable names",
+      "An app that is not answering shows in red and counts toward the dot on Connectors. Turned off is grey",
+      "Suggested shows only while you have fewer than six apps. Add app starts with Add your own, has kinds of app to pick from, and marks the apps you already have",
+      "An app's page lists every provider, says where it is not set up yet with a Set up button, and shows Mixed when providers differ. Its actions can be searched and show a line on what each does",
+      "Recent use on an app's page can be narrowed to one team or to changes only",
+      "Who can use it has a search box and a colour for each team",
+      "Department settings has an Apps section to see, add and take away the team's apps, and the Office panel always lists them",
+      "An agent's panel names the apps it cannot use and why, with Set up where its provider can get the app",
+      "Ctrl+K lists each app once, with its logo",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "One status, one page layout",
     icon: LayoutGrid,
     changes: [
