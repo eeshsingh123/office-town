@@ -162,7 +162,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
         </label>
         <div className={card.buttons}>
           <Button variant="primary" disabled={problem !== undefined || sending} onClick={approve}>
-            {replan ? "Approve change" : "Approve plan"}
+            Approve
           </Button>
           {editing ? null : (
             <Button disabled={sending} onClick={() => setEditing(true)}>
@@ -173,7 +173,7 @@ export function PlanCard({ event, context }: { event: PlanEvent; context?: React
             disabled={note.trim() === "" || sending}
             onClick={() => void answer({ outcome: "revised", note: note.trim() })}
           >
-            {editing ? "Send back with my note" : "Send back"}
+            Send back
           </Button>
           <Button
             variant="ghost"

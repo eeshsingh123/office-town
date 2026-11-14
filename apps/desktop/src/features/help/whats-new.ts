@@ -27,6 +27,21 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-14",
+    title: "One status on a task's page",
+    icon: ListChecks,
+    changes: [
+      "A task's page shows its status once, next to the title, in the same colour and word as Tasks and Home",
+      "The Finished line at the end of the chat is gone; a stopped, failed or cut-off run still says so",
+      "Run details open from Details at the top right, so the chat keeps its width",
+      "While a task is to review, one bar above the message box holds Send for review, Send fixes after a failed check, and Mark done, on Work and on Outputs. The check results keep only Check again and Read the check",
+      "The message box names who you are writing to, and a sub-agent's name no longer starts with Agent:",
+      "Tasks: the Working tab is In progress, the line under the title counts what is to review, teams that need you come first, and Collapse all folds every group. A team task shows its number of agents. A running task's menu has Stop",
+      "The task history size moves to Settings, under Storage; Tasks shows it only past 1 GB",
+      "Needs you uses the same tabs and filters as Tasks, with filters only from 6 requests. Plans, teams and checklists ask Approve, Send back or Decline",
+    ],
+  },
+  {
+    date: "2026-11-14",
     title: "A calmer sidebar and Home",
     icon: LayoutGrid,
     changes: [

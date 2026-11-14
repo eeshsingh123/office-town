@@ -141,7 +141,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
               })
             }
           >
-            {changing ? "Approve the change" : "Approve team"}
+            Approve
           </Button>
           <Button
             disabled={note.trim() === "" || sending}
@@ -153,7 +153,7 @@ export function ProposalCard({ event, context }: { event: ProposalEvent; context
               })
             }
           >
-            Send back with my note
+            Send back
           </Button>
           {changing ? (
             <Button

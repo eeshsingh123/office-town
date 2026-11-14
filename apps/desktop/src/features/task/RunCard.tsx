@@ -1,5 +1,5 @@
 import type { RoleSettings } from "@office-town/contract";
-import { AppWindow, ChevronDown, Cpu, ExternalLink, Folder } from "lucide-react";
+import { AppWindow, Cpu, ExternalLink, Folder, Info } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -18,39 +18,32 @@ import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
 import { accountLabel, useIdentities } from "../usage/identity.ts";
 import { sessionAccountId } from "../usage/limits.ts";
 import styles from "./RunCard.module.css";
-import { type RunFacts, tokenLine, useRunFacts } from "./run-facts.ts";
+import { type RunFacts, useRunFacts } from "./run-facts.ts";
 import { optionsOf, setTaskOption, TASK_OPTIONS } from "./task-options.ts";
 
-// Who the trace belongs to and what it runs on: a card in the trace's right margin, or a
-// pill that opens it when the trace has no margin to spare.
-export function RunCard({ agent }: { agent: Agent }) {
+// Who the shown chat belongs to and what it runs on, with the task's switches: a popover from
+// "Details" in the task's header, so the chat keeps its width (a3-11).
+export function RunDetailsButton({ agent }: { agent: Agent }) {
   const facts = useRunFacts(agent);
   return (
-    <aside className={styles.run} aria-label="Run details">
-      <Popover.Root>
-        <Popover.Trigger className={styles.pill}>
-          <Avatar name={agent.name} colour={agent.colour} size={18} />
-          <span className={styles.pillName}>{agent.name}</span>
-          <span className={styles.pillFacts}>
-            {facts.model} · {facts.duration} · {tokenLine(facts.tokens)}
-          </span>
-          <ChevronDown size={14} aria-hidden />
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            className={`${menu.surface} ${styles.popover}`}
-            side="bottom"
-            align="end"
-            sideOffset={6}
-          >
-            <RunDetails agent={agent} facts={facts} />
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
-      <div className={styles.card}>
-        <RunDetails agent={agent} facts={facts} />
-      </div>
-    </aside>
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <Button variant="ghost" title={`${agent.name} · ${facts.model} · ${facts.duration}`}>
+          <Info size={14} aria-hidden />
+          Details
+        </Button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          className={`${menu.surface} ${styles.popover}`}
+          side="bottom"
+          align="end"
+          sideOffset={6}
+        >
+          <RunDetails agent={agent} facts={facts} />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
@@ -154,11 +147,6 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
           onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
       ))}
-      {task.state === "ended" ? null : (
-        <p className={styles.optionsNote}>
-          A change to Milestones applies when each agent next starts.
-        </p>
-      )}
       <button
         type="button"
         className={styles.settingsLink}
@@ -237,7 +225,7 @@ function RunDetails({ agent, facts }: { agent: Agent; facts: RunFacts }) {
         <div>
           <span className={styles.statLabel}>Tokens</span>
           {tokens === undefined ? (
-            <span className={styles.statNote}>Counting…</span>
+            <span className={styles.statNote}>Counting</span>
           ) : (
             <>
               <span className={styles.statValue}>

@@ -1,45 +1,31 @@
-import { LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { agentsInTask, stateOf, useWaitingSessions } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { track } from "../../store/live.ts";
 import { useLoadProgress } from "../../store/milestones.ts";
 import { isOpen } from "../../store/records.ts";
-import {
-  type AgentState,
-  isBusy,
-  type Progress,
-  progressOf,
-  stageOf,
-} from "../../trace/progress.ts";
+import { isBusy, type Progress, progressOf, stageOf } from "../../trace/progress.ts";
 import { requestKey } from "../../trace/trace.ts";
-import { Crumbs } from "../../ui/Crumbs.tsx";
-import { taskName } from "../../ui/format.ts";
-import { stateLabel } from "../../ui/StatusIcon.tsx";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
-import { ReviewBar } from "./ReviewBar.tsx";
+import { ReviewBar, useReviewBarShown } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
-import { RunCard } from "./RunCard.tsx";
+import { RunDetailsButton } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
 import { StopButton } from "./StopButton.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
 import { stopAgentAsk } from "./stop-asks.ts";
+import { TaskHeader } from "./TaskHeader.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import { TeamTaskView } from "./TeamTaskView.tsx";
 
-function pillStyle(state: AgentState): string | undefined {
-  if (state === "waiting") return styles.pillWaiting;
-  return isBusy(state) ? styles.pillWorking : undefined;
-}
-
-// The step, or else what it is doing right now, for the pill's tooltip.
+// The step, or else what it is doing right now.
 function doingNow(progress: Progress | undefined): string | undefined {
   if (progress?.step === undefined) return progress?.current?.title;
   return `Step ${progress.step.number} of ${progress.stepCount}: ${progress.step.title}`;
@@ -76,87 +62,74 @@ function SoloTaskView({ taskId }: { taskId: string }) {
   );
   const [asking, setAsking] = useState(false);
   const tab = useTaskTab(taskId);
+  const reviewBar = useReviewBarShown(taskId);
   useLoadProgress(taskId);
 
   useEffect(() => {
     if (agent === undefined) void track(taskId);
   }, [agent, taskId]);
-  if (agent === undefined) return <p className={styles.loading}>Loading the task…</p>;
+  if (agent === undefined) return <p className={styles.loading}>Loading the task</p>;
 
   const { latest } = agent;
   const state = stateOf(agent, traces, waitingSessions.has(latest.id));
   const progress = trace === undefined ? undefined : progressOf(trace);
   const live = isOpen(latest);
   const busy = isBusy(state);
-  const asked =
-    waiting === undefined
-      ? undefined
-      : waiting.event.type === "permission.requested"
-        ? "Needs your approval"
-        : "Has a question for you";
-
+  const review = () => setAsking(true);
+  // Solo has no people column, so what the agent is doing sits beside the task's status.
+  const doing = busy ? (stageOf(state, trace) ?? doingNow(progress)) : undefined;
   return (
     <section className={styles.view} aria-labelledby="task-title">
-      <header className={styles.header}>
-        <div className={styles.heading}>
-          <Crumbs items={[{ label: "Tasks", view: { name: "tasks" } }]} />
-          <div className={styles.titleLine}>
-            <h1 id="task-title">{taskName(agent.task)}</h1>
-            <span
-              className={`${styles.pill} ${pillStyle(state) ?? ""}`}
-              role="status"
-              title={busy ? doingNow(progress) : undefined}
+      <TaskHeader
+        task={agent.task}
+        crumbs={[{ label: "Tasks", view: { name: "tasks" } }]}
+        after={
+          waiting !== undefined ? (
+            <button
+              type="button"
+              className={styles.jump}
+              onClick={() =>
+                document
+                  .getElementById(requestKey(waiting.event.payload.requestId))
+                  ?.scrollIntoView({ block: "center" })
+              }
             >
-              {busy ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
-              {asked ??
-                (state === "waiting"
-                  ? "Needs you"
-                  : (stageOf(state, trace) ?? stateLabel(state, progress?.subAgents.length ?? 0)))}
-            </span>
-            {waiting === undefined ? null : (
-              <button
-                type="button"
-                className={styles.jump}
-                onClick={() =>
-                  document
-                    .getElementById(requestKey(waiting.event.payload.requestId))
-                    ?.scrollIntoView({ block: "center" })
-                }
-              >
-                Jump to it
-              </button>
-            )}
-          </div>
-        </div>
+              Jump to it
+            </button>
+          ) : doing === undefined ? null : (
+            <span className={styles.doing}>{doing}</span>
+          )
+        }
+      >
         <TaskTabs taskId={taskId} />
         {tab.outputs ? null : <ProgressButton taskId={taskId} soloAgentId={agent.id} />}
+        <RunDetailsButton agent={agent} />
         {live ? <StopButton ask={stopAgentAsk(agent.name, latest.id)} /> : null}
-      </header>
+      </TaskHeader>
 
       {tab.outputs ? (
         <>
           <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
           <div className={styles.outputsReview}>
-            <ReviewBar agent={agent} />
+            <ReviewBar agent={agent} onReview={review} />
           </div>
         </>
       ) : (
         <div className={styles.body}>
           <div className={styles.column}>
-            <RunCard agent={agent} />
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
                 <AgentTrace key={agent.id} sessions={agent.sessions} />
-                <ReviewOffer agent={agent} members={[agent]} onReview={() => setAsking(true)} />
+                <ReviewOffer agent={agent} members={[agent]} onReview={review} />
               </div>
             </div>
-            <div className={`${styles.traceWidth} ${styles.dock}`}>
+            <div className={styles.traceWidth}>
               <MessageBox
                 agent={agent}
-                above={<ReviewBar agent={agent} />}
+                above={<ReviewBar agent={agent} onReview={review} />}
                 actions={
                   <>
-                    <ReviewAction onClick={() => setAsking(true)} />
+                    {reviewBar ? null : <ReviewAction onClick={review} />}
                     <PermissionChip agent={agent} />
                   </>
                 }

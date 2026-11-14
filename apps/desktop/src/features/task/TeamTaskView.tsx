@@ -6,27 +6,25 @@ import { useLoadProgress } from "../../store/milestones.ts";
 import { isOpen, teamAtWork } from "../../store/records.ts";
 import { type AgentState, isBusy, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
-import { Crumbs } from "../../ui/Crumbs.tsx";
-import { taskName } from "../../ui/format.ts";
 import { StatusIcon, stateLabel } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useModelName } from "../profiles/model-line.ts";
-import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { MemberLinks } from "./members.ts";
 import { PermissionChip } from "./PermissionChip.tsx";
 import { ProgressButton } from "./ProgressColumn.tsx";
-import { ReviewBar } from "./ReviewBar.tsx";
+import { ReviewBar, useReviewBarShown } from "./ReviewBar.tsx";
 import { ReviewDialog } from "./ReviewDialog.tsx";
 import { ReviewOffer } from "./ReviewOffer.tsx";
-import { RunCard } from "./RunCard.tsx";
+import { RunDetailsButton } from "./RunCard.tsx";
 import { AgentTrace } from "./SessionTrace.tsx";
 import { StopTeamButton } from "./StopButton.tsx";
 import { SubAgentRows } from "./SubAgentCard.tsx";
 import { SideColumn } from "./SubAgentPanel.tsx";
+import { TaskHeader } from "./TaskHeader.tsx";
 import { ReviewAction } from "./TaskTools.tsx";
 import styles from "./TaskView.module.css";
 import team from "./TeamTaskView.module.css";
@@ -148,6 +146,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   // Whose work the review dialog is open for: any chat's agent, or the lead from its results.
   const [reviewing, setReviewing] = useState<Agent>();
   const tab = useTaskTab(taskId);
+  const reviewBar = useReviewBarShown(taskId);
   useLoadProgress(taskId);
   const shown = members.find((member) => member.id === chosenId) ?? lead;
   const trace = shown === undefined ? undefined : traces[shown.latest.id];
@@ -156,7 +155,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
     `${trace?.position}:${trace?.streaming[""]?.length}:${trace?.thinking?.length}`,
   );
   if (task === undefined || lead === undefined || shown === undefined) {
-    return <p className={styles.loading}>Loading the task…</p>;
+    return <p className={styles.loading}>Loading the task</p>;
   }
 
   const department = task.departmentId === undefined ? undefined : departments[task.departmentId];
@@ -177,56 +176,27 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
   );
   return (
     <section className={styles.view} aria-labelledby="task-title">
-      <header className={styles.header}>
-        <div className={styles.heading}>
-          <Crumbs
-            items={[
-              { label: "Tasks", view: { name: "tasks" } },
-              ...(department !== undefined
-                ? [
-                    {
-                      label: department.name,
-                      view: { name: "office", room: department.id } as const,
-                    },
-                  ]
-                : task.leadAgentId !== undefined && task.leadAgentId === chiefId
-                  ? [{ label: "Chief", view: { name: "chief" } as const }]
-                  : []),
-            ]}
-          />
-          <div className={styles.titleLine}>
-            <h1 id="task-title">{taskName(task)}</h1>
-            <div className={styles.chips}>
-              {/* A department is already named in the breadcrumb just above. */}
-              {task.leadAgentId === undefined ||
-              (department !== undefined && task.workerAgentIds === undefined) ? null : (
-                <span className={styles.chip}>
-                  <span className={team.dot} aria-hidden />
-                  {task.workerAgentIds !== undefined
-                    ? `${lead.name}'s group · ${task.workerAgentIds.length + 1} agents`
-                    : "Proposing a team"}
-                </span>
-              )}
-              <span className={styles.chip}>
-                <TaskStatusOf taskId={taskId} task={task} />
-              </span>
-            </div>
-          </div>
-        </div>
+      <TaskHeader
+        task={task}
+        crumbs={[
+          { label: "Tasks", view: { name: "tasks" } },
+          ...(department !== undefined
+            ? [{ label: department.name, view: { name: "office", room: department.id } as const }]
+            : task.leadAgentId !== undefined && task.leadAgentId === chiefId
+              ? [{ label: "Chief", view: { name: "chief" } as const }]
+              : []),
+        ]}
+      >
         <TaskTabs taskId={taskId} />
         {tab.outputs ? null : <ProgressButton taskId={taskId} />}
-        {open ? (
-          <StopTeamButton
-            taskId={taskId}
-            label={task.leadAgentId === undefined ? "Stop all" : "Stop team"}
-          />
-        ) : null}
-      </header>
+        <RunDetailsButton agent={shown} />
+        {open ? <StopTeamButton taskId={taskId} label="Stop" /> : null}
+      </TaskHeader>
       {tab.outputs ? (
         <>
           <OutputsPane taskId={taskId} chosen={tab.output} onChoose={tab.choose} />
           <div className={styles.outputsReview}>
-            <ReviewBar agent={lead} />
+            <ReviewBar agent={lead} onReview={() => setReviewing(lead)} />
           </div>
         </>
       ) : (
@@ -303,7 +273,6 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
           </nav>
           <MemberLinks.Provider value={setChosenId}>
             <div className={styles.column}>
-              <RunCard agent={shown} />
               <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
                 <div className={styles.traceWidth}>
                   <AgentTrace key={shown.id} sessions={shown.sessions} />
@@ -317,15 +286,17 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                   ) : null}
                 </div>
               </div>
-              <div className={`${styles.traceWidth} ${styles.dock}`}>
+              <div className={styles.traceWidth}>
                 <MessageBox
                   key={shown.id}
                   agent={shown}
-                  above={<ReviewBar agent={lead} />}
+                  above={<ReviewBar agent={lead} onReview={() => setReviewing(lead)} />}
                   actions={
                     shown.record.guest ? undefined : (
                       <>
-                        <ReviewAction onClick={() => setReviewing(shown)} />
+                        {reviewBar && shown.id === lead.id ? null : (
+                          <ReviewAction onClick={() => setReviewing(shown)} />
+                        )}
                         <PermissionChip agent={shown} />
                       </>
                     )

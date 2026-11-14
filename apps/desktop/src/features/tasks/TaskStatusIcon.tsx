@@ -25,8 +25,16 @@ function HalfCircle({ size, label }: { size: number; label: string }) {
 }
 
 // A task's status, drawn the same in Tasks, on the Board and in its chat: amber asks, blue moves,
-// violet waits for review, green is done, red failed, grey waits or stopped.
+// violet waits for review, green is done, red failed, grey waits or stopped. Hovering names it.
 export function TaskStatusIcon({ status, size = 14 }: { status: RowStatus; size?: number }) {
+  return (
+    <span className={styles.hover} title={STATUS_LABELS[status]}>
+      <StatusGlyph status={status} size={size} />
+    </span>
+  );
+}
+
+function StatusGlyph({ status, size }: { status: RowStatus; size: number }) {
   const label = STATUS_LABELS[status];
   switch (status) {
     case "needs":
@@ -56,6 +64,16 @@ export function TaskStatusIcon({ status, size = 14 }: { status: RowStatus; size?
   }
 }
 
+// The task's status once at the top of its page: the same icon and word on its own colour.
+export function TaskStatusPill({ status }: { status: RowStatus }) {
+  return (
+    <span className={styles.pill} data-status={status} role="status">
+      <StatusGlyph status={status} size={12} />
+      {STATUS_LABELS[status]}
+    </span>
+  );
+}
+
 // The icon and the word, for rows outside Tasks that name a task's status.
 export function TaskStatusTag({ status }: { status: RowStatus }) {
   return (
@@ -68,20 +86,21 @@ export function TaskStatusTag({ status }: { status: RowStatus }) {
 
 // A task's live status, for screens that hold only the task. A task the app has not loaded is
 // read from its record alone, as the core counts it.
-export function TaskStatusOf({ taskId, task }: { taskId: string; task?: TaskRecord }) {
+export function useTaskStatus(taskId: string, task?: TaskRecord): RowStatus | undefined {
   const live = useApp((state) => statusOfTask(state, taskId));
-  const status =
-    live ??
-    (task === undefined
-      ? undefined
-      : taskStatus(
-          {
-            state: task.state,
-            reviewed: task.reviewedAt !== undefined,
-            isPart: task.parentTaskId !== undefined,
-            openPieces: false,
-          },
-          undefined,
-        ));
+  if (live !== undefined || task === undefined) return live;
+  return taskStatus(
+    {
+      state: task.state,
+      reviewed: task.reviewedAt !== undefined,
+      isPart: task.parentTaskId !== undefined,
+      openPieces: false,
+    },
+    undefined,
+  );
+}
+
+export function TaskStatusOf({ taskId, task }: { taskId: string; task?: TaskRecord }) {
+  const status = useTaskStatus(taskId, task);
   return status === undefined ? null : <TaskStatusTag status={status} />;
 }

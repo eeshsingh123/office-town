@@ -78,9 +78,6 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
       </div>
       <div className={card.body}>
         {context}
-        <p className={styles.lead}>
-          Edit the checks, then approve. The checker runs all of them, every round.
-        </p>
         <ol className={styles.items}>
           {items.map((item, index) => (
             <li key={item.id} className={styles.item}>
@@ -130,7 +127,7 @@ export function ChecklistCard({ event, context }: { event: ChecklistEvent; conte
         </div>
         <div className={card.buttons}>
           <Button variant="primary" disabled={!complete || sending} onClick={() => answer(true)}>
-            Approve and run {items.length} {items.length === 1 ? "check" : "checks"}
+            Approve
           </Button>
           <Button variant="ghost" disabled={sending} onClick={() => answer(false)}>
             Decline

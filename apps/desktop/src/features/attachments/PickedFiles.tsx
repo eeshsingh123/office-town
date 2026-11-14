@@ -13,7 +13,7 @@ function noteOf(
   seesImages: boolean | undefined,
 ): { text: string; warn: boolean; why?: string } {
   if (one.error !== undefined) return { text: one.error, warn: true };
-  if (one.attachment === undefined) return { text: "Adding…", warn: false };
+  if (one.attachment === undefined) return { text: "Adding", warn: false };
   if (one.kind === "folder") {
     return {
       text: one.fromLibrary ? "Folder · from the Library" : "Folder · read-only",

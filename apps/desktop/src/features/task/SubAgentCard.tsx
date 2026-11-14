@@ -1,7 +1,13 @@
 import { Check, CircleMinus, CornerDownRight, LoaderCircle, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
-import { currentStep, stepCount, subAgentDetails, subAgentsOf } from "../../trace/sub-agents.ts";
+import {
+  currentStep,
+  stepCount,
+  subAgentDetails,
+  subAgentsOf,
+  subAgentTitle,
+} from "../../trace/sub-agents.ts";
 import type { TraceAction } from "../../trace/trace.ts";
 import { Button } from "../../ui/Button.tsx";
 import { elapsed } from "../../ui/format.ts";
@@ -52,7 +58,7 @@ export function SubAgentCard({ action, place }: { action: TraceAction; place: Ca
     <div className={`${styles.card} ${running ? styles.cardLive : ""}`}>
       <div className={styles.cardHead}>
         <CornerDownRight size={16} className={styles.accent} aria-hidden />
-        <span className={styles.cardTitle}>Sub-agent: {action.title}</span>
+        <span className={styles.cardTitle}>Sub-agent: {subAgentTitle(action)}</span>
         <span className={running ? styles.live : styles.meta}>
           {running ? <LoaderCircle size={12} className="spin" aria-hidden /> : null}
           {statusLine(action, now, place.live)}
@@ -119,7 +125,7 @@ export function SubAgentRows({
               className={running ? styles.accent : styles.quietIcon}
               aria-hidden
             />
-            <span className={styles.rowTitle}>{action.title}</span>
+            <span className={styles.rowTitle}>{subAgentTitle(action)}</span>
             <RowStatus action={action} live={live} now={now} />
           </button>
         );

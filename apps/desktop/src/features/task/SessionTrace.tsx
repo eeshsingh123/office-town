@@ -35,23 +35,16 @@ function StepHeading({ trace, stepId }: { trace: Trace; stepId: string }) {
 }
 
 function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }) {
-  // A guest leaves once it has answered; nothing but the user brings it back.
-  const guest = useApp((state) => state.agents[session.agentId]?.guest === true);
   const stoppedBy = trace.ended?.stoppedBy;
   const lead = useApp((state) =>
     stoppedBy === undefined ? undefined : (state.agents[stoppedBy.agentId]?.name ?? "its lead"),
   );
+  // A finished run says nothing more: the header's status and the message box say it (a3-1).
   switch (session.status) {
     case "starting":
     case "running":
-      return null;
     case "exited":
-      return (
-        <p className={styles.ended}>
-          <Check size={14} className={styles.ok} aria-hidden />
-          {trace.ended?.idle && !guest ? "Finished · send a message to continue" : "Finished"}
-        </p>
-      );
+      return null;
     case "stopped":
       return (
         <p className={styles.ended}>
@@ -71,7 +64,7 @@ function SessionEnd({ session, trace }: { session: SessionRecord; trace: Trace }
       return (
         <p className={styles.ended}>
           <CircleMinus size={14} aria-hidden />
-          Interrupted · send a message to continue
+          Stopped when the app closed
         </p>
       );
   }
@@ -150,7 +143,7 @@ function SessionTrace({ session, skip }: { session: SessionRecord; skip: number 
   const place: Place = useMemo(() => ({ sessionId: session.id, live: isOpen(session) }), [session]);
 
   if (trace === undefined) {
-    if (error === undefined) return <p className={styles.notice}>Loading…</p>;
+    if (error === undefined) return <p className={styles.notice}>Loading</p>;
     return (
       <p className={`${styles.notice} ${styles.error}`}>
         This part of the activity could not be loaded: {error}

@@ -41,3 +41,62 @@
   font-size: 12.5px;
   white-space: nowrap;
 }
+
+.hover {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+/* The task page's one status: the icon's colour on its soft fill (D-103). */
+.pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px 0 8px;
+  border-radius: 999px;
+  font-size: var(--size-meta);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill .icon {
+  color: inherit;
+}
+
+.pill[data-status="needs"] {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.pill[data-status="working"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.pill[data-status="queued"] {
+  background: var(--hover);
+  color: var(--text-2);
+}
+
+.pill[data-status="review"] {
+  background: var(--review-soft);
+  color: var(--review);
+}
+
+.pill[data-status="done"] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pill[data-status="failed"] {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.pill[data-status="stopped"] {
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}

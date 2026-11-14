@@ -371,6 +371,29 @@ function sortRows(rows: Row[]): Row[] {
   );
 }
 
+// A team that needs the user first, then one at work, then by newest activity; the name settles
+// the rest (a3-14).
+function byUrgency(groups: Group[], teamOrder: TeamKey[]): Group[] {
+  const statuses = (group: Group) =>
+    group.rows.flatMap((row) => [row.item.status, ...row.parts.map((part) => part.status)]);
+  const rank = (group: Group) => {
+    const all = statuses(group);
+    if (all.includes("needs")) return 0;
+    return all.some((status) => status === "working" || status === "queued") ? 1 : 2;
+  };
+  const newest = (group: Group) =>
+    group.rows.reduce(
+      (latest, row) => (row.item.activityAt > latest ? row.item.activityAt : latest),
+      "",
+    );
+  return groups.toSorted(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      newest(b).localeCompare(newest(a)) ||
+      teamOrder.indexOf(a.key) - teamOrder.indexOf(b.key),
+  );
+}
+
 function dayKey(iso: string, now: number): string {
   const midnight = new Date(now).setHours(0, 0, 0, 0);
   const at = Date.parse(iso);
@@ -425,10 +448,11 @@ export function groupRows(
       if (item.goalId === undefined || shownGoals.has(item.goalId) || !matches(item)) continue;
       add(item.team, { item, parts: [], goalTitle: titles.get(item.goalId) });
     }
-    return teamOrder.flatMap((key) => {
+    const found = teamOrder.flatMap((key) => {
       const rows = groups.get(key);
       return rows === undefined ? [] : [{ key, rows: sortRows(rows) }];
     });
+    return byUrgency(found, teamOrder);
   }
 
   for (const item of tasks) {

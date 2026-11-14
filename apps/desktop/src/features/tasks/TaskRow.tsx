@@ -19,9 +19,11 @@ export interface Team {
   colour: string | undefined;
 }
 
-// Handles stay in the office (D-59): a team's row shows faces and how many help the lead.
+// Handles stay in the office (D-59): a team's row shows faces and how many agents, one format for
+// every team task (a3-20).
 function Who({ item, team, byTeam }: { item: Item; team: Team; byTeam: boolean }) {
-  const [first, ...others] = item.agents;
+  const [first] = item.agents;
+  const count = item.agents.length;
   const group = item.task?.workerAgentIds;
   if (group !== undefined) {
     return (
@@ -61,13 +63,7 @@ function Who({ item, team, byTeam }: { item: Item; team: Team; byTeam: boolean }
           <Avatar key={agent.id} name={agent.name} colour={agent.colour} size={20} />
         ))}
       </span>
-      <span className={styles.whoName}>
-        {team.key === "chief"
-          ? first.name
-          : others.length === 0
-            ? "Lead"
-            : `Lead + ${others.length}`}
-      </span>
+      <span className={styles.whoName}>{count === 1 ? "1 agent" : `${count} agents`}</span>
     </span>
   );
 }
@@ -79,8 +75,9 @@ function ModelAndEffort({ agent }: { agent: Agent }) {
   return <span title={text}>{text}</span>;
 }
 
+// Absent, the title takes its column.
 function Progress({ item }: { item: Item }) {
-  if (item.progress === undefined) return <span className={styles.progress} />;
+  if (item.progress === undefined) return null;
   const { done, total, unit } = item.progress;
   const finished = done === total;
   return (
@@ -145,7 +142,7 @@ export function TaskRow(props: TaskRowProps) {
       <span className={styles.icon}>
         <TaskStatusIcon status={item.status} />
       </span>
-      <span className={styles.text}>
+      <span className={`${styles.text} ${item.progress === undefined ? styles.wide : ""}`}>
         <span className={styles.title}>
           {goal && !nested ? <span className={styles.goalTag}>Goal</span> : null}
           <span className={styles.titleText}>{item.title}</span>
@@ -155,8 +152,8 @@ export function TaskRow(props: TaskRowProps) {
         )}
         {goalTitle === undefined ? null : <span className={styles.line}>Part of: {goalTitle}</span>}
       </span>
-      <Who item={item} team={team} byTeam={byTeam && !nested} />
       <Progress item={item} />
+      <Who item={item} team={team} byTeam={byTeam && !nested} />
       <When item={item} now={now} />
     </>
   );

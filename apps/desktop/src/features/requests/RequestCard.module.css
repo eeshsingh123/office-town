@@ -33,6 +33,11 @@
   font-weight: 400;
 }
 
+/* Inside a Needs you row, which already shows how long it has waited (a3-16). */
+[data-queue] .since {
+  display: none;
+}
+
 .body {
   display: flex;
   flex-direction: column;

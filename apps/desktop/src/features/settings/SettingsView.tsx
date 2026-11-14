@@ -2,17 +2,19 @@ import type { Display } from "@office-town/contract";
 import { Moon, Sun } from "lucide-react";
 import { useApp } from "../../store/app-store.ts";
 import form from "../../ui/Form.module.css";
+import { byteSize } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { saveDisplay } from "../onboarding/onboarding.ts";
 import { saveTaskDefault, TASK_OPTIONS, useTaskDefaults } from "../task/task-options.ts";
+import { useStoreSize } from "../tasks/store-size.ts";
 import styles from "./Settings.module.css";
 
 const TEXT_SIZES: NonNullable<Display["textSize"]>[] = [100, 115, 130];
 
-// The app's defaults; a running task changes its own on its run card.
+// The app's defaults; a running task changes its own under Details on its page.
 function NewTasks() {
   const defaults = useTaskDefaults();
   return (
@@ -105,6 +107,22 @@ function DisplaySettings() {
   );
 }
 
+// Always here; Tasks shows it only once it is large (a3-19).
+function Storage() {
+  const bytes = useStoreSize();
+  return (
+    <section className={page.panel} aria-labelledby="settings-storage">
+      <h2 id="settings-storage" className={page.sectionTitle}>
+        Storage
+      </h2>
+      <p className={styles.storage}>
+        Task history on this computer
+        <span>{bytes === undefined ? "" : byteSize(bytes)}</span>
+      </p>
+    </section>
+  );
+}
+
 export function SettingsView() {
   return (
     <section className={page.page} aria-labelledby="settings-title">
@@ -113,6 +131,7 @@ export function SettingsView() {
         <NewTasks />
         <Appearance />
         <DisplaySettings />
+        <Storage />
       </div>
     </section>
   );
