@@ -68,15 +68,15 @@ export const GRID = 10;
 const MAX_COLUMNS = 3;
 const PITCH = { x: 150, y: 140 };
 const MARGIN = 30;
+// The narrowest floor; a wider pane fits more rooms per row (design audit a2-2).
 const INNER_WIDTH = 780;
-const FLOOR_WIDTH = MARGIN * 2 + INNER_WIDTH;
 const TOP = MARGIN + 20;
 const GAP = { x: 40, y: 50 };
 // Room for the sign, goal and usage lines above the first desk; the chief's office has no goal or usage.
 const DESK_TOP = 160;
 const CHIEF_DESK_TOP = 90;
-// A department holds its goal line, and each member a token count above its head.
-const DEPARTMENT_DESK_TOP = 182;
+// A department holds its goal line, and each member its work line above its head.
+const DEPARTMENT_DESK_TOP = 170;
 const DEPARTMENT_PITCH_Y = 180;
 const DESK_BOTTOM = 34;
 const CORRIDOR = 90;
@@ -172,14 +172,19 @@ const bottomOf = (rooms: readonly Room[]) =>
   Math.max(0, ...rooms.map(({ rect }) => rect.y + rect.height));
 
 // Rows left to right from `top`, stepping past rooms already placed.
-function pack(specs: readonly RoomSpec[], placed: readonly Room[], top: number): Room[] {
+function pack(
+  specs: readonly RoomSpec[],
+  placed: readonly Room[],
+  top: number,
+  inner: number,
+): Room[] {
   const rooms: Room[] = [];
   let at = { x: MARGIN, y: top };
   let rowBottom = top;
   for (const spec of specs) {
     let room = placeRoom(spec, at);
     for (;;) {
-      if (at.x > MARGIN && room.rect.x + room.rect.width > MARGIN + INNER_WIDTH) {
+      if (at.x > MARGIN && room.rect.x + room.rect.width > MARGIN + inner) {
         at = { x: MARGIN, y: rowBottom + GAP.y };
       } else {
         const blocker = [...placed, ...rooms].find((other) => overlaps(room.rect, other.rect));
@@ -197,11 +202,15 @@ function pack(specs: readonly RoomSpec[], placed: readonly Room[], top: number):
 }
 
 // A dragged room stays put unless an earlier moved room took the spot; other rooms step past moved ones.
-// The open floor and guest desk come last, so a moved room never covers them.
+// The open floor and guest desk come last, so a moved room never covers them. `paneWidth` is the
+// width the floor is shown in; rooms fill it, never narrower than INNER_WIDTH.
 export function floorPlan(
   specs: readonly RoomSpec[],
   positions: Readonly<Record<string, Point>> = {},
+  paneWidth = 0,
 ): FloorPlan {
+  const inner = Math.max(INNER_WIDTH, paneWidth - MARGIN * 2);
+  const floorWidth = MARGIN * 2 + inner;
   const movedTo = (spec: RoomSpec) => (movable(spec.kind) ? positions[spec.id] : undefined);
   const rooms: Room[] = [];
   for (const spec of specs) {
@@ -216,7 +225,7 @@ export function floorPlan(
   const chief = specs.find((spec) => spec.kind === "chief");
   if (chief !== undefined) {
     const { width } = placeRoom(chief, { x: 0, y: top }).rect;
-    const office = placeRoom(chief, { x: (FLOOR_WIDTH - width) / 2, y: top });
+    const office = placeRoom(chief, { x: (floorWidth - width) / 2, y: top });
     homes.push(office);
     top += office.rect.height + CHIEF_GAP;
   }
@@ -225,6 +234,7 @@ export function floorPlan(
       specs.filter((spec) => spec.kind === "department"),
       [],
       top,
+      inner,
     ),
   );
   const displaced: RoomSpec[] = [];
@@ -232,17 +242,17 @@ export function floorPlan(
     if (rooms.some((room) => overlaps(room.rect, home.rect))) displaced.push(home);
     else rooms.push(home);
   }
-  rooms.push(...pack(displaced, rooms, top));
+  rooms.push(...pack(displaced, rooms, top, inner));
   const fixed = specs.filter((spec) => !movable(spec.kind));
-  rooms.push(...pack(fixed, rooms, rooms.length === 0 ? top : bottomOf(rooms) + GAP.y));
+  rooms.push(...pack(fixed, rooms, rooms.length === 0 ? top : bottomOf(rooms) + GAP.y, inner));
   const bottom = Math.max(top, bottomOf(rooms));
   const order = new Map(specs.map((spec, index) => [spec.id, index]));
   rooms.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return {
-    width: Math.max(FLOOR_WIDTH, ...rooms.map(({ rect }) => rect.x + rect.width + MARGIN)),
+    width: Math.max(floorWidth, ...rooms.map(({ rect }) => rect.x + rect.width + MARGIN)),
     height: bottom + CORRIDOR,
     rooms,
-    start: { x: FLOOR_WIDTH / 2, y: bottom + CORRIDOR / 2 },
+    start: { x: floorWidth / 2, y: bottom + CORRIDOR / 2 },
   };
 }
 

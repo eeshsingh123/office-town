@@ -13,16 +13,15 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 20px 24px;
+  padding: 20px 32px;
 }
 
 .board {
   display: grid;
   flex: 1;
-  grid-template-columns: repeat(6, minmax(220px, 1fr));
   gap: 16px;
   min-height: 0;
-  padding: 0 24px 24px;
+  padding: 0 32px 24px;
   overflow-x: auto;
 }
 
@@ -130,7 +129,7 @@
 .owner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   font-size: var(--size-meta);
 }
@@ -142,18 +141,19 @@
   text-overflow: ellipsis;
 }
 
-.harness {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-3);
+/* An empty column is only its header, as narrow as its title. */
+.empty {
+  align-self: start;
 }
 
-.harnessDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.empty .head {
+  padding-bottom: 16px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.empty .lane {
+  display: none;
 }
 
 .line {

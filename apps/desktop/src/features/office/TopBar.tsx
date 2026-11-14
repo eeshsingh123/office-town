@@ -1,9 +1,11 @@
-import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, SquareKanban } from "lucide-react";
+import { Gauge, MapIcon, PanelRightClose, PanelRightOpen, Plus, SquareKanban } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { Button } from "../../ui/Button.tsx";
 import { useAccountLabels } from "../usage/identity.ts";
 import { fullest } from "../usage/limits.ts";
 import { useMinute } from "../usage/use-usage.ts";
+import { FindOnFloor } from "./FindOnFloor.tsx";
 import { setPanelOpen, showMode, useOffice } from "./office-state.ts";
 import styles from "./TopBar.module.css";
 import { useCounts } from "./use-counts.ts";
@@ -29,6 +31,11 @@ export function TopBar() {
   const focus = useApp((state) => state.focus);
   const mode = useOffice((state) => state.mode);
   const panelOpen = useOffice((state) => state.panelOpen);
+  // The panel toggle only once something is picked; nothing picked, the panel stays closed.
+  const picked = useApp(
+    (state) =>
+      state.selection.length > 0 || (state.view.name === "office" && state.view.room !== undefined),
+  );
   const { working, order } = useCounts();
   const full = useFullAccounts();
   const at = focus === undefined ? -1 : order.indexOf(focus.agentId);
@@ -47,7 +54,7 @@ export function TopBar() {
         <ToggleGroup.Item
           value="floor"
           className={styles.segment}
-          title="Move with WASD or the arrow keys"
+          title="Walk with WASD or the arrow keys. Double-click someone to chat, drag to select several."
         >
           <MapIcon size={14} aria-hidden />
           Floor
@@ -61,6 +68,7 @@ export function TopBar() {
       {working === 0 ? null : <span className={styles.count}>{working} working</span>}
 
       <div className={styles.end}>
+        {mode === "floor" ? <FindOnFloor /> : null}
         {full.length === 0 ? null : (
           <button
             type="button"
@@ -85,7 +93,11 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
-        {mode === "floor" ? (
+        <Button onClick={() => navigate({ name: "new-department" })}>
+          <Plus size={14} aria-hidden />
+          New department
+        </Button>
+        {mode === "floor" && picked ? (
           <button
             type="button"
             className={styles.panelToggle}

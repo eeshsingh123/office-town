@@ -1,5 +1,5 @@
 import type { SessionOptions } from "@office-town/contract";
-import { FileText, GripVertical, Plus } from "lucide-react";
+import { FileText, GripVertical, MousePointerClick, Plus } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import {
   type KeyboardEvent,
@@ -16,7 +16,7 @@ import { lastCatalog } from "../../api/catalogs.ts";
 import type { Agent } from "../../store/agents.ts";
 import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
-import { ContextMenu } from "../../ui/ActionMenu.tsx";
+import { ContextMenu, type MenuAction, type MenuContent } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
@@ -60,10 +60,10 @@ export interface FloorAgent {
   harness: string;
   // Shown above its head while it works or waits.
   bubble?: string;
-  // What it used on its department's current or last goal, shown above its head.
-  tokens?: number;
   // By name, to group a selection.
   group: string;
+  // "Lead" or its role, for the hover line (design audit a2-26).
+  role?: string;
   // Its part's milestones, or the goal's at the lead's desk (D-95).
   part?: ShownStatus[];
   // A department member with nothing to do: it sleeps at its desk. "today" keeps the badge of
@@ -78,10 +78,11 @@ export interface FreeMember {
   colour: string;
   position: Point;
   detail: string;
+  // "Writer · Marketing".
+  where?: string;
 }
 
-// From the agent's centre to the top of its token count, and to the top of its desk.
-const TOKENS_ABOVE = 52;
+// From the agent's centre to the top of its desk.
 const DESK_BELOW = 46;
 
 export interface RoomSign {
@@ -103,11 +104,11 @@ interface Seated {
   state?: AgentState;
   position: Point;
   bubble?: string;
-  tokens?: number;
   part?: ShownStatus[];
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
   detail: string;
+  where?: string;
   // Sleeping at its desk until work comes.
   asleep?: boolean;
 }
@@ -263,6 +264,22 @@ function movedRooms(rooms: readonly Room[], move: RoomMove | undefined): Room[] 
   );
 }
 
+// The department's menu, then one entry per sub-team that selects its people (design audit a2-7).
+function roomMenuOf(rooms: readonly Room[], seated: Seated[], onSelect: (ids: string[]) => void) {
+  return (id: string): MenuContent | undefined => {
+    const menu = departmentMenu(id);
+    const pods = rooms.find((one) => one.id === id)?.pods ?? [];
+    if (menu === undefined || pods.length === 0) return menu;
+    const picks: MenuAction[] = pods.flatMap((pod) => {
+      const here = inRect(pod.rect, seated).map((one) => one.id);
+      if (here.length === 0) return [];
+      const label = `Select ${pod.label.toLowerCase()}`;
+      return [{ label, icon: MousePointerClick, run: () => onSelect(here) }];
+    });
+    return { ...menu, actions: [...menu.actions, ...picks] };
+  };
+}
+
 // "Claude Code · Haiku 5.5": a model by its display name (D-66).
 function detailOf(harness: string, options: SessionOptions): string {
   if (options.model === undefined) return harness;
@@ -283,7 +300,8 @@ function seatedOf(
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
   const seated: Seated[] = agents.map((one) => {
-    const { agent, state, position, harness, bubble, tokens, part, free: asleep } = one;
+    const { agent, state, position, harness, bubble, part, role, group, free: asleep } = one;
+    const where = [role, group].filter((line) => line !== undefined && line !== "").join(" · ");
     return {
       id: agent.id,
       name: agent.name,
@@ -294,8 +312,8 @@ function seatedOf(
       sessionId: agent.latest.id,
       detail: detailOf(harness, agent.latest.options),
       ...(bubble === undefined ? {} : { bubble }),
-      ...(tokens === undefined ? {} : { tokens }),
       ...(part === undefined ? {} : { part }),
+      ...(where === "" ? {} : { where }),
     };
   });
   for (const member of free) {
@@ -312,7 +330,7 @@ function seatedOf(
 const MIN_SCALE = 0.6;
 
 // A classic scrollbar's width; 0 where scrollbars float over the content.
-function scrollbarWidth(): number {
+export function scrollbarWidth(): number {
   const probe = document.createElement("div");
   probe.style.cssText =
     "position:absolute;top:-200px;visibility:hidden;overflow:scroll;width:100px;height:100px";
@@ -412,6 +430,7 @@ export function Floor(props: FloorProps) {
   const { move, handlers, wasClick } = useRoomDrag(plan, scale);
   const rooms = useMemo(() => movedRooms(plan.rooms, move), [plan.rooms, move]);
   const seated = seatedOf(agents, free, chief, rooms, move);
+  const roomMenu = roomMenuOf(rooms, seated, onSelect);
   const drawn = useMemo(() => linkPaths(links, rooms), [links, rooms]);
   const { tokens, done } = useHandoffs(drawn, linksGoal);
   const near = withinReach(player, seated);
@@ -453,6 +472,14 @@ export function Floor(props: FloorProps) {
       .getElementById(`room-${room}`)
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [room]);
+  // One agent picked, on the floor or by Find, comes into view.
+  const [picked] = selection;
+  useEffect(() => {
+    if (picked === undefined || selection.length > 1) return;
+    document
+      .getElementById(`agent-${picked}`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [picked, selection.length]);
 
   const pointOf = (event: PointerEvent): Point => {
     const bounds = floor.current?.getBoundingClientRect();
@@ -536,7 +563,9 @@ export function Floor(props: FloorProps) {
     if (sign === undefined) return null;
     return (
       <>
-        {sign.title}
+        <span className={styles.signTitle} title={sign.title}>
+          {sign.title}
+        </span>
         {sign.note === undefined ? null : <span>{sign.note}</span>}
         {sign.usage === undefined ? null : <SignUsage usage={sign.usage} />}
         <DoorChips chips={chips} />
@@ -649,7 +678,7 @@ export function Floor(props: FloorProps) {
           </div>
         );
         return kind === "department" ? (
-          <ContextMenu key={id} menu={() => departmentMenu(id)}>
+          <ContextMenu key={id} menu={() => roomMenu(id)}>
             {roomBox}
           </ContextMenu>
         ) : (
@@ -658,7 +687,6 @@ export function Floor(props: FloorProps) {
       })}
       {rooms.flatMap((one) =>
         (one.pods ?? []).map((pod) => {
-          const here = inRect(pod.rect, seated).map(({ id }) => id);
           const { x, y, width, height } = pod.rect;
           return (
             <div
@@ -666,16 +694,12 @@ export function Floor(props: FloorProps) {
               className={styles.pod}
               style={{ left: x, top: y, width, height }}
             >
-              <button
-                type="button"
-                className={styles.podLabel}
-                disabled={here.length === 0}
-                title={here.length === 0 ? undefined : "Select everyone here"}
-                onClick={() => onSelect(here)}
-              >
-                <span className={styles.podName}>{pod.label}</span>
-                <span className={styles.podCount}>{pod.desks}</span>
-              </button>
+              {/* The role only; a count only past one desk (design audit a2-7). */}
+              <span className={styles.podLabel}>
+                <span className={styles.podName}>
+                  {pod.desks > 1 ? `${pod.label} · ${pod.desks}` : pod.label}
+                </span>
+              </span>
             </div>
           );
         }),
@@ -736,20 +760,11 @@ export function Floor(props: FloorProps) {
         )}
       </button>
       {seated.map((one) => {
-        const { id, name, colour, state, position, bubble, tokens, detail, part, asleep } = one;
+        const { id, name, colour, state, position, bubble, detail, where, part, asleep } = one;
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
           <div key={id} className={styles.seat}>
-            {tokens === undefined ? null : (
-              <div
-                className={styles.tokens}
-                style={{ left: position.x, top: position.y - TOKENS_ABOVE }}
-                title={`${name} used ${compactCount(tokens)} tokens on this task`}
-              >
-                {compactCount(tokens)}
-              </div>
-            )}
             {/* On the desk, as the mockup's: the name tag stays as narrow as before. */}
             {part === undefined ? null : (
               <div
@@ -767,7 +782,7 @@ export function Floor(props: FloorProps) {
             {asleep !== true ? null : (
               <div
                 className={styles.sleep}
-                style={{ left: position.x, top: position.y - (tokens === undefined ? 44 : 86) }}
+                style={{ left: position.x, top: position.y - 44 }}
                 aria-hidden
               >
                 <span className={styles.doze}>z</span>
@@ -777,8 +792,7 @@ export function Floor(props: FloorProps) {
             {bubble === undefined || asleep === true ? null : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : styles.bubbleWork} ${id === near?.id ? styles.bubbleNear : ""}`}
-                // Above the token count, when there is one.
-                style={{ left: position.x, top: position.y - (tokens === undefined ? 46 : 88) }}
+                style={{ left: position.x, top: position.y - 46 }}
               >
                 {bubble}
               </div>
@@ -787,9 +801,10 @@ export function Floor(props: FloorProps) {
               <ContextMenu menu={() => agentMenu(id)}>
                 <Tooltip.Trigger asChild>
                   <button
+                    id={`agent-${id}`}
                     type="button"
                     className={`${styles.agent} ${finished || asleep === true ? styles.finished : ""}`}
-                    style={{ left: position.x - 40, top: position.y - 18 }}
+                    style={{ left: position.x - 60, top: position.y - 18 }}
                     aria-pressed={selected}
                     aria-label={`${name}, ${detail}, ${(state === undefined ? "Free" : STATE_LABELS[state]).toLowerCase()}`}
                     onClick={(event) => {
@@ -827,6 +842,8 @@ export function Floor(props: FloorProps) {
               <Tooltip.Portal>
                 {/* Below, as the work bubble shows above the agent at the same moment. */}
                 <Tooltip.Content className={styles.tooltip} side="bottom" sideOffset={6}>
+                  {where === undefined ? null : <strong>{where}</strong>}
+                  {where === undefined ? null : <br />}
                   {detail}
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -889,8 +906,7 @@ function AddRoom({ id, rect }: { id: string; rect: Rect }) {
       onClick={() => navigate(chief ? { name: "chief" } : { name: "new-department" })}
     >
       <Plus size={18} aria-hidden />
-      <strong>{chief ? "Chief's office" : "New department"}</strong>
-      <span>{chief ? "Set up a chief" : "Describe it or build it by hand"}</span>
+      <strong>{chief ? "Add a chief" : "New department"}</strong>
     </button>
   );
 }

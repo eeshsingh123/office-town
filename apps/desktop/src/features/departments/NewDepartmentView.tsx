@@ -69,6 +69,8 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   const [error, setError] = useState<string>();
 
   const current = forms[at] ?? forms[0];
+  const departments = useApp((state) => state.departments);
+  const existingNames = Object.values(departments).map((one) => one.name);
   // With none picked it works in Scratch. A kept draft can name a workspace removed since.
   const chosenOf = (one: DepartmentForm) => {
     const chosen = one.workspaceIds.filter((id) => workspaces.some((known) => known.id === id));
@@ -87,7 +89,14 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   );
   const unplaced = forms.findIndex((one) => chosenOf(one).length === 0);
   const missing =
-    forms.map(missingIn).find((reason) => reason !== undefined) ??
+    forms
+      .map((one, index) =>
+        missingIn(one, [
+          ...existingNames,
+          ...forms.filter((_, other) => other !== index).map((other) => other.name),
+        ]),
+      )
+      .find((reason) => reason !== undefined) ??
     (unplaced === -1 ? undefined : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`);
 
   const go = (next: number) => {

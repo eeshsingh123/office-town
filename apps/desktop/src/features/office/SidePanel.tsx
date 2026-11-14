@@ -9,7 +9,8 @@ import { ChatTab } from "../chat/ChatTab.tsx";
 import { chooseTab, type PanelKind, setPanelOpen, useOffice } from "./office-state.ts";
 import styles from "./SidePanel.module.css";
 
-const SIZE: PaneSize = { initial: 360, min: 300, max: 560 };
+// 400 keeps about 340 px for text inside the padding (design audit a2-40).
+const SIZE: PaneSize = { initial: 400, min: 320, max: 560 };
 
 // Slides off the right edge whole, so its content never squeezes while it moves.
 export function PanelFrame({ children }: { children: ReactNode }) {

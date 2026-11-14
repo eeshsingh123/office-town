@@ -1,4 +1,4 @@
-import { agentColours, type TaskRecord } from "@office-town/contract";
+import type { TaskRecord } from "@office-town/contract";
 import { type ReactNode, useMemo, useState } from "react";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
@@ -6,6 +6,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
+import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
 import { TeamFilter, useTeams } from "../tasks/TasksView.tsx";
 import { buildItems, type Item, type RowStatus } from "../tasks/task-list.ts";
@@ -21,12 +22,6 @@ const COLUMNS: { id: ColumnId; title: string; status: RowStatus }[] = [
   { id: "ended", title: "Failed or stopped", status: "failed" },
   { id: "done", title: "Done", status: "done" },
 ];
-
-// One colour per harness wherever it shows, without a list of harnesses to keep up.
-function harnessColour(harness: string): string {
-  const sum = [...harness].reduce((total, char) => total + char.charCodeAt(0), 0);
-  return agentColours[sum % agentColours.length]?.value ?? "";
-}
 
 type Known = Pick<AppState, "chiefId" | "agents" | "departments" | "sessions" | "tasks">;
 
@@ -59,19 +54,6 @@ function ownerOf(task: TaskRecord, state: Known): Owner {
 function openOwner({ roomId, agentId }: Pick<Owner, "roomId" | "agentId">): void {
   if (roomId !== undefined) selectRoom(roomId);
   else if (agentId !== undefined) selectAgent(agentId);
-}
-
-function Harness({ harness }: { harness: string | undefined }) {
-  const name = useApp(
-    (state) => state.harnesses.find((known) => known.harness === harness)?.name ?? harness,
-  );
-  if (harness === undefined) return null;
-  return (
-    <span className={styles.harness}>
-      <span className={styles.harnessDot} style={{ background: harnessColour(harness) }} />
-      {name}
-    </span>
-  );
 }
 
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
@@ -160,9 +142,12 @@ function Card({ item, known, outputs }: { item: Item; known: Known; outputs: num
           <MoreMenu menu={() => taskMenu(task.id, followUp)} label={`More for ${item.title}`} />
         )}
       </div>
+      {/* The team on its own line, its AI app as a logo (design audit a2-38, a2-27). */}
       <span className={styles.owner}>
-        <span className={styles.who}>{owner?.who ?? "Not started"}</span>
-        <Harness harness={owner?.harness} />
+        {owner?.harness === undefined ? null : <ProviderLogo harness={owner.harness} size="sm" />}
+        <span className={styles.who} title={owner?.who}>
+          {owner?.who ?? "Not started"}
+        </span>
       </span>
       {goal === undefined ? null : (
         <span className={styles.line}>
@@ -244,12 +229,24 @@ export function BoardView() {
         />
         <TeamFilter teams={present} chosen={chosenTeams} onChange={setChosenTeams} />
       </div>
-      <div className={styles.board}>
+      {/* Columns with cards share the width; an empty one folds to its header (design audit a2-38). */}
+      <div
+        className={styles.board}
+        style={{
+          gridTemplateColumns: COLUMNS.map((column) =>
+            columns[column.id].length === 0 ? "max-content" : "minmax(220px, 1fr)",
+          ).join(" "),
+        }}
+      >
         {COLUMNS.map((column) => {
           const cards = columns[column.id];
           const visible = column.id === "done" ? cards.slice(0, DONE_SHOWN) : cards;
           return (
-            <section key={column.id} className={styles.column} aria-label={column.title}>
+            <section
+              key={column.id}
+              className={`${styles.column} ${cards.length === 0 ? styles.empty : ""}`}
+              aria-label={column.title}
+            >
               <h2 className={styles.head}>
                 <TaskStatusIcon status={column.status} />
                 {column.title}

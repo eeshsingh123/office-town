@@ -8,6 +8,7 @@ import { unpin, usePinned } from "./pins.ts";
 export function PinnedStrip() {
   const pinned = usePinned();
   const agents = useApp((state) => state.agents);
+  const departments = useApp((state) => state.departments);
   // An agent deleted with its task drops out.
   const shown = pinned.filter((id) => agents[id] !== undefined);
   if (shown.length === 0) return null;
@@ -15,7 +16,12 @@ export function PinnedStrip() {
     <section className={styles.strip} aria-label="Pinned agents">
       <div className={styles.cards}>
         {shown.map((id) => (
-          <AgentCard key={id} agentId={id} onUnpin={() => unpin([id])} />
+          <AgentCard
+            key={id}
+            agentId={id}
+            where={departments[agents[id]?.departmentId ?? ""]?.name}
+            onUnpin={() => unpin([id])}
+          />
         ))}
       </div>
       <Button variant="ghost" onClick={() => unpin(shown)}>
