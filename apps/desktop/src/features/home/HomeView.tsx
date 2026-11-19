@@ -1,14 +1,12 @@
-import { ArrowRight, GraduationCap, Network, Plus, Sparkles, Users } from "lucide-react";
+import { GraduationCap, Network, Plus } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { useDraft } from "../../store/drafts.ts";
 import { isOpen } from "../../store/records.ts";
 import { progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
-import form from "../../ui/Form.module.css";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { peopleLine } from "../departments/team-line.ts";
@@ -170,7 +168,28 @@ function nowLine(agent: Agent, waiting: boolean, traces: Record<string, Trace>) 
   return progress?.current?.title ?? taskName(agent.task);
 }
 
-function Team() {
+// With no department yet, Home offers one only after a task finishes, built from that task.
+function Suggest({ item }: { item: Item }) {
+  const prompt = useApp((state) => state.tasks[item.id]?.task.prompt ?? item.title);
+  return (
+    <div className={styles.suggest}>
+      <p>
+        A department can take on work like "{item.title}": a lead plans it and hands parts to its
+        people.
+      </p>
+      <Button
+        onClick={() =>
+          navigate({ name: "new-department", describe: `A team for work like this: ${prompt}` })
+        }
+      >
+        <Plus size={14} aria-hidden />
+        Make this a department
+      </Button>
+    </div>
+  );
+}
+
+function Team({ items }: { items: Item[] }) {
   const chiefId = useApp((state) => state.chiefId);
   const records = useApp((state) => state.agents);
   const departments = useApp((state) => state.departments);
@@ -199,73 +218,94 @@ function Team() {
       agent.record.guest !== true &&
       isOpen(agent.latest),
   );
+  const hasTeam = chiefId !== undefined || list.length > 0;
+  const finished = hasTeam
+    ? undefined
+    : items
+        .filter(
+          (item) => item.team === "solo" && (item.status === "review" || item.status === "done"),
+        )
+        .toSorted((a, b) => b.activityAt.localeCompare(a.activityAt))[0];
+  if (!hasTeam && solo.length === 0 && finished === undefined) return null;
 
   return (
     <section className={styles.card} aria-labelledby="team-title">
       <h2 id="team-title" className={styles.cardTitle}>
         Your team
       </h2>
-      <ul className={styles.list}>
-        {chiefId === undefined ? null : (
-          <TeamRow
-            icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
-            name={records[chiefId]?.name ?? "Chief"}
-            line={chiefGoal === undefined ? "No goal in progress" : taskName(chiefGoal)}
-            state={chiefGoal === undefined ? undefined : <TaskStatusOf taskId={chiefGoal.id} />}
-            onOpen={() => navigate({ name: "chief" })}
-          />
-        )}
-        {list.slice(0, SHOWN_TEAM).map((department) => {
-          const goal = activeGoal((_, id) => id === department.id);
-          const members = Object.values(records).filter(
-            (agent) => agent.departmentId === department.id,
-          ).length;
-          return (
+      {!hasTeam && solo.length === 0 ? null : (
+        <ul className={styles.list}>
+          {chiefId === undefined ? null : (
             <TeamRow
-              key={department.id}
-              icon={
-                <Avatar
-                  name={department.name}
-                  colour={records[department.leadAgentId]?.colour ?? "var(--text-3)"}
-                  size={20}
-                />
-              }
-              name={department.name}
-              line={
-                goal === undefined ? `${peopleLine(members)} · no task in progress` : taskName(goal)
-              }
-              state={goal === undefined ? undefined : <TaskStatusOf taskId={goal.id} />}
-              onOpen={() => selectRoom(department.id)}
+              icon={<Network size={16} className={styles.rowIcon} aria-hidden />}
+              name={records[chiefId]?.name ?? "Chief"}
+              line={chiefGoal === undefined ? "No goal in progress" : taskName(chiefGoal)}
+              state={chiefGoal === undefined ? undefined : <TaskStatusOf taskId={chiefGoal.id} />}
+              onOpen={() => navigate({ name: "chief" })}
             />
-          );
-        })}
-        {solo.map((agent) => {
-          const waiting = waitingSessions.has(agent.latest.id);
-          return (
-            <TeamRow
-              key={agent.id}
-              icon={<Avatar name={agent.name} colour={agent.colour} size={20} />}
-              name={<WorkerName agent={agent} />}
-              line={nowLine(agent, waiting, traces)}
-              state={
-                <span className={styles.chip}>{STATE_LABELS[stateOf(agent, traces, waiting)]}</span>
-              }
-              onOpen={() => selectAgent(agent.id)}
-            />
-          );
-        })}
-      </ul>
+          )}
+          {list.slice(0, SHOWN_TEAM).map((department) => {
+            const goal = activeGoal((_, id) => id === department.id);
+            const members = Object.values(records).filter(
+              (agent) => agent.departmentId === department.id,
+            ).length;
+            return (
+              <TeamRow
+                key={department.id}
+                icon={
+                  <Avatar
+                    name={department.name}
+                    colour={records[department.leadAgentId]?.colour ?? "var(--text-3)"}
+                    size={20}
+                  />
+                }
+                name={department.name}
+                line={
+                  goal === undefined
+                    ? `${peopleLine(members)} · no task in progress`
+                    : taskName(goal)
+                }
+                state={goal === undefined ? undefined : <TaskStatusOf taskId={goal.id} />}
+                onOpen={() => selectRoom(department.id)}
+              />
+            );
+          })}
+          {solo.map((agent) => {
+            const waiting = waitingSessions.has(agent.latest.id);
+            return (
+              <TeamRow
+                key={agent.id}
+                icon={<Avatar name={agent.name} colour={agent.colour} size={20} />}
+                name={<WorkerName agent={agent} />}
+                line={nowLine(agent, waiting, traces)}
+                state={
+                  <span className={styles.chip}>
+                    {STATE_LABELS[stateOf(agent, traces, waiting)]}
+                  </span>
+                }
+                onOpen={() => selectAgent(agent.id)}
+              />
+            );
+          })}
+        </ul>
+      )}
       {list.length > SHOWN_TEAM ? (
         <Button variant="ghost" onClick={() => navigate({ name: "team" })}>
           All {list.length} departments
         </Button>
       ) : null}
-      <div className={styles.create}>
-        <Button onClick={() => navigate({ name: "new-department" })}>
-          <Plus size={14} aria-hidden />
-          New department
-        </Button>
-      </div>
+      {hasTeam ? (
+        <div className={styles.create}>
+          <Button onClick={() => navigate({ name: "new-department" })}>
+            <Plus size={14} aria-hidden />
+            New department
+          </Button>
+        </div>
+      ) : finished === undefined ? null : (
+        <div className={solo.length > 0 ? styles.create : undefined}>
+          <Suggest item={finished} />
+        </div>
+      )}
     </section>
   );
 }
@@ -306,65 +346,6 @@ function Recent({ items, now }: { items: Item[]; now: number }) {
   );
 }
 
-// Until there is a chief or a department: say what you need, or set one up step by step.
-function BuildTeam() {
-  const [text, setText] = useDraft("build-team", "");
-  const draft = () => {
-    if (text.trim() === "") return;
-    setText("");
-    navigate({ name: "new-department", describe: text.trim() });
-  };
-  return (
-    <section className={`${styles.card} ${styles.build}`} aria-labelledby="build-title">
-      <div>
-        <h2 id="build-title" className={styles.cardTitle}>
-          Build your team
-        </h2>
-        <p className={styles.buildLead}>
-          Describe the team you want, or build a department by hand.
-        </p>
-      </div>
-      <div className={styles.buildBox}>
-        <label htmlFor="build-text" className="visually-hidden">
-          Describe the team you want
-        </label>
-        <textarea
-          id="build-text"
-          className={form.input}
-          value={text}
-          placeholder="For example: I need a team of 3 to build landing pages. A lead on Opus plans the work, a developer on a free model writes the code, and a reviewer checks it."
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" || event.shiftKey) return;
-            event.preventDefault();
-            draft();
-          }}
-        />
-        <Button variant="primary" disabled={text.trim() === ""} onClick={draft}>
-          <Sparkles size={15} aria-hidden />
-          Draft my team
-        </Button>
-      </div>
-      <div className={styles.buildChoices}>
-        <button
-          type="button"
-          className={styles.buildChoice}
-          onClick={() => navigate({ name: "new-department" })}
-        >
-          <Users size={18} aria-hidden />
-          <strong>New department</strong>
-          <span>
-            A lead and the people it hands work to, with their own workspaces and one set of rules.
-          </span>
-          <span className={styles.buildGo}>
-            Start <ArrowRight size={13} aria-hidden />
-          </span>
-        </button>
-      </div>
-    </section>
-  );
-}
-
 // One next step for a new user, the first tutorial not done; the full list is in Help.
 function NextStep() {
   const hidden = useApp((state) => state.onboarding?.checklistHidden === true);
@@ -399,9 +380,6 @@ export function HomeView() {
   const greeting = useGreeting();
   const now = useNow();
   const items = useTaskItems(now).filter((item) => item.goalId === undefined);
-  const hasTeam = useApp(
-    (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
-  );
   const byActivity = (status: RowStatus) =>
     items
       .filter((item) => item.status === status)
@@ -423,7 +401,6 @@ export function HomeView() {
         <Composer home />
         <UsagePauses />
         <LimitStops />
-        {hasTeam ? null : <BuildTeam />}
         <TaskSection
           id="needs-title"
           title="Needs you"
@@ -454,7 +431,7 @@ export function HomeView() {
         )}
         <div className={styles.columns}>
           {items.length === 0 ? null : <Recent items={items} now={now} />}
-          <Team />
+          <Team items={items} />
         </div>
         <PlanUsageCard className={styles.card} />
       </div>

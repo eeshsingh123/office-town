@@ -29,6 +29,7 @@ function useFullAccounts(): string[] {
 // Only what can be acted on: counts live on Home, usage on its own page.
 export function TopBar() {
   const focus = useApp((state) => state.focus);
+  const hasDepartments = useApp((state) => Object.keys(state.departments).length > 0);
   const mode = useOffice((state) => state.mode);
   const panelOpen = useOffice((state) => state.panelOpen);
   // The panel toggle only once something is picked; nothing picked, the panel stays closed.
@@ -93,10 +94,13 @@ export function TopBar() {
             {at === -1 ? `${order.length} need you · Next` : `${at + 1} of ${order.length}`}
           </button>
         )}
-        <Button onClick={() => navigate({ name: "new-department" })}>
-          <Plus size={14} aria-hidden />
-          New department
-        </Button>
+        {/* An empty office offers it in its sample room instead. */}
+        {hasDepartments ? (
+          <Button onClick={() => navigate({ name: "new-department" })}>
+            <Plus size={14} aria-hidden />
+            New department
+          </Button>
+        ) : null}
         {mode === "floor" && picked ? (
           <button
             type="button"

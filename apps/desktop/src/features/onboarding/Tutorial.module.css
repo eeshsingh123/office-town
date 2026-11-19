@@ -15,6 +15,12 @@
   box-shadow: var(--shadow-raised);
 }
 
+/* Placed beside its target; without one it keeps the bottom right corner. */
+.beside {
+  right: auto;
+  bottom: auto;
+}
+
 .head {
   display: flex;
   align-items: center;

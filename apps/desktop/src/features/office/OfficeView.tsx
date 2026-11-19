@@ -21,14 +21,7 @@ import {
   type RoomSign,
   scrollbarWidth,
 } from "./Floor.tsx";
-import {
-  ADD_CHIEF,
-  ADD_DEPARTMENT,
-  floorPlan,
-  onTheFloor,
-  type Point,
-  type RoomSpec,
-} from "./floor-plan.ts";
+import { floorPlan, onTheFloor, type Point, type RoomSpec, SAMPLE_ROOM } from "./floor-plan.ts";
 import styles from "./Office.module.css";
 import { OfficePanel } from "./OfficePanel.tsx";
 import {
@@ -169,11 +162,8 @@ function layOut(layout: Layout) {
       }));
       return { id: one.id, kind: "department", desks, ...(groups.length > 1 ? { groups } : {}) };
     }),
-    // Only an empty office invites setup as rooms; after that the floor's corner offers it.
-    ...(departments.length > 0 ? [] : [{ id: ADD_DEPARTMENT, kind: "add", desks: 1 } as const]),
-    ...(departments.length > 0 || chiefId !== undefined
-      ? []
-      : [{ id: ADD_CHIEF, kind: "add", desks: 1 } as const]),
+    // Only an empty office shows what is coming; after that the top bar offers New department.
+    ...(departments.length > 0 ? [] : [{ id: SAMPLE_ROOM, kind: "sample", desks: 1 } as const]),
     // Only while an assistant works alone today (design audit a2-11).
     ...(solo.length === 0 ? [] : [{ id: OPEN, kind: "open", desks: solo.length } as const]),
     ...(guests.length === 0 ? [] : [{ id: GUESTS, kind: "guest", desks: guests.length } as const]),

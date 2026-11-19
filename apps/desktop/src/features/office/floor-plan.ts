@@ -17,11 +17,10 @@ export interface Seat {
   agent: Point;
 }
 
-// "add" is a dashed room that starts setting up the chief or a new department.
-export type RoomKind = "department" | "chief" | "open" | "guest" | "add";
+// "sample" is the faded room an empty office shows, with the button that sets up a department.
+export type RoomKind = "department" | "chief" | "open" | "guest" | "sample";
 
-export const ADD_CHIEF = "~add-chief";
-export const ADD_DEPARTMENT = "~add-department";
+export const SAMPLE_ROOM = "~sample";
 
 // A department's sub-team: its lead, or the members sharing a role.
 export interface TeamGroup {

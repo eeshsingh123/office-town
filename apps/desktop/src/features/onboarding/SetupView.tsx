@@ -10,12 +10,14 @@ import { OptionRows } from "../../ui/Choice.tsx";
 import form from "../../ui/Form.module.css";
 import { LATEST } from "../help/whats-new.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
+import { NO_PROVIDER } from "../new-task/NoProvider.tsx";
 import { SOLO } from "../new-task/targets.ts";
 import { InstallSheet } from "../providers/InstallSheet.tsx";
 import { ProviderCard } from "../providers/ProviderCard.tsx";
 import {
   checkHarnesses,
   defaultLogin,
+  FREE_PROVIDER,
   isReady,
   useHarnessStatuses,
 } from "../providers/providers.ts";
@@ -32,9 +34,6 @@ const STEPS = ["Welcome", "Provider"];
 
 // Where the user is in setup outlives a restart, as signing in to a provider can need one.
 const DRAFT = "setup";
-
-// Has free models and needs no account, so it is offered first.
-const FREE_PROVIDER = "opencode";
 
 // The provider setup starts with: the user's pick, else the free one, else the first ready.
 function startingProvider(
@@ -289,7 +288,7 @@ export function SetupView() {
           ) : (
             <span className={styles.end}>
               {statuses !== undefined && starting === undefined ? (
-                <span className={styles.hint}>Connect a provider to start a task.</span>
+                <span className={styles.hint}>{NO_PROVIDER}</span>
               ) : null}
               <Button variant="ghost" disabled={busy} onClick={() => void finish(false)}>
                 Go to Home

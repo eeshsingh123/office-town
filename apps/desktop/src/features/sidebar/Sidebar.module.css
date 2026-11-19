@@ -220,60 +220,11 @@
   color: var(--text-2);
 }
 
-/* Until there is a department: one quiet invitation instead of empty rows. */
-.teamCard {
-  display: flex;
-  margin-bottom: 4px;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 2px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  white-space: normal;
-}
-
-.teamCardHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.teamCardIcon {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-small);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.teamCard strong {
-  font-size: 13px;
-}
-
-.teamHint {
+.none {
+  display: block;
+  padding: 4px 10px 6px;
   font-size: var(--size-meta);
-  line-height: 1.45;
   color: var(--text-3);
-}
-
-.teamCard button {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .task {

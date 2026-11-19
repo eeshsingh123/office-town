@@ -32,6 +32,9 @@ export const defaultLogin = (accounts: readonly Account[], harness: string) =>
       account.environment.kind === "native",
   );
 
+// Has free models and needs no account, so it is offered first.
+export const FREE_PROVIDER = "opencode";
+
 // Ready for an agent: installed, and signed in or needing no sign-in.
 export const isReady = (status: HarnessStatus | undefined): boolean =>
   status?.installed === true && status.signedIn !== false;
