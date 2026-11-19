@@ -9,7 +9,7 @@ import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
 import form from "../../ui/Form.module.css";
 import { LATEST } from "../help/whats-new.ts";
-import { DEFAULT_CHOICES, keepChoices, loadRemembered, remember } from "../new-task/choices.ts";
+import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
 import { InstallSheet } from "../providers/InstallSheet.tsx";
 import { ProviderCard } from "../providers/ProviderCard.tsx";
@@ -48,26 +48,21 @@ function startingProvider(
   );
 }
 
-// Every new task asks before it acts until the user changes it, whether setup ran or was skipped.
-// New tasks go to a new folder each (Scratch), and OpenCode starts on its free model.
-async function saveSafeDefaults(harness: string | undefined): Promise<void> {
-  if (useApp.getState().workspaces === undefined) await loadWorkspaces();
-  const { workspaces = [], harnesses } = useApp.getState();
-  const scratch = workspaces.find((workspace) => workspace.kind === "scratch");
-  const safe = { ...DEFAULT_CHOICES, autonomy: "supervised" as const };
-  for (const known of harnesses) {
-    const unused = loadRemembered().byHarness[known.harness] === undefined;
-    if (unused && known.harness !== harness) keepChoices(known.harness, safe);
-  }
+// New tasks go to the picked provider, each in a new folder (Scratch), on Auto unless the user
+// picked Manual before (D-57). OpenCode starts on its free model.
+async function saveDefaults(harness: string | undefined): Promise<void> {
   if (harness === undefined) return;
-  const saved = loadRemembered().byHarness[harness] ?? safe;
+  if (useApp.getState().workspaces === undefined) await loadWorkspaces();
+  const { workspaces = [] } = useApp.getState();
+  const scratch = workspaces.find((workspace) => workspace.kind === "scratch");
+  const saved = loadRemembered().byHarness[harness] ?? DEFAULT_CHOICES;
   const free =
     harness === FREE_PROVIDER && saved.model === undefined
       ? (await findTutorialModel(harness))?.settings.model
       : undefined;
   remember({
     harness,
-    choices: { ...saved, autonomy: "supervised", ...(free === undefined ? {} : { model: free }) },
+    choices: free === undefined ? saved : { ...saved, model: free },
     target: SOLO,
     workspaceId: scratch?.id,
   });
@@ -80,8 +75,8 @@ function Welcome(props: { purpose: Purpose | undefined; onPurpose: (purpose: Pur
         <img className={styles.brand} src={appIcon} alt="" />
         <h1 className={styles.title}>Welcome to Office Town</h1>
         <p className={styles.lead}>
-          Tell it what you need, and a team of AI agents plans it, does it and asks you before
-          anything risky.
+          Tell it what you need, and a team of AI agents plans it and does it. Switch a task to
+          Manual to have them ask before each step.
         </p>
       </div>
       <WelcomePicture />
@@ -239,7 +234,7 @@ export function SetupView() {
     setBusy(true);
     const harness = starting?.harness ?? loadRemembered().harness ?? harnesses[0]?.harness;
     try {
-      await saveSafeDefaults(harness);
+      await saveDefaults(harness);
       await saveOnboarding({
         setupDone: true,
         ...(purpose === undefined ? {} : { purpose }),

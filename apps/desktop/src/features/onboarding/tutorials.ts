@@ -104,7 +104,7 @@ export const TUTORIALS: Tutorial[] = [
   {
     id: "first-task",
     title: "Your first task",
-    summary: "An assistant writes a short file and asks you before saving it.",
+    summary: "An assistant writes a short file for you and saves it.",
     start(model) {
       const { workspaces = [], onboarding } = useApp.getState();
       const scratch = workspaces.find((workspace) => workspace.kind === "scratch");
@@ -119,7 +119,6 @@ export const TUTORIALS: Tutorial[] = [
             environment,
             ...(id === undefined ? {} : { model: id }),
             ...(effort === undefined ? {} : { effort }),
-            autonomy: "supervised",
           },
           target: SOLO,
           workspaceId: (scratch ?? defaultWorkspace(workspaces, undefined))?.id,
@@ -136,8 +135,8 @@ export const TUTORIALS: Tutorial[] = [
         done: (state, run) => newTasks(state, run).length > 0,
       },
       {
-        title: "Allow the file",
-        text: "The assistant asks before it saves a file. Press Allow when it does.",
+        title: "Let it work",
+        text: "The assistant writes the file and saves it. On Manual it asks first: press Allow when it does.",
         done: (state, run) =>
           newTasks(state, run).some((task) => task.state === "idle" || task.state === "ended"),
       },

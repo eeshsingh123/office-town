@@ -13,7 +13,7 @@ function Desk(props: { harness: string; job: string; doing: string; lead?: boole
   );
 }
 
-// The product in one look: a lead hands work to teammates on other providers, and asks the user.
+// The product in one look: a lead hands work to teammates on other providers and the user approves the team.
 export function WelcomePicture() {
   return (
     <figure className={styles.picture}>
@@ -24,16 +24,16 @@ export function WelcomePicture() {
       </div>
       <div className={styles.ask}>
         <span>
-          <strong>Editor asks you</strong>
-          <span>Save the final draft as plan.md?</span>
+          <strong>Lead asks you</strong>
+          <span>Approve this team? Writer drafts, Editor checks.</span>
         </span>
         <span className={styles.askButtons} aria-hidden>
-          <span className={styles.askAllow}>Allow</span>
-          <span className={styles.askDeny}>Deny</span>
+          <span className={styles.askAllow}>Approve</span>
+          <span className={styles.askDeny}>Change</span>
         </span>
       </div>
       <figcaption className={styles.caption}>
-        One team can mix providers, and nothing risky happens without you.
+        One team can mix providers, and you choose who is on it.
       </figcaption>
     </figure>
   );

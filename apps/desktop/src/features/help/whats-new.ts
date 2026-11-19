@@ -35,7 +35,7 @@ export const RELEASES: Release[] = [
       "Setup is two steps: what the app does, then the provider to start with. It ends on your first real task",
       "Ready providers come first and you pick one; OpenCode, which has free models, is picked unless you choose another. The rest fold under More providers",
       "Your first task matches what you said you will use the app for",
-      "Whether you finish setup or skip it, new tasks ask before they act and save to a new folder each, until you change it",
+      "Whether you finish setup or skip it, new tasks run on Auto and save to a new folder each. Pick Manual on a task to have agents ask first",
       "Tutorials put your saved model and permission back when they end, even when you stop one",
       "Home shows one next step instead of the Getting started list. All tutorials are in Help",
     ],
