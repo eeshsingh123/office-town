@@ -1,7 +1,6 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
 import { ChevronDown, Plus, Settings, UserPlus } from "lucide-react";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { useDraft } from "../../store/drafts.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -12,21 +11,6 @@ import { selectRoom } from "../office/office-state.ts";
 import { useModelLine, useModelName } from "../profiles/model-line.ts";
 import styles from "./Team.module.css";
 import { useTeamFolds } from "./team-folds.ts";
-
-const EXAMPLES = [
-  {
-    label: "Newsletter: writer and editor",
-    text: "A writer and an editor for a weekly newsletter. The editor checks tone and facts before anything goes out.",
-  },
-  {
-    label: "Research: researcher and fact checker",
-    text: "A researcher who finds sources on a topic and a fact checker who confirms each claim before the summary is done.",
-  },
-  {
-    label: "Web app: developer and reviewer",
-    text: "A developer who builds features in our app and a reviewer who checks the code and tests before it merges.",
-  },
-];
 
 function Person({
   agent,
@@ -192,75 +176,6 @@ function ChiefRow({ departments }: { departments: number }) {
   );
 }
 
-// The first step on an empty Team page: describe a department, or build it by hand.
-function Starter() {
-  const [text, setText] = useDraft("first-department", "");
-  const describe = text.trim();
-  return (
-    <section className={styles.starter} aria-labelledby="starter-title">
-      <div className={styles.starterHead}>
-        <span className={page.eyebrow}>Your first department</span>
-        <h2 id="starter-title" className={styles.starterTitle}>
-          Describe the team you need
-        </h2>
-        <p className={styles.starterLead}>
-          A lead plans the work and hands parts to its people. You review what comes back.
-        </p>
-      </div>
-      <form
-        className={styles.composer}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (describe === "") return;
-          setText("");
-          navigate({ name: "new-department", describe });
-        }}
-      >
-        <label htmlFor="team-describe" className="visually-hidden">
-          Describe the department
-        </label>
-        <textarea
-          id="team-describe"
-          rows={3}
-          value={text}
-          placeholder={EXAMPLES[0]?.text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-        />
-        <div className={styles.composerBar}>
-          <Button
-            variant="ghost"
-            className={styles.small}
-            onClick={() => navigate({ name: "new-department", byHand: true })}
-          >
-            Build by hand
-          </Button>
-          <Button type="submit" variant="primary" disabled={describe === ""}>
-            Draft department
-          </Button>
-        </div>
-      </form>
-      <div className={styles.examples}>
-        {EXAMPLES.map((example) => (
-          <button
-            key={example.label}
-            type="button"
-            className={styles.example}
-            onClick={() => setText(example.text)}
-          >
-            {example.label}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 const QUERY = forSession("team.query", "");
 
 // Everyone who works for the user: the chief when there is one, then each department and its
@@ -304,21 +219,17 @@ export function TeamView() {
           id="team-title"
           title="Team"
           lead="Your departments, their people and your chief."
-          {...(empty
-            ? {}
-            : {
-                actions: (
-                  <>
-                    {hasChief ? null : (
-                      <Button onClick={() => navigate({ name: "chief" })}>Add a chief</Button>
-                    )}
-                    <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
-                      <Plus size={14} aria-hidden />
-                      New department
-                    </Button>
-                  </>
-                ),
-              })}
+          actions={
+            <>
+              {empty || hasChief ? null : (
+                <Button onClick={() => navigate({ name: "chief" })}>Add a chief</Button>
+              )}
+              <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
+                <Plus size={14} aria-hidden />
+                New department
+              </Button>
+            </>
+          }
         />
 
         {empty ? null : (
@@ -333,8 +244,8 @@ export function TeamView() {
           </div>
         )}
 
-        {empty ? (
-          <Starter />
+        {empty && !hasChief ? (
+          <p className={page.hint}>No departments yet.</p>
         ) : (
           <ul className={styles.list}>
             {needle === "" ? <ChiefRow departments={all.length} /> : null}

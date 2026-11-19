@@ -250,11 +250,13 @@ export function CommandMenu() {
                   keywords={["preferences"]}
                   onSelect={() => go({ name: "settings" })}
                 />
-                <Row
-                  icon={Network}
-                  label={chief === undefined ? "Add a chief" : `Chief · ${chief.name}`}
-                  onSelect={() => go({ name: "chief" })}
-                />
+                {chief === undefined && departments.length === 0 ? null : (
+                  <Row
+                    icon={Network}
+                    label={chief === undefined ? "Add a chief" : `Chief · ${chief.name}`}
+                    onSelect={() => go({ name: "chief" })}
+                  />
+                )}
                 <Row icon={UserRound} label="Your profile" onSelect={() => go({ name: "you" })} />
                 <Row
                   icon={CircleHelp}

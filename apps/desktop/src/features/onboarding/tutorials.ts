@@ -148,7 +148,7 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     id: "department",
-    title: "Build a department",
+    title: "Your first department",
     summary: "Describe a team in your own words, check it, and create it.",
     start(model) {
       if (model !== undefined) {
@@ -181,7 +181,7 @@ export const TUTORIALS: Tutorial[] = [
     title: "Create a chief and give it a goal",
     summary: "Set up a chief, then hand it one goal to split across your departments.",
     blocked: (state) =>
-      Object.keys(state.departments).length === 0 ? "Build a department first." : undefined,
+      Object.keys(state.departments).length === 0 ? "Create a department first." : undefined,
     start() {
       navigate({ name: "chief" });
     },

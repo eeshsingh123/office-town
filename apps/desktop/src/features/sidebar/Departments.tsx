@@ -1,4 +1,4 @@
-import { ArrowRight, LoaderCircle, Network, Plus, Users } from "lucide-react";
+import { LoaderCircle, Network, Plus, Users } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -79,9 +79,21 @@ function ChiefEntry() {
   );
 }
 
-// Adds a department, or the chief while there is none.
-function AddMenu() {
-  const hasChief = useApp((state) => state.chiefId !== undefined);
+// Adds a department; the chief is offered too once a department exists and there is no chief.
+function AddMenu({ withChief }: { withChief: boolean }) {
+  if (!withChief) {
+    return (
+      <button
+        type="button"
+        className={styles.labelButton}
+        aria-label="New department"
+        title="New department"
+        onClick={() => navigate({ name: "new-department" })}
+      >
+        <Plus size={14} aria-hidden />
+      </button>
+    );
+  }
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
@@ -98,15 +110,13 @@ function AddMenu() {
             <Users size={15} aria-hidden />
             New department
           </DropdownMenu.Item>
-          {hasChief ? null : (
-            <DropdownMenu.Item
-              className={`${menu.item} ${styles.addItem}`}
-              onSelect={() => navigate({ name: "chief" })}
-            >
-              <Network size={15} aria-hidden />
-              Add a chief
-            </DropdownMenu.Item>
-          )}
+          <DropdownMenu.Item
+            className={`${menu.item} ${styles.addItem}`}
+            onSelect={() => navigate({ name: "chief" })}
+          >
+            <Network size={15} aria-hidden />
+            Add a chief
+          </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
@@ -117,6 +127,7 @@ function AddMenu() {
 export function Departments() {
   const departments = useApp((state) => state.departments);
   const agents = useApp((state) => state.agents);
+  const hasChief = useApp((state) => state.chiefId !== undefined);
   const room = useApp((state) => (state.view.name === "office" ? state.view.room : undefined));
   const states = useDepartmentStates();
   const [find, setFind] = useState("");
@@ -128,20 +139,11 @@ export function Departments() {
     <>
       <div className={`${styles.label} ${styles.labelRow}`}>
         Departments
-        {all.length === 0 ? null : <AddMenu />}
+        <AddMenu withChief={all.length > 0 && !hasChief} />
       </div>
       <ChiefEntry />
-      {all.length === 0 ? (
-        <div className={styles.teamCard}>
-          <strong>Build your team</strong>
-          <span className={styles.teamHint}>
-            Start with one department: a lead and the people it hands work to.
-          </span>
-          <button type="button" onClick={() => navigate({ name: "new-department" })}>
-            Build a department
-            <ArrowRight size={14} aria-hidden />
-          </button>
-        </div>
+      {all.length === 0 && !hasChief ? (
+        <span className={styles.none}>No departments yet</span>
       ) : null}
       {all.length > SHOWN ? (
         <input

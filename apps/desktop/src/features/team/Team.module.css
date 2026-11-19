@@ -166,12 +166,6 @@ button.chief:hover {
   background: var(--accent);
 }
 
-.small {
-  height: 30px;
-  padding: 0 12px;
-  font-size: 13px;
-}
-
 .department {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -344,96 +338,6 @@ button.chief:hover {
   cursor: pointer;
 }
 
-/* The empty page's first step. */
-.starter {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-width: 640px;
-  padding: 24px 28px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-
-.starterHead {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.starterTitle {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.starterLead {
-  margin: 0;
-  font-size: var(--size-ui);
-  line-height: 1.55;
-  color: var(--text-2);
-}
-
-.composer {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-}
-
-.composer:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.composer textarea {
-  min-height: 66px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--text);
-  line-height: 1.55;
-  resize: none;
-  field-sizing: content;
-}
-
-.composer textarea::placeholder {
-  color: var(--text-3);
-}
-
-.composerBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.examples {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.example {
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  background: var(--surface);
-  color: var(--text-2);
-  font-size: var(--size-meta);
-  cursor: pointer;
-}
-
-.example:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
 @media (max-width: 720px) {
   .tree {
     --indent: 22px;
@@ -449,10 +353,6 @@ button.chief:hover {
 
   .people {
     padding-left: 16px;
-  }
-
-  .starter {
-    padding: 20px;
   }
 }
 
