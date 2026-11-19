@@ -40,7 +40,7 @@
 
 The four docs drive every session, so they stay short and current.
 
-- A new decision joins its topic in DECISIONS.md as one bullet under a new `D-n`, merged into an existing bullet where it refines one. A why stays only while it still guides work. Numbers are never reused or dropped: code comments cite them.
+- A new decision joins its topic in DECISIONS.md as one bullet under a new `D-n`, merged into an existing bullet where it refines one. A why stays only while it still guides work, and a line says what was decided, not how it is built. Numbers are never reused; a number the code cites stays findable, and one nothing cites or needs may be dropped at an audit.
 - MEMORY.md holds what the next session needs: state, what is not checked, open questions, how to run. Git already holds history; drop it.
 - A brief in `docs/briefs/` is deleted once its work is built; its decision keeps the outcome.
 - After each milestone (a module or phase merged), audit all four: merge overlaps, cut what no longer changes what the next session does, fix what went stale.
