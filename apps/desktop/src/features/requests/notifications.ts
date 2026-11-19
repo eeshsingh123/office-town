@@ -23,7 +23,7 @@ function show(state: AppState, { event }: WaitingRequest): void {
 }
 
 // Only while the window is not in front; requests already waiting at connect are in the queue.
-// The user turns it off on their profile.
+// The user turns it off in Settings.
 export function notifyNewRequests(): void {
   useApp.subscribe((state, previous) => {
     if (state.waiting === previous.waiting || state.connection !== "live") return;
@@ -37,7 +37,7 @@ export function notifyNewRequests(): void {
   });
 }
 
-// A task the user gave that ended, only when they asked for it on their profile. Pieces of a
+// A task the user gave that ended, only when they turned it on in Settings. Pieces of a
 // chief's plan are left out: the chief's own task ending says it once.
 export function notifyFinishedTasks(): void {
   useApp.subscribe((state, previous) => {

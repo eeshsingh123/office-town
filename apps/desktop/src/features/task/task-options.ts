@@ -1,7 +1,8 @@
-import type { TaskRecord } from "@office-town/contract";
+import type { EverydayAutonomy, TaskRecord } from "@office-town/contract";
 import { api } from "../../api/client.ts";
 import { type AppState, useApp } from "../../store/app-store.ts";
 import { showToast } from "../../ui/Toast.tsx";
+import { loadRemembered } from "../new-task/choices.ts";
 
 // The choices a task makes for itself, with the same words wherever they are picked: Settings
 // for new tasks, the composer's Options, and a running task's run card.
@@ -45,6 +46,32 @@ export function saveTaskDefault(key: TaskOption, on: boolean): void {
     useApp.setState({ [DEFAULTS[key]]: !on });
     showToast("The choice could not be saved.");
   });
+}
+
+// The level new tasks, teams and departments start at (D-111). Each can still pick its own.
+export function useDefaultLevel(): EverydayAutonomy {
+  return useApp((state) => state.autonomyByDefault) ?? "full";
+}
+
+export const defaultLevel = (): EverydayAutonomy => useApp.getState().autonomyByDefault ?? "full";
+
+export function saveDefaultLevel(level: EverydayAutonomy): void {
+  const before = useApp.getState().autonomyByDefault;
+  useApp.setState({ autonomyByDefault: level });
+  api.saveTaskDefaults({ autonomy: level }).catch(() => {
+    useApp.setState({ autonomyByDefault: before });
+    showToast("The choice could not be saved.");
+  });
+}
+
+// Before D-111 the composer remembered a level for each AI app. Someone who had Manual there keeps
+// it as the default, so nobody is moved to Auto without picking it.
+export function adoptRememberedLevel(): void {
+  if (useApp.getState().autonomyByDefault !== undefined) return;
+  const remembered = loadRemembered();
+  const last =
+    remembered.harness === undefined ? undefined : remembered.byHarness[remembered.harness];
+  if (last?.autonomy === "supervised") saveDefaultLevel("supervised");
 }
 
 export function setTaskOption(taskId: string, key: TaskOption, on: boolean): void {

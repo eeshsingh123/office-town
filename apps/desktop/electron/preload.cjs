@@ -19,4 +19,9 @@ contextBridge.exposeInMainWorld("officeTown", {
     return () => ipcRenderer.removeListener("update-ready", handler);
   },
   restartToUpdate: () => ipcRenderer.invoke("restart-to-update"),
+  updateStatus: () => ipcRenderer.invoke("update-status"),
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  desktopPreferences: () => ipcRenderer.invoke("desktop-preferences"),
+  setCloseToTray: (on) => ipcRenderer.invoke("set-close-to-tray", on),
+  setOpenAtLogin: (on) => ipcRenderer.invoke("set-open-at-login", on),
 });

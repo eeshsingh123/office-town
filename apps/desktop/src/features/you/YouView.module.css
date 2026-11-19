@@ -4,16 +4,57 @@
   margin: 0 auto;
 }
 
-.identity {
-  display: flex;
-  align-items: flex-end;
-  gap: 20px;
-}
-
-.identity > label {
-  flex: 1;
-}
-
 .card {
   gap: 24px;
+}
+
+/* The sidebar chip and a chat line, drawn with the picked name and colour. */
+.preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.previewChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: var(--hover);
+  font-size: var(--size-ui);
+  font-weight: 600;
+}
+
+.previewChat {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  font-size: var(--size-meta);
+}
+
+.previewChat > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.previewChat span span {
+  color: var(--text-2);
+}
+
+.inlineLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }

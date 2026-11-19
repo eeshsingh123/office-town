@@ -27,6 +27,7 @@ import {
   sessionPageQuerySchema,
   startTaskRequestSchema,
   startTeamTaskRequestSchema,
+  taskDefaultsRequestSchema,
   taskListQuerySchema,
   taskModeRequestSchema,
   taskSearchQuerySchema,
@@ -703,10 +704,11 @@ export function apiRoutes(
       method: "PUT",
       path: "/task-defaults",
       reply: async ({ body }) => {
-        const { efficient, milestones } = taskModeRequestSchema.parse(await body());
+        const { efficient, milestones, autonomy } = taskDefaultsRequestSchema.parse(await body());
         store.saveSettings({
           ...(efficient === undefined ? {} : { efficientByDefault: efficient }),
           ...(milestones === undefined ? {} : { milestonesByDefault: milestones }),
+          ...(autonomy === undefined ? {} : { autonomyByDefault: autonomy }),
         });
         return { status: 204 };
       },
@@ -788,7 +790,10 @@ export function apiRoutes(
     {
       method: "GET",
       path: "/storage",
-      reply: async () => ({ status: 200, json: await store.size() }),
+      reply: async () => ({
+        status: 200,
+        json: { ...(await store.size()), folder: team.dataFolder },
+      }),
     },
   ];
 }

@@ -15,11 +15,10 @@ import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
-import { LineField } from "../../ui/LineField.tsx";
-import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
+import { FieldGroup, JobFields, ModelField } from "./AgentFields.tsx";
 import { AsksFirst } from "./AsksFirst.tsx";
-import { type ChipSettings, SettingsChips } from "./SettingsChips.tsx";
+import type { ChipSettings } from "./SettingsChips.tsx";
 import styles from "./Templates.module.css";
 
 export interface TemplateDraft {
@@ -123,64 +122,56 @@ export function TemplateDialog({ template, start, open, onOpenChange }: Template
             A saved agent setup you can reuse.
           </Dialog.Description>
           <form className={form.form} onSubmit={save}>
-            <div className={styles.identity}>
-              <Avatar name={draft.name.trim() || "?"} colour={draft.colour} size={40} />
-              <label className={form.field} htmlFor="template-name">
-                <span className={form.label}>Template name</span>
-                <input
-                  id="template-name"
-                  className={form.input}
-                  value={draft.name}
-                  required
-                  placeholder="For example: Frontend builder"
-                  onChange={(event) => set({ name: event.target.value })}
-                />
-              </label>
-            </div>
-            <div className={form.field}>
-              <span className={form.label}>Colour</span>
-              <ColourPicker
-                label="Colour"
-                value={draft.colour}
-                onChange={(colour) => set({ colour })}
-              />
-            </div>
-            <label className={form.field} htmlFor="template-job">
-              <span className={form.label}>What it does</span>
-              <LineField
-                id="template-job"
-                value={draft.job}
-                placeholder="For example: Builds pages, styles and forms"
-                onChange={(job) => set({ job })}
-              />
-            </label>
-            <div className={form.field}>
-              <span className={form.label}>Instructions</span>
-              <span className={form.hint}>Agents made from it follow these notes.</span>
-              <PointsField
-                label="Instructions"
-                value={draft.notes}
-                placeholder="For example: Write for small business owners"
-                addLabel="Add a note"
-                onChange={(notes) => set({ notes })}
-              />
-            </div>
-            <div className={form.field}>
-              <span className={form.label}>Model</span>
-              <div className={form.row}>
-                <SettingsChips value={draft.settings} onChange={(settings) => set({ settings })} />
+            <FieldGroup title="Identity">
+              <div className={styles.identity}>
+                <Avatar name={draft.name.trim() || "?"} colour={draft.colour} size={40} />
+                <label className={form.field} htmlFor="template-name">
+                  <span className={form.label}>Template name</span>
+                  <input
+                    id="template-name"
+                    className={form.input}
+                    value={draft.name}
+                    required
+                    placeholder="For example: Frontend builder"
+                    onChange={(event) => set({ name: event.target.value })}
+                  />
+                </label>
               </div>
-            </div>
-            <div className={form.field}>
-              <span className={form.label}>Permissions</span>
-              <AsksFirst
-                name="template-asks"
-                base={undefined}
-                baseName="its team"
-                value={draft.autonomy}
-                onChange={(autonomy) => set({ autonomy })}
+              <div className={form.field}>
+                <span className={form.label}>Colour</span>
+                <span className={form.hint}>Agents made from it start with this colour.</span>
+                <ColourPicker
+                  label="Colour"
+                  value={draft.colour}
+                  onChange={(colour) => set({ colour })}
+                />
+              </div>
+            </FieldGroup>
+            <FieldGroup title="Job">
+              <JobFields
+                id={`template-${template?.id ?? "new"}`}
+                job={draft.job}
+                notes={draft.notes}
+                onJob={(job) => set({ job })}
+                onNotes={(notes) => set({ notes })}
+                jobHint="One line, shown on its card."
+                notesHint="Agents made from it read these before every task."
+                notesPlaceholder="For example: Write for small business owners"
               />
-            </div>
+            </FieldGroup>
+            <FieldGroup title="Runs on">
+              <ModelField value={draft.settings} onChange={(settings) => set({ settings })} />
+              <div className={form.field}>
+                <span className={form.label}>Permissions</span>
+                <AsksFirst
+                  name="template-asks"
+                  base={undefined}
+                  baseName="its team"
+                  value={draft.autonomy}
+                  onChange={(autonomy) => set({ autonomy })}
+                />
+              </div>
+            </FieldGroup>
             {error === undefined ? null : (
               <p className={form.error} role="alert">
                 {error}

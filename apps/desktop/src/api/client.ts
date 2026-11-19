@@ -104,6 +104,7 @@ import {
   sessionRecordSchema,
   settingsSchema,
   storeSizeSchema,
+  type TaskDefaultsRequest,
   type TaskDetail,
   type TaskModeRequest,
   type TaskOutputs,
@@ -390,7 +391,7 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
-  saveTaskDefaults: (defaults: TaskModeRequest): Promise<void> =>
+  saveTaskDefaults: (defaults: TaskDefaultsRequest): Promise<void> =>
     send("PUT", "/task-defaults", defaults),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).
   readHarnessStatus: (fresh: boolean): Promise<HarnessStatus[]> =>

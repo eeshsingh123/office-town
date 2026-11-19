@@ -1,5 +1,5 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { BookmarkPlus, Copy, Plus, Search, SwatchBook, Trash2, UserRound } from "lucide-react";
+import { BookmarkPlus, Copy, Plus, Search, SwatchBook, Trash2 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useState } from "react";
 import { useApp } from "../../store/app-store.ts";
@@ -8,13 +8,11 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
-import { LineField } from "../../ui/LineField.tsx";
-import { PointsField } from "../../ui/PointsField.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { AgentProfileDialog } from "../office/AgentProfile.tsx";
+import { FieldGroup, JobFields, ModelField } from "../profiles/AgentFields.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { SaveTemplateDialog, type TemplateSource } from "../profiles/SaveTemplateDialog.tsx";
-import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
 import styles from "./MemberEditor.module.css";
 import {
@@ -325,15 +323,6 @@ export function MemberEditor({
                 label={`More for ${person.role || "this member"}`}
                 menu={() => ({
                   actions: [
-                    ...(agent === undefined
-                      ? []
-                      : [
-                          {
-                            label: "Open profile",
-                            icon: UserRound,
-                            run: () => setOpened({ kind: "profile", agent }),
-                          },
-                        ]),
                     {
                       label: "Save as template",
                       icon: BookmarkPlus,
@@ -380,59 +369,73 @@ export function MemberEditor({
               <LockedLead person={person} note={leadLocked} />
             ) : (
               <>
-                <label className={form.field}>
-                  <span className={form.label}>Role name</span>
-                  <input
-                    className={form.input}
-                    value={person.role}
-                    placeholder={isLead ? "Lead" : "For example: Copywriter"}
-                    onChange={(change) => update({ role: change.target.value })}
-                  />
-                </label>
-                <label className={form.field}>
-                  <span className={form.label}>What it does</span>
-                  <LineField
-                    value={person.purpose}
-                    placeholder="One line, shown on cards and to the lead"
-                    onChange={(purpose) => update({ purpose })}
-                  />
-                </label>
-
-                <div className={form.field}>
-                  <span className={form.label}>Instructions</span>
-                  <span className={form.hint}>
-                    {isLead
-                      ? "How to split the work, and what to check before handing it back. Read before every task."
-                      : "How they work, what to avoid and what to hand back. They read this before every task."}
-                  </span>
-                  <PointsField
-                    key={person.key}
-                    label="Instructions"
-                    value={person.instructions}
-                    placeholder={
+                <FieldGroup title="Identity">
+                  <div className={form.field}>
+                    <label className={form.label} htmlFor={`member-role-${person.key}`}>
+                      Role
+                    </label>
+                    {agent === undefined ? (
+                      <span className={form.hint}>
+                        Its name and colour are picked when the team is saved.
+                      </span>
+                    ) : (
+                      <span className={form.hint}>
+                        Name, colour and permissions are on {agent.name}'s profile.{" "}
+                        <button
+                          type="button"
+                          className={styles.inlineLink}
+                          onClick={() => setOpened({ kind: "profile", agent })}
+                        >
+                          Open full profile
+                        </button>
+                      </span>
+                    )}
+                    <input
+                      id={`member-role-${person.key}`}
+                      className={form.input}
+                      value={person.role}
+                      placeholder={isLead ? "Lead" : "For example: Copywriter"}
+                      onChange={(change) => update({ role: change.target.value })}
+                    />
+                  </div>
+                </FieldGroup>
+                <FieldGroup title="Job">
+                  <JobFields
+                    id={`member-${person.key}`}
+                    job={person.purpose}
+                    notes={person.instructions}
+                    onJob={(purpose) => update({ purpose })}
+                    onNotes={(instructions) => update({ instructions })}
+                    jobHint={
+                      isLead
+                        ? "One line, shown on cards."
+                        : "One line, shown on cards. The lead uses it to hand out work."
+                    }
+                    notesHint={
+                      isLead
+                        ? "How to split the work, and what to check before handing it back. Read before every task."
+                        : "How they work, what to avoid and what to hand back. Read before every task."
+                    }
+                    notesPlaceholder={
                       isLead
                         ? "For example: Give each page to one developer"
                         : "For example: Write for small business owners"
                     }
-                    addLabel="Add an instruction"
-                    onChange={(instructions) => update({ instructions })}
                   />
-                </div>
-
-                <div className={form.field}>
-                  <span className={form.label}>Model</span>
-                  <div className={styles.chips}>
-                    <SettingsChips
-                      value={person.settings}
-                      onChange={(settings) => update({ settings, modelGuessed: false })}
-                    />
-                  </div>
-                  {person.modelGuessed ? (
-                    <span className={styles.guessed}>
-                      Chosen by the draft. Make sure it fits the job.
-                    </span>
-                  ) : null}
-                </div>
+                </FieldGroup>
+                <FieldGroup title="Runs on">
+                  <ModelField
+                    value={person.settings}
+                    onChange={(settings) => update({ settings, modelGuessed: false })}
+                    note={
+                      person.modelGuessed ? (
+                        <span className={styles.guessed}>
+                          Chosen by the draft. Make sure it fits the job.
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                </FieldGroup>
               </>
             )}
 

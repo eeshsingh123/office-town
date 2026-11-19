@@ -41,6 +41,7 @@ import picker from "../new-task/ModelPicker.module.css";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
+import { SETTINGS_SECTIONS } from "../settings/SettingsView.tsx";
 import styles from "./CommandMenu.module.css";
 import { setCommandMenuOpen, useCommandMenu } from "./command-menu.ts";
 
@@ -242,7 +243,13 @@ export function CommandMenu() {
                 <Row icon={Bot} label="Providers" onSelect={() => go({ name: "providers" })} />
                 <Row icon={Plug} label="Connectors" onSelect={() => go({ name: "connectors" })} />
                 <Row icon={Gauge} label="Usage" onSelect={() => go({ name: "usage" })} />
-                <Row icon={Settings} label="Settings" onSelect={() => go({ name: "settings" })} />
+                <Row
+                  icon={Settings}
+                  label="Settings"
+                  shortcut="Ctrl ,"
+                  keywords={["preferences"]}
+                  onSelect={() => go({ name: "settings" })}
+                />
                 <Row
                   icon={Network}
                   label={chief === undefined ? "Add a chief" : `Chief · ${chief.name}`}
@@ -270,6 +277,17 @@ export function CommandMenu() {
               {/* The rest shows once something is typed, so the menu opens on recent work. */}
               {typed === "" ? null : (
                 <>
+                  <Command.Group heading="Settings">
+                    {SETTINGS_SECTIONS.map((section) => (
+                      <Row
+                        key={section.id}
+                        icon={Settings}
+                        label={`Settings: ${section.title}`}
+                        keywords={[...section.keywords]}
+                        onSelect={() => go({ name: "settings", section: section.id })}
+                      />
+                    ))}
+                  </Command.Group>
                   <Command.Group heading="Tutorials">
                     {TUTORIALS.map((tutorial) => (
                       <Row

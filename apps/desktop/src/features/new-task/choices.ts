@@ -6,7 +6,7 @@ export interface HarnessChoices {
   environment: EnvironmentSpec;
   model?: string;
   effort?: string;
-  // Choices saved before levels replaced permission modes have none.
+  // Kept here before D-111 only; read once to carry a Manual pick over to Settings.
   autonomy?: Autonomy;
   // Newest first.
   recentModels: string[];
@@ -25,7 +25,6 @@ const RECENT_LIMIT = 5;
 
 export const DEFAULT_CHOICES: HarnessChoices = {
   environment: { kind: "native" },
-  autonomy: "full",
   recentModels: [],
 };
 
@@ -60,7 +59,12 @@ export const restoreRemembered = save;
 // Leaving an AI app keeps what was picked on it, for when the user comes back.
 export function keepChoices(harness: string, choices: HarnessChoices): void {
   const remembered = loadRemembered();
-  save({ ...remembered, byHarness: { ...remembered.byHarness, [harness]: choices } });
+  save({ ...remembered, byHarness: { ...remembered.byHarness, [harness]: withoutLevel(choices) } });
+}
+
+// The level is the task's own pick now (D-111), so it is not kept with the AI choices.
+function withoutLevel({ autonomy: _, ...choices }: HarnessChoices): HarnessChoices {
+  return choices;
 }
 
 interface Started {
@@ -83,7 +87,7 @@ export function remember({ harness, choices, target, workspaceId, profileId }: S
     target,
     byHarness: {
       ...remembered.byHarness,
-      [harness]: { ...choices, recentModels: recentModels.slice(0, RECENT_LIMIT) },
+      [harness]: { ...withoutLevel(choices), recentModels: recentModels.slice(0, RECENT_LIMIT) },
     },
   };
   if (workspaceId === undefined) delete next.workspaceId;

@@ -8,6 +8,7 @@ import type {
   DelegationRecord,
   DepartmentRecord,
   Display,
+  EverydayAutonomy,
   HarnessDescription,
   HarnessStatus,
   LibraryItem,
@@ -55,7 +56,8 @@ export type View =
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
   | { name: "you" }
-  | { name: "settings" }
+  // A section opens scrolled to, such as from Ctrl K.
+  | { name: "settings"; section?: string }
   | { name: "help" }
   // `member` opens that agent in the team editor, or "new" adds one.
   | { name: "department"; departmentId: string; member?: string }
@@ -117,6 +119,8 @@ export interface AppState extends Records {
   // New tasks start in Efficient mode (D-94), and with Milestones (D-95).
   efficientByDefault: boolean;
   milestonesByDefault: boolean;
+  // The level new work starts at (D-111); undefined until the user picks one, which reads as Auto.
+  autonomyByDefault: EverydayAutonomy | undefined;
   // Of the tasks whose milestones were read, and each one written since.
   milestones: Record<string, MilestoneRecord>;
 }
@@ -154,6 +158,7 @@ export const useApp = create<AppState>(() => ({
   display: {},
   efficientByDefault: false,
   milestonesByDefault: false,
+  autonomyByDefault: undefined,
   milestones: {},
 }));
 

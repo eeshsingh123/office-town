@@ -1,21 +1,39 @@
 .profile {
-  gap: 28px;
+  gap: 32px;
 }
 
 .reads {
-  padding: 16px 18px;
+  padding: 14px 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--bg);
 }
 
 .reads summary {
-  font-size: var(--size-small);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  font-size: var(--size-meta);
+  color: var(--text-2);
   cursor: pointer;
+}
+
+.handle {
+  padding: 1px 6px;
+  border-radius: var(--radius-small);
+  background: var(--hover);
+  color: var(--text);
+}
+
+.colourRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.role {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
 }
 
 .reads ol {

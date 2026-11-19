@@ -30,6 +30,7 @@ import { toggleSidebar } from "./features/sidebar/sidebar-state.ts";
 import { usePartNotices } from "./features/task/part-notices.ts";
 import { ReviewDialogHost } from "./features/task/ReviewDialog.tsx";
 import { TaskView } from "./features/task/TaskView.tsx";
+import { adoptRememberedLevel } from "./features/task/task-options.ts";
 import { TasksView } from "./features/tasks/TasksView.tsx";
 import { TeamView } from "./features/team/TeamView.tsx";
 import { UsageView } from "./features/usage/UsageView.tsx";
@@ -124,8 +125,16 @@ export function App() {
   useWaitingKeys();
   useHistoryKeys();
   usePartNotices();
+  const settingsRead = useApp((state) => state.onboarding !== undefined);
+  useEffect(() => {
+    if (settingsRead) adoptRememberedLevel();
+  }, [settingsRead]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "," && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
+        event.preventDefault();
+        navigate({ name: "settings" });
+      }
       if (event.key === "n" && (event.ctrlKey || event.metaKey) && !event.shiftKey) {
         event.preventDefault();
         startNewTask();

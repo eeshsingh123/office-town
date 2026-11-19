@@ -1,8 +1,10 @@
 import type { UserProfile } from "@office-town/contract";
 import { useApp } from "../../store/app-store.ts";
 
-export const ANSWER_PICKS = [
-  "Short and to the point",
+// Agents read the picked words as they are. Length is one or the other; style can be several.
+export const ANSWER_LENGTHS = ["Short and to the point", "Detailed, with the reasoning"] as const;
+
+export const ANSWER_STYLES = [
   "Explain the why",
   "Plain words, no jargon",
   "Step by step",

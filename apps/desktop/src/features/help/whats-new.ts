@@ -16,6 +16,7 @@ import {
   Plug,
   Rocket,
   Search,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export interface Release {
@@ -27,6 +28,24 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-19",
+    title: "Settings, your profile and agent profiles",
+    icon: SlidersHorizontal,
+    changes: [
+      "Settings is in the order people look for things: Appearance, Notifications, New tasks, Accessibility, Desktop, then Storage and About. Every row has its control on the right and saves at once",
+      "Theme can follow your computer again: System, Light or Dark. Text size is now Interface size, since it grows icons and spacing too",
+      "New tasks has a Permission default, Manual or Auto (Auto unless you change it). New tasks, teams and departments start there, and the composer's chip changes one task only. If the composer was on Manual before, Manual becomes your default",
+      "Notifications save at once and can send a test, and say when your computer blocks them",
+      "Desktop: choose whether closing the window keeps agents running in the tray or quits, and open the app at login. The first time closing hides the window, a note says where it went",
+      "Storage and About: open the data folder, see your version and channel, check for updates or restart to install one",
+      "Ctrl , opens Settings, and Ctrl K finds each Settings group by name",
+      "Your profile is split into How you appear, with a preview, and What agents should know. Answer length is one pick, short or detailed",
+      "Colour pickers show a tick on the pick and its name",
+      "An agent's Profile, a team member and a template share one set of fields in one order: Identity, Job, Runs on. Save lights up only when something changed, and Save as template is in the … menu",
+      "A team member links to its full profile, and a lead's profile says its colour is also the team's",
+    ],
+  },
   {
     date: "2026-11-19",
     title: "A shorter first run",

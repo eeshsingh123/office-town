@@ -1,7 +1,7 @@
 import type { UserProfile } from "@office-town/contract";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
-import { useApp } from "../../store/app-store.ts";
+import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, useDraft } from "../../store/drafts.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
@@ -13,13 +13,62 @@ import { PageHeader } from "../../ui/PageHeader.tsx";
 import { PointsField } from "../../ui/PointsField.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import styles from "./YouView.module.css";
-import { ANSWER_PICKS, useYou } from "./you.ts";
+import { ANSWER_LENGTHS, ANSWER_STYLES, useYou } from "./you.ts";
 
 const DRAFT = "you";
 
 // What this page saves; notifications are saved from Settings (a1-17).
 const profileOf = ({ name, colour, about, answerStyle, answerNotes }: UserProfile) =>
   JSON.stringify({ name, colour, about, answerStyle, answerNotes });
+
+// How the name and colour look where they show: the sidebar and a chat.
+function Preview({ name, colour }: Pick<UserProfile, "name" | "colour">) {
+  const shown = name.trim() || "You";
+  return (
+    <div className={styles.preview} aria-hidden>
+      <span className={styles.previewChip}>
+        <Avatar name={shown} colour={colour} size={22} />
+        {shown}
+      </span>
+      <span className={styles.previewChat}>
+        <Avatar name={shown} colour={colour} size={22} />
+        <span>
+          <strong>{shown}</strong>
+          <span>Build me a landing page for my bakery.</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function Picks({
+  picks,
+  chosen,
+  onToggle,
+}: {
+  picks: readonly string[];
+  chosen: readonly string[];
+  onToggle: (pick: string, on: boolean) => void;
+}) {
+  return (
+    <div className={form.row}>
+      {picks.map((pick) => {
+        const on = chosen.includes(pick);
+        return (
+          <button
+            key={pick}
+            type="button"
+            className={form.chip}
+            aria-pressed={on}
+            onClick={() => onToggle(pick, !on)}
+          >
+            {pick}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function YouView() {
   const saved = useYou();
@@ -28,6 +77,12 @@ export function YouView() {
   const [error, setError] = useState<string>();
   const set = (change: Partial<UserProfile>) => setDraft({ ...draft, ...change });
   const changed = profileOf(draft) !== profileOf(saved);
+
+  // Picking a length drops the other one; styles add up.
+  const toggle = (pick: string, on: boolean, only: readonly string[] = []) => {
+    const rest = draft.answerStyle.filter((known) => known !== pick && !only.includes(known));
+    set({ answerStyle: on ? [...rest, pick] : rest });
+  };
 
   const save = async () => {
     setSaving(true);
@@ -55,40 +110,40 @@ export function YouView() {
           <PageHeader
             id="you-title"
             title="Your profile"
-            lead="Every agent reads this before it starts a task."
+            lead="How you appear in the app, and what agents read about you before each task."
           />
 
           <div className={form.form}>
-            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-who">
-              <h2 id="you-who" className={page.sectionTitle}>
-                You
+            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-appear">
+              <h2 id="you-appear" className={page.sectionTitle}>
+                How you appear
               </h2>
-              <div className={styles.identity}>
-                <Avatar name={draft.name.trim() || "?"} colour={draft.colour} size={56} />
-                <label className={form.field} htmlFor="you-name">
-                  <span className={form.label}>Your name</span>
-                  <input
-                    id="you-name"
-                    className={form.input}
-                    value={draft.name}
-                    maxLength={60}
-                    onChange={(event) => set({ name: event.target.value })}
-                  />
-                </label>
-              </div>
+              <label className={form.field} htmlFor="you-name">
+                <span className={form.label}>Name</span>
+                <span className={form.hint}>What agents call you, and how Home greets you.</span>
+                <input
+                  id="you-name"
+                  className={form.input}
+                  value={draft.name}
+                  maxLength={60}
+                  onChange={(event) => set({ name: event.target.value })}
+                />
+              </label>
               <div className={form.field}>
-                <span className={form.label}>Your colour</span>
+                <span className={form.label}>Colour</span>
+                <span className={form.hint}>Only for the app: your picture and your messages.</span>
                 <ColourPicker
                   label="Your colour"
                   value={draft.colour}
                   onChange={(colour) => set({ colour })}
                 />
               </div>
+              <Preview name={draft.name} colour={draft.colour} />
             </section>
 
-            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-work">
-              <h2 id="you-work" className={page.sectionTitle}>
-                How agents work with you
+            <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-know">
+              <h2 id="you-know" className={page.sectionTitle}>
+                What agents should know
               </h2>
               <div className={form.field}>
                 <span className={form.label}>About you</span>
@@ -105,29 +160,18 @@ export function YouView() {
               </div>
               <fieldset className={`${form.field} ${form.group}`}>
                 <legend className={form.label}>How you like answers</legend>
-                <p className={form.hint}>Pick any that fit, or add your own.</p>
-                <div className={form.row}>
-                  {ANSWER_PICKS.map((pick) => {
-                    const on = draft.answerStyle.includes(pick);
-                    return (
-                      <button
-                        key={pick}
-                        type="button"
-                        className={form.chip}
-                        aria-pressed={on}
-                        onClick={() =>
-                          set({
-                            answerStyle: on
-                              ? draft.answerStyle.filter((known) => known !== pick)
-                              : [...draft.answerStyle, pick],
-                          })
-                        }
-                      >
-                        {pick}
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className={form.hint}>Length: pick one, or neither.</p>
+                <Picks
+                  picks={ANSWER_LENGTHS}
+                  chosen={draft.answerStyle}
+                  onToggle={(pick, on) => toggle(pick, on, ANSWER_LENGTHS)}
+                />
+                <p className={form.hint}>Style: pick any that fit.</p>
+                <Picks
+                  picks={ANSWER_STYLES}
+                  chosen={draft.answerStyle}
+                  onToggle={(pick, on) => toggle(pick, on)}
+                />
                 <PointsField
                   label="Anything else about how you like answers"
                   value={draft.answerNotes}
@@ -135,6 +179,18 @@ export function YouView() {
                   addLabel="Add your own"
                   onChange={(answerNotes) => set({ answerNotes })}
                 />
+                <p className={form.hint}>
+                  These are notes agents read. To make them wait for your OK before they act, set
+                  Permission to Manual in{" "}
+                  <button
+                    type="button"
+                    className={styles.inlineLink}
+                    onClick={() => navigate({ name: "settings", section: "new-tasks" })}
+                  >
+                    Settings
+                  </button>
+                  .
+                </p>
               </fieldset>
             </section>
 

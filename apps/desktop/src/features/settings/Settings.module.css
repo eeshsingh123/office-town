@@ -1,41 +1,44 @@
-.switches {
+/* A heading outside, then one card whose rows are split by hairlines (D-111). */
+.group {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+  scroll-margin-top: 24px;
 }
 
-.sizes {
+.groupTitle {
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 700;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.card > * {
+  padding: 18px 0;
+}
+
+.card > * + * {
+  border-top: 1px solid var(--border);
+}
+
+.actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: 0;
 }
 
-.legend {
-  float: left;
-  margin-right: 8px;
-  padding: 0;
-}
-
-/* Theme picks carry an icon beside the word. */
-.themeChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.storage {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin: 0;
-  color: var(--text-2);
-}
-
-.storage span {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
+.link {
+  color: var(--accent-text);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  white-space: nowrap;
 }

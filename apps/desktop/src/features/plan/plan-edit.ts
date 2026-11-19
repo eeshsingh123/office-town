@@ -6,6 +6,7 @@ import type {
   ProposedPiece,
   RoleSettings,
 } from "@office-town/contract";
+import { defaultLevel } from "../task/task-options.ts";
 
 export interface DraftDepartment {
   name: string;
@@ -46,7 +47,7 @@ export function toRows(pieces: readonly ProposedPiece[]): PlanRow[] {
     department:
       "departmentId" in department
         ? department
-        : { newDepartment: { ...department.newDepartment, autonomy: "full" } },
+        : { newDepartment: { ...department.newDepartment, autonomy: defaultLevel() } },
   }));
 }
 

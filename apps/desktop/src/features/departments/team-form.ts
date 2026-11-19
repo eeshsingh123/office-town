@@ -11,6 +11,7 @@ import {
   type TeamRole,
 } from "@office-town/contract";
 import { fits, SETTINGS_SHAPE } from "../../store/drafts.ts";
+import { defaultLevel } from "../task/task-options.ts";
 
 // One person on the team while it is edited; the lead is one too.
 export interface PersonForm {
@@ -100,7 +101,7 @@ export function blankDepartment(settings: RoleSettings): DepartmentForm {
     purpose: "",
     rules: "",
     workspaceIds: [],
-    autonomy: "full",
+    autonomy: defaultLevel(),
     lead: blankPerson(settings, "Lead", "Splits each task among the team"),
     members: [],
   };
@@ -154,7 +155,7 @@ export function formOfDraft(draft: DepartmentDraft, kept?: DepartmentForm): Depa
     purpose: draft.purpose,
     rules: draft.rules,
     workspaceIds: kept?.workspaceIds ?? [],
-    autonomy: kept?.autonomy ?? "full",
+    autonomy: kept?.autonomy ?? defaultLevel(),
     lead: personOfDraft(draft.lead),
     members: draft.members.map(personOfDraft),
   };

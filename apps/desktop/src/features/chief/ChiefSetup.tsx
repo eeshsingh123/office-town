@@ -14,6 +14,7 @@ import { PointsField } from "../../ui/PointsField.tsx";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
+import { toHandle } from "../office/AgentName.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
 import styles from "./Chief.module.css";
@@ -27,18 +28,6 @@ const SUGGESTED_RULES = [
   "Ask me before creating a new department.",
   "Say in one line why each department gets its part.",
 ];
-
-// Names are handles such as "@ada"; this turns what was typed into one.
-function toHandle(typed: string): string {
-  const slug = typed
-    .trim()
-    .toLowerCase()
-    .replace(/^@/, "")
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32);
-  return `@${slug}`;
-}
 
 function Diagram() {
   return (
