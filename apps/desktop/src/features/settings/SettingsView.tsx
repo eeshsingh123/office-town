@@ -180,10 +180,10 @@ function NewTasks() {
   return (
     <Group id="new-tasks">
       <SettingRow
-        label="Permission"
+        label="Permissions"
         hint={`${AUTONOMY[level].description} New tasks, teams and departments start here; you can change it for each one.`}
       >
-        <Segments label="Permission" value={level} options={LEVELS} onChange={saveDefaultLevel} />
+        <Segments label="Permissions" value={level} options={LEVELS} onChange={saveDefaultLevel} />
       </SettingRow>
       {TASK_OPTIONS.map((option) => (
         <SwitchRow
@@ -291,7 +291,7 @@ function updateLine(status: UpdateStatus | null | undefined): string {
   if (status === null) return "The development app does not update itself.";
   switch (status?.state) {
     case "checking":
-      return "Checking for updates…";
+      return "Checking for updates";
     case "latest":
       return "Up to date.";
     case "downloading":

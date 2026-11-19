@@ -17,6 +17,7 @@ import {
   Rocket,
   Search,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 
 export interface Release {
@@ -30,12 +31,24 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-19",
+    title: "A clearer start",
+    icon: Sparkles,
+    changes: [
+      "Departments are made in one place, New department. Home, the sidebar and Team no longer have their own boxes for it",
+      "Home stays on your task until one is done, then offers Make this a department, which drafts a team for work like it",
+      "An empty Office shows a sample room with a New department button. Add a chief shows once you have a department",
+      "The tutorial card sits beside what it points at instead of on top of it, and has a Stop tutorial button",
+      "When no provider is ready, a line above the task box says so, with a button to install OpenCode, which has free models. Start stays off until a provider is ready",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Settings, your profile and agent profiles",
     icon: SlidersHorizontal,
     changes: [
       "Settings is in the order people look for things: Appearance, Notifications, New tasks, Accessibility, Desktop, then Storage and About. Every row has its control on the right and saves at once",
       "Theme can follow your computer again: System, Light or Dark. Text size is now Interface size, since it grows icons and spacing too",
-      "New tasks has a Permission default, Manual or Auto (Auto unless you change it). New tasks, teams and departments start there, and the composer's chip changes one task only. If the composer was on Manual before, Manual becomes your default",
+      "New tasks has a default for Permissions, Manual or Auto (Auto unless you change it). New tasks, teams and departments start there, and the composer's chip changes one task only. If the composer was on Manual before, Manual becomes your default",
       "Notifications save at once and can send a test, and say when your computer blocks them",
       "Desktop: choose whether closing the window keeps agents running in the tray or quits, and open the app at login. The first time closing hides the window, a note says where it went",
       "Storage and About: open the data folder, see your version and channel, check for updates or restart to install one",
