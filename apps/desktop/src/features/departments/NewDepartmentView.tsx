@@ -18,6 +18,7 @@ import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { selectRoom } from "../office/office-state.ts";
+import { defaultLevel } from "../task/task-options.ts";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
 import styles from "./NewDepartment.module.css";
@@ -83,7 +84,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     setForms(forms.map((one, index) => (index === at ? { ...one, ...next } : one)));
   const setAutonomy = (autonomy: Autonomy) => change({ autonomy });
   const gate = useBypassGate(
-    current?.autonomy ?? "full",
+    current?.autonomy ?? defaultLevel(),
     setAutonomy,
     current?.name.trim() || "the department",
   );

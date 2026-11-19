@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { newAgentSchema, userProfileSchema } from "./agents.ts";
 import { attachmentIdsSchema } from "./attachments.ts";
-import { autonomySchema } from "./autonomy.ts";
+import { autonomySchema, everydayAutonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { taskChecklistSchema } from "./checks.ts";
 import { userRequestEventSchema } from "./events.ts";
@@ -163,6 +163,8 @@ export type TaskDetail = z.infer<typeof taskDetailSchema>;
 export const storeSizeSchema = z.object({
   databaseBytes: z.number().int().nonnegative(),
   resultBytes: z.number().int().nonnegative(),
+  // The data folder on this computer, so the app can open it.
+  folder: z.string().min(1).optional(),
 });
 export type StoreSize = z.infer<typeof storeSizeSchema>;
 
@@ -316,6 +318,8 @@ export const settingsSchema = z.object({
   // New tasks start with these unless the user picks otherwise (D-94).
   efficientByDefault: z.boolean().optional(),
   milestonesByDefault: z.boolean().optional(),
+  // The level new tasks, teams and departments start at; unset is Auto (D-111).
+  autonomyByDefault: everydayAutonomySchema.optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -340,6 +344,19 @@ export const taskModeRequestSchema = z
     "Nothing to change",
   );
 export type TaskModeRequest = z.infer<typeof taskModeRequestSchema>;
+
+// Settings' defaults for new tasks: the task options and the permission level.
+export const taskDefaultsRequestSchema = z
+  .object({
+    efficient: z.boolean().optional(),
+    milestones: z.boolean().optional(),
+    autonomy: everydayAutonomySchema.optional(),
+  })
+  .refine(
+    (defaults) => Object.values(defaults).some((value) => value !== undefined),
+    "Nothing to change",
+  );
+export type TaskDefaultsRequest = z.infer<typeof taskDefaultsRequestSchema>;
 
 export const resumeSessionRequestSchema = z.object({
   prompt: z.string().min(1),

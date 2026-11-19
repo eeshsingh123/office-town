@@ -20,6 +20,29 @@ interface ShellBridge {
   onUpdateReady(listener: (version: string) => void): () => void;
   // Asks first when agents are open; does nothing if the user cancels.
   restartToUpdate(): Promise<void>;
+  // Null in the development app, which does not update itself.
+  updateStatus(): Promise<UpdateStatus | null>;
+  checkForUpdates(): Promise<UpdateStatus | null>;
+  desktopPreferences(): Promise<DesktopPreferences>;
+  setCloseToTray(on: boolean): Promise<void>;
+  // Returns whether it is now on.
+  setOpenAtLogin(on: boolean): Promise<boolean>;
+}
+
+// As the shell's updates.ts says it.
+export type UpdateStatus =
+  | { state: "unknown" }
+  | { state: "checking" }
+  | { state: "latest" }
+  | { state: "downloading"; version: string }
+  | { state: "ready"; version: string }
+  | { state: "failed" };
+
+export interface DesktopPreferences {
+  closeToTray: boolean;
+  openAtLogin: boolean;
+  // Only the installed app on Windows and macOS.
+  canOpenAtLogin: boolean;
 }
 
 export interface Area {

@@ -9,6 +9,7 @@ import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import menu from "../../ui/Menu.module.css";
 import { SettingsChips } from "../profiles/SettingsChips.tsx";
+import { defaultLevel } from "../task/task-options.ts";
 import { WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import styles from "./PlanCard.module.css";
 import type { DraftDepartment, KeptPiece, PlanRow } from "./plan-edit.ts";
@@ -263,7 +264,7 @@ export function PlanRows({ rows, onChange, kept, defaultLead, milestones }: Plan
     name: "",
     purpose: "",
     lead: defaultLead,
-    autonomy: "full",
+    autonomy: defaultLevel(),
   });
   const chooseDepartment = (row: PlanRow, value: string) => {
     if (value !== NEW_DEPARTMENT) {

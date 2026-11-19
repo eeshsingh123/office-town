@@ -60,6 +60,7 @@ const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: "Ctrl B", does: "Show or hide the sidebar" },
   { keys: "Alt ← / Alt →", does: "Back and forward" },
   { keys: "F1", does: "Help" },
+  { keys: "Ctrl ,", does: "Settings" },
   { keys: "@", does: "In a task: choose who does it, or tag an app" },
   { keys: "#", does: "In a task: add a Library file" },
   { keys: "/", does: "In a task: use a template" },

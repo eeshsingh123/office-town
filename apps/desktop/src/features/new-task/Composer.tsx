@@ -36,7 +36,7 @@ import { TagLayer, tagOf, useTaggableApps } from "../connectors/AppTags.tsx";
 import { keptLevel } from "../departments/team-form.ts";
 import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
-import { type TaskOptions, useTaskDefaults } from "../task/task-options.ts";
+import { type TaskOptions, useDefaultLevel, useTaskDefaults } from "../task/task-options.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { AskChip } from "./AskChip.tsx";
 import styles from "./Composer.module.css";
@@ -58,11 +58,11 @@ import { useBusyDepartments } from "./use-targets.ts";
 const MAX_HEIGHT = 320;
 const DRAFT = "task";
 
-// Bypass never comes back without its warning.
+// The level is no longer kept with the AI choices (D-111); it is the task's own pick.
 function keptChoices(saved: unknown): HarnessChoices | undefined {
   if (!fits(saved, { environment: { kind: "" }, recentModels: [] })) return undefined;
-  const { autonomy, ...choices } = saved as HarnessChoices;
-  return autonomy === undefined ? choices : { ...choices, autonomy: keptLevel(autonomy) };
+  const { autonomy: _, ...choices } = saved as HarnessChoices;
+  return choices;
 }
 
 type Handed = Extract<View, { name: "new-task" }>;
@@ -115,14 +115,17 @@ export function Composer({ home = false }: ComposerProps) {
   );
   const [choices, setChoices] = useDraft<HarnessChoices>(
     `${DRAFT}.choices`,
-    (remembered.harness && remembered.byHarness[remembered.harness]) || DEFAULT_CHOICES,
+    (remembered.harness && keptChoices(remembered.byHarness[remembered.harness])) ||
+      DEFAULT_CHOICES,
     keptChoices,
   );
-  const [teamAutonomy, setTeamAutonomy] = useDraft<Autonomy>(
-    `${DRAFT}.teamAutonomy`,
-    "full",
+  // Only when the user picked one for this task; otherwise Settings' default (D-111).
+  const [pickedLevel, setPickedLevel] = useDraft<Autonomy | undefined>(
+    `${DRAFT}.level`,
+    undefined,
     (saved) => (typeof saved === "string" ? keptLevel(saved as Autonomy) : undefined),
   );
+  const defaultLevel = useDefaultLevel();
   const [prompt, setPrompt] = useDraft(
     `${DRAFT}.prompt`,
     handed?.prompt ?? "",
@@ -177,13 +180,8 @@ export function Composer({ home = false }: ComposerProps) {
       ? defaultWorkspace(workspaces, workspaceId)
       : workspaces.find((known) => known.id === goalWorkspaceId);
   const sharedWith = useSharedWith(proposing ? workspace?.id : undefined);
-  const soloAutonomy = choices.autonomy ?? "full";
-  const level = proposing ? teamAutonomy : soloAutonomy;
-  const gate = useBypassGate(
-    level,
-    (next) => (proposing ? setTeamAutonomy(next) : setChoices({ ...choices, autonomy: next })),
-    proposing ? "the team" : "this assistant",
-  );
+  const level = pickedLevel ?? defaultLevel;
+  const gate = useBypassGate(level, setPickedLevel, proposing ? "the team" : "this assistant");
   const settings: RoleSettings | undefined =
     description === undefined
       ? undefined
@@ -304,14 +302,14 @@ export function Composer({ home = false }: ComposerProps) {
             : proposing
               ? await api.startTeamTask({
                   goal,
-                  team: { lead: agent, workspaceId: workspace.id, autonomy: teamAutonomy },
+                  team: { lead: agent, workspaceId: workspace.id, autonomy: level },
                   ...files,
                   ...options,
                 })
               : await api.startTask({
                   prompt: goal,
                   agent,
-                  autonomy: soloAutonomy,
+                  autonomy: level,
                   workspaceId: workspace.id,
                   ...files,
                   ...options,
@@ -332,11 +330,10 @@ export function Composer({ home = false }: ComposerProps) {
     if (template === undefined) return;
     const { harness: next, environment, model, effort } = template.settings;
     setHarness(next);
-    const { autonomy, recentModels } = loadRemembered().byHarness[next] ?? DEFAULT_CHOICES;
+    const { recentModels } = loadRemembered().byHarness[next] ?? DEFAULT_CHOICES;
     setChoices({
       environment,
       recentModels,
-      ...(autonomy === undefined ? {} : { autonomy }),
       ...(model === undefined ? {} : { model }),
       ...(effort === undefined ? {} : { effort }),
     });
@@ -352,14 +349,12 @@ export function Composer({ home = false }: ComposerProps) {
     if (next.harness !== settings?.harness) {
       if (settings !== undefined) keepChoices(settings.harness, choices);
       setHarness(next.harness);
-      setChoices(loadRemembered().byHarness[next.harness] ?? DEFAULT_CHOICES);
+      setChoices(keptChoices(loadRemembered().byHarness[next.harness]) ?? DEFAULT_CHOICES);
       return;
     }
-    const { autonomy, recentModels } = choices;
     setChoices({
       environment: next.environment,
-      recentModels,
-      ...(autonomy === undefined ? {} : { autonomy }),
+      recentModels: choices.recentModels,
       ...(next.model === undefined ? {} : { model: next.model }),
       ...(next.effort === undefined ? {} : { effort: next.effort }),
     });
@@ -663,7 +658,11 @@ export function Composer({ home = false }: ComposerProps) {
               />
             ) : null}
             {picksAgent ? (
-              <AskChip value={level} onChoose={gate.choose} />
+              <AskChip
+                value={level}
+                onChoose={gate.choose}
+                note={`For this task only. New tasks start at ${AUTONOMY[defaultLevel].label}; change that in Settings.`}
+              />
             ) : department !== undefined ? (
               <span className={`${styles.chip} ${styles.fixed}`} title="Set by the department">
                 <ShieldCheck size={14} aria-hidden />

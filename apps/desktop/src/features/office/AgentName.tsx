@@ -4,14 +4,17 @@ import { api } from "../../api/client.ts";
 import { keepAgent } from "../../store/live.ts";
 import styles from "./Office.module.css";
 
-// "Ben Smith" reads as "@ben-smith".
+// "Ben Smith" reads as "@ben-smith": lowercase letters, digits and hyphens, at most 32 after the
+// "@", as the core accepts. The one helper for every name field (the profile, the chief).
 export function toHandle(text: string): string {
   const words = text
     .trim()
     .toLowerCase()
     .replace(/^@/, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+/, "")
+    .slice(0, 32)
+    .replace(/-+$/, "");
   return `@${words}`;
 }
 

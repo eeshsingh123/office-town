@@ -25,10 +25,17 @@ export function applyTheme() {
   });
 }
 
-export function toggleTheme() {
-  writeKept(CHOSEN, current() === "dark" ? "light" : "dark");
+// "system" follows the computer; it clears the stored pick.
+export type ThemeChoice = Theme | "system";
+
+export function chooseTheme(choice: ThemeChoice) {
+  writeKept(CHOSEN, choice === "system" ? undefined : choice);
   applyTheme();
   for (const listener of listeners) listener();
+}
+
+export function toggleTheme() {
+  chooseTheme(current() === "dark" ? "light" : "dark");
 }
 
 function subscribe(listener: () => void) {
@@ -41,3 +48,6 @@ function subscribe(listener: () => void) {
 }
 
 export const useTheme = () => useSyncExternalStore(subscribe, current);
+
+export const useThemeChoice = (): ThemeChoice =>
+  useSyncExternalStore(subscribe, () => readKept(CHOSEN) ?? "system");

@@ -8,6 +8,7 @@ import {
   dialog,
   type IpcMainInvokeEvent,
   ipcMain,
+  Notification,
   nativeTheme,
   net,
   session,
@@ -24,6 +25,13 @@ import {
   startedByDevLoop,
 } from "./dev-mode.ts";
 import { pictureOfPage } from "./page-picture.ts";
+import {
+  canOpenAtLogin,
+  opensAtLogin,
+  readPreferences,
+  savePreferences,
+  setOpenAtLogin,
+} from "./preferences.ts";
 import { createTray } from "./tray.ts";
 import { followUpdates, type Updates } from "./updates.ts";
 import { createWindow, showWindow } from "./window.ts";
@@ -53,6 +61,7 @@ let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let updates: Updates | undefined;
 let quitting = false;
+let preferences = readPreferences();
 
 if (!app.isPackaged) becomeDevApp();
 if (startedByDevLoop()) quitWhenDisconnected();
@@ -77,13 +86,32 @@ async function start(): Promise<void> {
   });
   registerBridge();
   denyPagesPermissions();
-  window = createWindow({ icon: ICON, preload: PRELOAD, isQuitting: () => quitting });
+  window = createWindow({
+    icon: ICON,
+    preload: PRELOAD,
+    isQuitting: () => quitting,
+    closeToTray: () => preferences.closeToTray,
+    onHidden: noteTrayOnce,
+    onQuit: () => void confirmQuit(),
+  });
   if (!app.isPackaged) showDevIcon(window, APP_ID, ICON);
   tray = createTray(ICON, { open, quit: () => void confirmQuit() });
   if (!app.isPackaged) reloadOnRebuild(UI_FOLDER, () => window);
   if (app.isPackaged) {
     updates = followUpdates((version) => window?.webContents.send("update-ready", version));
   }
+}
+
+// The first time closing hides the window, say where the app went and how to change it.
+function noteTrayOnce(): void {
+  if (preferences.trayNoteShown || !Notification.isSupported()) return;
+  preferences = { ...preferences, trayNoteShown: true };
+  savePreferences(preferences);
+  new Notification({
+    title: `${app.getName()} is still running`,
+    body: "Agents keep working in the tray. To quit when you close the window, change it in Settings.",
+    icon: ICON,
+  }).show();
 }
 
 function open(): void {
@@ -299,6 +327,34 @@ function registerBridge(): void {
   ipcMain.handle("update-ready", (event) => {
     fromApp(event);
     return updates?.ready() ?? null;
+  });
+  ipcMain.handle("update-status", (event) => {
+    fromApp(event);
+    return updates?.status() ?? null;
+  });
+  ipcMain.handle("check-for-updates", (event) => {
+    fromApp(event);
+    return updates?.check() ?? null;
+  });
+  ipcMain.handle("desktop-preferences", (event) => {
+    fromApp(event);
+    return {
+      closeToTray: preferences.closeToTray,
+      openAtLogin: opensAtLogin(),
+      canOpenAtLogin: canOpenAtLogin(),
+    };
+  });
+  ipcMain.handle("set-close-to-tray", (event, on: unknown) => {
+    fromApp(event);
+    if (typeof on !== "boolean") throw new Error("Expected on or off.");
+    preferences = { ...preferences, closeToTray: on };
+    savePreferences(preferences);
+  });
+  ipcMain.handle("set-open-at-login", (event, on: unknown) => {
+    fromApp(event);
+    if (typeof on !== "boolean") throw new Error("Expected on or off.");
+    setOpenAtLogin(on);
+    return opensAtLogin();
   });
   ipcMain.handle("restart-to-update", (event) => {
     fromApp(event);

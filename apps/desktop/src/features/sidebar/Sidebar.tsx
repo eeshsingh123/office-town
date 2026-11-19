@@ -179,6 +179,7 @@ function YouItem() {
       className={`${styles.nav} ${styles.you}`}
       aria-current={current ? "page" : undefined}
       onClick={() => navigate({ name: "you" })}
+      title="Your profile"
       {...rail}
     >
       <Avatar name={name || "You"} colour={you.colour} size={26} />

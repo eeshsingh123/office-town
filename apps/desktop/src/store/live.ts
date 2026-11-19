@@ -148,6 +148,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     display: settings.display ?? {},
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
+    autonomyByDefault: settings.autonomyByDefault,
     // One removed meanwhile is gone; one that arrived during the read stays.
     agents: {
       ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),
