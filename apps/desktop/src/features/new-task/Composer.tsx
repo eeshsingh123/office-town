@@ -50,6 +50,7 @@ import {
 import { DepartmentWorkspaceChip } from "./DepartmentWorkspaceChip.tsx";
 import { GoesToChip, targetIcon } from "./GoesToChip.tsx";
 import { ModelChip } from "./ModelChip.tsx";
+import { NO_PROVIDER, NoProvider, useNoProvider } from "./NoProvider.tsx";
 import { OptionsChip } from "./OptionsChip.tsx";
 import { SamplePrompts } from "./SamplePrompts.tsx";
 import { CHIEF, type Mention, mentionAt, PROPOSE, SOLO, withoutMention } from "./targets.ts";
@@ -223,6 +224,7 @@ export function Composer({ home = false }: ComposerProps) {
   // A chief's goal has no workspace of its own.
   const library = useLibrary(target === CHIEF ? undefined : workspace?.id);
 
+  const noProvider = useNoProvider(reader?.environment);
   const missing =
     target === CHIEF
       ? chief === undefined
@@ -232,15 +234,16 @@ export function Composer({ home = false }: ComposerProps) {
         ? busy.has(department.id)
           ? `${department.name} is busy with another task. It takes one at a time.`
           : undefined
-        : description === undefined
-          ? "No provider is installed yet."
-          : workspace === undefined && loaded !== undefined
-            ? "Choose a workspace."
-            : undefined;
+        : workspace === undefined && loaded !== undefined
+          ? "Choose a workspace."
+          : undefined;
   const ready =
     goal !== "" &&
+    !noProvider &&
     missing === undefined &&
-    (department !== undefined || target === CHIEF || workspace !== undefined) &&
+    (department !== undefined ||
+      target === CHIEF ||
+      (workspace !== undefined && description !== undefined)) &&
     !starting &&
     !attached.adding;
 
@@ -500,6 +503,7 @@ export function Composer({ home = false }: ComposerProps) {
 
   return (
     <div className={styles.composerArea}>
+      {noProvider ? <NoProvider /> : null}
       <div
         className={`${styles.composer} ${attached.dragging ? fileStyles.dropping : ""}`}
         data-tour="composer"
@@ -680,7 +684,11 @@ export function Composer({ home = false }: ComposerProps) {
             disabled={!ready}
             busy={starting}
             onClick={start}
-            title="Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
+            title={
+              noProvider
+                ? NO_PROVIDER
+                : "Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
+            }
           >
             Start
             {starting ? null : <CornerDownLeft size={14} aria-hidden />}

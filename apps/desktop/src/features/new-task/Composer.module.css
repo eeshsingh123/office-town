@@ -5,6 +5,34 @@
   min-width: 0;
 }
 
+/* Above the box while no provider can run a task. */
+.noProvider {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-card);
+  background: var(--warn-soft);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.inlineLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inlineLink:hover {
+  text-decoration: underline;
+}
+
 .composer {
   border: 1px solid var(--border-strong);
   border-radius: 14px;
