@@ -2,7 +2,13 @@ import { create } from "zustand";
 import { useApp } from "../../store/app-store.ts";
 import { markTutorialDone } from "./onboarding.ts";
 import { findTutorialModel, type TutorialModel } from "./tutorial-model.ts";
-import { sharedApps, type TutorialId, type TutorialRun, tutorialById } from "./tutorials.ts";
+import {
+  restoreChoices,
+  sharedApps,
+  type TutorialId,
+  type TutorialRun,
+  tutorialById,
+} from "./tutorials.ts";
 
 interface TutorialState {
   run: TutorialRun | undefined;
@@ -18,7 +24,8 @@ export const useTutorial = create<TutorialState>(() => ({
   preparing: false,
 }));
 
-export async function startTutorial(id: TutorialId): Promise<void> {
+// `harness` is the provider picked in setup, for the first task to run on.
+export async function startTutorial(id: TutorialId, harness?: string): Promise<void> {
   const state = useApp.getState();
   const { departments, library } = state;
   useTutorial.setState({
@@ -33,7 +40,7 @@ export async function startTutorial(id: TutorialId): Promise<void> {
       apps: sharedApps(state),
     },
   });
-  const model = await findTutorialModel();
+  const model = await findTutorialModel(harness);
   // Stopped while it was getting ready.
   if (useTutorial.getState().run?.id !== id) return;
   useTutorial.setState({ model, preparing: false });
@@ -48,9 +55,16 @@ export function nextStep(): void {
     return;
   }
   useTutorial.setState({ run: undefined });
+  restoreChoices();
   void markTutorialDone(run.id);
 }
 
 export function stopTutorial(): void {
   useTutorial.setState({ run: undefined, preparing: false });
+  restoreChoices();
+}
+
+// A tutorial left open when the app closed ends, and puts back what it replaced.
+export function endLeftTutorial(): void {
+  if (useTutorial.getState().run === undefined) restoreChoices();
 }

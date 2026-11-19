@@ -1,5 +1,5 @@
-import { ArrowRight, ChevronDown, Network, Plus, Sparkles, Users } from "lucide-react";
-import { Fragment, type ReactNode, useState } from "react";
+import { ArrowRight, GraduationCap, Network, Plus, Sparkles, Users } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
 import { type Agent, stateOf, useAgents, useWaitingSessions } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useDraft } from "../../store/drafts.ts";
@@ -15,8 +15,8 @@ import { peopleLine } from "../departments/team-line.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
-import { TutorialList, useTutorialsDone } from "../onboarding/TutorialList.tsx";
-import { TUTORIALS } from "../onboarding/tutorials.ts";
+import { useNextTutorial } from "../onboarding/TutorialList.tsx";
+import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TaskStatusIcon, TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
 import { showTasksTab } from "../tasks/TasksView.tsx";
 import type { Item, RowStatus } from "../tasks/task-list.ts";
@@ -365,36 +365,31 @@ function BuildTeam() {
   );
 }
 
-// Folded to one line until opened, so a returning user sees their work first.
-function GettingStarted() {
-  const [open, setOpen] = useState(false);
+// One next step for a new user, the first tutorial not done; the full list is in Help.
+function NextStep() {
   const hidden = useApp((state) => state.onboarding?.checklistHidden === true);
-  const done = useTutorialsDone();
-  const count = TUTORIALS.filter((tutorial) => done[tutorial.id]).length;
-  if (hidden || count === TUTORIALS.length) return null;
+  const tutorial = useNextTutorial();
+  if (hidden || tutorial === undefined) return null;
   return (
-    <section className={styles.card} aria-labelledby="start-title">
-      <div className={styles.cardHead}>
-        <h2 id="start-title" className={styles.foldTitle}>
-          <button
-            type="button"
-            className={styles.fold}
-            aria-expanded={open}
-            onClick={() => setOpen(!open)}
-          >
-            <ChevronDown size={15} className={open ? undefined : styles.foldClosed} aria-hidden />
-            Getting started · {count} of {TUTORIALS.length}
-          </button>
+    <section className={styles.next} aria-labelledby="next-title">
+      <GraduationCap size={18} className={styles.nextIcon} aria-hidden />
+      <span className={styles.nextText}>
+        <h2 id="next-title" className={styles.nextTitle}>
+          Next step: {tutorial.title}
         </h2>
+        <span className={styles.nextLine}>{tutorial.summary}</span>
+      </span>
+      <span className={styles.nextActions}>
         <Button variant="ghost" onClick={() => void saveOnboarding({ checklistHidden: true })}>
           Hide
         </Button>
-      </div>
-      {open ? (
-        <div className={styles.steps}>
-          <TutorialList />
-        </div>
-      ) : null}
+        <Button variant="ghost" onClick={() => navigate({ name: "help" })}>
+          All tutorials
+        </Button>
+        <Button variant="primary" onClick={() => void startTutorial(tutorial.id)}>
+          Start tutorial
+        </Button>
+      </span>
     </section>
   );
 }
@@ -424,6 +419,7 @@ export function HomeView() {
             <StatusLine items={items} />
           </p>
         </header>
+        <NextStep />
         <Composer home />
         <UsagePauses />
         <LimitStops />
@@ -461,7 +457,6 @@ export function HomeView() {
           <Team />
         </div>
         <PlanUsageCard className={styles.card} />
-        <GettingStarted />
       </div>
     </section>
   );

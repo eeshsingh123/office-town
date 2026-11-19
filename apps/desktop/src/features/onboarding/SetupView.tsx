@@ -1,16 +1,13 @@
-import type { Account, Autonomy, Onboarding } from "@office-town/contract";
-import { Check, LoaderCircle } from "lucide-react";
-import { useState } from "react";
-import { api } from "../../api/client.ts";
+import type { Account, HarnessDescription, Onboarding } from "@office-town/contract";
+import { Check, ChevronDown, LoaderCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { clearDrafts, useDraft } from "../../store/drafts.ts";
-import { loadWorkspaces, useWorkspaces } from "../../store/workspaces.ts";
-import { AUTONOMY } from "../../ui/autonomy.ts";
+import { loadWorkspaces } from "../../store/workspaces.ts";
+import appIcon from "../../ui/app-icon.svg";
 import { Button } from "../../ui/Button.tsx";
 import { OptionRows } from "../../ui/Choice.tsx";
-import { FolderField } from "../../ui/FolderField.tsx";
 import form from "../../ui/Form.module.css";
-import { PointsField } from "../../ui/PointsField.tsx";
 import { LATEST } from "../help/whats-new.ts";
 import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
@@ -23,56 +20,71 @@ import {
   useHarnessStatuses,
 } from "../providers/providers.ts";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
-import { DEFAULT_YOU, useYou } from "../you/you.ts";
 import { saveOnboarding } from "./onboarding.ts";
 import styles from "./Setup.module.css";
-import { TutorialList } from "./TutorialList.tsx";
+import { findTutorialModel } from "./tutorial-model.ts";
 import { startTutorial } from "./tutorial-state.ts";
-import { TUTORIALS } from "./tutorials.ts";
+import { WelcomePicture } from "./WelcomePicture.tsx";
 
 type Purpose = NonNullable<Onboarding["purpose"]>;
-type Where = "scratch" | "folder";
 
-const STEPS = ["Welcome", "Provider", "Your work", "Ready"];
+const STEPS = ["Welcome", "Provider"];
 
 // Where the user is in setup outlives a restart, as signing in to a provider can need one.
 const DRAFT = "setup";
 
-async function finish(purpose: Purpose | undefined) {
-  await saveOnboarding({
-    setupDone: true,
-    ...(purpose === undefined ? {} : { purpose }),
-    whatsNewSeen: LATEST,
+// Has free models and needs no account, so it is offered first.
+const FREE_PROVIDER = "opencode";
+
+// The provider setup starts with: the user's pick, else the free one, else the first ready.
+function startingProvider(
+  ready: HarnessDescription[],
+  picked: string | undefined,
+): HarnessDescription | undefined {
+  return (
+    ready.find((known) => known.harness === picked) ??
+    ready.find((known) => known.harness === FREE_PROVIDER) ??
+    ready[0]
+  );
+}
+
+// New tasks go to the picked provider, each in a new folder (Scratch), on Auto unless the user
+// picked Manual before (D-57). OpenCode starts on its free model.
+async function saveDefaults(harness: string | undefined): Promise<void> {
+  if (harness === undefined) return;
+  if (useApp.getState().workspaces === undefined) await loadWorkspaces();
+  const { workspaces = [] } = useApp.getState();
+  const scratch = workspaces.find((workspace) => workspace.kind === "scratch");
+  const saved = loadRemembered().byHarness[harness] ?? DEFAULT_CHOICES;
+  const free =
+    harness === FREE_PROVIDER && saved.model === undefined
+      ? (await findTutorialModel(harness))?.settings.model
+      : undefined;
+  remember({
+    harness,
+    choices: free === undefined ? saved : { ...saved, model: free },
+    target: SOLO,
+    workspaceId: scratch?.id,
   });
-  clearDrafts(DRAFT);
 }
 
 function Welcome(props: { purpose: Purpose | undefined; onPurpose: (purpose: Purpose) => void }) {
   return (
     <>
       <div className={styles.head}>
+        <img className={styles.brand} src={appIcon} alt="" />
         <h1 className={styles.title}>Welcome to Office Town</h1>
         <p className={styles.lead}>
-          Describe a task and AI agents do it on your computer. They ask you before anything
-          important.
+          Tell it what you need, and a team of AI agents plans it and does it. Switch a task to
+          Manual to have them ask before each step.
         </p>
       </div>
-      <ul className={styles.ways}>
-        <li className={styles.way}>
-          <strong>Assistant</strong>
-          <span>One agent for one task.</span>
-        </li>
-        <li className={styles.way}>
-          <strong>Department</strong>
-          <span>A team with a lead, for work you do often, like a website or marketing.</span>
-        </li>
-        <li className={styles.way}>
-          <strong>Chief</strong>
-          <span>Splits a big goal across your departments.</span>
-        </li>
-      </ul>
+      <WelcomePicture />
       <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>What will you use it for?</h2>
+        <div className={styles.head}>
+          <h2 className={styles.sectionTitle}>What will you use it for?</h2>
+          <p className={styles.hint}>Your first task will match it.</p>
+        </div>
         <OptionRows
           name="purpose"
           label="What will you use it for?"
@@ -92,23 +104,52 @@ function Welcome(props: { purpose: Purpose | undefined; onPurpose: (purpose: Pur
 
 type Sheet = { kind: "install"; harness: string } | { kind: "sign-in"; account: Account };
 
-// The same cards as Providers: each app ready, to sign in, or to install (D-76).
-function AiApps() {
+interface ProvidersProps {
+  starting: string | undefined;
+  onPick: (harness: string) => void;
+}
+
+// The same cards as Providers (D-76): the ready ones to pick from, the rest to install or sign in.
+function Providers({ starting, onPick }: ProvidersProps) {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
   const statuses = useHarnessStatuses({ recheckOnFocus: true });
   const [sheet, setSheet] = useState<Sheet>();
+  const [more, setMore] = useState(false);
   const signIn = (harness: string) => {
     const account = defaultLogin(accounts, harness);
     setSheet(account === undefined ? undefined : { kind: "sign-in", account });
   };
+  const ready = harnesses
+    .filter((known) => isReady(statuses?.[known.harness]))
+    .toSorted((a, b) => Number(b.harness === FREE_PROVIDER) - Number(a.harness === FREE_PROVIDER));
+  const others = harnesses.filter((known) => !ready.includes(known));
+  // With nothing ready, the free provider is offered on its own and the rest are folded.
+  const recommended =
+    ready.length === 0 ? others.find((known) => known.harness === FREE_PROVIDER) : undefined;
+  const folded = others.filter((known) => known !== recommended);
+  const card = (description: HarnessDescription) => (
+    <ProviderCard
+      key={description.harness}
+      description={description}
+      status={statuses?.[description.harness]}
+      brief
+      {...(description.harness === FREE_PROVIDER ? { tag: "Free models" } : {})}
+      pick={{
+        checked: description.harness === starting,
+        onPick: () => onPick(description.harness),
+      }}
+      onInstall={() => setSheet({ kind: "install", harness: description.harness })}
+      onSignIn={() => signIn(description.harness)}
+    />
+  );
   return (
     <>
       <div className={styles.head}>
-        <h1 className={styles.title}>Pick your providers</h1>
+        <h1 className={styles.title}>Choose a provider</h1>
         <p className={styles.lead}>
-          Your agents run on a provider installed on this computer. They need at least one; you can
-          add more later in Providers.
+          A provider is the AI app your agents run on, like Claude Code or Codex. Pick one to start
+          with; you can add more later in Providers.
         </p>
       </div>
       {statuses === undefined ? (
@@ -116,24 +157,42 @@ function AiApps() {
           <LoaderCircle size={14} className="spin" aria-hidden /> Checking this computer
         </p>
       ) : (
-        <ul className={styles.apps} aria-live="polite">
-          {harnesses.map((description) => (
-            <ProviderCard
-              key={description.harness}
-              description={description}
-              status={statuses[description.harness]}
-              brief
-              onInstall={() => setSheet({ kind: "install", harness: description.harness })}
-              onSignIn={() => signIn(description.harness)}
-            />
-          ))}
-        </ul>
+        <div className={styles.section} aria-live="polite">
+          {ready.length > 0 ? (
+            <ul className={styles.apps} aria-label="Ready on this computer">
+              {ready.map(card)}
+            </ul>
+          ) : (
+            <p className={styles.lead}>
+              None is ready on this computer yet.
+              {recommended === undefined
+                ? " Install one below."
+                : ` Start free with ${recommended.name}: it needs no account.`}
+            </p>
+          )}
+          {recommended === undefined ? null : <ul className={styles.apps}>{card(recommended)}</ul>}
+          {folded.length === 0 ? null : (
+            <div className={styles.more}>
+              <button
+                type="button"
+                className={styles.moreButton}
+                aria-expanded={more}
+                onClick={() => setMore(!more)}
+              >
+                <ChevronDown size={15} className={more ? undefined : styles.closed} aria-hidden />
+                More providers ({folded.length})
+              </button>
+              <Button
+                variant="ghost"
+                onClick={() => void checkHarnesses({ now: true }).catch(() => {})}
+              >
+                Check again
+              </Button>
+            </div>
+          )}
+          {more ? <ul className={styles.apps}>{folded.map(card)}</ul> : null}
+        </div>
       )}
-      <div>
-        <Button onClick={() => void checkHarnesses({ now: true }).catch(() => {})}>
-          Check again
-        </Button>
-      </div>
       {sheet?.kind === "install" ? (
         <InstallSheet
           harness={sheet.harness}
@@ -148,241 +207,107 @@ function AiApps() {
   );
 }
 
-interface YourWorkProps {
-  where: Where;
-  folder: string;
-  name: string;
-  about: string;
-  autonomy: Autonomy;
-  onChange: (change: Partial<Omit<YourWorkProps, "onChange">>) => void;
-}
-
-function YourWork(props: YourWorkProps) {
-  return (
-    <>
-      <div className={styles.head}>
-        <h1 className={styles.title}>Your work</h1>
-      </div>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Where should agents save their work?</h2>
-        <OptionRows
-          name="where"
-          label="Where should agents save their work?"
-          value={props.where}
-          options={[
-            {
-              value: "scratch",
-              title: "A new folder for each task",
-              description: "Your own files stay untouched.",
-              suggested: true,
-            },
-            {
-              value: "folder",
-              title: "A folder on this computer",
-              description: "Agents work inside a project or documents folder you pick.",
-            },
-          ]}
-          onChange={(where) => props.onChange({ where })}
-        />
-        {props.where === "folder" ? (
-          <FolderField
-            label="Folder"
-            value={props.folder}
-            onChange={(folder) => props.onChange({ folder })}
-          />
-        ) : null}
-      </div>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Should agents ask before they act?</h2>
-        <OptionRows
-          name="autonomy"
-          label="Should agents ask before they act?"
-          value={props.autonomy}
-          options={(["supervised", "full"] as const).map((level) => ({
-            value: level,
-            title: AUTONOMY[level].label,
-            description: AUTONOMY[level].description,
-          }))}
-          onChange={(autonomy) => props.onChange({ autonomy })}
-        />
-      </div>
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>About you (optional)</h2>
-        <div className={form.field}>
-          <label className={form.label} htmlFor="setup-name">
-            Your name
-          </label>
-          <input
-            id="setup-name"
-            className={form.input}
-            value={props.name}
-            onChange={(change) => props.onChange({ name: change.target.value })}
-          />
-        </div>
-        <div className={form.field}>
-          <span className={form.label}>About you and your work</span>
-          <span className={form.hint}>Every agent reads this.</span>
-          <PointsField
-            label="About you and your work"
-            value={props.about}
-            placeholder="For example: I run marketing at a small bakery"
-            addLabel="Add a point"
-            onChange={(about) => props.onChange({ about })}
-          />
-        </div>
-      </div>
-    </>
-  );
-}
-
-function Ready({ onStart }: { onStart: (tutorial: string | undefined) => void }) {
-  const _state = useApp();
-  return (
-    <>
-      <div className={styles.head}>
-        <h1 className={styles.title}>You're ready</h1>
-        <p className={styles.lead}>
-          Try a short tutorial. It does real work on a low-cost model, and you can stop any time.
-        </p>
-      </div>
-      <TutorialList onStart={onStart} />
-      <p className={styles.lead}>You can find tutorials later in Help.</p>
-    </>
-  );
-}
-
-// First run: what the app does, an AI app to run on, where work goes, then a tutorial.
+// First run: what the app does and a provider to run on, then straight into a first real task.
+// Everything else has a safe default the user can change later.
 export function SetupView() {
-  const you = useYou();
-  useWorkspaces();
   const [step, setStep] = useDraft(`${DRAFT}.step`, 0);
   const [purpose, setPurpose] = useDraft<Purpose | undefined>(`${DRAFT}.purpose`, undefined);
+  const [picked, setPicked] = useDraft<string | undefined>(`${DRAFT}.provider`, undefined);
   const harnesses = useApp((state) => state.harnesses);
   const statuses = useHarnessStatuses();
-  const [work, setWork] = useDraft<Omit<YourWorkProps, "onChange">>(`${DRAFT}.work`, {
-    where: "scratch",
-    folder: "",
-    name: you.name,
-    about: you.about,
-    autonomy: "supervised",
-  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const page = useRef<HTMLElement>(null);
+
+  // Drafts from the old four-step setup can hold a step that no longer exists.
+  const shown = Math.min(step, STEPS.length - 1);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each step opens at its top
+  useEffect(() => {
+    page.current?.scrollTo({ top: 0 });
+  }, [shown]);
 
   const ready = harnesses.filter((known) => isReady(statuses?.[known.harness]));
-  const anyReady = ready.length > 0;
-  const allChecked = harnesses.every((known) => statuses?.[known.harness] !== undefined);
-  const canContinue =
-    (step !== 1 || anyReady) && (step !== 2 || work.where === "scratch" || work.folder !== "");
+  const starting = startingProvider(ready, picked);
 
-  const saveWork = async () => {
-    if (useApp.getState().workspaces === undefined) await loadWorkspaces();
-    const workspaces = useApp.getState().workspaces ?? [];
-    let workspaceId = workspaces.find((workspace) => workspace.kind === "scratch")?.id;
-    if (work.where === "folder") {
-      const folderName = work.folder.split(/[\\/]/).filter(Boolean).at(-1) ?? "My folder";
-      const created = await api.createWorkspace({
-        name: folderName,
-        kind: "folders",
-        folders: [{ path: work.folder, access: "edit" }],
-      });
-      await loadWorkspaces();
-      workspaceId = created.id;
-    }
-    const harness = ready[0]?.harness ?? loadRemembered().harness;
-    if (harness !== undefined) {
-      const saved = loadRemembered().byHarness[harness] ?? DEFAULT_CHOICES;
-      remember({
-        harness,
-        choices: { ...saved, autonomy: work.autonomy },
-        target: SOLO,
-        workspaceId,
-      });
-    }
-    if (work.name !== you.name || work.about !== you.about) {
-      const saved = await api.saveYou({
-        ...DEFAULT_YOU,
-        ...you,
-        name: work.name,
-        about: work.about,
-      });
-      useApp.setState({ you: saved });
-    }
-  };
-
-  const next = async () => {
+  const finish = async (firstTask: boolean) => {
     setError(undefined);
-    if (step === 2) {
-      setBusy(true);
-      try {
-        await saveWork();
-      } catch (failure) {
-        setError(failure instanceof Error ? failure.message : String(failure));
-        return;
-      } finally {
-        setBusy(false);
-      }
+    setBusy(true);
+    const harness = starting?.harness ?? loadRemembered().harness ?? harnesses[0]?.harness;
+    try {
+      await saveDefaults(harness);
+      await saveOnboarding({
+        setupDone: true,
+        ...(purpose === undefined ? {} : { purpose }),
+        whatsNewSeen: LATEST,
+      });
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      setBusy(false);
+      return;
     }
-    setStep(step + 1);
-  };
-
-  const done = async (tutorial: string | undefined) => {
-    await finish(purpose);
-    const picked = TUTORIALS.find((known) => known.id === tutorial);
-    if (picked !== undefined) await startTutorial(picked.id);
+    clearDrafts(DRAFT);
+    if (firstTask) await startTutorial("first-task", harness);
   };
 
   return (
-    <main className={styles.page} aria-labelledby="setup-steps">
+    <main ref={page} className={styles.page} aria-labelledby="setup-steps">
       <ol id="setup-steps" className={styles.steps} aria-label="Setup steps">
         {STEPS.map((label, index) => (
           <li
             key={label}
             className={styles.step}
-            data-state={index < step ? "done" : index === step ? "current" : "next"}
-            aria-current={index === step ? "step" : undefined}
+            data-state={index < shown ? "done" : index === shown ? "current" : "next"}
+            aria-current={index === shown ? "step" : undefined}
           >
-            {index < step ? <Check size={12} aria-label="Done" /> : null}
+            {index < shown ? <Check size={12} aria-label="Done" /> : null}
             {label}
           </li>
         ))}
       </ol>
       <div className={styles.column}>
-        {step === 0 ? <Welcome purpose={purpose} onPurpose={setPurpose} /> : null}
-        {step === 1 ? <AiApps /> : null}
-        {step === 2 ? (
-          <YourWork {...work} onChange={(change) => setWork({ ...work, ...change })} />
-        ) : null}
-        {step === 3 ? <Ready onStart={(tutorial) => void done(tutorial)} /> : null}
+        {shown === 0 ? <Welcome purpose={purpose} onPurpose={setPurpose} /> : null}
+        {shown === 1 ? <Providers starting={starting?.harness} onPick={setPicked} /> : null}
         {error === undefined ? null : (
           <p className={form.error} role="alert">
             {error}
           </p>
         )}
         <div className={styles.actions}>
-          {step === 0 ? (
-            <Button variant="ghost" onClick={() => void finish(purpose)}>
+          {shown === 0 ? (
+            <Button variant="ghost" disabled={busy} onClick={() => void finish(false)}>
               Skip setup
             </Button>
           ) : (
-            <Button onClick={() => setStep(step - 1)}>Back</Button>
-          )}
-          {step === 1 && statuses !== undefined && anyReady ? (
-            <span className={styles.readyCount}>{ready.length} ready</span>
-          ) : null}
-          {step === 1 && allChecked && !anyReady ? (
-            <Button variant="ghost" className={styles.later} onClick={() => setStep(2)}>
-              Skip for now
+            <Button disabled={busy} onClick={() => setStep(0)}>
+              Back
             </Button>
-          ) : null}
-          {step === 3 ? (
-            <Button variant="primary" onClick={() => void done(undefined)}>
-              Go to Home
+          )}
+          {shown === 0 ? (
+            <Button variant="primary" onClick={() => setStep(1)}>
+              Get started
             </Button>
           ) : (
-            <Button variant="primary" disabled={!canContinue || busy} onClick={() => void next()}>
-              Continue
-            </Button>
+            <span className={styles.end}>
+              {statuses !== undefined && starting === undefined ? (
+                <span className={styles.hint}>Connect a provider to start a task.</span>
+              ) : null}
+              <Button variant="ghost" disabled={busy} onClick={() => void finish(false)}>
+                Go to Home
+              </Button>
+              <Button
+                variant="primary"
+                disabled={starting === undefined || busy}
+                onClick={() => void finish(true)}
+              >
+                {busy ? (
+                  <>
+                    <LoaderCircle size={14} className="spin" aria-hidden /> Getting ready
+                  </>
+                ) : (
+                  "Start my first task"
+                )}
+              </Button>
+            </span>
           )}
         </div>
       </div>

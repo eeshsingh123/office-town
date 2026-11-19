@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import styles from "./Tutorial.module.css";
-import { nextStep, stopTutorial, useTutorial } from "./tutorial-state.ts";
+import { endLeftTutorial, nextStep, stopTutorial, useTutorial } from "./tutorial-state.ts";
 import { tutorialById } from "./tutorials.ts";
 
 const FIND_TRIES = 15;
@@ -46,12 +46,18 @@ export function TutorialCard() {
     run === undefined || preparing || step?.done === undefined ? false : step.done(state, run),
   );
   useTarget(preparing ? undefined : step?.target);
+  useEffect(endLeftTutorial, []);
   useEffect(() => {
     if (done) nextStep();
   }, [done]);
 
   if (run === undefined || tutorial === undefined || step === undefined) return null;
   const last = run.step === tutorial.steps.length - 1;
+  const modelNote = model?.free
+    ? "Runs on a free model. Its answers can be weaker than a paid model's."
+    : model?.name === undefined
+      ? undefined
+      : `Runs on ${model.name} to keep usage low.`;
   return (
     <section className={styles.card} aria-labelledby="tutorial-step">
       <div className={styles.head}>
@@ -70,12 +76,10 @@ export function TutorialCard() {
           {preparing ? "Finding a low-cost model to use. This takes a few seconds." : step.text}
         </p>
       </div>
-      {run.step === 0 && model !== undefined && !["chief", "library", "apps"].includes(run.id) ? (
-        <p className={styles.model}>
-          {model.free
-            ? `Runs on ${model.name}, a free model. Its answers can be weaker than a paid model's.`
-            : `Runs on ${model.name} to keep usage low.`}
-        </p>
+      {run.step === 0 &&
+      modelNote !== undefined &&
+      !["chief", "library", "apps"].includes(run.id) ? (
+        <p className={styles.model}>{modelNote}</p>
       ) : null}
       <div className={styles.actions}>
         {preparing ? null : step.done === undefined ? (

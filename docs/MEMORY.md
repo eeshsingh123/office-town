@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-14
+Last updated: 2026-11-19
 
 ## State
 
@@ -11,12 +11,15 @@ Last updated: 2026-11-14
 - OpenCode 1 and 2 (D-97), what OpenCode 2 adds (D-98) and sub-agents you can see (D-99) merged as PR #87.
 - Audit fix rounds 1 to 4 (owner fix lists, D-100 to D-102) merged as PR #88.
 - Design audit (2026-11-14) done in seven rounds, D-103 to D-109 (PRs #89 to #94, round 7 on `fix/design-round-7`). The findings and plan stay local only, outside git; their decisions are in DECISIONS.md.
-- Next: the public release steps in MODULES.md, on the owner's go-ahead.
+- Onboarding and settings revamp (owner, 2026-11-15 audit), two rounds. Round 1, the first run (D-110), is on `fix/onboarding-revamp`. Round 2 is Settings, You and the agent Profile: a stored default permission level (small contract addition), System theme, About and desktop basics, one shared field set for the three agent editors. Avatar faces and more colours are deferred.
+- Next: round 2 of the revamp, then the public release steps in MODULES.md, on the owner's go-ahead.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in. OpenCode is 2.3.0 (npm `@opencode/cli`, replacing 1.19.5); the 1.x config, `auth.json` and `opencode.db` are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs: `Claude Code Auto Update`, `OpenCode 2 Auto Update` (`@opencode/cli@latest`), and the old `OpenCode Auto Update` (`opencode-ai`), which now fails with EEXIST.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
+
+- D-110 (first run), checked live in dark mode at 800 × 600 on an empty data folder with four providers ready: Welcome, Provider (pick, More providers), the first task on OpenCode's free model through Allow and Finish, choices put back, Home's Next step, Skip setup from Run setup again. Not run: no provider ready (should say none is ready, offer OpenCode with Install, Start my first task disabled), Claude Code picked (first task should run on Haiku at low effort, the composer then on Claude's default), Codex picked (its own default model, no model line on the card), closing the app mid-tutorial (the next start should put the saved choices back), the department tutorial (the drafting model should come back after it), a purpose of software or business (README or welcome email sample), light mode, 1440 wide. Wrong if a new task after setup, Skip or the tutorial reads Manual when the user never picked it.
 
 - D-109 (design round 7), checked in the browser on a copy of the round 6 data (7 workspaces, no templates, no Library files): Workspaces list and page, the empty Library, Templates with none, Settings, Help. Not run: Templates with one template (guide should fold to one line, no search or filters until 8), a Library with files (the "…" and right-click menus should match, a name click opens it), the workspace picker in New task (current pick first with a tick), a task's Details workspace link (should open the Library tab), a workspace with more than 5 tasks ("All N tasks" opens Tasks filtered to it), Department settings' Change with words button, the chief setup in describe mode (no Continue until drafted), a notification switch in Settings (should save at once and survive a profile Save), light mode. Wrong if any button shows "…" while working.
 

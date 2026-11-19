@@ -54,6 +54,9 @@ export const loadRemembered = (): Remembered => withoutBypass(readKept(REMEMBERE
 
 const save = (remembered: Remembered) => writeKept(REMEMBERED, remembered);
 
+// Puts back what a tutorial replaced.
+export const restoreRemembered = save;
+
 // Leaving an AI app keeps what was picked on it, for when the user comes back.
 export function keepChoices(harness: string, choices: HarnessChoices): void {
   const remembered = loadRemembered();
