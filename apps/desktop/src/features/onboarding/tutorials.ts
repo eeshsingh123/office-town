@@ -1,10 +1,16 @@
-import type { TaskRecord } from "@office-town/contract";
+import type { Onboarding, RoleSettings, TaskRecord } from "@office-town/contract";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import { writeDraft } from "../../store/drafts.ts";
-import { writeKept } from "../../store/kept.ts";
+import { type Keep, readKept, writeKept } from "../../store/kept.ts";
 import { defaultWorkspace } from "../../store/workspaces.ts";
 import { DRAFTER } from "../drafts/use-drafter.ts";
-import { DEFAULT_CHOICES, loadRemembered, remember } from "../new-task/choices.ts";
+import {
+  DEFAULT_CHOICES,
+  loadRemembered,
+  type Remembered,
+  remember,
+  restoreRemembered,
+} from "../new-task/choices.ts";
 import { SOLO } from "../new-task/targets.ts";
 import type { TutorialModel } from "./tutorial-model.ts";
 
@@ -45,8 +51,42 @@ export const sharedApps = (state: AppState) =>
     ({ setup }) => setup.kind === "remote" || setup.kind === "local",
   ).length;
 
-const SAMPLE_TASK =
-  "Write a one-page plan for a team lunch next Friday and save it as lunch-plan.md.";
+// The first task matches what the user said they will use the app for in setup.
+const SAMPLE_TASKS: Record<NonNullable<Onboarding["purpose"]>, string> = {
+  software:
+    "Write a short README for a to-do list app: what it does, how to install it and how to use it. Save it as README.md.",
+  business:
+    "Write a short welcome email for a new team member who starts next Monday and save it as welcome-email.md.",
+  exploring: "Write a one-page plan for a team lunch next Friday and save it as lunch-plan.md.",
+};
+
+// What a tutorial replaced, put back when it ends. Saved, so a restart mid-tutorial puts it back.
+interface Replaced {
+  remembered?: Remembered;
+  // Null when the user had not picked a drafting model.
+  drafter?: RoleSettings | null;
+}
+
+const REPLACED: Keep<Replaced | undefined> = {
+  name: "tutorial-replaced",
+  lasts: "saved",
+  start: undefined,
+  parse: (saved) => (typeof saved === "object" && saved !== null ? (saved as Replaced) : undefined),
+};
+
+// Only the first save counts, so starting a tutorial twice keeps the user's own choices.
+function keepBeforeTutorial(change: Replaced) {
+  const replaced = readKept(REPLACED) ?? {};
+  writeKept(REPLACED, { ...change, ...replaced });
+}
+
+export function restoreChoices(): void {
+  const replaced = readKept(REPLACED);
+  if (replaced === undefined) return;
+  if (replaced.remembered !== undefined) restoreRemembered(replaced.remembered);
+  if (replaced.drafter !== undefined) writeKept(DRAFTER, replaced.drafter ?? undefined);
+  writeKept(REPLACED, undefined);
+}
 
 const newTasks = (state: AppState, run: TutorialRun): TaskRecord[] =>
   Object.values(state.tasks)
@@ -64,11 +104,12 @@ export const TUTORIALS: Tutorial[] = [
   {
     id: "first-task",
     title: "Your first task",
-    summary: "An assistant writes a short plan and asks you before saving it.",
+    summary: "An assistant writes a short file and asks you before saving it.",
     start(model) {
-      const workspaces = useApp.getState().workspaces ?? [];
+      const { workspaces = [], onboarding } = useApp.getState();
       const scratch = workspaces.find((workspace) => workspace.kind === "scratch");
       if (model !== undefined) {
+        keepBeforeTutorial({ remembered: loadRemembered() });
         const { harness, environment, model: id, effort } = model.settings;
         const saved = loadRemembered().byHarness[harness] ?? DEFAULT_CHOICES;
         remember({
@@ -84,7 +125,8 @@ export const TUTORIALS: Tutorial[] = [
           workspaceId: (scratch ?? defaultWorkspace(workspaces, undefined))?.id,
         });
       }
-      navigate({ name: "new-task", prompt: SAMPLE_TASK, who: "one" });
+      const prompt = SAMPLE_TASKS[onboarding?.purpose ?? "exploring"];
+      navigate({ name: "new-task", prompt, who: "one" });
     },
     steps: [
       {
@@ -110,7 +152,10 @@ export const TUTORIALS: Tutorial[] = [
     title: "Build a department",
     summary: "Describe a team in your own words, check it, and create it.",
     start(model) {
-      if (model !== undefined) writeKept(DRAFTER, model.settings);
+      if (model !== undefined) {
+        keepBeforeTutorial({ drafter: readKept(DRAFTER) ?? null });
+        writeKept(DRAFTER, model.settings);
+      }
       // Its first step points at the Describe box, wherever a draft was left.
       writeDraft("new-department.step", 0);
       navigate({ name: "new-department" });
