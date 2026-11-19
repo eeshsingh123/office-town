@@ -14,6 +14,7 @@ import {
   PackageCheck,
   Paperclip,
   Plug,
+  Rocket,
   Search,
 } from "lucide-react";
 
@@ -26,6 +27,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-19",
+    title: "A shorter first run",
+    icon: Rocket,
+    changes: [
+      "Setup is two steps: what the app does, then the provider to start with. It ends on your first real task",
+      "Ready providers come first and you pick one; OpenCode, which has free models, is picked unless you choose another. The rest fold under More providers",
+      "Your first task matches what you said you will use the app for",
+      "Whether you finish setup or skip it, new tasks ask before they act and save to a new folder each, until you change it",
+      "Tutorials put your saved model and permission back when they end, even when you stop one",
+      "Home shows one next step instead of the Getting started list. All tutorials are in Help",
+    ],
+  },
   {
     date: "2026-11-15",
     title: "Workspaces, Templates, Settings and Help, tidied",
