@@ -273,6 +273,44 @@
   border-color: color-mix(in srgb, var(--ok) 40%, var(--border));
 }
 
+.cardPick {
+  position: relative;
+  cursor: pointer;
+  transition: border-color var(--motion);
+}
+
+.cardPick:has(.cardRadio:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.cardPick:has(.cardRadio:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cardRadio {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.cardTag {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 600;
+  vertical-align: 2px;
+}
+
 .cardTop {
   display: flex;
   align-items: center;
@@ -304,6 +342,10 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
+}
+
+.cardPick .cardFoot {
+  padding-right: 32px;
 }
 
 /* An app's page */
