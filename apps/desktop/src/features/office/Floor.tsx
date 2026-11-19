@@ -18,6 +18,7 @@ import { focusAgent, navigate, useApp } from "../../store/app-store.ts";
 import type { AgentState } from "../../trace/progress.ts";
 import { ContextMenu, type MenuAction, type MenuContent } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { Button } from "../../ui/Button.tsx";
 import { compactCount } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
@@ -32,7 +33,6 @@ import { DoorChips } from "./DoorChips.tsx";
 import type { DoorChip } from "./doors.ts";
 import { FocusCard } from "./FocusCard.tsx";
 import {
-  ADD_CHIEF,
   clampToFloor,
   contains,
   DESK,
@@ -618,8 +618,8 @@ export function Floor(props: FloorProps) {
           </div>
         </>
       )}
-      {rooms.map(({ id, kind, rect }) => {
-        if (kind === "add") return <AddRoom key={id} id={id} rect={rect} />;
+      {rooms.map(({ id, kind, rect, seats }) => {
+        if (kind === "sample") return <SampleRoom key={id} rect={rect} desk={seats[0]?.desk} />;
         const sign = signs[id];
         const label = signLabel(id, kind);
         const open = kind === "chief" ? chiefSelected : room === id;
@@ -705,7 +705,7 @@ export function Floor(props: FloorProps) {
         }),
       )}
       {rooms
-        .filter((one) => one.kind !== "add")
+        .filter((one) => one.kind !== "sample")
         .flatMap((one) => one.seats)
         .map(({ desk }) => (
           <div
@@ -896,17 +896,35 @@ function SignUsage({ usage }: { usage: NonNullable<RoomSign["usage"]> }) {
   );
 }
 
-function AddRoom({ id, rect }: { id: string; rect: Rect }) {
-  const chief = id === ADD_CHIEF;
+// What an empty office will hold: a faded room with one desk, and the one way to fill it.
+function SampleRoom({ rect, desk }: { rect: Rect; desk: Point | undefined }) {
   return (
-    <button
-      type="button"
-      className={styles.addRoom}
+    <div
+      className={styles.sampleRoom}
       style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }}
-      onClick={() => navigate(chief ? { name: "chief" } : { name: "new-department" })}
     >
-      <Plus size={18} aria-hidden />
-      <strong>{chief ? "Add a chief" : "New department"}</strong>
-    </button>
+      <div
+        className={styles.sampleText}
+        style={{ height: desk === undefined ? undefined : desk.y - rect.y - 24 }}
+      >
+        <p>Your teams will work here</p>
+        <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
+          <Plus size={14} aria-hidden />
+          New department
+        </Button>
+      </div>
+      {desk === undefined ? null : (
+        <div
+          className={`${styles.desk} ${styles.sampleDesk}`}
+          style={{
+            left: desk.x - rect.x,
+            top: desk.y - rect.y,
+            width: DESK.width,
+            height: DESK.height,
+          }}
+          aria-hidden
+        />
+      )}
+    </div>
   );
 }
