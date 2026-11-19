@@ -1,5 +1,11 @@
-import { X } from "lucide-react";
-import { useEffect } from "react";
+import {
+  type CSSProperties,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import styles from "./Tutorial.module.css";
@@ -8,10 +14,14 @@ import { tutorialById } from "./tutorials.ts";
 
 const FIND_TRIES = 15;
 const FIND_EVERY_MS = 200;
+// Space between the card and what it points at, and from the window's edges.
+const GAP = 16;
 
 // Outlines the part of the screen a step is about and moves focus there, once it has drawn.
-function useTarget(target: string | undefined) {
+function useTarget(target: string | undefined): Element | undefined {
+  const [found, setFound] = useState<Element>();
   useEffect(() => {
+    setFound(undefined);
     if (target === undefined) return;
     let tries = 0;
     let marked: Element | null = null;
@@ -23,6 +33,7 @@ function useTarget(target: string | undefined) {
       marked
         .querySelector<HTMLElement>("textarea, input, button:not([disabled])")
         ?.focus({ preventScroll: true });
+      setFound(marked);
       return false;
     };
     const timer = window.setInterval(() => {
@@ -34,6 +45,48 @@ function useTarget(target: string | undefined) {
       marked?.removeAttribute("data-tour-on");
     };
   }, [target]);
+  return found;
+}
+
+// Beside the target, on the first side with room: right, left, above, then below, as what follows
+// a target, such as the sample tasks under the task box, is often what the user reads next.
+// Without room, as when the target fills the window, the card keeps its corner.
+function placeBeside(target: DOMRect, card: DOMRect): CSSProperties | undefined {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const top = Math.min(Math.max(target.top, GAP), height - card.height - GAP);
+  const left = Math.min(Math.max(target.left, GAP), width - card.width - GAP);
+  if (target.right + GAP + card.width + GAP <= width) return { top, left: target.right + GAP };
+  if (target.left - GAP - card.width >= GAP) return { top, left: target.left - GAP - card.width };
+  if (target.top - GAP - card.height >= GAP) return { top: target.top - GAP - card.height, left };
+  if (target.bottom + GAP + card.height + GAP <= height) return { top: target.bottom + GAP, left };
+  return undefined;
+}
+
+// Follows the target as the window resizes, the page scrolls or the target grows.
+function usePlacement(target: Element | undefined, card: RefObject<HTMLElement | null>) {
+  const [place, setPlace] = useState<CSSProperties>();
+  useLayoutEffect(() => {
+    const element = card.current;
+    if (target === undefined || element === null) {
+      setPlace(undefined);
+      return;
+    }
+    const measure = () =>
+      setPlace(placeBeside(target.getBoundingClientRect(), element.getBoundingClientRect()));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(target);
+    observer.observe(element);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [target, card]);
+  return place;
 }
 
 export function TutorialCard() {
@@ -45,7 +98,9 @@ export function TutorialCard() {
   const done = useApp((state) =>
     run === undefined || preparing || step?.done === undefined ? false : step.done(state, run),
   );
-  useTarget(preparing ? undefined : step?.target);
+  const target = useTarget(preparing ? undefined : step?.target);
+  const card = useRef<HTMLElement>(null);
+  const place = usePlacement(target, card);
   useEffect(endLeftTutorial, []);
   useEffect(() => {
     if (done) nextStep();
@@ -59,13 +114,18 @@ export function TutorialCard() {
       ? undefined
       : `Runs on ${model.name} to keep usage low.`;
   return (
-    <section className={styles.card} aria-labelledby="tutorial-step">
+    <section
+      ref={card}
+      className={`${styles.card} ${place === undefined ? "" : styles.beside}`}
+      style={place}
+      aria-labelledby="tutorial-step"
+    >
       <div className={styles.head}>
         <span className={styles.count}>
           {tutorial.title} · Step {run.step + 1} of {tutorial.steps.length}
         </span>
-        <Button variant="ghost" icon aria-label="Stop tutorial" onClick={stopTutorial}>
-          <X size={16} aria-hidden />
+        <Button variant="ghost" onClick={stopTutorial}>
+          Stop tutorial
         </Button>
       </div>
       <div aria-live="polite" className={styles.body}>
