@@ -31,9 +31,15 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-20",
-    title: "A smoother Office",
+    title: "A smoother Office, clearer Usage",
     icon: MousePointerClick,
     changes: [
+      "Usage shows one card per provider and one row per account, with its 5-hour and weekly limits side by side",
+      "Each provider links to its own usage page. Providers that share no limits show the tokens your agents used",
+      "A provider with more than 4 accounts gets its own search and sort",
+      "The warning that an account will reach a limit is quieter and can be dismissed until that limit resets",
+      "Home's Plan usage shows your most used accounts as small cards, the same as Usage",
+      "Providers lists signed-in providers first and the ones to sign in below, with their buttons lined up",
       "The side panel slides in without the floor jumping or stuttering",
       "The panel's close button closes the department, so its sign opens it again",
       "A click anywhere around the floor, also below it, closes the department",
