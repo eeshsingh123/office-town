@@ -30,6 +30,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-20",
+    title: "A smoother Office",
+    icon: MousePointerClick,
+    changes: [
+      "The side panel slides in without the floor jumping or stuttering",
+      "The panel's close button closes the department, so its sign opens it again",
+      "A click anywhere around the floor, also below it, closes the department",
+      "Lists with filters have a Clear filters button beside them while any filter is on",
+      "Your profile is lighter: the name preview is gone and the groups have more room",
+    ],
+  },
+  {
     date: "2026-11-19",
     title: "A clearer start",
     icon: Sparkles,
