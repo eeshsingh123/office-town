@@ -5,48 +5,19 @@
 }
 
 .card {
-  gap: 24px;
+  gap: 32px;
+  padding: 28px 32px;
 }
 
-/* The sidebar chip and a chat line, drawn with the picked name and colour. */
-.preview {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: var(--radius-control);
-  background: var(--bg);
+/* Length and Style read as two groups, each hint close to its chips. */
+.card .answers {
+  gap: 20px;
 }
 
-.previewChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: var(--radius-control);
-  background: var(--hover);
-  font-size: var(--size-ui);
-  font-weight: 600;
-}
-
-.previewChat {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-  font-size: var(--size-meta);
-}
-
-.previewChat > span {
+.picks {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.previewChat span span {
-  color: var(--text-2);
+  gap: 10px;
 }
 
 .inlineLink {

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, useDraft } from "../../store/drafts.ts";
-import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ColourPicker } from "../../ui/ColourPicker.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
@@ -20,26 +19,6 @@ const DRAFT = "you";
 // What this page saves; notifications are saved from Settings (a1-17).
 const profileOf = ({ name, colour, about, answerStyle, answerNotes }: UserProfile) =>
   JSON.stringify({ name, colour, about, answerStyle, answerNotes });
-
-// How the name and colour look where they show: the sidebar and a chat.
-function Preview({ name, colour }: Pick<UserProfile, "name" | "colour">) {
-  const shown = name.trim() || "You";
-  return (
-    <div className={styles.preview} aria-hidden>
-      <span className={styles.previewChip}>
-        <Avatar name={shown} colour={colour} size={22} />
-        {shown}
-      </span>
-      <span className={styles.previewChat}>
-        <Avatar name={shown} colour={colour} size={22} />
-        <span>
-          <strong>{shown}</strong>
-          <span>Build me a landing page for my bakery.</span>
-        </span>
-      </span>
-    </div>
-  );
-}
 
 function Picks({
   picks,
@@ -138,7 +117,6 @@ export function YouView() {
                   onChange={(colour) => set({ colour })}
                 />
               </div>
-              <Preview name={draft.name} colour={draft.colour} />
             </section>
 
             <section className={`${page.panel} ${styles.card}`} aria-labelledby="you-know">
@@ -158,20 +136,24 @@ export function YouView() {
                   onChange={(about) => set({ about })}
                 />
               </div>
-              <fieldset className={`${form.field} ${form.group}`}>
+              <fieldset className={`${form.field} ${form.group} ${styles.answers}`}>
                 <legend className={form.label}>How you like answers</legend>
-                <p className={form.hint}>Length: pick one, or neither.</p>
-                <Picks
-                  picks={ANSWER_LENGTHS}
-                  chosen={draft.answerStyle}
-                  onToggle={(pick, on) => toggle(pick, on, ANSWER_LENGTHS)}
-                />
-                <p className={form.hint}>Style: pick any that fit.</p>
-                <Picks
-                  picks={ANSWER_STYLES}
-                  chosen={draft.answerStyle}
-                  onToggle={(pick, on) => toggle(pick, on)}
-                />
+                <div className={styles.picks}>
+                  <p className={form.hint}>Length: pick one, or neither.</p>
+                  <Picks
+                    picks={ANSWER_LENGTHS}
+                    chosen={draft.answerStyle}
+                    onToggle={(pick, on) => toggle(pick, on, ANSWER_LENGTHS)}
+                  />
+                </div>
+                <div className={styles.picks}>
+                  <p className={form.hint}>Style: pick any that fit.</p>
+                  <Picks
+                    picks={ANSWER_STYLES}
+                    chosen={draft.answerStyle}
+                    onToggle={(pick, on) => toggle(pick, on)}
+                  />
+                </div>
                 <PointsField
                   label="Anything else about how you like answers"
                   value={draft.answerNotes}
