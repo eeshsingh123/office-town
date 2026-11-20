@@ -218,7 +218,12 @@ export function Sidebar() {
               )}
             </button>
           </div>
-          <Button variant="primary" className={styles.newTask} onClick={startNewTask} {...newTask}>
+          <Button
+            variant="primary"
+            className={styles.newTask}
+            onClick={() => startNewTask()}
+            {...newTask}
+          >
             <Plus size={16} aria-hidden />
             <span className={styles.text}>New task</span>
             <Kbd>Ctrl N</Kbd>

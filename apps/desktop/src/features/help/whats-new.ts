@@ -46,6 +46,9 @@ export const RELEASES: Release[] = [
       "A click anywhere around the floor, also below it, closes the department",
       "Lists with filters have a Clear filters button beside them while any filter is on",
       "Your profile is lighter: the name preview is gone and the groups have more room",
+      "New task works from every page: on Home and on New task it puts the cursor in the box, elsewhere it opens New task",
+      "A department's + picks that department in the task box, also on Home and on New task, and what you typed stays",
+      "Small icon buttons, such as the sidebar's + and the fold arrows, have their icon centred",
     ],
   },
   {

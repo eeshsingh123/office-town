@@ -10,6 +10,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ago, taskName, taskTitle } from "../../ui/format.ts";
 import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { DepartmentAppList, useTeamAppCount } from "../connectors/DepartmentApps.tsx";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import office from "../office/Office.module.css";
 import {
   PanelHeader,
@@ -251,10 +252,7 @@ export function DepartmentFooter({ department }: { department: DepartmentRecord 
   const { task, working } = useDepartmentGoal(department);
   if (task === undefined) {
     return (
-      <Button
-        variant="primary"
-        onClick={() => navigate({ name: "new-task", who: "team", departmentId: department.id })}
-      >
+      <Button variant="primary" onClick={() => startNewTask(department.id)}>
         New task
       </Button>
     );

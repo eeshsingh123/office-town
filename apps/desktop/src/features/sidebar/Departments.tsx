@@ -6,6 +6,7 @@ import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import menu from "../../ui/Menu.module.css";
 import { departmentMenu } from "../departments/department-menu.tsx";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import { selectRoom } from "../office/office-state.ts";
 import type { RowStatus } from "../tasks/task-list.ts";
 import { useNow, useTaskItems } from "../tasks/use-items.ts";
@@ -175,9 +176,7 @@ export function Departments() {
                 className={styles.departmentNew}
                 aria-label={`New task for ${department.name}`}
                 title="New task"
-                onClick={() =>
-                  navigate({ name: "new-task", who: "team", departmentId: department.id })
-                }
+                onClick={() => startNewTask(department.id)}
               >
                 <Plus size={14} aria-hidden />
               </button>
