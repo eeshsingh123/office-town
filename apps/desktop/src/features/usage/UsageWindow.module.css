@@ -1,0 +1,40 @@
+.window {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.name {
+  color: var(--text-2);
+  font-size: var(--size-meta);
+}
+
+.value {
+  font-size: var(--size-ui);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.near {
+  color: var(--warn);
+}
+
+.high {
+  color: var(--bad);
+}
+
+.reset {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

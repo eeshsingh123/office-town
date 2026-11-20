@@ -1,0 +1,40 @@
+/* Quiet: the card's own surface, colour only on the icon. */
+.alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 16px 16px 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.icon {
+  flex: none;
+  color: var(--attention);
+}
+
+.full .icon {
+  color: var(--bad);
+}
+
+.text {
+  display: flex;
+  flex: 1 1 280px;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.note {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
