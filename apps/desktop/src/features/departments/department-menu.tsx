@@ -4,6 +4,7 @@ import { teamAtWork } from "../../store/records.ts";
 import { confirmed, type MenuAction, type MenuContent, MenuHeader } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { taskName } from "../../ui/format.ts";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { pin, pinnedNow, unpin } from "../office/pins.ts";
 import { stopTeamAsk } from "../task/stop-asks.ts";
@@ -34,7 +35,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
     {
       label: "New task here",
       icon: Plus,
-      run: () => navigate({ name: "new-task", who: "team", departmentId }),
+      run: () => startNewTask(departmentId),
     },
     {
       label: "Department settings",

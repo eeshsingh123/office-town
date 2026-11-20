@@ -53,11 +53,20 @@ import { ModelChip } from "./ModelChip.tsx";
 import { NO_PROVIDER, NoProvider, useNoProvider } from "./NoProvider.tsx";
 import { OptionsChip } from "./OptionsChip.tsx";
 import { SamplePrompts } from "./SamplePrompts.tsx";
-import { CHIEF, type Mention, mentionAt, PROPOSE, SOLO, withoutMention } from "./targets.ts";
+import {
+  CHIEF,
+  type Mention,
+  mentionAt,
+  PROPOSE,
+  SOLO,
+  TARGET_DRAFT,
+  TASK_DRAFT,
+  withoutMention,
+} from "./targets.ts";
 import { useBusyDepartments } from "./use-targets.ts";
 
 const MAX_HEIGHT = 320;
-const DRAFT = "task";
+const DRAFT = TASK_DRAFT;
 
 // The level is no longer kept with the AI choices (D-111); it is the task's own pick.
 function keptChoices(saved: unknown): HarnessChoices | undefined {
@@ -68,13 +77,8 @@ function keptChoices(saved: unknown): HarnessChoices | undefined {
 
 type Handed = Extract<View, { name: "new-task" }>;
 
-// What another page asked for, such as a department's "Give a goal".
-function handedTarget(handed: Handed | undefined): string | undefined {
-  if (handed?.who === "chief") return CHIEF;
-  if (handed?.who === "team") return handed.departmentId ?? PROPOSE;
-  if (handed?.who === "one") return SOLO;
-  return undefined;
-}
+// What another page asked for, such as a tutorial's task for an assistant.
+const handedTarget = (handed: Handed | undefined) => (handed?.who === "one" ? SOLO : undefined);
 
 interface Option {
   id: string;
@@ -105,7 +109,7 @@ export function Composer({ home = false }: ComposerProps) {
   // What another page handed over wins over what was left in the box.
   const handedTo = handedTarget(handed);
   const [chosen, setChosen] = useDraft(
-    `${DRAFT}.target`,
+    TARGET_DRAFT,
     handedTo ?? remembered.target ?? SOLO,
     handedTo === undefined ? undefined : ignoreDraft,
   );

@@ -23,6 +23,7 @@ import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { TabRow } from "../../ui/TabRow.tsx";
 import composer from "../new-task/Composer.module.css";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import { useModelLine } from "../profiles/model-line.ts";
 import { LARGE_STORE_BYTES, useStoreSize } from "./store-size.ts";
 import { TaskRow, type Team } from "./TaskRow.tsx";
@@ -402,7 +403,7 @@ export function TasksView() {
             taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing is working."
           }
           actions={
-            <Button variant="primary" onClick={() => navigate({ name: "new-task" })}>
+            <Button variant="primary" onClick={() => startNewTask()}>
               <Plus size={14} aria-hidden />
               New task
             </Button>

@@ -5,6 +5,10 @@ export const CHIEF = "~chief";
 // No department yet: the lead proposes one.
 export const PROPOSE = "~propose";
 
+// The box's unsent choices are drafts under "task" (D-81); its pick of who does it is one of them.
+export const TASK_DRAFT = "task";
+export const TARGET_DRAFT = `${TASK_DRAFT}.target`;
+
 export interface Mention {
   // "@" names who takes the task, "#" adds a Library file, "/" picks a template.
   kind: "@" | "#" | "/";

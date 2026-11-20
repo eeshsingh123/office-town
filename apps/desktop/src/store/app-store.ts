@@ -30,12 +30,12 @@ import type { Records } from "./records.ts";
 export type View =
   | { name: "home" }
   | { name: "office"; room?: string }
-  // Home's composer hands over what was typed and who it was for.
+  // Text handed over, as from Ctrl+K or a tutorial. Who does it is set by startNewTask.
   | {
       name: "new-task";
       prompt?: string;
-      who?: "one" | "team" | "chief";
-      departmentId?: string;
+      // A tutorial's task goes to an assistant.
+      who?: "one";
       // Fills the form in from this template.
       templateId?: string;
     }

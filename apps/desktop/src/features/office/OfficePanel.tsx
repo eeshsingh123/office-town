@@ -1,7 +1,7 @@
 import type { DepartmentRecord } from "@office-town/contract";
 import { User } from "lucide-react";
 import { stateOf, useAgent, useWaitingSessions } from "../../store/agents.ts";
-import { navigate, useApp, useHarnessName } from "../../store/app-store.ts";
+import { useApp, useHarnessName } from "../../store/app-store.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChiefFooter, ChiefHeader, ChiefNow } from "../chief/ChiefOverview.tsx";
@@ -10,6 +10,8 @@ import {
   DepartmentHeader,
   DepartmentNow,
 } from "../departments/DepartmentPanel.tsx";
+import { startNewTask } from "../new-task/start-new-task.ts";
+import { SOLO } from "../new-task/targets.ts";
 import { AgentActivity, ChiefWork, DepartmentWork } from "../work/WorkTab.tsx";
 import { AgentFooter, AgentHeader, AgentNow } from "./AgentPanel.tsx";
 import { AgentProfile } from "./AgentProfile.tsx";
@@ -38,7 +40,7 @@ function OpenFloorPanel({ working }: { working: number }) {
       />
       <div className={sideStyles.content}>
         <div>
-          <Button variant="primary" onClick={() => navigate({ name: "new-task", who: "one" })}>
+          <Button variant="primary" onClick={() => startNewTask(SOLO)}>
             New task for an assistant
           </Button>
         </div>

@@ -38,6 +38,7 @@ import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { groupApps, isOffer, useCatalog, useConnectors } from "../connectors/connectors.ts";
 import picker from "../new-task/ModelPicker.module.css";
+import { startNewTask } from "../new-task/start-new-task.ts";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
@@ -206,7 +207,10 @@ export function CommandMenu() {
                   icon={Plus}
                   label="New task"
                   shortcut="Ctrl N"
-                  onSelect={() => go({ name: "new-task" })}
+                  onSelect={() => {
+                    close();
+                    startNewTask();
+                  }}
                 />
                 <Row
                   icon={Users}
