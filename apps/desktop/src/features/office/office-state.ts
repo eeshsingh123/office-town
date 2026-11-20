@@ -90,6 +90,13 @@ export function selectAgent(agentId: string): void {
   showMode("floor");
 }
 
+// The panel's close button: nothing stays picked, so the room's sign opens it again.
+export function closePick(): void {
+  const { view } = useApp.getState();
+  if (view.name === "office" && view.room !== undefined) navigate({ name: "office" });
+  select([]);
+}
+
 // Double-click or Enter: the chat of the one picked, ready to type in.
 export function openChat(kind: PanelKind): void {
   composeIn(kind);

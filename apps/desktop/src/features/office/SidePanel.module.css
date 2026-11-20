@@ -1,32 +1,52 @@
 .frame {
   position: relative;
-  display: flex;
   flex: none;
+  width: 0;
   min-height: 0;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  transition: margin-right 180ms ease-out;
 }
 
-.dragging {
-  transition: none;
+.frameOpen {
+  width: var(--panel-width);
+}
+
+.slide {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateX(100%);
+  transition: transform 180ms ease-out;
+}
+
+.slideOpen {
+  transform: none;
 }
 
 /* A narrow window keeps the floor whole: the panel opens over it. */
 @media (max-width: 1100px) {
   .frame {
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 6;
+    inset: 0;
+    width: auto;
+    pointer-events: none;
+  }
+
+  .slide {
     max-width: calc(100% - 48px);
+    pointer-events: auto;
+  }
+
+  .slideOpen {
     box-shadow: var(--shadow-raised);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .frame {
+  .slide {
     transition: none;
   }
 }

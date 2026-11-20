@@ -548,6 +548,21 @@ export function Floor(props: FloorProps) {
     if (opened === undefined) onSelect([]);
     else if (opened !== room) onOpenRoom(opened);
   };
+  const clickAround = useRef(onClickAt);
+  clickAround.current = onClickAt;
+  // The pane around the floor, such as the space below it, counts as outside every room. Its
+  // scrollbars do not.
+  useEffect(() => {
+    const scroller = floor.current?.parentElement;
+    if (scroller === null || scroller === undefined) return;
+    const onDown = (event: globalThis.PointerEvent) => {
+      if (event.button !== 0 || event.target !== scroller) return;
+      if (event.offsetX >= scroller.clientWidth || event.offsetY >= scroller.clientHeight) return;
+      clickAround.current({ x: -1, y: -1 });
+    };
+    scroller.addEventListener("pointerdown", onDown);
+    return () => scroller.removeEventListener("pointerdown", onDown);
+  }, []);
 
   const signLabel = (id: string, kind: Room["kind"]) => {
     const sign = signs[id];

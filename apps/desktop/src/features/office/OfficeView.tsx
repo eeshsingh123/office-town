@@ -321,14 +321,16 @@ export function OfficeView() {
   const { links, goalId, doors } = useCommandFloor(departments);
   // Past FOLD_AFTER departments, a room with nothing on its door folds, unless it is open or
   // holds someone picked (design audit a2-2).
-  const folded = useMemo(() => {
-    if (departments.length <= FOLD_AFTER || showAllRooms) return new Set<string>();
+  // Kept by its ids, so picking someone does not lay the floor out again.
+  const foldedIds = useMemo(() => {
+    if (departments.length <= FOLD_AFTER || showAllRooms) return "";
     const picked = new Set(selection.flatMap((id) => records[id]?.departmentId ?? []));
     const quiet = departments.filter(
       (one) => (doors[one.id] ?? []).length === 0 && one.id !== room && !picked.has(one.id),
     );
-    return new Set(quiet.map((one) => one.id));
+    return quiet.map((one) => one.id).join(" ");
   }, [departments, showAllRooms, doors, room, selection, records]);
+  const folded = useMemo(() => new Set(foldedIds.split(" ").filter(Boolean)), [foldedIds]);
   const { plan, floorAgents, freeMembers, signs, goalSessions, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
@@ -378,9 +380,11 @@ export function OfficeView() {
     if (agentIds.length === 0 && room !== undefined) navigate({ name: "office" });
     select(agentIds);
   };
+  // Shows the panel too, when it was hidden with this room still open.
   const onOpenRoom = (departmentId: string) => {
     navigate({ name: "office", room: departmentId });
     select([]);
+    setPanelOpen(true);
   };
   const onOpenChat = (id: string, kind: PanelKind) => {
     if (kind === "department") onOpenRoom(id);
