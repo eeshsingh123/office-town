@@ -31,18 +31,83 @@ const SHOWN = 3;
 const SHOWN_RECENT = 6;
 const SHOWN_TEAM = 6;
 
-// One line of counts, each a link; tasks are counted as the Tasks tabs count them.
+// Names shown before the rest fold into "and N more".
+const SHOWN_WORKERS = 2;
+
+interface Worker {
+  key: string;
+  name: string;
+  open: () => void;
+  // Several assistants, named as one count.
+  many?: true;
+}
+
+// Who is working, by name: each department, the chief, then the assistants as one count.
+function useWorkers(working: Item[]): Worker[] {
+  const departments = useApp((state) => state.departments);
+  const chiefId = useApp((state) => state.chiefId);
+  const chiefName = useApp((state) =>
+    state.chiefId === undefined ? undefined : state.agents[state.chiefId]?.name,
+  );
+  const teams = new Set(working.map((item) => item.team));
+  const workers: Worker[] = [];
+  for (const department of Object.values(departments)) {
+    if (!teams.has(department.id)) continue;
+    workers.push({
+      key: department.id,
+      name: department.name,
+      open: () => selectRoom(department.id),
+    });
+  }
+  if (teams.has("chief") && chiefId !== undefined) {
+    workers.push({ key: "chief", name: chiefName ?? "Chief", open: () => selectAgent(chiefId) });
+  }
+  const assistants = working.filter((item) => item.team === "solo").length;
+  if (assistants > 0) {
+    workers.push({
+      key: "solo",
+      name: assistants === 1 ? "An assistant" : `${assistants} assistants`,
+      open: () => showTasksTab("active"),
+      ...(assistants === 1 ? {} : { many: true as const }),
+    });
+  }
+  return workers;
+}
+
+// "Design and Research are working", each name opening where it works.
+function WorkingLine({ workers }: { workers: Worker[] }) {
+  const shown = workers.slice(0, SHOWN_WORKERS);
+  const more = workers.length - shown.length;
+  const links: Worker[] =
+    more > 0
+      ? [...shown, { key: "more", name: `${more} more`, open: () => showTasksTab("active") }]
+      : shown;
+  const plural = workers.length > 1 || workers[0]?.many === true;
+  return (
+    <>
+      {links.map((link, index) => (
+        <Fragment key={link.key}>
+          {index === 0 ? null : index === links.length - 1 ? " and " : ", "}
+          <button type="button" className={`${styles.count} ${styles.worker}`} onClick={link.open}>
+            {link.name}
+          </button>
+        </Fragment>
+      ))}
+      {plural ? " are working" : " is working"}
+    </>
+  );
+}
+
+// Who is working, then counts that each open their list; tasks are counted as the Tasks tabs
+// count them. With nothing going on, an invitation to start one.
 function StatusLine({ items }: { items: Item[] }) {
   const count = (status: RowStatus) => items.filter((item) => item.status === status).length;
+  const workers = useWorkers(items.filter((item) => item.status === "working"));
+  const hasTeam = useApp(
+    (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
+  );
   const needs = count("needs");
   const parts = [
-    {
-      key: "working",
-      count: count("working"),
-      text: "working",
-      tone: styles.countWorking,
-      open: () => showTasksTab("active"),
-    },
     {
       key: "needs",
       count: needs,
@@ -58,12 +123,15 @@ function StatusLine({ items }: { items: Item[] }) {
       open: () => showTasksTab("review"),
     },
   ].filter((part) => part.count > 0);
-  if (parts.length === 0) return <>Nothing is working.</>;
+  if (workers.length === 0 && parts.length === 0) {
+    return <>{hasTeam ? "Your team is free and ready for a new task." : "Ready for a new task."}</>;
+  }
   return (
     <>
+      {workers.length === 0 ? null : <WorkingLine workers={workers} />}
       {parts.map((part, index) => (
         <Fragment key={part.key}>
-          {index === 0 ? null : " · "}
+          {index === 0 && workers.length === 0 ? null : " · "}
           <button type="button" className={`${styles.count} ${part.tone}`} onClick={part.open}>
             {part.count} {part.text}
           </button>

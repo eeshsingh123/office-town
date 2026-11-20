@@ -49,6 +49,7 @@ export const RELEASES: Release[] = [
       "New task works from every page: on Home and on New task it puts the cursor in the box, elsewhere it opens New task",
       "A department's + picks that department in the task box, also on Home and on New task, and what you typed stays",
       "Small icon buttons, such as the sidebar's + and the fold arrows, have their icon centred",
+      "Home names who is working, each name opening where it works, and says your team is ready for a new task when everyone is free",
     ],
   },
   {

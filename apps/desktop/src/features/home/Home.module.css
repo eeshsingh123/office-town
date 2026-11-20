@@ -45,7 +45,9 @@
   text-decoration: underline;
 }
 
-.countWorking {
+/* Who is working, named and in the working colour. */
+.worker {
+  font-weight: 600;
   color: var(--accent-text);
 }
 
