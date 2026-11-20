@@ -10,6 +10,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -298,6 +299,9 @@ export function NeedsYouView() {
   const groups = groupAsks(visible, by);
   const oldCount = filterAsks(asks, { ...filters, askedBefore: now - HOUR }).length;
   const narrowing = olderThanHour || JSON.stringify(filters) !== JSON.stringify(NO_FILTERS);
+  // As on the other lists, the tab stays as it is.
+  const filtering =
+    olderThanHour || JSON.stringify({ ...filters, type: "all" }) !== JSON.stringify(NO_FILTERS);
   const visibleApprovals = visible.filter((ask) => ask.kind === "approval");
   // Answered requests leave the queue; a pick of one is dropped with it.
   const selected = asks.filter((ask) => ask.kind === "approval" && picked.has(ask.key));
@@ -434,6 +438,13 @@ export function NeedsYouView() {
                       { value: "hour", label: `Over 1 h (${oldCount})` },
                     ]}
                     onChange={(value) => setOlderThanHour(value === "hour")}
+                  />
+                  <ClearFilters
+                    shown={filtering}
+                    onClear={() => {
+                      setFilters({ ...NO_FILTERS, type: filters.type });
+                      setOlderThanHour(false);
+                    }}
                   />
                   <span className={styles.spacer} />
                   <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={chooseBy} />

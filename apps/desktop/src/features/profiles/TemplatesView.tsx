@@ -8,6 +8,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import form from "../../ui/Form.module.css";
 import { FoldedGuide, useGuideHidden } from "../../ui/Guide.tsx";
@@ -198,6 +199,13 @@ export function TemplatesView() {
                 ))}
               </fieldset>
             )}
+            <ClearFilters
+              shown={query !== "" || filter !== ""}
+              onClear={() => {
+                setQuery("");
+                setFilter("");
+              }}
+            />
             <div className={styles.toolsEnd}>
               {many ? (
                 <fieldset className={`${styles.segment} ${form.group}`}>
