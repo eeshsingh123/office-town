@@ -125,6 +125,8 @@ interface FloorProps {
   linksGoal: string | undefined;
   // It keeps its desk even before its first goal.
   chief: { id: string; name: string; colour: string } | undefined;
+  // The Office's width less a scrollbar, side panel included.
+  paneWidth: number;
   selection: string[];
   room: string | undefined;
   onSelect: (agentIds: string[]) => void;
@@ -340,25 +342,45 @@ export function scrollbarWidth(): number {
   return width;
 }
 
-// The floor shrinks to fit its pane's width, never grows past full size. It always leaves room for
-// a scrollbar: fitting to the width left beside one made the scrollbar come and go, so the floor
-// shrank and grew back each frame and flickered.
-function useFitScale(floor: RefObject<HTMLDivElement | null>, width: number) {
-  const [scale, setScale] = useState(1);
+// The floor shrinks to fit the Office's width, never grows past full size. That width leaves room
+// for a scrollbar, so one coming or going does not rescale the floor, and includes the side panel,
+// so opening it does not either: rescaling lays the whole floor out again.
+function fitScale(paneWidth: number, width: number): number {
+  if (paneWidth === 0) return 1;
+  const ratio = Math.min(1, Math.max(MIN_SCALE, paneWidth / width));
+  return Math.floor(ratio * 100) / 100;
+}
+
+// The open room, or the one agent picked, comes into view, smoothly unless motion is reduced. Again
+// once the side panel has finished pushing in, as it may then cover it.
+function useKeepInView(floor: RefObject<HTMLDivElement | null>, id: string | undefined) {
   useEffect(() => {
     const scroller = floor.current?.parentElement;
-    if (scroller === undefined || scroller === null) return;
-    const bar = scrollbarWidth();
-    const fit = () => {
-      const ratio = Math.min(1, Math.max(MIN_SCALE, (scroller.offsetWidth - bar) / width));
-      setScale(Math.floor(ratio * 100) / 100);
+    if (id === undefined || scroller === undefined || scroller === null) return;
+    const show = () =>
+      document.getElementById(id)?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: reducedMotion() ? "instant" : "smooth",
+      });
+    show();
+    let timer: number | undefined;
+    // Its first call is the size it has now, already in view.
+    let first = true;
+    const observer = new ResizeObserver(() => {
+      if (first) {
+        first = false;
+        return;
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(show, 80);
+    });
+    observer.observe(scroller);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
     };
-    const observer = new ResizeObserver(fit);
-    // The border box, which a scrollbar coming or going does not change.
-    observer.observe(scroller, { box: "border-box" });
-    return () => observer.disconnect();
-  }, [floor, width]);
-  return scale;
+  }, [floor, id]);
 }
 
 // Once per request to focus, smoothly unless motion is reduced.
@@ -418,9 +440,10 @@ const outsideFloor = (event: SyntheticEvent) =>
 
 export function Floor(props: FloorProps) {
   const { plan, agents, free, signs, doors, links, linksGoal, chief, selection, room } = props;
+  const { paneWidth } = props;
   const { onSelect, onOpenRoom, onOpenChat } = props;
   const floor = useRef<HTMLDivElement>(null);
-  const scale = useFitScale(floor, plan.width);
+  const scale = fitScale(paneWidth, plan.width);
   const { player, press, release } = useWalking(plan, scale);
   const you = useRef<HTMLButtonElement>(null);
   const profile = useYou();
@@ -466,20 +489,16 @@ export function Floor(props: FloorProps) {
     inside.current = entered;
   }, [player]);
 
-  useEffect(() => {
-    if (room === undefined) return;
-    document
-      .getElementById(`room-${room}`)
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [room]);
-  // One agent picked, on the floor or by Find, comes into view.
+  // One agent picked, on the floor or by Find, or else the open room.
   const [picked] = selection;
-  useEffect(() => {
-    if (picked === undefined || selection.length > 1) return;
-    document
-      .getElementById(`agent-${picked}`)
-      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [picked, selection.length]);
+  useKeepInView(
+    floor,
+    picked !== undefined && selection.length === 1
+      ? `agent-${picked}`
+      : room === undefined
+        ? undefined
+        : `room-${room}`,
+  );
 
   const pointOf = (event: PointerEvent): Point => {
     const bounds = floor.current?.getBoundingClientRect();
