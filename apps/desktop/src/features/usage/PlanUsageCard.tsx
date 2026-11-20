@@ -1,32 +1,30 @@
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
-import { useAccountLabels } from "./identity.ts";
-import { fullest, limitLine, runsOutAt, toneOf } from "./limits.ts";
-import { Meter } from "./Meter.tsx";
+import { ProviderLogo } from "../providers/ProviderLogo.tsx";
+import { accountLabel, planName, useIdentities, useReadIdentities } from "./identity.ts";
+import { fullest, orderedLimits } from "./limits.ts";
 import styles from "./Usage.module.css";
+import { UsageWindow } from "./UsageWindow.tsx";
 import { useLiveLimits, useMinute } from "./use-usage.ts";
 
-const SHOWN = 5;
+const SHOWN = 4;
 
-// Each account's fullest window, what runs out first on top; the whole picture is on Usage.
+// The most used accounts, each with its windows as on Usage; the rest are on Usage.
 export function PlanUsageCard({ className = "" }: { className?: string | undefined }) {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
   const limits = useApp((state) => state.limits);
-  const labelOf = useAccountLabels();
+  const identities = useIdentities();
   const now = useMinute();
   useLiveLimits();
   const rows = accounts
     .flatMap((account) => {
-      const window = fullest(limits[account.id], now);
-      if (window === undefined) return [];
-      const harness = harnesses.find((known) => known.harness === account.harness)?.name;
-      const out = runsOutAt(window, now) ?? Number.POSITIVE_INFINITY;
-      return [
-        { account, window, out, name: `${harness ?? account.harness} · ${labelOf(account)}` },
-      ];
+      const top = fullest(limits[account.id], now);
+      return top === undefined ? [] : [{ account, top: top.usedFraction }];
     })
-    .toSorted((a, b) => a.out - b.out || b.window.usedFraction - a.window.usedFraction);
+    .toSorted((a, b) => b.top - a.top);
+  const shown = rows.slice(0, SHOWN).map(({ account }) => account);
+  useReadIdentities(shown);
   if (rows.length === 0) return null;
   const more = rows.length - SHOWN;
   return (
@@ -39,28 +37,34 @@ export function PlanUsageCard({ className = "" }: { className?: string | undefin
           {more > 0 ? `+${more} more on Usage` : "Usage"}
         </Button>
       </div>
-      <div className={styles.planRows}>
-        {rows.slice(0, SHOWN).map(({ account, window, name }) => {
-          const tone = toneOf(window.usedFraction);
+      <ul className={styles.planCards}>
+        {shown.map((account) => {
+          const identity = identities[account.id];
+          const provider =
+            harnesses.find((known) => known.harness === account.harness)?.name ?? account.harness;
+          const label = accountLabel(account, identity);
           return (
-            <div key={account.id} className={styles.planRow}>
-              <span className={styles.planName}>{name}</span>
-              <Meter usedFraction={window.usedFraction} thin />
-              <span
-                className={[
-                  styles.planValue,
-                  tone === "high" && styles.planValueHigh,
-                  tone === "near" && styles.planValueNear,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {limitLine(window, now)}
-              </span>
-            </div>
+            <li key={account.id} className={styles.planAccount}>
+              <div className={styles.planWho}>
+                <ProviderLogo harness={account.harness} size="sm" />
+                <span className={styles.planText}>
+                  <span className={styles.planName} title={label}>
+                    {label}
+                  </span>
+                  <span className={styles.muted}>
+                    {[provider, identity?.plan === undefined ? undefined : planName(identity.plan)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </span>
+              </div>
+              {orderedLimits(limits[account.id], now).map((limit) => (
+                <UsageWindow key={limit.id} limit={limit} now={now} named />
+              ))}
+            </li>
           );
         })}
-      </div>
+      </ul>
     </section>
   );
 }

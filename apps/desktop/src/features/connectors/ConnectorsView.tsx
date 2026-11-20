@@ -7,6 +7,7 @@ import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ago } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -436,6 +437,10 @@ export function ConnectorsView(props: ConnectorsViewProps) {
                   ...PERMISSIONS.map(({ value, title }) => ({ value, label: title })),
                 ]}
                 onChange={(permission) => update({ permission })}
+              />
+              <ClearFilters
+                shown={narrowing}
+                onClear={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
               />
               <span className={styles.spacer} />
               <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={setBy} />

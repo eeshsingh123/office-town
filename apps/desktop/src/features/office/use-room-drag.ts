@@ -42,24 +42,30 @@ export function useRoomDrag(plan: FloorPlan, scale: number) {
     );
   };
 
+  // A press is held here until it moves far enough to lift the room: setting state on every press
+  // and release laid the whole floor out twice for each click on a sign.
+  const pressed = useRef<RoomMove>(undefined);
+
   const handlers = (id: string, rect: Rect) => ({
     onPointerDown: (event: PointerEvent<HTMLElement>) => {
       if (event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
       dragged.current = false;
       const pointer = { x: event.clientX, y: event.clientY };
-      setMove({ id, from: rect, at: { x: rect.x, y: rect.y }, pointer, lifted: false });
+      pressed.current = { id, from: rect, at: { x: rect.x, y: rect.y }, pointer, lifted: false };
     },
     onPointerMove: (event: PointerEvent<HTMLElement>) => {
-      if (move?.id !== id || move.pointer === undefined) return;
+      const current = move?.id === id ? move : pressed.current;
+      if (current?.id !== id || current.pointer === undefined) return;
       // The pointer moves in screen pixels; the floor may be shrunk to fit.
-      const dx = (event.clientX - move.pointer.x) / scale;
-      const dy = (event.clientY - move.pointer.y) / scale;
-      if (!move.lifted && Math.hypot(dx, dy) < DRAG_START) return;
-      const at = target(id, move.from, { x: move.from.x + dx, y: move.from.y + dy }) ?? move.at;
-      setMove({ ...move, at, lifted: true });
+      const dx = (event.clientX - current.pointer.x) / scale;
+      const dy = (event.clientY - current.pointer.y) / scale;
+      if (!current.lifted && Math.hypot(dx, dy) < DRAG_START) return;
+      const to = { x: current.from.x + dx, y: current.from.y + dy };
+      setMove({ ...current, at: target(id, current.from, to) ?? current.at, lifted: true });
     },
     onPointerUp: () => {
+      pressed.current = undefined;
       if (move?.id !== id) return;
       if (move.lifted) {
         dragged.current = true;
@@ -67,8 +73,12 @@ export function useRoomDrag(plan: FloorPlan, scale: number) {
       }
       setMove(undefined);
     },
-    onPointerCancel: () => setMove(undefined),
+    onPointerCancel: () => {
+      pressed.current = undefined;
+      if (move !== undefined) setMove(undefined);
+    },
     onLostPointerCapture: () => {
+      pressed.current = undefined;
       if (move?.id === id && move.pointer !== undefined) setMove(undefined);
     },
     // A keyboard move is kept when the sign loses focus before Alt is let go.

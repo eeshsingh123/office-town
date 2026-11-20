@@ -15,6 +15,7 @@ import { useWorkspaces } from "../../store/workspaces.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { byteSize } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
@@ -449,6 +450,10 @@ export function TasksView() {
                 choices={STARTED}
                 onChange={(started) => update({ started })}
               />
+              <ClearFilters
+                shown={narrowing}
+                onClear={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
+              />
               <span className={styles.spacer} />
               <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={chooseBy} />
               {groups.length < 2 ? null : (
@@ -462,15 +467,6 @@ export function TasksView() {
                 </Button>
               )}
             </div>
-            {narrowing ? (
-              <button
-                type="button"
-                className={styles.link}
-                onClick={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
-              >
-                Clear filters
-              </button>
-            ) : null}
           </div>
         )}
 

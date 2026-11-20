@@ -1,5 +1,5 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
@@ -310,8 +310,10 @@ export function OfficeView() {
   const positions = useApp((state) => state.roomPositions);
   const showAllRooms = useOffice((state) => state.showAllRooms);
   const room = view.name === "office" ? view.room : undefined;
-  const scroll = useRef<HTMLDivElement>(null);
-  const paneWidth = useWidthOf(scroll);
+  // The whole Office's width, side panel included, so opening the panel leaves the floor as it is.
+  // Set when the floor shows, as the Office may open on the board.
+  const [body, setBody] = useState<HTMLDivElement | null>(null);
+  const paneWidth = useWidthOf(body);
 
   // By name, as every other list of departments (design audit a2-19).
   const departments = useMemo(
@@ -321,14 +323,16 @@ export function OfficeView() {
   const { links, goalId, doors } = useCommandFloor(departments);
   // Past FOLD_AFTER departments, a room with nothing on its door folds, unless it is open or
   // holds someone picked (design audit a2-2).
-  const folded = useMemo(() => {
-    if (departments.length <= FOLD_AFTER || showAllRooms) return new Set<string>();
+  // Kept by its ids, so picking someone does not lay the floor out again.
+  const foldedIds = useMemo(() => {
+    if (departments.length <= FOLD_AFTER || showAllRooms) return "";
     const picked = new Set(selection.flatMap((id) => records[id]?.departmentId ?? []));
     const quiet = departments.filter(
       (one) => (doors[one.id] ?? []).length === 0 && one.id !== room && !picked.has(one.id),
     );
-    return new Set(quiet.map((one) => one.id));
+    return quiet.map((one) => one.id).join(" ");
   }, [departments, showAllRooms, doors, room, selection, records]);
+  const folded = useMemo(() => new Set(foldedIds.split(" ").filter(Boolean)), [foldedIds]);
   const { plan, floorAgents, freeMembers, signs, goalSessions, assistants } = useMemo(() => {
     const harnessName = (harness: string) =>
       harnesses.find((known) => known.harness === harness)?.name ?? harness;
@@ -378,9 +382,11 @@ export function OfficeView() {
     if (agentIds.length === 0 && room !== undefined) navigate({ name: "office" });
     select(agentIds);
   };
+  // Shows the panel too, when it was hidden with this room still open.
   const onOpenRoom = (departmentId: string) => {
     navigate({ name: "office", room: departmentId });
     select([]);
+    setPanelOpen(true);
   };
   const onOpenChat = (id: string, kind: PanelKind) => {
     if (kind === "department") onOpenRoom(id);
@@ -395,9 +401,9 @@ export function OfficeView() {
       {mode === "board" ? (
         <BoardView />
       ) : (
-        <div className={styles.body}>
+        <div ref={setBody} className={styles.body}>
           <div className={styles.stage}>
-            <div ref={scroll} className={styles.scroll}>
+            <div className={styles.scroll}>
               <Floor
                 plan={plan}
                 agents={floorAgents}
@@ -407,6 +413,7 @@ export function OfficeView() {
                 links={links}
                 linksGoal={goalId}
                 chief={chiefId === undefined ? undefined : records[chiefId]}
+                paneWidth={paneWidth}
                 selection={selection}
                 room={chosen.length === 0 ? (openFloor ? OPEN : openRoom?.id) : undefined}
                 onSelect={onSelect}
@@ -443,10 +450,9 @@ function OpenOnSelect({ selection, room }: { selection: string[]; room: string |
 }
 
 // The pane's width less a scrollbar, in steps of 10 px so a small resize does not lay out again.
-function useWidthOf(element: RefObject<HTMLDivElement | null>): number {
+function useWidthOf(node: HTMLDivElement | null): number {
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const node = element.current;
     if (node === null) return;
     const bar = scrollbarWidth();
     const observer = new ResizeObserver(() => {
@@ -454,6 +460,6 @@ function useWidthOf(element: RefObject<HTMLDivElement | null>): number {
     });
     observer.observe(node, { box: "border-box" });
     return () => observer.disconnect();
-  }, [element]);
+  }, [node]);
   return width;
 }

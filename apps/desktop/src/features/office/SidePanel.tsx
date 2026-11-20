@@ -1,37 +1,43 @@
 import { Settings, X } from "lucide-react";
 import { Tabs } from "radix-ui";
-import { type ReactNode, useState } from "react";
+import { type CSSProperties, type ReactNode, useState } from "react";
 import { type AgentState, isBusy } from "../../trace/progress.ts";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { ChatTab } from "../chat/ChatTab.tsx";
-import { chooseTab, type PanelKind, setPanelOpen, useOffice } from "./office-state.ts";
+import { chooseTab, closePick, type PanelKind, useOffice } from "./office-state.ts";
 import styles from "./SidePanel.module.css";
 
 // 400 keeps about 340 px for text inside the padding (design audit a2-40).
 const SIZE: PaneSize = { initial: 400, min: 320, max: 560 };
 
-// Slides off the right edge whole, so its content never squeezes while it moves.
+// The panel pushes in from the right. The floor's size and scale follow the whole Office, not the
+// part beside the panel, so opening or closing it never lays the floor out again or rescales it.
 export function PanelFrame({ children }: { children: ReactNode }) {
   const open = useOffice((state) => state.panelOpen);
   const [width, resize] = usePaneWidth("office-panel", SIZE);
   const [dragging, setDragging] = useState(false);
   return (
     <div
-      className={`${styles.frame} ${dragging ? styles.dragging : ""}`}
-      style={{ width, marginRight: open ? 0 : -width }}
-      inert={!open}
+      className={`${styles.frame} ${open ? styles.frameOpen : ""} ${dragging ? styles.dragging : ""}`}
+      style={{ "--panel-width": `${width}px` } as CSSProperties}
     >
-      {children}
-      <ResizeHandle
-        label="Resize side panel"
-        width={width}
-        size={SIZE}
-        edge="left"
-        onResize={resize}
-        onDragging={setDragging}
-      />
+      <div
+        className={`${styles.slide} ${open ? styles.slideOpen : ""}`}
+        style={{ width }}
+        inert={!open}
+      >
+        {children}
+        <ResizeHandle
+          label="Resize side panel"
+          width={width}
+          size={SIZE}
+          edge="left"
+          onResize={resize}
+          onDragging={setDragging}
+        />
+      </div>
     </div>
   );
 }
@@ -132,9 +138,9 @@ export function PanelHeader({ picture, title, subtitle, status, actions }: Panel
       <button
         type="button"
         className={styles.iconButton}
-        onClick={() => setPanelOpen(false)}
-        aria-label="Hide side panel"
-        title="Hide side panel"
+        onClick={closePick}
+        aria-label="Close"
+        title="Close"
       >
         <X size={16} aria-hidden />
       </button>

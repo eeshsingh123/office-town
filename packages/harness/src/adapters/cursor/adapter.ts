@@ -63,6 +63,7 @@ export const cursorAdapter = createAcpAdapter({
   maker: "Cursor",
   summary: "Cursor's coding agent, with the models in your Cursor plan.",
   needs: "Needs a Cursor account",
+  usagePage: "https://cursor.com/dashboard/spending",
   // Cursor serves other makers' models under their own names.
   priceLists: ["anthropic", "openai", "google", "xai"],
   capabilities: {

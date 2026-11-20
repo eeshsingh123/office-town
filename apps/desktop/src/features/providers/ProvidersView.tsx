@@ -6,7 +6,6 @@ import { Button } from "../../ui/Button.tsx";
 import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
-import { Pill } from "../../ui/Pill.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { AddAccountDialog } from "../usage/AddAccountDialog.tsx";
 import { type Spend, useSpend } from "../usage/accounts.tsx";
@@ -37,6 +36,8 @@ function ProviderBlock(props: {
   status: HarnessStatus;
   accounts: Account[];
   spend: Spend | undefined;
+  // One row of a shared card, as the providers to sign in are listed.
+  grouped?: boolean;
   onSignIn: () => void;
   onAdd: () => void;
 }) {
@@ -47,7 +48,7 @@ function ProviderBlock(props: {
     ? [version && `Version ${version}`, placesOf(accounts)]
     : ["Installed", version && `version ${version}`, "This PC"];
   return (
-    <li className={styles.pblock}>
+    <li className={props.grouped ? styles.pgroupRow : styles.pblock}>
       <div className={styles.pblockHead}>
         <button
           type="button"
@@ -60,17 +61,18 @@ function ProviderBlock(props: {
             <span className={styles.rowSub}>{sub.filter(Boolean).join(" · ")}</span>
           </span>
         </button>
-        {ready ? <Pill tone="ok">Ready</Pill> : <Pill tone="warn">Not signed in</Pill>}
-        {!ready ? (
-          <Button variant="primary" onClick={props.onSignIn}>
-            Sign in
-          </Button>
-        ) : description.manyAccounts ? (
-          <Button onClick={props.onAdd}>
-            <Plus size={14} aria-hidden />
-            Add account
-          </Button>
-        ) : null}
+        <span className={styles.pblockAction}>
+          {!ready ? (
+            <Button variant="primary" onClick={props.onSignIn}>
+              Sign in
+            </Button>
+          ) : description.manyAccounts ? (
+            <Button onClick={props.onAdd}>
+              <Plus size={14} aria-hidden />
+              Add account
+            </Button>
+          ) : null}
+        </span>
         <ChevronRight size={16} className={styles.go} aria-hidden />
       </div>
       {ready ? (
@@ -100,12 +102,10 @@ export function ProvidersView() {
   }, []);
 
   const statusOf = (harness: string) => statuses?.[harness];
-  // Those that need the user come first.
-  const installed = harnesses
-    .filter((known) => statusOf(known.harness)?.installed)
-    .toSorted(
-      (a, b) => Number(isReady(statusOf(a.harness))) - Number(isReady(statusOf(b.harness))),
-    );
+  const installed = harnesses.filter((known) => statusOf(known.harness)?.installed);
+  // Signed in first, with their accounts; those to sign in after, so they never push them down.
+  const ready = installed.filter((known) => isReady(statusOf(known.harness)));
+  const toSignIn = installed.filter((known) => !isReady(statusOf(known.harness)));
   const missing = harnesses.filter((known) => statusOf(known.harness)?.installed === false);
   // Each provider shows once its own check is in.
   const unchecked = harnesses.filter((known) => statusOf(known.harness) === undefined);
@@ -123,9 +123,23 @@ export function ProvidersView() {
     const account = defaultLogin(accounts, harness);
     setSheet(account === undefined ? undefined : { kind: "sign-in", account });
   };
-  const shown = installed.filter(
-    (description) => needle === "" || accountsOf(description).length > 0,
-  );
+  const shown = ready.filter((description) => needle === "" || accountsOf(description).length > 0);
+  const block = (description: HarnessDescription, grouped = false) => {
+    const status = statusOf(description.harness);
+    if (status === undefined) return null;
+    return (
+      <ProviderBlock
+        key={description.harness}
+        description={description}
+        status={status}
+        accounts={accountsOf(description)}
+        spend={spend}
+        grouped={grouped}
+        onSignIn={() => signIn(description.harness)}
+        onAdd={() => setSheet({ kind: "add", harness: description.harness })}
+      />
+    );
+  };
 
   return (
     <section className={page.page} aria-labelledby="providers-title">
@@ -141,9 +155,16 @@ export function ProvidersView() {
         ) : (
           <>
             <div className={page.section}>
-              {accounts.length > SEARCH_FROM ? (
-                <SearchBox value={query} onChange={setQuery} label="Search accounts" />
-              ) : null}
+              {ready.length === 0 ? null : (
+                <div className={page.sectionHead}>
+                  <h2 className={page.sectionTitle}>
+                    Ready <span className={styles.count}>{ready.length}</span>
+                  </h2>
+                  {accounts.length > SEARCH_FROM ? (
+                    <SearchBox value={query} onChange={setQuery} label="Search accounts" />
+                  ) : null}
+                </div>
+              )}
               {installed.length === 0 && unchecked.length === 0 ? (
                 <p className={styles.muted}>None yet. Install one below to get started.</p>
               ) : shown.length === 0 ? (
@@ -152,21 +173,7 @@ export function ProvidersView() {
                 )
               ) : (
                 <ul className={styles.pblocks} aria-label="Your providers">
-                  {shown.map((description) => {
-                    const status = statusOf(description.harness);
-                    if (status === undefined) return null;
-                    return (
-                      <ProviderBlock
-                        key={description.harness}
-                        description={description}
-                        status={status}
-                        accounts={accountsOf(description)}
-                        spend={spend}
-                        onSignIn={() => signIn(description.harness)}
-                        onAdd={() => setSheet({ kind: "add", harness: description.harness })}
-                      />
-                    );
-                  })}
+                  {shown.map((description) => block(description))}
                 </ul>
               )}
               {unchecked.length === 0 ? null : (
@@ -175,6 +182,19 @@ export function ProvidersView() {
                 </p>
               )}
             </div>
+
+            {toSignIn.length === 0 || needle !== "" ? null : (
+              <div className={page.section}>
+                <div className={page.sectionHead}>
+                  <h2 className={page.sectionTitle}>
+                    Not signed in <span className={styles.count}>{toSignIn.length}</span>
+                  </h2>
+                </div>
+                <ul className={styles.pgroup} aria-label="Providers to sign in">
+                  {toSignIn.map((description) => block(description, true))}
+                </ul>
+              </div>
+            )}
 
             {missing.length === 0 ? null : (
               <div className={page.section}>

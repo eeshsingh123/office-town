@@ -1,4 +1,4 @@
-import type { Account, AccountUsage } from "@office-town/contract";
+import type { Account } from "@office-town/contract";
 import { Plus, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -8,36 +8,28 @@ import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ago, compactCount } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
-import { SearchBox } from "../../ui/SearchBox.tsx";
-import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import { isReady, useHarnessStatuses } from "../providers/providers.ts";
 import { AddAccountDialog } from "./AddAccountDialog.tsx";
-import { AgentsCell } from "./AgentsCell.tsx";
-import { estimateOf, estimateText, tokensOf, useAccountUsers, useSpend } from "./accounts.tsx";
-import { accountLabel, planName, useIdentities, useReadIdentities } from "./identity.ts";
-import table from "./LimitsTable.module.css";
-import { type LimitRow, LimitsTable, type Sort, sortRows } from "./LimitsTable.tsx";
-import { clock, currentLimits, fullest, inTime, runsOutAt, windowLabel } from "./limits.ts";
+import { tokensOf, useAccountUsers, useSpend } from "./accounts.tsx";
+import { accountLabel, useIdentities, useReadIdentities } from "./identity.ts";
+import { type LimitAlert, LimitAlerts } from "./LimitAlerts.tsx";
+import { fullest, runsOutAt } from "./limits.ts";
 import { Meter } from "./Meter.tsx";
+import { ProviderUsage, providerFullest } from "./ProviderUsage.tsx";
 import styles from "./Usage.module.css";
 import { UsagePauses } from "./UsagePauses.tsx";
-import { reloadAccounts, useLimitStops, useLiveLimits, useMinute } from "./use-usage.ts";
+import { reloadAccounts, useLiveLimits, useMinute } from "./use-usage.ts";
 
 type Period = "today" | "week";
-type Status = "all" | "high" | "limit" | "unreported";
 
 // Kept while the app runs, as on the other list pages (D-81).
-const QUERY = forSession("usage.query", "");
-const PROVIDER = forSession("usage.provider", "all");
-const STATUS = forSession<Status>("usage.status", "all");
-const SORT = forSession<Sort>("usage.sort", "runs-out");
 const LEFT = forSession("usage.left", false);
 const PERIOD = forSession<Period>("usage.period", "week");
 
 const TEAMS_SHOWN = 8;
 
-// How much is left on each account and what runs out first (D-61). Read-only: accounts are set up
-// on Providers, except Add account, which opens its dialog here.
+// How much is left on each account, one card per provider (D-61). Accounts are set up on
+// Providers, except Add account and Sign in, which open their dialog here.
 export function UsageView() {
   const harnesses = useApp((state) => state.harnesses);
   const accounts = useApp((state) => state.accounts);
@@ -46,26 +38,21 @@ export function UsageView() {
   const identities = useIdentities();
   const statuses = useHarnessStatuses();
   const usersOf = useAccountUsers();
-  const stops = useLimitStops();
   const spend = useSpend();
   const now = useMinute();
   const live = useLiveLimits();
-  const [query, setQuery] = useKept(QUERY);
-  const [tool, setTool] = useKept(PROVIDER);
-  const [status, setStatus] = useKept(STATUS);
-  const [sort, setSort] = useKept(SORT);
   const [showLeft, setShowLeft] = useKept(LEFT);
   const [period, setPeriod] = useKept(PERIOD);
   const [adding, setAdding] = useState(false);
+  const [signingIn, setSigningIn] = useState<Account>();
   const [allTeams, setAllTeams] = useState(false);
 
   useEffect(() => {
     void reloadAccounts().catch(() => {});
   }, []);
 
-  const description = (harness: string) => harnesses.find((known) => known.harness === harness);
-  const nameOf = (harness: string) => description(harness)?.name ?? harness;
-  const reports = (harness: string) => description(harness)?.capabilities.usageLimits ?? false;
+  const nameOf = (harness: string) =>
+    harnesses.find((known) => known.harness === harness)?.name ?? harness;
   const labelOf = (account: Account) => accountLabel(account, identities[account.id]);
 
   // An added account always shows; a default login once its provider is ready here, or once it
@@ -80,59 +67,36 @@ export function UsageView() {
       limits[account.id] !== undefined,
   );
   useReadIdentities(inUse);
-  const used = harnesses.filter((known) =>
-    inUse.some((account) => account.harness === known.harness),
-  );
+  // The provider nearest a limit first; those that share no limits after, by name.
+  const providers = harnesses
+    .map((description) => ({
+      description,
+      accounts: inUse.filter((account) => account.harness === description.harness),
+    }))
+    .filter((entry) => entry.accounts.length > 0)
+    .map((entry) => ({
+      ...entry,
+      fullest: entry.description.capabilities.usageLimits
+        ? providerFullest(entry.accounts, limits, now)
+        : -2,
+    }))
+    .toSorted(
+      (a, b) => b.fullest - a.fullest || a.description.name.localeCompare(b.description.name),
+    );
 
-  const needle = query.trim().toLowerCase();
-  const shown = inUse.filter(
-    (account) =>
-      (tool === "all" || account.harness === tool) &&
-      (needle === "" ||
-        `${labelOf(account)} ${account.name} ${nameOf(account.harness)} ${identities[account.id]?.email ?? ""}`
-          .toLowerCase()
-          .includes(needle)),
-  );
-
-  const rows: LimitRow[] = shown
-    .filter((account) => reports(account.harness))
-    .flatMap((account): LimitRow[] => {
-      const identity = identities[account.id];
-      const base = {
-        account,
-        label: labelOf(account),
-        harnessName: nameOf(account.harness),
-        plan: identity?.plan === undefined ? undefined : planName(identity.plan),
-        signedOut: identity?.signedIn === false || account.signedIn === false,
-        users: usersOf.get(account.id) ?? [],
-      };
-      const windows = currentLimits(limits[account.id], now);
-      if (base.signedOut || windows.length === 0)
-        return [{ ...base, key: account.id, limit: undefined }];
-      return windows.map((limit) => ({ ...base, key: `${account.id}/${limit.id}`, limit }));
-    })
-    .filter((row) => {
-      const fraction = row.limit?.usedFraction ?? 0;
-      if (status === "high") return fraction >= 0.9;
-      if (status === "limit") return fraction >= 1;
-      return status !== "unreported";
-    });
-  const unreported =
-    status === "all" || status === "unreported"
-      ? shown.filter((account) => !reports(account.harness))
-      : [];
-
-  // A banner only when something needs the user: a limit reached, or one that runs out before
-  // it resets (owner: warn, never move agents for them).
-  const alerts = inUse
-    .filter((account) => reports(account.harness))
-    .flatMap((account) => {
-      const full = fullest(limits[account.id], now);
-      if (full === undefined) return [];
-      const at = full.usedFraction >= 1 ? undefined : runsOutAt(full, now);
-      if (full.usedFraction < 1 && at === undefined) return [];
-      return [{ account, limit: full, runsOut: at }];
-    });
+  const alerts = providers
+    .filter(({ description }) => description.capabilities.usageLimits)
+    .flatMap(({ description, accounts: theirs }) =>
+      theirs.flatMap((account): LimitAlert[] => {
+        const full = fullest(limits[account.id], now);
+        if (full === undefined) return [];
+        const runsOut = full.usedFraction >= 1 ? undefined : runsOutAt(full, now);
+        if (full.usedFraction < 1 && runsOut === undefined) return [];
+        return [
+          { account, label: labelOf(account), provider: description.name, limit: full, runsOut },
+        ];
+      }),
+    );
 
   const reportedAt = Math.max(
     0,
@@ -172,8 +136,6 @@ export function UsageView() {
     const account = accounts.find((known) => known.id === accountId);
     return account === undefined ? accountId : `${nameOf(account.harness)} · ${labelOf(account)}`;
   };
-  const mine = (accountId: string, list: readonly AccountUsage[] | undefined) =>
-    (list ?? []).filter((row) => row.accountId === accountId);
 
   return (
     <section className={page.page} aria-labelledby="usage-title">
@@ -189,6 +151,15 @@ export function UsageView() {
                   Updated {ago(new Date(reportedAt).toISOString(), now)}
                 </span>
               )}
+              <fieldset className={styles.segment}>
+                <legend className="visually-hidden">Show</legend>
+                <button type="button" aria-pressed={!showLeft} onClick={() => setShowLeft(false)}>
+                  Used
+                </button>
+                <button type="button" aria-pressed={showLeft} onClick={() => setShowLeft(true)}>
+                  Left
+                </button>
+              </fieldset>
               <Button variant="ghost" onClick={live.refresh} disabled={live.refreshing}>
                 <RefreshCw
                   size={14}
@@ -214,167 +185,24 @@ export function UsageView() {
           </div>
         ) : (
           <>
-            {alerts.length === 0 ? null : (
-              <div className={styles.banners}>
-                {alerts.map(({ account, limit, runsOut }) => {
-                  const resetsAt =
-                    limit.resetsAt === undefined ? undefined : Date.parse(limit.resetsAt);
-                  const name = `${nameOf(account.harness)} · ${labelOf(account)}`;
-                  const users = usersOf.get(account.id) ?? [];
-                  const stopped = stops.filter((stop) => stop.accountId === account.id).length;
-                  const high = runsOut === undefined || limit.usedFraction >= 0.9;
-                  return (
-                    <div
-                      key={account.id}
-                      className={`${styles.banner} ${high ? styles.bannerHigh : ""}`}
-                      role="status"
-                    >
-                      <span className={styles.bannerText}>
-                        <strong>{name}</strong>{" "}
-                        {runsOut === undefined
-                          ? `is at its ${windowLabel(limit).toLowerCase()} limit`
-                          : `runs out at ${clock(runsOut, now)}`}
-                        {resetsAt === undefined
-                          ? "."
-                          : runsOut === undefined
-                            ? `, resets ${clock(resetsAt, now)} (${inTime(resetsAt, now)}).`
-                            : `, before the ${clock(resetsAt, now)} reset.`}
-                        {stopped > 0
-                          ? ` ${stopped === 1 ? "1 agent" : `${stopped} agents`} stopped.`
-                          : users.length > 0
-                            ? ` ${users.length === 1 ? "1 agent uses" : `${users.length} agents use`} it.`
-                            : ""}
-                      </span>
-                      {stopped > 0 ? (
-                        <Button onClick={() => navigate({ name: "needs-you" })}>
-                          Open Needs you
-                        </Button>
-                      ) : users.length > 0 ? (
-                        <AgentsCell users={users} label={name} asButton />
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <LimitAlerts alerts={alerts} now={now} />
             <UsagePauses />
-
-            <div className={styles.filters}>
-              <SearchBox value={query} onChange={setQuery} label="Search accounts" />
-              <ChoiceMenu
-                label="Provider"
-                value={tool}
-                choices={[
-                  { value: "all", label: "All" },
-                  ...used.map((known) => ({ value: known.harness, label: known.name })),
-                ]}
-                onChange={setTool}
-              />
-              <ChoiceMenu
-                label="Status"
-                value={status}
-                choices={[
-                  { value: "all", label: "All" },
-                  { value: "high", label: "Over 90%" },
-                  { value: "limit", label: "At limit" },
-                  { value: "unreported", label: "Not reported" },
-                ]}
-                onChange={setStatus}
-              />
-              <span className={styles.grow} />
-              <ChoiceMenu
-                label="Sort"
-                value={sort}
-                choices={[
-                  { value: "runs-out", label: "Runs out first" },
-                  { value: "used", label: "Most used" },
-                  { value: "resets", label: "Resets soonest" },
-                  { value: "provider", label: "Provider" },
-                ]}
-                onChange={setSort}
-              />
-              <fieldset className={styles.segment}>
-                <legend className="visually-hidden">Show</legend>
-                <button type="button" aria-pressed={!showLeft} onClick={() => setShowLeft(false)}>
-                  Used
-                </button>
-                <button type="button" aria-pressed={showLeft} onClick={() => setShowLeft(true)}>
-                  Left
-                </button>
-              </fieldset>
+            <div className={styles.providers}>
+              {providers.map(({ description, accounts: theirs }) => (
+                <ProviderUsage
+                  key={description.harness}
+                  description={description}
+                  accounts={theirs}
+                  limits={limits}
+                  identities={identities}
+                  usersOf={usersOf}
+                  spend={spend}
+                  showLeft={showLeft}
+                  now={now}
+                  onSignIn={setSigningIn}
+                />
+              ))}
             </div>
-
-            {rows.length === 0 && unreported.length === 0 ? (
-              <p className={styles.empty}>No accounts match.</p>
-            ) : null}
-            {rows.length === 0 ? null : (
-              <LimitsTable rows={sortRows(rows, sort, now)} showLeft={showLeft} now={now} />
-            )}
-
-            {unreported.length === 0 ? null : (
-              <section className={styles.unreported} aria-labelledby="unreported-title">
-                <div className={page.sectionHead}>
-                  <h2 id="unreported-title" className={page.sectionTitle}>
-                    Not reported by the provider
-                  </h2>
-                  <span className={styles.muted}>
-                    Token counts from runs. Cost is an estimate at API prices.
-                  </span>
-                </div>
-                <div className={styles.table}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Account</th>
-                        <th className={styles.number}>Today</th>
-                        <th className={styles.number}>This week</th>
-                        <th>Cost</th>
-                        <th className={table.agentsCell}>Agents</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {unreported.map((account) => {
-                        const harness = description(account.harness);
-                        const week = mine(account.id, spend?.week);
-                        const estimate = estimateOf(week);
-                        const name = `${nameOf(account.harness)} · ${labelOf(account)}`;
-                        return (
-                          <tr key={account.id}>
-                            <td>
-                              <span className={table.accountCell}>
-                                <ProviderLogo harness={account.harness} size="sm" />
-                                <span className={table.accountName}>{name}</span>
-                              </span>
-                            </td>
-                            <td className={styles.number}>
-                              {compactCount(tokensOf(mine(account.id, spend?.today)))}
-                            </td>
-                            <td className={styles.number}>{compactCount(tokensOf(week))}</td>
-                            <td>
-                              <span className={styles.costCell}>
-                                {estimate === undefined ? (
-                                  <span className={styles.muted}>None</span>
-                                ) : (
-                                  estimateText(estimate)
-                                )}
-                                {harness?.usagePage === undefined ? null : (
-                                  <a href={harness.usagePage} target="_blank" rel="noreferrer">
-                                    {new URL(harness.usagePage).host}
-                                  </a>
-                                )}
-                              </span>
-                            </td>
-                            <td className={table.agentsCell}>
-                              <AgentsCell users={usersOf.get(account.id) ?? []} label={name} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
           </>
         )}
 
@@ -438,6 +266,9 @@ export function UsageView() {
         </section>
       </div>
       {adding ? <AddAccountDialog onClose={() => setAdding(false)} /> : null}
+      {signingIn === undefined ? null : (
+        <AddAccountDialog again={signingIn} onClose={() => setSigningIn(undefined)} />
+      )}
     </section>
   );
 }

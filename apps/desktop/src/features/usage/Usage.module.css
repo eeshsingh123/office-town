@@ -12,42 +12,6 @@
   animation: spin 1s linear infinite;
 }
 
-/* Only when something needs the user: amber runs out early, red at a limit or over 90% */
-.banners {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 20px;
-  padding: 12px 16px;
-  border: 1px solid var(--warn-border);
-  border-radius: var(--radius-card);
-  background: var(--warn-soft);
-}
-
-.bannerHigh {
-  border-color: color-mix(in srgb, var(--bad) 35%, var(--border));
-  background: var(--bad-soft);
-}
-
-.bannerText {
-  flex: 1;
-  min-width: 240px;
-}
-
-/* Search and filters */
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .toolName {
   margin: 0;
   font-size: var(--size-title);
@@ -208,44 +172,6 @@ div.empty p {
   gap: 8px;
 }
 
-/* Home's plan usage card */
-.planRows {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.planRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px minmax(0, max-content);
-  align-items: center;
-  gap: 16px;
-}
-
-.planName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.planValue {
-  color: var(--text-2);
-  font-size: var(--size-meta);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.planValueHigh {
-  color: var(--bad);
-  font-weight: 600;
-}
-
-.planValueNear {
-  color: var(--warn);
-  font-weight: 600;
-}
-
 /* Add account */
 .choices {
   display: flex;
@@ -357,17 +283,62 @@ div.empty p {
 .planCard {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
+}
+
+/* Home: one small card per account, as many across as fit. */
+.planCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planAccount {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+
+.planWho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.planText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.planName {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Usage: one card per provider. */
+.providers {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* A code the CLI shows for its sign-in page, large enough to read across. */
 .signInCode code {
   font-size: 20px;
   letter-spacing: 0.08em;
-}
-
-.grow {
-  flex: 1;
 }
 
 /* Used | Left */
@@ -429,22 +400,6 @@ div.empty p {
   gap: 5px;
   color: var(--text-3);
   font-size: var(--size-small);
-}
-
-.unreported {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.costCell {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
-.costCell a {
-  color: var(--accent-text);
 }
 
 /* Use it for: several teams, the list scrolls so Done stays in view */

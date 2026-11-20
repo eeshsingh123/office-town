@@ -1,6 +1,6 @@
 # Memory
 
-Last updated: 2026-11-19
+Last updated: 2026-11-20
 
 ## State
 
@@ -12,13 +12,16 @@ Last updated: 2026-11-19
 - Audit fix rounds 1 to 4 (owner fix lists, D-100 to D-102) merged as PR #88.
 - Design audit (2026-11-14) done in seven rounds, D-103 to D-109 (PRs #89 to #94, round 7 on `fix/design-round-7`). The findings and plan stay local only, outside git; their decisions are in DECISIONS.md.
 - Onboarding and settings revamp (owner, 2026-11-15 audit). Round 1 (D-110, PR #96) and round 2 (D-111, PR #97) are merged. Round 3, the audit's leftovers (D-112), is on `fix/onboarding-round-3`. Avatar faces, more than 8 colours, editing the role from the Profile tab and a stored department colour are deferred (contract changes).
-- Next: the owner's review of round 3; then the public release steps in MODULES.md.
+- Round 3 merged as PR #98. The owner's fix list of 2026-11-20 (Usage by provider, Providers order, Home plan cards, Office panel and focus, Profile spacing, Clear filters; D-113) is on `fix/usage-office-round`.
+- Next: the owner's review of D-113; then the public release steps in MODULES.md.
 - DECISIONS.md was trimmed on 2026-11-19 (owner): cited numbers stay, the rest is in git history.
 - The owner's machine runs the installed app (`%LOCALAPPDATA%\Programs\office-town`) on the beta channel; development runs on `OfficeTown Dev`. Codex 0.167.2 is signed in (ChatGPT Free: only its default model runs, `gpt-5.4-mini` is refused), with the Hugging Face plugin installed during the D-96 probe and its sign-in not finished; Copilot, Cursor and Muse are installed, not signed in. OpenCode is 2.3.0 (npm `@opencode/cli`, replacing 1.19.5); the 1.x config, `auth.json` and `opencode.db` are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs: `Claude Code Auto Update`, `OpenCode 2 Auto Update` (`@opencode/cli@latest`), and the old `OpenCode Auto Update` (`opencode-ai`), which now fails with EEXIST.
 
 ## Not checked yet
 
 Each item: how to reach it, what should happen.
+
+- D-113, checked live in dark mode at 1300 × 850 on a copy of the round 6 data (one Claude and one Codex login, OpenCode and Cursor unreported): Usage cards, links, Used/Left, dismissing the warning; Home's cards; Providers order; the Office panel open and close (re-measured after the owner saw it stutter: zoom and room places now stay put, the scroll glides, one render per sign click), Close then the sign, a click below the floor; Profile; Tasks' Clear filters. Not run: a provider with 5 or more accounts (Search, Sort and Clear filters should show in its card head), a signed-out account on Usage (Not signed in with Sign in opening the sign-in dialog), an account at its limit (red icon, "reached its … limit", Resets with the time left), the Office panel under 1100 px (checked at 1000 px: opens over the floor), frame rate in the packaged app (the preview pane was hidden, so frames ran throttled; a room open, a close and walking in and out of a room should show no hitch), reduced motion (panel and scroll should snap without sliding), Usage at 800 px (the card table scrolls inside its card), light mode. Wrong if one account shows on two rows, or a dismissed warning comes back before its window resets.
 
 - D-112 (round 3), checked live in dark mode on an empty data folder at 800 × 600 and 1400 × 860: Home with no team card before a task, the sidebar's "No departments yet" and +, the empty Office's sample room with its one button (no top bar button), Team's empty page, the first-task tutorial card under the task box, and after the task finished, Home's "Make this a department". Not run: pressing Make this a department (New department should open and draft a team for work like the task), no provider ready (the line above the task box with Install OpenCode, Start off; reach it on a machine or WSL-free profile with no CLI signed in), the + menu with a department and no chief (should list New department and Add a chief), the tutorial card at a wide window beside a narrow target such as Connectors' Add, light mode. Wrong if Start is ever on with no provider ready, or a second "build a team" box appears anywhere.
 

@@ -50,6 +50,19 @@ export function currentLimits(limits: AccountLimits | undefined, now = Date.now(
   );
 }
 
+const WINDOW_ORDER = ["5-hour", "Weekly", "Weekly · Opus", "Weekly · Sonnet", "Monthly"];
+const windowRank = (limit: UsageLimit) => {
+  const at = WINDOW_ORDER.indexOf(windowLabel(limit));
+  return at === -1 ? WINDOW_ORDER.length : at;
+};
+
+// Shortest window first, as every place that lists an account's windows shows them.
+export const byWindow = (a: UsageLimit, b: UsageLimit) => windowRank(a) - windowRank(b);
+
+export function orderedLimits(limits: AccountLimits | undefined, now = Date.now()): UsageLimit[] {
+  return currentLimits(limits, now).toSorted(byWindow);
+}
+
 export function fullest(
   limits: AccountLimits | undefined,
   now = Date.now(),

@@ -256,6 +256,7 @@ export const claudeAdapter: Adapter = {
   maker: "Anthropic",
   summary: "Anthropic's coding agent, with the Claude models in your plan.",
   needs: "Works with a Claude Pro, Max, Team or Enterprise plan",
+  usagePage: "https://claude.ai/settings/usage",
   priceLists: ["anthropic"],
   // The CLI sends thinking blocks with their text left empty, so there is no reasoning to report.
   capabilities: {

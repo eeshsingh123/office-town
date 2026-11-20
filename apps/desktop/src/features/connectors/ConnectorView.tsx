@@ -15,6 +15,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { ago, taskName } from "../../ui/format.ts";
@@ -551,6 +552,13 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                     >
                       Only changes
                     </button>
+                    <ClearFilters
+                      shown={team !== "" || changesOnly}
+                      onClear={() => {
+                        setTeam("");
+                        setChangesOnly(false);
+                      }}
+                    />
                   </span>
                 )}
               </div>
