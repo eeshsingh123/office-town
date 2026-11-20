@@ -151,6 +151,33 @@
   color: var(--text-3);
 }
 
+/* One width for every action, so buttons and arrows line up down the page. */
+.pblockAction {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  min-width: 136px;
+}
+
+.pblockAction > button {
+  min-width: 136px;
+  justify-content: center;
+}
+
+/* Providers to sign in: rows of one card. */
+.pgroup {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  list-style: none;
+}
+
+.pgroupRow + .pgroupRow {
+  border-top: 1px solid var(--border);
+}
+
 .accounts {
   margin: 0;
   padding: 0;
