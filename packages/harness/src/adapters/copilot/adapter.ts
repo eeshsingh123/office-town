@@ -64,6 +64,7 @@ export const copilotAdapter = createAcpAdapter({
   maker: "GitHub",
   summary: "GitHub's coding agent. One sign-in gives models from several makers.",
   needs: "Works with any Copilot plan, Free included",
+  usagePage: "https://github.com/settings/billing",
   priceLists: ["github-copilot"],
   capabilities: {
     reasoning: true,

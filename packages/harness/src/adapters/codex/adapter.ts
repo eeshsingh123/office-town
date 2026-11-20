@@ -288,6 +288,7 @@ export const codexAdapter: Adapter = {
   maker: "OpenAI",
   summary: "OpenAI's coding agent, with the GPT models in your ChatGPT plan.",
   needs: "Works with a ChatGPT plan",
+  usagePage: "https://chatgpt.com/codex/settings/usage",
   priceLists: ["openai"],
   capabilities: {
     reasoning: true,

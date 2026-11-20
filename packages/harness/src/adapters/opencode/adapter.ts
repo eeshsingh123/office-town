@@ -268,7 +268,7 @@ const shared = {
   maker: "Anomaly",
   summary: "An open-source coding agent with free models and many providers.",
   needs: "Has free models. No account needed",
-  usagePage: "https://opencode.ai/auth",
+  usagePage: "https://opencode.ai/console",
   capabilities: {
     reasoning: true,
     plan: true,
