@@ -32,6 +32,19 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-21",
+    title: "Work that keeps going while you are away",
+    icon: History,
+    changes: [
+      "After Office Town closes or crashes, Home lists the tasks that stopped, with Resume all and Choose; nothing resumes until you say",
+      "A lead that fails twice in a row waits in Needs you with Try again and Stop, even across a restart",
+      "A worker with no news for 30 minutes says so in its trace, and its lead hears once",
+      "Results a stopped lead missed reach it first when it carries on",
+      "The computer stays awake while agents work, on battery too; turn it off in Settings > Desktop",
+      "Notifications come from one place and never show an agent's own words; each kind has its own switch in Settings",
+    ],
+  },
+  {
+    date: "2026-11-21",
     title: "A first test version for the Mac",
     icon: Laptop,
     changes: [
