@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld("officeTown", {
     return () => ipcRenderer.removeListener("update-ready", handler);
   },
   restartToUpdate: () => ipcRenderer.invoke("restart-to-update"),
+  onOpenSettings: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on("open-settings", handler);
+    return () => ipcRenderer.removeListener("open-settings", handler);
+  },
   updateStatus: () => ipcRenderer.invoke("update-status"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   desktopPreferences: () => ipcRenderer.invoke("desktop-preferences"),

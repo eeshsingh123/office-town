@@ -9,9 +9,15 @@ export interface DesktopPreferences {
   closeToTray: boolean;
   // The tray note is shown once, the first time closing hides the window.
   trayNoteShown: boolean;
+  // A Mac user who said no to moving the app into Applications is not asked again.
+  moveDeclined: boolean;
 }
 
-const DEFAULTS: DesktopPreferences = { closeToTray: true, trayNoteShown: false };
+const DEFAULTS: DesktopPreferences = {
+  closeToTray: true,
+  trayNoteShown: false,
+  moveDeclined: false,
+};
 
 const file = () => join(app.getPath("userData"), "desktop.json");
 
@@ -22,6 +28,7 @@ export function readPreferences(): DesktopPreferences {
       closeToTray:
         typeof saved.closeToTray === "boolean" ? saved.closeToTray : DEFAULTS.closeToTray,
       trayNoteShown: saved.trayNoteShown === true,
+      moveDeclined: saved.moveDeclined === true,
     };
   } catch {
     return { ...DEFAULTS };
@@ -43,6 +50,12 @@ export const canOpenAtLogin = (): boolean =>
 
 export const opensAtLogin = (): boolean =>
   canOpenAtLogin() && app.getLoginItemSettings().openAtLogin;
+
+// macOS 13 lists a new login item as waiting until the user allows it in System Settings.
+export const openAtLoginNeedsApproval = (): boolean =>
+  process.platform === "darwin" &&
+  canOpenAtLogin() &&
+  app.getLoginItemSettings().status === "requires-approval";
 
 export function setOpenAtLogin(on: boolean): void {
   if (canOpenAtLogin()) app.setLoginItemSettings({ openAtLogin: on });

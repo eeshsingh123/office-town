@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { app } from "electron";
 import electronUpdater from "electron-updater";
 
 const CHECK_EVERY_MS = 4 * 60 * 60 * 1000;
@@ -9,6 +12,8 @@ export type UpdateStatus =
   | { state: "latest" }
   | { state: "downloading"; version: string }
   | { state: "ready"; version: string }
+  // Found, for a build that cannot install it itself: the user downloads it.
+  | { state: "available"; version: string }
   | { state: "failed" };
 
 export interface Updates {
@@ -20,10 +25,26 @@ export interface Updates {
   install(): void;
 }
 
+// An unsigned Mac build cannot replace itself (the Mac updater needs a signature), so packaging
+// says whether this build installs updates or only tells the user (D-116).
+export function updatesInstall(): boolean {
+  try {
+    const manifest = JSON.parse(readFileSync(join(app.getAppPath(), "package.json"), "utf8"));
+    return manifest.updatesInstall !== false;
+  } catch {
+    return true;
+  }
+}
+
+export const releasePage = (version: string): string =>
+  `https://github.com/eeshsingh123/office-town/releases/tag/v${version}`;
+
 // A beta follows betas and a release follows releases, by the channel built into it (D-75). The
 // update downloads in the background and installs on quit, once the core has stopped its agents.
 export function followUpdates(onReady: (version: string) => void): Updates {
   const { autoUpdater } = electronUpdater;
+  const installs = updatesInstall();
+  autoUpdater.autoDownload = installs;
   let status: UpdateStatus = { state: "unknown" };
   const isReady = () => status.state === "ready";
   autoUpdater.on("checking-for-update", () => {
@@ -33,7 +54,13 @@ export function followUpdates(onReady: (version: string) => void): Updates {
     if (!isReady()) status = { state: "latest" };
   });
   autoUpdater.on("update-available", ({ version }) => {
-    if (!isReady()) status = { state: "downloading", version };
+    if (isReady()) return;
+    if (installs) {
+      status = { state: "downloading", version };
+      return;
+    }
+    status = { state: "available", version };
+    onReady(version);
   });
   autoUpdater.on("update-downloaded", ({ version }) => {
     status = { state: "ready", version };
@@ -51,7 +78,8 @@ export function followUpdates(onReady: (version: string) => void): Updates {
   void check();
   setInterval(() => void check(), CHECK_EVERY_MS);
   return {
-    ready: () => (status.state === "ready" ? status.version : undefined),
+    ready: () =>
+      status.state === "ready" || status.state === "available" ? status.version : undefined,
     status: () => status,
     check,
     install: () => autoUpdater.quitAndInstall(),

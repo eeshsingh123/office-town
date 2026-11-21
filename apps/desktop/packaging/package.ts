@@ -89,7 +89,7 @@ await bundle({
   build: { outDir: join(APP, "dist") },
 });
 await bundleForNode(join(DESKTOP, "electron", "main.ts"), join(APP, "electron"), "main.js");
-for (const file of ["preload.cjs", "icon.png"]) {
+for (const file of ["preload.cjs", "icon.png", "iconTemplate.png", "iconTemplate@2x.png"]) {
   await cp(join(DESKTOP, "electron", file), join(APP, "electron", file));
 }
 // `.mjs`, because nothing above the installed core says it is a module.
@@ -112,6 +112,8 @@ await writeFile(
       author: "Office Town",
       type: "module",
       main: "electron/main.js",
+      // Unsigned Mac builds only say an update is ready, until they are signed (D-116).
+      updatesInstall: process.platform !== "darwin",
     },
     null,
     2,
