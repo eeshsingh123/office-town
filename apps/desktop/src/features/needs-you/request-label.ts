@@ -12,5 +12,7 @@ export function requestLabel(request: WaitingRequest): string {
       return "Proposes a plan";
     case "checklist.requested":
       return "Wants a checklist approved";
+    case "retry.requested":
+      return "Stopped after an error";
   }
 }

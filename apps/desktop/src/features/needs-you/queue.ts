@@ -8,7 +8,7 @@ import type {
 import type { TaskEntry, WaitingRequest } from "../../store/records.ts";
 import { taskName } from "../../ui/format.ts";
 
-export type AskKind = "plan" | "team" | "checklist" | "question" | "approval";
+export type AskKind = "plan" | "team" | "checklist" | "stopped" | "question" | "approval";
 export type TypeFilter = "all" | "decisions" | "question" | "approval";
 export type GroupBy = "task" | "department" | "workspace" | "agent" | "type";
 
@@ -78,6 +78,7 @@ const RANK: Record<AskKind, number> = {
   plan: 0,
   team: 0,
   checklist: 0,
+  stopped: 0,
   question: 1,
   approval: 2,
 };
@@ -86,6 +87,7 @@ export const KIND_LABEL: Record<AskKind, string> = {
   plan: "Plan",
   team: "Team",
   checklist: "Checklist",
+  stopped: "Stopped",
   question: "Question",
   approval: "Approval",
 };
@@ -94,6 +96,7 @@ const TYPE_NAME: Record<AskKind, string> = {
   plan: "Plans and teams",
   team: "Plans and teams",
   checklist: "Plans and teams",
+  stopped: "Plans and teams",
   question: "Questions",
   approval: "Approvals",
 };
@@ -108,6 +111,8 @@ function kindOf(event: UserRequestEvent): AskKind {
       return "team";
     case "checklist.requested":
       return "checklist";
+    case "retry.requested":
+      return "stopped";
     case "question.requested":
       return "question";
     case "permission.requested":
@@ -157,6 +162,8 @@ function describe(event: UserRequestEvent): { title: string; detail: string | un
         detail: `${team.roles.length + 1} people in ${place.workspaceName}`,
       };
     }
+    case "retry.requested":
+      return { title: "Stopped after an error", detail: event.payload.error };
   }
 }
 
@@ -197,7 +204,7 @@ export function buildAsks(sources: QueueSources): Ask[] {
 
 // What holds a whole team or a check back.
 export const isDecision = (kind: AskKind) =>
-  kind === "plan" || kind === "team" || kind === "checklist";
+  kind === "plan" || kind === "team" || kind === "checklist" || kind === "stopped";
 
 function filterOf(kind: AskKind): Exclude<TypeFilter, "all"> {
   if (isDecision(kind)) return "decisions";

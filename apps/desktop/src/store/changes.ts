@@ -82,6 +82,10 @@ function applyChange(state: AppState, change: Change): AppState {
     }
     case "harness":
       return { ...state, harnessStatuses: withStatuses(state.harnessStatuses, [change.status]) };
+    // Heard as they come by the notifications and Home's card of stopped tasks.
+    case "notice.created":
+    case "queue":
+      return state;
     case "limits":
       return { ...state, limits: { ...state.limits, [change.limits.accountId]: change.limits } };
     case "piece":
