@@ -1,6 +1,6 @@
 import type { StoppedTask } from "@office-town/contract";
 import { CircleStop, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { onChange, track } from "../../store/live.ts";
@@ -28,12 +28,21 @@ const canResume = (row: StoppedTask) => row.reason === undefined && row.entry ==
 
 function useStoppedTasks(): [StoppedTask[], (rows: StoppedTask[]) => void] {
   const [rows, setRows] = useState<StoppedTask[]>([]);
+  // Work is cut off only when the core stops, so an empty card is read again only once it is back.
+  const live = useApp((state) => state.connection === "live");
+  const shown = useRef(false);
+  const keep = (tasks: StoppedTask[]) => {
+    shown.current = tasks.length > 0;
+    setRows(tasks);
+  };
   useEffect(() => {
+    if (!live) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const read = () => {
       api
         .listStoppedTasks()
         .then(({ tasks }) => {
+          shown.current = tasks.length > 0;
           setRows(tasks);
           // An older task may not be loaded yet.
           const known = useApp.getState().tasks;
@@ -43,6 +52,7 @@ function useStoppedTasks(): [StoppedTask[], (rows: StoppedTask[]) => void] {
     };
     read();
     const stop = onChange((change) => {
+      if (!shown.current) return;
       if (change.type !== "queue" && change.type !== "task" && change.type !== "task.deleted") {
         return;
       }
@@ -53,8 +63,8 @@ function useStoppedTasks(): [StoppedTask[], (rows: StoppedTask[]) => void] {
       stop();
       clearTimeout(timer);
     };
-  }, []);
-  return [rows, setRows];
+  }, [live]);
+  return [rows, keep];
 }
 
 // "3 tasks stopped when Office Town closed." Nothing resumes on its own; the user picks (D-122).
