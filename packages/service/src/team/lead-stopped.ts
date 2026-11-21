@@ -109,7 +109,6 @@ export class StoppedLeads {
     }
   }
 
-  // Such as when the task is stopped.
   close(taskId: string): void {
     for (const { event } of this.#waiting(taskId)) {
       this.#context.registry.appendToEnded(event.sessionId, {

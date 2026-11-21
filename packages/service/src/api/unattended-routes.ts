@@ -8,7 +8,6 @@ import type { StoppedLeads } from "../team/lead-stopped.ts";
 import type { StoppedTasks } from "../team/stopped-tasks.ts";
 import type { Route } from "./routes.ts";
 
-// What keeps work going while the user is away (M11).
 export interface Unattended {
   stoppedLeads: StoppedLeads;
   stoppedTasks: StoppedTasks;

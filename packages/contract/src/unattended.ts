@@ -14,7 +14,7 @@ export const noticeKindSchema = z.enum([
 ]);
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
 
-// A kind the user never set; a finished task stays quiet unless they turn it on, as before.
+// For a kind the user never set. A finished task is often watched, so it stays quiet unless asked.
 export const NOTICE_DEFAULTS: Record<NoticeKind, boolean> = {
   "needs-you": true,
   finished: false,
