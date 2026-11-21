@@ -904,4 +904,22 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS notices_by_kind ON notices (kind, created_at);
   CREATE INDEX IF NOT EXISTS notices_by_task ON notices (task_ref);
   `,
+  `
+  -- Starts no person typed, written before anything runs (D-121). One entry per start and launch.
+  CREATE TABLE IF NOT EXISTS queue_entries (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    kind        TEXT NOT NULL,
+    task_ref    INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    launch      TEXT NOT NULL,
+    state       TEXT NOT NULL CHECK (state IN ('waiting', 'started', 'skipped', 'cancelled')),
+    reason      TEXT,
+    enqueued_at INTEGER NOT NULL,
+    wait_until  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS queue_once_a_launch ON queue_entries (kind, task_ref, launch);
+  CREATE INDEX IF NOT EXISTS queue_waiting ON queue_entries (enqueued_at) WHERE state = 'waiting';
+  CREATE INDEX IF NOT EXISTS queue_by_task ON queue_entries (task_ref);
+  `,
 ];

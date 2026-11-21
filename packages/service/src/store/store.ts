@@ -56,6 +56,7 @@ import type {
   WorkspaceRequest,
 } from "@office-town/contract";
 import type { NoticesStore } from "./notices-store.ts";
+import type { QueueStore } from "./queue-store.ts";
 import type { RecoveryStore } from "./recovery-store.ts";
 
 export interface NewSession {
@@ -271,6 +272,7 @@ export interface Store {
   // Kept in files of their own over the same database (D-30).
   readonly recovery: RecoveryStore;
   readonly notices: NoticesStore;
+  readonly queue: QueueStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;

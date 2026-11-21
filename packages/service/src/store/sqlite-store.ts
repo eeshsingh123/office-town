@@ -73,6 +73,7 @@ import { AttachmentFiles } from "./attachment-files.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { NoticesStore } from "./notices-store.ts";
 import { queries } from "./queries.ts";
+import { QueueStore } from "./queue-store.ts";
 import { RecoveryStore } from "./recovery-store.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
@@ -734,6 +735,7 @@ export function openStore(directory: string): Store {
 class SqliteStore implements Store {
   readonly recovery: RecoveryStore;
   readonly notices: NoticesStore;
+  readonly queue: QueueStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -761,6 +763,7 @@ class SqliteStore implements Store {
     this.#outputs = outputs;
     this.recovery = new RecoveryStore(db);
     this.notices = new NoticesStore(db, (change) => this.#publish(change));
+    this.queue = new QueueStore(db, (change) => this.#publish(change));
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
