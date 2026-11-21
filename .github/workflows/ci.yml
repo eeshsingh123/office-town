@@ -33,8 +33,9 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     env:
-      DATA: ${{ github.workspace }}/../mac-data
       APP: /Applications/Office Town.app
+      # electron-builder skips signing on pull requests; an ad-hoc signature uses no secret.
+      CSC_FOR_PULL_REQUEST: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v6
@@ -43,6 +44,19 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Read the login shell's environment in zsh, bash and fish
+        run: |
+          brew install --quiet fish
+          for shell in /bin/zsh /bin/bash "$(command -v fish)"; do
+            env -u TERM SHELL="$shell" PATH=/usr/bin:/bin node --input-type=module -e '
+              const { readLoginShellEnvironment } = await import("./packages/harness/src/environment/login-shell.ts");
+              await readLoginShellEnvironment();
+              // Every login shell on a Mac takes /etc/paths, which the bare PATH here lacks.
+              if (!process.env.PATH.split(":").includes("/usr/sbin")) throw new Error("PATH: " + process.env.PATH);
+            ' 2>&1 | tee "$RUNNER_TEMP/shell.log"
+            if [ -s "$RUNNER_TEMP/shell.log" ]; then echo "Failed in $shell"; exit 1; fi
+            echo "Read in $shell"
+          done
       - run: pnpm package --beta 0
       - name: Check the signature, so no build ships that a Mac calls damaged
         run: codesign --verify --deep --strict --verbose=2 apps/desktop/out/package/installers/mac-arm64/*.app
