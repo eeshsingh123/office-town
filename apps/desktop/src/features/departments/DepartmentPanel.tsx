@@ -70,7 +70,7 @@ function MemberLine({ member, lead }: { member: Member; lead: boolean }) {
   const step = trace === undefined ? undefined : progressOf(trace).step;
   const doing =
     state === undefined
-      ? (lastWork ?? "Free")
+      ? (lastWork ?? STATE_LABELS.idle)
       : (stageOf(state, trace) ??
         (state === "working" && step !== undefined
           ? `Step ${step.number} · ${step.title}`

@@ -9,6 +9,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
+import { StatePill } from "../../ui/StatusIcon.tsx";
 import { useModelLine } from "../profiles/model-line.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { TaskStatusOf, TaskStatusTag } from "../tasks/TaskStatusIcon.tsx";
@@ -103,7 +104,6 @@ function ChiefHome() {
   const rules = (record.settings.instructions ?? "")
     .split("\n")
     .filter((line) => line.trim() !== "");
-  const status = waiting !== undefined ? "Needs you" : busy ? "Working" : "Free";
 
   return (
     <section className={page.page} aria-labelledby="chief-title">
@@ -115,11 +115,7 @@ function ChiefHome() {
               <h1 id="chief-title" className={page.title}>
                 {record.name}
               </h1>
-              <span
-                className={`${styles.status} ${waiting !== undefined ? styles.statusWaiting : ""}`}
-              >
-                {status}
-              </span>
+              <StatePill state={waiting !== undefined ? "waiting" : busy ? "working" : "idle"} />
             </div>
             <span className={page.hint}>Chief</span>
           </div>

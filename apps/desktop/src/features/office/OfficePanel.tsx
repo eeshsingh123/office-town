@@ -86,8 +86,8 @@ function FreeMemberSide({ agentId }: { agentId: string }) {
       now={
         <p className={styles.empty}>
           {lead
-            ? "Free. Not on a task yet. Give the department a task and it starts."
-            : "Free. Not on a task yet. It starts when its lead hands it work."}
+            ? "Idle. Not on a task yet. Give the department a task and it starts."
+            : "Idle. Not on a task yet. It starts when its lead hands it work."}
         </p>
       }
       activity={<p className={styles.empty}>Nothing done yet.</p>}

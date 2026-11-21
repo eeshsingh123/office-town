@@ -124,7 +124,7 @@ function StatusLine({ items }: { items: Item[] }) {
     },
   ].filter((part) => part.count > 0);
   if (workers.length === 0 && parts.length === 0) {
-    return <>{hasTeam ? "Your team is free and ready for a new task." : "Ready for a new task."}</>;
+    return <>{hasTeam ? "Your team is idle and ready for a new task." : "Ready for a new task."}</>;
   }
   return (
     <>

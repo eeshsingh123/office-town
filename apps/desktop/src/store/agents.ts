@@ -6,7 +6,13 @@ import {
   type TaskRecord,
 } from "@office-town/contract";
 import { useMemo } from "react";
-import { type AgentState, agentState, isBusy } from "../trace/progress.ts";
+import {
+  type AgentState,
+  agentState,
+  isBusy,
+  type LiveState,
+  liveStateOf,
+} from "../trace/progress.ts";
 import type { Trace } from "../trace/trace.ts";
 import { type AppState, useApp } from "./app-store.ts";
 
@@ -129,6 +135,34 @@ export function useWaitingSessions(): Set<string> {
     () => new Set(Object.values(waiting).map(({ event }) => event.sessionId)),
     [waiting],
   );
+}
+
+// The selector returns a word, so a row redraws only when its agent's state changes.
+export function useLiveState(agentId: string): LiveState {
+  const work = useAgent(agentId);
+  const waiting = useWaitingSessions();
+  return useApp((state) =>
+    work === undefined
+      ? "idle"
+      : liveStateOf(stateOf(work, state.traces, waiting.has(work.latest.id))),
+  );
+}
+
+// A department asks when one of its sessions waits on the user, else works while a task runs.
+export function useDepartmentState(departmentId: string): LiveState {
+  return useApp((state) => {
+    const waiting = Object.values(state.waiting).some(({ event }) => {
+      const session = state.sessions[event.sessionId];
+      return (
+        session !== undefined && state.tasks[session.taskId]?.task.departmentId === departmentId
+      );
+    });
+    if (waiting) return "waiting";
+    const working = Object.values(state.tasks).some(
+      ({ task }) => task.departmentId === departmentId && task.state === "working",
+    );
+    return working ? "working" : "idle";
+  });
 }
 
 export interface TaskWithAgents {

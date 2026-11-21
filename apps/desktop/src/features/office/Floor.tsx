@@ -840,7 +840,7 @@ export function Floor(props: FloorProps) {
                     className={`${styles.agent} ${finished || asleep === true ? styles.finished : ""}`}
                     style={{ left: position.x - 60, top: position.y - 18 }}
                     aria-pressed={selected}
-                    aria-label={`${name}, ${detail}, ${(state === undefined ? "Free" : STATE_LABELS[state]).toLowerCase()}`}
+                    aria-label={`${name}, ${detail}, ${(state === undefined ? STATE_LABELS.idle : STATE_LABELS[state]).toLowerCase()}`}
                     onClick={(event) => {
                       const adding = event.shiftKey || event.ctrlKey || event.metaKey;
                       if (!adding) onSelect([id]);

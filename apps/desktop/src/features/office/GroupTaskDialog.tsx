@@ -114,7 +114,7 @@ export function GroupTaskDialog({ members, onOpenChange }: GroupTaskDialogProps)
               ))}
             </div>
             {workers.length === 0 ? (
-              <p className={dialog.error}>Pick at least two agents that are free.</p>
+              <p className={dialog.error}>Pick at least two idle agents.</p>
             ) : null}
             <label className={dialog.label}>
               Task

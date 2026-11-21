@@ -31,6 +31,12 @@ export interface Progress {
 export const isBusy = (state: AgentState) =>
   state === "working" || state === "starting" || state === "background";
 
+// What a list of people shows right now: a finished, failed or stopped agent is idle again.
+export type LiveState = Extract<AgentState, "working" | "waiting" | "idle">;
+
+export const liveStateOf = (state: AgentState | undefined): LiveState =>
+  state === "waiting" ? "waiting" : state !== undefined && isBusy(state) ? "working" : "idle";
+
 const RECENT = 3;
 // Past this, an agent has stopped keeping its plan, so the step it names is no longer true.
 const STALE_PLAN_ACTIONS = 25;
