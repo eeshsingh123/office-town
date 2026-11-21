@@ -5,7 +5,7 @@ import "./styles/global.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
-import { notifyFinishedTasks, notifyNewRequests } from "./features/requests/notifications.ts";
+import { showNotices } from "./features/requests/notifications.ts";
 import { connect } from "./store/live.ts";
 import { applyTheme } from "./ui/theme.ts";
 
@@ -13,8 +13,7 @@ const root = document.getElementById("root");
 if (root === null) throw new Error("The page has no #root element.");
 applyTheme();
 connect();
-notifyNewRequests();
-notifyFinishedTasks();
+showNotices();
 createRoot(root).render(
   <StrictMode>
     <App />

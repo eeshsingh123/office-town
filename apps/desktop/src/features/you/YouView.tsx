@@ -16,7 +16,7 @@ import { ANSWER_LENGTHS, ANSWER_STYLES, useYou } from "./you.ts";
 
 const DRAFT = "you";
 
-// What this page saves; notifications are saved from Settings (a1-17).
+// A draft kept from an older version may hold more fields; only these count as a change.
 const profileOf = ({ name, colour, about, answerStyle, answerNotes }: UserProfile) =>
   JSON.stringify({ name, colour, about, answerStyle, answerNotes });
 
@@ -67,11 +67,7 @@ export function YouView() {
     setSaving(true);
     setError(undefined);
     try {
-      const you = await api.saveYou({
-        ...draft,
-        notifyNeedsYou: saved.notifyNeedsYou,
-        notifyFinished: saved.notifyFinished,
-      });
+      const you = await api.saveYou(draft);
       useApp.setState({ you });
       clearDrafts(DRAFT);
       showToast("Saved. Applies from the next task.");

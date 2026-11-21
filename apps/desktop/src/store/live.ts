@@ -3,6 +3,7 @@ import type {
   Change,
   DelegationRecord,
   MilestoneRecord,
+  Notice,
   PlanPiece,
   RoomPosition,
   TaskSearch,
@@ -146,6 +147,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     // Someone who used the app before setup existed has nothing to set up.
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
+    notifications: settings.notifications ?? {},
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,
@@ -385,8 +387,19 @@ function enqueue(streamed: StreamedEvent): void {
 }
 
 function enqueueChange(change: Change): void {
+  if (change.type === "notice.created") {
+    for (const listener of noticeListeners) listener(change.notice);
+  }
   changes.push(change);
   schedule();
+}
+
+const noticeListeners = new Set<(notice: Notice) => void>();
+
+// Each notice the core makes, as it comes; a reconnect does not repeat the missed ones.
+export function onNotice(listener: (notice: Notice) => void): () => void {
+  noticeListeners.add(listener);
+  return () => noticeListeners.delete(listener);
 }
 
 function schedule(): void {

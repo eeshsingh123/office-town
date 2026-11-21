@@ -72,6 +72,8 @@ import {
   type NewConnectorRequest,
   type NewDepartmentRequest,
   type NewLibraryItemRequest,
+  type Notifications,
+  notificationsSchema,
   type Onboarding,
   type OutputFileQuery,
   type OutputRecord,
@@ -391,6 +393,9 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
+  // Only the kinds given change; the answer is every kind the user set.
+  saveNotifications: (change: Notifications): Promise<Notifications> =>
+    write("PUT", "/notifications", change, notificationsSchema),
   saveTaskDefaults: (defaults: TaskDefaultsRequest): Promise<void> =>
     send("PUT", "/task-defaults", defaults),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).
