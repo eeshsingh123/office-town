@@ -81,17 +81,16 @@ export class QueueStore {
     return this.#statements.waiting.all().map((row) => toEntry(row as unknown as EntryRow));
   }
 
-  // Published only when something changed.
-  update(id: string, state: QueueEntry["state"], reason: string | undefined): QueueEntry {
+  // Published only when something changed. An entry deleted with its task is left alone.
+  update(id: string, state: QueueEntry["state"], reason: string | undefined): void {
     const row = this.#statements.byId.get(id) as EntryRow | undefined;
-    if (row === undefined) throw new Error(`No queue entry ${id}.`);
+    if (row === undefined) return;
     const before = toEntry(row);
-    if (before.state === state && before.reason === reason) return before;
+    if (before.state === state && before.reason === reason) return;
     this.#statements.update.run(state, reason ?? null, id);
     const { reason: _, ...rest } = before;
     const entry: QueueEntry = { ...rest, state, ...(reason === undefined ? {} : { reason }) };
     this.#publish({ type: "queue", entry });
-    return entry;
   }
 
   // An earlier launch's starts are not carried on: after a close, the user's own tasks ask first.

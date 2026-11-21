@@ -98,7 +98,10 @@ export class AdmissionQueue {
 
   async #startWhatCan(): Promise<void> {
     const { queue } = this.#store;
-    for (const entry of queue.waiting()) {
+    for (const listed of queue.waiting()) {
+      // Read again: the gap between starts leaves time to continue or delete it by hand.
+      const entry = this.entryOf(listed.what);
+      if (entry?.state !== "waiting") continue;
       const wait = waitFor(this.#store, entry.taskId, LONGEST_WAIT_HOURS);
       if (wait !== undefined && Date.now() > Date.parse(entry.waitUntil)) {
         queue.update(entry.id, "skipped", wait.gaveUp);
