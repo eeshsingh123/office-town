@@ -18,7 +18,7 @@ const request = (kind: string | undefined, locations?: string[]) => ({
 describe("autonomy policy", () => {
   it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own", () => {
     const own = join(directory, "web");
-    const upstream = join(directory, "api");
+    const upstream = join(directory, "café");
     mkdirSync(own);
     mkdirSync(upstream);
     const link = join(own, "api-link");
@@ -28,8 +28,10 @@ describe("autonomy policy", () => {
 
     expect(at("full", "edit", join(upstream, "new", "api.ts"))).toBe(false);
     expect(at("full", "edit", join(link, "api.ts"))).toBe(false);
+    expect(at("full", "edit", join(upstream.normalize("NFD"), "api.ts"))).toBe(false);
+    // Windows and a Mac's usual volume ignore case; Linux does not.
     expect(at("full", "edit", join(upstream, "api.ts").toUpperCase())).toBe(
-      process.platform !== "win32",
+      process.platform === "linux",
     );
     expect(at("full", "execute", upstream)).toBe(false);
     expect(at("full", undefined, join(upstream, "api.ts"))).toBe(false);
