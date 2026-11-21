@@ -1,4 +1,8 @@
-import { notificationsSchema, resumeTasksRequestSchema } from "@office-town/contract";
+import {
+  type KeepAwake,
+  notificationsSchema,
+  resumeTasksRequestSchema,
+} from "@office-town/contract";
 import type { Store } from "../store/store.ts";
 import type { StoppedLeads } from "../team/lead-stopped.ts";
 import type { StoppedTasks } from "../team/stopped-tasks.ts";
@@ -10,8 +14,31 @@ export interface Unattended {
   stoppedTasks: StoppedTasks;
 }
 
+// A task at work, or one waiting on the user while its workers still work (D-123).
+function agentsAtWork(store: Store): boolean {
+  return store
+    .listActiveTasks()
+    .some(
+      (task) =>
+        task.state === "working" ||
+        task.sessions.some(
+          (session) =>
+            session.status === "starting" ||
+            (session.status === "running" && store.latestTurn(session.id)?.ended !== true),
+        ),
+    );
+}
+
 export function unattendedRoutes(store: Store, { stoppedTasks }: Unattended): Route[] {
   return [
+    {
+      method: "GET",
+      path: "/keep-awake",
+      reply: () => {
+        const answer: KeepAwake = { awake: agentsAtWork(store) };
+        return { status: 200, json: answer };
+      },
+    },
     {
       method: "PUT",
       path: "/notifications",
