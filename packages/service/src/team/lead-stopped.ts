@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PendingRequest } from "@office-town/contract";
+import { isChiefTask } from "../chief/chief.ts";
+import { stopChiefGoal } from "../chief/goals.ts";
 import { AnswerError } from "../registry/session-registry.ts";
 import { isOpen, latestSession, tellLead } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
@@ -82,7 +84,12 @@ export class StoppedLeads {
       payload: { requestId, outcome: answer === "retry" ? "retried" : "stopped" },
     });
     if (answer === "stop") {
-      await stopTeam(this.#context, request.taskId);
+      // As the task's own Stop does.
+      if (isChiefTask(this.#context.store, request.taskId)) {
+        await stopChiefGoal(this.#context, request.taskId);
+      } else {
+        await stopTeam(this.#context, request.taskId);
+      }
       return;
     }
     try {
