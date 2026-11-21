@@ -131,7 +131,7 @@ function noteTrayOnce(): void {
   savePreferences(preferences);
   new Notification({
     title: `${app.getName()} is still running`,
-    body: "Agents keep working in the tray. To quit when you close the window, change it in Settings.",
+    body: `Agents keep working in the ${process.platform === "darwin" ? "menu bar" : "tray"}. To quit when you close the window, change it in Settings.`,
     icon: ICON,
   }).show();
 }
