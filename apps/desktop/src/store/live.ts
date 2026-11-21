@@ -146,6 +146,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     // Someone who used the app before setup existed has nothing to set up.
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
+    notifications: settings.notifications ?? {},
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,
@@ -385,8 +386,18 @@ function enqueue(streamed: StreamedEvent): void {
 }
 
 function enqueueChange(change: Change): void {
+  for (const listener of changeListeners) listener(change);
   changes.push(change);
   schedule();
+}
+
+const changeListeners = new Set<(change: Change) => void>();
+
+// Each change as it comes, for what the store keeps no copy of, such as a notice. A reconnect does
+// not repeat the ones missed.
+export function onChange(listener: (change: Change) => void): () => void {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
 }
 
 function schedule(): void {

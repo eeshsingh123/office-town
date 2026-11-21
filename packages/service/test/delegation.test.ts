@@ -634,6 +634,42 @@ Testing again.`),
       "carrying on",
     );
     expect(worker?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
+
+    // The lead fails: it is tried once, a restart forgets that, and the second failure waits for
+    // the user in Needs you, where Try again gives it one more turn.
+    const failLead = (session = core.sessions.at(-1)) => {
+      session?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+      session?.emit({ type: "error", payload: { message: "Overloaded", fatal: false } });
+      session?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "failed" } });
+    };
+    failLead(lead);
+    await settle();
+    expect(lead?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("failed: Overloaded"),
+    });
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    await core.call("POST", `/tasks/${task.taskId}/continue`, {});
+    failLead();
+    await settle();
+    expect(core.sessions.at(-1)?.sent.at(-1)).toEqual({ type: "stop", idle: true });
+    const [stopped, ...others] = core.store.listPendingRequests().requests;
+    expect(others).toEqual([]);
+    expect(stopped?.event).toMatchObject({
+      type: "retry.requested",
+      payload: { error: "Overloaded" },
+    });
+    expect(core.store.getTask(task.taskId)?.state).toBe("waiting");
+    const answered = await core.call("POST", `/sessions/${stopped?.event.sessionId}/commands`, {
+      type: "answerRetry",
+      requestId: stopped?.event.payload.requestId,
+      answer: "retry",
+    });
+    expect(answered.status).toBe(204);
+    expect(core.sessions.at(-1)?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("failed: Overloaded"),
+    });
+    expect(core.store.listPendingRequests().requests).toEqual([]);
   });
 
   it("stops a whole team without waking its lead, and after a restart a message to its lead continues it with the work that was cut off", async () => {
@@ -679,6 +715,35 @@ Testing again.`),
       origin: { kind: "notice" },
     });
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
+  });
+
+  it("after a close, shows the cut-off work on Home without resuming it, says so once, and resumes it through the queue once a launch", async () => {
+    const { task, writer } = await teamAtWork();
+    await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write the menu" });
+    // A card closed while the lead waits on its team still shows the work a later close cuts off.
+    await core.call("POST", "/stopped-tasks/close");
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    await settle();
+    expect(core.sessions).toEqual([]);
+    expect((await core.call("GET", "/stopped-tasks")).json.tasks).toEqual([
+      { taskId: task.taskId, partIds: [] },
+    ]);
+    expect(core.store.notices.latestOf("work-stopped")).toMatchObject({
+      title: "1 task stopped when Office Town closed.",
+    });
+
+    const asked = await core.call("POST", "/stopped-tasks/resume", { taskIds: [task.taskId] });
+    expect(asked.json.tasks[0]?.entry).toMatchObject({ state: "started" });
+    await eventually(() => core.sessions.length > 0);
+    expect(core.sessions[0]?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining(`- ${writer}: Write the menu`),
+      origin: { kind: "notice" },
+    });
+    await core.call("POST", "/stopped-tasks/resume", { taskIds: [task.taskId] });
+    await settle();
+    expect(core.sessions).toHaveLength(1);
+    expect((await core.call("GET", "/stopped-tasks")).json.tasks).toEqual([]);
   });
 
   it("checks finished work in a temporary worktree from the user's approved list, wants steps for a fail, and leaves nothing behind", async () => {

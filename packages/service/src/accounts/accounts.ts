@@ -10,7 +10,7 @@ import {
   type SessionOptions,
   type SessionRecord,
 } from "@office-town/contract";
-import { accountCredentials } from "@office-town/harness";
+import { accountCredentials, listHarnesses } from "@office-town/harness";
 import { eventsOf, userMessages } from "../store/session-events.ts";
 import type { Store } from "../store/store.ts";
 
@@ -63,6 +63,14 @@ export function allAccounts(store: Store, harnesses: readonly HarnessDescription
     .listAccounts()
     .map((account) => ({ ...account, signedIn: hasSignIn(account, store) }));
   return [...defaultAccounts(harnesses, used), ...added];
+}
+
+// "Claude (Work)" for an account the user added, the provider's name alone for its own login.
+export function accountTitle(store: Store, accountId: string): string {
+  const added = store.getAccount(accountId);
+  const harness = added?.harness ?? accountId.split("@")[0] ?? accountId;
+  const provider = listHarnesses().find((one) => one.harness === harness)?.name ?? harness;
+  return added === undefined ? provider : `${provider} (${added.name})`;
 }
 
 // The fullest window that has not reset yet, from 0 to 1; 0 where nothing was reported.

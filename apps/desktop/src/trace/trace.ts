@@ -110,6 +110,8 @@ export interface Trace {
   thinking?: string;
   turnOpen: boolean;
   turnStartedAt?: string;
+  // Any news at all, for a turn that has gone quiet (D-120).
+  lastEventAt?: string;
   // The model has shown something in this turn.
   answered: boolean;
   lastTurn?: "completed" | "interrupted" | "failed";
@@ -150,6 +152,7 @@ export function applyEvents(trace: Trace, events: readonly StreamedEvent[]): Tra
       if (position <= next.position) continue;
       next.position = position;
     }
+    next.lastEventAt = event.timestamp;
     apply(next, event);
   }
   return next;

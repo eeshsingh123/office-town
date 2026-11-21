@@ -114,7 +114,5 @@ export const userProfileSchema = z.object({
   // Quick picks such as "Explain the why", then the user's own words.
   answerStyle: z.array(z.string().trim().min(1)),
   answerNotes: z.string(),
-  notifyNeedsYou: z.boolean(),
-  notifyFinished: z.boolean(),
 });
 export type UserProfile = z.infer<typeof userProfileSchema>;

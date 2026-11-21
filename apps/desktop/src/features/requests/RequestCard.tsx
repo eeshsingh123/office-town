@@ -12,6 +12,7 @@ import { PlanCard } from "../plan/PlanCard.tsx";
 import { detailOf, useAnswer } from "./answer.ts";
 import { ProposalCard } from "./ProposalCard.tsx";
 import styles from "./RequestCard.module.css";
+import { RetryCard } from "./RetryCard.tsx";
 
 const OWN_ANSWER = "~own";
 
@@ -209,6 +210,7 @@ export function RequestCard({ event, context }: RequestCardProps) {
   if (event.type === "checklist.requested") {
     return <ChecklistCard event={event} context={context} />;
   }
+  if (event.type === "retry.requested") return <RetryCard event={event} context={context} />;
   return <AskCard event={event} context={context} />;
 }
 

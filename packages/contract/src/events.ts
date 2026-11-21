@@ -267,6 +267,17 @@ const payloadSchemas = {
     // After the user's changes.
     items: z.array(checkItemSchema).optional(),
   }),
+  // A lead that failed again after its one retry (D-120), answered by the core: Try again or Stop.
+  "retry.requested": z.object({
+    requestId: z.string().min(1),
+    // The error in one plain line, when the turn reported one.
+    error: z.string().min(1).optional(),
+  }),
+  // "cancelled": the lead's next turn started some other way, or the task was stopped.
+  "retry.resolved": z.object({
+    requestId: z.string().min(1),
+    outcome: z.enum(["retried", "stopped", "cancelled"]),
+  }),
   "limits.updated": z.object({ limits: z.array(usageLimitSchema).min(1) }),
   // Added by the core after a session ends: tokens its turns did not report, read from the
   // harness's own records. Totals add it like a turn's usage.
@@ -313,6 +324,8 @@ export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("plan.resolved"),
   eventOf("checklist.requested"),
   eventOf("checklist.resolved"),
+  eventOf("retry.requested"),
+  eventOf("retry.resolved"),
   eventOf("limits.updated"),
   eventOf("usage.recounted"),
   eventOf("error"),
@@ -330,5 +343,6 @@ export const userRequestEventSchema = z.discriminatedUnion("type", [
   eventOf("proposal.requested"),
   eventOf("plan.requested"),
   eventOf("checklist.requested"),
+  eventOf("retry.requested"),
 ]);
 export type UserRequestEvent = z.infer<typeof userRequestEventSchema>;

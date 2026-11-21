@@ -1,4 +1,9 @@
-import type { Display, EverydayAutonomy, UserProfile } from "@office-town/contract";
+import {
+  type Display,
+  type EverydayAutonomy,
+  NOTICE_DEFAULTS,
+  type NoticeKind,
+} from "@office-town/contract";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { type DesktopPreferences, shell, type UpdateStatus } from "../../shell.ts";
@@ -22,7 +27,6 @@ import {
   useTaskDefaults,
 } from "../task/task-options.ts";
 import { useStoreInfo } from "../tasks/store-size.ts";
-import { DEFAULT_YOU } from "../you/you.ts";
 import styles from "./Settings.module.css";
 
 // The groups in the order people come for them; Ctrl K opens each by its id (D-111).
@@ -102,27 +106,36 @@ async function saveDisplayOrSay(change: Partial<Display>): Promise<void> {
   }
 }
 
-type NotifyFlags = Pick<UserProfile, "notifyNeedsYou" | "notifyFinished">;
 let notifyWrites: Promise<void> = Promise.resolve();
 
-// Kept with the profile in the core. Shown at once; writes go one at a time, each with the latest
-// profile, so two quick changes cannot undo each other.
-function saveNotify(change: Partial<NotifyFlags>): void {
-  const before = useApp.getState().you ?? DEFAULT_YOU;
-  const undo = Object.fromEntries(
-    Object.keys(change).map((key) => [key, before[key as keyof NotifyFlags]]),
-  ) as Partial<NotifyFlags>;
-  useApp.setState({ you: { ...before, ...change } });
+// Kept in the core, which makes the notices (D-124). Shown at once; writes go one at a time, so
+// two quick changes cannot undo each other, and a refused one is put back.
+function saveNotify(kind: NoticeKind, on: boolean): void {
+  const before = useApp.getState().notifications[kind];
+  useApp.setState((state) => ({ notifications: { ...state.notifications, [kind]: on } }));
   notifyWrites = notifyWrites.then(() =>
-    api.saveYou(useApp.getState().you ?? DEFAULT_YOU).then(
+    api.saveNotifications({ [kind]: on }).then(
       () => undefined,
       () => {
-        useApp.setState((state) => ({ you: { ...(state.you ?? DEFAULT_YOU), ...undo } }));
+        useApp.setState((state) => {
+          const { [kind]: _, ...rest } = state.notifications;
+          return { notifications: before === undefined ? rest : { ...rest, [kind]: before } };
+        });
         showToast("The choice could not be saved.");
       },
     ),
   );
 }
+
+// No row for work stopped by a close: that notice is made at start, before the window can show
+// it, so its switch waits for the phone (M13).
+const NOTICE_ROWS: { kind: NoticeKind; label: string }[] = [
+  { kind: "needs-you", label: "When an agent needs you" },
+  { kind: "lead-stopped", label: "When a lead stops after an error" },
+  { kind: "finished", label: "When a task is finished" },
+  { kind: "failed", label: "When a task fails" },
+  { kind: "usage-paused", label: "When work pauses as your usage runs out" },
+];
 
 type TestResult = "sent" | "blocked" | undefined;
 
@@ -138,22 +151,19 @@ async function sendTest(): Promise<TestResult> {
 }
 
 function Notifications() {
-  const you = useApp((state) => state.you) ?? DEFAULT_YOU;
+  const notifications = useApp((state) => state.notifications);
   const [test, setTest] = useState<TestResult>();
   return (
     <Group id="notifications">
-      <SwitchRow
-        label="When an agent needs you"
-        hint="While the app is in the background."
-        on={you.notifyNeedsYou}
-        onChange={(notifyNeedsYou) => saveNotify({ notifyNeedsYou })}
-      />
-      <SwitchRow
-        label="When a task is finished"
-        hint="While the app is in the background."
-        on={you.notifyFinished}
-        onChange={(notifyFinished) => saveNotify({ notifyFinished })}
-      />
+      {NOTICE_ROWS.map(({ kind, label }, index) => (
+        <SwitchRow
+          key={kind}
+          label={label}
+          {...(index === 0 ? { hint: "While the app is in the background." } : {})}
+          on={notifications[kind] ?? NOTICE_DEFAULTS[kind]}
+          onChange={(on) => saveNotify(kind, on)}
+        />
+      ))}
       <SettingRow
         label="Test"
         hint={
@@ -260,6 +270,18 @@ function Desktop() {
           }}
         />
       </SettingRow>
+      <SwitchRow
+        label="Keep the computer awake while agents work"
+        hint="Also on battery. The screen can still turn off."
+        on={preferences.keepAwake}
+        onChange={(keepAwake) => {
+          setPreferences({ ...preferences, keepAwake });
+          shell?.setKeepAwake(keepAwake).catch(() => {
+            setPreferences({ ...preferences });
+            showToast("The choice could not be saved.");
+          });
+        }}
+      />
       {preferences.canOpenAtLogin ? (
         <SwitchRow
           label="Open at login"

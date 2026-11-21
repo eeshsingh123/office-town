@@ -11,15 +11,13 @@ export const ANSWER_STYLES = [
   "Ask before big changes",
 ] as const;
 
-// Until the user saves their profile: no text, and a pop-up only when an agent needs them.
+// Until the user saves their profile: no text.
 export const DEFAULT_YOU: UserProfile = {
   name: "",
   colour: "#A2456E",
   about: "",
   answerStyle: [],
   answerNotes: "",
-  notifyNeedsYou: true,
-  notifyFinished: false,
 };
 
 export function useYou(): UserProfile {

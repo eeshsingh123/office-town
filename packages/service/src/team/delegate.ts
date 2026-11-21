@@ -19,6 +19,7 @@ import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { nextWork, pieceUpdate, workerBrief } from "./briefs.ts";
 import { busyAgents, groupName, isOpen, latestSession, leadsTeam } from "./lead.ts";
 import type { TeamContext } from "./members.ts";
+import type { QuietWorkers } from "./quiet-workers.ts";
 import { workerFolders } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 80;
@@ -270,6 +271,7 @@ export function delegate(context: TeamContext) {
 function stateOf(
   context: TeamContext,
   activity: SessionActivity,
+  quiet: QuietWorkers,
   caller: Caller,
   worker: AgentRecord,
   waiting: Set<string>,
@@ -288,8 +290,14 @@ function stateOf(
       return `is waiting on ${count} for "${piece}" (for ${minutes} min); its result follows`;
     }
     const active = seen?.lastActive;
-    const quiet = active === undefined ? 0 : Math.round((Date.now() - active) / 60_000);
-    const last = quiet === 0 ? "" : `, last active ${quiet} min ago`;
+    const minutesQuiet = quiet.quietMinutes(session.id, waiting);
+    const since = active === undefined ? 0 : Math.round((Date.now() - active) / 60_000);
+    const last =
+      minutesQuiet !== undefined
+        ? `, no news for ${minutesQuiet} min`
+        : since === 0
+          ? ""
+          : `, last active ${since} min ago`;
     return `is working on "${piece}" (for ${minutes} min${last})`;
   }
   if (isOpen(session) && activity.of(session.id)?.turnOpen) return "is at work";
@@ -303,7 +311,7 @@ function stateOf(
   return session.status === "failed" ? "failed on its last piece" : "has finished its last piece";
 }
 
-export function teamStatus(context: TeamContext, activity: SessionActivity) {
+export function teamStatus(context: TeamContext, activity: SessionActivity, quiet: QuietWorkers) {
   const { store } = context;
   return defineTool({
     name: "team_status",
@@ -321,7 +329,7 @@ export function teamStatus(context: TeamContext, activity: SessionActivity) {
       const lines = team.workers.map((worker) => {
         const { harness, model } = worker.settings;
         const runs = `${harness}${model ? `, ${model}` : ""}`;
-        return `- ${worker.name}, ${worker.role ?? "worker"} (${runs}): ${stateOf(context, activity, caller, worker, waiting)}`;
+        return `- ${worker.name}, ${worker.role ?? "worker"} (${runs}): ${stateOf(context, activity, quiet, caller, worker, waiting)}`;
       });
       const open = store.listDelegations(caller.taskId).filter((one) => one.status === "working");
       return `${team.name}:\n${lines.join("\n") || "No workers yet."}\n\nWork still out: ${open.length}.`;

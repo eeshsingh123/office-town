@@ -11,12 +11,15 @@ export interface DesktopPreferences {
   trayNoteShown: boolean;
   // A Mac user who said no to moving the app into Applications is not asked again.
   moveDeclined: boolean;
+  // Keep the computer awake while agents work (D-123).
+  keepAwake: boolean;
 }
 
 const DEFAULTS: DesktopPreferences = {
   closeToTray: true,
   trayNoteShown: false,
   moveDeclined: false,
+  keepAwake: true,
 };
 
 const file = () => join(app.getPath("userData"), "desktop.json");
@@ -29,6 +32,7 @@ export function readPreferences(): DesktopPreferences {
         typeof saved.closeToTray === "boolean" ? saved.closeToTray : DEFAULTS.closeToTray,
       trayNoteShown: saved.trayNoteShown === true,
       moveDeclined: saved.moveDeclined === true,
+      keepAwake: typeof saved.keepAwake === "boolean" ? saved.keepAwake : DEFAULTS.keepAwake,
     };
   } catch {
     return { ...DEFAULTS };

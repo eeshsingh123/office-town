@@ -13,11 +13,14 @@ import { ConnectorHub } from "../src/connectors/hub.ts";
 import { MilestoneEdits } from "../src/goal/edits.ts";
 import { PreviewServer } from "../src/outputs/preview-server.ts";
 import { TaskFiles } from "../src/outputs/task-files.ts";
+import { AdmissionQueue } from "../src/queue/admission-queue.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
 import { Checks } from "../src/team/checks.ts";
+import { StoppedLeads } from "../src/team/lead-stopped.ts";
+import { StoppedTasks } from "../src/team/stopped-tasks.ts";
 import { TaskStates } from "../src/team/task-state.ts";
 import { UsagePauses } from "../src/team/usage-pause.ts";
 import { memorySecrets } from "./support/connectors.ts";
@@ -125,6 +128,13 @@ beforeEach(async () => {
     checks,
     milestones: new MilestoneEdits(team),
     outputs,
+    unattended: {
+      stoppedLeads: new StoppedLeads(team),
+      stoppedTasks: new StoppedTasks(
+        team,
+        new AdmissionQueue(store, registry, "launch", async () => {}),
+      ),
+    },
     token: TOKEN,
     port: 0,
   });

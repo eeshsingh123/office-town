@@ -1,3 +1,4 @@
+import { QUIET_AFTER_MS } from "@office-town/contract";
 import {
   Bot,
   Check,
@@ -26,7 +27,7 @@ import { useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
 import { CONTINUED_LINE } from "../../trace/activity.ts";
 import { describeActions, settledByLevel } from "../../trace/blocks.ts";
-import { agentState, stageOf } from "../../trace/progress.ts";
+import { agentState, progressOf, stageOf } from "../../trace/progress.ts";
 import { delegatedTo } from "../../trace/team-tools.ts";
 import type { TraceAction, TraceItem, TraceMessage, TraceRequest } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -37,7 +38,7 @@ import { MessageMenu } from "../chat/MessageMenu.tsx";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { TaggedText, useAppNames } from "../connectors/AppTags.tsx";
 import { ShownResult } from "../outputs/OutputCards.tsx";
-import { RequestCard } from "../requests/RequestCard.tsx";
+import { RequestCard, useMinutesSince } from "../requests/RequestCard.tsx";
 import { requestSummary } from "../requests/summary.ts";
 import { useYourName, YouAvatar } from "../you/YouAvatar.tsx";
 import { useMemberLinks } from "./members.ts";
@@ -110,11 +111,29 @@ function Thinking({ text }: { text: string }) {
   );
 }
 
+// "Mira: no news for 30 minutes." An open turn with no event, no sub-agent and nothing asked.
+function useQuietLine(place: Place): string | undefined {
+  const session = useApp((state) => state.sessions[place.sessionId]);
+  const trace = useApp((state) => state.traces[place.sessionId]);
+  const name = useApp((state) =>
+    session === undefined ? undefined : state.agents[session.agentId]?.name,
+  );
+  const asking = useApp((state) =>
+    Object.values(state.waiting).some(({ event }) => event.sessionId === place.sessionId),
+  );
+  const minutes = useMinutesSince(trace?.lastEventAt ?? new Date().toISOString());
+  if (session?.status !== "running" || trace?.turnOpen !== true || asking) return undefined;
+  if (minutes < QUIET_AFTER_MS / 60_000 || progressOf(trace).subAgents.length > 0) return undefined;
+  return `${name ?? "This agent"}: no news for ${minutes} minutes`;
+}
+
 export function Stage({ place }: { place: Place }) {
   const session = useApp((state) => state.sessions[place.sessionId]);
   const trace = useApp((state) => state.traces[place.sessionId]);
+  const quiet = useQuietLine(place);
   const stage =
-    session === undefined ? undefined : stageOf(agentState(session, trace, false), trace);
+    quiet ??
+    (session === undefined ? undefined : stageOf(agentState(session, trace, false), trace));
   if (stage === undefined) return null;
   return (
     <div className={styles.stage} role="status">

@@ -30,6 +30,7 @@ import {
   type TeamContext,
   TeamError,
 } from "./members.ts";
+import { resultText } from "./results.ts";
 import { isRepository, removeWorktrees } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
@@ -76,32 +77,48 @@ function hold(ids: string[], taskId: string | undefined): () => void {
   };
 }
 
-// An ended goal is taken up again only while no other chief goal runs (D-49).
-function claimChief(store: Store, taskId: string | undefined): string[] {
+const chiefOf = (store: Store, taskId: string | undefined): string | undefined => {
   const leadId = taskId === undefined ? undefined : store.getTask(taskId)?.leadAgentId;
-  if (leadId === undefined || leadId !== store.readSettings().chiefAgentId) return [];
-  const open = store.openTaskOfLead(leadId);
-  if ((open !== undefined && open !== taskId) || claimedByOther(leadId, taskId)) {
-    throw new DepartmentBusyError("The chief");
+  return leadId !== undefined && leadId === store.readSettings().chiefAgentId ? leadId : undefined;
+};
+
+// What holds a start back, by name, or undefined when it can start: one goal per department
+// (D-41), and an ended chief goal taken up again only while no other runs (D-49). A person's start
+// and the admission queue read the same check (D-121).
+export function busyName(
+  store: Store,
+  departmentId: string | undefined,
+  taskId: string | undefined,
+): string | undefined {
+  const chiefId = chiefOf(store, taskId);
+  if (chiefId !== undefined) {
+    const open = store.openTaskOfLead(chiefId);
+    if ((open !== undefined && open !== taskId) || claimedByOther(chiefId, taskId)) {
+      return "The chief";
+    }
   }
-  return [leadId];
+  if (departmentId === undefined) return undefined;
+  const active = store.activeTaskOf(departmentId);
+  if ((active !== undefined && active !== taskId) || claimedByOther(departmentId, taskId)) {
+    return store.getDepartment(departmentId)?.name ?? "The department";
+  }
+  return undefined;
 }
 
-// One goal per department (D-41). Check and claim happen at once, so two starts never both pass.
+// Check and claim happen at once, so two starts never both pass.
 export async function claimDepartment<T>(
   { store, registry }: TeamContext,
   departmentId: string | undefined,
   taskId: string | undefined,
   start: () => Promise<T>,
 ): Promise<T> {
-  const ids = claimChief(store, taskId);
-  if (departmentId !== undefined) {
-    const active = store.activeTaskOf(departmentId);
-    if ((active !== undefined && active !== taskId) || claimedByOther(departmentId, taskId)) {
-      throw new DepartmentBusyError(store.getDepartment(departmentId)?.name ?? "The department");
-    }
-    ids.push(departmentId);
-  }
+  const busy = busyName(store, departmentId, taskId);
+  if (busy !== undefined) throw new DepartmentBusyError(busy);
+  const chiefId = chiefOf(store, taskId);
+  const ids = [
+    ...(chiefId === undefined ? [] : [chiefId]),
+    ...(departmentId === undefined ? [] : [departmentId]),
+  ];
   const release = hold(ids, taskId);
   try {
     if (departmentId !== undefined) {
@@ -416,7 +433,22 @@ function missedResults(store: Store, taskId: string, chief: SessionRecord): stri
   });
 }
 
-// Resumes the lead after a restart, told which work was cut off and, for the chief, missed results.
+// Results that ended while the lead was stopped or cut off, oldest first (D-120).
+function owedResults(store: Store, taskId: string): { ids: string[]; texts: string[] } {
+  const ids = store.recovery.owedResults(taskId);
+  const delegations = new Map(store.listDelegations(taskId).map((one) => [one.id, one]));
+  const texts = ids.flatMap((id) => {
+    const delegation = delegations.get(id);
+    if (delegation === undefined || delegation.status === "working") return [];
+    const outcome = delegation.status === "interrupted" ? "stopped" : delegation.status;
+    const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
+    return [resultText(name, outcome, delegation.result ?? "")];
+  });
+  return { ids, texts };
+}
+
+// Resumes the lead after a restart, told which work was cut off, the results it never got and, for
+// the chief, missed results.
 export async function continueTeam(
   context: TeamContext,
   taskId: string,
@@ -442,7 +474,11 @@ export async function continueTeam(
         ),
     );
     const missed = missedResults(store, taskId, lead);
+    const owed = owedResults(store, taskId);
     const notices = [
+      ...(owed.texts.length === 0
+        ? []
+        : [`While you were not running, these results came in:\n\n${owed.texts.join("\n\n")}`]),
       ...(lost.length === 0 ? [] : [cutOffNotice(store, lost, by)]),
       ...(missed.length === 0
         ? []
@@ -454,7 +490,7 @@ export async function continueTeam(
     const summary =
       lost.length > 0
         ? `${CUT_OFF[by].summary}: ${lost.length}`
-        : `Results that came while you were not running: ${missed.length}`;
+        : `Results that came while you were not running: ${owed.texts.length + missed.length}`;
     const message: Message = {
       ...(notices.length === 0
         ? { text: prompt || "Continue where you left off." }
@@ -464,7 +500,9 @@ export async function continueTeam(
     // Resumed first, so the goal is at work again before the cut-off work stops counting as out.
     const resumed = registry.resume(lead.id, message);
     for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
-    return resumed;
+    const record = await resumed;
+    for (const id of owed.ids) store.recovery.resultDelivered(id);
+    return record;
   });
 }
 

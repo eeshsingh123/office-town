@@ -25,6 +25,7 @@ import { PlanUsageCard } from "../usage/PlanUsageCard.tsx";
 import { UsagePauses } from "../usage/UsagePauses.tsx";
 import { useGreeting } from "./greeting.ts";
 import styles from "./Home.module.css";
+import { StoppedTasksCard } from "./StoppedTasksCard.tsx";
 
 // Rows per task list on Home, then a link to the rest.
 const SHOWN = 3;
@@ -467,6 +468,7 @@ export function HomeView() {
         </header>
         <NextStep />
         <Composer home />
+        <StoppedTasksCard />
         <UsagePauses />
         <LimitStops />
         <TaskSection

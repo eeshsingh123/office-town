@@ -30,6 +30,7 @@ interface ShellBridge {
   setCloseToTray(on: boolean): Promise<void>;
   // Returns whether it is now on.
   setOpenAtLogin(on: boolean): Promise<boolean>;
+  setKeepAwake(on: boolean): Promise<void>;
 }
 
 // As the shell's updates.ts says it.
@@ -44,6 +45,8 @@ export type UpdateStatus =
 
 export interface DesktopPreferences {
   closeToTray: boolean;
+  // While agents work, on battery too (D-123).
+  keepAwake: boolean;
   openAtLogin: boolean;
   // Only the installed app on Windows and macOS.
   canOpenAtLogin: boolean;

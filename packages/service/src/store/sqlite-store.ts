@@ -71,7 +71,10 @@ import {
 } from "@office-town/contract";
 import { AttachmentFiles } from "./attachment-files.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
+import { NoticesStore } from "./notices-store.ts";
 import { queries } from "./queries.ts";
+import { QueueStore } from "./queue-store.ts";
+import { RecoveryStore } from "./recovery-store.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type AgentChange,
@@ -730,6 +733,9 @@ export function openStore(directory: string): Store {
 }
 
 class SqliteStore implements Store {
+  readonly recovery: RecoveryStore;
+  readonly notices: NoticesStore;
+  readonly queue: QueueStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -755,6 +761,9 @@ class SqliteStore implements Store {
     this.#results = results;
     this.#files = files;
     this.#outputs = outputs;
+    this.recovery = new RecoveryStore(db);
+    this.notices = new NoticesStore(db, (change) => this.#publish(change));
+    this.queue = new QueueStore(db, (change) => this.#publish(change));
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -896,7 +905,14 @@ class SqliteStore implements Store {
   }
 
   listActiveTasks(): TaskSummary[] {
-    const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+    return this.#tasksOf(all<SessionRow>(this.#statements.unfinishedSessions));
+  }
+
+  listInterruptedTasks(since: number): TaskSummary[] {
+    return this.#tasksOf(all<SessionRow>(this.#statements.interruptedSince, since));
+  }
+
+  #tasksOf(sessions: SessionRow[]): TaskSummary[] {
     return [...new Set(sessions.map((session) => session.taskId))]
       .map((id) => this.#taskRow(id))
       .sort((a, b) => b.ref - a.ref)
@@ -1070,7 +1086,7 @@ class SqliteStore implements Store {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
       const delegations = all<DelegationRow>(this.#statements.workingDelegations);
       this.#statements.deleteUnfinishedPendingRequests.run();
-      this.#statements.interruptUnfinished.run();
+      this.#statements.interruptUnfinished.run(Date.now());
       this.#statements.interruptDelegations.run();
       return { sessions, delegations };
     });
@@ -1097,7 +1113,7 @@ class SqliteStore implements Store {
         taskIds.add(session.taskId);
         delegations.push(...all<DelegationRow>(this.#statements.workingDelegationsOfSession, id));
         this.#statements.deleteSessionPendingRequests.run(this.#sessionRef(id));
-        this.#statements.interruptSession.run(id);
+        this.#statements.interruptSession.run(Date.now(), id);
         this.#statements.interruptDelegationsOfSession.run(id);
       }
       return { taskIds, delegations };
@@ -2477,6 +2493,7 @@ class SqliteStore implements Store {
       case "proposal.requested":
       case "plan.requested":
       case "checklist.requested":
+      case "retry.requested":
         this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
         return;
       case "permission.resolved":
@@ -2484,6 +2501,7 @@ class SqliteStore implements Store {
       case "proposal.resolved":
       case "plan.resolved":
       case "checklist.resolved":
+      case "retry.resolved":
         this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
         return;
       case "session.ended":

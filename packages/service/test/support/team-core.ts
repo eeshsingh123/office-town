@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type HarnessCatalog, teamToolServer } from "@office-town/contract";
 import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
@@ -13,9 +14,11 @@ import { goalTools } from "../../src/goal/tools.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
+import { Notifier } from "../../src/notify/notifier.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
+import { AdmissionQueue } from "../../src/queue/admission-queue.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import {
   type HarnessSessionFactory,
@@ -28,11 +31,14 @@ import { changeWorker } from "../../src/team/change-worker.ts";
 import { Checks } from "../../src/team/checks.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import { Handovers } from "../../src/team/handover.ts";
+import { StoppedLeads } from "../../src/team/lead-stopped.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { proposeChange } from "../../src/team/propose-change.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
+import { QuietWorkers } from "../../src/team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
+import { resumeTask, StoppedTasks } from "../../src/team/stopped-tasks.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { UsagePauses } from "../../src/team/usage-pause.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
@@ -115,18 +121,24 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
-  recoverLeads(team, activity);
+  const notifier = new Notifier(store, registry);
+  const stoppedLeads = new StoppedLeads(team);
+  recoverLeads(team, activity, stoppedLeads);
+  const quiet = new QuietWorkers(team, activity);
   taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
   const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
   const checks = new Checks(team);
   const milestones = new MilestoneEdits(team);
   const scheduler = new Scheduler(team);
+  const queue = new AdmissionQueue(store, registry, randomUUID(), (what) => resumeTask(team, what));
+  const stoppedTasks = new StoppedTasks(team, queue);
+  stoppedTasks.announce(notifier);
   tools.offer([
     askUser(registry),
     proposeTeam(team),
     delegate(team),
-    teamStatus(team, activity),
+    teamStatus(team, activity, quiet),
     stopWork(team, activity),
     resumeWork(team),
     changeWorker(team),
@@ -151,6 +163,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     checks,
     milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
+    unattended: { stoppedLeads, stoppedTasks },
     token: TOKEN,
     port: 0,
   });
@@ -194,6 +207,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
       return { text: result.content[0]?.text ?? "", isError: result.isError === true };
     },
     async close() {
+      quiet.stop();
+      notifier.stop();
+      queue.stop();
       await server.close();
       await preview.close();
       await registry.close();

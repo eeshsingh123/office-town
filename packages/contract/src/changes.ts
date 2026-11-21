@@ -9,6 +9,7 @@ import { milestoneRecordSchema } from "./milestones.ts";
 import { outputRecordSchema } from "./outputs.ts";
 import { planPieceSchema } from "./plans.ts";
 import { delegationRecordSchema, departmentRecordSchema } from "./team.ts";
+import { noticeSchema, queueEntrySchema } from "./unattended.ts";
 
 // Sent whole on the live stream, never stored: a reconnecting client reads the records again.
 export const changeSchema = z.discriminatedUnion("type", [
@@ -34,5 +35,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   }),
   // One provider's status as soon as a check reads it (D-93).
   z.object({ type: z.literal("harness"), status: harnessStatusSchema }),
+  z.object({ type: z.literal("notice.created"), notice: noticeSchema }),
+  z.object({ type: z.literal("queue"), entry: queueEntrySchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

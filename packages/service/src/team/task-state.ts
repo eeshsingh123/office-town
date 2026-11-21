@@ -19,6 +19,8 @@ const STATE_EVENTS = new Set<SessionEvent["type"]>([
   "plan.resolved",
   "checklist.requested",
   "checklist.resolved",
+  "retry.requested",
+  "retry.resolved",
 ]);
 
 type WorkOut = (store: Store, taskId: string) => boolean;
@@ -58,7 +60,7 @@ function isWorking(store: Store, session: SessionRecord, subAgentsAt: SubAgentsA
 }
 
 // Its lead, or else its first agent.
-function topSession(task: TaskRecord, sessions: SessionRecord[]): SessionRecord | undefined {
+export function topSession(task: TaskRecord, sessions: SessionRecord[]): SessionRecord | undefined {
   const topAgent = task.leadAgentId ?? sessions[0]?.agentId;
   return sessions.findLast((session) => session.agentId === topAgent);
 }

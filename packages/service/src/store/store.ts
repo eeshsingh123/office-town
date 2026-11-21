@@ -55,6 +55,9 @@ import type {
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
+import type { NoticesStore } from "./notices-store.ts";
+import type { QueueStore } from "./queue-store.ts";
+import type { RecoveryStore } from "./recovery-store.ts";
 
 export interface NewSession {
   id: string;
@@ -266,6 +269,10 @@ export type LineDirection = "in" | "out";
 
 // Synchronous on purpose: an in-process SQLite write takes microseconds (D-15).
 export interface Store {
+  // Kept in files of their own over the same database (D-30).
+  readonly recovery: RecoveryStore;
+  readonly notices: NoticesStore;
+  readonly queue: QueueStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
@@ -291,6 +298,8 @@ export interface Store {
   listTasks(query: TaskQuery): TaskPage;
   listActiveTasks(): TaskSummary[];
   listPausedTasks(): TaskSummary[];
+  // With a session a close, crash or pause cut off at or after this time, newest first.
+  listInterruptedTasks(since: number): TaskSummary[];
   searchTasks(filters: TaskSearch): TaskSearchResult;
   // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;

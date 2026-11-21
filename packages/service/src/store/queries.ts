@@ -221,7 +221,9 @@ export const queries = {
   unfinishedInTask: `SELECT 1 FROM sessions WHERE task_ref = ? AND ${UNFINISHED} LIMIT 1`,
   unfinishedSessions: `${SESSION_SELECT} WHERE s.${UNFINISHED}`,
   interruptedSessions: `${SESSION_SELECT} WHERE s.status = 'interrupted'`,
-  interruptUnfinished: `UPDATE sessions SET status = 'interrupted' WHERE ${UNFINISHED}`,
+  interruptedSince: `${SESSION_SELECT} WHERE s.status = 'interrupted' AND s.interrupted_at >= ?`,
+  interruptUnfinished: `
+    UPDATE sessions SET status = 'interrupted', interrupted_at = ? WHERE ${UNFINISHED}`,
   sessionStarted: "UPDATE sessions SET status = 'running', harness_session_id = ? WHERE ref = ?",
   sessionEnded: "UPDATE sessions SET status = ?, ended_at = ? WHERE ref = ?",
 
@@ -294,7 +296,8 @@ export const queries = {
   endDelegation: "UPDATE delegations SET status = ?, result = ?, ended_at = ? WHERE ref = ?",
   moveDelegation: "UPDATE delegations SET worker_session = ? WHERE ref = ?",
   interruptDelegations: "UPDATE delegations SET status = 'interrupted' WHERE status = 'working'",
-  interruptSession: `UPDATE sessions SET status = 'interrupted' WHERE id = ? AND ${UNFINISHED}`,
+  interruptSession: `
+    UPDATE sessions SET status = 'interrupted', interrupted_at = ? WHERE id = ? AND ${UNFINISHED}`,
   workingDelegationsOfSession: `${DELEGATION_SELECT} WHERE g.status = 'working' AND g.worker_session = ?`,
   interruptDelegationsOfSession:
     "UPDATE delegations SET status = 'interrupted' WHERE status = 'working' AND worker_session = ?",

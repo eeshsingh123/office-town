@@ -109,6 +109,7 @@ export function applyToRecords(records: Records, events: readonly StreamedEvent[
       case "proposal.requested":
       case "plan.requested":
       case "checklist.requested":
+      case "retry.requested":
         if (position !== undefined) {
           editWaiting()[waitingKey(session.id, event.payload.requestId)] = { position, event };
         }
@@ -117,7 +118,8 @@ export function applyToRecords(records: Records, events: readonly StreamedEvent[
       case "question.resolved":
       case "proposal.resolved":
       case "plan.resolved":
-      case "checklist.resolved": {
+      case "checklist.resolved":
+      case "retry.resolved": {
         const key = waitingKey(session.id, event.payload.requestId);
         if (waiting[key] !== undefined) delete editWaiting()[key];
         break;

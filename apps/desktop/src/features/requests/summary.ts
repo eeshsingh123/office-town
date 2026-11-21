@@ -14,5 +14,7 @@ export function requestSummary(event: UserRequestEvent): string {
       return event.payload.replan ? "Wants to change the plan" : "Proposes a plan";
     case "checklist.requested":
       return `Wants ${event.payload.items.length} checks approved`;
+    case "retry.requested":
+      return "Stopped after an error";
   }
 }

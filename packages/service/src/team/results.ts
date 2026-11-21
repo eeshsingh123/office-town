@@ -1,14 +1,15 @@
-import type { DelegationRecord, SessionEvent } from "@office-town/contract";
+import type { DelegationRecord, SessionEvent, SessionRecord } from "@office-town/contract";
 import { acceptIfMet, resultLine } from "../goal/record.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import type { Message } from "../registry/session-registry.ts";
-import type { DelegationEnd } from "../store/store.ts";
+import type { DelegationEnd, Store } from "../store/store.ts";
 import { isOpen, tellLead } from "./lead.ts";
+import type { StoppedLeads } from "./lead-stopped.ts";
 import type { TeamContext } from "./members.ts";
 
 type Outcome = Exclude<DelegationEnd, "interrupted">;
 
-function resultText(name: string, outcome: Outcome, result: string): string {
+export function resultText(name: string, outcome: Outcome, result: string): string {
   if (outcome === "done") return `${name} finished:\n${result}`;
   if (outcome === "stopped") return `${name} was stopped before it finished.`;
   return `${name} could not finish its work, even after one automatic retry.${result === "" ? "" : `\n${result}`}`;
@@ -48,14 +49,15 @@ export function tryAgain(error: string | undefined): Message {
 
 // A worker's last message once its turn has ended with nothing waiting on the user and none of its
 // sub-agents still at work; failures too. A failure is tried once more first, which costs the lead
-// nothing if it was a passing one.
+// nothing if it was a passing one. The retry and the result owed are stored, so a restart neither
+// repeats nor loses them (D-120).
 export function reportResults(
   context: TeamContext,
   activity: SessionActivity,
   handingOver: (sessionId: string) => boolean = () => false,
 ): void {
   const { store, registry } = context;
-  const retried = new Set<string>();
+  const { recovery } = store;
   // Pieces whose worker ended a turn with sub-agents at work: the lead has heard, the result waits.
   const waiting = new Set<string>();
 
@@ -65,6 +67,8 @@ export function reportResults(
     const name = worker?.name ?? "A worker";
     const part = outcome === "done" ? acceptIfMet(store, delegation) : delegation;
     const line = resultLine(store, part, name);
+    // Owed until the lead's session records it; a lead stopped or cut off hears it when it resumes.
+    recovery.oweResult(delegation.id);
     // Told before the delegation ends, so the lead owes a turn and its goal never reads finished in between.
     const told = tellLead(context, delegation.taskId, {
       text: `${resultText(name, outcome, result)}${line === undefined ? "" : `\n\n${line}`}`,
@@ -96,7 +100,7 @@ export function reportResults(
       workerSessionId: resumed.id,
       brief,
     });
-    retried.add(moved.id);
+    recovery.markDelegationRetried(moved.id);
     // A retry is not a send-back: the part goes on as it was (D-77).
     store.carryPart(delegation.id, moved.id);
     store.endDelegation(delegation.id, "failed", "Tried again in a new session.");
@@ -105,11 +109,11 @@ export function reportResults(
   const fail = (delegation: DelegationRecord, sessionId: string) => {
     const seen = activity.of(sessionId);
     const failure = failureOf(seen?.lastError, seen?.lastMessage ?? "");
-    if (retried.has(delegation.id)) {
+    if (recovery.delegationRetried(delegation.id)) {
       finish(delegation, "failed", failure);
       return;
     }
-    retried.add(delegation.id);
+    recovery.markDelegationRetried(delegation.id);
     retry(delegation, sessionId, tryAgain(seen?.lastError)).catch(() => {
       finish(delegation, "failed", failure);
     });
@@ -163,6 +167,10 @@ export function reportResults(
 
   const onEvent = (event: SessionEvent) => {
     followUpdates(event);
+    if (event.type === "message" && event.payload.origin?.kind === "result") {
+      recovery.resultDelivered(event.payload.origin.delegationId);
+      return;
+    }
     if (event.type !== "turn.ended" && event.type !== "session.ended") return;
     if (handingOver(event.sessionId)) return;
     const delegation = store.workingDelegation(event.sessionId);
@@ -231,11 +239,25 @@ export function wakeAfterSubAgents(
   });
 }
 
-// A lead has no one above it, so its failed turn is tried once more. Listens before the task's
-// state does, so the goal never reads finished in between.
-export function recoverLeads(context: TeamContext, activity: SessionActivity): void {
+// Whether this failure came from the lead's retry, not from the turn that was retried.
+function afterRetry(store: Store, session: SessionRecord, retriedAt: number): boolean {
+  const turnAt = store.latestTurn(session.id)?.at;
+  return (
+    Date.parse(session.createdAt) > retriedAt ||
+    (turnAt !== undefined && Date.parse(turnAt) > retriedAt)
+  );
+}
+
+// A lead has no one above it, so its failed turn is tried once more, and a second failure waits
+// for the user (D-120). Listens before the task's state does, so the goal never reads finished in
+// between.
+export function recoverLeads(
+  context: TeamContext,
+  activity: SessionActivity,
+  stoppedLeads: StoppedLeads,
+): void {
   const { store, registry } = context;
-  const retried = new Set<string>();
+  const { recovery } = store;
 
   const onEvent = (event: SessionEvent) => {
     const failedTurn = event.type === "turn.ended" && event.payload.outcome === "failed";
@@ -246,18 +268,30 @@ export function recoverLeads(context: TeamContext, activity: SessionActivity): v
     const taskId = session?.taskId;
     if (taskId === undefined || store.getTask(taskId)?.leadAgentId !== session?.agentId) return;
     if (done) {
-      retried.delete(taskId);
+      if (recovery.leadRetriedAt(taskId) !== undefined)
+        recovery.setLeadRetriedAt(taskId, undefined);
       return;
     }
     // An idle stop after a failed turn already had its retry.
     if (event.type === "session.ended" && event.payload.idle === true) return;
-    if (retried.has(taskId)) return;
-    retried.add(taskId);
-    tellLead(context, taskId, tryAgain(activity.of(event.sessionId)?.lastError)).catch(
-      (error: unknown) => {
-        console.error("Could not try the lead again.", error);
-      },
-    );
+    const error = activity.of(event.sessionId)?.lastError;
+    const retriedAt = recovery.leadRetriedAt(taskId);
+    if (retriedAt !== undefined) {
+      if (session === undefined || !afterRetry(store, session, retriedAt)) return;
+      stoppedLeads.raise(taskId, error).catch((failure: unknown) => {
+        console.error("Could not ask the user about a stopped lead.", failure);
+      });
+      return;
+    }
+    recovery.setLeadRetriedAt(taskId, Date.now());
+    // A retry that cannot start, such as when its folder is gone, waits for the user too.
+    tellLead(context, taskId, tryAgain(error))
+      .catch((failure: unknown) =>
+        stoppedLeads.raise(taskId, failure instanceof Error ? failure.message : String(failure)),
+      )
+      .catch((failure: unknown) => {
+        console.error("Could not ask the user about a stopped lead.", failure);
+      });
   };
 
   registry.subscribe(({ event }) => onEvent(event));

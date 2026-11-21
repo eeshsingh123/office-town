@@ -13,6 +13,7 @@ import type {
   HarnessStatus,
   LibraryItem,
   MilestoneRecord,
+  Notifications,
   Onboarding,
   OutputRecord,
   PlanPiece,
@@ -116,6 +117,8 @@ export interface AppState extends Records {
   // Undefined until loaded, so setup never flashes for someone who finished it.
   onboarding: Onboarding | undefined;
   display: Display;
+  // Which notices the core makes; a kind left out keeps its default (D-124).
+  notifications: Notifications;
   // New tasks start in Efficient mode (D-94), and with Milestones (D-95).
   efficientByDefault: boolean;
   milestonesByDefault: boolean;
@@ -156,6 +159,7 @@ export const useApp = create<AppState>(() => ({
   connectors: {},
   onboarding: undefined,
   display: {},
+  notifications: {},
   efficientByDefault: false,
   milestonesByDefault: false,
   autonomyByDefault: undefined,

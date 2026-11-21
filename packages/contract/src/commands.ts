@@ -47,6 +47,13 @@ const answerChecklistSchema = z.object({
   ]),
 });
 
+// The user's answer to a lead stopped after an error (D-120).
+const answerRetrySchema = z.object({
+  type: z.literal("answerRetry"),
+  requestId: z.string().min(1),
+  answer: z.enum(["retry", "stop"]),
+});
+
 const interruptSchema = z.object({ type: z.literal("interrupt") });
 
 // Starting and stopping belong to whoever owns the session, so only these reach a running agent.
@@ -57,6 +64,7 @@ export const agentCommandSchema = z.discriminatedUnion("type", [
   answerProposalSchema,
   answerPlanSchema,
   answerChecklistSchema,
+  answerRetrySchema,
   interruptSchema,
 ]);
 export type AgentCommand = z.infer<typeof agentCommandSchema>;

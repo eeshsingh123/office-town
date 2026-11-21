@@ -477,6 +477,38 @@ function addDepartmentWorkspaces(db: DatabaseSync): void {
   `);
 }
 
+// The one retry and the results a lead is owed, kept across a restart (D-120).
+function addRecoveryMarks(db: DatabaseSync): void {
+  if (!hasColumn(db, "delegations", "retried")) {
+    db.exec("ALTER TABLE delegations ADD COLUMN retried INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!hasColumn(db, "delegations", "owed")) {
+    db.exec("ALTER TABLE delegations ADD COLUMN owed INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!hasColumn(db, "tasks", "lead_retried_at")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN lead_retried_at INTEGER");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS delegations_owed ON delegations (task_ref) WHERE owed = 1");
+}
+
+// When a close, crash or pause cut a session off, so Home's card can tell new stops from old ones
+// (D-122). Sessions cut off before this have none and stay off the card.
+function addCutOffTimes(db: DatabaseSync): void {
+  if (!hasColumn(db, "sessions", "interrupted_at")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN interrupted_at INTEGER");
+  }
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS sessions_cut_off ON sessions (interrupted_at) WHERE status = 'interrupted'",
+  );
+}
+
+// Resumes started since the task's top agent last finished a turn, to stop a crash loop (D-122).
+function addResumeAttempts(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "resume_attempts")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN resume_attempts INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -873,4 +905,41 @@ export const migrations: readonly Migration[] = [
   addMilestones,
   addReviewers,
   renameStarterReviewers,
+  addRecoveryMarks,
+  `
+  -- What the core decided deserves an alert (D-124); kept 30 days, at most 500.
+  CREATE TABLE IF NOT EXISTS notices (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    kind       TEXT NOT NULL,
+    task_ref   INTEGER REFERENCES tasks (ref) ON DELETE CASCADE,
+    title      TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS notices_by_time ON notices (created_at);
+  CREATE INDEX IF NOT EXISTS notices_by_kind ON notices (kind, created_at);
+  CREATE INDEX IF NOT EXISTS notices_by_task ON notices (task_ref);
+  `,
+  `
+  -- Starts no person typed, written before anything runs (D-121). One entry per start and launch.
+  CREATE TABLE IF NOT EXISTS queue_entries (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    kind        TEXT NOT NULL,
+    task_ref    INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    launch      TEXT NOT NULL,
+    state       TEXT NOT NULL CHECK (state IN ('waiting', 'started', 'skipped', 'cancelled')),
+    reason      TEXT,
+    enqueued_at INTEGER NOT NULL,
+    wait_until  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS queue_once_a_launch ON queue_entries (kind, task_ref, launch);
+  CREATE INDEX IF NOT EXISTS queue_waiting ON queue_entries (enqueued_at) WHERE state = 'waiting';
+  CREATE INDEX IF NOT EXISTS queue_by_task ON queue_entries (task_ref);
+  `,
+  addResumeAttempts,
+  addCutOffTimes,
 ];
