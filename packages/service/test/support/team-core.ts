@@ -13,6 +13,7 @@ import { goalTools } from "../../src/goal/tools.ts";
 import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
+import { Notifier } from "../../src/notify/notifier.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
@@ -117,6 +118,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
+  const notifier = new Notifier(store, registry);
   const stoppedLeads = new StoppedLeads(team);
   recoverLeads(team, activity, stoppedLeads);
   const quiet = new QuietWorkers(team, activity);
@@ -200,6 +202,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     },
     async close() {
       quiet.stop();
+      notifier.stop();
       await server.close();
       await preview.close();
       await registry.close();

@@ -888,4 +888,20 @@ export const migrations: readonly Migration[] = [
   addReviewers,
   renameStarterReviewers,
   addRecoveryMarks,
+  `
+  -- What the core decided deserves an alert (D-124); kept 30 days, at most 500.
+  CREATE TABLE IF NOT EXISTS notices (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    kind       TEXT NOT NULL,
+    task_ref   INTEGER REFERENCES tasks (ref) ON DELETE CASCADE,
+    title      TEXT NOT NULL,
+    body       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS notices_by_time ON notices (created_at);
+  CREATE INDEX IF NOT EXISTS notices_by_kind ON notices (kind, created_at);
+  CREATE INDEX IF NOT EXISTS notices_by_task ON notices (task_ref);
+  `,
 ];

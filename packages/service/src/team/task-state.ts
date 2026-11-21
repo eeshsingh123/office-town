@@ -60,7 +60,7 @@ function isWorking(store: Store, session: SessionRecord, subAgentsAt: SubAgentsA
 }
 
 // Its lead, or else its first agent.
-function topSession(task: TaskRecord, sessions: SessionRecord[]): SessionRecord | undefined {
+export function topSession(task: TaskRecord, sessions: SessionRecord[]): SessionRecord | undefined {
   const topAgent = task.leadAgentId ?? sessions[0]?.agentId;
   return sessions.findLast((session) => session.agentId === topAgent);
 }

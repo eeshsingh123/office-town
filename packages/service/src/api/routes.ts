@@ -84,7 +84,7 @@ import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
 import { type HarnessStatuses, withSeenSignIn } from "./harness-statuses.ts";
 import { installRoutes } from "./install-routes.ts";
-import type { Unattended } from "./unattended-routes.ts";
+import { type Unattended, unattendedRoutes } from "./unattended-routes.ts";
 
 const isRunning = (session: { status: string }) =>
   session.status === "starting" || session.status === "running";
@@ -131,6 +131,7 @@ export function apiRoutes(
   return [
     ...accountRoutes(team, prices),
     ...installRoutes(),
+    ...unattendedRoutes(store),
     {
       method: "POST",
       path: "/accounts/:id/resume-paused",

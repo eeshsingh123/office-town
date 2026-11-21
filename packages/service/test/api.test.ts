@@ -18,6 +18,7 @@ import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { cachedCatalogs } from "../src/team/catalogs.ts";
 import { Checks } from "../src/team/checks.ts";
+import { StoppedLeads } from "../src/team/lead-stopped.ts";
 import { TaskStates } from "../src/team/task-state.ts";
 import { UsagePauses } from "../src/team/usage-pause.ts";
 import { memorySecrets } from "./support/connectors.ts";
@@ -125,6 +126,7 @@ beforeEach(async () => {
     checks,
     milestones: new MilestoneEdits(team),
     outputs,
+    unattended: { stoppedLeads: new StoppedLeads(team) },
     token: TOKEN,
     port: 0,
   });

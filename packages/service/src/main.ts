@@ -29,6 +29,7 @@ import { goalTools } from "./goal/tools.ts";
 import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
+import { Notifier } from "./notify/notifier.ts";
 import { PreviewServer } from "./outputs/preview-server.ts";
 import { showResult } from "./outputs/show-result.ts";
 import { TaskFiles } from "./outputs/task-files.ts";
@@ -137,6 +138,7 @@ toolServer.offerApps({
 });
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
+const notifier = new Notifier(store, registry);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
@@ -213,6 +215,7 @@ async function shutdown(): Promise<void> {
   stopQueries();
   stopIdle();
   quiet.stop();
+  notifier.stop();
   await server.close();
   await preview.close();
   try {
