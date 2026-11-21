@@ -1,24 +1,53 @@
-import { FolderOpen, TriangleAlert } from "lucide-react";
+import { ChevronRight, FolderOpen, GitBranch, TriangleAlert } from "lucide-react";
 import { Tabs } from "radix-ui";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { shell } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useWorkingNow, useWorkspaces, useWorkspaceUsage } from "../../store/workspaces.ts";
+import { liveStateOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import form from "../../ui/Form.module.css";
 import { ago, taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
-import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
+import tabs from "../../ui/PageTabs.module.css";
+import { StateTag } from "../../ui/StatusIcon.tsx";
+import { peopleLine } from "../departments/team-line.ts";
 import { LibraryTab } from "../library/LibraryTab.tsx";
 import { useLibrary } from "../library/library.ts";
 import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
 import { showWorkspaceTasks } from "../tasks/TasksView.tsx";
-import { KIND_LABEL, ShortPath, WorkspaceIcon } from "./WorkspaceParts.tsx";
+import { KIND_LABEL, WorkspaceIcon, WrappingPath } from "./WorkspaceParts.tsx";
 import { WorkspaceSheet } from "./WorkspaceSheet.tsx";
 import styles from "./Workspaces.module.css";
 import { WorkspaceMenu } from "./WorkspacesView.tsx";
+
+// One part of the overview: a title with its count, then one bordered list.
+function Block({
+  title,
+  count,
+  action,
+  children,
+}: {
+  title: string;
+  count: number;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={styles.block} aria-label={title}>
+      <div className={styles.blockHead}>
+        <h2 className={styles.blockTitle}>
+          {title}
+          <span className={styles.blockCount}>{count}</span>
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export function WorkspaceView({
   workspaceId,
@@ -47,6 +76,8 @@ export function WorkspaceView({
   const used = (usage?.departmentIds ?? []).flatMap((id) => departments[id] ?? []);
   const main = workspace.folders[0]?.path ?? "";
   const missing = new Set(usage?.missingFolders ?? []);
+  const peopleIn = (departmentId: string) =>
+    Object.values(agents).filter((agent) => agent.departmentId === departmentId).length;
 
   return (
     <section className={page.page} aria-labelledby="workspace-title">
@@ -55,23 +86,36 @@ export function WorkspaceView({
           items={[{ label: "Workspaces", view: { name: "workspaces" } }, { label: workspace.name }]}
         />
         <header className={styles.head}>
-          <div className={page.header}>
-            <h1 id="workspace-title" className={`${page.title} ${styles.titleRow}`}>
-              <WorkspaceIcon kind={workspace.kind} />
-              {workspace.name}
-            </h1>
-            <p className={styles.facts}>
-              <span>{KIND_LABEL[workspace.kind]}</span>
-              {usage?.branch === undefined ? null : (
-                <span>
-                  Git branch <b>{usage.branch}</b>
-                </span>
-              )}
-              <span>
-                <b>{usage?.taskCount ?? 0}</b> task{usage?.taskCount === 1 ? "" : "s"}
-              </span>
-              <span>Last used {ago(workspace.usedAt)}</span>
-            </p>
+          <div className={styles.identity}>
+            <WorkspaceIcon kind={workspace.kind} />
+            <div className={styles.identityText}>
+              <h1 id="workspace-title" className={page.title}>
+                {workspace.name}
+              </h1>
+              <dl className={styles.facts}>
+                <div>
+                  <dt>Kind</dt>
+                  <dd>{KIND_LABEL[workspace.kind]}</dd>
+                </div>
+                {usage?.branch === undefined ? null : (
+                  <div>
+                    <dt>Git branch</dt>
+                    <dd className={styles.branch}>
+                      <GitBranch size={13} aria-hidden />
+                      <span className={styles.branchName}>{usage.branch}</span>
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Tasks</dt>
+                  <dd>{usage?.taskCount ?? 0}</dd>
+                </div>
+                <div>
+                  <dt>Last used</dt>
+                  <dd>{ago(workspace.usedAt)}</dd>
+                </div>
+              </dl>
+            </div>
           </div>
           <span className={styles.actions}>
             {shell === undefined ? null : (
@@ -95,19 +139,19 @@ export function WorkspaceView({
             })
           }
         >
-          <Tabs.List className={styles.tabs} aria-label="Show">
-            <Tabs.Trigger value="overview" className={styles.tab}>
+          <Tabs.List className={tabs.tabs} aria-label="Show">
+            <Tabs.Trigger value="overview" className={tabs.tab}>
               Overview
             </Tabs.Trigger>
-            <Tabs.Trigger value="library" className={styles.tab}>
+            <Tabs.Trigger value="library" className={tabs.tab}>
               Library
-              {libraryCount > 0 ? <span className={styles.tabCount}>{libraryCount}</span> : null}
+              {libraryCount > 0 ? <span className={tabs.count}>{libraryCount}</span> : null}
             </Tabs.Trigger>
           </Tabs.List>
-          <Tabs.Content value="library" className={styles.tabPanel}>
+          <Tabs.Content value="library" className={tabs.panel}>
             <LibraryTab workspaceId={workspaceId} />
           </Tabs.Content>
-          <Tabs.Content value="overview" className={styles.tabPanel}>
+          <Tabs.Content value="overview" className={tabs.panel}>
             {used.length > 1 ? (
               <p className={styles.banner}>
                 <TriangleAlert size={16} aria-hidden />
@@ -120,10 +164,9 @@ export function WorkspaceView({
 
             <div className={styles.cols}>
               <div className={styles.col}>
-                <section className={styles.block}>
-                  <h2 className={page.eyebrow}>Working here now</h2>
+                <Block title="Working here now" count={working.length}>
                   {working.length === 0 ? (
-                    <p className={form.hint}>No one is working here now.</p>
+                    <p className={styles.emptyRow}>No one is working here.</p>
                   ) : (
                     <ul className={styles.list}>
                       {working.map(({ agent, state }) => (
@@ -133,29 +176,26 @@ export function WorkspaceView({
                             className={styles.row}
                             onClick={() => navigate({ name: "task", taskId: agent.taskId })}
                           >
-                            <Avatar name={agent.name} colour={agent.colour} size={26} />
+                            <Avatar name={agent.name} colour={agent.colour} size={28} />
                             <span className={styles.optionText}>
-                              <strong>
-                                {agent.name}
-                                {agent.record.role === undefined ? "" : ` · ${agent.record.role}`}
+                              <strong className={styles.clip}>
+                                {agent.record.role ?? agent.name}
                               </strong>
-                              <span className={styles.path}>{taskName(agent.task)}</span>
+                              <span className={styles.sub}>{taskName(agent.task)}</span>
                             </span>
-                            <span className={styles.state}>
-                              <StatusIcon state={state} />
-                              {STATE_LABELS[state]}
-                            </span>
+                            <StateTag state={liveStateOf(state)} />
                           </button>
                         </li>
                       ))}
                     </ul>
                   )}
-                </section>
+                </Block>
 
-                <section className={styles.block}>
-                  <div className={styles.blockHead}>
-                    <h2 className={page.eyebrow}>Recent tasks</h2>
-                    {(usage?.taskCount ?? 0) > (usage?.recentTasks.length ?? 0) ? (
+                <Block
+                  title="Recent tasks"
+                  count={usage?.taskCount ?? 0}
+                  action={
+                    (usage?.taskCount ?? 0) > (usage?.recentTasks.length ?? 0) ? (
                       <button
                         type="button"
                         className={styles.blockLink}
@@ -163,10 +203,11 @@ export function WorkspaceView({
                       >
                         All {usage?.taskCount} tasks
                       </button>
-                    ) : null}
-                  </div>
+                    ) : undefined
+                  }
+                >
                   {(usage?.recentTasks.length ?? 0) === 0 ? (
-                    <p className={form.hint}>No tasks here yet.</p>
+                    <p className={styles.emptyRow}>No tasks here yet.</p>
                   ) : (
                     <ul className={styles.list}>
                       {usage?.recentTasks.map((task) => (
@@ -177,8 +218,8 @@ export function WorkspaceView({
                             onClick={() => navigate({ name: "task", taskId: task.id })}
                           >
                             <span className={styles.optionText}>
-                              <strong>{taskName(task)}</strong>
-                              <span className={form.hint}>
+                              <strong className={styles.clip}>{taskName(task)}</strong>
+                              <span className={styles.sub}>
                                 {[
                                   task.departmentId === undefined
                                     ? "One assistant"
@@ -195,18 +236,17 @@ export function WorkspaceView({
                       ))}
                     </ul>
                   )}
-                </section>
+                </Block>
               </div>
 
               <div className={styles.col}>
-                <section className={styles.block}>
-                  <h2 className={page.eyebrow}>Folders</h2>
+                <Block title="Folders" count={workspace.folders.length}>
                   <ul className={styles.list}>
                     {workspace.folders.map((folder, index) => (
-                      <li key={folder.path} className={styles.row}>
+                      <li key={folder.path} className={`${styles.row} ${styles.rowTop}`}>
                         <span className={styles.optionText}>
-                          <ShortPath path={folder.path} className={styles.path} />
-                          <span className={form.hint}>
+                          <WrappingPath path={folder.path} className={styles.fullPath} />
+                          <span className={missing.has(folder.path) ? styles.warnText : styles.sub}>
                             {index > 0
                               ? "Extra folder"
                               : workspace.kind === "scratch"
@@ -221,13 +261,12 @@ export function WorkspaceView({
                       </li>
                     ))}
                   </ul>
-                </section>
+                </Block>
 
-                <section className={styles.block}>
-                  <h2 className={page.eyebrow}>Used by</h2>
+                <Block title="Used by" count={used.length}>
                   {used.length === 0 ? (
-                    <p className={form.hint}>
-                      No department. {workspace.kind === "scratch" ? "Solo tasks start here." : ""}
+                    <p className={styles.emptyRow}>
+                      {workspace.kind === "scratch" ? "Solo tasks start here." : "No department."}
                     </p>
                   ) : (
                     <ul className={styles.list}>
@@ -240,30 +279,40 @@ export function WorkspaceView({
                               navigate({ name: "department", departmentId: department.id })
                             }
                           >
-                            <strong>{department.name}</strong>
+                            <Avatar
+                              name={department.name}
+                              colour={agents[department.leadAgentId]?.colour ?? "#4F5D75"}
+                              size={28}
+                            />
+                            <span className={styles.optionText}>
+                              <strong className={styles.clip}>{department.name}</strong>
+                              <span className={styles.sub}>
+                                {peopleLine(peopleIn(department.id))}
+                              </span>
+                            </span>
+                            <ChevronRight size={16} aria-hidden className={styles.rowEnd} />
                           </button>
                         </li>
                       ))}
                     </ul>
                   )}
-                </section>
+                </Block>
 
                 {(usage?.worktrees.length ?? 0) === 0 ? null : (
-                  <section className={styles.block}>
-                    <h2 className={page.eyebrow}>Branches</h2>
+                  <Block title="Branches" count={usage?.worktrees.length ?? 0}>
                     <ul className={styles.list}>
                       {usage?.worktrees.map((copy) => (
                         <li key={`${copy.taskId}/${copy.agentId}`} className={styles.row}>
                           <span className={styles.optionText}>
-                            <span className={styles.path}>{copy.branch ?? "Own copy"}</span>
-                            <span className={form.hint}>
+                            <span className={styles.fullPath}>{copy.branch ?? "Own copy"}</span>
+                            <span className={styles.sub}>
                               {agents[copy.agentId]?.name ?? "A worker"}
                             </span>
                           </span>
                         </li>
                       ))}
                     </ul>
-                  </section>
+                  </Block>
                 )}
               </div>
             </div>

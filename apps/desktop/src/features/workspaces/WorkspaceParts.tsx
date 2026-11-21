@@ -1,6 +1,7 @@
 import type { WorkspaceKind } from "@office-town/contract";
 import { FolderGit2, Info, Sparkles } from "lucide-react";
 import { Tooltip } from "radix-ui";
+import { Fragment } from "react";
 import { WORKSPACE_TIP } from "../../store/workspaces.ts";
 import styles from "./Workspaces.module.css";
 
@@ -41,6 +42,28 @@ export function ShortPath({ path, className }: { path: string; className?: strin
   return (
     <span className={className} title={path}>
       {shortPath(path)}
+    </span>
+  );
+}
+
+// A whole path that wraps after a separator, never inside a folder name.
+export function WrappingPath({
+  path,
+  className,
+}: {
+  path: string;
+  className?: string | undefined;
+}) {
+  const parts = path.split(/(?<=[\\/])/);
+  return (
+    <span className={className}>
+      {parts.map((part, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: the parts of one fixed path
+        <Fragment key={index}>
+          {part}
+          <wbr />
+        </Fragment>
+      ))}
     </span>
   );
 }
