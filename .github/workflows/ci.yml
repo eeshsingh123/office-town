@@ -69,21 +69,23 @@ jobs:
           hdiutil detach "$mount"
           codesign --verify --deep --strict "$APP"
       - name: Skip first-run setup
+        timeout-minutes: 3
         run: |
           data="$HOME/Library/Application Support/OfficeTown"
           mkdir -p "$data"
-          mkfifo "$RUNNER_TEMP/core-in"
-          node packages/service/src/main.ts --data-folder "$data" --stop-when-stdin-closes \
-            < "$RUNNER_TEMP/core-in" > "$RUNNER_TEMP/core-out" &
-          exec 3> "$RUNNER_TEMP/core-in"
+          # The runner has no provider CLIs, so the core logs that it can't find them; harmless.
+          node packages/service/src/main.ts --data-folder "$data" > "$RUNNER_TEMP/core-out" 2> "$RUNNER_TEMP/core-err" &
+          core=$!
           until [ -s "$RUNNER_TEMP/core-out" ]; do sleep 1; done
           url=$(head -1 "$RUNNER_TEMP/core-out" | jq -r .url)
           token=$(head -1 "$RUNNER_TEMP/core-out" | jq -r .token)
-          curl -fsS -X PUT -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
-            -d '{"setupDone":true,"whatsNewSeen":"2099-01-01"}' "$url/onboarding"
-          exec 3>&-
-          wait
+          curl -fsS -X PUT -H "Authorization: Bearer $token" -H "Content-Type: application/json"             -d '{"setupDone":true,"whatsNewSeen":"2099-01-01"}' "$url/onboarding"
+          kill -TERM "$core"
+          for _ in $(seq 1 20); do kill -0 "$core" 2> /dev/null || exit 0; sleep 1; done
+          echo "The core did not stop on SIGTERM within 20 seconds."
+          exit 1
       - name: Open the app from Finder's way and wait for its core
+        timeout-minutes: 4
         run: |
           open --stdout "$RUNNER_TEMP/app.log" --stderr "$RUNNER_TEMP/app.log" -a "$APP"
           for _ in $(seq 1 90); do
@@ -106,6 +108,7 @@ jobs:
           path: ${{ runner.temp }}/mac-home.png
           if-no-files-found: error
       - name: Quit as the Dock does, and check the core stops with it
+        timeout-minutes: 2
         run: |
           osascript -e 'tell application "Office Town" to quit'
           for _ in $(seq 1 30); do
