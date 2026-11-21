@@ -19,6 +19,7 @@ import { adapters, findAdapter } from "./adapters/registry.ts";
 import { readCatalog } from "./catalog.ts";
 import { type CommandResult, runIn } from "./command.ts";
 import type { Environment } from "./environment/environment.ts";
+import { readKeychainSecret } from "./environment/keychain.ts";
 import { NativeEnvironment } from "./environment/native.ts";
 import { listDistros, WslEnvironment } from "./environment/wsl.ts";
 import { installerHere } from "./install.ts";
@@ -386,7 +387,7 @@ export async function readAccountLimits(
     }).catch(() => undefined);
   }
   if (accounts?.readLimits === undefined || accounts.credentials === undefined) return undefined;
-  const { credentials, home } = accounts;
+  const { credentials, home, keychainService } = accounts;
   let text: string | undefined;
   if (folder !== undefined) {
     // An added account's folder is in the data folder, on this machine.
@@ -402,6 +403,10 @@ export async function readAccountLimits(
       args: ["-c", `cat ${path}`],
     }).catch(() => undefined);
     text = result?.code === 0 ? result.stdout : undefined;
+  }
+  // On a Mac the CLI keeps the sign-in in the Keychain unless the Keychain refused it.
+  if (text === undefined && environment.kind === "native" && keychainService !== undefined) {
+    text = await readKeychainSecret(keychainService(folder));
   }
   return text === undefined ? undefined : accounts.readLimits(text).catch(() => undefined);
 }
