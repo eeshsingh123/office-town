@@ -20,3 +20,4 @@ export * from "./plans.ts";
 export * from "./reviewers.ts";
 export * from "./task-status.ts";
 export * from "./team.ts";
+export * from "./unattended.ts";

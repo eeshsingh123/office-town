@@ -6,6 +6,7 @@ import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { taskChecklistSchema } from "./checks.ts";
 import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
+import { notificationsSchema } from "./unattended.ts";
 
 // idle: none of the others, such as a team cut off by a restart. queued: a chief's goal behind another.
 export const taskStateSchema = z.enum(["queued", "working", "waiting", "idle", "ended"]);
@@ -320,6 +321,10 @@ export const settingsSchema = z.object({
   milestonesByDefault: z.boolean().optional(),
   // The level new tasks, teams and departments start at; unset is Auto (D-111).
   autonomyByDefault: everydayAutonomySchema.optional(),
+  // Which notices the core makes (D-124).
+  notifications: notificationsSchema.optional(),
+  // When the user closed Home's card of stopped tasks; it shows again for work cut off after.
+  stoppedCardClosedAt: z.iso.datetime().optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
