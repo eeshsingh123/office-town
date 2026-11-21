@@ -10,6 +10,7 @@ import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { Segments } from "../../ui/Segments.tsx";
 import { SettingRow, SwitchRow } from "../../ui/Switch.tsx";
+import { trayName } from "../../ui/system.ts";
 import { showToast } from "../../ui/Toast.tsx";
 import { chooseTheme, type ThemeChoice, useThemeChoice } from "../../ui/theme.ts";
 import { saveDisplay } from "../onboarding/onboarding.ts";
@@ -34,7 +35,7 @@ export const SETTINGS_SECTIONS = [
     title: "Accessibility",
     keywords: ["contrast", "motion", "screen reader"],
   },
-  { id: "desktop", title: "Desktop", keywords: ["tray", "close", "login", "startup"] },
+  { id: "desktop", title: "Desktop", keywords: ["tray", "menu bar", "close", "login", "startup"] },
   { id: "about", title: "Storage and About", keywords: ["version", "update", "data folder"] },
 ] as const;
 type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
@@ -238,7 +239,7 @@ function Desktop() {
         label="When I close the window"
         hint={
           preferences.closeToTray
-            ? "Agents keep working. Quit from the tray icon."
+            ? `Agents keep working. Quit from the ${trayName} icon.`
             : "The app quits, and asks first if agents are still working."
         }
       >
@@ -246,7 +247,7 @@ function Desktop() {
           label="When I close the window"
           value={closeTo}
           options={[
-            { value: "tray", label: "Keep running in the tray" },
+            { value: "tray", label: `Keep running in the ${trayName}` },
             { value: "quit", label: "Quit" },
           ]}
           onChange={(value) => {
@@ -262,7 +263,11 @@ function Desktop() {
       {preferences.canOpenAtLogin ? (
         <SwitchRow
           label="Open at login"
-          hint="Opens the app when you sign in to your computer."
+          hint={
+            preferences.openAtLoginNeedsApproval
+              ? "Allow Office Town in System Settings > General > Login Items."
+              : "Opens the app when you sign in to your computer."
+          }
           on={preferences.openAtLogin}
           onChange={(on) =>
             void shell
@@ -282,7 +287,8 @@ function useUpdates() {
     if (shell === undefined) return;
     void shell.appVersion().then(setVersion);
     void shell.updateStatus().then(setStatus);
-    return shell.onUpdateReady((ready) => setStatus({ state: "ready", version: ready }));
+    // Ready to install, or for a build that cannot install it, ready to download.
+    return shell.onUpdateReady(() => void shell?.updateStatus().then(setStatus));
   }, []);
   return { version, status, setStatus };
 }
@@ -298,6 +304,8 @@ function updateLine(status: UpdateStatus | null | undefined): string {
       return `Downloading version ${status.version}.`;
     case "ready":
       return `Version ${status.version} is ready. Restart to install it.`;
+    case "available":
+      return `Version ${status.version} is ready. Download it and replace this app.`;
     case "failed":
       return "Could not check for updates. Try again later.";
     default:
@@ -335,9 +343,9 @@ function StorageAndAbout() {
           label={`Version ${version ?? ""}`.trim()}
           hint={`${version?.includes("-beta") ? "Beta channel. " : ""}${updateLine(status)}`}
         >
-          {status === null ? null : status?.state === "ready" ? (
+          {status === null ? null : status?.state === "ready" || status?.state === "available" ? (
             <Button variant="primary" onClick={() => void shell?.restartToUpdate()}>
-              Restart to update
+              {status.state === "ready" ? "Restart to update" : "Download"}
             </Button>
           ) : (
             <Button busy={checking} onClick={() => void check()}>

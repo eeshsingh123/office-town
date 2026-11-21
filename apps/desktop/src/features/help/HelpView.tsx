@@ -6,6 +6,7 @@ import { FoldedGuide } from "../../ui/Guide.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
+import { backKeys, forwardKeys, isMac, shortcut } from "../../ui/system.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
 import { TutorialList } from "../onboarding/TutorialList.tsx";
 import { TEMPLATE_STEPS } from "../profiles/TemplatesGuide.tsx";
@@ -55,12 +56,12 @@ function HowItWorks() {
 }
 
 const SHORTCUTS: { keys: string; does: string }[] = [
-  { keys: "Ctrl N", does: "New task" },
-  { keys: "Ctrl K", does: "Search" },
-  { keys: "Ctrl B", does: "Show or hide the sidebar" },
-  { keys: "Alt ← / Alt →", does: "Back and forward" },
+  { keys: shortcut("N"), does: "New task" },
+  { keys: shortcut("K"), does: "Search" },
+  { keys: shortcut("B"), does: "Show or hide the sidebar" },
+  { keys: `${backKeys} / ${forwardKeys}`, does: "Back and forward" },
   { keys: "F1", does: "Help" },
-  { keys: "Ctrl ,", does: "Settings" },
+  { keys: shortcut(","), does: "Settings" },
   { keys: "@", does: "In a task: choose who does it, or tag an app" },
   { keys: "#", does: "In a task: add a Library file" },
   { keys: "/", does: "In a task: use a template" },
@@ -80,6 +81,53 @@ function Shortcuts() {
               <Kbd>{shortcut.keys}</Kbd>
             </dt>
             <dd>{shortcut.does}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+const ON_A_MAC: { topic: string; answer: string }[] = [
+  {
+    topic: "It won't open",
+    answer:
+      "The first time, macOS may say it can't check the app. Open System Settings > Privacy & Security and choose Open Anyway.",
+  },
+  {
+    topic: "Applications",
+    answer:
+      "Keep Office Town in your Applications folder. It offers to move itself the first time.",
+  },
+  {
+    topic: "Folders",
+    answer:
+      "macOS asks before the app opens Documents, Desktop, Downloads, iCloud Drive or an outside disk. To change your answer, go to System Settings > Privacy & Security > Files and Folders.",
+  },
+  {
+    topic: "Claude usage",
+    answer:
+      "Claude keeps its sign-in in your Keychain. Office Town reads it, never changes it, only when you choose Refresh on Usage. macOS may ask whether “security” can use it: that is the tool Claude itself reads it with. Allow shows your usage; Deny only skips it.",
+  },
+  {
+    topic: "Updates",
+    answer:
+      "This test version can't update itself. When a new version is ready, download it and replace the app.",
+  },
+];
+
+function OnAMac() {
+  if (!isMac) return null;
+  return (
+    <section className={page.panel} aria-labelledby="help-mac">
+      <h2 id="help-mac" className={page.sectionTitle}>
+        On a Mac
+      </h2>
+      <dl className={styles.keys}>
+        {ON_A_MAC.map(({ topic, answer }) => (
+          <div key={topic} className={styles.key}>
+            <dt>{topic}</dt>
+            <dd>{answer}</dd>
           </div>
         ))}
       </dl>
@@ -134,6 +182,7 @@ export function HelpView() {
         <HowItWorks />
         <WhatsNew />
         <Shortcuts />
+        <OnAMac />
       </div>
     </section>
   );

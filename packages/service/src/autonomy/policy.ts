@@ -19,7 +19,23 @@ export function inside(folder: string, path: string): boolean {
 
 const WSL_LOCALHOST = /^\\\\wsl\.localhost\\/i;
 
-// Links resolved, WSL's two share names made one, case ignored where Windows ignores it.
+function swapCase(text: string): string {
+  return text.replace(/\p{L}/gu, (letter) =>
+    letter === letter.toLowerCase() ? letter.toUpperCase() : letter.toLowerCase(),
+  );
+}
+
+// A Mac volume ignores case by default but may not, so ask the volume: only there would the same
+// path with every letter flipped exist.
+function ignoresCase(existingPath: string): boolean {
+  if (process.platform === "win32") return true;
+  if (process.platform !== "darwin") return false;
+  const flipped = swapCase(existingPath);
+  return flipped !== existingPath && existsSync(flipped);
+}
+
+// Links resolved, WSL's two share names made one, accents in one Unicode form, and case ignored
+// where the volume ignores it.
 export function canonicalPath(path: string): string {
   const missing: string[] = [];
   let existing = resolve(path);
@@ -27,9 +43,10 @@ export function canonicalPath(path: string): string {
     missing.unshift(basename(existing));
     existing = dirname(existing);
   }
-  const real = join(existsSync(existing) ? realpathSync.native(existing) : existing, ...missing);
+  const found = existsSync(existing) ? realpathSync.native(existing) : existing;
+  const real = join(found, ...missing).normalize("NFC");
   const shared = real.replace(WSL_LOCALHOST, "\\\\wsl$\\");
-  return process.platform === "win32" ? shared.toLowerCase() : shared;
+  return ignoresCase(found) ? shared.toLowerCase() : shared;
 }
 
 // A read-only folder holding the agent's own folder is left out, or its every edit would ask.

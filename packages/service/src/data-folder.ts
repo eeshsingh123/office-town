@@ -8,6 +8,10 @@ export function defaultDataFolder(development: boolean): string {
     const local = process.env.LOCALAPPDATA || join(homedir(), "AppData", "Local");
     return join(local, development ? "OfficeTown Dev" : "OfficeTown");
   }
+  if (process.platform === "darwin") {
+    const support = join(homedir(), "Library", "Application Support");
+    return join(support, development ? "OfficeTown Dev" : "OfficeTown");
+  }
   const data = process.env.XDG_DATA_HOME || join(homedir(), ".local", "share");
   return join(data, development ? "office-town-dev" : "office-town");
 }

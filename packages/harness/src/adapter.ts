@@ -129,6 +129,9 @@ export interface AccountSupport {
   status?: HarnessQuery<AccountStatus>;
   // The default login's folder, inside the home folder.
   home?: string;
+  // On a Mac, the Keychain service that holds the sign-in in place of the file, for an account's
+  // folder or the default login.
+  keychainService?(folder?: string): string;
   // Asks the vendor for the plan usage now, with the sign-in file's text; undefined if it cannot.
   readLimits?: (credentials: string) => Promise<UsageLimit[] | undefined>;
   // Or asks the CLI itself, for one that reports it.

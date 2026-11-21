@@ -37,6 +37,7 @@ import { UsageView } from "./features/usage/UsageView.tsx";
 import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
 import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
 import { YouView } from "./features/you/YouView.tsx";
+import { shell } from "./shell.ts";
 import { navigate, useApp, type View } from "./store/app-store.ts";
 import { useDraftRound } from "./store/drafts.ts";
 import { Toaster } from "./ui/Toast.tsx";
@@ -151,6 +152,8 @@ export function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+  // The Mac app menu's Settings item takes ⌘, before the page sees it.
+  useEffect(() => shell?.onOpenSettings(() => navigate({ name: "settings" })), []);
   if (loading) return <div className={styles.app} aria-busy="true" />;
   if (!setupDone) return <SetupView />;
   return (

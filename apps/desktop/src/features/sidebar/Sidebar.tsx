@@ -27,6 +27,7 @@ import { Button } from "../../ui/Button.tsx";
 import { Kbd } from "../../ui/Kbd.tsx";
 import { type PaneSize, usePaneWidth } from "../../ui/pane.ts";
 import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
+import { shortcut } from "../../ui/system.ts";
 import { openCommandMenu } from "../command/command-menu.ts";
 import { useConnectorNeedsUser } from "../connectors/connectors.ts";
 import { startNewTask } from "../new-task/start-new-task.ts";
@@ -135,23 +136,27 @@ function ConnectorDot() {
   );
 }
 
-function useUpdateReady(): string | undefined {
+function useUpdateReady(): { version: string | undefined; installs: boolean } {
   const [version, setVersion] = useState<string>();
+  const [installs, setInstalls] = useState(true);
   useEffect(() => {
     if (shell === undefined) return;
     const stop = shell.onUpdateReady(setVersion);
     void shell.updateReady().then((ready) => {
       if (ready !== null) setVersion(ready);
     });
+    void shell.desktopPreferences().then((preferences) => setInstalls(preferences.updatesInstall));
     return stop;
   }, []);
-  return version;
+  return { version, installs };
 }
 
-// Only once an update has downloaded. It installs on quit anyway; this installs it now.
+// Only once an update has downloaded. It installs on quit anyway; this installs it now. A build
+// that cannot install it (an unsigned Mac build) opens its download page.
 function UpdateItem() {
-  const version = useUpdateReady();
-  const rail = useRailLabel("Restart to update");
+  const { version, installs } = useUpdateReady();
+  const label = installs ? "Restart to update" : "Download update";
+  const rail = useRailLabel(label);
   if (version === undefined) return null;
   return (
     <button
@@ -162,7 +167,7 @@ function UpdateItem() {
       {...rail}
     >
       <RefreshCw size={16} aria-hidden />
-      <span className={styles.text}>Restart to update</span>
+      <span className={styles.text}>{label}</span>
     </button>
   );
 }
@@ -209,7 +214,7 @@ export function Sidebar() {
               className={styles.collapse}
               onClick={toggleSidebar}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              title={`${collapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+              title={`${collapsed ? "Expand" : "Collapse"} sidebar (${shortcut("B")})`}
             >
               {collapsed ? (
                 <PanelLeftOpen size={16} aria-hidden />
@@ -226,13 +231,13 @@ export function Sidebar() {
           >
             <Plus size={16} aria-hidden />
             <span className={styles.text}>New task</span>
-            <Kbd>Ctrl N</Kbd>
+            <Kbd>{shortcut("N")}</Kbd>
           </Button>
           <button type="button" className={styles.nav} onClick={openCommandMenu} {...search}>
             <Search size={16} aria-hidden />
             <span className={styles.text}>Search</span>
             <span className={styles.shortcut}>
-              <Kbd>Ctrl K</Kbd>
+              <Kbd>{shortcut("K")}</Kbd>
             </span>
           </button>
           <Group label="Work">

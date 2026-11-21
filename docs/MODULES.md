@@ -31,33 +31,43 @@ Dependencies point one way: `desktop -> contract`, `service -> harness -> contra
 
 What later work builds on; the why is in DECISIONS.md.
 
-- **M1 Harness core.** One agent on one harness, natively or in WSL, as one event stream; models and efforts; resume by the harness's id. Every adapter passes the same conformance tests against recordings. `pnpm dev:run`, `pnpm dev:catalog`.
-- **M2 Core service.** Many sessions, every event stored before it is published, one localhost API with a per-launch token and one event stream for live, catch-up and replay. `SessionRegistry` alone starts sessions.
-- **M3 Desktop shell.** Electron starts the core, keeps agents in the tray, forwards `/api`. One API client, one Zustand store fed by one stream, pure event-to-trace functions.
-- **M4 Orchestration.** A lead proposes a department, the user approves it, and the lead delegates to workers on any harness through the tool server; stored agents and templates, one autonomy policy, a worktree per worker. `service/src/team`, `tools`, `autonomy`.
-- **M5 Command center.** A standing chief splits a goal into department pieces run in order, passing results and read-only folders; task state, usage and limits live in the core. `service/src/chief`.
-- **Feedback after M5.** Home, creation flows, the Dusk look, review in the chat, templates, workspaces, Needs you, one composer, plain naming, accounts and Usage, team building.
-- **M6 Files and Library, M6.5 Onboarding.** Attachments and a workspace Library; setup, tutorials, Help.
-- **M7 Connectors, revamped (D-96).** Shared apps through the core's hub for every provider; provider apps (claude.ai, Codex's ChatGPT apps, OpenCode's servers) read from each provider, one row per app with provider tags, every call decided by the core; Add over a vetted list; asks that name the provider. `service/src/connectors`, `features/connectors`.
-- **After M7.** Several workspaces per department, usage recount, a lead stopping workers, lean runs with a usage pause, the check loop outside the team.
-- **M8 Outputs and preview.** `show_result`, changed files and local sites in a sandboxed viewer. `service/src/outputs`.
-- **M9 Packaging.** Self-updating installer (Windows) and AppImage (Linux), the Dev app beside it, betas on every green merge, setup installing harnesses.
-- **M10 More providers.** Codex, Muse Code, Copilot and Cursor; the Providers page; an estimate at API prices where a provider shares no usage.
-- **After M10.** OpenCode 1 and 2 under one provider (`harness/src/versions.ts`) with steering, sub-agent steps, questions and Code Mode on 2, sub-agents in a side panel with one report per piece (D-99), team recovery and mid-turn messages, `propose_change`, one Scratch folder per task, the two-pane model picker, drafts and kept state, honest progress, right-click menus, plain copy, long histories, launch speed and the performance phase.
-- **Phase 2.** Efficient mode: carrying on in a new session with a handover (`team/handover.ts`). Milestones with one Progress view and a Settings page (`service/src/goal`).
+- **M1 to M3: harness, core, shell.** One agent on one harness (native or WSL) as one event stream, adapters tested against recordings (`pnpm dev:run`, `pnpm dev:catalog`); one core with a stored, replayable event stream behind a localhost API; an Electron shell with the tray, one API client and one store.
+- **M4, M5: teams and the chief.** Departments, a lead delegating across harnesses through the tool server, one autonomy policy, a worktree per worker (`service/src/team`, `tools`, `autonomy`); a standing chief running goals as department pieces (`service/src/chief`).
+- **M6 to M8: files, onboarding, connectors, outputs.** Attachments and a Library; setup, tutorials and Help; shared and provider apps through the core's hub (`service/src/connectors`); `show_result` in a sandboxed viewer (`service/src/outputs`).
+- **M9, M10: packaging, more providers.** Self-updating Windows installer and Linux AppImage with betas on every green merge; Codex, Muse, Copilot and Cursor; the Providers page.
+- **After M10 and Phase 2.** OpenCode 1 and 2 (`harness/src/versions.ts`), sub-agents in a side panel, team recovery and mid-turn messages, `propose_change`, Scratch per task, Efficient mode with handovers (`team/handover.ts`), Milestones (`service/src/goal`), and the feedback, audit and design rounds (D-100 to D-114).
 
 ## Next
+
+### M10.5 macOS support (D-116, D-117)
+
+Every existing feature on macOS 13+ on Apple silicon, checked in CI. No new architecture piece.
+
+- **A. CI on macOS.** `macos-latest` in the CI matrix; tests pass on all three systems with the count unchanged.
+- **B. Core and harness.** The login shell's environment read once at start (`harness/src/environment/login-shell.ts`) on a Mac, and on Linux outside a terminal; Homebrew folders on PATH; the data folder under `~/Library/Application Support`; paths compared in NFC, with case folded only on a volume that ignores case; connector keys in the Keychain; Claude's usage and sign-in read from its Keychain entry, read only; one account per provider where the Keychain entry is not per folder.
+- **C. Shell.** The app menu (About, Settings ⌘,, Hide, Quit ⌘Q asking first, Edit, Window); the Dock reopening the window; a template menu bar icon; Move to Applications; the login item's approval state; updates that only tell while builds are unsigned; a plain message when macOS refuses a workspace folder.
+- **D. Interface.** One shortcut label helper (⌘ on a Mac), ⌘[ and ⌘] for Back and Forward, Mac words (Terminal, Finder) in one place, a Mac section in Help, What's new.
+- **E. Packaging.** An arm64 .dmg and .zip, ad-hoc signed and verified with `codesign` in CI; Mac betas; a Mac smoke job that installs the .dmg, opens the app to Home, saves a screenshot and quits through the menu.
+- Out of scope: an Intel build, signing and notarization (before the public release), self-update on a Mac.
+
+### M11 to M15 (outline only)
+
+- **M11 Unattended runs.** Task origin, durable retries, an admission queue for every start not typed by a person, resume after a restart, staying awake while work runs, and a notifier in the core.
+- **M12 Automations.** Schedules, events and chains whose runs are ordinary tasks, through M11's queue; durable run keys; `propose_schedule` (D-118).
+- **M13 Remote control.** A paired phone over Tailscale (D-119).
+- **M14 Always-on host.** The same core on a machine the user owns (D-115, D-119).
+- **M15 Ready-made teams.** Importable teams; independent of M11 to M14.
 
 ### Before the public release (owner's go-ahead)
 
 - The owner has tested a beta and says release.
 - Every vetted connector checked again (D-96): any with an advisory removed, the rest re-dated.
 - Intro video, discussed with the owner first.
-- Code signing through SignPath Foundation, wired in once approved.
+- Code signing through SignPath Foundation, wired in once approved; an Apple Developer ID for Mac signing and notarization (D-116).
 - The final name (the app id stays, so a rename breaks no updates or data).
 - Then: run the stable workflow, add the README Download link.
 
 ## Later (outline only)
 
 - Swarms: discuss first a Decisions list (from send-back notes, `propose_change` answers and handovers) and a read-only goal file, and free workers picking up parts whose inputs are done.
-- Deferred: agent memory across tasks (the harnesses keep their own), macOS (until it can be tested), a sandbox environment for computer use.
+- Deferred: agent memory across tasks (the harnesses keep their own), a sandbox environment for computer use.

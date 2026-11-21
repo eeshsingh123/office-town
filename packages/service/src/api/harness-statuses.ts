@@ -4,10 +4,21 @@ import {
   type EnvironmentSpec,
   type HarnessStatus,
 } from "@office-town/contract";
-import { listHarnesses, readHarnessStatus } from "@office-town/harness";
+import {
+  addInstallFoldersToPath,
+  listHarnesses,
+  readHarnessStatus,
+  readLoginShellEnvironment,
+} from "@office-town/harness";
 import { rememberedSignIns } from "../accounts/accounts.ts";
 import type { Store } from "../store/store.ts";
 import type { ReadCatalog } from "../team/catalogs.ts";
+
+// A CLI installed from Terminal since the app opened is found on the next Check again.
+async function refreshPath(): Promise<void> {
+  await readLoginShellEnvironment();
+  addInstallFoldersToPath();
+}
 
 type StatusListener = (change: Change) => void;
 
@@ -89,11 +100,13 @@ export class HarnessStatuses {
   // before the install ended.
   async recheck(harness: string): Promise<HarnessStatus> {
     await this.#reading.get(harness)?.catch(() => undefined);
+    await refreshPath();
     return this.#shown(await this.#check(harness));
   }
 
   // What is known now while a check runs; a fresh ask waits for every status.
   async read({ fresh }: { fresh: boolean }): Promise<HarnessStatus[]> {
+    if (fresh) await refreshPath();
     const checking = this.checkAll();
     if (fresh) return checking;
     return this.#listed(this.#order(), this.#known);

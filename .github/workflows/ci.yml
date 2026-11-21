@@ -11,8 +11,9 @@ permissions:
 jobs:
   check:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -25,3 +26,104 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+
+  # The Mac's live check (D-116): no one on the team has a Mac, so CI installs the app from its
+  # disk image, opens it to Home, saves a picture and quits it the way the Dock does.
+  mac-smoke:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      APP: /Applications/Office Town.app
+      # electron-builder skips signing on pull requests; an ad-hoc signature uses no secret.
+      CSC_FOR_PULL_REQUEST: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Read the login shell's environment in zsh, bash and fish
+        run: |
+          brew install --quiet fish
+          node=$(command -v node)
+          for shell in /bin/zsh /bin/bash "$(command -v fish)"; do
+            env -u TERM SHELL="$shell" PATH=/usr/bin:/bin "$node" --input-type=module -e '
+              const { readLoginShellEnvironment } = await import("./packages/harness/src/environment/login-shell.ts");
+              await readLoginShellEnvironment();
+              // Every login shell on a Mac takes /etc/paths, which the bare PATH here lacks.
+              if (!process.env.PATH.split(":").includes("/usr/sbin")) throw new Error("PATH: " + process.env.PATH);
+            ' 2>&1 | tee "$RUNNER_TEMP/shell.log"
+            if [ -s "$RUNNER_TEMP/shell.log" ]; then echo "Failed in $shell"; exit 1; fi
+            echo "Read in $shell"
+          done
+      - run: pnpm package --beta 0
+      - name: Check the signature, so no build ships that a Mac calls damaged
+        run: codesign --verify --deep --strict --verbose=2 apps/desktop/out/package/installers/mac-arm64/*.app
+      - name: Install from the disk image
+        run: |
+          dmg=$(ls apps/desktop/out/package/installers/*.dmg)
+          mount=$(hdiutil attach "$dmg" -nobrowse -readonly | tail -1 | cut -f3-)
+          cp -R "$mount/Office Town.app" /Applications/
+          hdiutil detach "$mount"
+          codesign --verify --deep --strict "$APP"
+      - name: Skip first-run setup
+        timeout-minutes: 3
+        run: |
+          data="$HOME/Library/Application Support/OfficeTown"
+          mkdir -p "$data"
+          # The runner has no provider CLIs, so the core logs that it can't find them; harmless.
+          node packages/service/src/main.ts --data-folder "$data" > "$RUNNER_TEMP/core-out" 2> "$RUNNER_TEMP/core-err" &
+          core=$!
+          until [ -s "$RUNNER_TEMP/core-out" ]; do sleep 1; done
+          url=$(head -1 "$RUNNER_TEMP/core-out" | jq -r .url)
+          token=$(head -1 "$RUNNER_TEMP/core-out" | jq -r .token)
+          curl -fsS -X PUT -H "Authorization: Bearer $token" -H "Content-Type: application/json"             -d '{"setupDone":true,"whatsNewSeen":"2099-01-01"}' "$url/onboarding"
+          kill -TERM "$core"
+          for _ in $(seq 1 20); do kill -0 "$core" 2> /dev/null || exit 0; sleep 1; done
+          echo "The core did not stop on SIGTERM within 20 seconds."
+          exit 1
+      - name: Open the app from Finder's way and wait for its core
+        timeout-minutes: 4
+        run: |
+          open --stdout "$RUNNER_TEMP/app.log" --stderr "$RUNNER_TEMP/app.log" -a "$APP"
+          for _ in $(seq 1 90); do
+            core=$(pgrep -f "core/main.mjs" || true)
+            if [ -n "$core" ] && lsof -nP -a -p "$core" -iTCP -sTCP:LISTEN > /dev/null; then break; fi
+            sleep 1
+          done
+          lsof -nP -a -p "$(pgrep -f core/main.mjs)" -iTCP -sTCP:LISTEN
+          sleep 15
+          pgrep -x "Office Town"
+          if grep -q "Could not read the login shell" "$RUNNER_TEMP/app.log"; then
+            cat "$RUNNER_TEMP/app.log"
+            exit 1
+          fi
+      - name: Save a picture of Home
+        run: screencapture -x "$RUNNER_TEMP/mac-home.png"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mac-home
+          path: ${{ runner.temp }}/mac-home.png
+          if-no-files-found: error
+      - name: Quit as the Dock does, and check the core stops with it
+        timeout-minutes: 2
+        run: |
+          osascript -e 'tell application "Office Town" to quit'
+          for _ in $(seq 1 30); do
+            if ! pgrep -x "Office Town" > /dev/null && ! pgrep -f core/main.mjs > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Office Town did not quit."
+          exit 1
+      - name: The app's log
+        if: always()
+        run: cat "$RUNNER_TEMP/app.log" || true
+      # Needs OpenCode's free model to answer without a key; if it asks for one, this step says so.
+      - name: One prompt on OpenCode's free model
+        continue-on-error: true
+        timeout-minutes: 6
+        run: |
+          npm install -g @opencode/cli
+          pnpm dev:run "Reply with the single word ready." --harness opencode --model opencode/deepseek-v4.1-flash-free

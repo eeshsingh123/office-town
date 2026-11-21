@@ -18,8 +18,11 @@ interface ShellBridge {
   updateReady(): Promise<string | null>;
   // Returns a function that stops listening.
   onUpdateReady(listener: (version: string) => void): () => void;
-  // Asks first when agents are open; does nothing if the user cancels.
+  // Asks first when agents are open; does nothing if the user cancels. A build that cannot install
+  // updates opens the download page instead.
   restartToUpdate(): Promise<void>;
+  // The app menu's Settings on a Mac. Returns a function that stops listening.
+  onOpenSettings(listener: () => void): () => void;
   // Null in the development app, which does not update itself.
   updateStatus(): Promise<UpdateStatus | null>;
   checkForUpdates(): Promise<UpdateStatus | null>;
@@ -36,6 +39,7 @@ export type UpdateStatus =
   | { state: "latest" }
   | { state: "downloading"; version: string }
   | { state: "ready"; version: string }
+  | { state: "available"; version: string }
   | { state: "failed" };
 
 export interface DesktopPreferences {
@@ -43,6 +47,10 @@ export interface DesktopPreferences {
   openAtLogin: boolean;
   // Only the installed app on Windows and macOS.
   canOpenAtLogin: boolean;
+  // On a Mac, until the user allows it in System Settings.
+  openAtLoginNeedsApproval: boolean;
+  // False for an unsigned Mac build, which only says an update is ready.
+  updatesInstall: boolean;
 }
 
 export interface Area {

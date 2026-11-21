@@ -17,38 +17,44 @@ const LIMITS_EVERY_MS = 5 * 60_000;
 // window keeps to the core for seconds, and the rest of the app queues behind them (D-92).
 let refreshing: Promise<void> | undefined;
 
-export function refreshLimits(): Promise<void> {
+const showLimits = (entries: AccountLimits[]) =>
+  useApp.setState({
+    limits: Object.fromEntries(entries.map((entry) => [entry.accountId, entry])),
+  });
+
+// The user's own Refresh goes on its own: only it may read a Mac's Keychain (D-117).
+export function refreshLimits({ asked = false } = {}): Promise<void> {
+  if (asked) return api.refreshLimits(true).then(showLimits);
   refreshing ??= api
-    .refreshLimits()
-    .then((entries) =>
-      useApp.setState({
-        limits: Object.fromEntries(entries.map((entry) => [entry.accountId, entry])),
-      }),
-    )
+    .refreshLimits(false)
+    .then(showLimits)
     .finally(() => {
       refreshing = undefined;
     });
   return refreshing;
 }
 
-// Reads plan usage on open, every few minutes and when the window comes back; `refresh` on demand.
+// Reads plan usage on open, every few minutes and when the window comes back; `refresh` is the
+// user asking.
 export function useLiveLimits(): { refresh: () => void; refreshing: boolean } {
   const [refreshing, setRefreshing] = useState(false);
-  const refresh = useCallback(() => {
+  const read = useCallback((asked: boolean) => {
     setRefreshing(true);
-    void refreshLimits()
+    void refreshLimits({ asked })
       .catch(() => {})
       .finally(() => setRefreshing(false));
   }, []);
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, LIMITS_EVERY_MS);
-    window.addEventListener("focus", refresh);
+    const automatic = () => read(false);
+    automatic();
+    const timer = setInterval(automatic, LIMITS_EVERY_MS);
+    window.addEventListener("focus", automatic);
     return () => {
       clearInterval(timer);
-      window.removeEventListener("focus", refresh);
+      window.removeEventListener("focus", automatic);
     };
-  }, [refresh]);
+  }, [read]);
+  const refresh = useCallback(() => read(true), [read]);
   return { refresh, refreshing };
 }
 

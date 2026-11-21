@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { PermissionMode, UsageLimit, VendorApp } from "@office-town/contract";
 import type {
   AccountSupport,
@@ -164,6 +165,14 @@ async function readLimits(credentials: string): Promise<UsageLimit[] | undefined
   });
 }
 
+// Claude keys its Keychain entry to CLAUDE_CONFIG_DIR, so each account's folder has its own: the
+// first 8 hex characters of the folder's SHA-256 (docs: authentication, "Credential management").
+function keychainService(folder?: string): string {
+  const base = "Claude Code-credentials";
+  if (folder === undefined) return base;
+  return `${base}-${createHash("sha256").update(folder).digest("hex").slice(0, 8)}`;
+}
+
 // Each account is a config folder of its own, which holds its login (D-61).
 const accounts: AccountSupport = {
   env: (folder) => ({ CLAUDE_CONFIG_DIR: folder }),
@@ -181,6 +190,7 @@ const accounts: AccountSupport = {
     },
   },
   home: ".claude",
+  keychainService,
   readLimits,
 };
 

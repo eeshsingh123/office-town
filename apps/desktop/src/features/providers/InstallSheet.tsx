@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiRequestError, api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
+import { terminalName } from "../../ui/system.ts";
 import { ConnectorSheet } from "../connectors/SheetParts.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
 import styles from "./Providers.module.css";
@@ -190,9 +191,7 @@ export function InstallSheet({ harness, onSignIn, onClose }: InstallSheetProps) 
               the command yourself.
             </p>
           )}
-          <strong>
-            Run this in {navigator.userAgent.includes("Windows") ? "PowerShell" : "a terminal"}
-          </strong>
+          <strong>Run this in {terminalName}</strong>
           {status.installCommand === undefined ? null : (
             <CopyCommand command={status.installCommand} />
           )}

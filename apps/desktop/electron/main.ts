@@ -11,10 +11,12 @@ import {
   Notification,
   nativeTheme,
   net,
+  powerMonitor,
   session,
   shell,
   type Tray,
 } from "electron";
+import { setAppMenu } from "./app-menu.ts";
 import { APP_ORIGIN, registerAppScheme, serveApp } from "./app-protocol.ts";
 import { type CoreCommand, type CoreProcess, startCore } from "./core-process.ts";
 import {
@@ -27,17 +29,20 @@ import {
 import { pictureOfPage } from "./page-picture.ts";
 import {
   canOpenAtLogin,
+  openAtLoginNeedsApproval,
   opensAtLogin,
   readPreferences,
   savePreferences,
   setOpenAtLogin,
 } from "./preferences.ts";
 import { createTray } from "./tray.ts";
-import { followUpdates, type Updates } from "./updates.ts";
+import { followUpdates, releasePage, type Updates, updatesInstall } from "./updates.ts";
 import { createWindow, showWindow } from "./window.ts";
 
 const file = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 const ICON = file("./icon.png");
+// Its @2x twin beside it is picked up by name.
+const TRAY_TEMPLATE = file("./iconTemplate.png");
 const PRELOAD = file("./preload.cjs");
 const UI_FOLDER = file("../dist");
 // Installed, the core is plain JS outside the archive (D-75); otherwise the sources run (D-19).
@@ -61,6 +66,11 @@ let window: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let updates: Updates | undefined;
 let quitting = false;
+// A Mac quits from the Dock as well as the menu; either way the user is asked first, unless they
+// already agreed or the system is logging out or shutting down.
+let quitAgreed = false;
+let systemEnding = false;
+let askingToQuit: Promise<void> | undefined;
 let preferences = readPreferences();
 
 if (!app.isPackaged) becomeDevApp();
@@ -68,6 +78,8 @@ if (startedByDevLoop()) quitWhenDisconnected();
 registerAppScheme();
 if (app.requestSingleInstanceLock()) {
   app.on("second-instance", () => open());
+  // The Dock icon reopens a window closed to the menu bar.
+  app.on("activate", () => open());
   app.on("before-quit", stopCoreFirst);
   app.whenReady().then(start).catch(failToStart);
 } else {
@@ -75,7 +87,14 @@ if (app.requestSingleInstanceLock()) {
 }
 
 async function start(): Promise<void> {
-  app.setAppUserModelId(APP_ID);
+  if (process.platform === "win32") app.setAppUserModelId(APP_ID);
+  if (process.platform === "darwin") {
+    setAppMenu({ openSettings, quit: () => void confirmQuit() });
+    powerMonitor.on("shutdown", () => {
+      systemEnding = true;
+    });
+    if (app.isPackaged && (await offerMoveToApplications())) return;
+  }
   coreStarting = startCore(coreCommand, { onCrash });
   core = await coreStarting;
   coreStarting = undefined;
@@ -95,7 +114,10 @@ async function start(): Promise<void> {
     onQuit: () => void confirmQuit(),
   });
   if (!app.isPackaged) showDevIcon(window, APP_ID, ICON);
-  tray = createTray(ICON, { open, quit: () => void confirmQuit() });
+  tray = createTray(
+    { icon: ICON, template: TRAY_TEMPLATE },
+    { open, quit: () => void confirmQuit() },
+  );
   if (!app.isPackaged) reloadOnRebuild(UI_FOLDER, () => window);
   if (app.isPackaged) {
     updates = followUpdates((version) => window?.webContents.send("update-ready", version));
@@ -109,13 +131,51 @@ function noteTrayOnce(): void {
   savePreferences(preferences);
   new Notification({
     title: `${app.getName()} is still running`,
-    body: "Agents keep working in the tray. To quit when you close the window, change it in Settings.",
+    body: `Agents keep working in the ${process.platform === "darwin" ? "menu bar" : "tray"}. To quit when you close the window, change it in Settings.`,
     icon: ICON,
   }).show();
 }
 
+// An app run from Downloads or the disk image runs from a temporary place, so the first open
+// offers to move it. Returns true when it is moving, as the app then opens again from there.
+async function offerMoveToApplications(): Promise<boolean> {
+  if (preferences.moveDeclined || app.isInApplicationsFolder()) return false;
+  const { response } = await dialog.showMessageBox({
+    type: "question",
+    message: "Move Office Town to your Applications folder?",
+    detail:
+      "Run from a download or a disk image, macOS may forget its permissions. It opens again once moved.",
+    buttons: ["Move to Applications", "Not now"],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 1) {
+    preferences = { ...preferences, moveDeclined: true };
+    savePreferences(preferences);
+    return false;
+  }
+  quitAgreed = true;
+  try {
+    return app.moveToApplicationsFolder();
+  } catch (error) {
+    quitAgreed = false;
+    const detail = error instanceof Error ? error.message : String(error);
+    await dialog.showMessageBox({
+      type: "warning",
+      message: "Office Town could not move.",
+      detail,
+    });
+    return false;
+  }
+}
+
 function open(): void {
   if (window !== undefined) showWindow(window);
+}
+
+function openSettings(): void {
+  open();
+  window?.webContents.send("open-settings");
 }
 
 function failToStart(error: unknown): void {
@@ -199,13 +259,27 @@ async function agreeToStopAgents(reason: keyof typeof STOP_QUESTIONS): Promise<b
 }
 
 async function confirmQuit(): Promise<void> {
-  if (await agreeToStopAgents("quit")) app.quit();
+  askingToQuit ??= agreeToStopAgents("quit")
+    .then((agreed) => {
+      if (!agreed) return;
+      quitAgreed = true;
+      app.quit();
+    })
+    .finally(() => {
+      askingToQuit = undefined;
+    });
+  return askingToQuit;
 }
 
 // The update installs only after the core has stopped its agents (D-75).
 async function restartToUpdate(): Promise<void> {
   const waiting = updates;
-  if (waiting?.ready() === undefined || !(await agreeToStopAgents("update"))) return;
+  const version = waiting?.ready();
+  if (waiting === undefined || version === undefined) return;
+  // A build that cannot install the update itself opens its download page instead.
+  if (!updatesInstall()) return shell.openExternal(releasePage(version));
+  if (!(await agreeToStopAgents("update"))) return;
+  quitAgreed = true;
   await stopCore();
   waiting.install();
   // If the updater cannot start the installer it does not quit, and the app would be left with no
@@ -215,6 +289,11 @@ async function restartToUpdate(): Promise<void> {
 
 // Every way of quitting passes here, so the core always gets to record its agents as interrupted.
 function stopCoreFirst(event: Electron.Event): void {
+  if (process.platform === "darwin" && !quitAgreed && !systemEnding) {
+    event.preventDefault();
+    void confirmQuit();
+    return;
+  }
   quitting = true;
   if (core === undefined && coreStarting === undefined) return;
   event.preventDefault();
@@ -342,6 +421,8 @@ function registerBridge(): void {
       closeToTray: preferences.closeToTray,
       openAtLogin: opensAtLogin(),
       canOpenAtLogin: canOpenAtLogin(),
+      openAtLoginNeedsApproval: openAtLoginNeedsApproval(),
+      updatesInstall: updatesInstall(),
     };
   });
   ipcMain.handle("set-close-to-tray", (event, on: unknown) => {

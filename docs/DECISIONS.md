@@ -9,6 +9,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-7** Open source. Free and low-cost models are first class.
 - **D-8, D-9, D-11** A command center across harnesses; a harness's own sub-agents show as nested activity. Task agnostic, with connectors as plugins.
 - **D-29** No per-agent budgets or dollar tracking; each provider's own limit is the truth.
+- **D-115** No Office Town cloud: "cloud" means an always-on machine the user owns, running the same core (M14), with no relay of ours. Order: M10.5 macOS, M11 Unattended runs, M12 Automations, M13 Remote control, M14 Always-on host, M15 Ready-made teams (independent). Swarms are a scale mode of departments and the chief, capped in window share (D-29 stays). Computer use: a browser connector now; desktop control only in a future sandbox environment, never on the real desktop while the user is away.
 
 ## Harnesses
 
@@ -22,6 +23,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-97, D-98** OpenCode 1 and 2 under one harness, the installed version picking the adapter; 2.x side commands run `--standalone` so the app never touches the user's background service. What 2 adds (steering, sub-agent steps, questions, Code Mode for shared apps only) runs only on 2.
 - **D-99** Sub-agents: adapters declare whether steps are shared and whether the CLI wakes the agent itself; otherwise the core sends a short notice once the last sub-agent ends, so the reply is a turn of its own.
 - **D-92** One-off CLI queries run two at a time; sessions never wait. Why: each process start blocks the core's thread on Windows.
+- **D-117** On a Mac the core reads the login shell's environment once at start (and on Check again), so CLIs installed for Terminal are found. Claude's usage on a Mac is read from its Keychain entry: read only, kept in memory for that one read, never logged or stored, and only on the user's own Refresh on Usage, since macOS may ask before each read (Claude reads it through `/usr/bin/security`, and its token refresh resets the user's answer).
 
 ## Core: store, API, live state
 
@@ -37,6 +39,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-34** Closing the window keeps agents running in the tray by default (the user can choose Quit, D-111); quitting with agents running asks first and records them as interrupted. The core runs on Electron's own Node and stops when its stdin closes. Why stdin: Windows cannot send a child SIGTERM.
 - **D-75** A per-user Windows installer and a Linux AppImage, updated by electron-updater. Every green merge publishes a beta only the owner follows; a stable release only when the owner asks, never run by the agent. Bump the version after each release. Updates install on quit or Restart to update, never under a running agent. Dev runs as "Office Town Dev" on its own data folder. Never a one-line PowerShell installer from a hidden process.
 - **D-89** The shell adds the usual text menu; app objects get their own menus that only repeat existing actions. Every Stop asks first.
+- **D-116** macOS 13 or later on Apple silicon, from the same code; no Intel build unless the owner asks. A .dmg and .zip, ad-hoc signed betas that tell the user an update is ready and link to the download, until an Apple Developer ID is bought before the public release. Mac builds are beta only and tested by CI (macOS runners and a Mac smoke job). Every module from M11 on works on Windows, Linux and macOS, with CI on all three.
 
 ## Human in the loop
 
@@ -47,6 +50,11 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-82** A task shows its level once, in a chip that saves on the department or solo agent and applies at the next request.
 - **D-71** An agent cutting off another needs the user's approval.
 - **D-78** A lead that would change direction asks first with `propose_change`, at every level.
+- **D-118** Automations start at the Settings default level; event-triggered ones never use No safety checks. `propose_schedule` always waits for the user. An unanswered ask ends an automation's run after 24 hours by default, set per automation from 1 hour to 7 days or no limit.
+
+## Remote
+
+- **D-119** Recorded now so M11 and M12 do not block M13 and M14. Tailscale is the one supported path, Cloudflare Tunnel documented; the core stays on 127.0.0.1; every phone is paired and holds its own revocable key. Imported teams start at the Settings default, apps at Ask me first, automations off. Headless keys: an encrypted file, M14 only; a Mac host uses the Keychain while its user is signed in.
 
 ## Teams
 
