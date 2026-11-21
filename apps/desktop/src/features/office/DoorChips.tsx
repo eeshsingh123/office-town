@@ -1,4 +1,5 @@
-import { Clock } from "lucide-react";
+import { CircleDot, Clock } from "lucide-react";
+import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
 import type { DoorChip } from "./doors.ts";
 import styles from "./Office.module.css";
@@ -42,7 +43,12 @@ function Chip({ chip }: { chip: DoorChip }) {
         </span>
       );
     case "idle":
-      return <span className={styles.chip}>Free</span>;
+      return (
+        <span className={styles.chip}>
+          <CircleDot size={11} aria-hidden className={styles.idleIcon} />
+          {STATE_LABELS.idle}
+        </span>
+      );
   }
 }
 

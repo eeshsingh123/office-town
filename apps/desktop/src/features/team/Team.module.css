@@ -1,4 +1,4 @@
-/* The chief when there is one, then each department with its own small tree of people. */
+/* The chief when there is one, then each department with its people on one shared grid. */
 .column {
   display: flex;
   flex-direction: column;
@@ -7,86 +7,10 @@
   margin: 0 auto;
 }
 
-/* Each level hangs off the row above. A row draws its own elbow (a line down from its parent,
-   then across to its middle), so the line meets it whatever its height; the line on to later
-   siblings is the item's own. */
-.tree,
-.tree ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tree {
-  --indent: 34px;
-  --gap: 16px;
-  --line: 2px solid var(--border-strong);
-}
-
-.tree ul {
-  margin-left: 31px;
-}
-
-.tree li {
-  position: relative;
-  padding: var(--gap) 0 0 var(--indent);
-}
-
-.tree li:not(:last-child)::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  border-left: var(--line);
-}
-
-.tree li > :first-child {
-  position: relative;
-}
-
-.tree li > :first-child::before {
-  content: "";
-  position: absolute;
-  top: calc(-1 * var(--gap));
-  bottom: 50%;
-  left: calc(-1 * var(--indent));
-  width: calc(var(--indent) - 8px);
-  border-bottom: var(--line);
-  border-left: var(--line);
-  pointer-events: none;
-}
-
-/* A department's line meets its first row (14px padding + a 40px name block), not the middle
-   of its open list of people or of a header wrapped onto two rows. */
-.tree li > .department::before {
-  display: none;
-}
-
-.tree li > .department .departmentHead::before {
-  content: "";
-  position: absolute;
-  top: calc(-1 * var(--gap) - 1px);
-  height: calc(var(--gap) + 1px + 34px);
-  left: calc(-1 * var(--indent) - 1px);
-  width: calc(var(--indent) - 8px);
-  border-bottom: var(--line);
-  border-left: var(--line);
-  pointer-events: none;
-}
-
-.tree > li {
-  padding: 0;
-}
-
-.tree > li > :first-child::before {
-  display: none;
-}
-
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -97,8 +21,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 560px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -109,17 +32,11 @@ button.node {
   cursor: pointer;
 }
 
-button.node:hover {
-  border-color: var(--border-strong);
-}
-
 .chief {
-  max-width: none;
   border-color: var(--accent);
 }
 
 button.chief:hover {
-  border-color: var(--accent);
   background: var(--accent-soft);
 }
 
@@ -127,12 +44,13 @@ button.chief:hover {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .text strong {
-  font-size: 14.5px;
-  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 22px;
 }
 
 .text span {
@@ -140,54 +58,35 @@ button.chief:hover {
   color: var(--text-3);
 }
 
-.status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 9px;
-  border-radius: var(--radius-chip);
-  background: var(--hover);
-  color: var(--text-2);
-  font-size: var(--size-small);
-  font-weight: 600;
-}
-
-.working {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.working::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+.text strong,
+.text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .department {
+  --inset: 56px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
 }
 
+/* The department's picture sits at --inset, the same left edge as its people's pictures. */
 .departmentHead {
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 12px;
-  padding: 14px 12px 14px 10px;
+  gap: 8px;
+  padding: 12px 12px 12px 8px;
 }
 
 .openTeam {
   display: flex;
-  flex: 1 1 160px;
   align-items: center;
   gap: 12px;
   min-width: 0;
-  margin: -6px 0;
-  padding: 6px 8px;
+  padding: 6px 12px;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
@@ -200,28 +99,11 @@ button.chief:hover {
   background: var(--hover);
 }
 
-.departmentHead .text strong,
-.departmentHead .text span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.departmentHead .text strong {
-  font-size: 15px;
-  line-height: 22px;
-}
-
-.departmentHead .text span {
-  line-height: 18px;
-}
-
 .fold {
   display: grid;
-  flex: none;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-small);
@@ -246,34 +128,41 @@ button.chief:hover {
 .people {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 6px 16px 14px 46px;
+  padding: 8px 0 12px;
   border-top: 1px solid var(--border);
 }
 
-/* A lighter, tighter tree inside a department. */
-.peopleTree {
-  align-self: stretch;
-  --indent: 28px;
-  --gap: 4px;
-  --line: 1.5px solid var(--border);
+/* One grid for the column names and every row, so each column starts on the same edge. */
+.columns,
+.person {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(110px, 150px) minmax(150px, 230px) 96px;
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px 0 var(--inset);
 }
 
-.peopleTree ul {
-  margin-left: 18px;
+.columns {
+  height: 32px;
+  color: var(--text-3);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .person {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   width: 100%;
-  max-width: 560px;
-  padding: 4px 8px;
+  height: 44px;
   border: 0;
-  border-radius: var(--radius-control);
   background: transparent;
+  color: inherit;
   font-size: 13.5px;
   text-align: left;
   cursor: pointer;
@@ -283,56 +172,94 @@ button.chief:hover {
   background: var(--hover);
 }
 
+.who {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.who > :first-child {
+  position: relative;
+  z-index: 1;
+}
+
+/* A member hangs off the lead: each row draws the line from the row above (44px rows, 24px
+   pictures, so 32px up) down to its picture. */
+.member .who {
+  padding-left: 32px;
+}
+
+.member .who::before {
+  content: "";
+  position: absolute;
+  top: -32px;
+  bottom: 50%;
+  left: 11px;
+  width: 15px;
+  border-bottom: 1.5px solid var(--border-strong);
+  border-left: 1.5px solid var(--border-strong);
+  border-bottom-left-radius: 8px;
+  pointer-events: none;
+}
+
 .role {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.handle {
+.member .role {
+  font-weight: 500;
+}
+
+.leadChip {
   flex: none;
+  padding: 1px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--size-small);
+  font-weight: 600;
+}
+
+.handle {
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   color: var(--text-2);
   font-size: var(--size-meta);
 }
 
-.gear {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-}
-
-.gear:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.model {
-  flex: none;
-  max-width: 50%;
+.modelName {
   overflow: hidden;
-  color: var(--text-3);
-  font-size: var(--size-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .addPerson {
   display: inline-flex;
+  align-self: flex-start;
   align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-  padding: 2px 0;
+  gap: 8px;
+  height: 36px;
+  margin: 4px 0 0 calc(var(--inset) - 8px);
+  padding: 0 8px;
   border: 0;
+  border-radius: var(--radius-control);
   background: none;
   color: var(--accent-text);
   font-size: 13px;
@@ -340,24 +267,29 @@ button.chief:hover {
   cursor: pointer;
 }
 
-@media (max-width: 720px) {
-  .tree {
-    --indent: 22px;
-  }
-
-  .tree ul {
-    margin-left: 15px;
-  }
-
-  .departmentHead {
-    flex-wrap: wrap;
-  }
-
-  .people {
-    padding-left: 16px;
-  }
+.addPerson:hover {
+  background: var(--hover);
 }
 
 .tools {
   display: flex;
+}
+
+/* Narrow: the role and its status stay; handle and model step aside. */
+@media (max-width: 760px) {
+  .department {
+    --inset: 20px;
+  }
+
+  .columns,
+  .person {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .columns > :nth-child(2),
+  .columns > :nth-child(3),
+  .handle,
+  .model {
+    display: none;
+  }
 }

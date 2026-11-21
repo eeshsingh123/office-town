@@ -1,5 +1,5 @@
 import type { WorkspaceRecord, WorkspaceUsage } from "@office-town/contract";
-import { Copy, ListX, Pencil, Plus, TriangleAlert } from "lucide-react";
+import { ArrowDown, Copy, GitBranch, ListX, Pencil, Plus, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
@@ -77,7 +77,9 @@ export function WorkspaceMenu({
   );
 }
 
-function Card({
+type Sort = "used" | "name";
+
+function Row({
   workspace,
   usage,
   onEdit,
@@ -91,66 +93,103 @@ function Card({
   const names = (usage?.departmentIds ?? []).flatMap((id) => departments[id]?.name ?? []);
   const working = [...new Set(useWorkingNow()[workspace.id]?.map(({ agent }) => agent.id))];
   const missing = (usage?.missingFolders.length ?? 0) > 0;
-  const open = () => navigate({ name: "workspace", workspaceId: workspace.id });
-  const meta = [
+  const usedBy =
     names.length > 0
       ? names.join(", ")
       : workspace.kind === "scratch"
-        ? "Solo tasks"
-        : "No department",
-    workspace.kind === "scratch"
-      ? `${usage?.taskCount ?? 0} task folder${usage?.taskCount === 1 ? "" : "s"}`
-      : `${workspace.folders.length} folder${workspace.folders.length === 1 ? "" : "s"}`,
-    `used ${ago(workspace.usedAt)}`,
-  ];
+        ? `Solo tasks · ${usage?.taskCount ?? 0} task folder${usage?.taskCount === 1 ? "" : "s"}`
+        : "No department";
   return (
-    <li className={styles.card}>
-      <button type="button" className={styles.cardBody} onClick={open}>
-        <span className={styles.cardTop}>
-          <WorkspaceIcon kind={workspace.kind} />
-          <span className={styles.optionText}>
-            <strong className={styles.name}>{workspace.name}</strong>
-            <span className={styles.path}>
-              <ShortPath path={mainPath(workspace)} />
-              {usage?.branch === undefined ? "" : ` · ${usage.branch}`}
+    <li className={styles.wsRow}>
+      <span className={styles.wsName}>
+        <WorkspaceIcon kind={workspace.kind} small />
+        <span className={styles.optionText}>
+          <button
+            type="button"
+            className={styles.open}
+            onClick={() => navigate({ name: "workspace", workspaceId: workspace.id })}
+          >
+            {workspace.name}
+          </button>
+          {missing ? (
+            <span className={styles.missing}>
+              <TriangleAlert size={12} aria-hidden />
+              Folder not found
             </span>
-          </span>
+          ) : (
+            <ShortPath path={mainPath(workspace)} className={styles.path} />
+          )}
         </span>
-        {missing ? (
-          <span className={styles.warnChip}>
-            <TriangleAlert size={12} aria-hidden />
-            Folder not found
+      </span>
+      <span className={names.length === 0 ? styles.dimCell : styles.cell} title={usedBy}>
+        {names.length > 1 ? <TriangleAlert size={12} aria-label="Shared" /> : null}
+        {usedBy}
+      </span>
+      <span className={styles.cell}>
+        {usage?.branch === undefined ? (
+          <span className={styles.dimCell}>–</span>
+        ) : (
+          <span className={styles.branch} title={usage.branch}>
+            <GitBranch size={13} aria-hidden />
+            <span className={styles.branchName}>{usage.branch}</span>
           </span>
-        ) : working.length > 0 ? (
-          <span className={styles.live}>
-            <span className={styles.dot} aria-hidden />
-            {working.length} agent{working.length === 1 ? "" : "s"} working now
+        )}
+      </span>
+      <span className={styles.cell}>
+        {working.length === 0 ? (
+          <span className={styles.dimCell}>–</span>
+        ) : (
+          <span className={styles.now}>
+            <span className={styles.avatars}>
+              {working.slice(0, 3).map((agentId) => {
+                const agent = agents[agentId];
+                return agent === undefined ? null : (
+                  <Avatar key={agentId} name={agent.name} colour={agent.colour} size={20} />
+                );
+              })}
+            </span>
+            {working.length} working
           </span>
-        ) : null}
-        <span className={form.hint}>{meta.join(" · ")}</span>
-        {names.length > 1 ? (
-          <span className={styles.warnChip}>Shared by {names.length} departments</span>
-        ) : null}
-      </button>
-      <div className={styles.cardFoot}>
-        <span className={styles.avatars}>
-          {working.slice(0, 5).map((agentId) => {
-            const agent = agents[agentId];
-            return agent === undefined ? null : (
-              <Avatar key={agentId} name={agent.name} colour={agent.colour} size={22} />
-            );
-          })}
-        </span>
-        <span className={styles.actions}>
-          <WorkspaceMenu workspace={workspace} usage={usage} onEdit={onEdit} />
-        </span>
-      </div>
+        )}
+      </span>
+      <span className={styles.dimCell}>{ago(workspace.usedAt)}</span>
+      <span className={styles.rowMenu}>
+        <WorkspaceMenu workspace={workspace} usage={usage} onEdit={onEdit} />
+      </span>
     </li>
+  );
+}
+
+function SortHeader({
+  label,
+  value,
+  sort,
+  onSort,
+}: {
+  label: string;
+  value: Sort;
+  sort: Sort;
+  onSort: (sort: Sort) => void;
+}) {
+  return (
+    <span>
+      <button
+        type="button"
+        className={`${styles.sortButton} ${sort === value ? styles.sorted : ""}`}
+        aria-pressed={sort === value}
+        title={`Sort by ${label.toLowerCase()}`}
+        onClick={() => onSort(value)}
+      >
+        {label}
+        {sort === value ? <ArrowDown size={12} aria-hidden /> : null}
+      </button>
+    </span>
   );
 }
 
 const QUERY = forSession("workspaces.query", "");
 const FILTER = forSession<Filter>("workspaces.filter", "all");
+const SORT = forSession<Sort>("workspaces.sort", "used");
 
 export function WorkspacesView() {
   const workspaces = useWorkspaces();
@@ -158,16 +197,21 @@ export function WorkspacesView() {
   const working = useWorkingNow();
   const [query, setQuery] = useKept(QUERY);
   const [filter, setFilter] = useKept(FILTER);
+  const [sort, setSort] = useKept(SORT);
   const scroll = useKeptScroll("workspaces");
   const [editing, setEditing] = useState<{ workspace?: WorkspaceRecord; key: number }>();
   const all = workspaces ?? [];
   const words = query.trim().toLowerCase();
-  const shown = all.filter((workspace) => {
-    const text = `${workspace.name} ${workspace.folders.map((folder) => folder.path).join(" ")}`;
-    if (words !== "" && !text.toLowerCase().includes(words)) return false;
-    if (filter === "busy") return (working[workspace.id]?.length ?? 0) > 0;
-    return filter === "all" || workspace.kind === filter;
-  });
+  const shown = all
+    .filter((workspace) => {
+      const text = `${workspace.name} ${workspace.folders.map((folder) => folder.path).join(" ")}`;
+      if (words !== "" && !text.toLowerCase().includes(words)) return false;
+      if (filter === "busy") return (working[workspace.id]?.length ?? 0) > 0;
+      return filter === "all" || workspace.kind === filter;
+    })
+    .toSorted((a, b) =>
+      sort === "name" ? a.name.localeCompare(b.name) : b.usedAt.localeCompare(a.usedAt),
+    );
   const filters: { value: Filter; label: string }[] = [
     { value: "all", label: `All ${all.length}` },
     { value: "folders", label: KIND_LABEL.folders },
@@ -201,46 +245,55 @@ export function WorkspacesView() {
           }
         />
 
-        <div className={styles.tools}>
-          <SearchBox
-            value={query}
-            onChange={(value) => setQuery(value)}
-            label="Search workspaces"
-            placeholder="Search by name or folder"
-          />
-          <fieldset className={`${form.row} ${form.group}`}>
-            <legend className="visually-hidden">Show</legend>
-            {filters.map((choice) => (
-              <button
-                key={choice.value}
-                type="button"
-                className={form.chip}
-                aria-pressed={filter === choice.value}
-                onClick={() => setFilter(choice.value)}
-              >
-                {choice.label}
-              </button>
-            ))}
-          </fieldset>
-        </div>
-
-        {workspaces === undefined ? null : shown.length === 0 && all.length > 0 ? (
-          <div className={styles.empty}>
-            <strong>No workspaces match</strong>
-            <p className={form.hint}>Try a different word, or show all.</p>
+        <div className={styles.listArea}>
+          <div className={styles.tools}>
+            <SearchBox
+              value={query}
+              onChange={(value) => setQuery(value)}
+              label="Search workspaces"
+              placeholder="Search by name or folder"
+            />
+            <fieldset className={`${form.row} ${form.group}`}>
+              <legend className="visually-hidden">Show</legend>
+              {filters.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  className={form.chip}
+                  aria-pressed={filter === choice.value}
+                  onClick={() => setFilter(choice.value)}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </fieldset>
           </div>
-        ) : (
-          <ul className={styles.grid} aria-label="Workspaces">
-            {shown.map((workspace) => (
-              <Card
-                key={workspace.id}
-                workspace={workspace}
-                usage={usage?.[workspace.id]}
-                onEdit={() => edit(workspace)}
-              />
-            ))}
-          </ul>
-        )}
+
+          {workspaces === undefined ? null : shown.length === 0 && all.length > 0 ? (
+            <p className={styles.empty}>No workspaces match.</p>
+          ) : (
+            <div className={styles.table}>
+              <div className={styles.tableHead}>
+                <SortHeader label="Workspace" value="name" sort={sort} onSort={setSort} />
+                <span>Used by</span>
+                <span>Branch</span>
+                <span>Now</span>
+                <SortHeader label="Last used" value="used" sort={sort} onSort={setSort} />
+                <span />
+              </div>
+              <ul className={styles.rows} aria-label="Workspaces">
+                {shown.map((workspace) => (
+                  <Row
+                    key={workspace.id}
+                    workspace={workspace}
+                    usage={usage?.[workspace.id]}
+                    onEdit={() => edit(workspace)}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
       {editing === undefined ? null : (
         <WorkspaceSheet

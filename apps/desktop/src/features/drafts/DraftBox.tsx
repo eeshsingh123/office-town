@@ -27,6 +27,8 @@ interface DraftBoxProps {
   initial?: string;
   // What the box says once there is a draft.
   changePlaceholder?: string;
+  // The button once a draft exists.
+  updateLabel?: string;
   run: (notes: string[], drafter: RoleSettings) => Promise<DraftAnswer>;
 }
 
@@ -44,6 +46,7 @@ export function DraftBox({
   drafted,
   initial,
   changePlaceholder = "Change something, for example: make the reviewer use a free model",
+  updateLabel = "Update draft",
   run,
 }: DraftBoxProps) {
   const [drafter, setDrafter] = useDrafter();
@@ -128,7 +131,7 @@ export function DraftBox({
           </div>
           <Button type="submit" variant="primary" disabled={busy || text.trim() === ""}>
             {drafted ? <ArrowUp size={15} aria-hidden /> : <Sparkles size={15} aria-hidden />}
-            {drafted ? "Update draft" : action}
+            {drafted ? updateLabel : action}
           </Button>
         </div>
       </form>

@@ -86,7 +86,8 @@
   color: var(--review);
 }
 
-.pill[data-status="done"] {
+.pill[data-status="done"],
+.pill[data-status="idle"] {
   background: var(--ok-soft);
   color: var(--ok);
 }

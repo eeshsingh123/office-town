@@ -4,6 +4,7 @@ import { teamAtWork } from "../../store/records.ts";
 import { confirmed, type MenuAction, type MenuContent, MenuHeader } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { taskName } from "../../ui/format.ts";
+import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { startNewTask } from "../new-task/start-new-task.ts";
 import { selectRoom } from "../office/office-state.ts";
 import { pin, pinnedNow, unpin } from "../office/pins.ts";
@@ -64,7 +65,7 @@ export function departmentMenu(departmentId: string): MenuContent | undefined {
       <MenuHeader
         face={<Avatar name={department.name} colour={lead?.colour ?? "var(--text-3)"} size={22} />}
         title={department.name}
-        detail={`${peopleLine(members.length)} · ${working ? "Working" : "Free"}`}
+        detail={`${peopleLine(members.length)} · ${working ? STATE_LABELS.working : STATE_LABELS.idle}`}
       />
     ),
     actions,

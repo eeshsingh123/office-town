@@ -1,9 +1,12 @@
 import { autonomySchema, type DepartmentRecord, type RoleSettings } from "@office-town/contract";
 import { MessageSquareText } from "lucide-react";
-import { type FormEvent, useState } from "react";
+import { Tabs } from "radix-ui";
+import { type FormEvent, type ReactNode, useState } from "react";
 import { api } from "../../api/client.ts";
+import { useDepartmentState } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
-import { clearDrafts, ignoreDraft, readDraft, useDraft } from "../../store/drafts.ts";
+import { clearDrafts, ignoreDraft, readDraft, useDraft, useHasDraft } from "../../store/drafts.ts";
+import { Avatar } from "../../ui/Avatar.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
@@ -13,7 +16,10 @@ import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
 import { LineField } from "../../ui/LineField.tsx";
 import page from "../../ui/Page.module.css";
+import tabs from "../../ui/PageTabs.module.css";
 import { PointsField } from "../../ui/PointsField.tsx";
+import { StatePill } from "../../ui/StatusIcon.tsx";
+import { showToast } from "../../ui/Toast.tsx";
 import { DepartmentApps } from "../connectors/DepartmentApps.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
@@ -31,6 +37,8 @@ import {
   teamOf,
   teamSince,
 } from "./team-form.ts";
+
+type Tab = "people" | "settings" | "access" | "files";
 
 // The team editor opens on what was left unsaved, on the member the view names, or a new one.
 function startingForm(
@@ -58,16 +66,35 @@ function startingForm(
   };
 }
 
+// One topic of the Settings tab: its name and a line on the left, its controls on the right.
+function SettingRow({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={styles.setting} aria-label={title}>
+      <div className={styles.settingLabel}>
+        <h2 className={styles.settingTitle}>{title}</h2>
+        {hint === undefined ? null : <p className={page.hint}>{hint}</p>}
+      </div>
+      <div className={styles.settingControl}>{children}</div>
+    </section>
+  );
+}
+
 function RemoveDepartment({ department }: { department: DepartmentRecord }) {
   const [open, setOpen] = useState(false);
   const [withHistory, setWithHistory] = useState(false);
   return (
-    <section className={styles.danger} aria-label="Remove department">
-      <div className={styles.dangerText}>
-        <span className={form.hint}>
-          You can remove it once its task is done, and choose what happens to its agents and tasks.
-        </span>
-      </div>
+    <div className={styles.danger}>
+      <span className={page.hint}>
+        Once its task is done. You choose what happens to its agents.
+      </span>
       <Button variant="danger" onClick={() => setOpen(true)}>
         Remove department
       </Button>
@@ -112,19 +139,26 @@ function RemoveDepartment({ department }: { department: DepartmentRecord }) {
           </label>
         </fieldset>
       </ConfirmDialog>
-    </section>
+    </div>
   );
 }
 
-function Settings({
+function Editor({
   department,
   member,
-  wording,
+  describing,
+  tab,
+  onTab,
+  onSaved,
 }: {
   department: DepartmentRecord;
   member: string | undefined;
-  // "Change with words" is open, from the header.
-  wording: boolean;
+  // "Describe a change" is open, from the header.
+  describing: boolean;
+  tab: Tab;
+  onTab: (tab: Tab) => void;
+  // Opens the editor afresh on the saved team, so new members show as saved.
+  onSaved: () => void;
 }) {
   const agents = useApp((state) => state.agents);
   const draft = `department.${department.id}`;
@@ -138,7 +172,8 @@ function Settings({
   );
   const [codeFlow, setCodeFlow] = useDraft(`${draft}.codeFlow`, department.codeFlow);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ error: boolean; text: string }>();
+  const [error, setError] = useState<string>();
+  const changed = useHasDraft(draft);
   // The roster goes with the team, to tell who joins or leaves later from a change made here.
   const keepTeam = (next: DepartmentForm) => {
     setTeam(next);
@@ -164,7 +199,6 @@ function Settings({
       const next = formOfDraft({ ...redrafted, departmentId: department.id }, team);
       keepTeam(next);
       setSelected(next.lead.key);
-      setMessage({ error: false, text: "Draft applied. Check the changes, then Save." });
     }
     return reply;
   };
@@ -173,7 +207,7 @@ function Settings({
     event.preventDefault();
     if (missing !== undefined) return;
     setSaving(true);
-    setMessage(undefined);
+    setError(undefined);
     try {
       await api.updateDepartment(department.id, {
         name: team.name.trim(),
@@ -186,181 +220,197 @@ function Settings({
       });
       await api.changeTeam(department.id, teamOf(team));
       clearDrafts(draft);
-      setMessage({ error: false, text: "Saved. Applies from the next task." });
+      showToast("Saved. Applies from the next task.");
+      onSaved();
     } catch (failure) {
-      setMessage({
-        error: true,
-        text: failure instanceof Error ? failure.message : String(failure),
-      });
+      setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
       setSaving(false);
     }
   };
 
+  const people = team.members.length + 1;
   return (
     <form className={styles.form} onSubmit={save}>
-      {wording ? (
-        <section className={page.section}>
-          <h2 className={page.sectionTitle}>Change with words</h2>
-          <DraftBox
-            name={`${draft}.box`}
-            label="Describe a change to the team"
-            placeholder=""
-            action="Update draft"
-            drafted
-            run={redraft}
-          />
-        </section>
+      {describing ? (
+        <DraftBox
+          name={`${draft}.box`}
+          label="Describe a change to the team"
+          placeholder=""
+          changePlaceholder="For example: add a second tester on Sonnet"
+          action="Apply"
+          updateLabel="Apply"
+          drafted
+          run={redraft}
+        />
       ) : null}
 
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>About</h2>
-        <div className={styles.pair}>
-          <label className={form.field}>
-            <span className={form.label}>Name</span>
-            <input
-              className={form.input}
-              value={team.name}
-              onChange={(event) => change({ name: event.target.value })}
-            />
-          </label>
-          <label className={form.field}>
-            <span className={form.label}>What it does</span>
-            <LineField
-              value={team.purpose}
-              placeholder="One line; the chief reads it when it plans"
-              onChange={(purpose) => change({ purpose })}
-            />
-          </label>
-        </div>
-      </section>
+      <Tabs.Root value={tab} onValueChange={(next) => onTab(next as Tab)}>
+        <Tabs.List className={tabs.tabs} aria-label="Department">
+          <Tabs.Trigger value="people" className={tabs.tab}>
+            People
+            <span className={tabs.count}>{people}</span>
+          </Tabs.Trigger>
+          <Tabs.Trigger value="settings" className={tabs.tab}>
+            Settings
+          </Tabs.Trigger>
+          <Tabs.Trigger value="access" className={tabs.tab}>
+            Workspaces and apps
+          </Tabs.Trigger>
+          <Tabs.Trigger value="files" className={tabs.tab}>
+            Files
+          </Tabs.Trigger>
+        </Tabs.List>
 
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Team</h2>
-        <MemberEditor
-          team={team}
-          onChange={(next) => change(next)}
-          selected={selected}
-          onSelect={setSelected}
-          defaults={team.lead.settings}
-          departmentId={department.id}
-          workspaceId={department.workspaceId}
-        />
-      </section>
-
-      <section className={page.section}>
-        <div className={form.field}>
-          <span className={page.sectionTitle}>Team rules</span>
-          <span className={form.hint}>Every member follows these, on every task.</span>
-          <PointsField
-            label="Team rules"
-            value={team.rules}
-            placeholder="For example: Use TypeScript"
-            addLabel="Add a rule"
-            onChange={(rules) => change({ rules })}
+        <Tabs.Content value="people" className={tabs.panel}>
+          <MemberEditor
+            team={team}
+            onChange={(next) => change(next)}
+            selected={selected}
+            onSelect={setSelected}
+            defaults={team.lead.settings}
+            departmentId={department.id}
+            workspaceId={department.workspaceId}
           />
-        </div>
-      </section>
+        </Tabs.Content>
 
-      <FilesSection
-        workspaceId={department.workspaceId}
-        workspaceIds={department.workspaceIds}
-        holder={{ departmentId: department.id }}
-        name={department.name}
-      />
+        <Tabs.Content value="settings" className={tabs.panel}>
+          <div className={styles.settings}>
+            <SettingRow title="About" hint="The chief reads this when it plans.">
+              <label className={form.field}>
+                <span className={form.label}>Name</span>
+                <input
+                  className={form.input}
+                  value={team.name}
+                  onChange={(event) => change({ name: event.target.value })}
+                />
+              </label>
+              <label className={form.field}>
+                <span className={form.label}>What it does</span>
+                <LineField
+                  value={team.purpose}
+                  placeholder="One line"
+                  onChange={(purpose) => change({ purpose })}
+                />
+              </label>
+            </SettingRow>
 
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Permissions</h2>
-        <fieldset className={styles.fieldset}>
-          <legend className="visually-hidden">Permissions</legend>
-          {autonomySchema.options.map((level) => (
-            <label key={level} className={form.choice}>
-              <input
-                type="radio"
-                name="autonomy"
-                checked={team.autonomy === level}
-                onChange={() => gate.choose(level)}
+            <SettingRow title="Team rules" hint="Every member follows these, on every task.">
+              <PointsField
+                label="Team rules"
+                value={team.rules}
+                placeholder="For example: Use TypeScript"
+                addLabel="Add a rule"
+                onChange={(rules) => change({ rules })}
               />
-              <span className={form.choiceText}>
-                <strong>{AUTONOMY[level].label}</strong>
-                <span className={form.hint}>{AUTONOMY[level].description}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      </section>
+            </SettingRow>
 
-      <section className={page.section}>
-        <div>
-          <h2 className={page.sectionTitle}>Workspaces</h2>
-          <p className={form.hint}>Folders this team can edit. New tasks use the default.</p>
+            <SettingRow title="Permissions" hint="What the team may do without asking you.">
+              <fieldset className={styles.fieldset}>
+                <legend className="visually-hidden">Permissions</legend>
+                {autonomySchema.options.map((level) => (
+                  <label key={level} className={form.choice}>
+                    <input
+                      type="radio"
+                      name="autonomy"
+                      checked={team.autonomy === level}
+                      onChange={() => gate.choose(level)}
+                    />
+                    <span className={form.choiceText}>
+                      <strong>{AUTONOMY[level].label}</strong>
+                      <span className={form.hint}>{AUTONOMY[level].description}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            </SettingRow>
+
+            <SettingRow title="Code" hint="Used in a git repository.">
+              <fieldset className={styles.fieldset}>
+                <legend className="visually-hidden">Code</legend>
+                <label className={form.choice}>
+                  <input
+                    type="checkbox"
+                    checked={branchPerWorker}
+                    onChange={(event) => setBranchPerWorker(event.target.checked)}
+                  />
+                  <span className={form.choiceText}>
+                    <strong>One branch per worker</strong>
+                    <span className={form.hint}>
+                      Each worker gets its own branch and the lead merges them.
+                    </span>
+                  </span>
+                </label>
+                <label className={form.choice}>
+                  <input
+                    type="checkbox"
+                    checked={codeFlow}
+                    onChange={(event) => setCodeFlow(event.target.checked)}
+                  />
+                  <span className={form.choiceText}>
+                    <strong>Commit, push and open pull requests</strong>
+                    <span className={form.hint}>
+                      Uses your git and GitHub CLI logins. Follows the team's permissions.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+            </SettingRow>
+
+            <SettingRow title="Remove">
+              <RemoveDepartment department={department} />
+            </SettingRow>
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="access" className={tabs.panel}>
+          <div className={styles.settings}>
+            <SettingRow
+              title="Workspaces"
+              hint="Folders this team can edit. New tasks use the default."
+            >
+              <DepartmentWorkspaces
+                value={team.workspaceIds}
+                onChange={(workspaceIds) => change({ workspaceIds })}
+                departmentName={department.name}
+                departmentId={department.id}
+              />
+            </SettingRow>
+            <SettingRow title="Apps">
+              <DepartmentApps
+                departmentId={department.id}
+                harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
+              />
+            </SettingRow>
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="files" className={tabs.panel}>
+          <FilesSection
+            workspaceId={department.workspaceId}
+            workspaceIds={department.workspaceIds}
+            holder={{ departmentId: department.id }}
+            name={department.name}
+          />
+        </Tabs.Content>
+      </Tabs.Root>
+
+      {changed || error !== undefined || missing !== undefined ? (
+        <div className={styles.saveBar}>
+          <div className={styles.saveText}>
+            {error === undefined ? null : (
+              <p className={page.error} role="alert">
+                {error}
+              </p>
+            )}
+            {missing === undefined ? null : <span className={form.hint}>{missing}</span>}
+            <DraftNote scope={draft} editing />
+          </div>
+          <Button type="submit" variant="primary" disabled={missing !== undefined} busy={saving}>
+            Save
+          </Button>
         </div>
-        <DepartmentWorkspaces
-          value={team.workspaceIds}
-          onChange={(workspaceIds) => change({ workspaceIds })}
-          departmentName={department.name}
-          departmentId={department.id}
-        />
-      </section>
-
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Apps</h2>
-        <DepartmentApps
-          departmentId={department.id}
-          harnesses={[team.lead, ...team.members].map(({ settings }) => settings.harness)}
-        />
-      </section>
-
-      <section className={page.section}>
-        <h2 className={page.sectionTitle}>Code</h2>
-        <fieldset className={styles.fieldset}>
-          <legend className="visually-hidden">Code</legend>
-          <label className={form.choice}>
-            <input
-              type="checkbox"
-              checked={branchPerWorker}
-              onChange={(event) => setBranchPerWorker(event.target.checked)}
-            />
-            <span className={form.choiceText}>
-              <strong>One branch per worker</strong>
-              <span className={form.hint}>
-                In a git repository, each worker gets its own branch and the lead merges them.
-              </span>
-            </span>
-          </label>
-          <label className={form.choice}>
-            <input
-              type="checkbox"
-              checked={codeFlow}
-              onChange={(event) => setCodeFlow(event.target.checked)}
-            />
-            <span className={form.choiceText}>
-              <strong>Commit, push and open pull requests</strong>
-              <span className={form.hint}>
-                Uses your git and GitHub CLI logins. Follows the team's permissions.
-              </span>
-            </span>
-          </label>
-        </fieldset>
-      </section>
-
-      <div className={`${styles.actions} ${form.sticky}`}>
-        {message === undefined ? null : (
-          <p
-            className={message.error ? page.error : form.hint}
-            role={message.error ? "alert" : "status"}
-          >
-            {message.text}
-          </p>
-        )}
-        {missing === undefined ? null : <span className={form.hint}>{missing}</span>}
-        <DraftNote scope={draft} editing />
-        <Button type="submit" variant="primary" disabled={missing !== undefined} busy={saving}>
-          Save
-        </Button>
-      </div>
-
-      <RemoveDepartment department={department} />
+      ) : null}
       {gate.confirm}
     </form>
   );
@@ -374,7 +424,13 @@ export function DepartmentSettings({
   member?: string;
 }) {
   const department = useApp((state) => state.departments[departmentId]);
-  const [wording, setWording] = useState(false);
+  const colour = useApp((state) =>
+    department === undefined ? undefined : state.agents[department.leadAgentId]?.colour,
+  );
+  const state = useDepartmentState(departmentId);
+  const [describing, setDescribing] = useState(false);
+  const [tab, setTab] = useState<Tab>("people");
+  const [saves, setSaves] = useState(0);
   return (
     <section className={page.page} aria-labelledby="department-title">
       <div className={styles.column}>
@@ -385,25 +441,39 @@ export function DepartmentSettings({
           ]}
         />
         <header className={styles.head}>
-          <div className={page.header}>
-            <h1 id="department-title" className={page.title}>
-              {department?.name ?? "Department"}
-            </h1>
-            <p className={page.lead}>
-              {department?.purpose || "A lead and the people it hands work to."}
-            </p>
+          <div className={styles.identity}>
+            {department === undefined ? null : (
+              <Avatar name={department.name} colour={colour ?? "#4F5D75"} size={44} />
+            )}
+            <div className={styles.headText}>
+              <div className={styles.titleRow}>
+                <h1 id="department-title" className={page.title}>
+                  {department?.name ?? "Department"}
+                </h1>
+                {department === undefined ? null : <StatePill state={state} />}
+              </div>
+              {department?.purpose ? <p className={page.lead}>{department.purpose}</p> : null}
+            </div>
           </div>
           {department === undefined ? null : (
-            <Button aria-pressed={wording} onClick={() => setWording(!wording)}>
+            <Button aria-pressed={describing} onClick={() => setDescribing(!describing)}>
               <MessageSquareText size={14} aria-hidden />
-              Change with words
+              Describe a change
             </Button>
           )}
         </header>
         {department === undefined ? (
           <p className={form.hint}>This department no longer exists.</p>
         ) : (
-          <Settings key={department.id} department={department} member={member} wording={wording} />
+          <Editor
+            key={`${department.id}/${saves}`}
+            department={department}
+            member={member === "new" && saves > 0 ? undefined : member}
+            describing={describing}
+            tab={tab}
+            onTab={setTab}
+            onSaved={() => setSaves(saves + 1)}
+          />
         )}
       </div>
     </section>

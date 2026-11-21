@@ -1,5 +1,6 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { ChevronDown, Plus, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, Crown, Plus, Settings, UserPlus } from "lucide-react";
+import { useDepartmentState, useLiveState } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
@@ -7,8 +8,10 @@ import { Button } from "../../ui/Button.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
+import { StatePill, StateTag } from "../../ui/StatusIcon.tsx";
 import { selectRoom } from "../office/office-state.ts";
 import { useModelLine, useModelName } from "../profiles/model-line.ts";
+import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import styles from "./Team.module.css";
 import { useTeamFolds } from "./team-folds.ts";
 
@@ -22,26 +25,32 @@ function Person({
   lead: boolean;
 }) {
   const model = useModelName(agent.settings, agent.settings.model);
+  const state = useLiveState(agent.id);
+  const role = agent.role ?? (lead ? "Lead" : "Member");
   return (
-    <button
-      type="button"
-      className={styles.person}
-      onClick={() => navigate({ name: "department", departmentId, member: agent.id })}
-    >
-      <Avatar name={agent.name} colour={agent.colour} size={22} />
-      <span className={styles.role}>
-        {lead ? (
-          <>
-            <strong>{agent.role ?? "Lead"}</strong>
-            {agent.role === undefined || agent.role.toLowerCase() === "lead" ? null : " · lead"}
-          </>
-        ) : (
-          (agent.role ?? "Member")
-        )}
-      </span>
-      <span className={styles.handle}>{agent.name}</span>
-      <span className={styles.model}>{model}</span>
-    </button>
+    <li>
+      <button
+        type="button"
+        className={`${styles.person} ${lead ? "" : styles.member}`}
+        onClick={() => navigate({ name: "department", departmentId, member: agent.id })}
+      >
+        <span className={styles.who}>
+          <Avatar name={agent.name} colour={agent.colour} size={24} />
+          <span className={styles.role} title={role}>
+            {role}
+          </span>
+          {lead && role.toLowerCase() !== "lead" ? (
+            <span className={styles.leadChip}>Lead</span>
+          ) : null}
+        </span>
+        <span className={styles.handle}>{agent.name}</span>
+        <span className={styles.model} title={model}>
+          <ProviderLogo harness={agent.settings.harness} size="sm" />
+          <span className={styles.modelName}>{model}</span>
+        </span>
+        <StateTag state={state} />
+      </button>
+    </li>
   );
 }
 
@@ -56,11 +65,7 @@ function DepartmentCard({
   folded: boolean;
   onFold: () => void;
 }) {
-  const working = useApp((state) =>
-    Object.values(state.tasks).some(
-      ({ task }) => task.departmentId === department.id && task.state === "working",
-    ),
-  );
+  const state = useDepartmentState(department.id);
   const lead = members.find((agent) => agent.id === department.leadAgentId);
   const rest = members.filter((agent) => agent.id !== department.leadAgentId);
   const leadModel = useModelName(lead?.settings, lead?.settings.model);
@@ -80,7 +85,7 @@ function DepartmentCard({
           aria-label={`${folded ? "Show" : "Hide"} ${department.name}'s people`}
           onClick={onFold}
         >
-          <ChevronDown size={15} aria-hidden />
+          <ChevronDown size={16} aria-hidden />
         </button>
         <button
           type="button"
@@ -91,39 +96,33 @@ function DepartmentCard({
           <Avatar name={department.name} colour={lead?.colour ?? "#4F5D75"} size={32} />
           <span className={styles.text}>
             <strong>{department.name}</strong>
-            <span>{summary}</span>
+            <span title={summary}>{summary}</span>
           </span>
         </button>
-        <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Free"}
-        </span>
-        <button
-          type="button"
-          className={styles.gear}
+        <StatePill state={state} />
+        <Button
+          variant="ghost"
+          icon
           aria-label={`${department.name} settings`}
           title="Department settings"
           onClick={() => navigate({ name: "department", departmentId: department.id })}
         >
-          <Settings size={15} aria-hidden />
-        </button>
+          <Settings size={16} aria-hidden />
+        </Button>
       </header>
       {folded ? null : (
         <div className={styles.people}>
-          <ul className={`${styles.tree} ${styles.peopleTree}`}>
-            {lead === undefined ? null : (
-              <li>
-                <Person agent={lead} departmentId={department.id} lead />
-                {rest.length === 0 ? null : (
-                  <ul>
-                    {rest.map((agent) => (
-                      <li key={agent.id}>
-                        <Person agent={agent} departmentId={department.id} lead={false} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            )}
+          <div className={styles.columns} aria-hidden>
+            <span>Role</span>
+            <span>Name</span>
+            <span>Model</span>
+            <span>Status</span>
+          </div>
+          <ul className={styles.rows}>
+            {lead === undefined ? null : <Person agent={lead} departmentId={department.id} lead />}
+            {rest.map((agent) => (
+              <Person key={agent.id} agent={agent} departmentId={department.id} lead={false} />
+            ))}
           </ul>
           <button
             type="button"
@@ -168,9 +167,7 @@ function ChiefRow({ departments }: { departments: number }) {
             {chief.name} · plans across {across} · {model}
           </span>
         </span>
-        <span className={`${styles.status} ${working ? styles.working : ""}`}>
-          {working ? "Working" : "Free"}
-        </span>
+        <StatePill state={working ? "working" : "idle"} />
       </button>
     </li>
   );
@@ -222,7 +219,10 @@ export function TeamView() {
           actions={
             <>
               {empty || hasChief ? null : (
-                <Button onClick={() => navigate({ name: "chief" })}>Add a chief</Button>
+                <Button onClick={() => navigate({ name: "chief" })}>
+                  <Crown size={14} aria-hidden />
+                  Add a chief
+                </Button>
               )}
               <Button variant="primary" onClick={() => navigate({ name: "new-department" })}>
                 <Plus size={14} aria-hidden />
