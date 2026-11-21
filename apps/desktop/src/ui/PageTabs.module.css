@@ -1,0 +1,54 @@
+/* A page's own tabs, under its header: Workspace and Department pages. */
+.tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  margin-bottom: -1px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--size-ui);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[data-state="active"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.count {
+  min-width: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-chip);
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: var(--size-small);
+  text-align: center;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  padding-top: 32px;
+  outline: 0;
+}
+
+/* Its display would otherwise keep an inactive tab's empty panel in the layout. */
+.panel[hidden] {
+  display: none;
+}

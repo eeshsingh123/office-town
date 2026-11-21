@@ -1,5 +1,5 @@
-/* The team as a roster grouped by role, the picked person's details beside it; the details
-   drop below when its own space is narrow, as inside a request card. */
+/* The team as a list, the picked person's details in a panel beside it; the panel drops below
+   when its own space is narrow, as inside a request card. */
 .frame {
   container-type: inline-size;
 }
@@ -8,19 +8,21 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 440px;
   align-items: start;
-  gap: 28px;
+  gap: 32px;
 }
 
-@container (max-width: 760px) {
+@container (max-width: 900px) {
   .editor {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
+/* Its own container, so the list drops its model column when the panel beside it leaves it narrow. */
 .roster {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -28,7 +30,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .search {
@@ -36,7 +38,8 @@
   align-items: center;
   gap: 8px;
   width: 220px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
@@ -45,7 +48,6 @@
 
 .search input {
   width: 100%;
-  padding: 7px 0;
   border: 0;
   outline: 0;
   background: transparent;
@@ -55,181 +57,210 @@
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.count {
-  font-family: var(--font-mono);
-  font-size: var(--size-small);
-  color: var(--text-3);
+  gap: 8px;
 }
 
 .addMember {
   margin-left: auto;
 }
 
-.leadCard,
-.person {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  min-width: 0;
+/* One grid for the column names and every row. */
+.list {
+  --columns: minmax(0, 1fr) minmax(140px, 220px);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--surface);
+}
+
+.withState {
+  --columns: minmax(0, 1fr) minmax(140px, 200px) 88px;
+}
+
+.columns,
+.row {
+  display: grid;
+  grid-template-columns: var(--columns);
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+}
+
+.columns {
+  height: 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--tile);
+  color: var(--text-3);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows li + li {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  width: 100%;
+  min-height: 60px;
+  padding-block: 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.leadCard {
-  align-items: center;
-  padding: 16px 20px;
-  border-color: var(--border-strong);
+.row:hover {
+  background: var(--hover);
 }
 
-.person {
-  padding: 14px 16px;
+.row[aria-pressed="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.leadCard:hover,
-.person:hover {
-  border-color: var(--border-strong);
-}
-
-.leadCard[aria-pressed="true"],
-.person[aria-pressed="true"] {
-  border-color: var(--accent);
-  box-shadow: var(--ring);
-}
-
-.personText {
+.who {
   display: flex;
-  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whoText {
+  display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.personName {
+.roleLine {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.personName strong {
+.roleLine strong {
   overflow: hidden;
-  white-space: nowrap;
+  font-weight: 600;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leadBadge,
+.newTag {
+  flex: none;
+  justify-self: start;
+  padding: 1px 8px;
+  border-radius: var(--radius-chip);
+  font-size: var(--size-small);
+  font-weight: 600;
 }
 
 .leadBadge {
-  flex: none;
-  padding: 1px 8px;
-  border-radius: var(--radius-chip);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: var(--size-small);
-  font-weight: 600;
+}
+
+.newTag {
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
 }
 
 .purpose {
-  display: -webkit-box;
   overflow: hidden;
+  color: var(--text-3);
   font-size: var(--size-meta);
-  color: var(--text-2);
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model {
-  margin-top: 4px;
-  font-size: var(--size-small);
-  color: var(--text-3);
-}
-
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.groupHead {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: var(--size-ui);
-}
-
-.rule {
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.another {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-2);
   font-size: var(--size-meta);
-  font-weight: 600;
-  cursor: pointer;
 }
 
-.another:hover {
-  text-decoration: underline;
+.modelName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
-}
-
+/* The picked person; it stays in view while the list scrolls. */
 .card {
   position: sticky;
   top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
   min-width: 0;
-  padding: 24px 28px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-card);
   background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+@container (max-width: 900px) {
+  .card {
+    position: static;
+  }
 }
 
 .head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  padding: 20px 16px 20px 24px;
+  border-bottom: 1px solid var(--border);
 }
 
 .headText {
   display: flex;
-  flex: 1 1 160px;
+  flex: 1;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
   font-size: 15px;
 }
 
-/* Actions on their own row under the name, so they never split around a wrap. */
-.headActions {
-  display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
-  gap: 8px;
+.headText strong {
+  overflow-wrap: anywhere;
 }
 
 .headText span {
-  font-size: var(--size-meta);
   color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.remove {
+  color: var(--bad);
 }
 
 .guessed {
@@ -257,7 +288,7 @@
 .starter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   height: 32px;
   padding: 0 12px;
   border: 1px dashed var(--border-strong);
@@ -274,18 +305,15 @@
   color: var(--text);
 }
 
-@container (max-width: 760px) {
-  .card {
-    position: static;
+/* Narrow: the role and its status stay; the model shows in the panel. */
+@container (max-width: 600px) {
+  .list,
+  .withState {
+    --columns: minmax(0, 1fr) auto;
   }
-}
 
-.inlineLink {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+  .columns > :nth-child(2),
+  .model {
+    display: none;
+  }
 }

@@ -1,19 +1,31 @@
 import type { AgentRecord, ProfileRecord, RoleSettings } from "@office-town/contract";
-import { BookmarkPlus, Copy, Plus, Search, SwatchBook, Trash2 } from "lucide-react";
+import {
+  BookmarkPlus,
+  Copy,
+  IdCard,
+  Plus,
+  Search,
+  SwatchBook,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useState } from "react";
+import { useLiveState } from "../../store/agents.ts";
 import { useApp } from "../../store/app-store.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import dialog from "../../ui/Dialog.module.css";
 import form from "../../ui/Form.module.css";
+import { StateTag } from "../../ui/StatusIcon.tsx";
 import { FilesSection } from "../library/FilesSection.tsx";
 import { AgentProfileDialog } from "../office/AgentProfile.tsx";
-import { FieldGroup, JobFields, ModelField } from "../profiles/AgentFields.tsx";
-import { useModelLine } from "../profiles/model-line.ts";
+import { JobFields, ModelField } from "../profiles/AgentFields.tsx";
+import { useModelLine, useModelName } from "../profiles/model-line.ts";
 import { SaveTemplateDialog, type TemplateSource } from "../profiles/SaveTemplateDialog.tsx";
 import { TemplatePicker } from "../profiles/TemplatePicker.tsx";
+import { ProviderLogo } from "../providers/ProviderLogo.tsx";
 import styles from "./MemberEditor.module.css";
 import {
   baseRole,
@@ -85,55 +97,67 @@ const roleOf = (person: PersonForm, lead = false) =>
 // Search and role filters only once the team is big enough to need them.
 const SEARCH_FROM = 6;
 
-interface PersonCardProps {
+function MemberState({ agentId }: { agentId: string }) {
+  return <StateTag state={useLiveState(agentId)} />;
+}
+
+interface PersonRowProps {
   person: PersonForm;
   // The agent's name, once it exists.
   name: string | undefined;
   colour: string;
   selected: boolean;
   onSelect: () => void;
+  // Set for a department that exists: saved members show their status, new ones say New.
+  withState: boolean;
   lead?: boolean;
 }
 
-function PersonCard({ person, name, colour, selected, onSelect, lead = false }: PersonCardProps) {
-  const model = useModelLine(person.settings);
+function PersonRow({
+  person,
+  name,
+  colour,
+  selected,
+  onSelect,
+  withState,
+  lead = false,
+}: PersonRowProps) {
+  const model = useModelName(person.settings, person.settings.model);
   const role = roleOf(person, lead);
   return (
-    <button
-      type="button"
-      className={lead ? styles.leadCard : styles.person}
-      aria-pressed={selected}
-      onClick={onSelect}
-    >
-      <Avatar name={name ?? role} colour={colour} size={lead ? 40 : 32} />
-      <span className={styles.personText}>
-        <span className={styles.personName}>
-          <strong>{name ?? role}</strong>
-          {lead ? <span className={styles.leadBadge}>Lead</span> : null}
+    <li>
+      <button type="button" className={styles.row} aria-pressed={selected} onClick={onSelect}>
+        <span className={styles.who}>
+          <Avatar name={name ?? role} colour={colour} size={28} />
+          <span className={styles.whoText}>
+            <span className={styles.roleLine}>
+              <strong title={role}>{role}</strong>
+              {lead && role.toLowerCase() !== "lead" ? (
+                <span className={styles.leadBadge}>Lead</span>
+              ) : null}
+            </span>
+            {person.purpose.trim() === "" ? null : (
+              <span className={styles.purpose} title={person.purpose}>
+                {person.purpose}
+              </span>
+            )}
+          </span>
         </span>
-        {person.purpose.trim() === "" ? null : (
-          <span className={styles.purpose}>{person.purpose}</span>
+        <span className={styles.model} title={model}>
+          <ProviderLogo harness={person.settings.harness} size="sm" />
+          <span className={styles.modelName}>{model}</span>
+        </span>
+        {!withState ? null : person.agentId === undefined ? (
+          <span className={styles.newTag}>New</span>
+        ) : (
+          <MemberState agentId={person.agentId} />
         )}
-        <span className={styles.model}>{model}</span>
-      </span>
-    </button>
+      </button>
+    </li>
   );
 }
 
-// Members grouped by role, in the order each role first appears.
-function groupsOf(members: PersonForm[]): { role: string; members: PersonForm[] }[] {
-  const groups = new Map<string, { role: string; members: PersonForm[] }>();
-  for (const member of members) {
-    const role = baseRole(roleOf(member));
-    const key = role.toLowerCase();
-    const group = groups.get(key) ?? { role, members: [] };
-    group.members.push(member);
-    groups.set(key, group);
-  }
-  return [...groups.values()];
-}
-
-// The team as a roster grouped by role, and everything about the picked person beside it.
+// The team as a list, and everything about the picked person in a panel beside it.
 export function MemberEditor({
   team,
   onChange,
@@ -183,8 +207,6 @@ export function MemberEditor({
     onChange({ ...team, members: rest });
     onSelect(rest[Math.max(0, index - 1)]?.key ?? team.lead.key);
   };
-  // A new, blank member in the role: only the role name is filled in.
-  const another = (role: string) => add(blankPerson(defaults, role));
   // A copy of someone in the role, with the same job, instructions and model.
   const duplicate = (like: PersonForm) =>
     add({
@@ -201,18 +223,16 @@ export function MemberEditor({
     const own = one.agentId === undefined ? undefined : agents[one.agentId]?.colour;
     return own ?? memberColour(team.members.indexOf(one));
   };
-  const groups = groupsOf(team.members);
+  const roles = [...new Set(team.members.map((one) => baseRole(roleOf(one))))];
   const big = team.members.length + 1 >= SEARCH_FROM;
   const words = query.trim().toLowerCase();
-  const shown = groups
-    .filter((group) => role === undefined || group.role === role)
-    .map((group) => ({
-      ...group,
-      members: group.members.filter((one) =>
-        `${one.role} ${one.purpose} ${nameOf(one) ?? ""}`.toLowerCase().includes(words),
-      ),
-    }))
-    .filter((group) => group.members.length > 0);
+  const shown = team.members.filter(
+    (one) =>
+      (role === undefined || baseRole(roleOf(one)) === role) &&
+      `${one.role} ${one.purpose} ${nameOf(one) ?? ""}`.toLowerCase().includes(words),
+  );
+  const withState = departmentId !== undefined;
+  const title = person === undefined ? "" : roleOf(person, isLead);
 
   return (
     <div className={styles.frame}>
@@ -231,98 +251,98 @@ export function MemberEditor({
                 />
               </label>
             ) : null}
-            {big && groups.length > 1 ? (
-              <div className={styles.filters}>
-                <button
-                  type="button"
-                  className={form.chip}
-                  aria-pressed={role === undefined}
-                  onClick={() => setRole(undefined)}
-                >
-                  All <span className={styles.count}>{team.members.length + 1}</span>
-                </button>
-                {groups.map((group) => (
-                  <button
-                    key={group.role}
-                    type="button"
-                    className={form.chip}
-                    aria-pressed={role === group.role}
-                    onClick={() => setRole(role === group.role ? undefined : group.role)}
-                  >
-                    {group.role} <span className={styles.count}>{group.members.length}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <Button className={styles.addMember} onClick={() => setOpened({ kind: "add" })}>
-              <Plus size={14} aria-hidden />
-              Add a member
+              <UserPlus size={14} aria-hidden />
+              Add member
             </Button>
           </div>
-
-          <PersonCard
-            person={team.lead}
-            name={nameOf(team.lead)}
-            colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
-            lead
-            selected={isLead}
-            onSelect={() => onSelect(team.lead.key)}
-          />
-
-          {shown.map((group) => (
-            <section key={group.role} className={styles.group} aria-label={group.role}>
-              <header className={styles.groupHead}>
-                <strong>{group.role}</strong>
-                <span className={styles.count}>{group.members.length}</span>
-                <span className={styles.rule} />
+          {big && roles.length > 1 ? (
+            <div className={styles.filters}>
+              <button
+                type="button"
+                className={form.chip}
+                aria-pressed={role === undefined}
+                onClick={() => setRole(undefined)}
+              >
+                All
+              </button>
+              {roles.map((one) => (
                 <button
+                  key={one}
                   type="button"
-                  className={styles.another}
-                  onClick={() => another(group.role)}
+                  className={form.chip}
+                  aria-pressed={role === one}
+                  onClick={() => setRole(role === one ? undefined : one)}
                 >
-                  <Plus size={13} aria-hidden />
-                  Add another
+                  {one}
                 </button>
-              </header>
-              <div className={styles.grid}>
-                {group.members.map((member) => (
-                  <PersonCard
-                    key={member.key}
-                    person={member}
-                    name={nameOf(member)}
-                    colour={colourOf(member)}
-                    selected={member.key === selected}
-                    onSelect={() => onSelect(member.key)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+              ))}
+            </div>
+          ) : null}
+
+          <div className={`${styles.list} ${withState ? styles.withState : ""}`}>
+            <div className={styles.columns} aria-hidden>
+              <span>Role</span>
+              <span>Model</span>
+              {withState ? <span>Status</span> : null}
+            </div>
+            <ul className={styles.rows}>
+              <PersonRow
+                person={team.lead}
+                name={nameOf(team.lead)}
+                colour={(team.lead.agentId && agents[team.lead.agentId]?.colour) || LEAD_COLOUR}
+                lead
+                withState={withState}
+                selected={isLead}
+                onSelect={() => onSelect(team.lead.key)}
+              />
+              {shown.map((member) => (
+                <PersonRow
+                  key={member.key}
+                  person={member}
+                  name={nameOf(member)}
+                  colour={colourOf(member)}
+                  withState={withState}
+                  selected={member.key === selected}
+                  onSelect={() => onSelect(member.key)}
+                />
+              ))}
+            </ul>
+          </div>
           {words !== "" && shown.length === 0 ? (
             <p className={form.hint}>Nobody on the team matches "{query.trim()}".</p>
           ) : null}
           {leaving.length === 0 ? null : (
             <p className={form.hint}>
-              Will be removed from the team: {leaving.map((one) => one.name).join(", ")}
+              Leaves the team on Save: {leaving.map((one) => one.name).join(", ")}
             </p>
           )}
         </div>
 
         {person === undefined ? null : (
-          <section className={styles.card} aria-label={person.role || "Team member"}>
+          <section className={styles.card} aria-label={title}>
             <header className={styles.head}>
-              <Avatar name={person.role || "?"} colour={colour} size={44} />
+              <Avatar name={agent?.name ?? title} colour={colour} size={40} />
               <div className={styles.headText}>
-                <strong>{person.role.trim() || (isLead ? "Lead" : "New member")}</strong>
+                <strong>{title}</strong>
                 <span>
                   {isLead ? "Leads the team" : "Reports to the lead"}
                   {agent === undefined ? "" : ` · ${agent.name}`}
                 </span>
               </div>
               <MoreMenu
-                label={`More for ${person.role || "this member"}`}
+                label={`More for ${title}`}
                 menu={() => ({
                   actions: [
+                    ...(agent === undefined
+                      ? []
+                      : [
+                          {
+                            label: "Open full profile",
+                            icon: IdCard,
+                            run: () => setOpened({ kind: "profile", agent }),
+                          },
+                        ]),
                     {
                       label: "Save as template",
                       icon: BookmarkPlus,
@@ -349,47 +369,17 @@ export function MemberEditor({
                   ],
                 })}
               />
-              {locked ? null : (
-                <div className={styles.headActions}>
-                  <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
-                    <SwatchBook size={14} aria-hidden />
-                    Start from template
-                  </Button>
-                  {isLead ? null : (
-                    <Button variant="danger" onClick={remove}>
-                      <Trash2 size={14} aria-hidden />
-                      Remove from team
-                    </Button>
-                  )}
-                </div>
-              )}
             </header>
 
-            {leadLocked !== undefined && locked ? (
-              <LockedLead person={person} note={leadLocked} />
-            ) : (
-              <>
-                <FieldGroup title="Identity">
+            <div className={styles.body}>
+              {leadLocked !== undefined && locked ? (
+                <LockedLead person={person} note={leadLocked} />
+              ) : (
+                <>
                   <div className={form.field}>
                     <label className={form.label} htmlFor={`member-role-${person.key}`}>
                       Role
                     </label>
-                    {agent === undefined ? (
-                      <span className={form.hint}>
-                        Its name and colour are picked when the team is saved.
-                      </span>
-                    ) : (
-                      <span className={form.hint}>
-                        Name, colour and permissions are on {agent.name}'s profile.{" "}
-                        <button
-                          type="button"
-                          className={styles.inlineLink}
-                          onClick={() => setOpened({ kind: "profile", agent })}
-                        >
-                          Open full profile
-                        </button>
-                      </span>
-                    )}
                     <input
                       id={`member-role-${person.key}`}
                       className={form.input}
@@ -398,8 +388,6 @@ export function MemberEditor({
                       onChange={(change) => update({ role: change.target.value })}
                     />
                   </div>
-                </FieldGroup>
-                <FieldGroup title="Job">
                   <JobFields
                     id={`member-${person.key}`}
                     job={person.purpose}
@@ -422,8 +410,6 @@ export function MemberEditor({
                         : "For example: Write for small business owners"
                     }
                   />
-                </FieldGroup>
-                <FieldGroup title="Runs on">
                   <ModelField
                     value={person.settings}
                     onChange={(settings) => update({ settings, modelGuessed: false })}
@@ -435,24 +421,37 @@ export function MemberEditor({
                       ) : undefined
                     }
                   />
-                </FieldGroup>
-              </>
-            )}
+                </>
+              )}
 
-            {workspaceId === undefined || departmentId === undefined ? null : agent ===
-              undefined ? (
-              <div className={form.field}>
-                <span className={form.label}>Files</span>
-                <span className={form.hint}>
-                  Save the team first, then give {person.role.trim() || "this member"} files.
-                </span>
-              </div>
-            ) : (
-              <FilesSection
-                workspaceId={workspaceId}
-                holder={{ departmentId, agentId: agent.id }}
-                name={agent.name}
-              />
+              {workspaceId === undefined || departmentId === undefined ? null : agent ===
+                undefined ? (
+                <div className={form.field}>
+                  <span className={form.label}>Files</span>
+                  <span className={form.hint}>Add files once the team is saved.</span>
+                </div>
+              ) : (
+                <FilesSection
+                  workspaceId={workspaceId}
+                  holder={{ departmentId, agentId: agent.id }}
+                  name={agent.name}
+                />
+              )}
+            </div>
+
+            {locked ? null : (
+              <footer className={styles.foot}>
+                <Button variant="ghost" onClick={() => setOpened({ kind: "template" })}>
+                  <SwatchBook size={14} aria-hidden />
+                  Start from template
+                </Button>
+                {isLead ? null : (
+                  <Button variant="ghost" className={styles.remove} onClick={remove}>
+                    <Trash2 size={14} aria-hidden />
+                    Remove from team
+                  </Button>
+                )}
+              </footer>
             )}
           </section>
         )}

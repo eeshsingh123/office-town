@@ -1,7 +1,7 @@
 .column {
   display: flex;
   flex-direction: column;
-  gap: var(--section-gap);
+  gap: 32px;
   max-width: var(--page-list);
   margin: 0 auto;
 }
@@ -11,53 +11,123 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.identity {
+  display: flex;
+  flex: 1 1 320px;
+  align-items: flex-start;
   gap: 16px;
+  min-width: 0;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 44px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
 }
 
-.pair {
+/* Settings: each topic's name and line on the left, its controls on one edge to the right. */
+.settings {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px 48px;
+  padding: 28px 0;
+  border-top: 1px solid var(--border);
+}
+
+.setting:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.settingLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settingControl {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
+  min-width: 0;
+  max-width: 640px;
+}
+
+@media (max-width: 900px) {
+  .setting {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .fieldset {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-/* Save keeps its place at the right, with what it says beside it. */
-.actions {
+/* Shown once something changed; it stays at the bottom of the window. */
+.saveBar {
+  position: sticky;
+  bottom: calc(16px - var(--scroll-pad-bottom, 0px));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 12px 12px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  background: var(--tile);
+  box-shadow: var(--shadow-raised);
+}
+
+.saveText {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
+  gap: 8px 16px;
+  min-width: 0;
 }
 
 .danger {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 20px 24px;
-  border: 1px solid var(--border);
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--border));
   border-radius: var(--radius-card);
-}
-
-.dangerText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 240px;
 }
