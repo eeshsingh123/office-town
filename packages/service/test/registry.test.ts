@@ -126,12 +126,21 @@ describe("session registry", () => {
     await registry.close();
   });
 
-  it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task; a process that dies after its work is done ends as finished", async () => {
-    const first = await start(openRegistry(), "Write a report");
+  it("leaves an unfinished session interrupted after a crash or a shutdown, and resumes it in its task; one whose work was done ends as finished, at a restart or when its process dies", async () => {
+    const before = openRegistry();
+    const first = await start(before, "Write a report");
+    const finished = await start(before, "Say hello");
+    sessions[1]?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+    sessions[1]?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
 
     // A new registry over the same store is what a core restarted after a crash sees.
     const registry = openRegistry();
     expect(store.getSession(first.id)?.status).toBe("interrupted");
+    expect(store.getSession(finished.id)?.status).toBe("exited");
+    const ended = store
+      .readEvents({ after: 0, limit: 100, sessionId: finished.id })
+      .find(({ event }) => event.type === "session.ended");
+    expect(ended?.event.payload).toMatchObject({ reason: "exited", idle: true });
     await expect(registry.send(first.id, { type: "prompt", text: "Hello?" })).rejects.toThrow(
       SessionNotRunningError,
     );
@@ -143,7 +152,7 @@ describe("session registry", () => {
       status: "running",
       options: { ...options, resumeSessionId: first.harnessSessionId },
     });
-    expect(sessions[1]?.sent.at(-1)).toEqual({
+    expect(sessions[2]?.sent.at(-1)).toEqual({
       type: "prompt",
       text: "Continue where you left off",
     });
@@ -154,18 +163,18 @@ describe("session registry", () => {
     // Between turns with nothing owed, a dying process lost nothing; mid-turn, it failed.
     const done = await start(registry, "Tidy up");
     const midTurn = await start(registry, "Tidy more");
-    for (const session of [sessions[2], sessions[3]]) {
+    for (const session of [sessions[3], sessions[4]]) {
       session?.emit({ type: "turn.started", payload: { turnId: "turn" } });
     }
-    sessions[2]?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
-    for (const session of [sessions[2], sessions[3]]) {
+    sessions[3]?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "completed" } });
+    for (const session of [sessions[3], sessions[4]]) {
       session?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
     }
     expect(store.getSession(done.id)?.status).toBe("exited");
     expect(store.getSession(midTurn.id)?.status).toBe("failed");
 
     await registry.close();
-    expect(sessions[1]?.sent.at(-1)).toEqual({ type: "stop" });
+    expect(sessions[2]?.sent.at(-1)).toEqual({ type: "stop" });
     expect(store.getSession(resumed.id)?.status).toBe("interrupted");
   });
 

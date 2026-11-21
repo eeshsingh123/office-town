@@ -491,6 +491,13 @@ function addRecoveryMarks(db: DatabaseSync): void {
   db.exec("CREATE INDEX IF NOT EXISTS delegations_owed ON delegations (task_ref) WHERE owed = 1");
 }
 
+// Resumes started since the task's top agent last finished a turn, to stop a crash loop (D-122).
+function addResumeAttempts(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "resume_attempts")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN resume_attempts INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -922,4 +929,5 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS queue_waiting ON queue_entries (enqueued_at) WHERE state = 'waiting';
   CREATE INDEX IF NOT EXISTS queue_by_task ON queue_entries (task_ref);
   `,
+  addResumeAttempts,
 ];

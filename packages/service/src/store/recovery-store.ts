@@ -5,6 +5,9 @@ const queries = {
   delegationRetried: "SELECT 1 FROM delegations WHERE id = ? AND retried = 1",
   setLeadRetriedAt: "UPDATE tasks SET lead_retried_at = ? WHERE id = ?",
   leadRetriedAt: "SELECT lead_retried_at AS at FROM tasks WHERE id = ?",
+  countResumeAttempt: "UPDATE tasks SET resume_attempts = resume_attempts + 1 WHERE id = ?",
+  clearResumeAttempts: "UPDATE tasks SET resume_attempts = 0 WHERE id = ? AND resume_attempts > 0",
+  resumeAttempts: "SELECT resume_attempts AS attempts FROM tasks WHERE id = ?",
   oweResult: "UPDATE delegations SET owed = 1 WHERE id = ?",
   resultDelivered: "UPDATE delegations SET owed = 0 WHERE id = ? AND owed = 1",
   owedResults: `
@@ -39,6 +42,20 @@ export class RecoveryStore {
   leadRetriedAt(taskId: string): number | undefined {
     const row = this.#statements.leadRetriedAt.get(taskId) as { at: number | null } | undefined;
     return row?.at ?? undefined;
+  }
+
+  // Written before a resume after a restart runs; cleared once its top agent finishes a turn.
+  countResumeAttempt(taskId: string): void {
+    this.#statements.countResumeAttempt.run(taskId);
+  }
+
+  clearResumeAttempts(taskId: string): void {
+    this.#statements.clearResumeAttempts.run(taskId);
+  }
+
+  resumeAttempts(taskId: string): number {
+    const row = this.#statements.resumeAttempts.get(taskId) as { attempts: number } | undefined;
+    return row?.attempts ?? 0;
   }
 
   // Set before the result is sent; cleared once the lead's session records it.

@@ -717,6 +717,33 @@ Testing again.`),
     expect(core.store.listDelegations(second.taskId).map((one) => one.status)).toEqual(["stopped"]);
   });
 
+  it("after a close, shows the cut-off work on Home without resuming it, says so once, and resumes it through the queue once a launch", async () => {
+    const { task, writer } = await teamAtWork();
+    await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write the menu" });
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    await settle();
+    expect(core.sessions).toEqual([]);
+    expect((await core.call("GET", "/stopped-tasks")).json.tasks).toEqual([
+      { taskId: task.taskId, partIds: [] },
+    ]);
+    expect(core.store.notices.latestOf("work-stopped")).toMatchObject({
+      title: "1 task stopped when Office Town closed.",
+    });
+
+    const asked = await core.call("POST", "/stopped-tasks/resume", { taskIds: [task.taskId] });
+    expect(asked.json.tasks[0]?.entry).toMatchObject({ state: "started" });
+    await eventually(() => core.sessions.length > 0);
+    expect(core.sessions[0]?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining(`- ${writer}: Write the menu`),
+      origin: { kind: "notice" },
+    });
+    await core.call("POST", "/stopped-tasks/resume", { taskIds: [task.taskId] });
+    await settle();
+    expect(core.sessions).toHaveLength(1);
+    expect((await core.call("GET", "/stopped-tasks")).json.tasks).toEqual([]);
+  });
+
   it("checks finished work in a temporary worktree from the user's approved list, wants steps for a fail, and leaves nothing behind", async () => {
     const { task, department } = await teamAtWork();
     const project = join(directory, "bakery");

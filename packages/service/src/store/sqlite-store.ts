@@ -905,7 +905,14 @@ class SqliteStore implements Store {
   }
 
   listActiveTasks(): TaskSummary[] {
-    const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
+    return this.#tasksOf(all<SessionRow>(this.#statements.unfinishedSessions));
+  }
+
+  listInterruptedTasks(): TaskSummary[] {
+    return this.#tasksOf(all<SessionRow>(this.#statements.interruptedSessions));
+  }
+
+  #tasksOf(sessions: SessionRow[]): TaskSummary[] {
     return [...new Set(sessions.map((session) => session.taskId))]
       .map((id) => this.#taskRow(id))
       .sort((a, b) => b.ref - a.ref)

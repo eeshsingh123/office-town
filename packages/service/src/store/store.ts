@@ -298,6 +298,8 @@ export interface Store {
   listTasks(query: TaskQuery): TaskPage;
   listActiveTasks(): TaskSummary[];
   listPausedTasks(): TaskSummary[];
+  // With a session a close, crash or pause cut off, newest first.
+  listInterruptedTasks(): TaskSummary[];
   searchTasks(filters: TaskSearch): TaskSearchResult;
   // An agent that worked on no other task is deleted with it.
   deleteTask(id: string): Promise<void>;

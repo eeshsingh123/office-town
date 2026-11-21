@@ -131,7 +131,7 @@ export function apiRoutes(
   return [
     ...accountRoutes(team, prices),
     ...installRoutes(),
-    ...unattendedRoutes(store),
+    ...unattendedRoutes(store, unattended),
     {
       method: "POST",
       path: "/accounts/:id/resume-paused",

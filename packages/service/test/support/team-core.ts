@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { type HarnessCatalog, teamToolServer } from "@office-town/contract";
 import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
@@ -17,6 +18,7 @@ import { Notifier } from "../../src/notify/notifier.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
+import { AdmissionQueue } from "../../src/queue/admission-queue.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import {
   type HarnessSessionFactory,
@@ -36,6 +38,7 @@ import { proposeTeam } from "../../src/team/propose-team.ts";
 import { QuietWorkers } from "../../src/team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
+import { resumeTask, StoppedTasks } from "../../src/team/stopped-tasks.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { UsagePauses } from "../../src/team/usage-pause.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
@@ -128,6 +131,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const checks = new Checks(team);
   const milestones = new MilestoneEdits(team);
   const scheduler = new Scheduler(team);
+  const queue = new AdmissionQueue(store, registry, randomUUID(), (what) => resumeTask(team, what));
+  const stoppedTasks = new StoppedTasks(team, queue);
+  stoppedTasks.announce(notifier);
   tools.offer([
     askUser(registry),
     proposeTeam(team),
@@ -157,7 +163,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     checks,
     milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
-    unattended: { stoppedLeads },
+    unattended: { stoppedLeads, stoppedTasks },
     token: TOKEN,
     port: 0,
   });
@@ -203,6 +209,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     async close() {
       quiet.stop();
       notifier.stop();
+      queue.stop();
       await server.close();
       await preview.close();
       await registry.close();

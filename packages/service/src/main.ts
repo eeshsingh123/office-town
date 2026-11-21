@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import type { CoreReady } from "@office-town/contract";
 import {
@@ -34,6 +34,7 @@ import { PreviewServer } from "./outputs/preview-server.ts";
 import { showResult } from "./outputs/show-result.ts";
 import { TaskFiles } from "./outputs/task-files.ts";
 import { PriceList } from "./prices/prices.ts";
+import { AdmissionQueue } from "./queue/admission-queue.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
 import { followRecounts } from "./registry/recount.ts";
@@ -51,6 +52,7 @@ import { proposeTeam } from "./team/propose-team.ts";
 import { QuietWorkers } from "./team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
+import { resumeTask, StoppedTasks } from "./team/stopped-tasks.ts";
 import { TaskStates } from "./team/task-state.ts";
 import { UsagePauses } from "./team/usage-pause.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
@@ -174,6 +176,9 @@ toolServer.offer([
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
+const queue = new AdmissionQueue(store, registry, randomUUID(), (what) => resumeTask(team, what));
+const stoppedTasks = new StoppedTasks(team, queue);
+stoppedTasks.announce(notifier);
 const token = randomBytes(32).toString("base64url");
 const preview = await PreviewServer.start();
 const ownPorts = new Set([preview.port, Number(new URL(toolServer.url).port)]);
@@ -188,7 +193,7 @@ const server = await startApiServer({
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
   statuses,
-  unattended: { stoppedLeads },
+  unattended: { stoppedLeads, stoppedTasks },
   nameTask: titlesFor(team),
   token,
   port,
@@ -216,6 +221,7 @@ async function shutdown(): Promise<void> {
   stopIdle();
   quiet.stop();
   notifier.stop();
+  queue.stop();
   await server.close();
   await preview.close();
   try {
