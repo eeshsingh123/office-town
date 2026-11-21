@@ -491,6 +491,17 @@ function addRecoveryMarks(db: DatabaseSync): void {
   db.exec("CREATE INDEX IF NOT EXISTS delegations_owed ON delegations (task_ref) WHERE owed = 1");
 }
 
+// When a close, crash or pause cut a session off, so Home's card can tell new stops from old ones
+// (D-122). Sessions cut off before this have none and stay off the card.
+function addCutOffTimes(db: DatabaseSync): void {
+  if (!hasColumn(db, "sessions", "interrupted_at")) {
+    db.exec("ALTER TABLE sessions ADD COLUMN interrupted_at INTEGER");
+  }
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS sessions_cut_off ON sessions (interrupted_at) WHERE status = 'interrupted'",
+  );
+}
+
 // Resumes started since the task's top agent last finished a turn, to stop a crash loop (D-122).
 function addResumeAttempts(db: DatabaseSync): void {
   if (!hasColumn(db, "tasks", "resume_attempts")) {
@@ -930,4 +941,5 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS queue_by_task ON queue_entries (task_ref);
   `,
   addResumeAttempts,
+  addCutOffTimes,
 ];

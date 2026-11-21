@@ -15,11 +15,6 @@ const RESUMED = {
   origin: { kind: "notice" as const, summary: "Work cut off by a restart" },
 };
 
-interface Row {
-  task: TaskSummary;
-  cutAt: number;
-}
-
 // The queue's start for a task a close or crash cut off: a team through its lead, told what was
 // cut off, and a lone agent where it stopped, in its own folder (D-28).
 export async function resumeTask(context: TeamContext, what: QueuedStart): Promise<void> {
@@ -27,16 +22,17 @@ export async function resumeTask(context: TeamContext, what: QueuedStart): Promi
   const task = store.getTask(what.taskId);
   if (task === undefined) throw new RecordNotFoundError("task");
   if (task.paused !== undefined) throw new TeamError("It is paused until your usage resets.");
-  store.recovery.countResumeAttempt(task.id);
   if (task.leadAgentId !== undefined) {
     await continueTeam(context, task.id, undefined);
-    return;
+  } else {
+    const top = topSession(task, store.listSessions(task.id));
+    if (top === undefined) throw new TeamError("It never started.");
+    await claimDepartment(context, task.departmentId, task.id, () =>
+      registry.resume(top.id, RESUMED),
+    );
   }
-  const top = topSession(task, store.listSessions(task.id));
-  if (top === undefined) throw new TeamError("It never started.");
-  await claimDepartment(context, task.departmentId, task.id, () =>
-    registry.resume(top.id, RESUMED),
-  );
+  // Counted once it started, so only a resume cut off by a close or crash counts, not one refused.
+  store.recovery.countResumeAttempt(task.id);
 }
 
 // The tasks a close or crash cut off, for Home's card. Nothing the user started resumes on its
@@ -61,23 +57,7 @@ export class StoppedTasks {
   }
 
   list(): StoppedTask[] {
-    const rows = this.#rows();
-    const listed = new Set(rows.map(({ task }) => task.id));
-    return rows
-      .filter(({ task }) => task.parentTaskId === undefined || !listed.has(task.parentTaskId))
-      .map(({ task }) => {
-        const partIds = rows
-          .filter((row) => row.task.parentTaskId === task.id)
-          .map((row) => row.task.id);
-        const reason = this.#unresumable(task);
-        const entry = this.#queue.entryOf({ kind: "resume", taskId: task.id });
-        return {
-          taskId: task.id,
-          partIds,
-          ...(reason === undefined ? {} : { reason }),
-          ...(entry === undefined ? {} : { entry }),
-        };
-      });
+    return this.#shown(this.#closedAt());
   }
 
   // A chief's goal brings its cut-off parts along.
@@ -99,28 +79,46 @@ export class StoppedTasks {
 
   // Once at start, for work cut off since the last such notice.
   announce(notifier: Notifier): void {
-    const since = Date.parse(
-      this.#context.store.notices.latestOf("work-stopped")?.createdAt ?? new Date(0).toISOString(),
-    );
-    const listed = new Set(this.list().map((row) => row.taskId));
-    const fresh = this.#rows().filter(({ task, cutAt }) => listed.has(task.id) && cutAt > since);
-    if (fresh.length === 0) return;
-    const body = fresh.length === 1 ? "Resume it from Home." : "Resume them from Home.";
-    notifier.notify("work-stopped", undefined, stoppedTitle(fresh.length), body);
+    const notified = this.#context.store.notices.latestOf("work-stopped")?.createdAt;
+    const since = Math.max(this.#closedAt(), notified === undefined ? 0 : Date.parse(notified));
+    const count = this.#shown(since).length;
+    if (count === 0) return;
+    const body = count === 1 ? "Resume it from Home." : "Resume them from Home.";
+    notifier.notify("work-stopped", undefined, stoppedTitle(count), body);
   }
 
-  // Tasks whose top agent was cut off and never resumed, since the card was last closed. A task
-  // paused for its usage keeps its pause (D-72).
-  #rows(): Row[] {
+  #closedAt(): number {
+    const closed = this.#context.store.readSettings().stoppedCardClosedAt;
+    return closed === undefined ? 0 : Date.parse(closed);
+  }
+
+  // One row per task cut off at or after this time; a chief's goal is one row with its parts.
+  #shown(since: number): StoppedTask[] {
+    const tasks = this.#cutOffSince(since);
+    const listed = new Set(tasks.map((task) => task.id));
+    return tasks
+      .filter((task) => task.parentTaskId === undefined || !listed.has(task.parentTaskId))
+      .map((task) => {
+        const partIds = tasks.filter((part) => part.parentTaskId === task.id).map(({ id }) => id);
+        const reason = this.#unresumable(task);
+        const entry = this.#queue.entryOf({ kind: "resume", taskId: task.id });
+        return {
+          taskId: task.id,
+          partIds,
+          ...(reason === undefined ? {} : { reason }),
+          ...(entry === undefined ? {} : { entry }),
+        };
+      });
+  }
+
+  // Tasks whose top agent was cut off at or after this time and never resumed. A task paused for its
+  // usage keeps its pause (D-72).
+  #cutOffSince(since: number): TaskSummary[] {
     const { store } = this.#context;
-    const closed = store.readSettings().stoppedCardClosedAt;
-    const closedAt = closed === undefined ? 0 : Date.parse(closed);
-    return store.listInterruptedTasks().flatMap((task) => {
-      if (task.paused !== undefined) return [];
+    return store.listInterruptedTasks(since).filter((task) => {
+      if (task.paused !== undefined) return false;
       const top = topSession(task, task.sessions);
-      if (top?.status !== "interrupted") return [];
-      const cutAt = Date.parse(store.latestTurn(top.id)?.at ?? top.createdAt);
-      return cutAt > closedAt ? [{ task, cutAt }] : [];
+      return top !== undefined && (store.recovery.cutOffAt(top.id) ?? -1) >= since;
     });
   }
 

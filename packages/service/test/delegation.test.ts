@@ -720,6 +720,8 @@ Testing again.`),
   it("after a close, shows the cut-off work on Home without resuming it, says so once, and resumes it through the queue once a launch", async () => {
     const { task, writer } = await teamAtWork();
     await core.callTool(core.sessions[0], "delegate", { agent: writer, brief: "Write the menu" });
+    // A card closed while the lead waits on its team still shows the work a later close cuts off.
+    await core.call("POST", "/stopped-tasks/close");
     await core.close();
     core = await startCore(join(directory, "data"));
     await settle();

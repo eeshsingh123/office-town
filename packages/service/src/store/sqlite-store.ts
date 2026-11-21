@@ -908,8 +908,8 @@ class SqliteStore implements Store {
     return this.#tasksOf(all<SessionRow>(this.#statements.unfinishedSessions));
   }
 
-  listInterruptedTasks(): TaskSummary[] {
-    return this.#tasksOf(all<SessionRow>(this.#statements.interruptedSessions));
+  listInterruptedTasks(since: number): TaskSummary[] {
+    return this.#tasksOf(all<SessionRow>(this.#statements.interruptedSince, since));
   }
 
   #tasksOf(sessions: SessionRow[]): TaskSummary[] {
@@ -1086,7 +1086,7 @@ class SqliteStore implements Store {
       const sessions = all<SessionRow>(this.#statements.unfinishedSessions);
       const delegations = all<DelegationRow>(this.#statements.workingDelegations);
       this.#statements.deleteUnfinishedPendingRequests.run();
-      this.#statements.interruptUnfinished.run();
+      this.#statements.interruptUnfinished.run(Date.now());
       this.#statements.interruptDelegations.run();
       return { sessions, delegations };
     });
@@ -1113,7 +1113,7 @@ class SqliteStore implements Store {
         taskIds.add(session.taskId);
         delegations.push(...all<DelegationRow>(this.#statements.workingDelegationsOfSession, id));
         this.#statements.deleteSessionPendingRequests.run(this.#sessionRef(id));
-        this.#statements.interruptSession.run(id);
+        this.#statements.interruptSession.run(Date.now(), id);
         this.#statements.interruptDelegationsOfSession.run(id);
       }
       return { taskIds, delegations };

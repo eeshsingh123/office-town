@@ -8,6 +8,7 @@ const queries = {
   countResumeAttempt: "UPDATE tasks SET resume_attempts = resume_attempts + 1 WHERE id = ?",
   clearResumeAttempts: "UPDATE tasks SET resume_attempts = 0 WHERE id = ? AND resume_attempts > 0",
   resumeAttempts: "SELECT resume_attempts AS attempts FROM tasks WHERE id = ?",
+  cutOffAt: "SELECT interrupted_at AS at FROM sessions WHERE id = ? AND status = 'interrupted'",
   oweResult: "UPDATE delegations SET owed = 1 WHERE id = ?",
   resultDelivered: "UPDATE delegations SET owed = 0 WHERE id = ? AND owed = 1",
   owedResults: `
@@ -56,6 +57,12 @@ export class RecoveryStore {
   resumeAttempts(taskId: string): number {
     const row = this.#statements.resumeAttempts.get(taskId) as { attempts: number } | undefined;
     return row?.attempts ?? 0;
+  }
+
+  // When a close, crash or pause cut this session off, while it stays cut off.
+  cutOffAt(sessionId: string): number | undefined {
+    const row = this.#statements.cutOffAt.get(sessionId) as { at: number | null } | undefined;
+    return row?.at ?? undefined;
   }
 
   // Set before the result is sent; cleared once the lead's session records it.
