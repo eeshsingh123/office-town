@@ -269,6 +269,18 @@ function Desktop() {
           }}
         />
       </SettingRow>
+      <SwitchRow
+        label="Keep the computer awake while agents work"
+        hint="Also on battery. The screen can still turn off."
+        on={preferences.keepAwake}
+        onChange={(keepAwake) => {
+          setPreferences({ ...preferences, keepAwake });
+          shell?.setKeepAwake(keepAwake).catch(() => {
+            setPreferences({ ...preferences });
+            showToast("The choice could not be saved.");
+          });
+        }}
+      />
       {preferences.canOpenAtLogin ? (
         <SwitchRow
           label="Open at login"

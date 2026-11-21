@@ -26,6 +26,7 @@ import {
   showDevIcon,
   startedByDevLoop,
 } from "./dev-mode.ts";
+import { KeepAwake } from "./keep-awake.ts";
 import { pictureOfPage } from "./page-picture.ts";
 import {
   canOpenAtLogin,
@@ -72,6 +73,10 @@ let quitAgreed = false;
 let systemEnding = false;
 let askingToQuit: Promise<void> | undefined;
 let preferences = readPreferences();
+const keepAwake = new KeepAwake(
+  () => core?.ready,
+  () => preferences.keepAwake,
+);
 
 if (!app.isPackaged) becomeDevApp();
 if (startedByDevLoop()) quitWhenDisconnected();
@@ -114,6 +119,11 @@ async function start(): Promise<void> {
     onQuit: () => void confirmQuit(),
   });
   if (!app.isPackaged) showDevIcon(window, APP_ID, ICON);
+  window.on("show", () => void keepAwake.check());
+  window.on("hide", () => void keepAwake.check());
+  window.on("focus", () => void keepAwake.check());
+  window.on("blur", () => void keepAwake.check());
+  keepAwake.start();
   tray = createTray(
     { icon: ICON, template: TRAY_TEMPLATE },
     { open, quit: () => void confirmQuit() },
@@ -302,6 +312,7 @@ function stopCoreFirst(event: Electron.Event): void {
 
 async function stopCore(): Promise<void> {
   quitting = true;
+  keepAwake.stop();
   const stopping = core ?? (await coreStarting?.catch(() => undefined));
   core = undefined;
   tray?.destroy();
@@ -419,6 +430,7 @@ function registerBridge(): void {
     fromApp(event);
     return {
       closeToTray: preferences.closeToTray,
+      keepAwake: preferences.keepAwake,
       openAtLogin: opensAtLogin(),
       canOpenAtLogin: canOpenAtLogin(),
       openAtLoginNeedsApproval: openAtLoginNeedsApproval(),
@@ -430,6 +442,13 @@ function registerBridge(): void {
     if (typeof on !== "boolean") throw new Error("Expected on or off.");
     preferences = { ...preferences, closeToTray: on };
     savePreferences(preferences);
+  });
+  ipcMain.handle("set-keep-awake", (event, on: unknown) => {
+    fromApp(event);
+    if (typeof on !== "boolean") throw new Error("Expected on or off.");
+    preferences = { ...preferences, keepAwake: on };
+    savePreferences(preferences);
+    void keepAwake.check();
   });
   ipcMain.handle("set-open-at-login", (event, on: unknown) => {
     fromApp(event);

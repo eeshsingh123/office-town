@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld("officeTown", {
   desktopPreferences: () => ipcRenderer.invoke("desktop-preferences"),
   setCloseToTray: (on) => ipcRenderer.invoke("set-close-to-tray", on),
   setOpenAtLogin: (on) => ipcRenderer.invoke("set-open-at-login", on),
+  setKeepAwake: (on) => ipcRenderer.invoke("set-keep-awake", on),
 });
