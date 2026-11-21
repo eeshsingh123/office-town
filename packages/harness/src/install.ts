@@ -45,9 +45,13 @@ function addToPath(folder: string): void {
   if (!entries.includes(folder)) process.env[key] = [...entries, folder].join(delimiter);
 }
 
+// Homebrew's folders, for a Mac whose login shell could not be read.
+const SYSTEM_FOLDERS = process.platform === "darwin" ? ["/opt/homebrew/bin", "/usr/local/bin"] : [];
+
 // An installer adds its folder to PATH for new terminals only, which an app started from a menu
 // may never read, so the core adds each one it finds to its own PATH.
 export function addInstallFoldersToPath(): void {
+  for (const folder of SYSTEM_FOLDERS) addToPath(folder);
   for (const { install } of adapters) {
     for (const folder of install?.folders ?? []) addToPath(join(homedir(), folder));
   }

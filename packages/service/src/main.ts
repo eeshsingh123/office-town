@@ -6,6 +6,7 @@ import {
   canRecount,
   createSession,
   listHarnesses,
+  readLoginShellEnvironment,
   recountUsage,
   stopQueries,
 } from "@office-town/harness";
@@ -67,6 +68,9 @@ const { values } = parseArgs({
 
 // Agents must not inherit Electron's Node mode, or an Electron app they start would run as plain Node.
 delete process.env.ELECTRON_RUN_AS_NODE;
+// Only the installed app runs the core as built JS; anything run from the sources is development.
+const development = import.meta.filename.endsWith(".ts");
+if (!development) await readLoginShellEnvironment();
 addInstallFoldersToPath();
 
 const handOverAt =
@@ -83,8 +87,7 @@ if (!Number.isInteger(port) || port < 0 || port > 65535) {
   throw new Error(`--port must be a port number, got "${values.port}".`);
 }
 
-// Only the installed app runs the core as built JS; anything run from the sources is development.
-const dataFolder = values["data-folder"] ?? defaultDataFolder(import.meta.filename.endsWith(".ts"));
+const dataFolder = values["data-folder"] ?? defaultDataFolder(development);
 const store = openStore(dataFolder);
 const taskStates = new TaskStates(store);
 // Files picked but never sent are kept a day, in case the message is still being written.

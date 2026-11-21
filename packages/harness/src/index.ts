@@ -33,6 +33,7 @@ export { UnknownHarnessError } from "./adapters/registry.ts";
 export { CatalogError } from "./catalog.ts";
 export type { CommandResult } from "./command.ts";
 export { BinaryNotFoundError } from "./environment/find-binary.ts";
+export { readLoginShellEnvironment } from "./environment/login-shell.ts";
 export {
   addInstallFoldersToPath,
   type InstallExit,
