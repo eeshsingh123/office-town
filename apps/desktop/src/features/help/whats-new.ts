@@ -5,6 +5,7 @@ import {
   FolderGit2,
   Gauge,
   History,
+  Laptop,
   LayoutGrid,
   LifeBuoy,
   ListChecks,
@@ -29,6 +30,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-21",
+    title: "A first test version for the Mac",
+    icon: Laptop,
+    changes: [
+      "Office Town runs on Macs with Apple silicon and macOS 13 or later, as a test version",
+      "The Mac app has its own menu, quits with ⌘Q (asking first while agents work), and keeps running in the menu bar",
+      "Providers you installed for Terminal are found when the app is opened from the Dock",
+      "Claude's usage is read from your Keychain, read only",
+      "Shortcuts show ⌘ on a Mac, and ⌘[ and ⌘] go back and forward",
+      "Help has a section on the Mac: opening it the first time, folders, usage and updates",
+    ],
+  },
   {
     date: "2026-11-21",
     title: "A cleaner Team and Workspaces",
