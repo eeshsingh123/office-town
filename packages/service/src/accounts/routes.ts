@@ -61,6 +61,8 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
   const waits = new Map<string, NodeJS.Timeout>();
   let refreshing: Promise<void> | undefined;
   let refreshedAt = 0;
+  // Whether the running or last refresh was the user's own.
+  let refreshAsked = false;
   type Status = Awaited<ReturnType<typeof readAccountStatus>>;
   const statuses = new Map<string, { at: number; read: Promise<Status | undefined> }>();
 
@@ -76,7 +78,8 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
   };
 
   // Asks each signed-in account's harness for its plan usage now; one that cannot keeps its last.
-  const refreshLimits = async () => {
+  // Only a refresh the user asked for reads a Mac's Keychain, which may ask them first (D-117).
+  const refreshLimits = async (asked: boolean) => {
     const accounts = allAccounts(store, listHarnesses()).filter(
       (account) => account.signedIn !== false,
     );
@@ -86,6 +89,7 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
           account.harness,
           account.environment,
           account.folder,
+          { keychain: asked },
         ).catch(() => undefined);
         if (limits === undefined || limits.length === 0) return;
         const { id: accountId, harness } = account;
@@ -300,9 +304,14 @@ export function accountRoutes(team: TeamContext, prices: PriceList): Route[] {
     {
       method: "POST",
       path: "/limits/refresh",
-      reply: async () => {
-        if (refreshing === undefined && Date.now() - refreshedAt >= LIMITS_FLOOR_MS) {
-          refreshing = refreshLimits().finally(() => {
+      reply: async ({ query }) => {
+        const asked = query.get("asked") === "true";
+        // The user's own refresh is not served by an automatic one, which skips the Keychain.
+        if (asked && !refreshAsked) await refreshing;
+        const recent = Date.now() - refreshedAt < LIMITS_FLOOR_MS && (refreshAsked || !asked);
+        if (refreshing === undefined && !recent) {
+          refreshAsked = asked;
+          refreshing = refreshLimits(asked).finally(() => {
             refreshing = undefined;
             refreshedAt = Date.now();
           });

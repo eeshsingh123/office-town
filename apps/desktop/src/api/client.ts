@@ -431,9 +431,15 @@ export const api = {
   deleteReviewer: (reviewerId: string): Promise<void> =>
     send("DELETE", `/reviewers/${id(reviewerId)}`),
   listLimits: (): Promise<AccountLimits[]> => read("/limits", listOf(accountLimitsSchema)),
-  // Asks each account's harness for its plan usage now; the latest come back.
-  refreshLimits: (): Promise<AccountLimits[]> =>
-    write("POST", "/limits/refresh", undefined, listOf(accountLimitsSchema)),
+  // Asks each account's harness for its plan usage now; the latest come back. `asked` is the user's
+  // own Refresh, the only one that reads a Mac's Keychain (D-117).
+  refreshLimits: (asked: boolean): Promise<AccountLimits[]> =>
+    write(
+      "POST",
+      `/limits/refresh${asked ? "?asked=true" : ""}`,
+      undefined,
+      listOf(accountLimitsSchema),
+    ),
   listAccounts: (): Promise<Account[]> => read("/accounts", listOf(accountSchema)),
   createAccount: (account: NewAccountRequest): Promise<Account> =>
     write("POST", "/accounts", account, accountSchema),

@@ -38,7 +38,7 @@ export const RELEASES: Release[] = [
       "Office Town runs on Macs with Apple silicon and macOS 13 or later, as a test version",
       "The Mac app has its own menu, quits with ⌘Q (asking first while agents work), and keeps running in the menu bar",
       "Providers you installed for Terminal are found when the app is opened from the Dock",
-      "Claude's usage is read from your Keychain, read only",
+      "Claude's usage is read from your Keychain, read only, when you choose Refresh on Usage",
       "Shortcuts show ⌘ on a Mac, and ⌘[ and ⌘] go back and forward",
       "Help has a section on the Mac: opening it the first time, folders, usage and updates",
     ],

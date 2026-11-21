@@ -107,7 +107,7 @@ const ON_A_MAC: { topic: string; answer: string }[] = [
   {
     topic: "Claude usage",
     answer:
-      "Usage is read from Claude's sign-in in your Keychain, never changed. If macOS asks, choose Always Allow.",
+      "Claude keeps its sign-in in your Keychain. Office Town reads it, never changes it, only when you choose Refresh on Usage. macOS may ask whether “security” can use it: that is the tool Claude itself reads it with. Allow shows your usage; Deny only skips it.",
   },
   {
     topic: "Updates",

@@ -23,7 +23,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-97, D-98** OpenCode 1 and 2 under one harness, the installed version picking the adapter; 2.x side commands run `--standalone` so the app never touches the user's background service. What 2 adds (steering, sub-agent steps, questions, Code Mode for shared apps only) runs only on 2.
 - **D-99** Sub-agents: adapters declare whether steps are shared and whether the CLI wakes the agent itself; otherwise the core sends a short notice once the last sub-agent ends, so the reply is a turn of its own.
 - **D-92** One-off CLI queries run two at a time; sessions never wait. Why: each process start blocks the core's thread on Windows.
-- **D-117** On a Mac the core reads the login shell's environment once at start (and on Check again), so CLIs installed for Terminal are found. Claude's usage on a Mac is read from its Keychain entry: read only, kept in memory for that one read, never logged or stored.
+- **D-117** On a Mac the core reads the login shell's environment once at start (and on Check again), so CLIs installed for Terminal are found. Claude's usage on a Mac is read from its Keychain entry: read only, kept in memory for that one read, never logged or stored, and only on the user's own Refresh on Usage, since macOS may ask before each read (Claude reads it through `/usr/bin/security`, and its token refresh resets the user's answer).
 
 ## Core: store, API, live state
 
