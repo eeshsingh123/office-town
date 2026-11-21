@@ -84,6 +84,7 @@ import { workspaceUsage } from "../workspace-usage.ts";
 import { RequestError } from "./errors.ts";
 import { type HarnessStatuses, withSeenSignIn } from "./harness-statuses.ts";
 import { installRoutes } from "./install-routes.ts";
+import type { Unattended } from "./unattended-routes.ts";
 
 const isRunning = (session: { status: string }) =>
   session.status === "starting" || session.status === "running";
@@ -123,6 +124,7 @@ export function apiRoutes(
   outputs: OutputServices,
   prices: PriceList,
   statuses: HarnessStatuses,
+  unattended: Unattended,
   nameTask: NameTask = () => undefined,
 ): Route[] {
   const { registry, store, readCatalog } = team;
@@ -258,6 +260,7 @@ export function apiRoutes(
       reply: async ({ param }) => {
         if (isChiefTask(store, param("id"))) await stopChiefGoal(team, param("id"));
         else await stopTeam(team, param("id"));
+        unattended.stoppedLeads.close(param("id"));
         return NO_CONTENT;
       },
     },
@@ -367,7 +370,13 @@ export function apiRoutes(
       method: "POST",
       path: "/sessions/:id/commands",
       reply: async ({ param, body }) => {
-        await registry.send(param("id"), agentCommandSchema.parse(await body()));
+        const command = agentCommandSchema.parse(await body());
+        // Answered by the core: the lead it asks about has ended (D-120).
+        if (command.type === "answerRetry") {
+          await unattended.stoppedLeads.answer(param("id"), command.requestId, command.answer);
+        } else {
+          await registry.send(param("id"), command);
+        }
         return NO_CONTENT;
       },
     },

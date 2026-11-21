@@ -19,6 +19,8 @@ const STATE_EVENTS = new Set<SessionEvent["type"]>([
   "plan.resolved",
   "checklist.requested",
   "checklist.resolved",
+  "retry.requested",
+  "retry.resolved",
 ]);
 
 type WorkOut = (store: Store, taskId: string) => boolean;

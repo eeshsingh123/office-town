@@ -30,6 +30,7 @@ import {
   type TeamContext,
   TeamError,
 } from "./members.ts";
+import { resultText } from "./results.ts";
 import { isRepository, removeWorktrees } from "./worktrees.ts";
 
 const SHOWN_BRIEF = 120;
@@ -416,7 +417,22 @@ function missedResults(store: Store, taskId: string, chief: SessionRecord): stri
   });
 }
 
-// Resumes the lead after a restart, told which work was cut off and, for the chief, missed results.
+// Results that ended while the lead was stopped or cut off, oldest first (D-120).
+function owedResults(store: Store, taskId: string): { ids: string[]; texts: string[] } {
+  const ids = store.recovery.owedResults(taskId);
+  const delegations = new Map(store.listDelegations(taskId).map((one) => [one.id, one]));
+  const texts = ids.flatMap((id) => {
+    const delegation = delegations.get(id);
+    if (delegation === undefined || delegation.status === "working") return [];
+    const outcome = delegation.status === "interrupted" ? "stopped" : delegation.status;
+    const name = store.getAgent(delegation.workerAgentId)?.name ?? "A worker";
+    return [resultText(name, outcome, delegation.result ?? "")];
+  });
+  return { ids, texts };
+}
+
+// Resumes the lead after a restart, told which work was cut off, the results it never got and, for
+// the chief, missed results.
 export async function continueTeam(
   context: TeamContext,
   taskId: string,
@@ -442,7 +458,11 @@ export async function continueTeam(
         ),
     );
     const missed = missedResults(store, taskId, lead);
+    const owed = owedResults(store, taskId);
     const notices = [
+      ...(owed.texts.length === 0
+        ? []
+        : [`While you were not running, these results came in:\n\n${owed.texts.join("\n\n")}`]),
       ...(lost.length === 0 ? [] : [cutOffNotice(store, lost, by)]),
       ...(missed.length === 0
         ? []
@@ -454,7 +474,7 @@ export async function continueTeam(
     const summary =
       lost.length > 0
         ? `${CUT_OFF[by].summary}: ${lost.length}`
-        : `Results that came while you were not running: ${missed.length}`;
+        : `Results that came while you were not running: ${owed.texts.length + missed.length}`;
     const message: Message = {
       ...(notices.length === 0
         ? { text: prompt || "Continue where you left off." }
@@ -464,7 +484,9 @@ export async function continueTeam(
     // Resumed first, so the goal is at work again before the cut-off work stops counting as out.
     const resumed = registry.resume(lead.id, message);
     for (const delegation of cut) store.endDelegation(delegation.id, "stopped");
-    return resumed;
+    const record = await resumed;
+    for (const id of owed.ids) store.recovery.resultDelivered(id);
+    return record;
   });
 }
 

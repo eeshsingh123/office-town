@@ -28,9 +28,11 @@ import { changeWorker } from "../../src/team/change-worker.ts";
 import { Checks } from "../../src/team/checks.ts";
 import { delegate, teamStatus } from "../../src/team/delegate.ts";
 import { Handovers } from "../../src/team/handover.ts";
+import { StoppedLeads } from "../../src/team/lead-stopped.ts";
 import type { TeamContext } from "../../src/team/members.ts";
 import { proposeChange } from "../../src/team/propose-change.ts";
 import { proposeTeam } from "../../src/team/propose-team.ts";
+import { QuietWorkers } from "../../src/team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
@@ -115,7 +117,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
-  recoverLeads(team, activity);
+  const stoppedLeads = new StoppedLeads(team);
+  recoverLeads(team, activity, stoppedLeads);
+  const quiet = new QuietWorkers(team, activity);
   taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
   const pauses = new UsagePauses(team);
   cleanUpWorktrees(team);
@@ -126,7 +130,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     askUser(registry),
     proposeTeam(team),
     delegate(team),
-    teamStatus(team, activity),
+    teamStatus(team, activity, quiet),
     stopWork(team, activity),
     resumeWork(team),
     changeWorker(team),
@@ -151,6 +155,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     checks,
     milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
+    unattended: { stoppedLeads },
     token: TOKEN,
     port: 0,
   });
@@ -194,6 +199,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
       return { text: result.content[0]?.text ?? "", isError: result.isError === true };
     },
     async close() {
+      quiet.stop();
       await server.close();
       await preview.close();
       await registry.close();

@@ -72,6 +72,7 @@ import {
 import { AttachmentFiles } from "./attachment-files.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { queries } from "./queries.ts";
+import { RecoveryStore } from "./recovery-store.ts";
 import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
 import {
   type AgentChange,
@@ -730,6 +731,7 @@ export function openStore(directory: string): Store {
 }
 
 class SqliteStore implements Store {
+  readonly recovery: RecoveryStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -755,6 +757,7 @@ class SqliteStore implements Store {
     this.#results = results;
     this.#files = files;
     this.#outputs = outputs;
+    this.recovery = new RecoveryStore(db);
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -2477,6 +2480,7 @@ class SqliteStore implements Store {
       case "proposal.requested":
       case "plan.requested":
       case "checklist.requested":
+      case "retry.requested":
         this.#statements.insertPendingRequest.run(position, sessionRef, event.payload.requestId);
         return;
       case "permission.resolved":
@@ -2484,6 +2488,7 @@ class SqliteStore implements Store {
       case "proposal.resolved":
       case "plan.resolved":
       case "checklist.resolved":
+      case "retry.resolved":
         this.#statements.deletePendingRequest.run(sessionRef, event.payload.requestId);
         return;
       case "session.ended":

@@ -634,6 +634,42 @@ Testing again.`),
       "carrying on",
     );
     expect(worker?.sent.at(-1)).toMatchObject({ text: expect.stringContaining("Write the menu") });
+
+    // The lead fails: it is tried once, a restart forgets that, and the second failure waits for
+    // the user in Needs you, where Try again gives it one more turn.
+    const failLead = (session = core.sessions.at(-1)) => {
+      session?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+      session?.emit({ type: "error", payload: { message: "Overloaded", fatal: false } });
+      session?.emit({ type: "turn.ended", payload: { turnId: "turn", outcome: "failed" } });
+    };
+    failLead(lead);
+    await settle();
+    expect(lead?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("failed: Overloaded"),
+    });
+    await core.close();
+    core = await startCore(join(directory, "data"));
+    await core.call("POST", `/tasks/${task.taskId}/continue`, {});
+    failLead();
+    await settle();
+    expect(core.sessions.at(-1)?.sent.at(-1)).toEqual({ type: "stop", idle: true });
+    const [stopped, ...others] = core.store.listPendingRequests().requests;
+    expect(others).toEqual([]);
+    expect(stopped?.event).toMatchObject({
+      type: "retry.requested",
+      payload: { error: "Overloaded" },
+    });
+    expect(core.store.getTask(task.taskId)?.state).toBe("waiting");
+    const answered = await core.call("POST", `/sessions/${stopped?.event.sessionId}/commands`, {
+      type: "answerRetry",
+      requestId: stopped?.event.payload.requestId,
+      answer: "retry",
+    });
+    expect(answered.status).toBe(204);
+    expect(core.sessions.at(-1)?.sent.at(-1)).toMatchObject({
+      text: expect.stringContaining("failed: Overloaded"),
+    });
+    expect(core.store.listPendingRequests().requests).toEqual([]);
   });
 
   it("stops a whole team without waking its lead, and after a restart a message to its lead continues it with the work that was cut off", async () => {

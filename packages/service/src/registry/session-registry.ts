@@ -438,7 +438,8 @@ ${text}`,
     if (
       command.type === "answerProposal" ||
       command.type === "answerPlan" ||
-      command.type === "answerChecklist"
+      command.type === "answerChecklist" ||
+      command.type === "answerRetry"
     ) {
       throw new AnswerError(`No proposal "${command.requestId}" is waiting.`);
     }

@@ -44,8 +44,10 @@ import { removeAllSandboxes } from "./team/check-sandbox.ts";
 import { Checks } from "./team/checks.ts";
 import { delegate, teamStatus } from "./team/delegate.ts";
 import { Handovers } from "./team/handover.ts";
+import { StoppedLeads } from "./team/lead-stopped.ts";
 import { proposeChange } from "./team/propose-change.ts";
 import { proposeTeam } from "./team/propose-team.ts";
+import { QuietWorkers } from "./team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "./team/results.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
 import { TaskStates } from "./team/task-state.ts";
@@ -135,7 +137,9 @@ toolServer.offerApps({
 });
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
-recoverLeads(team, activity);
+const stoppedLeads = new StoppedLeads(team);
+recoverLeads(team, activity, stoppedLeads);
+const quiet = new QuietWorkers(team, activity);
 taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
@@ -149,7 +153,7 @@ toolServer.offer([
   askUser(registry),
   proposeTeam(team),
   delegate(team),
-  teamStatus(team, activity),
+  teamStatus(team, activity, quiet),
   stopWork(team, activity),
   resumeWork(team),
   changeWorker(team),
@@ -182,6 +186,7 @@ const server = await startApiServer({
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
   statuses,
+  unattended: { stoppedLeads },
   nameTask: titlesFor(team),
   token,
   port,
@@ -207,6 +212,7 @@ async function shutdown(): Promise<void> {
   statuses.stop();
   stopQueries();
   stopIdle();
+  quiet.stop();
   await server.close();
   await preview.close();
   try {

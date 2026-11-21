@@ -15,6 +15,7 @@ import { RequestError, toErrorReply } from "./errors.ts";
 import { streamEvents } from "./event-stream.ts";
 import { HarnessStatuses } from "./harness-statuses.ts";
 import { apiRoutes, type Reply, type Route } from "./routes.ts";
+import type { Unattended } from "./unattended-routes.ts";
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
 
@@ -29,6 +30,7 @@ export interface ApiOptions {
   prices?: PriceList;
   // The providers' last status; without it the first ask reads them.
   statuses?: HarnessStatuses;
+  unattended: Unattended;
   // Names each task the user starts, beside it; without it the prompt names every task.
   nameTask?: NameTask;
   // Anything on this machine can reach the port, but not the token.
@@ -128,6 +130,7 @@ export async function startApiServer(options: ApiOptions): Promise<ApiServer> {
     outputs,
     prices,
     statuses,
+    options.unattended,
     options.nameTask,
   );
   const expected = Buffer.from(`Bearer ${token}`);

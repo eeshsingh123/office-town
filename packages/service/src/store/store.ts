@@ -55,6 +55,7 @@ import type {
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
+import type { RecoveryStore } from "./recovery-store.ts";
 
 export interface NewSession {
   id: string;
@@ -266,6 +267,8 @@ export type LineDirection = "in" | "out";
 
 // Synchronous on purpose: an in-process SQLite write takes microseconds (D-15).
 export interface Store {
+  // Kept in files of their own over the same database (D-30).
+  readonly recovery: RecoveryStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;

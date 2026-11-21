@@ -477,6 +477,20 @@ function addDepartmentWorkspaces(db: DatabaseSync): void {
   `);
 }
 
+// The one retry and the results a lead is owed, kept across a restart (D-120).
+function addRecoveryMarks(db: DatabaseSync): void {
+  if (!hasColumn(db, "delegations", "retried")) {
+    db.exec("ALTER TABLE delegations ADD COLUMN retried INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!hasColumn(db, "delegations", "owed")) {
+    db.exec("ALTER TABLE delegations ADD COLUMN owed INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!hasColumn(db, "tasks", "lead_retried_at")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN lead_retried_at INTEGER");
+  }
+  db.exec("CREATE INDEX IF NOT EXISTS delegations_owed ON delegations (task_ref) WHERE owed = 1");
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -873,4 +887,5 @@ export const migrations: readonly Migration[] = [
   addMilestones,
   addReviewers,
   renameStarterReviewers,
+  addRecoveryMarks,
 ];
