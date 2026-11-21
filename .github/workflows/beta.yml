@@ -42,9 +42,37 @@ jobs:
             apps/desktop/out/package/installers/beta*.yml
           if-no-files-found: error
 
-  # One job publishes both platforms, so two builds never race to create the release.
+  # Mac betas (D-116): ad-hoc signed, so they only say an update is ready. Kept apart from the
+  # build above, so a Mac failure never holds back the Windows and Linux beta.
+  build-mac:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package --beta ${{ github.run_number }}
+      - run: codesign --verify --deep --strict apps/desktop/out/package/installers/mac-arm64/*.app
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-macos
+          path: |
+            apps/desktop/out/package/installers/*.dmg
+            apps/desktop/out/package/installers/*.zip
+            apps/desktop/out/package/installers/*.blockmap
+            apps/desktop/out/package/installers/beta-mac.yml
+          if-no-files-found: error
+
+  # One job publishes every platform, so two builds never race to create the release.
   publish:
-    needs: build
+    needs: [build, build-mac]
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write

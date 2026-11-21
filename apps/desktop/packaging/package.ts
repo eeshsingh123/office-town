@@ -141,6 +141,19 @@ await makeInstaller({
       // biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder fills these in.
       artifactName: "Office-Town-Setup-${version}.${ext}",
     },
+    // Apple silicon only, macOS 13 or later (Electron's floor). Ad-hoc signed until there is an
+    // Apple Developer ID; the .zip is what the Mac updater reads (D-116).
+    mac: {
+      target: [
+        { target: "dmg", arch: ["arm64"] },
+        { target: "zip", arch: ["arm64"] },
+      ],
+      category: "public.app-category.developer-tools",
+      minimumSystemVersion: "13.0",
+      identity: "-",
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder fills these in.
+      artifactName: "Office-Town-${version}-${arch}.${ext}",
+    },
     linux: {
       target: "AppImage",
       category: "Development",
