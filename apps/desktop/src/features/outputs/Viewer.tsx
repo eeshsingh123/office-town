@@ -38,6 +38,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ago, byteSize, clockTime, compactCount } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { showInFolder } from "../../ui/system.ts";
 import { showToast } from "../../ui/Toast.tsx";
 import {
   extensionOf,
@@ -309,8 +310,8 @@ export function Viewer({
             <button
               type="button"
               className={styles.iconButton}
-              aria-label="Show in folder"
-              title="Show in folder"
+              aria-label={showInFolder}
+              title={showInFolder}
               onClick={() =>
                 void shell?.showFile(filePath).catch(() => showToast("The file is not there."))
               }
@@ -774,7 +775,7 @@ function NoPreview({ path, failed = false }: { path: string | undefined; failed?
             ) : (
               <FolderOpen size={14} aria-hidden />
             )}
-            {opens ? "Open with default app" : "Show in folder"}
+            {opens ? "Open with default app" : showInFolder}
           </Button>
         </div>
       )}

@@ -34,6 +34,7 @@ import dialog from "../../ui/Dialog.module.css";
 import { taskName } from "../../ui/format.ts";
 import { Kbd } from "../../ui/Kbd.tsx";
 import menu from "../../ui/Menu.module.css";
+import { shortcut } from "../../ui/system.ts";
 import { toggleTheme, useTheme } from "../../ui/theme.ts";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import { groupApps, isOffer, useCatalog, useConnectors } from "../connectors/connectors.ts";
@@ -206,7 +207,7 @@ export function CommandMenu() {
                 <Row
                   icon={Plus}
                   label="New task"
-                  shortcut="Ctrl N"
+                  shortcut={shortcut("N")}
                   onSelect={() => {
                     close();
                     startNewTask();
@@ -250,7 +251,7 @@ export function CommandMenu() {
                 <Row
                   icon={Settings}
                   label="Settings"
-                  shortcut="Ctrl ,"
+                  shortcut={shortcut(",")}
                   keywords={["preferences"]}
                   onSelect={() => go({ name: "settings" })}
                 />

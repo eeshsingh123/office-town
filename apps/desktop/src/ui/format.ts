@@ -1,15 +1,10 @@
 import type { EnvironmentSpec } from "@office-town/contract";
+import { systemName } from "./system.ts";
 
 const TITLE_LENGTH = 60;
-// The UI always runs on the same machine as the core, so its own system is the native one.
-const NATIVE_NAME = navigator.userAgent.includes("Windows")
-  ? "Windows"
-  : navigator.userAgent.includes("Mac")
-    ? "macOS"
-    : "Linux";
 
 export function environmentName(environment: EnvironmentSpec): string {
-  return environment.kind === "wsl" ? `WSL · ${environment.distro}` : NATIVE_NAME;
+  return environment.kind === "wsl" ? `WSL · ${environment.distro}` : systemName;
 }
 
 const POLITE_START =

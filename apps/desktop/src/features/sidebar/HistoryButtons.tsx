@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useEffect } from "react";
 import { type AppState, goBack, goForward, useApp, type Visit } from "../../store/app-store.ts";
 import { taskName } from "../../ui/format.ts";
+import { backKeys, forwardKeys, isBackOrForward } from "../../ui/system.ts";
 import styles from "./Sidebar.module.css";
 
 const PAGES: Record<string, string> = {
@@ -49,14 +50,14 @@ export function visitLabel({ view, selection }: Visit, state: AppState): string 
   }
 }
 
-// Alt+arrows and the mouse's side buttons, as in a browser.
+// The system's Back and Forward keys and the mouse's side buttons, as in a browser.
 export function useHistoryKeys(): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (event.key === "ArrowLeft") goBack();
-      else if (event.key === "ArrowRight") goForward();
-      else return;
+      const way = isBackOrForward(event);
+      if (way === undefined) return;
+      if (way === "back") goBack();
+      else goForward();
       event.preventDefault();
     };
     const onMouseUp = (event: MouseEvent) => {
@@ -91,7 +92,7 @@ export function HistoryButtons() {
         onClick={goBack}
         disabled={back === undefined}
         aria-label={back === undefined ? "Back" : `Back to ${back}`}
-        title={back === undefined ? "Back (Alt+←)" : `Back to ${back} (Alt+←)`}
+        title={back === undefined ? `Back (${backKeys})` : `Back to ${back} (${backKeys})`}
       >
         <ArrowLeft size={16} aria-hidden />
       </button>
@@ -101,7 +102,11 @@ export function HistoryButtons() {
         onClick={goForward}
         disabled={forward === undefined}
         aria-label={forward === undefined ? "Forward" : `Forward to ${forward}`}
-        title={forward === undefined ? "Forward (Alt+→)" : `Forward to ${forward} (Alt+→)`}
+        title={
+          forward === undefined
+            ? `Forward (${forwardKeys})`
+            : `Forward to ${forward} (${forwardKeys})`
+        }
       >
         <ArrowRight size={16} aria-hidden />
       </button>
