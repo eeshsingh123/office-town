@@ -127,13 +127,14 @@ function saveNotify(kind: NoticeKind, on: boolean): void {
   );
 }
 
+// No row for work stopped by a close: that notice is made at start, before the window can show
+// it, so its switch waits for the phone (M13).
 const NOTICE_ROWS: { kind: NoticeKind; label: string }[] = [
   { kind: "needs-you", label: "When an agent needs you" },
   { kind: "lead-stopped", label: "When a lead stops after an error" },
   { kind: "finished", label: "When a task is finished" },
   { kind: "failed", label: "When a task fails" },
   { kind: "usage-paused", label: "When work pauses as your usage runs out" },
-  { kind: "work-stopped", label: "When work stops because Office Town closed" },
 ];
 
 type TestResult = "sent" | "blocked" | undefined;
