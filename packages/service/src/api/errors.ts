@@ -20,7 +20,7 @@ import {
   RecordNotFoundError,
   TaskActiveError,
 } from "../store/store.ts";
-import { FolderNotFoundError } from "../task-folders.ts";
+import { FolderNotFoundError, FolderNotOpenError } from "../task-folders.ts";
 import { NeverStartedError } from "../team/direct-message.ts";
 import { DepartmentBusyError, TeamError } from "../team/members.ts";
 
@@ -54,6 +54,7 @@ const knownErrors: [new (...args: never[]) => Error, number, ErrorCode][] = [
   [TeamError, 400, "invalid_request"],
   [UnknownHarnessError, 400, "invalid_request"],
   [FolderNotFoundError, 400, "invalid_request"],
+  [FolderNotOpenError, 400, "invalid_request"],
   [ConnectError, 400, "invalid_request"],
   // A malformed percent-encoding in the path.
   [URIError, 400, "invalid_request"],

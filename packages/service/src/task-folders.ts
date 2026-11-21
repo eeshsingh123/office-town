@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, statSync } from "node:fs";
+import { mkdirSync, opendirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { SessionOptions, WorkspaceRecord } from "@office-town/contract";
 import type { Store } from "./store/store.ts";
@@ -21,6 +21,30 @@ export class FolderNotFoundError extends Error {
   constructor(folder: string) {
     super(`The folder "${folder}" does not exist.`);
     this.name = "FolderNotFoundError";
+  }
+}
+
+export class FolderNotOpenError extends Error {
+  constructor() {
+    super(
+      "Office Town can't open this folder. Allow it in System Settings > Privacy & Security > Files and Folders.",
+    );
+    this.name = "FolderNotOpenError";
+  }
+}
+
+// macOS asks the user before an app reads Documents, Desktop, Downloads, iCloud Drive or an outside
+// disk. Reading one entry when the folder is added asks while the user is there, not mid-task.
+function askForFolderAccess(folder: string): void {
+  if (process.platform !== "darwin") return;
+  try {
+    const listing = opendirSync(folder);
+    listing.readSync();
+    listing.closeSync();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EPERM" || code === "EACCES") throw new FolderNotOpenError();
+    throw error;
   }
 }
 
@@ -55,7 +79,9 @@ export function requireWorkspaceFolders({
   kind,
   folders,
 }: Pick<WorkspaceRecord, "kind" | "folders">) {
-  requireFolders(folders.slice(kind === "scratch" ? 1 : 0).map((folder) => folder.path));
+  const paths = folders.slice(kind === "scratch" ? 1 : 0).map((folder) => folder.path);
+  requireFolders(paths);
+  for (const path of paths) askForFolderAccess(path);
 }
 
 // Scratch gives each task a new folder, so tasks never overwrite each other; its parent is made if
