@@ -30,6 +30,22 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-21",
+    title: "A cleaner Team and Workspaces",
+    icon: LayoutGrid,
+    changes: [
+      "Agents and departments with nothing to do are Idle, with a green dot, instead of Free with a moon",
+      "On Team, every person in a department sits on one grid: role, handle, model with its provider's logo, and status",
+      "Add a chief and New department match, each with its icon",
+      "A department's page has tabs: People, Settings, Workspaces and apps, and Files",
+      "People lists the team in rows; pick one to edit them in the panel beside the list",
+      "Save shows at the bottom only when something changed, with Discard beside it",
+      "Change with words is now Describe a change",
+      "Workspaces is a list you can sort by name or last used, with who uses each, its branch and who works there now",
+      "A workspace's page shows its kind, branch, tasks and last use as labelled facts, and long folder paths wrap at each folder",
+    ],
+  },
+  {
     date: "2026-11-20",
     title: "A smoother Office, clearer Usage",
     icon: MousePointerClick,
