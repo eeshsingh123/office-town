@@ -284,9 +284,14 @@ export function recoverLeads(
       return;
     }
     recovery.setLeadRetriedAt(taskId, Date.now());
-    tellLead(context, taskId, tryAgain(error)).catch((error: unknown) => {
-      console.error("Could not try the lead again.", error);
-    });
+    // A retry that cannot start, such as when its folder is gone, waits for the user too.
+    tellLead(context, taskId, tryAgain(error))
+      .catch((failure: unknown) =>
+        stoppedLeads.raise(taskId, failure instanceof Error ? failure.message : String(failure)),
+      )
+      .catch((failure: unknown) => {
+        console.error("Could not ask the user about a stopped lead.", failure);
+      });
   };
 
   registry.subscribe(({ event }) => onEvent(event));
