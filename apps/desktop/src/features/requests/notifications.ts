@@ -1,7 +1,7 @@
 import type { Notice } from "@office-town/contract";
 import { shell } from "../../shell.ts";
 import { navigate } from "../../store/app-store.ts";
-import { onNotice } from "../../store/live.ts";
+import { onChange } from "../../store/live.ts";
 
 function show({ id, title, body, taskId }: Notice): void {
   const notification = new Notification(title, { body, tag: id });
@@ -15,10 +15,11 @@ function show({ id, title, body, taskId }: Notice): void {
 // The core decides what deserves an alert (D-124); the window shows it only while it is not in
 // front, and the app itself shows the work behind each one.
 export function showNotices(): void {
-  onNotice((notice) => {
+  onChange((change) => {
+    if (change.type !== "notice.created") return;
     if (document.hasFocus() || typeof Notification === "undefined") return;
     if (Notification.permission === "default") void Notification.requestPermission();
     if (Notification.permission !== "granted") return;
-    show(notice);
+    show(change.notice);
   });
 }

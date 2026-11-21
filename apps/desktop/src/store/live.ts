@@ -3,7 +3,6 @@ import type {
   Change,
   DelegationRecord,
   MilestoneRecord,
-  Notice,
   PlanPiece,
   RoomPosition,
   TaskSearch,
@@ -387,19 +386,18 @@ function enqueue(streamed: StreamedEvent): void {
 }
 
 function enqueueChange(change: Change): void {
-  if (change.type === "notice.created") {
-    for (const listener of noticeListeners) listener(change.notice);
-  }
+  for (const listener of changeListeners) listener(change);
   changes.push(change);
   schedule();
 }
 
-const noticeListeners = new Set<(notice: Notice) => void>();
+const changeListeners = new Set<(change: Change) => void>();
 
-// Each notice the core makes, as it comes; a reconnect does not repeat the missed ones.
-export function onNotice(listener: (notice: Notice) => void): () => void {
-  noticeListeners.add(listener);
-  return () => noticeListeners.delete(listener);
+// Each change as it comes, for what the store keeps no copy of, such as a notice. A reconnect does
+// not repeat the ones missed.
+export function onChange(listener: (change: Change) => void): () => void {
+  changeListeners.add(listener);
+  return () => changeListeners.delete(listener);
 }
 
 function schedule(): void {

@@ -1,0 +1,44 @@
+/* Home's card of tasks a close or crash cut off (D-122). */
+.card {
+  align-items: flex-start;
+}
+
+.rows,
+.chosen {
+  flex-basis: 100%;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.name:hover {
+  text-decoration: underline;
+}
+
+.detail {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}

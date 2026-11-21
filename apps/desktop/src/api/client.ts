@@ -101,10 +101,12 @@ import {
   type StartTaskRequest,
   type StartTeamTaskRequest,
   type StepRequest,
+  type StoppedTasks,
   type StoreSize,
   sessionPageSchema,
   sessionRecordSchema,
   settingsSchema,
+  stoppedTasksSchema,
   storeSizeSchema,
   type TaskDefaultsRequest,
   type TaskDetail,
@@ -393,6 +395,10 @@ export const api = {
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>
     write("PUT", "/display", display, displaySchema),
+  listStoppedTasks: (): Promise<StoppedTasks> => read("/stopped-tasks", stoppedTasksSchema),
+  resumeStoppedTasks: (taskIds: string[]): Promise<StoppedTasks> =>
+    write("POST", "/stopped-tasks/resume", { taskIds }, stoppedTasksSchema),
+  closeStoppedTasks: (): Promise<void> => send("POST", "/stopped-tasks/close"),
   // Only the kinds given change; the answer is every kind the user set.
   saveNotifications: (change: Notifications): Promise<Notifications> =>
     write("PUT", "/notifications", change, notificationsSchema),
