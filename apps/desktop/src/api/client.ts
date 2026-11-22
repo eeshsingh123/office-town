@@ -13,6 +13,13 @@ import {
   type AnswerPermissionsResult,
   type ApiError,
   type Attachment,
+  type AutomationDraftReply,
+  type AutomationDraftRequest,
+  type AutomationPreview,
+  type AutomationPreviewRequest,
+  type AutomationRecord,
+  type AutomationRequest,
+  type AutomationRun,
   accountLimitsSchema,
   accountLoginSchema,
   accountSchema,
@@ -22,6 +29,11 @@ import {
   answerPermissionsResultSchema,
   apiErrorSchema,
   attachmentSchema,
+  automationDraftReplySchema,
+  automationListSchema,
+  automationPreviewSchema,
+  automationRecordSchema,
+  automationRunSchema,
   type CheckRecord,
   type CheckRequest,
   type ChiefDraftReply,
@@ -94,7 +106,10 @@ import {
   type ReviewerRecord,
   type ReviewerRequest,
   type RoomPosition,
+  type RunPage,
+  type RunPageQuery,
   reviewerRecordSchema,
+  runPageSchema,
   type SessionPage,
   type SessionRecord,
   type Settings,
@@ -399,6 +414,32 @@ export const api = {
   resumeStoppedTasks: (taskIds: string[]): Promise<StoppedTasks> =>
     write("POST", "/stopped-tasks/resume", { taskIds }, stoppedTasksSchema),
   closeStoppedTasks: (): Promise<void> => send("POST", "/stopped-tasks/close"),
+  listAutomations: async (): Promise<AutomationRecord[]> =>
+    (await read("/automations", automationListSchema)).automations,
+  createAutomation: (request: AutomationRequest): Promise<AutomationRecord> =>
+    write("POST", "/automations", request, automationRecordSchema),
+  updateAutomation: (automationId: string, request: AutomationRequest): Promise<AutomationRecord> =>
+    write("PUT", `/automations/${id(automationId)}`, request, automationRecordSchema),
+  turnAutomation: (automationId: string, enabled: boolean): Promise<AutomationRecord> =>
+    write("POST", `/automations/${id(automationId)}/enabled`, { enabled }, automationRecordSchema),
+  deleteAutomation: (automationId: string): Promise<void> =>
+    send("DELETE", `/automations/${id(automationId)}`),
+  runAutomation: (automationId: string): Promise<AutomationRun> =>
+    write("POST", `/automations/${id(automationId)}/run`, undefined, automationRunSchema),
+  markLoginOffered: (): Promise<void> => send("POST", "/automations/login-offered"),
+  cancelRun: (runId: string): Promise<void> => send("POST", `/automation-runs/${id(runId)}/cancel`),
+  listRuns: (automationId: string, query: RunPageQuery): Promise<RunPage> => {
+    const params = new URLSearchParams(
+      Object.entries(query).flatMap(([key, value]) =>
+        value === undefined ? [] : [[key, String(value)]],
+      ),
+    );
+    return read(`/automations/${id(automationId)}/runs?${params}`, runPageSchema);
+  },
+  previewAutomation: (request: AutomationPreviewRequest): Promise<AutomationPreview> =>
+    write("POST", "/automations/preview", request, automationPreviewSchema),
+  draftAutomation: (request: AutomationDraftRequest): Promise<AutomationDraftReply> =>
+    write("POST", "/drafts/automations", request, automationDraftReplySchema),
   // Only the kinds given change; the answer is every kind the user set.
   saveNotifications: (change: Notifications): Promise<Notifications> =>
     write("PUT", "/notifications", change, notificationsSchema),
