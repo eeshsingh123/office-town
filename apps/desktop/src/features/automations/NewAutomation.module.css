@@ -1,4 +1,10 @@
-/* The steps of New automation, in the spacing scale of Page.module.css. */
+/* The steps of New automation, in the spacing scale of Page.module.css. No side card, so one
+   form-wide column. */
+.column {
+  width: 100%;
+  max-width: var(--page-form);
+}
+
 .step {
   display: flex;
   flex-direction: column;
@@ -19,13 +25,9 @@
 
 /* A sentence with its values inline, defaults shown. */
 .rule {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
   margin: 0;
   color: var(--text);
-  line-height: 32px;
+  line-height: 38px;
 }
 
 .note {
@@ -36,6 +38,7 @@
 
 .inline {
   display: inline-flex;
+  vertical-align: middle;
   align-items: center;
   gap: 6px;
   height: 30px;
@@ -58,6 +61,7 @@
 
 .time,
 .count {
+  vertical-align: middle;
   height: 30px;
   padding: 0 8px;
   border: 1px solid var(--border);

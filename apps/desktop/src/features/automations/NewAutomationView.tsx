@@ -271,8 +271,8 @@ function Setup({
         allDone={existing !== undefined}
         onGo={go}
       />
-      <div className={`${steps.setupBody} ${step === REVIEW ? steps.wide : ""}`}>
-        <div className={page.main}>
+      <div className={`${steps.setupBody} ${steps.wide}`}>
+        <div className={`${page.main} ${styles.column}`}>
           <header className={page.header}>
             <h2 className={page.title}>
               {step === 0

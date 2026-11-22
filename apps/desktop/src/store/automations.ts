@@ -46,12 +46,23 @@ export function loadAutomations(): Promise<void> {
   return loading;
 }
 
+// Changes missed while the core was away are read again once it is back.
+let stale = true;
+useApp.subscribe((state) => {
+  if (state.connection !== "live") stale = true;
+});
+
 // Read once the core is live, again after it comes back, then kept by its changes.
 export function useAutomations(): AutomationRecord[] | undefined {
   const byId = useAutomationStore((state) => state.byId);
   const live = useApp((state) => state.connection === "live");
   useEffect(() => {
-    if (live) void loadAutomations();
+    if (!live || !stale) return;
+    stale = false;
+    loadAutomations().catch((failure: unknown) => {
+      stale = true;
+      console.error("Could not read the automations.", failure);
+    });
   }, [live]);
   return byId === undefined
     ? undefined
