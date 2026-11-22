@@ -49,6 +49,15 @@ export function automationRoutes(context: TeamContext, runner: Runner): Route[] 
     },
     {
       method: "POST",
+      path: "/automations/login-offered",
+      // Open at login is offered once, when the first automation is saved.
+      reply: () => {
+        store.saveSettings({ loginOffered: true });
+        return { status: 204 };
+      },
+    },
+    {
+      method: "POST",
       path: "/automations/preview",
       reply: async ({ body }) => ({
         status: 200,
@@ -57,7 +66,7 @@ export function automationRoutes(context: TeamContext, runner: Runner): Route[] 
     },
     {
       method: "POST",
-      path: "/automations/draft",
+      path: "/drafts/automations",
       reply: async ({ body }) => ({
         status: 200,
         json: await draftAutomation(context, automationDraftRequestSchema.parse(await body())),

@@ -18,7 +18,7 @@ import { topSession } from "../team/task-state.ts";
 import { markDone, stopTeam } from "../team/team-tasks.ts";
 import { Clock, catchUp, LATE_MS, missedSince, nextRuns } from "./clock.ts";
 import { saveResult } from "./results.ts";
-import { claimantOf, goneReason, resultOf, startRunTask } from "./run-task.ts";
+import { claimantOf, goneReason, pastShare, resultOf, startRunTask } from "./run-task.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FAILURES_TO_PAUSE = 3;
@@ -165,6 +165,8 @@ export class Runner {
 
   #skipReason(automation: AutomationRecord, depth: number): string | undefined {
     const { automations } = this.#context.store;
+    const past = pastShare(this.#context.store, automation);
+    if (past !== undefined) return past;
     if (depth > CHAIN_DEPTH) {
       return `It would be run ${depth} of a chain, past the most of ${CHAIN_DEPTH}, so the chain stopped here.`;
     }

@@ -8,7 +8,7 @@ import {
   type TaskOrigin,
   type TaskRecord,
 } from "@office-town/contract";
-import { accountTitle, hasSignIn } from "../accounts/accounts.ts";
+import { accountTitle, fullness, hasSignIn } from "../accounts/accounts.ts";
 import { resolveAttachments } from "../attachments/attachments.ts";
 import { chiefOf } from "../chief/chief.ts";
 import { startChiefGoal } from "../chief/goals.ts";
@@ -44,15 +44,24 @@ export function claimantOf(
   automation: AutomationRecord,
   run: AutomationRun,
 ): Claimant {
-  const { task, rules } = automation;
+  const { task } = automation;
   return {
     departmentId: task.kind === "department" ? task.request.team.departmentId : undefined,
     chief: task.kind === "chief",
     accountId: accountOf(store, readerOf(store, automation)),
-    ...(rules.skipAbove === undefined ? {} : { roomBelow: rules.skipAbove }),
     verb: "run",
     since: Date.parse(run.createdAt),
   };
+}
+
+// Its account past the automation's own share, where the provider shares limits: the run skips.
+export function pastShare(store: Store, automation: AutomationRecord): string | undefined {
+  const share = automation.rules.skipAbove;
+  const accountId = accountOf(store, readerOf(store, automation));
+  if (share === undefined || accountId === undefined) return undefined;
+  const used = fullness(store.listLimits().find((limits) => limits.accountId === accountId));
+  if (used < share) return undefined;
+  return `${accountTitle(store, accountId)} was at ${Math.round(used * 100)}%, past this automation's ${Math.round(share * 100)}%.`;
 }
 
 // What stops it from running at all, with the one fix (D-125).

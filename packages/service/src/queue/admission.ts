@@ -17,8 +17,6 @@ export interface Claimant {
   departmentId?: string | undefined;
   chief?: boolean;
   accountId?: string | undefined;
-  // Below 95% (D-72), or the automation's own share.
-  roomBelow?: number;
   // "resumed" or "run", for the reason given up.
   verb: string;
   // When it was asked for: per department, the oldest goes first (D-125).
@@ -33,13 +31,12 @@ const hoursText = (hours: number) => (hours === 1 ? "an hour" : `${hours} hours`
 function fullAccount(store: Store, claimant: Claimant, hours: number): Wait | undefined {
   const { accountId } = claimant;
   if (accountId === undefined) return undefined;
-  const below = claimant.roomBelow ?? PAUSE_AT;
   const now = Date.now();
   const full = store
     .listLimits()
     .find((limits) => limits.accountId === accountId)
     ?.limits.filter((limit) => limit.resetsAt === undefined || Date.parse(limit.resetsAt) > now)
-    .filter((limit) => limit.usedFraction >= below)
+    .filter((limit) => limit.usedFraction >= PAUSE_AT)
     .toSorted((a, b) => b.usedFraction - a.usedFraction)[0];
   if (full === undefined) return undefined;
   const name = accountTitle(store, accountId);
