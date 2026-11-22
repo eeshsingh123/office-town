@@ -3,14 +3,18 @@ import {
   notificationsSchema,
   resumeTasksRequestSchema,
 } from "@office-town/contract";
+import type { Runner } from "../automations/runner.ts";
 import type { Store } from "../store/store.ts";
 import type { StoppedLeads } from "../team/lead-stopped.ts";
 import type { StoppedTasks } from "../team/stopped-tasks.ts";
 import type { Route } from "./routes.ts";
 
+const RUN_SOON_MS = 10 * 60_000;
+
 export interface Unattended {
   stoppedLeads: StoppedLeads;
   stoppedTasks: StoppedTasks;
+  runner: Runner;
 }
 
 // A task at work, or one waiting on the user while its workers still work (D-123).
@@ -34,7 +38,10 @@ export function unattendedRoutes(store: Store, { stoppedTasks }: Unattended): Ro
       method: "GET",
       path: "/keep-awake",
       reply: () => {
-        const answer: KeepAwake = { awake: agentsAtWork(store) };
+        // A run due soon counts too, so a sleep never swallows it (D-123).
+        const next = store.automations.earliestNextRun();
+        const due = next !== undefined && next - Date.now() <= RUN_SOON_MS;
+        const answer: KeepAwake = { awake: due || agentsAtWork(store) };
         return { status: 200, json: answer };
       },
     },
