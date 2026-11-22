@@ -2,6 +2,7 @@ import { Check, ChevronDown, Database, Plus } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useMemo, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
+import { useAutomations } from "../../store/automations.ts";
 import {
   forSession,
   type Keep,
@@ -254,8 +255,13 @@ function GroupCounts({ rows }: { rows: Group["rows"] }) {
 
 const OPEN_STATUSES = new Set(["needs", "working", "queued"]);
 
-export function TasksView() {
+export function TasksView({ startedBy }: { startedBy?: string }) {
+  // Opened for one automation's runs, from its page.
+  useState(() => {
+    if (startedBy !== undefined) writeKept(FILTERS, { ...NO_FILTERS, startedBy });
+  });
   const tasks = useApp((state) => state.tasks);
+  const automations = useAutomations();
   const sessions = useApp((state) => state.sessions);
   const departments = useApp((state) => state.departments);
   const workspaces = useWorkspaces();
@@ -337,6 +343,7 @@ export function TasksView() {
     filters.query !== "" ||
     filters.teams.length > 0 ||
     filters.workspaceId !== undefined ||
+    filters.startedBy !== undefined ||
     filters.started !== "any";
 
   const taskItems = items.filter((item) => item.task !== undefined);
@@ -443,6 +450,18 @@ export function TasksView() {
                   value={filters.workspaceId ?? ""}
                   choices={[{ value: "", label: "All" }, ...workspaceOptions]}
                   onChange={(value) => update({ workspaceId: value === "" ? undefined : value })}
+                />
+              )}
+              {automations === undefined || automations.length === 0 ? null : (
+                <ChoiceMenu
+                  label="Started by"
+                  value={filters.startedBy ?? ""}
+                  choices={[
+                    { value: "", label: "Anyone" },
+                    { value: "you", label: "You" },
+                    ...automations.map((one) => ({ value: one.id, label: one.name })),
+                  ]}
+                  onChange={(value) => update({ startedBy: value === "" ? undefined : value })}
                 />
               )}
               <ChoiceMenu

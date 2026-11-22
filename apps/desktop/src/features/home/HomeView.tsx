@@ -9,6 +9,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
+import { AutomationsCard } from "../automations/AutomationsCard.tsx";
 import { peopleLine } from "../departments/team-line.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
@@ -503,6 +504,7 @@ export function HomeView() {
           {items.length === 0 ? null : <Recent items={items} now={now} />}
           <Team items={items} />
         </div>
+        <AutomationsCard />
         <PlanUsageCard className={styles.card} />
       </div>
     </section>

@@ -122,6 +122,7 @@ export function useTaskSearch(
     tab: filters.tab,
     teams: filters.teams,
     ...(filters.workspaceId === undefined ? {} : { workspaceId: filters.workspaceId }),
+    ...(filters.startedBy === undefined ? {} : { startedBy: filters.startedBy }),
     ...startedRange(filters.started, midnight),
   };
   const key = JSON.stringify(search);

@@ -297,6 +297,8 @@ export interface Filters {
   teams: TeamKey[];
   workspaceId: string | undefined;
   started: Started;
+  // "you", or an automation's id.
+  startedBy?: string | undefined;
 }
 
 export const NO_FILTERS: Filters = {
@@ -305,7 +307,11 @@ export const NO_FILTERS: Filters = {
   teams: [],
   workspaceId: undefined,
   started: "any",
+  startedBy: undefined,
 };
+
+export const startedByOf = (task: TaskRecord | undefined) =>
+  task?.origin?.kind === "automation" ? task.origin.automationId : "you";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -323,6 +329,7 @@ function narrowed(item: Item, filters: Filters, haystack: (item: Item) => string
   if (filters.teams.length > 0 && !filters.teams.includes(item.team)) return false;
   if (filters.workspaceId !== undefined && item.workspaceId !== filters.workspaceId) return false;
   if (!startedMatches(item.createdAt, filters.started, now)) return false;
+  if (filters.startedBy !== undefined && startedByOf(item.task) !== filters.startedBy) return false;
   const query = filters.query.trim().toLowerCase();
   return query === "" || haystack(item).toLowerCase().includes(query);
 }
