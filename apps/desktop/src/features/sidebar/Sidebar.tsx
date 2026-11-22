@@ -1,5 +1,6 @@
 import {
   Bot,
+  CalendarClock,
   CircleHelp,
   FolderGit2,
   Gauge,
@@ -55,6 +56,7 @@ interface NavItemProps {
     | "team"
     | "needs-you"
     | "tasks"
+    | "automations"
     | "templates"
     | "workspaces"
     | "providers"
@@ -76,6 +78,7 @@ export function NavItem({ view, icon: Icon, label, badge }: NavItemProps) {
       (view === "workspaces" && state.view.name === "workspace") ||
       (view === "connectors" && state.view.name === "connector") ||
       (view === "providers" && state.view.name === "provider") ||
+      (view === "automations" && ["automation", "new-automation"].includes(state.view.name)) ||
       (view === "team" && ["department", "new-department"].includes(state.view.name)),
   );
   const rail = useRailLabel(label);
@@ -244,6 +247,7 @@ export function Sidebar() {
             <NavItem view="home" icon={House} label="Home" />
             <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
             <NavItem view="tasks" icon={List} label="Tasks" />
+            <NavItem view="automations" icon={CalendarClock} label="Automations" />
             <NavItem view="office" icon={LayoutPanelLeft} label="Office" />
           </Group>
           <Group label="Organise">

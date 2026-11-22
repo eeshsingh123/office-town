@@ -46,7 +46,12 @@ export type View =
   // Set up or edit the chief; once it exists, its page.
   | { name: "chief"; edit?: boolean }
   | { name: "needs-you" }
-  | { name: "tasks" }
+  // `startedBy` opens it filtered to "you" or an automation's runs.
+  | { name: "tasks"; startedBy?: string }
+  | { name: "automations" }
+  | { name: "automation"; automationId: string }
+  // `edit` opens an automation's steps; `describe` is drafted at once.
+  | { name: "new-automation"; edit?: string; describe?: string }
   | { name: "templates" }
   | { name: "workspaces" }
   | { name: "providers" }
