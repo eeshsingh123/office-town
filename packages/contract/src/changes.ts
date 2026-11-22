@@ -2,6 +2,7 @@ import { z } from "zod";
 import { accountLimitsSchema } from "./accounts.ts";
 import { agentRecordSchema } from "./agents.ts";
 import { harnessStatusSchema, taskRecordSchema } from "./api.ts";
+import { automationRecordSchema, automationRunSchema } from "./automations.ts";
 import { checkRecordSchema } from "./checks.ts";
 import { connectorRecordSchema } from "./connectors.ts";
 import { libraryItemSchema } from "./library.ts";
@@ -37,5 +38,8 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("harness"), status: harnessStatusSchema }),
   z.object({ type: z.literal("notice.created"), notice: noticeSchema }),
   z.object({ type: z.literal("queue"), entry: queueEntrySchema }),
+  z.object({ type: z.literal("automation"), automation: automationRecordSchema }),
+  z.object({ type: z.literal("automation.removed"), automationId: z.string().min(1) }),
+  z.object({ type: z.literal("run"), run: automationRunSchema }),
 ]);
 export type Change = z.infer<typeof changeSchema>;

@@ -225,6 +225,7 @@ const payloadSchemas = {
     requestId: z.string().min(1),
     outcome: z.enum(["answered", "cancelled"]),
     answers: z.array(questionAnswerSchema).optional(),
+    answeredBy: answeredBySchema.optional(),
   }),
   // `departmentId` is set when it changes an existing department.
   "proposal.requested": z.object({
@@ -240,6 +241,7 @@ const payloadSchemas = {
     // After the user's changes.
     team: teamSchema.optional(),
     note: z.string().optional(),
+    answeredBy: answeredBySchema.optional(),
   }),
   // `replan` is set when it changes an approved plan.
   "plan.requested": z.object({
@@ -254,6 +256,7 @@ const payloadSchemas = {
     // After the user's changes.
     pieces: z.array(approvedPieceSchema).optional(),
     note: z.string().optional(),
+    answeredBy: answeredBySchema.optional(),
   }),
   // A checker's list for the user to edit and approve (D-73).
   "checklist.requested": z.object({

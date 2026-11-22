@@ -11,6 +11,8 @@ export const noticeKindSchema = z.enum([
   // Cut off by a close or a crash.
   "work-stopped",
   "usage-paused",
+  // An automation paused itself, or runs were missed while Office Town was closed.
+  "automation",
 ]);
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
 
@@ -22,6 +24,7 @@ export const NOTICE_DEFAULTS: Record<NoticeKind, boolean> = {
   "lead-stopped": true,
   "work-stopped": true,
   "usage-paused": true,
+  automation: true,
 };
 
 // What the core decided deserves an alert. It names agents, teams and tasks, never an agent's own
@@ -40,16 +43,18 @@ export type Notice = z.infer<typeof noticeSchema>;
 export const notificationsSchema = z.partialRecord(noticeKindSchema, z.boolean());
 export type Notifications = z.infer<typeof notificationsSchema>;
 
-// A start no person typed (D-121); M12 adds automation runs.
+// A start no person typed (D-121): a resume, or an automation's run (D-125).
 export const queuedStartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("resume"), taskId: z.string().min(1) }),
+  z.object({ kind: z.literal("run"), runId: z.string().min(1) }),
 ]);
 export type QueuedStart = z.infer<typeof queuedStartSchema>;
 
 export const queueEntrySchema = z.object({
   id: z.string().min(1),
   what: queuedStartSchema,
-  taskId: z.string().min(1),
+  // Not set on a run whose task is not made yet.
+  taskId: z.string().min(1).optional(),
   enqueuedAt: z.iso.datetime(),
   waitUntil: z.iso.datetime(),
   state: z.enum(["waiting", "started", "skipped", "cancelled"]),

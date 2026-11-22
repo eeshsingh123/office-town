@@ -36,6 +36,22 @@ export type TaskPause = z.infer<typeof taskPauseSchema>;
 export const resumePausedRequestSchema = z.object({ at: z.iso.datetime().optional() });
 export type ResumePausedRequest = z.infer<typeof resumePausedRequestSchema>;
 
+// Who started a task. Missing on rows from before M12 means the user (D-125).
+export const taskOriginSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("you") }),
+  z.object({
+    kind: z.literal("automation"),
+    automationId: z.string().min(1),
+    runId: z.string().min(1),
+    run: z.number().int().positive(),
+    // As it was when the run started, so a deleted automation still names it.
+    name: z.string().min(1),
+    // The run decides on its own (D-126).
+    auto: z.literal(true).optional(),
+  }),
+]);
+export type TaskOrigin = z.infer<typeof taskOriginSchema>;
+
 export const taskRecordSchema = z.object({
   id: z.string().min(1),
   prompt: z.string(),
@@ -63,6 +79,7 @@ export const taskRecordSchema = z.object({
   milestones: z.boolean().optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
+  origin: taskOriginSchema.optional(),
 });
 export type TaskRecord = z.infer<typeof taskRecordSchema>;
 
@@ -137,6 +154,8 @@ export const taskSearchQuerySchema = z.object({
   tab: taskTabSchema.default("all"),
   teams: listParam,
   workspaceId: z.string().min(1).optional(),
+  // Started by: "you", or an automation's id.
+  startedBy: z.string().min(1).optional(),
   from: z.iso.datetime().optional(),
   before: z.iso.datetime().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -152,6 +171,8 @@ export const taskSearchResultSchema = z.object({
   counts: z.record(taskTabSchema, z.number().int().nonnegative()),
   teams: z.array(z.string().min(1)),
   workspaceIds: z.array(z.string().min(1)),
+  // The automations any task was started by, with the name each run kept.
+  automations: z.array(z.object({ id: z.string().min(1), name: z.string().min(1) })),
 });
 export type TaskSearchResult = z.infer<typeof taskSearchResultSchema>;
 
@@ -325,6 +346,8 @@ export const settingsSchema = z.object({
   notifications: notificationsSchema.optional(),
   // When the user closed Home's card of stopped tasks; it shows again for work cut off after.
   stoppedCardClosedAt: z.iso.datetime().optional(),
+  // Open at login was offered once, when the first automation was saved.
+  loginOffered: z.boolean().optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
