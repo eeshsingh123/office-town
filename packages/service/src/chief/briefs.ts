@@ -1,6 +1,7 @@
 import { HANDOVER_ASK } from "../agents/briefs.ts";
 import { CHIEF_MILESTONES } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
+import { SHARED_ASK } from "../task-folders.ts";
 import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
 
 export interface DepartmentView {
@@ -54,7 +55,7 @@ export function chiefBrief(input: {
 ${instructionsOf(input.instructions)}The goal:
 ${input.goal}
 
-You work in ${input.folder}. You may read every department's workspace, but never change it.
+You work in ${input.folder}. You may read every department's workspace, but never change it. ${SHARED_ASK}
 
 The departments:
 ${describeDepartments(input.departments)}

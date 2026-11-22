@@ -14,6 +14,10 @@ export interface TaskFolders {
 }
 
 // In what a Scratch task's agents read first, so one folder stays one folder.
+// A workspace and its Library are live and shared, so no agent works from a snapshot (D-127).
+export const SHARED_ASK =
+  "Other agents and runs may add files here while you work: read what you need when you need it (search, then open), never assume it is as you first saw it, and never overwrite a file you did not write.";
+
 export const SCRATCH_ASK =
   "This task has its own folder, the one you start in. Put every file in it: never make a folder beside it or write outside it.";
 

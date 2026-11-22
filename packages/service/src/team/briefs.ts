@@ -2,7 +2,7 @@ import type { HarnessDescription, HarnessModel, MilestoneRecord } from "@office-
 import { HANDOVER_ASK, PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
 import { LEAD_CHECKS, leadMilestones } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
-import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
+import { SCRATCH_ASK, SHARED_ASK, type TaskFolders } from "../task-folders.ts";
 
 // Enough for the lead to choose from; propose_team names the valid ones if it picks another.
 const MODELS_LISTED = 12;
@@ -38,7 +38,7 @@ function where({ workspacePath, additionalPaths, readOnlyPaths, scratch }: TaskF
     readOnlyPaths.length === 0
       ? ""
       : ` You may read ${readOnlyPaths.join(", ")}, but never change them.`;
-  return `You work in ${workspacePath}${also}.${read}${scratch ? ` ${SCRATCH_ASK}` : ""}`;
+  return `You work in ${workspacePath}${also}.${read} ${SHARED_ASK}${scratch ? ` ${SCRATCH_ASK}` : ""}`;
 }
 
 // Whatever an agent reads is read again at each of its later steps, so long output is costly.
