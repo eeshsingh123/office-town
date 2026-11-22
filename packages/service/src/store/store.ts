@@ -44,6 +44,7 @@ import type {
   StoreSize,
   TaskChecklist,
   TaskModelUsage,
+  TaskOrigin,
   TaskPage,
   TaskPause,
   TaskRecord,
@@ -55,6 +56,7 @@ import type {
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
+import type { AutomationsStore } from "./automations-store.ts";
 import type { NoticesStore } from "./notices-store.ts";
 import type { QueueStore } from "./queue-store.ts";
 import type { RecoveryStore } from "./recovery-store.ts";
@@ -169,6 +171,7 @@ export type TaskTeam =
 // and any other task the app's default (D-94).
 export interface TaskPlacement {
   parentTaskId?: string;
+  origin?: TaskOrigin;
   workspaceId?: string;
   queued?: true;
   efficient?: boolean;
@@ -273,6 +276,7 @@ export interface Store {
   readonly recovery: RecoveryStore;
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
+  readonly automations: AutomationsStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
@@ -497,7 +501,9 @@ type RecordKind =
   | "check"
   | "piece"
   | "milestone"
-  | "connector";
+  | "connector"
+  | "automation"
+  | "run";
 
 // The user reads these, so each kind is named the way the app names it.
 const RECORD_WORDS: Record<RecordKind, string> = {
@@ -518,6 +524,8 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   piece: "part of the plan",
   milestone: "milestone",
   connector: "app",
+  automation: "automation",
+  run: "run",
 };
 
 export class RecordNotFoundError extends Error {

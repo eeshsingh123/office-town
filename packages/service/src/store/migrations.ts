@@ -502,6 +502,84 @@ function addCutOffTimes(db: DatabaseSync): void {
   );
 }
 
+// Automations and their runs (D-125). The queue's entries are rebuilt, as a run waits before its
+// task exists; an earlier launch's entries are dropped at start anyway.
+function addAutomations(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "origin")) db.exec("ALTER TABLE tasks ADD COLUMN origin TEXT");
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS automations (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL,
+    enabled     INTEGER NOT NULL,
+    fields      TEXT NOT NULL,
+    paused      TEXT,
+    next_run_at INTEGER,
+    failures    INTEGER NOT NULL DEFAULT 0,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS automations_due ON automations (next_run_at)
+    WHERE next_run_at IS NOT NULL;
+
+  -- (automation, scheduled_for) is a run's key: written before it starts, never fired twice.
+  CREATE TABLE IF NOT EXISTS automation_runs (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    automation_ref INTEGER NOT NULL REFERENCES automations (ref) ON DELETE CASCADE,
+    number         INTEGER NOT NULL,
+    scheduled_for  INTEGER NOT NULL,
+    by             TEXT NOT NULL,
+    status         TEXT NOT NULL,
+    reason         TEXT,
+    missed         INTEGER,
+    depth          INTEGER NOT NULL,
+    wait_until     INTEGER,
+    task_ref       INTEGER REFERENCES tasks (ref) ON DELETE SET NULL,
+    created_at     INTEGER NOT NULL,
+    ended_at       INTEGER
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS runs_key ON automation_runs (automation_ref, scheduled_for);
+  CREATE UNIQUE INDEX IF NOT EXISTS runs_by_number ON automation_runs (automation_ref, number);
+  CREATE INDEX IF NOT EXISTS runs_waiting ON automation_runs (status) WHERE status = 'waiting';
+  CREATE INDEX IF NOT EXISTS runs_by_task ON automation_runs (task_ref) WHERE task_ref IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS runs_open ON automation_runs (created_at) WHERE ended_at IS NULL;
+
+  -- Files an automation sends with every run, kept while it exists.
+  CREATE TABLE IF NOT EXISTS automation_files (
+    automation_ref INTEGER NOT NULL REFERENCES automations (ref) ON DELETE CASCADE,
+    attachment_ref INTEGER NOT NULL REFERENCES attachments (ref) ON DELETE CASCADE,
+    PRIMARY KEY (automation_ref, attachment_ref)
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS automation_files_by_file ON automation_files (attachment_ref);
+
+  DROP TABLE IF EXISTS queue_entries;
+  CREATE TABLE queue_entries (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    kind        TEXT NOT NULL,
+    task_ref    INTEGER REFERENCES tasks (ref) ON DELETE CASCADE,
+    run_ref     INTEGER REFERENCES automation_runs (ref) ON DELETE CASCADE,
+    launch      TEXT NOT NULL,
+    state       TEXT NOT NULL CHECK (state IN ('waiting', 'started', 'skipped', 'cancelled')),
+    reason      TEXT,
+    enqueued_at INTEGER NOT NULL,
+    wait_until  INTEGER NOT NULL,
+    CHECK (task_ref IS NOT NULL OR run_ref IS NOT NULL)
+  ) STRICT;
+
+  CREATE UNIQUE INDEX queue_once_a_launch ON queue_entries (kind, task_ref, launch)
+    WHERE task_ref IS NOT NULL AND run_ref IS NULL;
+  CREATE UNIQUE INDEX queue_run_once_a_launch ON queue_entries (run_ref, launch)
+    WHERE run_ref IS NOT NULL;
+  CREATE INDEX queue_waiting ON queue_entries (enqueued_at) WHERE state = 'waiting';
+  CREATE INDEX queue_by_task ON queue_entries (task_ref);
+  `);
+}
+
 // Resumes started since the task's top agent last finished a turn, to stop a crash loop (D-122).
 function addResumeAttempts(db: DatabaseSync): void {
   if (!hasColumn(db, "tasks", "resume_attempts")) {
@@ -942,4 +1020,5 @@ export const migrations: readonly Migration[] = [
   `,
   addResumeAttempts,
   addCutOffTimes,
+  addAutomations,
 ];

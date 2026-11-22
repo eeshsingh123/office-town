@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient, t.milestones,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient, t.milestones, t.origin,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
   FROM tasks t
@@ -143,8 +143,8 @@ export const queries = {
   insertTask: `
     INSERT INTO tasks
       (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref,
-       efficient, milestones)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       efficient, milestones, origin)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   insertTaskWorker: "INSERT INTO task_workers (task_ref, agent_ref) VALUES (?, ?)",
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
@@ -165,6 +165,7 @@ export const queries = {
       l.id AS leadAgentId, d.id AS departmentId, d.name AS departmentName,
       ld.id AS leadDepartmentId, ld.name AS leadDepartmentName,
       w.id AS workspaceId, w.name AS workspaceName, t.title,
+      t.origin ->> '$.automationId' AS automationId, t.origin ->> '$.name' AS automationName,
       CASE WHEN ?1 THEN t.prompt END AS prompt,
       CASE WHEN ?1 THEN (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
         (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) END AS agentNames
@@ -532,7 +533,8 @@ export const queries = {
     WHERE ta.task_ref = ? AND NOT EXISTS (
       SELECT 1 FROM task_attachments o
       WHERE o.attachment_ref = ta.attachment_ref AND o.task_ref <> ta.task_ref)
-      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)`,
+      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)
+      AND NOT EXISTS (SELECT 1 FROM automation_files af WHERE af.attachment_ref = a.ref)`,
   unsentAttachments: `
     SELECT a.ref, a.id, a.kind FROM attachments a
     WHERE a.created_at < ?
