@@ -50,31 +50,8 @@ afterEach(() => {
 });
 
 describe("store", () => {
-  it("keeps its data across a reopen and refuses a file it cannot read or another core holds", () => {
-    const task = store.createTask("Survive a restart");
-    store.close();
-    store = openStore(directory);
-    expect(store.listTasks({ limit: 10 })).toEqual({ tasks: [{ ...task, sessions: [] }] });
-    expect(() => openStore(directory)).toThrow(StoreFileError);
-    store.close();
-
-    const file = join(directory, "store.db");
-    const raw = new DatabaseSync(file);
-    raw.exec("PRAGMA user_version = 99");
-    raw.close();
-    expect(() => openStore(directory)).toThrow(StoreFileError);
-
-    const unrelated = join(directory, "unrelated.db");
-    const other = new DatabaseSync(unrelated);
-    other.exec("CREATE TABLE notes (text TEXT)");
-    other.close();
-    expect(() => openDatabase(unrelated)).toThrow(StoreFileError);
-    // The cleanup after each test closes whichever store is open.
-    store = openStore(join(directory, "fresh"));
-  });
-
   // Rewinding the version reruns every later migration, so each one must be rerunnable.
-  it("reruns its migrations over existing data: Trusted becomes Full, Scratch leaves a folder's side", () => {
+  it("keeps its data across a reopen, reruns its migrations (Trusted becomes Full, Scratch leaves a folder's side), and refuses a file it cannot read or another core holds", () => {
     const agent = addAgent(store);
     const task = store.createTask("Edit the report");
     const session = startSession(task.id, { agentId: agent.id });
@@ -119,6 +96,21 @@ describe("store", () => {
     expect(resolved?.event.payload).toMatchObject({ answeredBy: { autonomy: "full" } });
     expect(store.getDepartment(mixed.id)?.workspaceIds).toEqual([folder.id]);
     expect(store.getDepartment(empty.id)?.workspaceIds).toEqual([scratch.id]);
+    expect(store.getTask(task.id)?.prompt).toBe("Edit the report");
+
+    expect(() => openStore(directory)).toThrow(StoreFileError);
+    store.close();
+    const raw = new DatabaseSync(join(directory, "store.db"));
+    raw.exec("PRAGMA user_version = 99");
+    raw.close();
+    expect(() => openStore(directory)).toThrow(StoreFileError);
+    const unrelated = join(directory, "unrelated.db");
+    const other = new DatabaseSync(unrelated);
+    other.exec("CREATE TABLE notes (text TEXT)");
+    other.close();
+    expect(() => openDatabase(unrelated)).toThrow(StoreFileError);
+    // The cleanup after each test closes whichever store is open.
+    store = openStore(join(directory, "fresh"));
   });
 
   // The search counts what the app does not follow live, with the Tasks page's status rule.

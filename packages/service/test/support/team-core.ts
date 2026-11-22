@@ -5,6 +5,7 @@ import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { startAutomations } from "../../src/automations/automations.ts";
 import { proposeSchedule } from "../../src/automations/propose-schedule.ts";
+import type { Runner } from "../../src/automations/runner.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { messageLead } from "../../src/chief/message-lead.ts";
 import { proposePlan } from "../../src/chief/propose-plan.ts";
@@ -65,6 +66,7 @@ export interface Core {
   connectors: ConnectorHub;
   secrets: ReturnType<typeof memorySecrets>;
   scheduler: Scheduler;
+  runner: Runner;
   sessions: FakeSession[];
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
   call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }>;
@@ -184,6 +186,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     connectors,
     secrets,
     scheduler,
+    runner,
     sessions,
     async call(method, path, body) {
       const response = await fetch(`${server.url}${path}`, {
