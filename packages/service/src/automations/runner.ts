@@ -26,6 +26,9 @@ const SWEEP_MS = 60_000;
 // Bounds a chain or a burst of Run now: no automation starts more often than this in a day.
 const MOST_RUNS_A_DAY = 48;
 
+// How the queue's own wait reasons begin (queue/admission.ts).
+const WAITING = "Waiting:";
+
 const runsText = (count: number) => (count === 1 ? "1 run was" : `${count} runs were`);
 
 export type FireBy = AutomationRun["by"];
@@ -204,6 +207,12 @@ export class Runner {
             : `It ran late; ${runsText(earlier)} missed while Office Town was closed.`,
         ...(earlier === 0 ? {} : { missed: earlier }),
       });
+      this.#notifier.notify(
+        "automation",
+        undefined,
+        `${automation.name} ran late`,
+        "Office Town was closed at its time, so it ran once it was back.",
+      );
     } else {
       this.#context.store.automations.addRun({
         automationId: automation.id,
@@ -264,8 +273,13 @@ export class Runner {
     const updated = store.automations.updateRun(run.id, {
       status,
       taskId: task.id,
-      // Its wait was for the start; any reason left is from then.
-      ...(run.status === "waiting" ? { reason: undefined, waitUntil: undefined } : {}),
+      // The queue's wait was for the start; a note of its own, such as running late, stays.
+      ...(run.status === "waiting"
+        ? {
+            waitUntil: undefined,
+            ...(run.reason?.startsWith(WAITING) === true ? { reason: undefined } : {}),
+          }
+        : {}),
       ...(ended ? { endedAt: new Date().toISOString() } : {}),
     });
     if (ended && updated !== undefined) this.#ended(updated, task);
