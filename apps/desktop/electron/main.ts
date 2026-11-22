@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { OPENS_SAFELY, taskPageSchema } from "@office-town/contract";
+import { automationListSchema, OPENS_SAFELY, taskPageSchema } from "@office-town/contract";
 import {
   app,
   type BrowserWindow,
@@ -232,6 +232,22 @@ async function openAgents(): Promise<number> {
     .filter((session) => session.status === "starting" || session.status === "running").length;
 }
 
+// Automations on a schedule miss their runs while the app is closed (D-125).
+async function scheduledAutomations(): Promise<number> {
+  if (core === undefined) return 0;
+  const { url, token } = core.ready;
+  const response = await net.fetch(`${url}/automations`, {
+    headers: { authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(QUIT_CHECK_TIMEOUT_MS),
+  });
+  const { automations } = automationListSchema.parse(await response.json());
+  return automations.filter((one) => one.enabled && one.paused === undefined && one.nextRunAt)
+    .length;
+}
+
+const wontRun = (count: number) =>
+  `${count === 1 ? "1 automation won't" : `${count} automations won't`} run while Office Town is closed.`;
+
 function quitQuestion(open: number | undefined): string {
   if (open === undefined)
     return "Office Town is not responding, so it can't tell which agents are still working.";
@@ -255,16 +271,32 @@ async function agreeToStopAgents(reason: keyof typeof STOP_QUESTIONS): Promise<b
     console.error("Could not count the open agents.", error);
     return undefined;
   });
-  if (open === 0) return true;
+  // An update restarts at once, and a missed run catches up, so only a quit asks about these.
+  const scheduled =
+    reason === "quit"
+      ? await scheduledAutomations().catch((error: unknown) => {
+          console.error("Could not count the automations.", error);
+          return 0;
+        })
+      : 0;
+  if (open === 0 && scheduled === 0) return true;
   const { detail, button } = STOP_QUESTIONS[reason];
+  const keep = "Keep running in the tray";
+  const buttons = scheduled === 0 ? [button, "Cancel"] : [button, keep, "Cancel"];
   const { response } = await dialog.showMessageBox({
     type: "question",
-    message: quitQuestion(open),
-    detail,
-    buttons: [button, "Cancel"],
-    defaultId: 1,
-    cancelId: 1,
+    message: open === 0 ? wontRun(scheduled) : quitQuestion(open),
+    detail:
+      open === 0
+        ? "Keep it running in the tray and they run on time."
+        : scheduled === 0
+          ? detail
+          : `${detail} ${wontRun(scheduled)}`,
+    buttons,
+    defaultId: buttons.length - 1,
+    cancelId: buttons.length - 1,
   });
+  if (buttons[response] === keep) window?.hide();
   return response === 0;
 }
 
