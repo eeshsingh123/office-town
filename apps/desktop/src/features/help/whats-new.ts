@@ -32,6 +32,7 @@ export const RELEASES: Release[] = [
       "Things that arrived while Office Town was closed run when it opens, within the catch-up window",
       "Each automation shows when it last looked and what it found, and agent checks count in Usage",
       "The When step shows the three ways to start side by side, with the details underneath",
+      "In Rules, pick apps whose changes go through without asking in that automation's runs, so a run at night doesn't wait for you. Other tasks still ask",
     ],
   },
   {

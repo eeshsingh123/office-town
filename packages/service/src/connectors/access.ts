@@ -1,11 +1,13 @@
 import {
   type AgentRecord,
   type Audience,
+  appKeyOf,
   type ConnectorAction,
   type ConnectorPermission,
   type ConnectorRecord,
   providerOf,
   type SessionOptions,
+  type TaskRecord,
 } from "@office-town/contract";
 import { hasVendorApps, listHarnesses } from "@office-town/harness";
 import { chooseAccount, sessionAccountId } from "../accounts/accounts.ts";
@@ -111,4 +113,27 @@ export function decide(permission: ConnectorPermission, read: boolean): Decision
   if (read) return "go";
   if (permission === "read_only") return "refuse";
   return permission === "ask" ? "ask" : "go";
+}
+
+// The automation whose run or check a session works in, also for a part of a chief's goal that is
+// one, read now so an edit or a removal applies at the next call.
+function automationOf(store: Store, sessionId: string) {
+  const session = store.getSession(sessionId);
+  const task = session === undefined ? undefined : store.getTask(session.taskId);
+  const ofAutomation = (origin: TaskRecord["origin"]) =>
+    origin?.kind === "automation" || origin?.kind === "check" ? origin.automationId : undefined;
+  const parent = task?.parentTaskId === undefined ? undefined : store.getTask(task.parentTaskId);
+  const id = ofAutomation(task?.origin) ?? ofAutomation(parent?.origin);
+  return id === undefined ? undefined : store.automations.get(id);
+}
+
+// An Ask me first change goes ahead where the automation it works for lets that app act without
+// asking; the app's Read only and who may use it still decide first (D-129).
+export function automationAllows(
+  store: Store,
+  sessionId: string,
+  connector: ConnectorRecord,
+): boolean {
+  const allowed = automationOf(store, sessionId)?.rules.appsWithoutAsking ?? [];
+  return allowed.includes(appKeyOf(connector.setup.name));
 }

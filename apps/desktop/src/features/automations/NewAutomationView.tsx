@@ -33,7 +33,7 @@ import { CHIEF, SOLO } from "../new-task/targets.ts";
 import { eventMissing, useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
-import { DEFAULT_RULES, hours, RulesStep } from "./RulesStep.tsx";
+import { DEFAULT_RULES, hours, RulesStep, useAskingApps } from "./RulesStep.tsx";
 import { blankWhen, triggerOf, usePreview, type WhenForm, WhenStep, whenOf } from "./WhenStep.tsx";
 import { localZone, promptOf, runTime, whoKey } from "./words.ts";
 
@@ -486,6 +486,10 @@ function Review({
     trigger: trigger ?? { kind: "after", automationId: "", outcome: "done" },
   });
   const answer = rules.answerWithinHours;
+  const allowed = rules.appsWithoutAsking ?? [];
+  const freeApps = useAskingApps(allowed)
+    .filter(({ key }) => allowed.includes(key))
+    .map(({ name }) => name);
   return (
     <div className={styles.review}>
       <p className={styles.sentence}>
@@ -545,6 +549,11 @@ function Review({
               ? "Waits for an answer as long as it takes"
               : `Ends a run after ${hours(answer)} without an answer`}
           </li>
+          {freeApps.length === 0 ? null : (
+            <li>
+              Changes in {new Intl.ListFormat("en").format(freeApps)} go through without asking
+            </li>
+          )}
           <li>{rules.review ? "You review each run" : "A finished run counts as Done"}</li>
           {rules.saveResult && task?.kind !== "chief" ? (
             <li>Saves each result to the Library</li>

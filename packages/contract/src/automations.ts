@@ -144,6 +144,9 @@ export const automationRulesSchema = z.object({
   review: z.boolean().default(false),
   // Its result goes to the workspace's Library.
   saveResult: z.boolean().default(false),
+  // Apps, by `appKeyOf`, whose changes go through without asking in its runs and checks, where
+  // the app is on Ask me first. Read only still refuses; reads never ask (D-129).
+  appsWithoutAsking: z.array(z.string().min(1)).max(100).optional(),
 });
 export type AutomationRules = z.infer<typeof automationRulesSchema>;
 

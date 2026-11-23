@@ -13,7 +13,7 @@ import {
   ToolError,
   type ToolResult,
 } from "../tools/tools.ts";
-import { decide, isProviderApp, isRead, mayUse, usableBy } from "./access.ts";
+import { automationAllows, decide, isProviderApp, isRead, mayUse, usableBy } from "./access.ts";
 import type { ConnectorLinks } from "./links.ts";
 import { askableApps } from "./request-app.ts";
 
@@ -117,7 +117,7 @@ export class ConnectorGateway {
       record("refused");
       return failed(`${setup.name} is read only for you, and ${name} changes things.`);
     }
-    if (decision === "ask") {
+    if (decision === "ask" && !automationAllows(this.#store, caller.sessionId, connector)) {
       this.#hold(caller, connector, name, input, record("asked").id);
       return said(
         `This change in ${setup.name} waits for the user's OK. Its result will reach you as a message; carry on with other work or end your turn.`,

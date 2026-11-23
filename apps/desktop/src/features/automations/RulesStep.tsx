@@ -1,5 +1,6 @@
 import { type AutomationRules, automationRulesSchema } from "@office-town/contract";
 import { SwitchRow } from "../../ui/Switch.tsx";
+import { groupApps, isOffer, useConnectors } from "../connectors/connectors.ts";
 import styles from "./NewAutomation.module.css";
 
 export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
@@ -33,6 +34,46 @@ function Pick<T extends string | number>({
         </option>
       ))}
     </select>
+  );
+}
+
+// Apps whose changes wait for the user, each once by its key, and any already let through, so
+// it can be turned off again (D-129).
+export function useAskingApps(allowed: readonly string[]) {
+  const connectors = useConnectors();
+  return groupApps(connectors).filter(
+    ({ key, routes }) =>
+      allowed.includes(key) ||
+      routes.some((route) => route.enabled && route.permission === "ask" && !isOffer(route)),
+  );
+}
+
+function AppsRule({
+  allowed,
+  onChange,
+}: {
+  allowed: readonly string[];
+  onChange: (next: string[]) => void;
+}) {
+  const apps = useAskingApps(allowed);
+  if (apps.length === 0) return null;
+  return (
+    <div className={styles.switches}>
+      <p className={styles.rule}>
+        Changes in these apps wait for you. Let them go through in its runs:
+      </p>
+      {apps.map(({ key, name }) => (
+        <SwitchRow
+          key={key}
+          label={name}
+          on={allowed.includes(key)}
+          onChange={(on) =>
+            onChange(on ? [...allowed, key] : allowed.filter((candidate) => candidate !== key))
+          }
+        />
+      ))}
+      <p className={styles.note}>Reading never asks. An app set to Read only stays read only.</p>
+    </div>
   );
 }
 
@@ -143,6 +184,13 @@ export function RulesStep({
           </p>
         ) : null}
       </div>
+      <AppsRule
+        allowed={value.appsWithoutAsking ?? []}
+        onChange={(next) => {
+          const { appsWithoutAsking: _, ...rest } = value;
+          onChange(next.length === 0 ? rest : { ...rest, appsWithoutAsking: next });
+        }}
+      />
       <div className={styles.switches}>
         <SwitchRow
           label="Let me review each run"
