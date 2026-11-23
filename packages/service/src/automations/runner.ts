@@ -137,10 +137,7 @@ export class Runner {
     const latest =
       automation.latestRun === undefined ? 0 : Date.parse(automation.latestRun.scheduledFor);
     const slot = new Date(Math.max(pending.first, latest + 1));
-    const run = this.fire(automation, slot, "event", pending.depth);
-    if (run === undefined) return;
-    const joined = automationEvents.attach(automationId, run.id, EVENTS_A_RUN);
-    automations.updateRun(run.id, { events: joined });
+    this.fire(automation, slot, "event", pending.depth);
   }
 
   // Things that came while Office Town was closed, longer ago than its catch-up window.
@@ -179,10 +176,15 @@ export class Runner {
         ? { waitUntil, ...(note === undefined ? {} : note) }
         : { reason: skipped }),
     });
-    if (run !== undefined && run.status === "waiting") {
-      this.#queue?.add({ kind: "run", runId: run.id }, waitUntil);
-    }
-    return run;
+    if (run === undefined) return undefined;
+    // Before the queue sees it, which may start it at once: its prompt is filled in at start.
+    const events =
+      by === "event"
+        ? this.#context.store.automationEvents.attach(automation.id, run.id, EVENTS_A_RUN)
+        : 0;
+    const written = events > 0 ? (automations.updateRun(run.id, { events }) ?? run) : run;
+    if (written.status === "waiting") this.#queue?.add({ kind: "run", runId: run.id }, waitUntil);
+    return written;
   }
 
   waitFor(runId: string): Wait | undefined {

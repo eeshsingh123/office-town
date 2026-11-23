@@ -77,7 +77,11 @@ export function everyText(minutes: number): string {
 }
 
 // The folder's own name, the last part of its path.
-export const folderName = (path: string) => path.replace(/[/]+$/, "").split(/[/]/).at(-1) || path;
+export const folderName = (path: string) =>
+  path
+    .replace(/[\\/]+$/, "")
+    .split(/[\\/]/)
+    .at(-1) || path;
 
 const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 

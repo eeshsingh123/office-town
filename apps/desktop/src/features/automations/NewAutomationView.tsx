@@ -30,7 +30,7 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
-import { useGitHubApp } from "./EventFields.tsx";
+import { eventMissing, useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
 import { DEFAULT_RULES, hours, RulesStep } from "./RulesStep.tsx";
@@ -160,7 +160,8 @@ function Setup({
     existing?.task,
   );
   const current = task ?? lastTask;
-  const trigger = triggerOf(when, useGitHubApp()?.id);
+  const githubId = useGitHubApp()?.id;
+  const trigger = triggerOf(when, githubId);
   const preview = usePreview(existing?.id, current, trigger);
 
   const go = (next: number) => {
@@ -214,7 +215,9 @@ function Setup({
       : current === undefined
         ? (taskMissing ?? "Write the task each run starts with.")
         : trigger === undefined
-          ? "Choose the automation it runs after."
+          ? when.mode === "event"
+            ? eventMissing(when.event, githubId)
+            : "Choose the automation it runs after."
           : preview?.problem;
 
   const save = async (run: boolean) => {
@@ -293,7 +296,7 @@ function Setup({
                   : step === TASK
                     ? "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
                     : step === WHEN
-                      ? "On a schedule in your time zone, or after another automation. The shortest repeat is every hour."
+                      ? "On a schedule in your time zone, at most every hour; when something arrives; or after another automation."
                       : "What a run does when its team is busy, Office Town was closed, or it waits for you."}
               </p>
             )}

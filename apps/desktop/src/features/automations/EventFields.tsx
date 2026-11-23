@@ -68,6 +68,22 @@ export function sourceOf(
   return parsed.success ? parsed.data : undefined;
 }
 
+// What the chosen source still needs, in one sentence.
+export function eventMissing(event: EventForm, githubId: string | undefined): string {
+  switch (event.source) {
+    case "folder":
+      return "Choose the folder to watch.";
+    case "check":
+      return "Say what the check looks for.";
+    case "github":
+      return githubId === undefined
+        ? "Add the GitHub app in Connectors first."
+        : "Write the repository as owner/name.";
+    case "feed":
+      return "Write the feed's address, starting with https://.";
+  }
+}
+
 const SOURCES: { value: EventSourceKind; label: string }[] = [
   { value: "folder", label: "A file in a folder" },
   { value: "check", label: "An agent check" },

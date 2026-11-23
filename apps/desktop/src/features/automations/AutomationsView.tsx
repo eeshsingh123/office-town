@@ -131,7 +131,7 @@ export function AutomationsView() {
         <PageHeader
           id="automations-title"
           title="Automations"
-          lead="Tasks that start on their own, on a schedule or after another one."
+          lead="Tasks that start on their own: on a schedule, when something arrives, or after another one."
           actions={
             <Button variant="primary" onClick={() => navigate({ name: "new-automation" })}>
               <Plus size={15} aria-hidden />
