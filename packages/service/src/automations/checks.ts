@@ -53,6 +53,7 @@ export function problemWith(
   trigger: Trigger,
   now = new Date(),
 ): string | undefined {
+  const saved = id === undefined ? undefined : store.automations.get(id);
   if (trigger.kind === "schedule") {
     if (
       trigger.ends.kind === "on" &&
@@ -61,7 +62,11 @@ export function problemWith(
     ) {
       return "It ends before it starts.";
     }
-    if (nextRuns(trigger, now, 1).length === 0) {
+    // A saved one whose times are over can still be renamed or have its task changed.
+    const unchanged =
+      saved !== undefined && JSON.stringify(saved.trigger) === JSON.stringify(trigger);
+    const since = saved === undefined ? now : new Date(saved.createdAt);
+    if (!unchanged && nextRuns(trigger, now, 1, since).length === 0) {
       return trigger.schedule.repeat === "once" ? "That time has passed." : "It would never run.";
     }
     return undefined;
@@ -101,13 +106,16 @@ export function warningFor(
 
 export function preview(store: Store, request: AutomationPreviewRequest): AutomationPreview {
   const { id, task, trigger } = automationPreviewRequestSchema.parse(request);
-  const runs = id === undefined ? 0 : (store.automations.get(id)?.latestRun?.number ?? 0);
+  const saved = id === undefined ? undefined : store.automations.get(id);
+  const now = new Date();
   const problem = problemWith(store, id, trigger);
   const warning = warningFor(store, id, task, trigger);
   return {
     nextRuns:
       trigger.kind === "schedule"
-        ? nextRuns(trigger, new Date(), 3, runs).map((at) => at.toISOString())
+        ? nextRuns(trigger, now, 3, saved === undefined ? now : new Date(saved.createdAt)).map(
+            (at) => at.toISOString(),
+          )
         : [],
     ...(problem === undefined ? {} : { problem }),
     ...(warning === undefined ? {} : { warning }),

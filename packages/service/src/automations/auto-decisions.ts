@@ -7,12 +7,21 @@ import type {
 } from "@office-town/contract";
 import type { Store } from "../store/store.ts";
 import type { StoppedLeads } from "../team/lead-stopped.ts";
-import type { TeamContext } from "../team/members.ts";
+import { CORE_ASKS, type TeamContext } from "../team/members.ts";
 import { AUTO_ANSWER } from "../tools/ask-user.ts";
 
 // The core's own approvals that only decide how the work goes: stopping or moving a worker, a new
 // session at a handover. Anything else asked for permission follows the level (D-126).
-const DECISION_ASKS = ["stop-", "change-", "handover-"];
+const DECISION_ASKS = Object.values(CORE_ASKS);
+
+// What Auto answers; every other event passes without a read.
+const DECIDES = new Set<SessionEvent["type"]>([
+  "question.requested",
+  "proposal.requested",
+  "plan.requested",
+  "permission.requested",
+  "retry.requested",
+]);
 
 // An automation's run on Auto, or a part of a chief's goal that is one.
 export function onAuto(store: Store, task: TaskRecord | undefined): boolean {
@@ -79,6 +88,7 @@ function answerOf(store: Store, event: SessionEvent): AgentCommand | undefined {
 export function decideOnAuto(context: TeamContext, stoppedLeads: StoppedLeads): void {
   const { store, registry } = context;
   registry.subscribe(({ event }) => {
+    if (!DECIDES.has(event.type)) return;
     const session = store.getSession(event.sessionId);
     if (session === undefined || !onAuto(store, store.getTask(session.taskId))) return;
     // After the ask is recorded and its tool has returned.

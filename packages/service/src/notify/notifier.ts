@@ -34,7 +34,7 @@ const MORE: Record<NoticeKind, (count: number) => { title: string; body: string 
     body: `${count} more ${tasks(count)} stopped.`,
   }),
   automation: (count) => ({
-    title: `${count} more ${count === 1 ? "automation needs" : "automations need"} you`,
+    title: `${count} more ${count === 1 ? "automation" : "automations"} paused or missed runs`,
     body: "",
   }),
 };

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { startTaskRequestSchema } from "./api.ts";
+import { attachmentSchema } from "./attachments.ts";
 import { chiefTaskRequestSchema } from "./plans.ts";
 import { startTeamTaskRequestSchema } from "./team.ts";
 
@@ -165,6 +166,8 @@ export const automationRecordSchema = automationRequestSchema.extend({
   latestRun: automationRunSchema.optional(),
   // Failed runs in a row; three pause it.
   failures: z.number().int().nonnegative(),
+  // The files every run sends, kept while it exists (D-125).
+  files: z.array(attachmentSchema),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

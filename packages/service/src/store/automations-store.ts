@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, StatementSync } from "node:sqlite";
 import {
+  type Attachment,
   type AutomationFields,
   type AutomationPause,
   type AutomationRecord,
@@ -52,9 +53,7 @@ const queries = {
        WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?)),
       ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   runById: `${RUN_SELECT} WHERE r.id = ?`,
-  runOfTask: `${RUN_SELECT} WHERE r.task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
   latestRun: `${RUN_SELECT} WHERE r.automation_ref = ? ORDER BY r.number DESC LIMIT 1`,
-  waitingRuns: `${RUN_SELECT} WHERE r.status = 'waiting' ORDER BY r.created_at`,
   unendedRuns: `${RUN_SELECT} WHERE r.ended_at IS NULL ORDER BY r.created_at`,
   // Its newest runs that are not over, read through its own newest rows.
   openRuns: `
@@ -62,6 +61,8 @@ const queries = {
       WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?)
       ORDER BY number DESC LIMIT 20)
     WHERE status IN ('waiting', 'working', 'queued', 'needs')`,
+  // Runs that lost their task: a task deleted while its run was not over.
+  orphanRuns: `${RUN_SELECT} WHERE r.ended_at IS NULL AND r.task_ref IS NULL AND r.status <> 'waiting'`,
   lastFinishedTask: `
     SELECT t.id AS taskId FROM automation_runs r JOIN tasks t ON t.ref = r.task_ref
     WHERE r.automation_ref = (SELECT ref FROM automations WHERE id = ?)
@@ -158,9 +159,15 @@ export class AutomationsStore {
   readonly #db: DatabaseSync;
   readonly #statements: Record<keyof typeof queries, StatementSync>;
   readonly #publish: (change: Change) => void;
+  readonly #fileOf: (id: string) => Attachment | undefined;
 
-  constructor(db: DatabaseSync, publish: (change: Change) => void) {
+  constructor(
+    db: DatabaseSync,
+    publish: (change: Change) => void,
+    fileOf: (id: string) => Attachment | undefined,
+  ) {
     this.#db = db;
+    this.#fileOf = fileOf;
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Record<keyof typeof queries, StatementSync>;
@@ -290,18 +297,13 @@ export class AutomationsStore {
     return row === undefined ? undefined : toRun(row);
   }
 
-  runOfTask(taskId: string): AutomationRun | undefined {
-    const row = this.#statements.runOfTask.get(taskId) as RunRow | undefined;
-    return row === undefined ? undefined : toRun(row);
-  }
-
-  waitingRuns(): AutomationRun[] {
-    return this.#statements.waitingRuns.all().map((row) => toRun(row as unknown as RunRow));
-  }
-
   // Waiting, or with a task that has not ended.
   unendedRuns(): AutomationRun[] {
     return this.#statements.unendedRuns.all().map((row) => toRun(row as unknown as RunRow));
+  }
+
+  orphanRuns(): AutomationRun[] {
+    return this.#statements.orphanRuns.all().map((row) => toRun(row as unknown as RunRow));
   }
 
   openRuns(automationId: string): AutomationRun[] {
@@ -391,6 +393,7 @@ export class AutomationsStore {
       ...(row.nextRunAt === null ? {} : { nextRunAt: iso(row.nextRunAt) }),
       ...(latest === undefined ? {} : { latestRun: toRun(latest) }),
       failures: row.failures,
+      files: (stored.task.request.attachments ?? []).flatMap((id) => this.#fileOf(id) ?? []),
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),
     };

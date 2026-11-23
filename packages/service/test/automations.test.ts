@@ -45,7 +45,7 @@ describe("the clock", () => {
           { ...daily("09:00"), ends: { kind: "after", runs: 3 } },
           at("2026-11-23T00:00:00Z"),
           3,
-          2,
+          at("2026-11-21T00:00:00Z"),
         ).length,
         want: 1,
       },

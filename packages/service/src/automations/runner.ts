@@ -80,10 +80,9 @@ export class Runner {
     const automation = automations.get(automationId);
     if (automation === undefined) return;
     const { trigger } = automation;
-    const runs = automation.latestRun?.number ?? 0;
     const next =
       automation.enabled && automation.paused === undefined && trigger.kind === "schedule"
-        ? nextRuns(trigger, new Date(), 1, runs)[0]
+        ? nextRuns(trigger, new Date(), 1, new Date(automation.createdAt))[0]
         : undefined;
     automations.setNextRun(automationId, next);
     this.#clock.arm();
@@ -95,7 +94,7 @@ export class Runner {
     return this.fire(automation, new Date(), "now", 0);
   }
 
-  cancel(runId: string, reason = "You cancelled it."): void {
+  cancel(runId: string, reason = "Cancelled."): void {
     const run = this.#context.store.automations.getRun(runId);
     if (run?.status !== "waiting") return;
     this.#context.store.automations.updateRun(runId, {
@@ -171,7 +170,7 @@ export class Runner {
     const past = pastShare(this.#context.store, automation);
     if (past !== undefined) return past;
     if (depth > CHAIN_DEPTH) {
-      return `It would be run ${depth} of a chain, past the most of ${CHAIN_DEPTH}, so the chain stopped here.`;
+      return `Chain stopped: ${CHAIN_DEPTH} runs in a row is the most.`;
     }
     const open = automations.openRuns(automation.id);
     const waiting = open.find((run) => run.status === "waiting");
@@ -189,7 +188,7 @@ export class Runner {
     return undefined;
   }
 
-  // Due on its schedule: on time, or late after a close or a sleep (principle 8).
+  // Due on its schedule: on time, or late after a close or a sleep.
   #scheduled(automation: AutomationRecord): void {
     const { trigger, nextRunAt } = automation;
     if (trigger.kind !== "schedule" || nextRunAt === undefined) return;
@@ -203,16 +202,10 @@ export class Runner {
       this.fire(automation, missed.latest, "schedule", 0, {
         reason:
           earlier === 0
-            ? "It ran late, as Office Town was closed or asleep at its time."
-            : `It ran late; ${runsText(earlier)} missed while Office Town was closed.`,
+            ? "Ran late: Office Town was closed or asleep at its time."
+            : `Ran late. ${runsText(earlier)} missed while Office Town was closed.`,
         ...(earlier === 0 ? {} : { missed: earlier }),
       });
-      this.#notifier.notify(
-        "automation",
-        undefined,
-        `${automation.name} ran late`,
-        "Office Town was closed at its time, so it ran once it was back.",
-      );
     } else {
       this.#context.store.automations.addRun({
         automationId: automation.id,
@@ -227,7 +220,7 @@ export class Runner {
         "automation",
         undefined,
         `${automation.name} missed ${missed.count === 1 ? "a run" : `${missed.count} runs`}`,
-        "Office Town was closed at its time.",
+        "Office Town was closed.",
       );
     }
     this.refreshNext(automation.id);
@@ -235,8 +228,27 @@ export class Runner {
 
   #changed(change: Change): void {
     if (change.type === "task") this.#follow(change.task);
+    if (change.type === "task.deleted") this.#endOrphans();
     if (change.type === "queue" && change.entry.what.kind === "run") this.#queued(change.entry);
-    if (change.type === "department.removed" || change.type === "department") this.#checkGone();
+    if (
+      change.type === "department.removed" ||
+      change.type === "department" ||
+      change.type === "automation.removed"
+    ) {
+      this.#checkGone();
+    }
+  }
+
+  // A run whose task was deleted before it was over ends with it.
+  #endOrphans(): void {
+    const { automations } = this.#context.store;
+    for (const run of automations.orphanRuns()) {
+      automations.updateRun(run.id, {
+        status: "stopped",
+        reason: "Task deleted.",
+        endedAt: new Date().toISOString(),
+      });
+    }
   }
 
   // The queue's wait and skip, told on the run.
@@ -320,9 +332,9 @@ export class Runner {
     const { automations } = this.#context.store;
     if (automation.paused?.reason === reason) return;
     automations.setPaused(automation.id, { reason, fix });
-    this.cancelWaiting(automation.id, `It was not run: ${automation.name} paused itself.`);
+    this.cancelWaiting(automation.id, "Not run: the automation is paused.");
     this.refreshNext(automation.id);
-    this.#notifier.notify("automation", undefined, `${automation.name} paused itself`, reason);
+    this.#notifier.notify("automation", undefined, `${automation.name} is paused`, reason);
   }
 
   #checkGone(): void {
@@ -339,13 +351,14 @@ export class Runner {
   #recover(): void {
     const { store } = this.#context;
     const now = Date.now();
+    this.#endOrphans();
     for (const run of store.automations.unendedRuns()) {
       if (run.status === "waiting" && run.taskId === undefined) {
         const until = run.waitUntil === undefined ? now : Date.parse(run.waitUntil);
         if (until <= now) {
           store.automations.updateRun(run.id, {
             status: "skipped",
-            reason: "Office Town was closed past how long it could wait.",
+            reason: "Office Town was closed longer than it could wait.",
             endedAt: new Date().toISOString(),
           });
         } else this.#queue?.add({ kind: "run", runId: run.id }, new Date(until));
@@ -370,16 +383,18 @@ export class Runner {
     for (const automation of due) this.#scheduled(automation);
   }
 
-  // A run waiting on the user past its rule ends, so later runs can go (D-118).
+  // A run waiting on the user past its rule ends, so later runs can go (D-118). A part of a
+  // chief's goal that asks holds its goal's run.
   #endUnanswered(): void {
     const { store } = this.#context;
     const asking = new Map<string, number>();
     for (const { taskId, event } of store.listPendingRequests().requests) {
       const at = Date.parse(event.timestamp);
-      asking.set(taskId, Math.min(at, asking.get(taskId) ?? at));
+      const goalId = store.getTask(taskId)?.parentTaskId ?? taskId;
+      asking.set(goalId, Math.min(at, asking.get(goalId) ?? at));
     }
     for (const run of store.automations.unendedRuns()) {
-      if (run.status !== "needs" || run.taskId === undefined) continue;
+      if (run.taskId === undefined) continue;
       const since = asking.get(run.taskId);
       const automation = store.automations.get(run.automationId);
       const hours = automation?.rules.answerWithinHours;
@@ -388,7 +403,7 @@ export class Runner {
       }
       const taskId = run.taskId;
       store.automations.updateRun(run.id, {
-        reason: `No one answered within ${hours === 1 ? "an hour" : `${hours} hours`}, so it was stopped.`,
+        reason: `Stopped after ${hours === 1 ? "an hour" : `${hours} hours`} with no answer.`,
       });
       const stopping = isChiefTask(store, taskId)
         ? stopChiefGoal(this.#context, taskId)

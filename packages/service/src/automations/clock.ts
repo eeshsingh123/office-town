@@ -3,7 +3,7 @@ import { Cron } from "croner";
 
 type ScheduleTrigger = Extract<Trigger, { kind: "schedule" }>;
 
-// A timer that fires later than this means the computer slept or its clock moved (principle 8).
+// A timer that fires later than this means the computer slept or its clock moved.
 export const LATE_MS = 2 * 60_000;
 // setTimeout's longest wait; a later run re-arms on the way.
 const LONGEST_TIMER_MS = 2 ** 31 - 1;
@@ -15,13 +15,29 @@ const hourMinute = (time: string) => {
   return { hour: Number(hour), minute: Number(minute) };
 };
 
+const minutesOf = (time: string) => {
+  const { hour, minute } = hourMinute(time);
+  return hour * 60 + minute;
+};
+
+const DAY_MINUTES = 24 * 60;
+
+// The hours of each day it runs, from `from` to `until`; an `until` earlier than `from` runs past
+// midnight, and none is later than `until`.
+function hoursOf({ every, from, until }: Extract<Schedule, { repeat: "hours" }>): number[] {
+  const first = minutesOf(from);
+  let last = until === undefined ? DAY_MINUTES - 1 : minutesOf(until);
+  if (last < first) last += DAY_MINUTES;
+  const hours = new Set<number>();
+  for (let at = first; at <= last; at += every * 60) hours.add(Math.floor(at / 60) % 24);
+  return [...hours].toSorted((a, b) => a - b);
+}
+
 // Each preset as a cron rule, or a wall-clock date for Once.
 export function patternOf(schedule: Schedule): string {
   if (schedule.repeat === "once") return `${schedule.date}T${schedule.time}:00`;
   if (schedule.repeat === "hours") {
-    const from = hourMinute(schedule.from);
-    const until = schedule.until === undefined ? 23 : hourMinute(schedule.until).hour;
-    return `${from.minute} ${from.hour}-${Math.max(from.hour, until)}/${schedule.every} * * *`;
+    return `${hourMinute(schedule.from).minute} ${hoursOf(schedule).join(",")} * * *`;
   }
   const { hour, minute } = hourMinute(schedule.time);
   switch (schedule.repeat) {
@@ -47,17 +63,20 @@ function cronOf(trigger: ScheduleTrigger): Cron {
   });
 }
 
-// The next `count` run times after `after`, minding Ends after N runs. Daylight saving follows
-// croner: a time that does not exist runs at the first valid time, one that happens twice once.
+// The next `count` run times after `after`. Ends after N runs counts the schedule's own times
+// from `since`, as a calendar does, whether each ran or not. Daylight saving follows croner: a
+// time that does not exist runs at the first valid time, one that happens twice once.
 export function nextRuns(
   trigger: ScheduleTrigger,
   after: Date,
   count: number,
-  runsSoFar = 0,
+  since: Date = after,
 ): Date[] {
-  const left =
-    trigger.ends.kind === "after" ? Math.max(0, trigger.ends.runs - runsSoFar) : Number.MAX_VALUE;
-  return cronOf(trigger).nextRuns(Math.min(count, left), after);
+  const cron = cronOf(trigger);
+  const next = cron.nextRuns(count, after);
+  if (trigger.ends.kind !== "after") return next;
+  const last = cron.nextRuns(trigger.ends.runs, new Date(since.getTime() - 1)).at(-1);
+  return last === undefined ? [] : next.filter((at) => at <= last);
 }
 
 export interface Missed {
@@ -88,7 +107,7 @@ export function catchUp(missed: Missed, catchUpHours: number, now: Date): boolea
 
 export type ClockTick = (due: AutomationRecord[]) => void;
 
-// One timer to the earliest next run, never one per automation (principle 8).
+// One timer to the earliest next run, never one per automation.
 export class Clock {
   readonly #earliest: () => number | undefined;
   readonly #due: (now: number) => AutomationRecord[];

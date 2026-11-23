@@ -12,6 +12,10 @@ import type { HarnessSessionFactory, SessionRegistry } from "../registry/session
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import type { ReadCatalog } from "./catalogs.ts";
 
+// Ids of the core's own approvals that only decide how the work goes, so an automation on Auto
+// can tell them from a permission (D-126).
+export const CORE_ASKS = { stop: "stop-", change: "change-", handover: "handover-" } as const;
+
 export interface TeamContext {
   store: Store;
   registry: SessionRegistry;

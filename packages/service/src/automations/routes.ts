@@ -86,6 +86,7 @@ export function automationRoutes(context: TeamContext, runner: Runner): Route[] 
         const fields = await checked(body, id);
         automations.update(id, fields, keepFiles(store, fields));
         automations.setPaused(id, undefined);
+        automations.setFailures(id, 0);
         if (!fields.enabled) runner.cancelWaiting(id, "It was turned off.");
         runner.refreshNext(id);
         return { status: 200, json: automations.get(id) };

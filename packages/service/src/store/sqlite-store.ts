@@ -769,7 +769,11 @@ class SqliteStore implements Store {
     this.recovery = new RecoveryStore(db);
     this.notices = new NoticesStore(db, (change) => this.#publish(change));
     this.queue = new QueueStore(db, (change) => this.#publish(change));
-    this.automations = new AutomationsStore(db, (change) => this.#publish(change));
+    this.automations = new AutomationsStore(
+      db,
+      (change) => this.#publish(change),
+      (id) => this.getAttachment(id),
+    );
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;

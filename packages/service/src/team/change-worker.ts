@@ -8,7 +8,7 @@ import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { isLead, NOT_YET, teamOf } from "./delegate.ts";
 import { noteLead } from "./direct-message.ts";
 import { isOpen } from "./lead.ts";
-import type { TeamContext } from "./members.ts";
+import { CORE_ASKS, type TeamContext } from "./members.ts";
 import { checkedSettings } from "./propose-team.ts";
 import { finishedWork } from "./team-tasks.ts";
 
@@ -114,7 +114,7 @@ export function changeWorker(context: TeamContext) {
         await apply();
         return `${worker.name} now runs on ${model}. Call resume_work to have it carry on.`;
       }
-      const requestId = `change-${randomUUID()}`;
+      const requestId = `${CORE_ASKS.change}${randomUUID()}`;
       registry.ask(
         caller.sessionId,
         {

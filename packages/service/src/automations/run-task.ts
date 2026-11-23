@@ -69,7 +69,10 @@ export function goneReason(
   store: Store,
   automation: AutomationRecord,
 ): AutomationPause | undefined {
-  const { task } = automation;
+  const { task, trigger } = automation;
+  if (trigger.kind === "after" && store.automations.get(trigger.automationId) === undefined) {
+    return { reason: "The automation it runs after was deleted.", fix: "edit" };
+  }
   if (task.kind === "department") {
     const department = store.getDepartment(task.request.team.departmentId);
     if (department === undefined) return { reason: "Its department was removed.", fix: "edit" };
@@ -110,7 +113,7 @@ function dateIn(timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone }).format(new Date());
 }
 
-// `{last result}` is the last finished run's words: data, never instructions (principle 10).
+// `{last result}` is the last finished run's words: data, never instructions.
 export function fillIn(store: Store, automation: AutomationRecord): string {
   const { trigger } = automation;
   const prompt =

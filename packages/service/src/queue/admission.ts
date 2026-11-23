@@ -61,6 +61,26 @@ function earlierPiece(store: Store, claimant: Claimant): boolean {
   });
 }
 
+// An automation's run waiting for this department since before `since`, with room on its account:
+// a part of the chief's plan gives way to it, as the run gives way to an earlier part (D-125).
+export function earlierRun(store: Store, departmentId: string, since: number): boolean {
+  const department = store.getDepartment(departmentId);
+  if (department === undefined) return false;
+  const accountId = accountOf(store, store.getAgent(department.leadAgentId)?.settings);
+  return store.queue.waiting().some((entry) => {
+    if (entry.what.kind !== "run") return false;
+    const run = store.automations.getRun(entry.what.runId);
+    const task = run === undefined ? undefined : store.automations.get(run.automationId)?.task;
+    return (
+      run !== undefined &&
+      task?.kind === "department" &&
+      task.request.team.departmentId === departmentId &&
+      Date.parse(run.createdAt) < since &&
+      fullAccount(store, { accountId, verb: "run", since }, 0) === undefined
+    );
+  });
+}
+
 function chiefBusy(store: Store): boolean {
   const chiefId = store.readSettings().chiefAgentId;
   if (chiefId === undefined) return false;

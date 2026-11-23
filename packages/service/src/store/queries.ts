@@ -539,7 +539,8 @@ export const queries = {
     SELECT a.ref, a.id, a.kind FROM attachments a
     WHERE a.created_at < ?
       AND NOT EXISTS (SELECT 1 FROM task_attachments ta WHERE ta.attachment_ref = a.ref)
-      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)`,
+      AND NOT EXISTS (SELECT 1 FROM library_items li WHERE li.attachment_ref = a.ref)
+      AND NOT EXISTS (SELECT 1 FROM automation_files af WHERE af.attachment_ref = a.ref)`,
   attachmentSent: "SELECT 1 AS sent FROM task_attachments WHERE attachment_ref = ? LIMIT 1",
   attachmentsOfTask: `
     SELECT ${ATTACHMENT_COLUMNS} FROM attachments
