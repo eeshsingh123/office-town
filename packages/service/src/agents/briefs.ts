@@ -2,7 +2,7 @@ import type { AgentRecord, ConnectorPermission, ConnectorRecord } from "@office-
 import { SOLO_MILESTONES } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
-import { SCRATCH_ASK, SHARED_ASK } from "../task-folders.ts";
+import { SCRATCH_ASK } from "../task-folders.ts";
 
 function section(title: string, lines: (string | undefined)[]): string | undefined {
   const body = lines.map((line) => line?.trim() ?? "").filter((line) => line !== "");
@@ -53,7 +53,6 @@ export function soloMessage(
 ): Message {
   const asks = [
     ...(milestones ? [SOLO_MILESTONES] : []),
-    SHARED_ASK,
     ...(scratch ? [SCRATCH_ASK] : []),
     PLAN_ASK,
     SHOW_ASK,
