@@ -136,7 +136,9 @@ const eventTime = (at: number, timeZone: string) =>
 // What started an event run, always given, whether or not the prompt names `{event}`.
 function withEvents(store: Store, text: string, run: AutomationRun, timeZone: string): string {
   const events = store.automationEvents.ofRun(run.id);
-  if (events.length === 0) return text;
+  // Run now, or a run on a schedule, has nothing that arrived.
+  if (events.length === 0)
+    return text.replaceAll(FILL_INS.event, "nothing (no event started this run)");
   const named = text.includes(FILL_INS.event)
     ? text.replaceAll(FILL_INS.event, "what started this run (below)")
     : text;

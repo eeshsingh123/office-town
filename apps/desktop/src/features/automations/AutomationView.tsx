@@ -1,5 +1,11 @@
-import type { AutomationRecord, AutomationRun, RunPage, RunTab } from "@office-town/contract";
-import { CircleMinus, Clock, Pencil, Play, ShieldCheck, Sparkles } from "lucide-react";
+import type {
+  AutomationRecord,
+  AutomationRun,
+  RunPage,
+  RunTab,
+  Trigger,
+} from "@office-town/contract";
+import { CircleMinus, Clock, Eye, Pencil, Play, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -25,7 +31,7 @@ import {
   useWho,
   WhoAvatar,
 } from "./parts.tsx";
-import { RUN_LABELS, runTime } from "./words.ts";
+import { eventsText, RUN_LABELS, runTime } from "./words.ts";
 
 const PAGE = 50;
 const REREAD_MS = 300;
@@ -48,7 +54,14 @@ function RunStatus({ run }: { run: AutomationRun }) {
   );
 }
 
-function RunRow({ run }: { run: AutomationRun }) {
+// What started an event run, when nothing else needs saying.
+function noteOf(run: AutomationRun, trigger: Trigger): string | undefined {
+  if (run.reason !== undefined) return run.reason;
+  if (trigger.kind !== "event" || run.events === undefined) return undefined;
+  return eventsText(trigger.source, run.events);
+}
+
+function RunRow({ run, trigger }: { run: AutomationRun; trigger: Trigger }) {
   const [cancelling, setCancelling] = useState(false);
   const cancel = async () => {
     setCancelling(true);
@@ -66,7 +79,7 @@ function RunRow({ run }: { run: AutomationRun }) {
       <span className={`${styles.line} ${styles.when}`}>{runTime(run.scheduledFor)}</span>
       <RunStatus run={run} />
       <span className={styles.reason} title={run.reason}>
-        {run.reason}
+        {noteOf(run, trigger)}
       </span>
       {run.status === "waiting" ? (
         <Button variant="ghost" onClick={cancel} busy={cancelling}>
@@ -189,6 +202,13 @@ function Chips({ automation }: { automation: AutomationRecord }) {
           {AUTONOMY[level].label}
         </span>
       )}
+      {automation.lastLook === undefined ? null : (
+        <span className={styles.chip} title="Its last look for something new">
+          <Eye size={13} aria-hidden />
+          Looked {runTime(automation.lastLook.at).toLowerCase()}:{" "}
+          {automation.lastLook.found === 0 ? "nothing new" : `${automation.lastLook.found} new`}
+        </span>
+      )}
       {automation.rules.decisions === "auto" ? (
         <span className={styles.chip} title="Decides on its own, end to end">
           <Sparkles size={13} aria-hidden />
@@ -259,7 +279,7 @@ export function AutomationView({ automationId }: { automationId: string }) {
           ) : (
             <ul className={styles.rows} aria-label="Runs">
               {runs.runs.map((run) => (
-                <RunRow key={run.id} run={run} />
+                <RunRow key={run.id} run={run} trigger={automation.trigger} />
               ))}
             </ul>
           )}

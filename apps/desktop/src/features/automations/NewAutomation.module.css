@@ -77,6 +77,10 @@
   width: 72px;
 }
 
+.repo {
+  width: 200px;
+}
+
 .switches {
   display: flex;
   flex-direction: column;

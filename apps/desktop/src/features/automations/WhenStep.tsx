@@ -11,12 +11,21 @@ import { useAutomations } from "../../store/automations.ts";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { CalendarField, today } from "./CalendarField.tsx";
+import {
+  blankEvent,
+  EventFields,
+  type EventForm,
+  eventOf,
+  sourceOf,
+  useGitHubApp,
+} from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText } from "./parts.tsx";
 import { DAY_NAMES, localZone, runTime } from "./words.ts";
 
 export interface WhenForm {
-  mode: "schedule" | "after";
+  mode: "schedule" | "event" | "after";
+  event: EventForm;
   preset: Schedule["repeat"];
   time: string;
   days: number[];
@@ -34,6 +43,7 @@ export interface WhenForm {
 
 export const blankWhen = (): WhenForm => ({
   mode: "schedule",
+  event: blankEvent(),
   preset: "weekdays",
   time: "09:00",
   days: [1],
@@ -70,7 +80,12 @@ export function scheduleOf(when: WhenForm): Schedule {
   }
 }
 
-export function triggerOf(when: WhenForm): Trigger | undefined {
+// The GitHub app's id, for a GitHub watch: the app holds its key.
+export function triggerOf(when: WhenForm, githubId?: string): Trigger | undefined {
+  if (when.mode === "event") {
+    const source = sourceOf(when.event, githubId);
+    return source === undefined ? undefined : { kind: "event", source };
+  }
   if (when.mode === "after") {
     return when.afterId === undefined
       ? undefined
@@ -88,6 +103,7 @@ export function triggerOf(when: WhenForm): Trigger | undefined {
 
 export function whenOf(trigger: Trigger): WhenForm {
   const blank = blankWhen();
+  if (trigger.kind === "event") return { ...blank, mode: "event", event: eventOf(trigger.source) };
   if (trigger.kind === "after") {
     return { ...blank, mode: "after", afterId: trigger.automationId, outcome: trigger.outcome };
   }
@@ -234,7 +250,7 @@ export function WhenStep({
 }) {
   const others = (useAutomations() ?? []).filter((one) => one.id !== id);
   const set = (change: Partial<WhenForm>) => onChange({ ...value, ...change });
-  const trigger = triggerOf(value);
+  const trigger = triggerOf(value, useGitHubApp()?.id);
   const preview = usePreview(id, task, trigger);
   const timed = value.preset !== "hours";
   return (
@@ -243,12 +259,17 @@ export function WhenStep({
         <Chip pressed={value.mode === "schedule"} onClick={() => set({ mode: "schedule" })}>
           On a schedule
         </Chip>
+        <Chip pressed={value.mode === "event"} onClick={() => set({ mode: "event" })}>
+          When something arrives
+        </Chip>
         <Chip pressed={value.mode === "after"} onClick={() => set({ mode: "after" })}>
           After another automation
         </Chip>
       </div>
 
-      {value.mode === "after" ? (
+      {value.mode === "event" ? (
+        <EventFields value={value.event} onChange={(event) => set({ event })} />
+      ) : value.mode === "after" ? (
         others.length === 0 ? (
           <p className={page.hint}>
             Save another automation first; this one can then run after it.

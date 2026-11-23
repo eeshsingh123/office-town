@@ -30,6 +30,7 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
 import { DEFAULT_RULES, hours, RulesStep } from "./RulesStep.tsx";
@@ -159,7 +160,7 @@ function Setup({
     existing?.task,
   );
   const current = task ?? lastTask;
-  const trigger = triggerOf(when);
+  const trigger = triggerOf(when, useGitHubApp()?.id);
   const preview = usePreview(existing?.id, current, trigger);
 
   const go = (next: number) => {

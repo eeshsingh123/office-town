@@ -1,6 +1,7 @@
 import type {
   AutomationRecord,
   AutomationTask,
+  EventSourceConfig,
   RunStatus,
   Schedule,
   Trigger,
@@ -67,8 +68,54 @@ export function scheduleText(schedule: Schedule): string {
   }
 }
 
+// "every 15 minutes", "every hour", "every 2 hours", "every day".
+export function everyText(minutes: number): string {
+  if (minutes < 60) return `every ${minutes} minutes`;
+  if (minutes === 60) return "every hour";
+  if (minutes === 24 * 60) return "every day";
+  return `every ${minutes / 60} hours`;
+}
+
+// The folder's own name, the last part of its path.
+export const folderName = (path: string) => path.replace(/[/]+$/, "").split(/[/]/).at(-1) || path;
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
+const WATCH_NOUNS = { issues: "issue", pulls: "pull request", both: "issue or pull request" };
+
+function sourceText(source: EventSourceConfig): string {
+  switch (source.kind) {
+    case "folder":
+      return `When a file lands in ${folderName(source.path)}`;
+    case "check":
+      return `Looks ${everyText(source.everyMinutes)} for ${lowerFirst(source.look)}`;
+    case "github":
+      return `When ${source.repo} gets a new ${WATCH_NOUNS[source.watch]}`;
+    case "feed":
+      return `When ${new URL(source.url).host} posts something new`;
+  }
+}
+
+// What one run got, in the source's own words: "3 new files".
+export function eventsText(source: EventSourceConfig, count: number): string {
+  const [one, many] =
+    source.kind === "folder"
+      ? ["file", "files"]
+      : source.kind === "feed"
+        ? ["post", "posts"]
+        : source.kind === "check"
+          ? ["thing", "things"]
+          : source.watch === "pulls"
+            ? ["pull request", "pull requests"]
+            : source.watch === "issues"
+              ? ["issue", "issues"]
+              : ["issue or pull request", "issues and pull requests"];
+  return count === 1 ? `1 new ${one}` : `${count} new ${many}`;
+}
+
 // The When in one line; `names` turns an automation id into its name.
 export function whenText(trigger: Trigger, names: (id: string) => string | undefined): string {
+  if (trigger.kind === "event") return sourceText(trigger.source);
   if (trigger.kind === "after") {
     const name = names(trigger.automationId) ?? "another automation";
     return trigger.outcome === "done" ? `After ${name} finishes` : `After ${name} ends`;
@@ -140,6 +187,7 @@ export function stateText(automation: AutomationRecord): string {
     case "waiting":
       return "Waiting";
     case "on":
+      if (automation.trigger.kind === "event") return "Watching";
       return automation.nextRunAt === undefined
         ? automation.trigger.kind === "after"
           ? "On"

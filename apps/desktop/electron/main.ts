@@ -241,8 +241,13 @@ async function scheduledAutomations(): Promise<number> {
     signal: AbortSignal.timeout(QUIT_CHECK_TIMEOUT_MS),
   });
   const { automations } = automationListSchema.parse(await response.json());
-  return automations.filter((one) => one.enabled && one.paused === undefined && one.nextRunAt)
-    .length;
+  // One that watches for events misses them too while closed.
+  return automations.filter(
+    (one) =>
+      one.enabled &&
+      one.paused === undefined &&
+      (one.nextRunAt !== undefined || one.trigger.kind === "event"),
+  ).length;
 }
 
 const wontRun = (count: number) =>
