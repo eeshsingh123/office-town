@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import {
   type AutomationRecord,
   checkFindingsSchema,
@@ -11,13 +12,14 @@ import { startSoloTask } from "../../task-start.ts";
 import type { TeamContext } from "../../team/members.ts";
 import { stopTeam } from "../../team/team-tasks.ts";
 import { defineTool, ToolError } from "../../tools/tools.ts";
-import { readerOf } from "../run-task.ts";
+import { readerOf, workspaceOf } from "../run-task.ts";
 import { statusOf } from "../runner.ts";
-import { type EventSource, lookEvery, MINUTES, type SourceContext } from "./source.ts";
+import { type EventSource, lookEvery, MINUTE_MS, type SourceContext } from "./source.ts";
 
 type CheckConfig = Extract<EventSourceConfig, { kind: "check" }>;
 
 const FAILURES_TO_PAUSE = 3;
+const START_GAP_MS = 1_000;
 const OVER = new Set(["review", "done", "failed", "stopped"]);
 
 interface CheckState {
@@ -54,16 +56,21 @@ function checkerOf(team: TeamContext, automation: AutomationRecord): NewAgent | 
   return { settings: rest };
 }
 
-function workspaceOf({ store }: TeamContext, automation: AutomationRecord): string | undefined {
+// A chief's check looks from Scratch: the chief has no workspace of its own.
+function checkWorkspaceOf({ store }: TeamContext, automation: AutomationRecord) {
+  return automation.task.kind === "chief"
+    ? store.listWorkspaces().find((workspace) => workspace.kind === "scratch")?.id
+    : workspaceOf(store, automation);
+}
+
+// The check's usage counts for whoever does the work: a department's lead or the chief, since
+// the check's own agent is removed with it.
+function spenderOf({ store }: TeamContext, automation: AutomationRecord): string | undefined {
   const { task } = automation;
-  if (task.kind === "assistant") return task.request.workspaceId;
   if (task.kind === "department") {
-    return (
-      task.request.team.workspaceId ??
-      store.getDepartment(task.request.team.departmentId)?.workspaceId
-    );
+    return store.getDepartment(task.request.team.departmentId)?.leadAgentId;
   }
-  return store.listWorkspaces().find((workspace) => workspace.kind === "scratch")?.id;
+  return task.kind === "chief" ? chiefOf(store)?.id : undefined;
 }
 
 function levelOf({ store }: TeamContext, automation: AutomationRecord) {
@@ -101,6 +108,7 @@ export class AgentChecks {
   readonly #team: TeamContext;
   readonly #open = new Map<string, OpenCheck>();
   readonly #contexts = new Map<string, SourceContext>();
+  #starting: Promise<unknown> = Promise.resolve();
 
   constructor(team: TeamContext) {
     this.#team = team;
@@ -117,9 +125,9 @@ export class AgentChecks {
         this.#contexts.set(id, context);
         this.#clearCutOff(context);
         const stop = lookEvery(
-          config.everyMinutes * MINUTES,
+          config.everyMinutes * MINUTE_MS,
           context.state<CheckState>()?.lookedAt,
-          () => this.#check(config, context),
+          () => this.#inTurn(() => this.#check(config, context)),
           (error, failures) => {
             if (failures === 1) {
               console.error(`Could not start the check of ${context.automation.name}.`, error);
@@ -163,8 +171,19 @@ export class AgentChecks {
     });
   }
 
+  // Checks due together, such as at launch, start one at a time, a second apart (D-92).
+  #inTurn(start: () => Promise<void>): Promise<void> {
+    const turn = this.#starting.then(start);
+    this.#starting = turn
+      .catch(() => undefined)
+      .then(() => delay(START_GAP_MS, undefined, { ref: false }));
+    return turn;
+  }
+
   async #check(config: CheckConfig, context: SourceContext): Promise<void> {
     const { store } = this.#team;
+    // Turned off or edited while it waited for its turn.
+    if (this.#contexts.get(context.automation.id) !== context) return;
     // Read afresh: its last look changes after every check.
     const automation = store.automations.get(context.automation.id) ?? context.automation;
     const state = context.state<CheckState>() ?? {};
@@ -172,14 +191,14 @@ export class AgentChecks {
     if (working !== undefined) {
       // A check that takes longer than its gap, such as one waiting on you, gives way.
       const [taskId, open] = working;
-      if (Date.now() - open.startedAt >= config.everyMinutes * MINUTES)
+      if (Date.now() - open.startedAt >= config.everyMinutes * MINUTE_MS)
         await stopTeam(this.#team, taskId);
       return;
     }
     const agent = checkerOf(this.#team, automation);
-    const workspaceId = workspaceOf(this.#team, automation);
+    const workspaceId = checkWorkspaceOf(this.#team, automation);
     if (agent === undefined || workspaceId === undefined) {
-      context.fail("Nobody is left to do its check.");
+      context.fail("There is no one to do its check.");
       return;
     }
     const settings = "settings" in agent ? agent.settings : undefined;
@@ -201,7 +220,12 @@ export class AgentChecks {
         autonomy: levelOf(this.#team, automation),
         workspaceId,
       },
-      { kind: "check", automationId: automation.id, name: automation.name },
+      {
+        kind: "check",
+        automationId: automation.id,
+        name: automation.name,
+        ...(automation.rules.decisions === "auto" ? { auto: true as const } : {}),
+      },
     );
     store.setTaskTitle(session.taskId, `Check: ${automation.name}`);
     this.#open.set(session.taskId, {
@@ -243,10 +267,13 @@ export class AgentChecks {
 
   async #remove(taskId: string): Promise<void> {
     const { store } = this.#team;
-    if (store.getTask(taskId) === undefined) return;
+    const origin = store.getTask(taskId)?.origin;
+    if (origin?.kind !== "check") return;
+    const automation = store.automations.get(origin.automationId);
+    const agentId = automation === undefined ? undefined : spenderOf(this.#team, automation);
     try {
       await stopTeam(this.#team, taskId);
-      await store.deleteTask(taskId);
+      await store.deleteTask(taskId, agentId === undefined ? {} : { agentId });
     } catch (error) {
       console.error("Could not remove a finished check.", error);
     }

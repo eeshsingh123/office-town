@@ -1,8 +1,8 @@
 import type { SeenEvent } from "../../store/automation-events-store.ts";
 import { EVENTS_KEPT_MS } from "../../store/automation-events-store.ts";
-import { type EventSource, lookEvery, MINUTES, plainText } from "./source.ts";
+import { type EventSource, lookEvery, MINUTE_MS, plainText } from "./source.ts";
 
-const EVERY_MS = 15 * MINUTES;
+const EVERY_MS = 15 * MINUTE_MS;
 const TIMEOUT_MS = 20_000;
 const MOST_BYTES = 2 * 1024 * 1024;
 const SUMMARY_CHARS = 2_000;

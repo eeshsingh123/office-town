@@ -50,7 +50,13 @@ export const taskOriginSchema = z.discriminatedUnion("kind", [
     auto: z.literal(true).optional(),
   }),
   // An agent check of an automation's source (D-128); it is deleted once it has answered.
-  z.object({ kind: z.literal("check"), automationId: z.string().min(1), name: z.string().min(1) }),
+  z.object({
+    kind: z.literal("check"),
+    automationId: z.string().min(1),
+    name: z.string().min(1),
+    // Its automation decides on its own (D-126).
+    auto: z.literal(true).optional(),
+  }),
 ]);
 export type TaskOrigin = z.infer<typeof taskOriginSchema>;
 

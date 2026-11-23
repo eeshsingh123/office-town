@@ -140,7 +140,7 @@ export class Runner {
     this.fire(automation, slot, "event", pending.depth);
   }
 
-  // Things that came while Office Town was closed, longer ago than its catch-up window.
+  // Things that arrived while Office Town was closed, longer ago than its catch-up window.
   missedEvents(automationId: string, count: number): void {
     const automation = this.#context.store.automations.get(automationId);
     if (automation === undefined) return;
@@ -151,7 +151,7 @@ export class Runner {
       depth: 0,
       status: "skipped",
       missed: count,
-      reason: `${count === 1 ? "1 thing" : `${count} things`} came while Office Town was closed, longer ago than it catches up.`,
+      reason: `${count === 1 ? "1 thing" : `${count} things`} arrived while Office Town was closed, too long ago to catch up.`,
     });
   }
 

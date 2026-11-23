@@ -1,13 +1,10 @@
 import type { NameTask } from "../drafts/title.ts";
-import type { Store } from "../store/store.ts";
-import type { SharedFiles } from "../team/shared-files.ts";
-
-type FileChanges = Pick<SharedFiles, "lastChange">;
-
 import type { Notifier } from "../notify/notifier.ts";
 import { AdmissionQueue, resumeWait } from "../queue/admission-queue.ts";
+import type { Store } from "../store/store.ts";
 import type { StoppedLeads } from "../team/lead-stopped.ts";
 import type { TeamContext } from "../team/members.ts";
+import type { SharedFiles } from "../team/shared-files.ts";
 import { resumeTask } from "../team/stopped-tasks.ts";
 import { decideOnAuto } from "./auto-decisions.ts";
 import { Runner } from "./runner.ts";
@@ -17,6 +14,8 @@ import { folderSource } from "./sources/folder.ts";
 import { githubSource } from "./sources/github.ts";
 import type { Writer } from "./sources/source.ts";
 import { EventWatch } from "./sources/watch.ts";
+
+type FileChanges = Pick<SharedFiles, "lastChange">;
 
 // The automation run whose agent last changed this file, as the core saw it.
 function writerOf(store: Store, sharedFiles: FileChanges, path: string): Writer | undefined {

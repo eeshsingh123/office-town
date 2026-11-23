@@ -41,7 +41,7 @@ export interface EventSource<Kind extends EventSourceKind = EventSourceKind> {
 
 export type AnySource = { [Kind in EventSourceKind]: EventSource<Kind> }[EventSourceKind];
 
-const MINUTE_MS = 60_000;
+export const MINUTE_MS = 60_000;
 const MOST_BACKOFF_MS = 60 * MINUTE_MS;
 
 // Looks every `everyMs`, at once if the last look is older; after an error, twice as long each
@@ -96,5 +96,3 @@ export function plainText(html: string, most: number): string {
     .trim();
   return text.length > most ? `${text.slice(0, most - 1)}…` : text;
 }
-
-export const MINUTES = MINUTE_MS;

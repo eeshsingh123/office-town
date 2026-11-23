@@ -1,7 +1,7 @@
 import type { DatabaseSync, StatementSync } from "node:sqlite";
 import { transaction } from "./database.ts";
 
-// A key is forgotten after this, so the table stays small; sources ignore older things anyway.
+// A key no source has listed for this long is forgotten, so the table stays small.
 export const EVENTS_KEPT_MS = 30 * 24 * 60 * 60 * 1000;
 
 const queries = {
@@ -9,12 +9,13 @@ const queries = {
     INSERT OR IGNORE INTO automation_events
       (automation_ref, key, at, seen_at, text, depth, pending)
     VALUES ((SELECT ref FROM automations WHERE id = ?), ?, ?, ?, ?, ?, ?)`,
+  // Still listed by its source, so it is not forgotten and seen again as new.
+  touch: `
+    UPDATE automation_events SET seen_at = ?
+    WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?) AND key = ? AND pending = 0`,
   pending: `
     SELECT count(*) AS count, min(seen_at) AS first, max(depth) AS depth FROM automation_events
     WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?) AND pending = 1`,
-  withPending: `
-    SELECT DISTINCT a.id FROM automation_events e JOIN automations a ON a.ref = e.automation_ref
-    WHERE e.pending = 1`,
   attach: `
     UPDATE automation_events SET pending = 0, run_ref = (SELECT ref FROM automation_runs WHERE id = ?)
     WHERE ref IN (SELECT ref FROM automation_events
@@ -80,7 +81,8 @@ export class AutomationEventsStore {
           event.depth ?? 0,
           known ? 0 : 1,
         );
-        added += Number(changes);
+        if (Number(changes) > 0) added += 1;
+        else this.#statements.touch.run(now, automationId, event.key);
       }
     });
     return added;
@@ -92,10 +94,6 @@ export class AutomationEventsStore {
       | undefined;
     if (row === undefined || row.count === 0 || row.first === null) return undefined;
     return { count: row.count, first: row.first, depth: row.depth ?? 0 };
-  }
-
-  withPending(): string[] {
-    return (this.#statements.withPending.all() as { id: string }[]).map(({ id }) => id);
   }
 
   // The oldest waiting ones join the run; how many did.

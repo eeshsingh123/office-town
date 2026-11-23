@@ -277,6 +277,8 @@ export const automationDraftSchema = z.object({
   rules: automationRulesSchema.partial().optional(),
 });
 
+export type AutomationDraft = z.infer<typeof automationDraftSchema>;
+
 // What an agent check found (D-128): nothing, or new items, each with a key that stays the same
 // when it is seen again, so it is never reported twice.
 export const foundItemSchema = z.object({
@@ -288,4 +290,3 @@ export const checkFindingsSchema = z.object({
   items: z.array(foundItemSchema).max(EVENTS_A_RUN).default([]),
 });
 export type CheckFindings = z.infer<typeof checkFindingsSchema>;
-export type AutomationDraft = z.infer<typeof automationDraftSchema>;

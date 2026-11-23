@@ -54,8 +54,6 @@ export class EventWatch {
       if (change.type === "automation.removed") this.#sync(change.automationId);
     });
     for (const automation of store.automations.list()) this.#sync(automation.id);
-    // What was seen but not yet run when Office Town closed goes now.
-    for (const id of store.automationEvents.withPending()) this.#runner.fireEvents(id);
     store.automationEvents.prune();
     this.#prune = setInterval(() => store.automationEvents.prune(), PRUNE_EVERY_MS);
     this.#prune.unref();
@@ -90,6 +88,8 @@ export class EventWatch {
         stop();
       },
     });
+    // What it saw before a close, a pause or turning it off goes now.
+    this.#runner.fireEvents(id);
   }
 
   #contextOf(automation: AutomationRecord, key: string, stopped: () => boolean): SourceContext {
