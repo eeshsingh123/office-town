@@ -176,7 +176,10 @@ describe("the runner", () => {
     const watched = mkdtempSync(join(directory, "inbox-"));
     const onEvents = await core.call("POST", "/automations", {
       name: "Inbox",
-      task: { ...automation.task, request: { ...automation.task.request, prompt: "File {event}." } },
+      task: {
+        ...automation.task,
+        request: { ...automation.task.request, prompt: "File {event}." },
+      },
       trigger: { kind: "event", source: { kind: "folder", path: watched } },
       rules: {},
     });
