@@ -40,12 +40,14 @@ What later work builds on; the why is in DECISIONS.md.
 
 ## Next
 
-### M12 Automations (D-125 to D-127)
+### M12 Automations (D-125 to D-128)
 
 An automation is a saved New task plus a When; every run is an ordinary task with its origin, through M11's queue. Mockup rejected (owner): the screens reuse the app's own parts.
 
-- **PR 1, built on `feat/automations`.** Contract (automation, run, origin, run queue entries, Auto answers); store files `automations-store.ts` beside the M11 ones; the clock on croner (`automations/clock.ts`); the runner (`automations/runner.ts`, `run-task.ts`): run keys, one waiting run per automation, oldest first per department across the queue and the chief's pieces, chains set on the later one, depth 5, re-queue after a restart, three failures pause; Auto decisions (`auto-decisions.ts`); `propose_schedule`; the Describe drafter (`drafts/automations.ts`); New automation (Describe, Task in the New task box with fill-ins, When, Rules, Review), the Automations page, one automation with its runs, Home's card, the origin chip, Tasks' Started by filter, the quit question, Open at login offered once, a Settings row; the core's file-change notes between agents in one workspace (`team/shared-files.ts`, D-127).
-- **PR 2, after PR 1 merges.** Outside events (sources discussed with the owner first), `report_check`, folder triggers (a folder inside its own workspace; files the run's own agents wrote never trigger it), seen events.
+- **PR 1, merged (#104).** Contract (automation, run, origin, run queue entries, Auto answers); store files `automations-store.ts` beside the M11 ones; the clock on croner (`automations/clock.ts`); the runner (`automations/runner.ts`, `run-task.ts`): run keys, one waiting run per automation, oldest first per department across the queue and the chief's pieces, chains set on the later one, depth 5, re-queue after a restart, three failures pause; Auto decisions (`auto-decisions.ts`); `propose_schedule`; the Describe drafter (`drafts/automations.ts`); New automation (Describe, Task in the New task box with fill-ins, When, Rules, Review), the Automations page, one automation with its runs, Home's card, the origin chip, Tasks' Started by filter, the quit question, Open at login offered once, a Settings row; the core's file-change notes between agents in one workspace (`team/shared-files.ts`, D-127).
+- **PR 2, built on `feat/automation-events`.** Events (D-128): one source interface (`automations/sources/source.ts`), the watch that starts each automation's source (`watch.ts`), four sources (folder, feed, GitHub, agent check with `report_found`), `automation-events-store.ts` (seen keys, pending events, each source's place), event runs in the runner (one run a burst, joins a waiting run, waits for a working one), `{event}` as a data block, When something arrives in New automation.
+- **PR 3, next.** OpenCode's own automations (2.4) made inside our tasks: shown, and brought over as ours where they fit (owner, 2026-11-23). First confirm live whether they fire in OpenCode's background service.
+- **Later.** MCP events (SEP-3415, Beta) as one more source, once an app the owner uses offers them.
 
 ### M13 to M15 (outline only)
 
