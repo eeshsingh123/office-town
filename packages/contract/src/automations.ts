@@ -5,7 +5,11 @@ import { chiefTaskRequestSchema } from "./plans.ts";
 import { startTeamTaskRequestSchema } from "./team.ts";
 
 // Fill-ins written in a prompt, filled in when each run starts (D-125).
-export const FILL_INS = { date: "{date}", lastResult: "{last result}" } as const;
+export const FILL_INS = {
+  date: "{date}",
+  lastResult: "{last result}",
+  event: "{event}",
+} as const;
 
 // Chains past this many runs in a row stop (D-125).
 export const CHAIN_DEPTH = 5;
@@ -48,6 +52,43 @@ export const scheduleEndSchema = z.discriminatedUnion("kind", [
 ]);
 export type ScheduleEnd = z.infer<typeof scheduleEndSchema>;
 
+// Shortest gap between two agent checks, and the one a new check starts with (D-128).
+export const CHECK_MINUTES = { least: 15, first: 60 } as const;
+// What one run gets at most; the rest wait for the next run (D-128).
+export const EVENTS_A_RUN = 50;
+
+// What starts a run from outside (D-128). Each kind is one source file in the core.
+export const eventSourceSchema = z.discriminatedUnion("kind", [
+  // A file lands in a folder. Files the automation's own agents wrote never count.
+  z.object({
+    kind: z.literal("folder"),
+    path: z.string().trim().min(1),
+    subfolders: z.boolean().default(true),
+  }),
+  // A short agent turn looks, through its apps, and says what is new.
+  z.object({
+    kind: z.literal("check"),
+    look: z.string().trim().min(1).max(2_000),
+    everyMinutes: z
+      .number()
+      .int()
+      .min(CHECK_MINUTES.least)
+      .max(24 * 60)
+      .default(CHECK_MINUTES.first),
+  }),
+  // New issues or pull requests, read with the GitHub app's own key.
+  z.object({
+    kind: z.literal("github"),
+    connectorId: z.string().min(1),
+    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/, "A repository such as owner/name"),
+    watch: z.enum(["issues", "pulls", "both"]),
+  }),
+  // New posts in an RSS or Atom feed.
+  z.object({ kind: z.literal("feed"), url: z.url({ protocol: /^https?$/ }) }),
+]);
+export type EventSourceConfig = z.infer<typeof eventSourceSchema>;
+export type EventSourceKind = EventSourceConfig["kind"];
+
 // Run now is an action, not a trigger. A chain is set only on the later automation (D-125).
 export const triggerSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -64,6 +105,7 @@ export const triggerSchema = z.discriminatedUnion("kind", [
     // "done": only when its run finished well; "any": however it ended.
     outcome: z.enum(["done", "any"]),
   }),
+  z.object({ kind: z.literal("event"), source: eventSourceSchema }),
 ]);
 export type Trigger = z.infer<typeof triggerSchema>;
 
@@ -142,7 +184,7 @@ export const automationRunSchema = z.object({
   number: z.number().int().positive(),
   // The slot it was due for: with the automation, its key, so it never fires twice (D-125).
   scheduledFor: z.iso.datetime(),
-  by: z.enum(["schedule", "now", "chain"]),
+  by: z.enum(["schedule", "now", "chain", "event"]),
   status: runStatusSchema,
   // One plain sentence, only when something was not ordinary.
   reason: z.string().min(1).optional(),
@@ -150,6 +192,8 @@ export const automationRunSchema = z.object({
   missed: z.number().int().positive().optional(),
   // How many runs in a row led to this one, for a chain.
   depth: z.number().int().nonnegative(),
+  // What started it, for a run started by events.
+  events: z.number().int().positive().optional(),
   // A waiting run is skipped after this.
   waitUntil: z.iso.datetime().optional(),
   taskId: z.string().min(1).optional(),
@@ -166,6 +210,8 @@ export const automationRecordSchema = automationRequestSchema.extend({
   latestRun: automationRunSchema.optional(),
   // Failed runs in a row; three pause it.
   failures: z.number().int().nonnegative(),
+  // Its source's last look, for a source that looks on its own: when, and how many were new.
+  lastLook: z.object({ at: z.iso.datetime(), found: z.number().int().nonnegative() }).optional(),
   // The files every run sends, kept while it exists (D-125).
   files: z.array(attachmentSchema),
   createdAt: z.iso.datetime(),
@@ -230,4 +276,16 @@ export const automationDraftSchema = z.object({
   trigger: triggerSchema.optional(),
   rules: automationRulesSchema.partial().optional(),
 });
+
+// What an agent check found (D-128): nothing, or new items, each with a key that stays the same
+// when it is seen again, so it is never reported twice.
+export const foundItemSchema = z.object({
+  key: z.string().trim().min(1).max(200),
+  text: z.string().trim().min(1).max(8_000),
+});
+export const checkFindingsSchema = z.object({
+  found: z.boolean(),
+  items: z.array(foundItemSchema).max(EVENTS_A_RUN).default([]),
+});
+export type CheckFindings = z.infer<typeof checkFindingsSchema>;
 export type AutomationDraft = z.infer<typeof automationDraftSchema>;
