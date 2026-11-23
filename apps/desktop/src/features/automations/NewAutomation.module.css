@@ -11,12 +11,6 @@
   gap: 20px;
 }
 
-.chipRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .lines {
   display: flex;
   flex-direction: column;
@@ -77,10 +71,6 @@
   width: 72px;
 }
 
-.repo {
-  width: 200px;
-}
-
 .switches {
   display: flex;
   flex-direction: column;
@@ -89,7 +79,83 @@
   border-top: 1px solid var(--border);
 }
 
-/* The live sentence and the next three runs. */
+/* The three ways a run starts stay side by side, so the panel below reads as the chosen one's. */
+.modes > fieldset {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .modes > fieldset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The chosen When's details, under its card: a label column, then the summary as its footer. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 16px;
+  width: 100%;
+}
+
+.fieldLabel {
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  font-weight: 600;
+}
+
+.fieldValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-2);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.muted {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.missing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* The Review step's opening sentence. */
 .sentence {
   display: flex;
   flex-direction: column;

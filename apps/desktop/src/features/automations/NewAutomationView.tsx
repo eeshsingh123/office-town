@@ -296,7 +296,7 @@ function Setup({
                   : step === TASK
                     ? "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
                     : step === WHEN
-                      ? "On a schedule in your time zone, at most every hour; when something arrives; or after another automation."
+                      ? "Pick what starts each run."
                       : "What a run does when its team is busy, Office Town was closed, or it waits for you."}
               </p>
             )}

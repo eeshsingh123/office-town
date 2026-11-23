@@ -54,14 +54,17 @@ function RunStatus({ run }: { run: AutomationRun }) {
   );
 }
 
-// What started an event run, when nothing else needs saying.
+// What started an event run, then why it was not ordinary: "3 new files · Run 9 was still waiting".
 function noteOf(run: AutomationRun, trigger: Trigger): string | undefined {
-  if (run.reason !== undefined) return run.reason;
-  if (trigger.kind !== "event" || run.events === undefined) return undefined;
-  return eventsText(trigger.source, run.events);
+  const arrived =
+    trigger.kind === "event" && run.events !== undefined
+      ? eventsText(trigger.source, run.events)
+      : undefined;
+  return [arrived, run.reason].filter((part) => part !== undefined).join(" · ") || undefined;
 }
 
 function RunRow({ run, trigger }: { run: AutomationRun; trigger: Trigger }) {
+  const note = noteOf(run, trigger);
   const [cancelling, setCancelling] = useState(false);
   const cancel = async () => {
     setCancelling(true);
@@ -78,8 +81,8 @@ function RunRow({ run, trigger }: { run: AutomationRun; trigger: Trigger }) {
       <span className={styles.number}>Run {run.number}</span>
       <span className={`${styles.line} ${styles.when}`}>{runTime(run.scheduledFor)}</span>
       <RunStatus run={run} />
-      <span className={styles.reason} title={run.reason}>
-        {noteOf(run, trigger)}
+      <span className={styles.reason} title={note}>
+        {note}
       </span>
       {run.status === "waiting" ? (
         <Button variant="ghost" onClick={cancel} busy={cancelling}>

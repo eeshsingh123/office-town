@@ -4,14 +4,19 @@ import {
   type EventSourceKind,
   eventSourceSchema,
 } from "@office-town/contract";
+import { FolderOpen } from "lucide-react";
+import type { ReactNode } from "react";
 import { shell } from "../../shell.ts";
 import { navigate } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
 import form from "../../ui/Form.module.css";
-import { SwitchRow } from "../../ui/Switch.tsx";
+import { Segments } from "../../ui/Segments.tsx";
+import { Switch } from "../../ui/Switch.tsx";
 import { useConnectors } from "../connectors/connectors.ts";
 import styles from "./NewAutomation.module.css";
 import { everyText, folderName } from "./words.ts";
+
+const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 type Watch = Extract<EventSourceConfig, { kind: "github" }>["watch"];
 
@@ -85,64 +90,81 @@ export function eventMissing(event: EventForm, githubId: string | undefined): st
 }
 
 const SOURCES: { value: EventSourceKind; label: string }[] = [
-  { value: "folder", label: "A file in a folder" },
-  { value: "check", label: "An agent check" },
+  { value: "folder", label: "Folder" },
+  { value: "check", label: "Agent check" },
   { value: "github", label: "GitHub" },
-  { value: "feed", label: "A feed" },
+  { value: "feed", label: "RSS feed" },
 ];
 
 const CHECK_GAPS = [15, 30, 60, 120, 240, 480, 720, 1440];
 
 const WATCHES: { value: Watch; label: string }[] = [
-  { value: "issues", label: "issue" },
-  { value: "pulls", label: "pull request" },
-  { value: "both", label: "issue or pull request" },
+  { value: "issues", label: "Issues" },
+  { value: "pulls", label: "Pull requests" },
+  { value: "both", label: "Both" },
 ];
 
 export const useGitHubApp = () =>
   useConnectors().find((connector) => connector.setup.slug === "github");
 
-function FolderFields({
-  value,
-  set,
-}: {
-  value: EventForm;
-  set: (change: Partial<EventForm>) => void;
-}) {
+// One row of a When panel: its label on the left, its values in a line on the right.
+export function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <span className={styles.fieldLabel}>{label}</span>
+      <div className={styles.fieldValue}>{children}</div>
+    </>
+  );
+}
+
+type Set = (change: Partial<EventForm>) => void;
+
+function FolderFields({ value, set }: { value: EventForm; set: Set }) {
   const pick = async () => {
     const path = await shell?.pickFolder();
     if (path) set({ folder: path });
   };
   return (
     <>
-      <p className={styles.rule}>
-        When a file lands in{" "}
-        <button type="button" className={styles.inline} onClick={() => void pick()}>
-          {value.folder === undefined ? "choose a folder" : folderName(value.folder)}
+      <Field label="Folder">
+        <button
+          type="button"
+          className={styles.inline}
+          title={value.folder}
+          onClick={() => void pick()}
+        >
+          <FolderOpen size={13} aria-hidden />
+          {value.folder === undefined ? "Choose a folder" : folderName(value.folder)}
         </button>
-      </p>
-      {value.folder === undefined ? null : <p className={styles.note}>{value.folder}</p>}
-      <SwitchRow
-        label="Include its subfolders"
-        on={value.subfolders}
-        onChange={(subfolders) => set({ subfolders })}
-      />
-      <p className={form.hint}>Files the automation's own runs write never start it.</p>
+        {value.folder === undefined ? null : <span className={styles.muted}>{value.folder}</span>}
+      </Field>
+      <Field label="Subfolders">
+        <Switch
+          label="Include subfolders"
+          on={value.subfolders}
+          onChange={(subfolders) => set({ subfolders })}
+        />
+        <span className={styles.muted}>Watch the folders inside it too</span>
+      </Field>
     </>
   );
 }
 
-function CheckFields({
-  value,
-  set,
-}: {
-  value: EventForm;
-  set: (change: Partial<EventForm>) => void;
-}) {
+function CheckFields({ value, set }: { value: EventForm; set: Set }) {
   return (
     <>
-      <p className={styles.rule}>
-        Look{" "}
+      <Field label="Look for">
+        <textarea
+          className={`${form.input} ${styles.grow}`}
+          aria-label="What to look for"
+          rows={2}
+          maxLength={2000}
+          placeholder="New emails with an invoice attached"
+          value={value.look}
+          onChange={(event) => set({ look: event.target.value })}
+        />
+      </Field>
+      <Field label="How often">
         <select
           className={styles.inline}
           aria-label="How often to look"
@@ -151,92 +173,45 @@ function CheckFields({
         >
           {CHECK_GAPS.map((minutes) => (
             <option key={minutes} value={minutes}>
-              {everyText(minutes)}
+              {capitalized(everyText(minutes))}
             </option>
           ))}
-        </select>{" "}
-        for
-      </p>
-      <textarea
-        className={form.input}
-        aria-label="What to look for"
-        rows={2}
-        maxLength={2000}
-        placeholder="New emails with an invoice attached"
-        value={value.look}
-        onChange={(event) => set({ look: event.target.value })}
-      />
-      <p className={form.hint}>
-        Whoever does the task looks through its apps; a run starts only when something is new. Each
-        look uses a little of their plan.
-      </p>
+        </select>
+      </Field>
     </>
   );
 }
 
-function GitHubFields({
-  value,
-  set,
-}: {
-  value: EventForm;
-  set: (change: Partial<EventForm>) => void;
-}) {
-  const app = useGitHubApp();
-  if (app === undefined) {
-    return (
-      <div className={styles.lines}>
-        <p className={form.hint}>Add the GitHub app in Connectors first.</p>
-        <div>
-          <Button onClick={() => navigate({ name: "connectors" })}>Open Connectors</Button>
-        </div>
-      </div>
-    );
-  }
+function GitHubFields({ value, set }: { value: EventForm; set: Set }) {
   return (
     <>
-      <p className={styles.rule}>
-        When{" "}
+      <Field label="Repository">
         <input
-          className={`${styles.count} ${styles.repo}`}
+          className={`${form.input} ${styles.grow}`}
           aria-label="Repository"
           placeholder="owner/name"
           spellCheck={false}
           value={value.repo}
           onChange={(event) => set({ repo: event.target.value })}
-        />{" "}
-        gets a new{" "}
-        <select
-          className={styles.inline}
-          aria-label="What to watch"
+        />
+      </Field>
+      <Field label="Watch">
+        <Segments
+          label="What to watch"
           value={value.watch}
-          onChange={(event) => set({ watch: event.target.value as Watch })}
-        >
-          {WATCHES.map((watch) => (
-            <option key={watch.value} value={watch.value}>
-              {watch.label}
-            </option>
-          ))}
-        </select>
-      </p>
-      <p className={form.hint}>
-        Looked at every 5 minutes with the GitHub app's key. The first look only notes what is
-        there.
-      </p>
+          options={WATCHES}
+          onChange={(watch) => set({ watch })}
+        />
+      </Field>
     </>
   );
 }
 
-function FeedFields({
-  value,
-  set,
-}: {
-  value: EventForm;
-  set: (change: Partial<EventForm>) => void;
-}) {
+function FeedFields({ value, set }: { value: EventForm; set: Set }) {
   return (
-    <>
+    <Field label="Address">
       <input
-        className={form.input}
+        className={`${form.input} ${styles.grow}`}
         type="url"
         aria-label="Feed address"
         placeholder="https://example.com/feed.xml"
@@ -244,12 +219,18 @@ function FeedFields({
         value={value.url}
         onChange={(event) => set({ url: event.target.value })}
       />
-      <p className={form.hint}>
-        An RSS or Atom feed, looked at every 15 minutes. The first look only notes what is there.
-      </p>
-    </>
+    </Field>
   );
 }
+
+// What each source does, in one line under its fields.
+const NOTES: Record<EventSourceKind, string> = {
+  folder: "Only new files start a run. Files this automation's runs make don't.",
+  check:
+    "Whoever does the task looks through their apps. A run starts only when something is new. Each look uses their plan.",
+  github: "Checked every 5 minutes. Issues and pull requests already there don't start a run.",
+  feed: "RSS or Atom, checked every 15 minutes. Posts already there don't start a run.",
+};
 
 export function EventFields({
   value,
@@ -258,28 +239,32 @@ export function EventFields({
   value: EventForm;
   onChange: (next: EventForm) => void;
 }) {
-  const set = (change: Partial<EventForm>) => onChange({ ...value, ...change });
+  const set: Set = (change) => onChange({ ...value, ...change });
+  const github = useGitHubApp();
   return (
     <>
-      <div className={styles.chipRow}>
-        {SOURCES.map((source) => (
-          <button
-            key={source.value}
-            type="button"
-            className={form.chip}
-            aria-pressed={value.source === source.value}
-            onClick={() => set({ source: source.value })}
-          >
-            {source.label}
-          </button>
-        ))}
-      </div>
-      <div className={styles.lines}>
-        {value.source === "folder" ? <FolderFields value={value} set={set} /> : null}
-        {value.source === "check" ? <CheckFields value={value} set={set} /> : null}
-        {value.source === "github" ? <GitHubFields value={value} set={set} /> : null}
-        {value.source === "feed" ? <FeedFields value={value} set={set} /> : null}
-      </div>
+      <Segments
+        label="What arrives"
+        value={value.source}
+        options={SOURCES}
+        onChange={(source) => set({ source })}
+      />
+      {value.source === "github" && github === undefined ? (
+        <div className={styles.missing}>
+          <span className={form.hint}>Add the GitHub app in Connectors first.</span>
+          <Button onClick={() => navigate({ name: "connectors" })}>Open Connectors</Button>
+        </div>
+      ) : (
+        <>
+          <div className={styles.fields}>
+            {value.source === "folder" ? <FolderFields value={value} set={set} /> : null}
+            {value.source === "check" ? <CheckFields value={value} set={set} /> : null}
+            {value.source === "github" ? <GitHubFields value={value} set={set} /> : null}
+            {value.source === "feed" ? <FeedFields value={value} set={set} /> : null}
+          </div>
+          <p className={form.hint}>{NOTES[value.source]}</p>
+        </>
+      )}
     </>
   );
 }
