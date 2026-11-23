@@ -25,11 +25,13 @@ export const RELEASES: Release[] = [
     title: "Automations that start when something arrives",
     icon: Inbox,
     changes: [
-      "An automation can start when a file lands in a folder, a feed posts something new, or a GitHub repository gets a new issue or pull request",
-      "An agent check looks through your apps every so often, such as your email for invoices, and starts a run only when something is new",
-      "Type @ in the task for What started this run; things that arrive together go to one run",
-      "Files an automation's own runs write never start it again, and things that came while Office Town was closed catch up like missed runs",
-      "Each automation shows when it last looked and what it found",
+      "An automation can start when a new file lands in a folder, an RSS feed posts, or a GitHub repository gets a new issue or pull request",
+      "An agent check looks through your apps as often as you choose, such as your email for invoices, and starts a run only when it finds something new",
+      "Type @ in the task to add What started this run. Things that arrive together go to one run",
+      "Edits to files already in the folder, and files the automation's own runs make, don't start it",
+      "Things that arrived while Office Town was closed run when it opens, within the catch-up window",
+      "Each automation shows when it last looked and what it found, and agent checks count in Usage",
+      "The When step shows the three ways to start side by side, with the details underneath",
     ],
   },
   {
