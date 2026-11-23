@@ -16,10 +16,11 @@ export function lowerAutonomy(level: Autonomy, cap: Autonomy | undefined): Auton
   return order.indexOf(cap) < order.indexOf(level) ? cap : level;
 }
 
-// "app": an app's own permission answered it (D-68).
+// "app": an app's own permission answered it (D-68). "automation": an automation on Auto (D-126).
 export const answeredBySchema = z.union([
   z.literal("user"),
   z.literal("app"),
+  z.literal("automation"),
   z.object({ autonomy: autonomySchema }),
 ]);
 export type AnsweredBy = z.infer<typeof answeredBySchema>;

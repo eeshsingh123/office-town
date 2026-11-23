@@ -33,6 +33,10 @@ const MORE: Record<NoticeKind, (count: number) => { title: string; body: string 
     title: "Work paused: your usage is running out",
     body: `${count} more ${tasks(count)} stopped.`,
   }),
+  automation: (count) => ({
+    title: `${count} more ${count === 1 ? "automation" : "automations"} paused or missed runs`,
+    body: "",
+  }),
 };
 
 const tasks = (count: number) => (count === 1 ? "task" : "tasks");

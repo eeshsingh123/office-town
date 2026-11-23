@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { QueuedStart, QueueEntry } from "@office-town/contract";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
-import { waitFor } from "./admission.ts";
+import { type Wait, waitFor } from "./admission.ts";
 
 const MAX_WAITING = 100;
 export const LONGEST_WAIT_HOURS = 12;
@@ -11,7 +11,15 @@ const STARTING_AT_ONCE = 2;
 const START_GAP_MS = 1_000;
 const TICK_MS = 60_000;
 
-export type Start = (what: QueuedStart) => Promise<void>;
+// How one kind of start waits and starts. A run brings its own wait, from its automation's rules.
+export interface Starts {
+  waitFor(what: QueuedStart): Wait | undefined;
+  start(what: QueuedStart): Promise<void>;
+}
+
+// A resume waits on its task, as a person's own Continue would.
+export const resumeWait = (store: Store) => (what: QueuedStart) =>
+  what.kind === "resume" ? waitFor(store, what.taskId, LONGEST_WAIT_HOURS) : undefined;
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -20,17 +28,17 @@ const errorMessage = (error: unknown) => (error instanceof Error ? error.message
 export class AdmissionQueue {
   readonly #store: Store;
   readonly #launch: string;
-  readonly #start: Start;
+  readonly #starts: Starts;
   readonly #timer: NodeJS.Timeout;
-  // The tasks this queue is starting, two at a time.
+  // The entries this queue is starting, two at a time.
   readonly #starting = new Set<string>();
   #advancing = false;
   #again = false;
 
-  constructor(store: Store, registry: SessionRegistry, launch: string, start: Start) {
+  constructor(store: Store, registry: SessionRegistry, launch: string, starts: Starts) {
     this.#store = store;
     this.#launch = launch;
-    this.#start = start;
+    this.#starts = starts;
     store.queue.dropOtherLaunches(launch);
     // A task that ended frees its department; new limits may give an account room.
     store.subscribe((change) => {
@@ -40,7 +48,8 @@ export class AdmissionQueue {
     registry.subscribe(({ event }) => {
       if (event.type !== "session.started") return;
       const taskId = store.getSession(event.sessionId)?.taskId;
-      if (taskId !== undefined) this.cancel(taskId, "You continued it yourself.");
+      if (taskId !== undefined)
+        this.cancel({ kind: "resume", taskId }, "You continued it yourself.");
     });
     this.#timer = setInterval(() => this.#wake(), TICK_MS);
     this.#timer.unref();
@@ -55,21 +64,24 @@ export class AdmissionQueue {
     return this.#store.queue.ofTask(what, this.#launch);
   }
 
-  add(what: QueuedStart): QueueEntry {
+  // Without `waitUntil`, it waits the longest the queue allows.
+  add(what: QueuedStart, waitUntil?: Date): QueueEntry {
     const { queue } = this.#store;
     const waiting = queue.waiting();
     const oldest = waiting[0];
     if (waiting.length >= MAX_WAITING && oldest !== undefined && this.entryOf(what) === undefined) {
-      queue.update(oldest.id, "skipped", "Too many were waiting, so it was not resumed.");
+      const verb = oldest.what.kind === "run" ? "run" : "resumed";
+      queue.update(oldest.id, "skipped", `Too many were waiting, so it was not ${verb}.`);
     }
-    const waitUntil = new Date(Date.now() + LONGEST_WAIT_HOURS * 60 * 60 * 1000);
-    const entry = queue.add(what, this.#launch, waitUntil);
+    const longest = new Date(Date.now() + LONGEST_WAIT_HOURS * 60 * 60 * 1000);
+    const until = waitUntil === undefined || waitUntil > longest ? longest : waitUntil;
+    const entry = queue.add(what, this.#launch, until);
     this.#wake();
     return entry;
   }
 
-  cancel(taskId: string, reason: string): void {
-    const entry = this.entryOf({ kind: "resume", taskId });
+  cancel(what: QueuedStart, reason: string): void {
+    const entry = this.entryOf(what);
     if (entry?.state === "waiting") this.#store.queue.update(entry.id, "cancelled", reason);
   }
 
@@ -102,7 +114,7 @@ export class AdmissionQueue {
       // Read again: the gap between starts leaves time to continue or delete it by hand.
       const entry = this.entryOf(listed.what);
       if (entry?.state !== "waiting") continue;
-      const wait = waitFor(this.#store, entry.taskId, LONGEST_WAIT_HOURS);
+      const wait = this.#starts.waitFor(entry.what);
       if (wait !== undefined && Date.now() > Date.parse(entry.waitUntil)) {
         queue.update(entry.id, "skipped", wait.gaveUp);
         continue;
@@ -116,13 +128,15 @@ export class AdmissionQueue {
         continue;
       }
       queue.update(entry.id, "started", undefined);
-      this.#starting.add(entry.taskId);
-      this.#start(entry.what)
+      this.#starting.add(entry.id);
+      this.#starts
+        .start(entry.what)
         .catch((error: unknown) => {
-          queue.update(entry.id, "skipped", `It could not be resumed: ${errorMessage(error)}`);
+          const verb = entry.what.kind === "run" ? "started" : "resumed";
+          queue.update(entry.id, "skipped", `It could not be ${verb}: ${errorMessage(error)}`);
         })
         .finally(() => {
-          this.#starting.delete(entry.taskId);
+          this.#starting.delete(entry.id);
           this.#wake();
         });
       await delay(START_GAP_MS, undefined, { ref: false });

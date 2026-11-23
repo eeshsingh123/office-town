@@ -4,6 +4,7 @@ import type {
   StartTeamTaskRequest,
   TaskRecord,
 } from "@office-town/contract";
+import { earlierRun } from "../queue/admission.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { latestSession, tellLead } from "../team/lead.ts";
 import { DepartmentBusyError, type TeamContext } from "../team/members.ts";
@@ -59,6 +60,12 @@ export class Scheduler {
     context.store.subscribe((change) => {
       if (change.type === "task") this.#taskChanged(change.task);
       if (change.type === "task.deleted") void this.advance();
+      // A run a part gave way to was cancelled or skipped before it started.
+      if (change.type === "queue" && change.entry.what.kind === "run") {
+        if (change.entry.state === "skipped" || change.entry.state === "cancelled") {
+          void this.advance();
+        }
+      }
     });
   }
 
@@ -144,7 +151,8 @@ export class Scheduler {
       if (!ready) continue;
       if (
         piece.departmentId !== undefined &&
-        store.activeTaskOf(piece.departmentId) !== undefined
+        (store.activeTaskOf(piece.departmentId) !== undefined ||
+          earlierRun(store, piece.departmentId, Date.parse(piece.createdAt)))
       ) {
         if (piece.status !== "queued") store.updatePiece(piece.id, { status: "queued" });
         continue;

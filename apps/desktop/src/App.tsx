@@ -1,6 +1,9 @@
 import { Tooltip } from "radix-ui";
 import { useEffect } from "react";
 import styles from "./App.module.css";
+import { AutomationsView } from "./features/automations/AutomationsView.tsx";
+import { AutomationView } from "./features/automations/AutomationView.tsx";
+import { NewAutomationView } from "./features/automations/NewAutomationView.tsx";
 import { ChiefView } from "./features/chief/ChiefView.tsx";
 import { CommandMenu } from "./features/command/CommandMenu.tsx";
 import { ConnectorsView } from "./features/connectors/ConnectorsView.tsx";
@@ -66,7 +69,24 @@ function Main({ view }: { view: View }) {
     case "needs-you":
       return <NeedsYouView />;
     case "tasks":
-      return <TasksView />;
+      return (
+        <TasksView
+          key={view.startedBy ?? ""}
+          {...(view.startedBy === undefined ? {} : { startedBy: view.startedBy })}
+        />
+      );
+    case "automations":
+      return <AutomationsView />;
+    case "automation":
+      return <AutomationView key={view.automationId} automationId={view.automationId} />;
+    case "new-automation":
+      return (
+        <NewAutomationView
+          key={`${view.edit ?? ""}|${view.describe ?? ""}`}
+          {...(view.edit === undefined ? {} : { edit: view.edit })}
+          {...(view.describe === undefined ? {} : { describe: view.describe })}
+        />
+      );
     case "templates":
       return <TemplatesView />;
     case "workspaces":

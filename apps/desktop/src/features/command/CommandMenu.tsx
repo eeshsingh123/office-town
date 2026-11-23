@@ -2,6 +2,7 @@ import type { TaskRecord } from "@office-town/contract";
 import { Command, defaultFilter } from "cmdk";
 import {
   Bot,
+  CalendarClock,
   CircleHelp,
   CornerDownLeft,
   FolderGit2,
@@ -229,6 +230,11 @@ export function CommandMenu() {
                 <Row icon={House} label="Home" onSelect={() => go({ name: "home" })} />
                 <Row icon={Inbox} label="Needs you" onSelect={() => go({ name: "needs-you" })} />
                 <Row icon={List} label="Tasks" onSelect={() => go({ name: "tasks" })} />
+                <Row
+                  icon={CalendarClock}
+                  label="Automations"
+                  onSelect={() => go({ name: "automations" })}
+                />
                 <Row
                   icon={LayoutPanelLeft}
                   label="Office"

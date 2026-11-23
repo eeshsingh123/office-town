@@ -135,6 +135,7 @@ const NOTICE_ROWS: { kind: NoticeKind; label: string }[] = [
   { kind: "finished", label: "When a task is finished" },
   { kind: "failed", label: "When a task fails" },
   { kind: "usage-paused", label: "When work pauses as your usage runs out" },
+  { kind: "automation", label: "When an automation pauses or misses runs" },
 ];
 
 type TestResult = "sent" | "blocked" | undefined;

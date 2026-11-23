@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { automationDraftSchema } from "./automations.ts";
 import { roleSettingsSchema } from "./team.ts";
 
 // A team or a chief written from the user's own words; nothing is saved until the user creates it.
@@ -78,3 +79,17 @@ export const chiefDraftReplySchema = z.object({
   chief: chiefDraftSchema.optional(),
 });
 export type ChiefDraftReply = z.infer<typeof chiefDraftReplySchema>;
+
+export const automationDraftRequestSchema = z.object({
+  ...draftRequestShape,
+  current: automationDraftSchema.optional(),
+  // The computer's own, for the times the user names.
+  timeZone: z.string().min(1),
+});
+export type AutomationDraftRequest = z.infer<typeof automationDraftRequestSchema>;
+
+export const automationDraftReplySchema = z.object({
+  ...draftReplyShape,
+  automation: automationDraftSchema.optional(),
+});
+export type AutomationDraftReply = z.infer<typeof automationDraftReplySchema>;

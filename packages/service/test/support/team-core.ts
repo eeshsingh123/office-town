@@ -3,6 +3,9 @@ import { type HarnessCatalog, teamToolServer } from "@office-town/contract";
 import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
+import { startAutomations } from "../../src/automations/automations.ts";
+import { proposeSchedule } from "../../src/automations/propose-schedule.ts";
+import type { Runner } from "../../src/automations/runner.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { messageLead } from "../../src/chief/message-lead.ts";
 import { proposePlan } from "../../src/chief/propose-plan.ts";
@@ -18,7 +21,6 @@ import { Notifier } from "../../src/notify/notifier.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
-import { AdmissionQueue } from "../../src/queue/admission-queue.ts";
 import { SessionActivity } from "../../src/registry/activity.ts";
 import {
   type HarnessSessionFactory,
@@ -38,7 +40,7 @@ import { proposeTeam } from "../../src/team/propose-team.ts";
 import { QuietWorkers } from "../../src/team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "../../src/team/results.ts";
 import { resumeWork, stopWork } from "../../src/team/stop-work.ts";
-import { resumeTask, StoppedTasks } from "../../src/team/stopped-tasks.ts";
+import { StoppedTasks } from "../../src/team/stopped-tasks.ts";
 import { TaskStates } from "../../src/team/task-state.ts";
 import { UsagePauses } from "../../src/team/usage-pause.ts";
 import { cleanUpWorktrees } from "../../src/team/worktrees.ts";
@@ -64,6 +66,7 @@ export interface Core {
   connectors: ConnectorHub;
   secrets: ReturnType<typeof memorySecrets>;
   scheduler: Scheduler;
+  runner: Runner;
   sessions: FakeSession[];
   // biome-ignore lint/suspicious/noExplicitAny: a test reading JSON replies
   call(method: string, path: string, body?: unknown): Promise<{ status: number; json: any }>;
@@ -131,7 +134,13 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const checks = new Checks(team);
   const milestones = new MilestoneEdits(team);
   const scheduler = new Scheduler(team);
-  const queue = new AdmissionQueue(store, registry, randomUUID(), (what) => resumeTask(team, what));
+  const { runner, queue } = startAutomations(
+    team,
+    notifier,
+    stoppedLeads,
+    () => undefined,
+    randomUUID(),
+  );
   const stoppedTasks = new StoppedTasks(team, queue);
   stoppedTasks.announce(notifier);
   tools.offer([
@@ -154,6 +163,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     changeLibrary(team),
     connectors.asks.tool(),
     showResult(team),
+    proposeSchedule(team, runner),
   ]);
   const preview = await PreviewServer.start();
   const server: ApiServer = await startApiServer({
@@ -163,7 +173,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     checks,
     milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
-    unattended: { stoppedLeads, stoppedTasks },
+    unattended: { stoppedLeads, stoppedTasks, runner },
     token: TOKEN,
     port: 0,
   });
@@ -176,6 +186,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     connectors,
     secrets,
     scheduler,
+    runner,
     sessions,
     async call(method, path, body) {
       const response = await fetch(`${server.url}${path}`, {
@@ -210,6 +221,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
       quiet.stop();
       notifier.stop();
       queue.stop();
+      runner.stop();
       await server.close();
       await preview.close();
       await registry.close();

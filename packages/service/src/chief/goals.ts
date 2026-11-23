@@ -5,6 +5,7 @@ import type {
   DepartmentRecord,
   SessionRecord,
   TaskDetail,
+  TaskOrigin,
 } from "@office-town/contract";
 import { instructionsFor } from "../agents/briefs.ts";
 import { sessionOptionsFor } from "../agents/options.ts";
@@ -86,7 +87,11 @@ export async function startChiefGoal(
   context: TeamContext,
   goal: string,
   attachments: Attachment[] = [],
-  modes: { efficient?: boolean | undefined; milestones?: boolean | undefined } = {},
+  modes: {
+    efficient?: boolean | undefined;
+    milestones?: boolean | undefined;
+    origin?: TaskOrigin;
+  } = {},
 ): Promise<TaskDetail> {
   const { store } = context;
   const chief = chiefOf(store);
@@ -102,6 +107,7 @@ export async function startChiefGoal(
       ...(waits ? { queued: true } : {}),
       ...(modes.efficient === undefined ? {} : { efficient: modes.efficient }),
       ...(modes.milestones === undefined ? {} : { milestones: modes.milestones }),
+      ...(modes.origin === undefined ? {} : { origin: modes.origin }),
     },
   );
   store.linkAttachments(

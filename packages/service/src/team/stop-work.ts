@@ -6,7 +6,7 @@ import { AnswerError, SessionNotRunningError } from "../registry/session-registr
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { isLead, type LedTeam, NOT_YET, startWork, teamOf } from "./delegate.ts";
 import { busyAgents, isOpen, latestSession } from "./lead.ts";
-import type { TeamContext } from "./members.ts";
+import { CORE_ASKS, type TeamContext } from "./members.ts";
 
 const SHOWN_WORDS = 300;
 
@@ -78,7 +78,7 @@ export function stopWork(context: TeamContext, activity: SessionActivity) {
       if (workers.length === 0) throw new ToolError("None of them is running.");
       const names = workers.map((worker) => worker.name).join(", ");
       const title = `Stop ${names}, asked by ${team.lead.name}`;
-      const requestId = `stop-${randomUUID()}`;
+      const requestId = `${CORE_ASKS.stop}${randomUUID()}`;
       const tell = (text: string, summary: string) =>
         registry.tell(caller.sessionId, { text, origin: { kind: "notice", summary } });
       registry.ask(

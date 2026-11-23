@@ -9,11 +9,12 @@ import {
 } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ApiServer, startApiServer } from "../src/api/server.ts";
+import { startAutomations } from "../src/automations/automations.ts";
 import { ConnectorHub } from "../src/connectors/hub.ts";
 import { MilestoneEdits } from "../src/goal/edits.ts";
+import { Notifier } from "../src/notify/notifier.ts";
 import { PreviewServer } from "../src/outputs/preview-server.ts";
 import { TaskFiles } from "../src/outputs/task-files.ts";
-import { AdmissionQueue } from "../src/queue/admission-queue.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
@@ -128,13 +129,12 @@ beforeEach(async () => {
     checks,
     milestones: new MilestoneEdits(team),
     outputs,
-    unattended: {
-      stoppedLeads: new StoppedLeads(team),
-      stoppedTasks: new StoppedTasks(
-        team,
-        new AdmissionQueue(store, registry, "launch", async () => {}),
-      ),
-    },
+    unattended: (() => {
+      const stoppedLeads = new StoppedLeads(team);
+      const notifier = new Notifier(store, registry);
+      const { runner, queue } = startAutomations(team, notifier, stoppedLeads, () => {}, "launch");
+      return { stoppedLeads, stoppedTasks: new StoppedTasks(team, queue), runner };
+    })(),
     token: TOKEN,
     port: 0,
   });

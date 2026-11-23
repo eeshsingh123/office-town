@@ -1,10 +1,12 @@
-import type {
-  Autonomy,
-  ProfileRecord,
-  RoleSettings,
-  StartTaskRequest,
+import {
+  type AutomationTask,
+  type Autonomy,
+  FILL_INS,
+  type ProfileRecord,
+  type RoleSettings,
+  type StartTaskRequest,
 } from "@office-town/contract";
-import { CornerDownLeft, LayoutTemplate, ShieldCheck, X } from "lucide-react";
+import { Braces, CornerDownLeft, LayoutTemplate, ShieldCheck, X } from "lucide-react";
 import {
   Fragment,
   type KeyboardEvent,
@@ -66,7 +68,6 @@ import {
 import { useBusyDepartments } from "./use-targets.ts";
 
 const MAX_HEIGHT = 320;
-const DRAFT = TASK_DRAFT;
 
 // The level is no longer kept with the AI choices (D-111); it is the task's own pick.
 function keptChoices(saved: unknown): HarnessChoices | undefined {
@@ -86,6 +87,31 @@ interface Option {
   note: string;
   // An app to tag in the text, listed under "@" after who does it.
   app?: true;
+  // A fill-in an automation's run writes in, such as today's date.
+  fill?: string;
+}
+
+const FILL_OPTIONS: Option[] = [
+  {
+    id: "fill:date",
+    name: "Today's date",
+    note: "Filled in when each run starts",
+    fill: FILL_INS.date,
+  },
+  {
+    id: "fill:last",
+    name: "Last run's result",
+    note: "What the last finished run ended with",
+    fill: FILL_INS.lastResult,
+  },
+];
+const FILL_TEXTS = FILL_OPTIONS.flatMap((option) => option.fill ?? []);
+
+// The box as an automation's task (D-125): nothing starts, the task it would start is handed back.
+export interface AutomationBox {
+  // Where the box keeps what is typed.
+  draft: string;
+  onChange: (task: AutomationTask | undefined, missing: string | undefined) => void;
 }
 
 const LIST_NAMES: Record<Mention["kind"], string> = {
@@ -97,19 +123,23 @@ const LIST_NAMES: Record<Mention["kind"], string> = {
 interface ComposerProps {
   // Home lists its own recent tasks, so the box comes alone there.
   home?: boolean;
+  automation?: AutomationBox;
 }
 
 // The one box a task starts from, on New task and on Home. Every choice is a chip filled with
 // the last one used, so most tasks need only the text.
-export function Composer({ home = false }: ComposerProps) {
+export function Composer({ home = false, automation }: ComposerProps) {
+  const DRAFT = automation?.draft ?? TASK_DRAFT;
   const harnesses = useApp((state) => state.harnesses);
   const departments = useApp((state) => state.departments);
-  const handed = useApp((state) => (state.view.name === "new-task" ? state.view : undefined));
+  const handed = useApp((state) =>
+    state.view.name === "new-task" && automation === undefined ? state.view : undefined,
+  );
   const [remembered] = useState(loadRemembered);
   // What another page handed over wins over what was left in the box.
   const handedTo = handedTarget(handed);
   const [chosen, setChosen] = useDraft(
-    TARGET_DRAFT,
+    automation === undefined ? TARGET_DRAFT : `${DRAFT}.target`,
     handedTo ?? remembered.target ?? SOLO,
     handedTo === undefined ? undefined : ignoreDraft,
   );
@@ -163,8 +193,12 @@ export function Composer({ home = false }: ComposerProps) {
   const workspaces = loaded ?? [];
 
   // A department removed since it was last chosen falls back to an assistant.
+  // An automation runs for a team that stands, never one proposed anew each run.
   const target =
-    chosen === SOLO || chosen === CHIEF || chosen === PROPOSE || departments[chosen] !== undefined
+    chosen === SOLO ||
+    chosen === CHIEF ||
+    (chosen === PROPOSE && automation === undefined) ||
+    departments[chosen] !== undefined
       ? chosen
       : SOLO;
   const department = departments[target];
@@ -235,7 +269,7 @@ export function Composer({ home = false }: ComposerProps) {
         ? "Add a chief first."
         : undefined
       : department !== undefined
-        ? busy.has(department.id)
+        ? busy.has(department.id) && automation === undefined
           ? `${department.name} is busy with another task. It takes one at a time.`
           : undefined
         : workspace === undefined && loaded !== undefined
@@ -250,6 +284,42 @@ export function Composer({ home = false }: ComposerProps) {
       (workspace !== undefined && description !== undefined)) &&
     !starting &&
     !attached.adding;
+
+  // What an automation would start each run; undefined until it could start.
+  const built = ((): AutomationTask | undefined => {
+    if (automation === undefined || goal === "" || attached.adding) return undefined;
+    const files = attached.ids.length === 0 ? {} : { attachments: attached.ids };
+    if (target === CHIEF) {
+      return chief === undefined
+        ? undefined
+        : { kind: "chief", request: { goal, ...files, ...options } };
+    }
+    if (department !== undefined) {
+      const team = {
+        departmentId: department.id,
+        ...(goalWorkspaceId === undefined ? {} : { workspaceId: goalWorkspaceId }),
+      };
+      return { kind: "department", request: { goal, team, ...files, ...options } };
+    }
+    if (workspace === undefined || settings === undefined) return undefined;
+    return {
+      kind: "assistant",
+      request: {
+        prompt: goal,
+        agent: { settings, ...(profile === undefined ? {} : { profileId: profile.id }) },
+        autonomy: level,
+        workspaceId: workspace.id,
+        ...files,
+        ...options,
+      },
+    };
+  })();
+  const builtKey = JSON.stringify(built ?? null);
+  const unready = missing ?? (goal === "" ? "Write the task each run starts with." : undefined);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: told again only when the task changes
+  useEffect(() => {
+    automation?.onChange(built, unready);
+  }, [builtKey, unready]);
 
   // The box grows with the text instead of showing a resize handle.
   // biome-ignore lint/correctness/useExhaustiveDependencies: measured again whenever the text changes
@@ -371,10 +441,12 @@ export function Composer({ home = false }: ComposerProps) {
   const people: Option[] = [
     { id: SOLO, name: "Assistant", note: "One agent" },
     ...Object.values(departments)
-      .filter((known) => !busy.has(known.id))
+      .filter((known) => automation !== undefined || !busy.has(known.id))
       .toSorted((a, b) => a.name.localeCompare(b.name))
       .map((known) => ({ id: known.id, name: known.name, note: "Department" })),
-    { id: PROPOSE, name: "A new department", note: "Propose a new department for this task" },
+    ...(automation === undefined
+      ? [{ id: PROPOSE, name: "A new department", note: "Propose a new department for this task" }]
+      : []),
     ...(chief === undefined
       ? []
       : [
@@ -398,7 +470,7 @@ export function Composer({ home = false }: ComposerProps) {
   }));
   const optionsOf = (kind: Mention["kind"]): Option[] =>
     kind === "@"
-      ? [...people, ...appOptions]
+      ? [...people, ...appOptions, ...(automation === undefined ? [] : FILL_OPTIONS)]
       : kind === "#"
         ? libraryOptions
         : (templates ?? []).map((known) => ({ id: known.id, name: known.name, note: known.role }));
@@ -413,8 +485,8 @@ export function Composer({ home = false }: ComposerProps) {
     const { id } = option;
     const element = box.current;
     if (mention === undefined || element === null) return;
-    if (option.app) {
-      const written = `${tagOf(option.name)} `;
+    if (option.app || option.fill !== undefined) {
+      const written = `${option.fill ?? tagOf(option.name)} `;
       const at = mention.start + written.length;
       setPrompt(prompt.slice(0, mention.start) + written + prompt.slice(element.selectionStart));
       setMention(undefined);
@@ -463,7 +535,12 @@ export function Composer({ home = false }: ComposerProps) {
         return;
       }
     }
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+    if (
+      automation === undefined &&
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
       event.preventDefault();
       void start();
     }
@@ -517,7 +594,12 @@ export function Composer({ home = false }: ComposerProps) {
           <label htmlFor="task-prompt" className="visually-hidden">
             Your task
           </label>
-          <TagLayer field={box} text={prompt} names={apps} />
+          <TagLayer
+            field={box}
+            text={prompt}
+            names={apps}
+            {...(automation === undefined ? {} : { fills: FILL_TEXTS })}
+          />
           <textarea
             ref={box}
             id="task-prompt"
@@ -541,7 +623,11 @@ export function Composer({ home = false }: ComposerProps) {
             onKeyDown={onKeyDown}
             onBlur={() => setMention(undefined)}
             onPaste={attached.onPaste}
-            placeholder="Describe the task. Type @ to choose who does it or tag an app."
+            placeholder={
+              automation === undefined
+                ? "Describe the task. Type @ to choose who does it or tag an app."
+                : "The task each run starts with. Type @ to choose who does it, tag an app or add a fill-in."
+            }
             // biome-ignore lint/a11y/noAutofocus: New task exists to take this text
             autoFocus={!home}
           />
@@ -581,6 +667,11 @@ export function Composer({ home = false }: ComposerProps) {
                       Apps
                     </div>
                   ) : null}
+                  {option.fill !== undefined && listed[index - 1]?.fill === undefined ? (
+                    <div className={styles.menuHeading} role="presentation">
+                      Fill-ins
+                    </div>
+                  ) : null}
                   <button
                     id={`${listId}-${index}`}
                     type="button"
@@ -593,7 +684,9 @@ export function Composer({ home = false }: ComposerProps) {
                     onClick={() => pickMention(option)}
                   >
                     <span className={styles.itemIcon}>
-                      {option.app ? (
+                      {option.fill !== undefined ? (
+                        <Braces size={14} aria-hidden />
+                      ) : option.app ? (
                         <AppLogo app={option.name} size="sm" />
                       ) : mention.kind === "@" ? (
                         targetIcon(option.id)
@@ -682,27 +775,29 @@ export function Composer({ home = false }: ComposerProps) {
               onChange={(key, on) => setChangedOptions({ ...changedOptions, [key]: on })}
             />
           </div>
-          <Button
-            variant="primary"
-            className={styles.start}
-            disabled={!ready}
-            busy={starting}
-            onClick={start}
-            title={
-              noProvider
-                ? NO_PROVIDER
-                : "Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
-            }
-          >
-            Start
-            {starting ? null : <CornerDownLeft size={14} aria-hidden />}
-          </Button>
+          {automation === undefined ? (
+            <Button
+              variant="primary"
+              className={styles.start}
+              disabled={!ready}
+              busy={starting}
+              onClick={start}
+              title={
+                noProvider
+                  ? NO_PROVIDER
+                  : "Enter starts, Shift+Enter adds a line. # adds a Library file, / a template."
+              }
+            >
+              Start
+              {starting ? null : <CornerDownLeft size={14} aria-hidden />}
+            </Button>
+          ) : null}
         </div>
       </div>
-      {missing === undefined && plan === null ? null : (
+      {missing === undefined && (plan === null || automation !== undefined) ? null : (
         <div className={styles.below}>
           {missing === undefined ? (
-            <span>{plan}</span>
+            <span>{automation === undefined ? plan : null}</span>
           ) : (
             <span className={styles.missing}>
               {missing}
@@ -724,7 +819,7 @@ export function Composer({ home = false }: ComposerProps) {
           {error}
         </p>
       )}
-      {home ? null : <SamplePrompts onUse={fill} />}
+      {home || automation !== undefined ? null : <SamplePrompts onUse={fill} />}
       {gate.confirm}
     </div>
   );

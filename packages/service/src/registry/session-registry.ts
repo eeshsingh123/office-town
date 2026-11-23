@@ -424,14 +424,23 @@ ${text}`,
     return next.accountId === from ? undefined : next;
   }
 
-  async send(sessionId: string, command: AgentCommand): Promise<void> {
+  // `byAutomation`: an automation on Auto answered in the user's place, so the trace says so (D-126).
+  async send(sessionId: string, command: AgentCommand, byAutomation = false): Promise<void> {
     const live = this.#running(sessionId);
     const key = "requestId" in command ? askedKey(sessionId, command.requestId) : undefined;
     const handler = key === undefined ? undefined : this.#asked.get(key);
     if (handler !== undefined && key !== undefined && "requestId" in command) {
       const answer = handler(command);
       this.#asked.delete(key);
-      live.session.report(answer.resolution);
+      const { resolution } = answer;
+      live.session.report(
+        byAutomation && resolution.type !== "checklist.resolved"
+          ? ({
+              ...resolution,
+              payload: { ...resolution.payload, answeredBy: "automation" },
+            } as typeof resolution)
+          : resolution,
+      );
       await answer.afterwards?.();
       return;
     }

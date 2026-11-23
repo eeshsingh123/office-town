@@ -4,6 +4,10 @@ import { z } from "zod";
 import { AnswerError, type SessionRegistry } from "../registry/session-registry.ts";
 import { defineTool } from "./tools.ts";
 
+// What an automation on Auto answers in the user's place (D-126).
+export const AUTO_ANSWER =
+  "No one is asked in this run: it is an automation on Auto. Decide yourself, carry on, and say in your result what you decided and why.";
+
 // Puts a question in Needs you; the agent hears `reply` of the answer as a message.
 export function putQuestion(
   registry: SessionRegistry,
@@ -59,7 +63,10 @@ export function askUser(registry: SessionRegistry) {
         registry,
         caller.sessionId,
         { text: question, options: options.map((label) => ({ label })), multiSelect },
-        (selected) => `The user answered your question "${question}": ${selected.join(", ")}`,
+        (selected) =>
+          selected.includes(AUTO_ANSWER)
+            ? AUTO_ANSWER
+            : `The user answered your question "${question}": ${selected.join(", ")}`,
       );
       return "Your question is with the user. Their answer will reach you as a message.";
     },

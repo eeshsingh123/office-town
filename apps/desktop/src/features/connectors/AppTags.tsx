@@ -92,18 +92,36 @@ export function TaggedText({ text, names }: { text: string; names: readonly stri
 
 // The same text drawn under the box, so each tag shows as a highlight with its logo over the "@".
 // The box's own text turns clear only while a tag is in it, keeping its caret and selection.
+// A fill-in such as "{date}" drawn as its own chip, in the same characters so nothing moves.
+type LayerPart = TagPart | { fill: string };
+
+function withFills(parts: TagPart[], fills: readonly string[]): LayerPart[] {
+  if (fills.length === 0) return parts;
+  const pattern = new RegExp(`(${fills.map((fill) => fill.replace(/[{}]/g, "$&")).join("|")})`);
+  return parts.flatMap((part): LayerPart[] =>
+    "app" in part
+      ? [part]
+      : part.text
+          .split(pattern)
+          .filter((piece) => piece !== "")
+          .map((piece) => (fills.includes(piece) ? { fill: piece } : { text: piece })),
+  );
+}
+
 export function TagLayer({
   field,
   text,
   names,
+  fills = [],
 }: {
   field: RefObject<HTMLTextAreaElement | null>;
   text: string;
   names: readonly string[];
+  fills?: readonly string[];
 }) {
   const layer = useRef<HTMLDivElement>(null);
-  const parts = splitTags(text, names);
-  const tagged = parts.some((part) => "app" in part);
+  const parts = withFills(splitTags(text, names), fills);
+  const tagged = parts.some((part) => "app" in part || "fill" in part);
 
   // Clear text on top, drawn text under it: the box keeps its caret, selection and typing.
   useLayoutEffect(() => {
@@ -158,7 +176,12 @@ export function TagLayer({
   return (
     <div ref={layer} className={styles.layer} aria-hidden>
       {parts.map((part, index) =>
-        "app" in part ? (
+        "fill" in part ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: redrawn whole with the text
+          <mark key={index} className={styles.mark}>
+            {part.fill}
+          </mark>
+        ) : "app" in part ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: redrawn whole with the text
           <mark key={index} className={styles.mark}>
             <span className={styles.at}>

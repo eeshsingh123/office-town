@@ -2,6 +2,7 @@ import type { TaskRecord } from "@office-town/contract";
 import type { ReactNode } from "react";
 import { type Crumb, Crumbs } from "../../ui/Crumbs.tsx";
 import { taskName } from "../../ui/format.ts";
+import { OriginChip } from "../automations/OriginChip.tsx";
 import { TaskStatusPill, useTaskStatus } from "../tasks/TaskStatusIcon.tsx";
 import styles from "./TaskView.module.css";
 
@@ -21,6 +22,7 @@ export function TaskHeader(props: {
         <div className={styles.titleLine}>
           <h1 id="task-title">{taskName(props.task)}</h1>
           {status === undefined ? null : <TaskStatusPill status={status} />}
+          <OriginChip task={props.task} />
           {props.after}
         </div>
       </div>

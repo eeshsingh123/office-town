@@ -36,23 +36,19 @@ What later work builds on; the why is in DECISIONS.md.
 - **M6 to M8: files, onboarding, connectors, outputs.** Attachments and a Library; setup, tutorials and Help; shared and provider apps through the core's hub (`service/src/connectors`); `show_result` in a sandboxed viewer (`service/src/outputs`).
 - **M9 to M10.5: packaging, providers, macOS.** Self-updating Windows installer and Linux AppImage, ad-hoc signed Mac .dmg betas (D-116), betas on every green merge; Codex, Muse, Copilot and Cursor; the Providers page; on a Mac the login shell read once and Claude's usage from its Keychain on Refresh (D-117), CI and a smoke job on a Mac runner.
 - **After M10 and Phase 2.** OpenCode 1 and 2 (`harness/src/versions.ts`), sub-agents in a side panel, team recovery and mid-turn messages, `propose_change`, Scratch per task, Efficient mode with handovers (`team/handover.ts`), Milestones (`service/src/goal`), and the feedback, audit and design rounds (D-100 to D-114).
+- **M11 Unattended runs (D-120 to D-124).** Stored retries and the stopped-lead item (`team/lead-stopped.ts`), quiet workers, owed results first; one admission queue for every start no person typed (`service/src/queue`); Home's card of tasks a close cut off; keep awake (`GET /keep-awake`); the notifier (`service/src/notify`).
 
 ## Next
 
-### M11 Unattended runs (D-120 to D-124)
+### M12 Automations (D-125 to D-127)
 
-Work keeps going, or comes back, without the user at the desk: after a close, a crash or a restart, and through sleep where the system allows it. No mockup (owner). Every task is the user's; task origin moves to M12.
+An automation is a saved New task plus a When; every run is an ordinary task with its origin, through M11's queue. Mockup rejected (owner): the screens reuse the app's own parts.
 
-- **A. Durable retries and the recovery gaps** (`team/results.ts`, `team/lead-stopped.ts`, `team/quiet-workers.ts`). The one retry stored for delegations and leads; a lead that fails after its retry gets the Needs you item Try again or Stop; a worker with no news for 30 minutes shows so and its open lead hears once; results the lead never got go first when it resumes.
-- **B. Admission queue** (`service/src/queue`). One check shared with a person's start; stored entries, each wait and skip with its reason; two at a time, spaced; at most 100 waiting, 12 hours each. Only Resume all and Choose add entries in M11.
-- **C. Resume after a restart.** The Home card "N tasks stopped when Office Town closed." with Resume all, Choose and close, through the queue; a chief goal is one row; paused tasks keep their pause; gone folders and accounts say so; a crash loop stops after 2 launches.
-- **D. Keep awake.** `GET /keep-awake`, the shell's `powerSaveBlocker` while agents work, the Settings > Desktop switch.
-- **E. Notifier** (`service/src/notify`). The core decides and stores notices, never with agent text, coalesced, kept 30 days and 500 at most; the window shows them; a switch per kind in Settings > Notifications.
-- Out of scope: task origin and the quit warning (M12), the two message gaps (M13), an in-app list of notices.
+- **PR 1, built on `feat/automations`.** Contract (automation, run, origin, run queue entries, Auto answers); store files `automations-store.ts` beside the M11 ones; the clock on croner (`automations/clock.ts`); the runner (`automations/runner.ts`, `run-task.ts`): run keys, one waiting run per automation, oldest first per department across the queue and the chief's pieces, chains set on the later one, depth 5, re-queue after a restart, three failures pause; Auto decisions (`auto-decisions.ts`); `propose_schedule`; the Describe drafter (`drafts/automations.ts`); New automation (Describe, Task in the New task box with fill-ins, When, Rules, Review), the Automations page, one automation with its runs, Home's card, the origin chip, Tasks' Started by filter, the quit question, Open at login offered once, a Settings row; the core's file-change notes between agents in one workspace (`team/shared-files.ts`, D-127).
+- **PR 2, after PR 1 merges.** Outside events (sources discussed with the owner first), `report_check`, folder triggers (a folder inside its own workspace; files the run's own agents wrote never trigger it), seen events.
 
-### M12 to M15 (outline only)
+### M13 to M15 (outline only)
 
-- **M12 Automations.** Schedules, events and chains whose runs are ordinary tasks, through M11's queue; task origin; durable run keys; `propose_schedule` (D-118).
 - **M13 Remote control.** A paired phone over Tailscale (D-119).
 - **M14 Always-on host.** The same core on a machine the user owns (D-115, D-119).
 - **M15 Ready-made teams.** Importable teams; independent of M11 to M14.

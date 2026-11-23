@@ -1,0 +1,228 @@
+/* The steps of New automation, in the spacing scale of Page.module.css. No side card, so one
+   form-wide column. */
+.column {
+  width: 100%;
+  max-width: var(--page-form);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* A sentence with its values inline, defaults shown. */
+.rule {
+  margin: 0;
+  color: var(--text);
+  line-height: 38px;
+}
+
+.note {
+  margin: -4px 0 0;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.inline {
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inline:focus-visible,
+.time:focus-visible,
+.count:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.time,
+.count {
+  vertical-align: middle;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  color-scheme: light dark;
+}
+
+.count {
+  width: 72px;
+}
+
+.switches {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* The live sentence and the next three runs. */
+.sentence {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.sentence > span {
+  color: var(--text-2);
+}
+
+.next {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.warning {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-card);
+  background: var(--warn-soft);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.blockHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.meta {
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.prompt {
+  margin: 0;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-2);
+}
+
+.calendar {
+  min-width: 0;
+  padding: 10px;
+}
+
+.calendarHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
+.calendarStep {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.calendarStep:hover,
+.calendarCell:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 32px);
+  gap: 2px;
+}
+
+.calendarDay {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.calendarCell {
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.calendarCell[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.calendarCell:disabled {
+  color: var(--text-3);
+  opacity: 0.5;
+  cursor: default;
+}

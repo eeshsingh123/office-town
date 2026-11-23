@@ -29,6 +29,8 @@ export interface TaskFacts {
   workspaceId: string | null;
   workspaceName: string | null;
   title: string | null;
+  automationId: string | null;
+  automationName: string | null;
   // Read only while text is typed.
   prompt: string | null;
   agentNames: string | null;
@@ -40,6 +42,7 @@ export interface TaskMatches {
   counts: Record<TaskTab, number>;
   teams: string[];
   workspaceIds: string[];
+  automations: { id: string; name: string }[];
 }
 
 const orUndefined = <T>(value: T | null) => value ?? undefined;
@@ -84,6 +87,8 @@ export function matchTasks(
   };
   const teams = new Set<string>();
   const workspaceIds = new Set<string>();
+  // Newest first, so each automation keeps the name its latest run had.
+  const automations = new Map<string, string>();
   const refs: number[] = [];
   let more = false;
 
@@ -91,6 +96,12 @@ export function matchTasks(
     const team = teamOf(task, chiefId);
     teams.add(team.key);
     if (task.workspaceId !== null) workspaceIds.add(task.workspaceId);
+    if (task.automationId !== null && !automations.has(task.automationId)) {
+      automations.set(task.automationId, task.automationName ?? "");
+    }
+    if (filters.startedBy !== undefined && (task.automationId ?? "you") !== filters.startedBy) {
+      continue;
+    }
     if (filters.teams.length > 0 && !filters.teams.includes(team.key)) continue;
     if (filters.workspaceId !== undefined && task.workspaceId !== filters.workspaceId) continue;
     if (from !== undefined && task.createdAt < from) continue;
@@ -121,5 +132,6 @@ export function matchTasks(
     counts,
     teams: [...teams],
     workspaceIds: [...workspaceIds],
+    automations: [...automations].map(([id, name]) => ({ id, name })),
   };
 }

@@ -38,10 +38,8 @@ import {
 import { listEnvironments, listHarnesses, readHarnessStatus } from "@office-town/harness";
 import { z } from "zod";
 import { accountRoutes } from "../accounts/routes.ts";
-import { createAgent } from "../agents/agents.ts";
-import { instructionsFor, soloMessage } from "../agents/briefs.ts";
-import { sessionOptionsFor } from "../agents/options.ts";
 import { fileKindOf, resolveAttachments } from "../attachments/attachments.ts";
+import { automationRoutes } from "../automations/routes.ts";
 import { chiefOf, isChiefTask, removeChief, saveChief } from "../chief/chief.ts";
 import { startChiefGoal, stopChiefGoal } from "../chief/goals.ts";
 import type { ConnectorHub } from "../connectors/hub.ts";
@@ -57,8 +55,8 @@ import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
 import type { PriceList } from "../prices/prices.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
 import { RecordNotFoundError, TaskActiveError } from "../store/store.ts";
-import { foldersForTask, requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
-import { startFirstAgent } from "../task-start.ts";
+import { requireFolders, requireWorkspaceFolders } from "../task-folders.ts";
+import { startSoloTask } from "../task-start.ts";
 import { modelChangedByUser, moveDepartment } from "../team/change-worker.ts";
 import type { Checks } from "../team/checks.ts";
 import {
@@ -132,6 +130,7 @@ export function apiRoutes(
     ...accountRoutes(team, prices),
     ...installRoutes(),
     ...unattendedRoutes(store, unattended),
+    ...automationRoutes(team, unattended.runner),
     {
       method: "POST",
       path: "/accounts/:id/resume-paused",
@@ -149,32 +148,8 @@ export function apiRoutes(
       method: "POST",
       path: "/tasks",
       reply: async ({ body }) => {
-        const request = startTaskRequestSchema.parse(await body());
-        const attachments = resolveAttachments(store, request.attachments);
-        const folders = foldersForTask(store, request.workspaceId);
-        const agent = createAgent(store, request.agent, { autonomy: request.autonomy });
-        const task = store.createTask(request.prompt, undefined, {
-          workspaceId: request.workspaceId,
-          ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
-          ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
-        });
-        const session = await startFirstAgent(store, task.id, () =>
-          registry.start({
-            taskId: task.id,
-            agentId: agent.id,
-            options: sessionOptionsFor(store, agent, folders),
-            message: {
-              ...soloMessage(
-                request.prompt,
-                instructionsFor(store, agent),
-                folders.scratch,
-                task.milestones === true,
-              ),
-              attachments,
-            },
-          }),
-        );
-        nameTask(task.id, agent.settings.harness);
+        const session = await startSoloTask(team, startTaskRequestSchema.parse(await body()));
+        nameTask(session.taskId, session.options.harness);
         return { status: 201, json: session };
       },
     },

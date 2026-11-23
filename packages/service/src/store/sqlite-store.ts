@@ -53,6 +53,7 @@ import {
   settingsSchema,
   type TaskChecklist,
   type TaskModelUsage,
+  type TaskOrigin,
   type TaskPage,
   type TaskPause,
   type TaskRecord,
@@ -70,6 +71,7 @@ import {
   type WorkspaceRequest,
 } from "@office-town/contract";
 import { AttachmentFiles } from "./attachment-files.ts";
+import { AutomationsStore } from "./automations-store.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { NoticesStore } from "./notices-store.ts";
 import { queries } from "./queries.ts";
@@ -146,6 +148,7 @@ interface TaskRow {
   title: string | null;
   efficient: number | null;
   milestones: number | null;
+  origin: string | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -407,6 +410,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.efficient === null ? {} : { efficient: row.efficient === 1 }),
     ...(row.milestones === null ? {} : { milestones: row.milestones === 1 }),
     usage,
+    ...(row.origin === null ? {} : { origin: JSON.parse(row.origin) as TaskOrigin }),
   };
 }
 
@@ -736,6 +740,7 @@ class SqliteStore implements Store {
   readonly recovery: RecoveryStore;
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
+  readonly automations: AutomationsStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -764,6 +769,11 @@ class SqliteStore implements Store {
     this.recovery = new RecoveryStore(db);
     this.notices = new NoticesStore(db, (change) => this.#publish(change));
     this.queue = new QueueStore(db, (change) => this.#publish(change));
+    this.automations = new AutomationsStore(
+      db,
+      (change) => this.#publish(change),
+      (id) => this.getAttachment(id),
+    );
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -814,6 +824,7 @@ class SqliteStore implements Store {
         workspace?.ref ?? null,
         efficient ? 1 : 0,
         milestones ? 1 : 0,
+        placement.origin === undefined ? null : JSON.stringify(placement.origin),
       );
       for (const worker of workers) {
         this.#statements.insertTaskWorker.run(lastInsertRowid, worker.ref);

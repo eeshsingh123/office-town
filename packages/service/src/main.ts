@@ -14,6 +14,8 @@ import { permissionModeOf } from "./agents/options.ts";
 import { HarnessStatuses } from "./api/harness-statuses.ts";
 import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
+import { startAutomations } from "./automations/automations.ts";
+import { proposeSchedule } from "./automations/propose-schedule.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
 import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
@@ -34,7 +36,6 @@ import { PreviewServer } from "./outputs/preview-server.ts";
 import { showResult } from "./outputs/show-result.ts";
 import { TaskFiles } from "./outputs/task-files.ts";
 import { PriceList } from "./prices/prices.ts";
-import { AdmissionQueue } from "./queue/admission-queue.ts";
 import { SessionActivity } from "./registry/activity.ts";
 import { stopIdleAgents } from "./registry/idle-stop.ts";
 import { followRecounts } from "./registry/recount.ts";
@@ -51,8 +52,9 @@ import { proposeChange } from "./team/propose-change.ts";
 import { proposeTeam } from "./team/propose-team.ts";
 import { QuietWorkers } from "./team/quiet-workers.ts";
 import { recoverLeads, reportResults, wakeAfterSubAgents } from "./team/results.ts";
+import { SharedFiles } from "./team/shared-files.ts";
 import { resumeWork, stopWork } from "./team/stop-work.ts";
-import { resumeTask, StoppedTasks } from "./team/stopped-tasks.ts";
+import { StoppedTasks } from "./team/stopped-tasks.ts";
 import { TaskStates } from "./team/task-state.ts";
 import { UsagePauses } from "./team/usage-pause.ts";
 import { cleanUpWorktrees } from "./team/worktrees.ts";
@@ -144,6 +146,7 @@ const notifier = new Notifier(store, registry);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
+new SharedFiles(team);
 taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
@@ -153,6 +156,8 @@ const milestones = new MilestoneEdits(team);
 store.stopOpenChecks();
 await removeAllSandboxes(store, dataFolder);
 const scheduler = new Scheduler(team);
+const nameTask = titlesFor(team);
+const { runner, queue } = startAutomations(team, notifier, stoppedLeads, nameTask, randomUUID());
 toolServer.offer([
   askUser(registry),
   proposeTeam(team),
@@ -173,10 +178,10 @@ toolServer.offer([
   changeLibrary(team),
   connectors.asks.tool(),
   showResult(team),
+  proposeSchedule(team, runner),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
-const queue = new AdmissionQueue(store, registry, randomUUID(), (what) => resumeTask(team, what));
 const stoppedTasks = new StoppedTasks(team, queue);
 stoppedTasks.announce(notifier);
 const token = randomBytes(32).toString("base64url");
@@ -193,8 +198,8 @@ const server = await startApiServer({
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
   statuses,
-  unattended: { stoppedLeads, stoppedTasks },
-  nameTask: titlesFor(team),
+  unattended: { stoppedLeads, stoppedTasks, runner },
+  nameTask,
   token,
   port,
 });
@@ -222,6 +227,7 @@ async function shutdown(): Promise<void> {
   quiet.stop();
   notifier.stop();
   queue.stop();
+  runner.stop();
   await server.close();
   await preview.close();
   try {

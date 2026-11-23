@@ -1,7 +1,7 @@
-import type { QueuedStart, StoppedTask, TaskSummary } from "@office-town/contract";
+import type { StoppedTask, TaskRecord, TaskSummary } from "@office-town/contract";
 import { type Notifier, stoppedTitle } from "../notify/notifier.ts";
 import type { AdmissionQueue } from "../queue/admission-queue.ts";
-import { RecordNotFoundError } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { FolderNotFoundError, requireSessionFolders } from "../task-folders.ts";
 import { type TeamContext, TeamError } from "./members.ts";
 import { topSession } from "./task-state.ts";
@@ -17,9 +17,9 @@ const RESUMED = {
 
 // The queue's start for a task a close or crash cut off: a team through its lead, told what was
 // cut off, and a lone agent where it stopped, in its own folder (D-28).
-export async function resumeTask(context: TeamContext, what: QueuedStart): Promise<void> {
+export async function resumeTask(context: TeamContext, taskId: string): Promise<void> {
   const { store, registry } = context;
-  const task = store.getTask(what.taskId);
+  const task = store.getTask(taskId);
   if (task === undefined) throw new RecordNotFoundError("task");
   if (task.paused !== undefined) throw new TeamError("It is paused until your usage resets.");
   if (task.leadAgentId !== undefined) {
@@ -33,6 +33,11 @@ export async function resumeTask(context: TeamContext, what: QueuedStart): Promi
   }
   // Counted once it started, so only a resume cut off by a close or crash counts, not one refused.
   store.recovery.countResumeAttempt(task.id);
+}
+
+function startedByAutomation(store: Store, task: TaskRecord): boolean {
+  const parent = task.parentTaskId === undefined ? undefined : store.getTask(task.parentTaskId);
+  return task.origin?.kind === "automation" || parent?.origin?.kind === "automation";
 }
 
 // The tasks a close or crash cut off, for Home's card. Nothing the user started resumes on its
@@ -117,6 +122,8 @@ export class StoppedTasks {
     const { store } = this.#context;
     return store.listInterruptedTasks(since).filter((task) => {
       if (task.paused !== undefined) return false;
+      // An automation's runs resume on their own (D-125).
+      if (startedByAutomation(store, task)) return false;
       const top = topSession(task, task.sessions);
       return top !== undefined && (store.recovery.cutOffAt(top.id) ?? -1) >= since;
     });

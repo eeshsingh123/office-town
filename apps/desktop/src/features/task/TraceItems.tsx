@@ -301,6 +301,10 @@ const ActionRow = memo(function ActionRow({
 function resolutionText(request: TraceRequest): string | undefined {
   const { resolution, event } = request;
   if (resolution === undefined) return undefined;
+  // An automation on Auto answered in the user's place (D-126).
+  if ("answeredBy" in resolution && resolution.answeredBy === "automation") {
+    return "Decided by Auto";
+  }
   if (event.type === "proposal.requested") {
     if (!("outcome" in resolution)) return undefined;
     return PROPOSAL_OUTCOMES[resolution.outcome as keyof typeof PROPOSAL_OUTCOMES] ?? "Answered";

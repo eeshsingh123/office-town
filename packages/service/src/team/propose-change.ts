@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { putQuestion } from "../tools/ask-user.ts";
+import { AUTO_ANSWER, putQuestion } from "../tools/ask-user.ts";
 import { type Caller, defineTool } from "../tools/tools.ts";
 import { isLead } from "./delegate.ts";
 import type { TeamContext } from "./members.ts";
@@ -9,6 +9,9 @@ const DECLINE = "Keep to the goal";
 
 function answerText(change: string, ifDeclined: string, selected: string[]): string {
   const [answer] = selected;
+  if (answer === AUTO_ANSWER)
+    return `Your change: ${change}
+${AUTO_ANSWER}`;
   if (selected.length === 1 && answer === APPROVE) {
     return `The user approved your change: ${change}\nCarry on with it.`;
   }

@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   History,
   Laptop,
   LayoutGrid,
@@ -18,6 +19,22 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-22",
+    title: "Automations: tasks that start on their own",
+    icon: CalendarClock,
+    changes: [
+      "Automations, under Tasks, saves a task with when it runs: every day, on weekdays, weekly, monthly, every few hours or once",
+      "Describe it in your own words and every step is drafted for you, or set it up by hand with the New task box",
+      "Type @ in the task for today's date or the last run's result; files you attach stay with every run",
+      "An automation can run after another one finishes, and Run now tries it at once",
+      "Each run is an ordinary task: it waits if its team is busy, catches up after Office Town was closed, and says why when it skips",
+      "Choose Auto to let a run decide on its own, end to end; permission asks still follow its level",
+      "Tasks started by an automation show it beside their status, and Tasks can filter by who started them",
+      "Agents can propose an automation for you to create, and quitting warns you when automations won't run",
+      "If two agents change the same file, the later one is told to read it again, and its task shows it",
+    ],
+  },
   {
     date: "2026-11-21",
     title: "Picking work back up after a close",

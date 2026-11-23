@@ -9,7 +9,7 @@ import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { carryOver, type Handover, type HandoverRole, userAsked } from "./carry-over.ts";
 import { leadsTeam } from "./lead.ts";
-import type { TeamContext } from "./members.ts";
+import { CORE_ASKS, type TeamContext } from "./members.ts";
 
 // One place: the lead's suggestion, past this, with work still out (owner, D-94).
 export const SUGGEST_AT_TOKENS = 300_000;
@@ -332,7 +332,7 @@ export class Handovers {
   #askUser(session: SessionRecord, title: string): void {
     if (this.#asking.has(session.id)) return;
     const { registry } = this.#context;
-    const requestId = `handover-${randomUUID()}`;
+    const requestId = `${CORE_ASKS.handover}${randomUUID()}`;
     this.#asking.add(session.id);
     registry.ask(
       session.id,

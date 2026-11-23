@@ -16,7 +16,7 @@ const request = (kind: string | undefined, locations?: string[]) => ({
 });
 
 describe("autonomy policy", () => {
-  it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own", () => {
+  it("lets only reads through inside a read-only folder, however its path is written, unless it holds the agent's own, and lowers a level, never raises it", () => {
     const own = join(directory, "web");
     const upstream = join(directory, "café");
     mkdirSync(own);
@@ -41,9 +41,7 @@ describe("autonomy policy", () => {
     expect(allows("full", request("edit", ["index.html"]), [own, directory], [directory])).toBe(
       true,
     );
-  });
-
-  it("lets a profile or an agent lower its level, never raise it", () => {
+    // A profile or an agent may lower its level, never raise it.
     expect(lowerAutonomy("full", "supervised")).toBe("supervised");
     expect(lowerAutonomy("supervised", "full")).toBe("supervised");
     expect(lowerAutonomy("bypass", undefined)).toBe("bypass");

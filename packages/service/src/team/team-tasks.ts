@@ -4,6 +4,7 @@ import type {
   EnvironmentSpec,
   SessionRecord,
   StartTeamTaskRequest,
+  TaskOrigin,
   TaskRecord,
 } from "@office-town/contract";
 import { listHarnesses } from "@office-town/harness";
@@ -187,6 +188,7 @@ export async function startTeamTask(
   context: TeamContext,
   { goal, team, attachments: attachmentIds, efficient, milestones }: StartTeamTaskRequest,
   piece?: PieceStart,
+  origin?: TaskOrigin,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const attachments = [...resolveAttachments(store, attachmentIds), ...(piece?.attachments ?? [])];
@@ -195,6 +197,7 @@ export async function startTeamTask(
     ...(piece === undefined ? {} : { parentTaskId: piece.parentTaskId }),
     ...(efficient === undefined ? {} : { efficient }),
     ...(milestones === undefined ? {} : { milestones }),
+    ...(origin === undefined ? {} : { origin }),
   };
   // The upstream departments' folders a piece of a chief's plan may read.
   const withUpstream = (folders: TaskFolders) => ({
