@@ -3,6 +3,7 @@ import {
   type AutomationRun,
   CHAIN_DEPTH,
   type Change,
+  EVENTS_A_RUN,
   type RunStatus,
   type TaskRecord,
   taskStatus,
@@ -112,6 +113,51 @@ export class Runner {
     }
   }
 
+  // What a source saw goes to the run still waiting, else a new one; while a run works, it waits
+  // for the run to end (D-128). So a burst is one run, and nothing seen is lost or run twice.
+  fireEvents(automationId: string): void {
+    const { automations, automationEvents } = this.#context.store;
+    const automation = automations.get(automationId);
+    const pending = automationEvents.pending(automationId);
+    if (automation === undefined || pending === undefined) return;
+    if (!automation.enabled || automation.paused !== undefined) return;
+    const open = automations.openRuns(automationId);
+    const waiting = open.find((run) => run.status === "waiting");
+    if (waiting !== undefined) {
+      const joined = automationEvents.attach(
+        automationId,
+        waiting.id,
+        EVENTS_A_RUN - (waiting.events ?? 0),
+      );
+      if (joined > 0) automations.updateRun(waiting.id, { events: (waiting.events ?? 0) + joined });
+      return;
+    }
+    if (open.length > 0) return;
+    // The first thing seen is the run's key; a later one if that time already has a run.
+    const latest =
+      automation.latestRun === undefined ? 0 : Date.parse(automation.latestRun.scheduledFor);
+    const slot = new Date(Math.max(pending.first, latest + 1));
+    const run = this.fire(automation, slot, "event", pending.depth);
+    if (run === undefined) return;
+    const joined = automationEvents.attach(automationId, run.id, EVENTS_A_RUN);
+    automations.updateRun(run.id, { events: joined });
+  }
+
+  // Things that came while Office Town was closed, longer ago than its catch-up window.
+  missedEvents(automationId: string, count: number): void {
+    const automation = this.#context.store.automations.get(automationId);
+    if (automation === undefined) return;
+    this.#context.store.automations.addRun({
+      automationId,
+      scheduledFor: new Date(),
+      by: "event",
+      depth: 0,
+      status: "skipped",
+      missed: count,
+      reason: `${count === 1 ? "1 thing" : `${count} things`} came while Office Town was closed, longer ago than it catches up.`,
+    });
+  }
+
   // Undefined when that slot already fired.
   fire(
     automation: AutomationRecord,
@@ -155,10 +201,12 @@ export class Runner {
     if (automation === undefined) throw new Error("Its automation was deleted.");
     const gone = goneReason(store, automation);
     if (gone !== undefined) {
-      this.#pause(automation, gone.reason, gone.fix);
+      this.pause(automation, gone.reason, gone.fix);
       throw new Error(gone.reason);
     }
     const taskId = await startRunTask(this.#context, automation, run, this.#nameTask);
+    // Its prompt holds what started it now; only the keys are kept.
+    store.automationEvents.clearText(runId);
     const entry = this.#queue?.entryOf({ kind: "run", runId });
     if (entry !== undefined) store.queue.setTask(entry.id, taskId);
     const task = store.getTask(taskId);
@@ -306,7 +354,7 @@ export class Runner {
       const failures = automation.failures + 1;
       store.automations.setFailures(automation.id, failures);
       if (failures >= FAILURES_TO_PAUSE) {
-        this.#pause(automation, `It failed ${FAILURES_TO_PAUSE} times in a row.`, "turn-on");
+        this.pause(automation, `It failed ${FAILURES_TO_PAUSE} times in a row.`, "turn-on");
       }
     } else if (finished && automation.failures > 0) {
       store.automations.setFailures(automation.id, 0);
@@ -326,9 +374,11 @@ export class Runner {
       if (trigger.outcome === "done" && !finished) continue;
       this.fire(next, new Date(), "chain", run.depth + 1);
     }
+    // What its source saw while this run worked starts the next one.
+    if (automation.trigger.kind === "event") this.fireEvents(automation.id);
   }
 
-  #pause(automation: AutomationRecord, reason: string, fix: "edit" | "turn-on" | "sign-in"): void {
+  pause(automation: AutomationRecord, reason: string, fix: "edit" | "turn-on" | "sign-in"): void {
     const { automations } = this.#context.store;
     if (automation.paused?.reason === reason) return;
     automations.setPaused(automation.id, { reason, fix });
@@ -342,7 +392,7 @@ export class Runner {
     for (const automation of store.automations.list()) {
       if (!automation.enabled || automation.paused !== undefined) continue;
       const gone = goneReason(store, automation);
-      if (gone !== undefined) this.#pause(automation, gone.reason, gone.fix);
+      if (gone !== undefined) this.pause(automation, gone.reason, gone.fix);
     }
   }
 

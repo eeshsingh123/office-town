@@ -140,6 +140,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     stoppedLeads,
     () => undefined,
     randomUUID(),
+    { shared: { lastChange: () => undefined }, keysOf: () => ({}) },
   );
   const stoppedTasks = new StoppedTasks(team, queue);
   stoppedTasks.announce(notifier);

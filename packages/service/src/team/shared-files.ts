@@ -34,6 +34,11 @@ export class SharedFiles {
     context.registry.subscribe(({ event }) => this.#take(event));
   }
 
+  // The session that last changed this file, while it is remembered.
+  lastChange(path: string): { sessionId: string; at: number } | undefined {
+    return this.#changed.get(canonicalPath(path));
+  }
+
   #take(event: SessionEvent): void {
     const { sessionId } = event;
     switch (event.type) {
