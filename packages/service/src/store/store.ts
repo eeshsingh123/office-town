@@ -56,6 +56,7 @@ import type {
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
+import type { AutomationEventsStore } from "./automation-events-store.ts";
 import type { AutomationsStore } from "./automations-store.ts";
 import type { NoticesStore } from "./notices-store.ts";
 import type { QueueStore } from "./queue-store.ts";
@@ -277,6 +278,7 @@ export interface Store {
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
+  readonly automationEvents: AutomationEventsStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;

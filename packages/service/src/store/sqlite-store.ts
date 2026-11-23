@@ -71,6 +71,7 @@ import {
   type WorkspaceRequest,
 } from "@office-town/contract";
 import { AttachmentFiles } from "./attachment-files.ts";
+import { AutomationEventsStore } from "./automation-events-store.ts";
 import { AutomationsStore } from "./automations-store.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { NoticesStore } from "./notices-store.ts";
@@ -741,6 +742,7 @@ class SqliteStore implements Store {
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
+  readonly automationEvents: AutomationEventsStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -774,6 +776,7 @@ class SqliteStore implements Store {
       (change) => this.#publish(change),
       (id) => this.getAttachment(id),
     );
+    this.automationEvents = new AutomationEventsStore(db);
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;

@@ -587,6 +587,38 @@ function addResumeAttempts(db: DatabaseSync): void {
   }
 }
 
+// What starts a run from outside (D-128). One row per thing seen, kept 30 days so it never starts
+// a second run; its text only until its run starts.
+function addAutomationEvents(db: DatabaseSync): void {
+  if (!hasColumn(db, "automations", "source_state")) {
+    db.exec("ALTER TABLE automations ADD COLUMN source_state TEXT");
+    db.exec("ALTER TABLE automations ADD COLUMN last_look TEXT");
+  }
+  if (!hasColumn(db, "automation_runs", "events")) {
+    db.exec("ALTER TABLE automation_runs ADD COLUMN events INTEGER");
+  }
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS automation_events (
+    ref            INTEGER PRIMARY KEY,
+    automation_ref INTEGER NOT NULL REFERENCES automations (ref) ON DELETE CASCADE,
+    key            TEXT NOT NULL,
+    at             INTEGER NOT NULL,
+    seen_at        INTEGER NOT NULL,
+    text           TEXT,
+    depth          INTEGER NOT NULL,
+    pending        INTEGER NOT NULL,
+    run_ref        INTEGER REFERENCES automation_runs (ref) ON DELETE SET NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS automation_events_key ON automation_events (automation_ref, key);
+  CREATE INDEX IF NOT EXISTS automation_events_pending ON automation_events (automation_ref, ref)
+    WHERE pending = 1;
+  CREATE INDEX IF NOT EXISTS automation_events_by_run ON automation_events (run_ref)
+    WHERE run_ref IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS automation_events_seen ON automation_events (seen_at);
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -1021,4 +1053,5 @@ export const migrations: readonly Migration[] = [
   addResumeAttempts,
   addCutOffTimes,
   addAutomations,
+  addAutomationEvents,
 ];

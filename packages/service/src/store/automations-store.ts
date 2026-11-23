@@ -19,12 +19,12 @@ import { transaction } from "./database.ts";
 
 const AUTOMATION_SELECT = `
   SELECT ref, id, name, enabled, fields, paused, next_run_at AS nextRunAt, failures,
-         created_at AS createdAt, updated_at AS updatedAt
+         last_look AS lastLook, created_at AS createdAt, updated_at AS updatedAt
   FROM automations`;
 
 const RUN_SELECT = `
   SELECT r.ref, r.id, a.id AS automationId, r.number, r.scheduled_for AS scheduledFor, r.by,
-         r.status, r.reason, r.missed, r.depth, r.wait_until AS waitUntil, t.id AS taskId,
+         r.status, r.reason, r.missed, r.depth, r.events, r.wait_until AS waitUntil, t.id AS taskId,
          r.created_at AS createdAt, r.ended_at AS endedAt
   FROM automation_runs r
   JOIN automations a ON a.ref = r.automation_ref
@@ -38,6 +38,7 @@ const queries = {
   setPaused: "UPDATE automations SET paused = ? WHERE id = ?",
   setNextRun: "UPDATE automations SET next_run_at = ? WHERE id = ?",
   setFailures: "UPDATE automations SET failures = ? WHERE id = ?",
+  setLastLook: "UPDATE automations SET last_look = ? WHERE id = ?",
   remove: "DELETE FROM automations WHERE id = ?",
   // The list page shows every one; a person keeps a handful to a few hundred.
   all: `${AUTOMATION_SELECT} ORDER BY created_at`,
@@ -76,7 +77,7 @@ const queries = {
     WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?) GROUP BY status`,
   updateRun: `
     UPDATE automation_runs SET status = ?, reason = ?, task_ref = (SELECT ref FROM tasks WHERE id = ?),
-      wait_until = ?, ended_at = ?
+      events = ?, wait_until = ?, ended_at = ?
     WHERE id = ?`,
   prune: `
     DELETE FROM automation_runs WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?)
@@ -98,6 +99,7 @@ interface AutomationRow {
   paused: string | null;
   nextRunAt: number | null;
   failures: number;
+  lastLook: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -113,6 +115,7 @@ interface RunRow {
   reason: string | null;
   missed: number | null;
   depth: number;
+  events: number | null;
   waitUntil: number | null;
   taskId: string | null;
   createdAt: number;
@@ -133,6 +136,7 @@ const toRun = (row: RunRow): AutomationRun => ({
   ...(row.reason === null ? {} : { reason: row.reason }),
   ...(row.missed === null ? {} : { missed: row.missed }),
   depth: row.depth,
+  ...(row.events === null ? {} : { events: row.events }),
   ...(row.waitUntil === null ? {} : { waitUntil: iso(row.waitUntil) }),
   ...(row.taskId === null ? {} : { taskId: row.taskId }),
   createdAt: iso(row.createdAt),
@@ -151,7 +155,7 @@ export interface NewRun {
 }
 
 export type RunChange = Partial<
-  Pick<AutomationRun, "status" | "reason" | "taskId" | "waitUntil" | "endedAt">
+  Pick<AutomationRun, "status" | "reason" | "taskId" | "events" | "waitUntil" | "endedAt">
 >;
 
 // Automations and their runs (D-125), each change published whole after its write.
@@ -253,6 +257,11 @@ export class AutomationsStore {
     this.#published(id);
   }
 
+  setLastLook(id: string, look: AutomationRecord["lastLook"]): void {
+    this.#statements.setLastLook.run(look === undefined ? null : JSON.stringify(look), id);
+    this.#published(id);
+  }
+
   earliestNextRun(): number | undefined {
     const row = this.#statements.earliest.get() as { at: number | null } | undefined;
     return row?.at ?? undefined;
@@ -329,6 +338,7 @@ export class AutomationsStore {
       after.status,
       after.reason ?? null,
       after.taskId ?? null,
+      after.events ?? null,
       after.waitUntil === undefined ? null : Date.parse(after.waitUntil),
       after.endedAt === undefined ? null : Date.parse(after.endedAt),
       id,
@@ -393,6 +403,9 @@ export class AutomationsStore {
       ...(row.nextRunAt === null ? {} : { nextRunAt: iso(row.nextRunAt) }),
       ...(latest === undefined ? {} : { latestRun: toRun(latest) }),
       failures: row.failures,
+      ...(row.lastLook === null
+        ? {}
+        : { lastLook: JSON.parse(row.lastLook) as NonNullable<AutomationRecord["lastLook"]> }),
       files: (stored.task.request.attachments ?? []).flatMap((id) => this.#fileOf(id) ?? []),
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),
