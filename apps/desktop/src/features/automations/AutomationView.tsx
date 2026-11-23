@@ -101,11 +101,20 @@ function useRuns(
   useEffect(() => {
     let current = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Another tab or automation starts from its own first page.
+    setLoaded(undefined);
     const read = () => {
       api
         .listRuns(automationId, { tab, limit: PAGE })
         .then((first) => {
-          if (current) setLoaded(first);
+          if (!current) return;
+          // Pages loaded with Show more stay; only the newest page is read again.
+          setLoaded((before) => {
+            const last = first.runs.at(-1)?.number;
+            const older = before?.runs.filter((run) => last !== undefined && run.number < last);
+            if (before === undefined || older === undefined || older.length === 0) return first;
+            return { ...first, runs: [...first.runs, ...older], next: before.next };
+          });
         })
         .catch((failure: unknown) => console.error("Could not read the runs.", failure));
     };

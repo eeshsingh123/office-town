@@ -32,7 +32,7 @@ import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
-import { DEFAULT_RULES, RulesStep } from "./RulesStep.tsx";
+import { DEFAULT_RULES, hours, RulesStep } from "./RulesStep.tsx";
 import { blankWhen, triggerOf, usePreview, type WhenForm, WhenStep, whenOf } from "./WhenStep.tsx";
 import { localZone, promptOf, runTime, whoKey } from "./words.ts";
 
@@ -45,7 +45,11 @@ const REVIEW = 4;
 const targetOf = (who: string) => (who === "assistant" ? SOLO : who === "chief" ? CHIEF : who);
 
 // The New task box keeps its own drafts; an automation's task is written into them to edit it.
-function writeTask(box: string, task: AutomationTask, library: Record<string, LibraryItem>): void {
+function writeTask(
+  box: string,
+  { task, files: kept }: AutomationRecord,
+  library: Record<string, LibraryItem>,
+): void {
   writeDraft(`${box}.prompt`, promptOf(task));
   writeDraft(`${box}.target`, targetOf(whoKey(task)));
   const { request } = task;
@@ -54,20 +58,14 @@ function writeTask(box: string, task: AutomationTask, library: Record<string, Li
     ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
   };
   writeDraft(`${box}.options`, options);
-  const files = (request.attachments ?? []).flatMap((id) => {
-    const item = Object.values(library).find((known) => known.file.id === id);
-    return item === undefined
-      ? []
-      : [
-          {
-            key: id,
-            name: item.file.name,
-            kind: item.file.kind,
-            attachment: item.file,
-            fromLibrary: true,
-          },
-        ];
-  });
+  const shared = new Set(Object.values(library).map((item) => item.file.id));
+  const files = kept.map((file) => ({
+    key: file.id,
+    name: file.name,
+    kind: file.kind,
+    attachment: file,
+    ...(shared.has(file.id) ? { fromLibrary: true as const } : {}),
+  }));
   writeDraft(`${box}.files`, files);
   if (task.kind === "department") {
     writeDraft(`${box}.departmentWorkspaceId`, task.request.team.workspaceId);
@@ -126,7 +124,7 @@ function Setup({
   // An edit starts from the saved automation, once, before the box first reads its drafts.
   useState(() => {
     if (existing === undefined || readDraft(`${scope}.seeded`) === true) return;
-    writeTask(box, existing.task, library);
+    writeTask(box, existing, library);
     writeDraft(`${scope}.seeded`, true);
   });
   const [name, setName] = useDraft(`${scope}.name`, existing?.name ?? "");
@@ -364,6 +362,7 @@ function Setup({
               value={rules}
               onChange={setRules}
               sharesLimits={sharesLimits && harnesses.length > 0}
+              savesResult={current?.kind !== "chief"}
             />
           ) : null}
 
@@ -527,24 +526,25 @@ function Review({
         </div>
         <ul className={styles.facts}>
           <li>
-            {rules.decisions === "auto" ? "Decides on Auto, end to end" : "Asks you in Needs you"}
+            {rules.decisions === "auto"
+              ? "Auto decides, without asking you"
+              : "Asks you in Needs you"}
           </li>
-          <li>
-            Waits up to {rules.waitHours === 1 ? "1 hour" : `${rules.waitHours} hours`} for a busy
-            team
-          </li>
+          <li>Waits up to {hours(rules.waitHours)} for a busy team</li>
           <li>
             {rules.catchUpHours === 0
               ? "Skips a run missed while closed"
-              : `Catches up within ${rules.catchUpHours} hours after a close`}
+              : `Catches up within ${hours(rules.catchUpHours)} after a close`}
           </li>
           <li>
             {answer === null
               ? "Waits for an answer as long as it takes"
-              : `Ends a run after ${answer} hours without an answer`}
+              : `Ends a run after ${hours(answer)} without an answer`}
           </li>
           <li>{rules.review ? "You review each run" : "A finished run counts as Done"}</li>
-          {rules.saveResult ? <li>Saves each result to the Library</li> : null}
+          {rules.saveResult && task?.kind !== "chief" ? (
+            <li>Saves each result to the Library</li>
+          ) : null}
         </ul>
       </div>
     </div>

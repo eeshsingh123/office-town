@@ -31,7 +31,8 @@ export const RELEASES: Release[] = [
       "Each run is an ordinary task: it waits if its team is busy, catches up after Office Town was closed, and says why when it skips",
       "Choose Auto to let a run decide on its own, end to end; permission asks still follow its level",
       "Tasks started by an automation show it beside their status, and Tasks can filter by who started them",
-      "Agents can propose an automation for you to create, and quitting tells you which automations won't run",
+      "Agents can propose an automation for you to create, and quitting warns you when automations won't run",
+      "If two agents change the same file, the later one is told to read it again, and its task shows it",
     ],
   },
   {

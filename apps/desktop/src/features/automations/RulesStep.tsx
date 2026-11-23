@@ -1,17 +1,10 @@
-import type { AutomationRules } from "@office-town/contract";
+import { type AutomationRules, automationRulesSchema } from "@office-town/contract";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import styles from "./NewAutomation.module.css";
 
-export const DEFAULT_RULES: AutomationRules = {
-  decisions: "ask",
-  waitHours: 2,
-  catchUpHours: 12,
-  answerWithinHours: 24,
-  review: false,
-  saveResult: false,
-};
+export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
 
-const hours = (count: number) => (count === 1 ? "1 hour" : `${count} hours`);
+export const hours = (count: number) => (count === 1 ? "1 hour" : `${count} hours`);
 
 function Pick<T extends string | number>({
   label,
@@ -50,11 +43,14 @@ export function RulesStep({
   value,
   onChange,
   sharesLimits,
+  savesResult,
 }: {
   value: AutomationRules;
   onChange: (next: AutomationRules) => void;
   // Only where the provider shares limits can a run skip near them.
   sharesLimits: boolean;
+  // A chief's goal has no workspace, so no Library to save to.
+  savesResult: boolean;
 }) {
   const set = (change: Partial<AutomationRules>) => onChange({ ...value, ...change });
   return (
@@ -67,7 +63,7 @@ export function RulesStep({
             value={value.decisions}
             options={[
               { value: "ask", label: "ask me in Needs you" },
-              { value: "auto", label: "decide on Auto" },
+              { value: "auto", label: "let Auto decide" },
             ]}
             onChange={(decisions) => set({ decisions })}
           />
@@ -127,14 +123,14 @@ export function RulesStep({
         ) : null}
         {sharesLimits ? (
           <p className={styles.rule}>
-            When its account is past{" "}
+            When its account's usage is high,{" "}
             <Pick
-              label="Skip past"
+              label="High usage"
               value={value.skipAbove === undefined ? "never" : String(value.skipAbove)}
               options={[
-                { value: "never", label: "95%, wait for room" },
-                { value: "0.9", label: "90%, skip the run" },
-                { value: "0.7", label: "70%, skip the run" },
+                { value: "never", label: "wait until there's room" },
+                { value: "0.9", label: "skip the run past 90%" },
+                { value: "0.7", label: "skip the run past 70%" },
               ]}
               onChange={(picked) => {
                 const { skipAbove: _, ...rest } = value;
@@ -154,12 +150,14 @@ export function RulesStep({
           on={value.review}
           onChange={(review) => set({ review })}
         />
-        <SwitchRow
-          label="Save each result to the Library"
-          hint="In its workspace, given to everyone there."
-          on={value.saveResult}
-          onChange={(saveResult) => set({ saveResult })}
-        />
+        {savesResult ? (
+          <SwitchRow
+            label="Save each result to the Library"
+            hint="In its workspace, given to everyone there."
+            on={value.saveResult}
+            onChange={(saveResult) => set({ saveResult })}
+          />
+        ) : null}
       </div>
     </div>
   );
