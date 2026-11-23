@@ -476,7 +476,31 @@ export const queries = {
     WHERE e.type IN ('turn.ended', 'usage.recounted') AND e.timestamp >= ?
       AND e.payload ->> '$.usage' IS NOT NULL
     GROUP BY 1, a.id, 3, 4
+    UNION ALL
+    SELECT account_id, agent_id, NULL, model, sum(input_tokens), sum(output_tokens),
+           sum(cached_input_tokens)
+    FROM kept_usage WHERE at >= ?
+    GROUP BY account_id, agent_id, model
     ORDER BY outputTokens DESC`,
+  // A removed task's usage, as `accountUsageSince` reads it, under `agentId` when one is given.
+  keepUsage: `
+    INSERT INTO kept_usage
+      (account_id, agent_id, model, at, input_tokens, output_tokens, cached_input_tokens)
+    SELECT ${SESSION_ACCOUNT}, coalesce(?, a.id),
+           coalesce(s.options ->> '$.model',
+             (SELECT payload ->> '$.model' FROM events
+              WHERE session_ref = s.ref AND type = 'session.started')),
+           max(e.timestamp),
+           coalesce(sum(e.payload ->> '$.usage.inputTokens'), 0),
+           coalesce(sum(e.payload ->> '$.usage.outputTokens'), 0),
+           coalesce(sum(e.payload ->> '$.usage.cachedInputTokens'), 0)
+    FROM events e
+    JOIN sessions s ON s.ref = e.session_ref
+    JOIN agents a ON a.ref = s.agent_ref
+    WHERE s.task_ref = ? AND e.type IN ('turn.ended', 'usage.recounted')
+      AND e.payload ->> '$.usage' IS NOT NULL
+    GROUP BY 1, 2, 3`,
+  pruneKeptUsage: "DELETE FROM kept_usage WHERE at < ?",
   conversationUsage: `
     SELECT coalesce(sum(e.payload ->> '$.usage.inputTokens'), 0) AS inputTokens,
            coalesce(sum(e.payload ->> '$.usage.outputTokens'), 0) AS outputTokens,

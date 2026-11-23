@@ -307,8 +307,9 @@ export interface Store {
   // With a session a close, crash or pause cut off at or after this time, newest first.
   listInterruptedTasks(since: number): TaskSummary[];
   searchTasks(filters: TaskSearch): TaskSearchResult;
-  // An agent that worked on no other task is deleted with it.
-  deleteTask(id: string): Promise<void>;
+  // An agent that worked on no other task is deleted with it. With `keepUsage`, Usage still
+  // counts its tokens, under `agentId` when one is given, else under the agent that spent them.
+  deleteTask(id: string, keepUsage?: { agentId?: string }): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];

@@ -1054,4 +1054,20 @@ export const migrations: readonly Migration[] = [
   addCutOffTimes,
   addAutomations,
   addAutomationEvents,
+  `
+  -- The usage of a task removed by the core, such as an automation's check (D-128), so Usage
+  -- still counts it. Kept a month: Usage reads a week at most.
+  CREATE TABLE IF NOT EXISTS kept_usage (
+    ref                 INTEGER PRIMARY KEY,
+    account_id          TEXT NOT NULL,
+    agent_id            TEXT NOT NULL,
+    model               TEXT,
+    at                  INTEGER NOT NULL,
+    input_tokens        INTEGER NOT NULL,
+    output_tokens       INTEGER NOT NULL,
+    cached_input_tokens INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS kept_usage_at ON kept_usage (at);
+  `,
 ];
