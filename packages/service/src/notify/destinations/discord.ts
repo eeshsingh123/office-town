@@ -1,4 +1,5 @@
 import {
+  addressOf,
   cut,
   type Destination,
   fullText,
@@ -27,8 +28,8 @@ function bodyOf(message: Outgoing): string | FormData {
 }
 
 async function send(message: Outgoing, place: Place<"discord">) {
-  const url = place.keys.url;
-  if (url === undefined) throw new SendError("it has no webhook address", false);
+  if (place.keys.url === undefined) throw new SendError("it has no webhook address", false);
+  const url = addressOf(place.keys.url, place.base);
   const body = bodyOf(message);
   const response = await post(url, {
     method: "POST",

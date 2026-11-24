@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
-import type { DestinationKind, DestinationRecord } from "@office-town/contract";
+import type { Delivery, DestinationKind, DestinationRecord } from "@office-town/contract";
 import { readKeys, type Secrets } from "../connectors/secrets.ts";
-import type { OutboxRow } from "../store/destinations-store.ts";
+import type { OutboxRow, SendOwner } from "../store/destinations-store.ts";
 import type { Store } from "../store/store.ts";
 import { DESTINATIONS } from "./destinations/all.ts";
 import {
@@ -29,10 +29,10 @@ export const keysId = (destinationId: string) => `destination:${destinationId}`;
 
 const sentence = (reason: string) => `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
 
-// Where an automation's messages go: every one written under its key before it is sent, so it goes
-// out once and a restart sends what waited; one at a time per destination, spaced by its service's
-// limit, tried again on a busy service, and a failure told on the run and the destination, never
-// failing the run (D-130).
+// Every message to a connected place: written under its key before it is sent, so it goes out once
+// and a restart sends what waited; one at a time per place, spaced by its service's limit, tried
+// again on a busy service. A failure is told on what it was for (the run, the task) and the place,
+// never failing the work.
 export class Outbox {
   readonly #store: Store;
   readonly secrets: Secrets;
@@ -82,28 +82,14 @@ export class Outbox {
   }
 
   // Its text is cleaned of secrets before it is stored; a key queued before is not queued again.
-  queue(
-    destination: DestinationRecord,
-    key: string,
-    automationId: string,
-    runId: string | undefined,
-    message: Queued,
-  ): void {
+  queue(destination: DestinationRecord, key: string, owner: SendOwner, message: Queued): void {
     const known = Object.values(this.keysOf(destination.id));
     const clean: Queued = {
       ...message,
       title: redact(message.title, known),
       text: redact(message.text, known).slice(0, STORED_CHARS),
     };
-    if (
-      this.#store.destinations.queue(
-        destination.id,
-        key,
-        automationId,
-        runId,
-        JSON.stringify(clean),
-      )
-    ) {
+    if (this.#store.destinations.queue(destination.id, key, owner, JSON.stringify(clean))) {
       this.#arm();
     }
   }
@@ -116,7 +102,7 @@ export class Outbox {
         {
           kind: "test",
           title: "Office Town",
-          text: "This is a test. Results from your automations will arrive here.",
+          text: "This is a test. Your team's updates will arrive here.",
         },
         this.placeOf(destination),
       );
@@ -182,7 +168,7 @@ export class Outbox {
       this.#lastSent.set(destination.id, Date.now());
       for (const row of rows) {
         this.#store.destinations.markSent(row.ref);
-        this.#sentFor(row);
+        this.#sentFor(row, destination);
       }
       this.#store.destinations.setProblem(destination.id, undefined);
     } catch (error) {
@@ -203,7 +189,8 @@ export class Outbox {
     this.#gaveUp(row, error.message);
   }
 
-  // The run says so, the destination shows it, and three in a row show on the automation.
+  // The place shows it, and so does what it was for: the run (three in a row show on its
+  // automation) or the task. An alert's failure shows on the place alone.
   #gaveUp(row: OutboxRow, reason: string): void {
     const store = this.#store;
     store.destinations.markFailed(row.ref);
@@ -211,17 +198,40 @@ export class Outbox {
     const service = destination === undefined ? "it" : serviceOf(destination).service;
     const problem = `Couldn't send to ${service}: ${reason}.`;
     if (destination !== undefined) store.destinations.setProblem(destination.id, sentence(reason));
-    if (row.runId !== null) store.automations.updateRun(row.runId, { sendProblem: problem });
-    const automation = store.automations.get(row.automationId);
+    this.#deliver(row, (delivery) => ({ ...delivery, problem }));
+    const automation =
+      row.automationId === null ? undefined : store.automations.get(row.automationId);
     if (automation === undefined) return;
     const count = (automation.sendFailures?.count ?? 0) + 1;
     store.automations.setSendFailures(automation.id, { count, reason: problem });
   }
 
-  #sentFor(row: OutboxRow): void {
-    const automation = this.#store.automations.get(row.automationId);
+  #sentFor(row: OutboxRow, destination: DestinationRecord): void {
+    if (parse(row).kind === "result") {
+      this.#deliver(row, (delivery) => ({
+        ...delivery,
+        sentTo: [...new Set([...delivery.sentTo, destination.name])],
+      }));
+    }
+    const automation =
+      row.automationId === null ? undefined : this.#store.automations.get(row.automationId);
     if (automation?.sendFailures !== undefined) {
       this.#store.automations.setSendFailures(automation.id, undefined);
+    }
+  }
+
+  // Where a run's or a task's result went, read and written whole.
+  #deliver(row: OutboxRow, change: (delivery: Delivery) => Delivery): void {
+    const store = this.#store;
+    const empty: Delivery = { sentTo: [] };
+    if (row.runId !== null) {
+      const run = store.automations.getRun(row.runId);
+      if (run !== undefined) {
+        store.automations.updateRun(run.id, { delivery: change(run.delivery ?? empty) });
+      }
+    } else if (row.taskId !== null) {
+      const task = store.getTask(row.taskId);
+      if (task !== undefined) store.setTaskDelivery(task.id, change(task.delivery ?? empty));
     }
   }
 }
@@ -237,7 +247,7 @@ const outgoingOf = ({ kind, title, text }: Queued): Outgoing => ({ kind, title, 
 function together(rows: OutboxRow[]): Outgoing {
   const lines = rows.map((row) => {
     const { title, text } = parse(row);
-    return `${title}: ${text}`;
+    return text === "" ? title : `${title}: ${text}`;
   });
   return {
     kind: "alert",

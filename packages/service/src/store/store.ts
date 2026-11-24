@@ -18,6 +18,7 @@ import type {
   ConnectorSetup,
   ConnectorStatus,
   DelegationRecord,
+  Delivery,
   DepartmentRecord,
   DepartmentSettings,
   EnvironmentSpec,
@@ -178,6 +179,8 @@ export interface TaskPlacement {
   queued?: true;
   efficient?: boolean;
   milestones?: boolean;
+  // Send result to: only a task a person started asks for it.
+  sendResult?: boolean;
 }
 
 export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
@@ -301,6 +304,8 @@ export interface Store {
   setTaskTitle(taskId: string, title: string): TaskRecord;
   setTaskEfficient(taskId: string, efficient: boolean): TaskRecord;
   setTaskMilestones(taskId: string, milestones: boolean): TaskRecord;
+  setTaskSendResult(taskId: string, on: boolean): TaskRecord;
+  setTaskDelivery(taskId: string, delivery: Delivery): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;

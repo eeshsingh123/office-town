@@ -18,8 +18,8 @@ export interface FakeServices {
 
 const POLL_MS = 50;
 
-// Telegram's Bot API and a Slack webhook, as far as the core uses them. `/slack-gone` answers as a
-// webhook that was removed.
+// Telegram's Bot API and Slack webhooks, as far as the core uses them. A webhook whose address ends
+// in `/gone` answers as one that was removed.
 export async function startFakeServices(): Promise<FakeServices> {
   const received: Received[] = [];
   const updates: object[] = [];
@@ -35,8 +35,8 @@ export async function startFakeServices(): Promise<FakeServices> {
       response.writeHead(status, { "content-type": "application/json" });
       response.end(JSON.stringify(value));
     };
-    if (path === "/slack") return reply(200, "ok");
-    if (path === "/slack-gone") {
+    if (path.startsWith("/services/")) {
+      if (!path.endsWith("/gone")) return reply(200, "ok");
       response.writeHead(404);
       return response.end("no_service");
     }

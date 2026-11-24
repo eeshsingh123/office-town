@@ -7,7 +7,6 @@ import {
   FILL_INS,
   type SessionRecord,
   type TaskOrigin,
-  type TaskRecord,
 } from "@office-town/contract";
 import { accountTitle, fullness, hasSignIn } from "../accounts/accounts.ts";
 import { resolveAttachments } from "../attachments/attachments.ts";
@@ -18,7 +17,7 @@ import { accountOf, type Claimant } from "../queue/admission.ts";
 import type { Store } from "../store/store.ts";
 import { startSoloTask } from "../task-start.ts";
 import type { TeamContext } from "../team/members.ts";
-import { topSession } from "../team/task-state.ts";
+import { resultOf } from "../team/task-state.ts";
 import { startTeamTask } from "../team/team-tasks.ts";
 import { unsafeFor } from "./checks.ts";
 
@@ -110,18 +109,6 @@ export function goneReason(
     return { reason: `Sign in to ${accountTitle(store, accountId)} again.`, fix: "sign-in" };
   }
   return undefined;
-}
-
-// The last words of the agent that joined first, the lead or the assistant.
-export function resultOf(store: Store, task: TaskRecord): string {
-  const sessions = store.listSessions(task.id);
-  const top = topSession(task, sessions);
-  if (top === undefined) return "";
-  for (const session of sessions.filter((each) => each.agentId === top.agentId).reverse()) {
-    const text = store.lastMessage(session.id);
-    if (text !== undefined) return text;
-  }
-  return "";
 }
 
 function dateIn(timeZone: string): string {

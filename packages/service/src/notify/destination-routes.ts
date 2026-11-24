@@ -1,8 +1,17 @@
+import { randomBytes } from "node:crypto";
 import {
+  type DestinationCreated,
   type DestinationKeys,
+  type DestinationKind,
   type DestinationList,
   type DestinationSettings,
   destinationRequestSchema,
+  NEW_PLACE_HEARS,
+  type PhoneChannel,
+  pasteFits,
+  type Settings,
+  type Updates,
+  updatesRequestSchema,
 } from "@office-town/contract";
 import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
@@ -18,26 +27,78 @@ export interface Delivery {
   telegram: TelegramLink;
 }
 
-// Only the keys its service takes, every one it needs.
+// What a paste should have been, in the words the Connect sheet uses.
+const EXPECTED: Partial<Record<DestinationKind, string>> = {
+  slack: "the link Slack shows under Incoming Webhooks",
+  discord: "the link Discord gives you with Copy Webhook URL",
+  telegram: "the key BotFather sends you",
+  ntfy: "a channel name of letters, numbers, - and _",
+};
+
+// Only the keys its service takes, every one it needs, each shaped as its service gives it.
 function keysFor(settings: DestinationSettings, keys: DestinationKeys): DestinationKeys {
-  const wanted = DESTINATIONS[settings.kind].keys;
+  const { kind } = settings;
   const kept: DestinationKeys = {};
-  for (const name of wanted) {
+  for (const name of DESTINATIONS[kind].keys) {
     const key = name.replace(/\?$/, "");
     const value = keys[key];
-    if (value !== undefined) kept[key] = value;
-    else if (!name.endsWith("?"))
-      throw new RequestError(400, "invalid_request", `Paste its ${key}.`);
+    if (value === undefined) {
+      if (!name.endsWith("?")) throw new RequestError(400, "invalid_request", `Paste its ${key}.`);
+      continue;
+    }
+    if (!pasteFits(kind, key, value)) {
+      const expected = EXPECTED[kind] ?? `its ${key}`;
+      throw new RequestError(400, "invalid_request", `That doesn't look like ${expected}.`);
+    }
+    kept[key] = value.trim();
   }
   return kept;
 }
+
+// Its name is its password, so it is long and random and never typed.
+const newTopic = () => `ot-${randomBytes(18).toString("base64url")}`;
+
+function phoneChannel(server: string, topic: string): PhoneChannel {
+  const url = new URL(server);
+  const secure = url.protocol === "https:" ? "" : "&secure=false";
+  return {
+    topic,
+    appLink: `ntfy://${url.host}${url.pathname.replace(/\/$/, "")}/${topic}?display=Office+Town${secure}`,
+    webLink: `${server.replace(/\/$/, "")}/${topic}`,
+  };
+}
+
+// A newly connected place starts ticked for a few alerts; a removed one leaves every list.
+function withPlace(settings: Settings, id: string): Partial<Settings> {
+  const routes = { ...settings.updateRoutes };
+  for (const kind of NEW_PLACE_HEARS) routes[kind] = [...(routes[kind] ?? []), id];
+  return { updateRoutes: routes };
+}
+
+function withoutPlace(settings: Settings, id: string): Partial<Settings> {
+  const routes = Object.fromEntries(
+    Object.entries(settings.updateRoutes ?? {}).map(([kind, ids]) => [
+      kind,
+      ids.filter((each) => each !== id),
+    ]),
+  );
+  return {
+    updateRoutes: routes,
+    resultPlaces: (settings.resultPlaces ?? []).filter((each) => each !== id),
+  };
+}
+
+const updatesOf = (settings: Settings): Updates => ({
+  routes: settings.updateRoutes ?? {},
+  resultPlaces: settings.resultPlaces ?? [],
+});
 
 const couldNot = (error: unknown) => {
   if (!(error instanceof SendError)) return error;
   return new RequestError(400, "invalid_request", `Couldn't send: ${error.message}.`);
 };
 
-// Destinations are set up once, in Connectors, by pasting a key, token or address (D-130).
+// A place is connected once, by pasting what its service gives, or for a phone by nothing at all.
 export function destinationRoutes(store: Store, { outbox, telegram }: Delivery): Route[] {
   const { destinations } = store;
   const found = (id: string) => {
@@ -58,11 +119,19 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
       method: "POST",
       path: "/destinations",
       reply: async ({ body }) => {
-        const { name, settings, keys } = destinationRequestSchema.parse(await body());
-        const kept = keysFor(settings, keys ?? {});
+        const { name, settings, keys = {} } = destinationRequestSchema.parse(await body());
+        const topic = settings.kind === "ntfy" && keys.topic === undefined ? newTopic() : undefined;
+        const kept = keysFor(settings, topic === undefined ? keys : { ...keys, topic });
         const created = destinations.create(name, settings);
         writeKeys(outbox.secrets, keysId(created.id), kept);
-        return { status: 201, json: created };
+        store.saveSettings(withPlace(store.readSettings(), created.id));
+        const answer: DestinationCreated = {
+          ...created,
+          ...(topic !== undefined && settings.kind === "ntfy"
+            ? { phone: phoneChannel(settings.server, topic) }
+            : {}),
+        };
+        return { status: 201, json: answer };
       },
     },
     {
@@ -95,7 +164,29 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
         telegram.forget(id);
         destinations.remove(id);
         outbox.secrets.remove(keysId(id));
+        store.saveSettings(withoutPlace(store.readSettings(), id));
         return { status: 204 };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/updates",
+      // A kind left out keeps its places; every place named must be connected.
+      reply: async ({ body }) => {
+        const change = updatesRequestSchema.parse(await body());
+        const named = [
+          ...Object.values(change.routes ?? {}).flat(),
+          ...(change.resultPlaces ?? []),
+        ];
+        for (const id of named) found(id);
+        const settings = store.readSettings();
+        store.saveSettings({
+          ...(change.routes === undefined
+            ? {}
+            : { updateRoutes: { ...settings.updateRoutes, ...change.routes } }),
+          ...(change.resultPlaces === undefined ? {} : { resultPlaces: change.resultPlaces }),
+        });
+        return { status: 200, json: updatesOf(store.readSettings()) };
       },
     },
     {

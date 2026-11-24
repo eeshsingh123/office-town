@@ -67,7 +67,7 @@ function noteOf(run: AutomationRun, trigger: Trigger): string | undefined {
       ? eventsText(trigger.source, run.events)
       : undefined;
   return (
-    [arrived, run.reason, run.sendProblem].filter((part) => part !== undefined).join(" · ") ||
+    [arrived, run.reason, run.delivery?.problem].filter((part) => part !== undefined).join(" · ") ||
     undefined
   );
 }

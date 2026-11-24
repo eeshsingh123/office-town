@@ -7,6 +7,7 @@ import {
   type AutomationRecord,
   type AutomationRun,
   type Change,
+  type Delivery,
   RUN_TAB_STATUSES,
   RUNS_KEPT,
   type RunPage,
@@ -26,7 +27,7 @@ const AUTOMATION_SELECT = `
 const RUN_SELECT = `
   SELECT r.ref, r.id, a.id AS automationId, r.number, r.scheduled_for AS scheduledFor, r.by,
          r.status, r.reason, r.missed, r.depth, r.events, r.wait_until AS waitUntil, t.id AS taskId,
-         r.quiet, r.send_problem AS sendProblem, r.created_at AS createdAt, r.ended_at AS endedAt
+         r.quiet, r.delivery, r.created_at AS createdAt, r.ended_at AS endedAt
   FROM automation_runs r
   JOIN automations a ON a.ref = r.automation_ref
   LEFT JOIN tasks t ON t.ref = r.task_ref`;
@@ -80,7 +81,7 @@ const queries = {
     WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?) GROUP BY status`,
   updateRun: `
     UPDATE automation_runs SET status = ?, reason = ?, task_ref = (SELECT ref FROM tasks WHERE id = ?),
-      events = ?, wait_until = ?, ended_at = ?, quiet = ?, send_problem = ?
+      events = ?, wait_until = ?, ended_at = ?, quiet = ?, delivery = ?
     WHERE id = ?`,
   prune: `
     DELETE FROM automation_runs WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?)
@@ -124,7 +125,7 @@ interface RunRow {
   waitUntil: number | null;
   taskId: string | null;
   quiet: number | null;
-  sendProblem: string | null;
+  delivery: string | null;
   createdAt: number;
   endedAt: number | null;
 }
@@ -147,7 +148,7 @@ const toRun = (row: RunRow): AutomationRun => ({
   ...(row.waitUntil === null ? {} : { waitUntil: iso(row.waitUntil) }),
   ...(row.taskId === null ? {} : { taskId: row.taskId }),
   ...(row.quiet === null ? {} : { quiet: true as const }),
-  ...(row.sendProblem === null ? {} : { sendProblem: row.sendProblem }),
+  ...(row.delivery === null ? {} : { delivery: JSON.parse(row.delivery) as Delivery }),
   createdAt: iso(row.createdAt),
   ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
 });
@@ -166,7 +167,7 @@ export interface NewRun {
 export type RunChange = Partial<
   Pick<
     AutomationRun,
-    "status" | "reason" | "taskId" | "events" | "waitUntil" | "endedAt" | "quiet" | "sendProblem"
+    "status" | "reason" | "taskId" | "events" | "waitUntil" | "endedAt" | "quiet" | "delivery"
   >
 >;
 
@@ -368,7 +369,7 @@ export class AutomationsStore {
       after.waitUntil === undefined ? null : Date.parse(after.waitUntil),
       after.endedAt === undefined ? null : Date.parse(after.endedAt),
       after.quiet === true ? 1 : null,
-      after.sendProblem ?? null,
+      after.delivery === undefined ? null : JSON.stringify(after.delivery),
       id,
     );
     const run = this.getRun(id);

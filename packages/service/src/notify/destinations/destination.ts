@@ -44,6 +44,10 @@ export interface Destination<K extends DestinationKind = DestinationKind> {
 
 const TIMEOUT_MS = 30_000;
 
+// A pasted webhook address, or the same path on a test's fake server.
+export const addressOf = (url: string, base: string | undefined) =>
+  base === undefined ? url : `${base}${new URL(url).pathname}`;
+
 // A reply the service gave, or the plain reason it could not be reached.
 export async function post(url: string, init: RequestInit): Promise<Response> {
   try {

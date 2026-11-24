@@ -24,6 +24,7 @@ import {
   type ConnectorSetup,
   type ConnectorStatus,
   type DelegationRecord,
+  type Delivery,
   type DepartmentRecord,
   type DepartmentSettings,
   type EnvironmentSpec,
@@ -152,6 +153,8 @@ interface TaskRow {
   efficient: number | null;
   milestones: number | null;
   origin: string | null;
+  sendResult: number | null;
+  delivery: string | null;
   // A JSON list of agent ids.
   workerAgentIds: string;
 }
@@ -412,6 +415,8 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.title === null ? {} : { title: row.title }),
     ...(row.efficient === null ? {} : { efficient: row.efficient === 1 }),
     ...(row.milestones === null ? {} : { milestones: row.milestones === 1 }),
+    ...(row.sendResult === 1 ? { sendResult: true } : {}),
+    ...(row.delivery === null ? {} : { delivery: JSON.parse(row.delivery) as Delivery }),
     usage,
     ...(row.origin === null ? {} : { origin: JSON.parse(row.origin) as TaskOrigin }),
   };
@@ -832,6 +837,7 @@ class SqliteStore implements Store {
         efficient ? 1 : 0,
         milestones ? 1 : 0,
         placement.origin === undefined ? null : JSON.stringify(placement.origin),
+        placement.sendResult === true ? 1 : null,
       );
       for (const worker of workers) {
         this.#statements.insertTaskWorker.run(lastInsertRowid, worker.ref);
@@ -898,6 +904,16 @@ class SqliteStore implements Store {
 
   setTaskMilestones(taskId: string, milestones: boolean): TaskRecord {
     this.#statements.setTaskMilestones.run(milestones ? 1 : 0, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskSendResult(taskId: string, on: boolean): TaskRecord {
+    this.#statements.setTaskSendResult.run(on ? 1 : null, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskDelivery(taskId: string, delivery: Delivery): TaskRecord {
+    this.#statements.setTaskDelivery.run(JSON.stringify(delivery), this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
   }
 

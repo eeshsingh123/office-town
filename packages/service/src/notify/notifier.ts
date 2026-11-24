@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   type AutomationRecord,
   type AutomationRun,
@@ -10,10 +11,14 @@ import {
 import { accountTitle } from "../accounts/accounts.ts";
 import { isChiefTask } from "../chief/chief.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
+import type { SendOwner } from "../store/destinations-store.ts";
 import type { Store } from "../store/store.ts";
-import { topSession } from "../team/task-state.ts";
+import { resultOf, statusOf, topSession } from "../team/task-state.ts";
 import { askMessage, isAsk } from "./asks.ts";
 import type { Outbox, Queued } from "./outbox.ts";
+
+// Where a task's result is ready to send.
+const OVER = new Set(["review", "done"]);
 
 // Coalescing (D-124): the first of a kind at once, the rest of that window once at its end.
 const WINDOW_MS = 5 * 60_000;
@@ -127,10 +132,15 @@ interface Window {
 interface Seen {
   ended: boolean;
   paused: boolean;
+  // Its result is ready, for a task that sends it.
+  finished: boolean;
 }
 
-// The core decides what deserves an alert and stores it as a notice; the window shows each one
-// while it is not in front (D-124). A notice never carries an agent's own text.
+const NONE: ReadonlySet<string> = new Set();
+
+// The core decides what deserves an alert: a notice the window shows while it is not in front
+// (D-124), and the same words to every connected place ticked for its kind. An alert never carries
+// an agent's own text; a result goes out only where its task or automation asked.
 export class Notifier {
   readonly #store: Store;
   readonly #windows = new Map<NoticeKind, Window>();
@@ -158,8 +168,16 @@ export class Notifier {
     for (const timer of this.#asks) clearTimeout(timer);
   }
 
-  notify(kind: NoticeKind, taskId: string | undefined, title: string, body: string): void {
-    if (!this.#enabled(kind)) return;
+  // Places in `except` hear it in their automation's own message instead.
+  notify(
+    kind: NoticeKind,
+    taskId: string | undefined,
+    title: string,
+    body: string,
+    except: ReadonlySet<string> = NONE,
+  ): void {
+    const places = this.#placesFor(kind).filter((id) => !except.has(id));
+    if (!this.#enabled(kind) && places.length === 0) return;
     const now = Date.now();
     for (const [key, at] of this.#recent) if (now - at >= WINDOW_MS) this.#recent.delete(key);
     if (taskId !== undefined) {
@@ -172,14 +190,15 @@ export class Notifier {
       open.extra += 1;
       return;
     }
-    this.#store.notices.create({ kind, ...(taskId === undefined ? {} : { taskId }), title, body });
+    this.#tell(kind, taskId, title, body, places);
     const timer = setTimeout(() => this.#closeWindow(kind), WINDOW_MS);
     timer.unref();
     this.#windows.set(kind, { extra: 0, timer });
   }
 
   automationPaused(automation: AutomationRecord, reason: string): void {
-    this.notify("automation", undefined, `${automation.name} is paused`, reason);
+    const own = new Set(automation.rules.sendTo ?? []);
+    this.notify("automation", undefined, `${automation.name} is paused`, reason, own);
     this.#sendOut(automation, `paused:${Date.now()}`, undefined, {
       kind: "alert",
       title: automation.name,
@@ -223,29 +242,65 @@ export class Notifier {
     );
   }
 
-  // Every destination is one way: an ask is answered in Office Town (D-132).
+  // Every place is one way: an ask is answered in Office Town (D-132).
   #sendOut(
     automation: AutomationRecord,
     key: string,
     runId: string | undefined,
     message: Queued,
   ): void {
-    for (const id of automation.rules.sendTo ?? []) {
+    const owner = { automationId: automation.id, ...(runId === undefined ? {} : { runId }) };
+    this.#queue(automation.rules.sendTo ?? [], key, owner, message);
+  }
+
+  #queue(placeIds: readonly string[], key: string, owner: SendOwner, message: Queued): void {
+    for (const id of placeIds) {
       const destination = this.#store.destinations.get(id);
-      if (destination === undefined) continue;
-      this.#outbox.queue(destination, key, automation.id, runId, message);
+      if (destination !== undefined) this.#outbox.queue(destination, key, owner, message);
     }
+  }
+
+  // The notice for this computer, if its switch is on, and the same words to the places given.
+  #tell(
+    kind: NoticeKind,
+    taskId: string | undefined,
+    title: string,
+    body: string,
+    places: readonly string[],
+  ): void {
+    if (this.#enabled(kind)) {
+      this.#store.notices.create({
+        kind,
+        ...(taskId === undefined ? {} : { taskId }),
+        title,
+        body,
+      });
+    }
+    this.#queue(places, `notice:${randomUUID()}`, {}, { kind: "alert", title, text: body });
   }
 
   #closeWindow(kind: NoticeKind): void {
     const window = this.#windows.get(kind);
     this.#windows.delete(kind);
-    if (window === undefined || window.extra === 0 || !this.#enabled(kind)) return;
-    this.#store.notices.create({ kind, ...MORE[kind](window.extra) });
+    if (window === undefined || window.extra === 0) return;
+    const { title, body } = MORE[kind](window.extra);
+    this.#tell(kind, undefined, title, body, this.#placesFor(kind));
   }
 
   #enabled(kind: NoticeKind): boolean {
     return this.#store.readSettings().notifications?.[kind] ?? NOTICE_DEFAULTS[kind];
+  }
+
+  #placesFor(kind: NoticeKind): string[] {
+    return this.#store.readSettings().updateRoutes?.[kind] ?? [];
+  }
+
+  // The places an automation's run, or a part of a chief's goal one started, speaks to itself.
+  #automationPlaces(task: TaskRecord): ReadonlySet<string> {
+    const goal = task.parentTaskId === undefined ? task : this.#store.getTask(task.parentTaskId);
+    const origin = goal?.origin;
+    if (origin?.kind !== "automation") return NONE;
+    return new Set(this.#store.automations.get(origin.automationId)?.rules.sendTo ?? []);
   }
 
   #heard(event: SessionEvent): void {
@@ -281,7 +336,8 @@ export class Notifier {
     if (!waiting || session === undefined || task === undefined) return;
     const name = this.#store.getAgent(session.agentId)?.name ?? "An agent";
     if (isAsk(event)) this.#askOut(event, task, name);
-    this.notify("needs-you", task.id, `${name} ${want}`, taskName(task));
+    const own = isAsk(event) ? this.#automationPlaces(task) : NONE;
+    this.notify("needs-you", task.id, `${name} ${want}`, taskName(task), own);
   }
 
   #taskOf(sessionId: string): TaskRecord | undefined {
@@ -292,9 +348,14 @@ export class Notifier {
   // A part of a chief's goal reports to the chief, so only the whole goal alerts.
   #taskChanged(task: TaskRecord): void {
     const before = this.#seen.get(task.id);
-    const now: Seen = { ended: task.state === "ended", paused: task.paused !== undefined };
+    const now: Seen = {
+      ended: task.state === "ended",
+      paused: task.paused !== undefined,
+      finished: this.#wantsResult(task) && OVER.has(statusOf(this.#store, task)),
+    };
     this.#seen.set(task.id, now);
     if (before === undefined) return;
+    if (now.finished && !before.finished) this.#resultOut(task);
     if (now.paused && !before.paused) this.#paused(task);
     if (!now.ended || before.ended || task.parentTaskId !== undefined) return;
     // An automation's check speaks through its automation, not as a task of its own, and a run
@@ -305,10 +366,29 @@ export class Notifier {
     }
     if (task.reviewedAt !== undefined) return;
     const top = topSession(task, this.#store.listSessions(task.id));
-    if (top?.status === "failed") this.notify("failed", task.id, "A task failed", taskName(task));
-    else if (top?.status !== "stopped" && top?.status !== "interrupted") {
-      this.notify("finished", task.id, "A task is finished", taskName(task));
+    const own = this.#automationPlaces(task);
+    if (top?.status === "failed") {
+      this.notify("failed", task.id, "A task failed", taskName(task), own);
+    } else if (top?.status !== "stopped" && top?.status !== "interrupted") {
+      this.notify("finished", task.id, "A task is finished", taskName(task), own);
     }
+  }
+
+  // Send result to: only a task a person started, never an automation's or a part of a goal.
+  #wantsResult(task: TaskRecord): boolean {
+    return task.sendResult === true && task.origin === undefined && task.parentTaskId === undefined;
+  }
+
+  // Once a task, to Settings' result places, as the text its lead or assistant ended with.
+  #resultOut(task: TaskRecord): void {
+    const result = resultOf(this.#store, task).trim();
+    if (result === "") return;
+    this.#queue(
+      this.#store.readSettings().resultPlaces ?? [],
+      `task-result:${task.id}`,
+      { taskId: task.id },
+      { kind: "result", title: `${teamName(this.#store, task)} · ${taskName(task)}`, text: result },
+    );
   }
 
   #paused(task: TaskRecord): void {

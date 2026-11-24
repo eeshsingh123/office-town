@@ -18,7 +18,7 @@ const DESTINATION_SELECT = `
 
 const OUTBOX_SELECT = `
   SELECT o.ref, d.id AS destinationId, o.key, o.automation_id AS automationId, o.run_id AS runId,
-         o.message, o.state, o.attempts, o.next_at AS nextAt,
+         o.task_id AS taskId, o.message, o.state, o.attempts, o.next_at AS nextAt,
          o.created_at AS createdAt
   FROM outbox o JOIN destinations d ON d.ref = o.destination_ref`;
 
@@ -34,8 +34,8 @@ const queries = {
   byId: `${DESTINATION_SELECT} WHERE id = ?`,
   queue: `
     INSERT OR IGNORE INTO outbox
-      (destination_ref, key, automation_id, run_id, message, state, next_at, created_at)
-    VALUES ((SELECT ref FROM destinations WHERE id = ?), ?, ?, ?, ?, 'waiting', ?, ?)`,
+      (destination_ref, key, automation_id, run_id, task_id, message, state, next_at, created_at)
+    VALUES ((SELECT ref FROM destinations WHERE id = ?), ?, ?, ?, ?, ?, 'waiting', ?, ?)`,
   due: `${OUTBOX_SELECT} WHERE o.state = 'waiting' AND o.next_at <= ? ORDER BY o.next_at, o.ref`,
   earliest: "SELECT min(next_at) AS at FROM outbox WHERE state = 'waiting'",
   sent: "UPDATE outbox SET state = 'sent', attempts = attempts + 1 WHERE ref = ?",
@@ -58,12 +58,20 @@ interface DestinationRow {
   updatedAt: number;
 }
 
+// What a message is for: an automation's run, a person's task, or neither (an alert).
+export interface SendOwner {
+  automationId?: string;
+  runId?: string;
+  taskId?: string;
+}
+
 export interface OutboxRow {
   ref: number;
   destinationId: string;
   key: string;
-  automationId: string;
+  automationId: string | null;
   runId: string | null;
+  taskId: string | null;
   // As the outbox wrote it, read back by the outbox only.
   message: string;
   state: "waiting" | "sent" | "failed";
@@ -136,19 +144,14 @@ export class DestinationsStore {
   }
 
   // False when that key was queued before: each message goes out once.
-  queue(
-    destinationId: string,
-    key: string,
-    automationId: string,
-    runId: string | undefined,
-    message: string,
-  ): boolean {
+  queue(destinationId: string, key: string, owner: SendOwner, message: string): boolean {
     const now = Date.now();
     const { changes } = this.#statements.queue.run(
       destinationId,
       key,
-      automationId,
-      runId ?? null,
+      owner.automationId ?? null,
+      owner.runId ?? null,
+      owner.taskId ?? null,
       message,
       now,
       now,

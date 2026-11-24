@@ -168,12 +168,12 @@ export function apiRoutes(
       method: "POST",
       path: "/tasks/chief",
       reply: async ({ body }) => {
-        const { goal, attachments, efficient, milestones } = chiefTaskRequestSchema.parse(
-          await body(),
-        );
+        const { goal, attachments, efficient, milestones, sendResult } =
+          chiefTaskRequestSchema.parse(await body());
         const detail = await startChiefGoal(team, goal, resolveAttachments(store, attachments), {
           efficient,
           milestones,
+          sendResult,
         });
         const chief = chiefOf(store);
         if (chief !== undefined) nameTask(detail.task.id, chief.settings.harness);
@@ -285,13 +285,25 @@ export function apiRoutes(
       method: "PUT",
       path: "/tasks/:id/options",
       // Efficient is taken at the next size check, and a handover under way finishes (D-94).
-      // Milestones reach each agent at its next start, as an AI app reads its tools once.
+      // Milestones reach each agent at its next start, as an AI app reads its tools once. Send
+      // result is read when the task ends.
       reply: async ({ param, body }) => {
-        const { efficient, milestones } = taskModeRequestSchema.parse(await body());
+        const { efficient, milestones, sendResult } = taskModeRequestSchema.parse(await body());
         const taskId = param("id");
-        if (store.getTask(taskId) === undefined) throw new RecordNotFoundError("task");
+        const task = store.getTask(taskId);
+        if (task === undefined) throw new RecordNotFoundError("task");
         if (efficient !== undefined) setEfficient(store, taskId, efficient);
         if (milestones !== undefined) setMilestonesOn(store, taskId, milestones);
+        if (sendResult !== undefined) {
+          if (task.origin !== undefined || task.parentTaskId !== undefined) {
+            throw new RequestError(
+              400,
+              "invalid_request",
+              "Only a task you started sends its result.",
+            );
+          }
+          store.setTaskSendResult(taskId, sendResult);
+        }
         return { status: 200, json: store.getTask(taskId) };
       },
     },

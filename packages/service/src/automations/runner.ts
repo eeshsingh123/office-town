@@ -4,9 +4,7 @@ import {
   CHAIN_DEPTH,
   type Change,
   EVENTS_A_RUN,
-  type RunStatus,
   type TaskRecord,
-  taskStatus,
 } from "@office-town/contract";
 import { isChiefTask } from "../chief/chief.ts";
 import { stopChiefGoal } from "../chief/goals.ts";
@@ -15,11 +13,11 @@ import type { Notifier } from "../notify/notifier.ts";
 import { type Wait, waitOn } from "../queue/admission.ts";
 import type { AdmissionQueue } from "../queue/admission-queue.ts";
 import type { TeamContext } from "../team/members.ts";
-import { topSession } from "../team/task-state.ts";
+import { resultOf, statusOf, topSession } from "../team/task-state.ts";
 import { markDone, stopTeam } from "../team/team-tasks.ts";
 import { Clock, catchUp, LATE_MS, missedSince, nextRuns } from "./clock.ts";
 import { saveResult } from "./results.ts";
-import { claimantOf, goneReason, pastShare, resultOf, startRunTask } from "./run-task.ts";
+import { claimantOf, goneReason, pastShare, startRunTask } from "./run-task.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FAILURES_TO_PAUSE = 3;
@@ -324,7 +322,7 @@ export class Runner {
     if (task.origin?.kind !== "automation") return;
     const run = store.automations.getRun(task.origin.runId);
     if (run === undefined) return;
-    const status = statusOf(this.#context, task);
+    const status = statusOf(this.#context.store, task);
     // Once over, it still shows its task's status, such as Done after a review.
     if (run.endedAt !== undefined) {
       store.automations.updateRun(run.id, { status });
@@ -470,23 +468,4 @@ export class Runner {
       });
     }
   }
-}
-
-export function statusOf({ store }: Pick<TeamContext, "store">, task: TaskRecord): RunStatus {
-  const sessions = store.listSessions(task.id);
-  const openPieces = store
-    .listPieces(task.id)
-    .some(
-      (piece) =>
-        piece.status === "waiting" || piece.status === "queued" || piece.status === "working",
-    );
-  return taskStatus(
-    {
-      state: task.state,
-      reviewed: task.reviewedAt !== undefined,
-      isPart: task.parentTaskId !== undefined,
-      openPieces,
-    },
-    topSession(task, sessions)?.status,
-  );
 }

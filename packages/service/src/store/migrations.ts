@@ -629,8 +629,17 @@ function addAutomationDelivery(db: DatabaseSync): void {
   }
   if (!hasColumn(db, "automation_runs", "quiet")) {
     db.exec("ALTER TABLE automation_runs ADD COLUMN quiet INTEGER");
-    db.exec("ALTER TABLE automation_runs ADD COLUMN send_problem TEXT");
   }
+  if (!hasColumn(db, "automation_runs", "delivery")) {
+    db.exec("ALTER TABLE automation_runs ADD COLUMN delivery TEXT");
+  }
+  if (!hasColumn(db, "tasks", "send_result")) {
+    db.exec("ALTER TABLE tasks ADD COLUMN send_result INTEGER");
+    db.exec("ALTER TABLE tasks ADD COLUMN delivery TEXT");
+  }
+  // An outbox made before sends could belong to a task or to nothing holds only messages, so a
+  // data folder from before this branch's last change starts it again.
+  if (!hasColumn(db, "outbox", "task_id")) db.exec("DROP TABLE IF EXISTS outbox");
   db.exec(`
   CREATE TABLE IF NOT EXISTS destinations (
     ref         INTEGER PRIMARY KEY,
@@ -647,8 +656,9 @@ function addAutomationDelivery(db: DatabaseSync): void {
     ref             INTEGER PRIMARY KEY,
     destination_ref INTEGER NOT NULL REFERENCES destinations (ref) ON DELETE CASCADE,
     key             TEXT NOT NULL,
-    automation_id   TEXT NOT NULL,
+    automation_id   TEXT,
     run_id          TEXT,
+    task_id         TEXT,
     message         TEXT NOT NULL,
     state           TEXT NOT NULL CHECK (state IN ('waiting', 'sent', 'failed')),
     attempts        INTEGER NOT NULL DEFAULT 0,

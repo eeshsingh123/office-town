@@ -207,16 +207,25 @@ describe("the runner", () => {
     expect(core.store.automationEvents.pending(id)).toMatchObject({ count: 1 });
   });
 
-  it("sends a run's result once to where it was picked, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
+  it("sends results once to where they were asked for, alerts in the core's words, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
     const fake = await startFakeServices();
     await core.close();
-    core = await startCore(join(directory, "delivery"), { telegram: fake.url });
+    core = await startCore(join(directory, "delivery"), { telegram: fake.url, slack: fake.url });
     try {
       const add = (name: string, kind: string, keys: Record<string, string>) =>
         core.call("POST", "/destinations", { name, settings: { kind }, keys });
-      const telegram = (await add("Phone", "telegram", { token: "bot-key" })).json.id as string;
-      const slack = (await add("Team", "slack", { url: `${fake.url}/slack` })).json.id as string;
-      const gone = (await add("Old", "slack", { url: `${fake.url}/slack-gone` })).json.id as string;
+      const hook = (name: string) => `https://hooks.slack.com/services/T1/B1/${name}`;
+      // A paste that is not what Slack gives is refused at the edge.
+      const wrong = await add("Wrong", "slack", { url: "https://team.slack.com/archives/C1" });
+      expect(wrong.status).toBe(400);
+      const token = "123456:AAbbCCddEEffGGhhIIjjKKllMMnnOOppQQr";
+      const telegram = (await add("Phone", "telegram", { token })).json.id as string;
+      const slack = (await add("Team", "slack", { url: hook("team") })).json.id as string;
+      const gone = (await add("Old", "slack", { url: hook("gone") })).json.id as string;
+      // Not an automation's place: it hears alerts by their kind, and a task's result when asked.
+      const alerts = (await add("Alerts", "slack", { url: hook("alerts") })).json.id as string;
+      const heard = (path: string) =>
+        fake.received.filter((each) => each.path === `/services/T1/B1/${path}`);
       // Linked with the one-time code, from one chat and one person.
       const { code } = (await core.call("POST", `/destinations/${telegram}/link`)).json;
       fake.updates.push({
@@ -262,21 +271,27 @@ describe("the runner", () => {
       await core.callTool(first, "keep_notes", { notes: "Reported: item A" });
       playTurn(first, "Item A is new. Key: sk-ant-abcdefghijklmnopqrstuvwxyz123");
       const [run1] = core.store.automations.runs(id, {}).runs;
-      await eventually(
-        () => core.store.automations.getRun(run1?.id ?? "")?.sendProblem !== undefined,
-      );
+      await eventually(() => {
+        const delivery = core.store.automations.getRun(run1?.id ?? "")?.delivery;
+        return delivery?.sentTo.length === 2 && delivery.problem !== undefined;
+      });
       const result = fake.sentToTelegram().find((message) => message.text?.includes("Item A"));
       expect(result?.text).toContain("[hidden]");
       expect(result?.text).not.toContain("sk-ant-");
-      expect(fake.received.filter(({ path }) => path === "/slack")).toHaveLength(1);
+      expect(heard("team")).toHaveLength(1);
+      expect(heard("alerts")).toHaveLength(0);
       expect(core.store.automations.getRun(run1?.id ?? "")).toMatchObject({
         status: "done",
-        sendProblem: "Couldn't send to Slack: the webhook was turned off or removed.",
+        delivery: {
+          sentTo: ["Phone", "Team"],
+          problem: "Couldn't send to Slack: the webhook was turned off or removed.",
+        },
       });
       expect(core.store.destinations.get(gone)?.problem).toBeDefined();
-      expect(
-        core.store.destinations.queue(telegram, `result:${run1?.id}`, id, run1?.id, "{}"),
-      ).toBe(false);
+      const owner = { automationId: id, runId: run1?.id ?? "" };
+      expect(core.store.destinations.queue(telegram, `result:${run1?.id}`, owner, "{}")).toBe(
+        false,
+      );
 
       // Run 2 reads its notes as data, finds nothing new and stays quiet.
       const sentBefore = fake.sentToTelegram().length;
@@ -322,6 +337,29 @@ describe("the runner", () => {
       expect(fake.updates).toHaveLength(1);
       expect(core.store.listPendingRequests().requests).toHaveLength(1);
       expect(core.sessions).toHaveLength(sessions);
+      // The automation's own places heard the ask in its words; a place ticked for "needs you"
+      // heard it in the core's words only.
+      await eventually(() => heard("alerts").length === 1);
+      expect(heard("alerts")[0]?.body).toContain("asks a question");
+      expect(heard("alerts")[0]?.body).not.toContain("Which source?");
+
+      // A task a person started with Send result to goes once to the result places.
+      await core.call("PUT", "/updates", { resultPlaces: [alerts] });
+      const task = await core.call("POST", "/tasks", {
+        prompt: "Sum up the week.",
+        agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+        autonomy: "full",
+        workspaceId: scratch?.id,
+        sendResult: true,
+      });
+      expect(task.status).toBe(201);
+      playTurn(core.sessions.at(-1), "Three things happened this week.");
+      await eventually(() => heard("alerts").length === 2);
+      await settle();
+      expect(heard("alerts")).toHaveLength(2);
+      expect(heard("alerts")[1]?.body).toContain("Three things happened this week.");
+      expect(heard("team")).toHaveLength(2);
+      expect(core.store.getTask(task.json.taskId)?.delivery).toEqual({ sentTo: ["Alerts"] });
     } finally {
       await fake.close();
     }
