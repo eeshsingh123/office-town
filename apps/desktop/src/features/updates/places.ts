@@ -5,6 +5,7 @@ import type {
   Updates,
   UpdatesRequest,
 } from "@office-town/contract";
+import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -71,7 +72,7 @@ export async function sendTest(place: DestinationRecord): Promise<void> {
   }
 }
 
-interface ConnectRequest {
+export interface ConnectRequest {
   // Without one, the sheet starts on the list of services.
   kind?: DestinationRecord["settings"]["kind"];
   editing?: DestinationRecord;
@@ -79,19 +80,35 @@ interface ConnectRequest {
   onConnected?: (placeId: string) => void;
 }
 
-const useConnect = create<{ request: ConnectRequest | undefined }>(() => ({
+// `opened` counts the times it was opened, so each opening starts fresh.
+const useConnect = create<{ request: ConnectRequest | undefined; opened: number }>(() => ({
   request: undefined,
+  opened: 0,
 }));
 
 // One Connect sheet for the whole app, drawn over the page it was opened from, so closing it
 // returns there.
 export function openConnect(request: ConnectRequest = {}): void {
-  useConnect.setState({ request });
+  useConnect.setState((state) => ({ request, opened: state.opened + 1 }));
 }
 
 export const closeConnect = () => useConnect.setState({ request: undefined });
 
 export const useConnectRequest = () => useConnect((state) => state.request);
+export const useConnectOpened = () => useConnect((state) => state.opened);
+
+// True once a Telegram link code has run out.
+export function useExpired(expiresAt: string | undefined): boolean {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (expiresAt === undefined) return;
+    const left = Date.parse(expiresAt) - Date.now();
+    if (left <= 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), left);
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
+  return expiresAt !== undefined && Date.parse(expiresAt) <= now;
+}
 
 let computerWrites: Promise<void> = Promise.resolve();
 

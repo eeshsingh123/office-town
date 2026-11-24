@@ -1,5 +1,5 @@
 import type { DestinationRecord, TelegramCode } from "@office-town/contract";
-import { Pencil, Plus, Send, Trash2, Unlink } from "lucide-react";
+import { Pencil, Plus, Trash2, Unlink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { confirmed, MoreMenu } from "../../ui/ActionMenu.tsx";
@@ -8,8 +8,8 @@ import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { GUIDES } from "../updates/guides/all.ts";
 import { PlaceRow } from "../updates/PlaceRow.tsx";
-import { PlaceTag } from "../updates/PlaceTag.tsx";
-import { errorText, openConnect, sendTest, usePlaces } from "../updates/places.ts";
+import { ServiceLogo } from "../updates/PlaceTag.tsx";
+import { errorText, openConnect, sendTest, useExpired, usePlaces } from "../updates/places.ts";
 import updates from "../updates/Updates.module.css";
 import styles from "./Connectors.module.css";
 
@@ -25,6 +25,7 @@ function UpdatesRow({ place, pointed }: { place: DestinationRecord; pointed: boo
   const [testing, setTesting] = useState(false);
   const [code, setCode] = useState<TelegramCode>();
   const linkable = place.settings.kind === "telegram" && place.link === undefined;
+  const expired = useExpired(code?.expiresAt);
   const link = async () => {
     try {
       setCode(await api.linkTelegram(place.id));
@@ -35,9 +36,12 @@ function UpdatesRow({ place, pointed }: { place: DestinationRecord; pointed: boo
   return (
     <li id={`place-${place.id}`} className={`${updates.listRow} ${pointed ? updates.pointed : ""}`}>
       <PlaceRow
-        tag={<PlaceTag place={place} />}
+        logo={<ServiceLogo kind={place.settings.kind} size="md" />}
+        tag={<span className={styles.connName}>{place.name}</span>}
         detail={
-          linkable && code !== undefined ? (
+          linkable && code !== undefined && expired ? (
+            "This code ran out. Get a new one."
+          ) : linkable && code !== undefined ? (
             <>
               Send <strong>{code.code}</strong> to your bot within 10 minutes.{" "}
               {code.url === undefined ? null : (
@@ -62,7 +66,6 @@ function UpdatesRow({ place, pointed }: { place: DestinationRecord; pointed: boo
               void sendTest(place).finally(() => setTesting(false));
             }}
           >
-            <Send size={14} aria-hidden />
             Send a test
           </Button>
         )}

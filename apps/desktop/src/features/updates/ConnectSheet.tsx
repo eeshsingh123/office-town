@@ -16,16 +16,27 @@ import { ConnectorSheet } from "../connectors/SheetParts.tsx";
 import { GUIDES } from "./guides/all.ts";
 import type { PasteField, ServiceGuide } from "./guides/guide.ts";
 import { ServiceLogo } from "./PlaceTag.tsx";
-import { closeConnect, errorText, useConnectRequest } from "./places.ts";
+import {
+  type ConnectRequest,
+  closeConnect,
+  errorText,
+  useConnectOpened,
+  useConnectRequest,
+  useExpired,
+} from "./places.ts";
 import styles from "./Updates.module.css";
 
 // Drawn once for the whole app; openConnect() shows it over the page the user is on.
 export function ConnectHost() {
   const request = useConnectRequest();
-  const [kind, setKind] = useState<DestinationKind>();
-  // A new request starts from what it asked for.
-  useEffect(() => setKind(request?.kind ?? request?.editing?.settings.kind), [request]);
+  const opened = useConnectOpened();
   if (request === undefined) return null;
+  return <ConnectFlow key={opened} request={request} />;
+}
+
+// Starts on the service it was opened for, or on the list of services.
+function ConnectFlow({ request }: { request: ConnectRequest }) {
+  const [kind, setKind] = useState(request.kind ?? request.editing?.settings.kind);
   if (kind === undefined) return <ChooseService onPick={setKind} />;
   const chosenHere = request.kind === undefined && request.editing === undefined;
   return (
@@ -90,6 +101,14 @@ function wrongPaste(guide: ServiceGuide, field: PasteField, value: string) {
 
 type Outcome = { ok: boolean; text: string };
 
+// "Slack", or "Slack 2" when one is already called that, so two of a service read apart.
+function freeName(label: string, taken: readonly string[]): string {
+  const names = new Set(taken.map((name) => name.toLowerCase()));
+  let name = label;
+  for (let next = 2; names.has(name.toLowerCase()); next += 1) name = `${label} ${next}`;
+  return name;
+}
+
 interface ConnectServiceProps {
   guide: ServiceGuide;
   editing?: DestinationRecord;
@@ -101,6 +120,13 @@ interface ConnectServiceProps {
 function ConnectService({ guide, editing, onBack, onConnected }: ConnectServiceProps) {
   const [placeId, setPlaceId] = useState(editing?.id);
   const place = useApp((state) => (placeId === undefined ? undefined : state.places?.[placeId]));
+  const others = useApp((state) => state.places);
+  const usual = freeName(
+    guide.label,
+    Object.values(others ?? {})
+      .filter((each) => each.id !== placeId)
+      .map((each) => each.name),
+  );
   const [name, setName] = useState(editing?.name ?? "");
   const [values, setValues] = useState<Record<string, string>>(
     editing === undefined ? {} : plainValues(editing.settings),
@@ -164,7 +190,7 @@ function ConnectService({ guide, editing, onBack, onConnected }: ConnectServiceP
       ),
     );
     const request = {
-      name: name.trim() || guide.label,
+      name: name.trim() || usual,
       settings: settingsOf(guide.kind, values),
       ...(Object.keys(keys).length === 0 ? {} : { keys }),
     };
@@ -276,7 +302,7 @@ function ConnectService({ guide, editing, onBack, onConnected }: ConnectServiceP
             <input
               className={page.input}
               value={name}
-              placeholder={guide.label}
+              placeholder={usual}
               onChange={(event) => setName(event.target.value)}
             />
           </label>
@@ -350,6 +376,7 @@ function Guide({
 
 // After Save: the bot only knows the chat once the user sends it the code.
 function LinkChat({ code, onNewCode }: { code: TelegramCode; onNewCode: () => void }) {
+  const expired = useExpired(code.expiresAt);
   return (
     <div className={connectors.field}>
       <span className={connectors.fieldLabel}>Link your chat</span>
@@ -358,10 +385,10 @@ function LinkChat({ code, onNewCode }: { code: TelegramCode; onNewCode: () => vo
         <span className={styles.code}>{code.code}</span> within 10 minutes.
       </p>
       <p className={connectors.note} role="status">
-        Waiting for your chat…
+        {expired ? "This code ran out. Get a new one." : "Waiting for your chat…"}
       </p>
       <span className={styles.rowEnd}>
-        {code.url === undefined ? null : (
+        {expired || code.url === undefined ? null : (
           <a className={connectors.link} href={code.url} target="_blank" rel="noreferrer">
             Open in Telegram <ExternalLink size={12} aria-hidden />
           </a>

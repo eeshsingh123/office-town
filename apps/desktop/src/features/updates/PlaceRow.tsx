@@ -6,27 +6,39 @@ import menu from "../../ui/Menu.module.css";
 import { ALERTS } from "./places.ts";
 import styles from "./Updates.module.css";
 
-// One place: its tag, a short line under it when there is one, then its controls. The same row
-// in Settings and Connectors.
+// One connected app: its tag, a short line under it when there is one, then its controls. The
+// same row in Settings and Connectors, where a large logo lines it up with the app rows above.
 export function PlaceRow({
+  logo,
   tag,
   detail,
   warn = false,
   children,
 }: {
+  logo?: ReactNode;
   tag: ReactNode;
   detail?: ReactNode;
   warn?: boolean;
   children: ReactNode;
 }) {
+  const text = (
+    <span className={styles.rowText}>
+      {tag}
+      {detail === undefined ? null : (
+        <span className={`${styles.detail} ${warn ? styles.warn : ""}`}>{detail}</span>
+      )}
+    </span>
+  );
   return (
     <div className={styles.row}>
-      <span className={styles.rowText}>
-        {tag}
-        {detail === undefined ? null : (
-          <span className={`${styles.detail} ${warn ? styles.warn : ""}`}>{detail}</span>
-        )}
-      </span>
+      {logo === undefined ? (
+        text
+      ) : (
+        <span className={styles.withLogo}>
+          {logo}
+          {text}
+        </span>
+      )}
       <span className={styles.rowEnd}>{children}</span>
     </div>
   );

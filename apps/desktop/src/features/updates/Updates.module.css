@@ -73,6 +73,19 @@
   font-weight: 600;
 }
 
+/* In Connectors: the logo and text on the same columns as the app rows above. */
+.withLogo {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.withLogo > .rowText {
+  gap: 2px;
+}
+
 /* What a place hears: every update, or how many, listed on hover. */
 .hears {
   border-color: var(--border-strong);
@@ -313,9 +326,13 @@
   color: var(--text-3);
 }
 
-/* A place in Connectors' list. */
+/* A connected app in Connectors' list, as tall as an app row. */
 .listRow {
-  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 64px;
+  padding: 12px 20px;
   scroll-margin: 24px;
 }
 
