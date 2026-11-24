@@ -149,10 +149,12 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
           onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
       ))}
-      <SendResultRow
-        on={task.sendResult === true}
-        onChange={(on) => setTaskOption(taskId, "sendResult", on)}
-      />
+      {task.origin === undefined && task.parentTaskId === undefined ? (
+        <SendResultRow
+          on={task.sendResult === true}
+          onChange={(on) => setTaskOption(taskId, "sendResult", on)}
+        />
+      ) : null}
     </section>
   );
 }
