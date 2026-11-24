@@ -36,6 +36,7 @@ import { TaskView } from "./features/task/TaskView.tsx";
 import { adoptRememberedLevel } from "./features/task/task-options.ts";
 import { TasksView } from "./features/tasks/TasksView.tsx";
 import { TeamView } from "./features/team/TeamView.tsx";
+import { ConnectHost } from "./features/updates/ConnectSheet.tsx";
 import { UsageView } from "./features/usage/UsageView.tsx";
 import { WorkspacesView } from "./features/workspaces/WorkspacesView.tsx";
 import { WorkspaceView } from "./features/workspaces/WorkspaceView.tsx";
@@ -100,7 +101,7 @@ function Main({ view }: { view: View }) {
         <ConnectorsView
           {...(view.connect === undefined ? {} : { connect: view.connect })}
           {...(view.audience === undefined ? {} : { audience: view.audience })}
-          {...(view.sendResults === undefined ? {} : { sendResults: true })}
+          {...(view.place === undefined ? {} : { place: view.place })}
         />
       );
     case "connector":
@@ -189,6 +190,7 @@ export function App() {
           <PinnedStrip />
         </main>
         <Toaster />
+        <ConnectHost />
         <CommandMenu />
         <ReviewDialogHost />
         <TutorialCard />

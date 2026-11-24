@@ -43,14 +43,14 @@ import {
 } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
-import { SendResults } from "./SendResults.tsx";
+import { UpdatesSection } from "./UpdatesSection.tsx";
 
 interface ConnectorsViewProps {
   // An app to set up at once, by slug or name, such as one an agent asked for.
   connect?: string;
   audience?: Audience;
-  // Opens Add on the services automations send results to.
-  sendResults?: boolean;
+  // A place to point at in Updates, by id.
+  place?: string;
 }
 
 type Tab = "all" | "needs" | "off";
@@ -252,22 +252,16 @@ export function ConnectorsView(props: ConnectorsViewProps) {
   const [filters, setFilters] = useKept(FILTERS);
   const [by, setBy] = useKept(GROUP);
   const scroll = useKeptScroll("connectors");
-  const [adding, setAdding] = useState<{
-    app?: string;
-    audience?: Audience;
-    sendResults?: boolean;
-  } | null>();
+  const [adding, setAdding] = useState<{ app?: string; audience?: Audience } | null>();
   // An app asked for opens once, unless the user has closed it since.
   const sheet =
     adding === undefined
-      ? props.sendResults === true
-        ? { sendResults: true }
-        : props.connect === undefined
-          ? null
-          : {
-              app: props.connect,
-              ...(props.audience === undefined ? {} : { audience: props.audience }),
-            }
+      ? props.connect === undefined
+        ? null
+        : {
+            app: props.connect,
+            ...(props.audience === undefined ? {} : { audience: props.audience }),
+          }
       : adding;
   // Provider apps signed in since are read on opening and on coming back to the app.
   useEffect(() => {
@@ -385,7 +379,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         <PageHeader
           id="connectors-title"
           title="Connectors"
-          lead="Apps your agents can use, and where automations send their results."
+          lead="Apps your agents can use, and the places your updates go to."
           actions={
             <Button variant="primary" data-tour="connectors-add" onClick={() => setAdding({})}>
               <Plus size={14} aria-hidden />
@@ -505,7 +499,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
           </div>
         )}
 
-        <SendResults onAdd={() => setAdding({ sendResults: true })} />
+        <UpdatesSection place={props.place} />
 
         {suggesting ? (
           <div className={page.section}>
@@ -557,7 +551,6 @@ export function ConnectorsView(props: ConnectorsViewProps) {
           groups={groups}
           {...(sheet.app === undefined ? {} : { app: sheet.app })}
           {...(sheet.audience === undefined ? {} : { audience: sheet.audience })}
-          sendResults={sheet.sendResults === true}
           onClose={() => setAdding(null)}
         />
       )}

@@ -143,7 +143,10 @@ import {
   taskRecordSchema,
   taskSearchResultSchema,
   telegramCodeSchema,
+  type Updates,
+  type UpdatesRequest,
   type UserProfile,
+  updatesSchema,
   userProfileSchema,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -468,6 +471,9 @@ export const api = {
   // Only the kinds given change; the answer is every kind the user set.
   saveNotifications: (change: Notifications): Promise<Notifications> =>
     write("PUT", "/notifications", change, notificationsSchema),
+  // A kind left out of `routes` keeps its places.
+  saveUpdates: (change: UpdatesRequest): Promise<Updates> =>
+    write("PUT", "/updates", change, updatesSchema),
   saveTaskDefaults: (defaults: TaskDefaultsRequest): Promise<void> =>
     send("PUT", "/task-defaults", defaults),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).

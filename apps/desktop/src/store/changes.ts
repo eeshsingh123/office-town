@@ -1,4 +1,9 @@
-import type { Change, HarnessStatus } from "@office-town/contract";
+import {
+  type Change,
+  type DestinationRecord,
+  type HarnessStatus,
+  NEW_PLACE_HEARS,
+} from "@office-town/contract";
 import type { AppState } from "./app-store.ts";
 import { removeTask } from "./records.ts";
 
@@ -82,16 +87,17 @@ function applyChange(state: AppState, change: Change): AppState {
     }
     case "harness":
       return { ...state, harnessStatuses: withStatuses(state.harnessStatuses, [change.status]) };
-    // Heard as they come by the notifications, Home's card of stopped tasks, the automations and
-    // Settings' destinations.
+    // Heard as they come by the notifications, Home's card of stopped tasks and the automations.
     case "notice.created":
     case "queue":
     case "automation":
     case "automation.removed":
     case "run":
-    case "destination":
-    case "destination.removed":
       return state;
+    case "destination":
+      return withPlace(state, change.destination);
+    case "destination.removed":
+      return withoutPlace(state, change.destinationId);
     case "limits":
       return { ...state, limits: { ...state.limits, [change.limits.accountId]: change.limits } };
     case "piece":
@@ -113,6 +119,32 @@ function applyChange(state: AppState, change: Change): AppState {
     case "output":
       return { ...state, outputs: { ...state.outputs, [change.output.id]: change.output } };
   }
+}
+
+// As the core does: a new place starts ticked for a few alerts, a removed one leaves every list.
+function withPlace(state: AppState, place: DestinationRecord): AppState {
+  if (state.places === undefined) return state;
+  const isNew = state.places[place.id] === undefined;
+  const routes = { ...state.updates.routes };
+  if (isNew) for (const kind of NEW_PLACE_HEARS) routes[kind] = [...(routes[kind] ?? []), place.id];
+  return {
+    ...state,
+    places: { ...state.places, [place.id]: place },
+    updates: { ...state.updates, routes },
+  };
+}
+
+function withoutPlace(state: AppState, placeId: string): AppState {
+  if (state.places === undefined) return state;
+  const { [placeId]: _, ...places } = state.places;
+  const routes = Object.fromEntries(
+    Object.entries(state.updates.routes).map(([kind, ids]) => [
+      kind,
+      ids.filter((id) => id !== placeId),
+    ]),
+  );
+  const resultPlaces = state.updates.resultPlaces.filter((id) => id !== placeId);
+  return { ...state, places, updates: { routes, resultPlaces } };
 }
 
 export function applyChanges(state: AppState, changes: readonly Change[]): AppState {

@@ -46,6 +46,7 @@ import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
 import { SETTINGS_SECTIONS } from "../settings/SettingsView.tsx";
+import { openConnect } from "../updates/places.ts";
 import styles from "./CommandMenu.module.css";
 import { setCommandMenuOpen, useCommandMenu } from "./command-menu.ts";
 
@@ -228,9 +229,20 @@ export function CommandMenu() {
                 />
                 <Row
                   icon={Send}
-                  label="Send automation results"
-                  keywords={["telegram", "slack", "discord", "email", "ntfy", "webhook"]}
-                  onSelect={() => go({ name: "connectors", sendResults: true })}
+                  label="Connect a place for updates"
+                  keywords={[
+                    "updates",
+                    "notifications",
+                    "slack",
+                    "telegram",
+                    "discord",
+                    "email",
+                    "webhook",
+                  ]}
+                  onSelect={() => {
+                    close();
+                    openConnect();
+                  }}
                 />
               </Command.Group>
               <Command.Group heading="Go to">

@@ -27,10 +27,11 @@ import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
-import { useDestinations } from "../connectors/destinations.ts";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { PlaceTags } from "../updates/PlaceTag.tsx";
+import { usePlaces } from "../updates/places.ts";
 import { eventMissing, useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
@@ -94,6 +95,9 @@ const keptWhen = (saved: unknown) =>
     ? (saved as WhenForm)
     : undefined;
 
+const newRules = (resultPlaces: string[]): AutomationRules =>
+  resultPlaces.length === 0 ? DEFAULT_RULES : { ...DEFAULT_RULES, sendTo: resultPlaces };
+
 const keptRules = (saved: unknown) => {
   const parsed = automationRulesSchema.safeParse(saved);
   return parsed.success ? parsed.data : undefined;
@@ -147,7 +151,8 @@ function Setup({
   );
   const [rules, setRules] = useDraft<AutomationRules>(
     `${scope}.rules`,
-    existing?.rules ?? DEFAULT_RULES,
+    // A new one sends to the usual result places, as a task's Send result does.
+    () => existing?.rules ?? newRules(useApp.getState().updates.resultPlaces),
     keptRules,
   );
   const [task, setTask] = useState<AutomationTask>();
@@ -491,9 +496,7 @@ function Review({
   const freeApps = useAskingApps(allowed)
     .filter(({ key }) => allowed.includes(key))
     .map(({ name }) => name);
-  const sendTo = (useDestinations() ?? [])
-    .filter((destination) => rules.sendTo?.includes(destination.id) === true)
-    .map((destination) => destination.name);
+  const sendTo = (usePlaces() ?? []).filter((place) => rules.sendTo?.includes(place.id) === true);
   return (
     <div className={styles.review}>
       <p className={styles.sentence}>
@@ -559,7 +562,9 @@ function Review({
             </li>
           )}
           {sendTo.length === 0 ? null : (
-            <li>Sends results to {new Intl.ListFormat("en").format(sendTo)}</li>
+            <li>
+              Sends results to <PlaceTags places={sendTo} />
+            </li>
           )}
           <li>{rules.review ? "You review each run" : "A finished run counts as Done"}</li>
           {rules.saveResult && task?.kind !== "chief" ? (

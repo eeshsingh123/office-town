@@ -18,7 +18,7 @@ import { PERMISSIONS } from "./connectors.ts";
 interface ConnectorSheetProps {
   logo: ReactNode;
   title: string;
-  by: ReactNode;
+  by?: ReactNode;
   children: ReactNode;
   foot: ReactNode;
   onClose: () => void;
@@ -39,7 +39,7 @@ export function ConnectorSheet({ logo, title, by, children, foot, onClose }: Con
             {logo}
             <span className={styles.sheetHeadText}>
               <Dialog.Title className={styles.sheetTitle}>{title}</Dialog.Title>
-              <span className={styles.by}>{by}</span>
+              {by === undefined ? null : <span className={styles.by}>{by}</span>}
             </span>
             <Dialog.Close asChild>
               <Button variant="ghost" icon aria-label="Close">

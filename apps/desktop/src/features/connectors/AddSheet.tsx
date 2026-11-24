@@ -6,7 +6,6 @@ import type {
   ConnectorCatalog,
   ConnectorPermission,
   ConnectorSetup,
-  DestinationKind,
 } from "@office-town/contract";
 import { providerOf } from "@office-town/contract";
 import { ArrowLeft, BadgeCheck, Check, Plug } from "lucide-react";
@@ -19,14 +18,15 @@ import page from "../../ui/Page.module.css";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
+import { GUIDES } from "../updates/guides/all.ts";
+import { ServiceLogo } from "../updates/PlaceTag.tsx";
+import { openConnect } from "../updates/places.ts";
 import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
 import { type AppGroup, CATEGORIES, isOffer, setUpThrough } from "./connectors.ts";
-import { SERVICES } from "./destinations.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
-import { SendSheet } from "./SendResults.tsx";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
 
 interface AddSheetProps {
@@ -38,17 +38,12 @@ interface AddSheetProps {
   // An app to open at once, by slug or name, such as one an agent asked for.
   app?: string;
   audience?: Audience;
-  // Opens on the services automations send results to.
-  sendResults?: boolean;
   onClose: () => void;
 }
 
-// Not a kind of app agents use: the services the core sends automation results to (D-130).
-const SEND = "send";
-const SERVICE_LIST = Object.entries(SERVICES).map(([kind, service]) => ({
-  kind: kind as DestinationKind,
-  ...service,
-}));
+// Not a kind of app agents use: the places the core sends updates to (D-130).
+const UPDATES = "updates";
+const SERVICE_LIST = Object.values(GUIDES);
 
 interface OwnSetup {
   name: string;
@@ -255,13 +250,11 @@ export function AddSheet({
   groups,
   app,
   audience: asked,
-  sendResults = false,
   onClose,
 }: AddSheetProps) {
   const harnesses = useApp((state) => state.harnesses);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState(sendResults ? SEND : "");
-  const [service, setService] = useState<DestinationKind>();
+  const [category, setCategory] = useState("");
   const [entry, setEntry] = useState(() => findEntry(entries, app));
   const [advanced, setAdvanced] = useState(
     app !== undefined && findEntry(entries, app) === undefined,
@@ -316,9 +309,7 @@ export function AddSheet({
   const inCategory = (listed: CatalogEntry | undefined) =>
     category === "" || listed?.category === category;
   const services = SERVICE_LIST.filter(
-    (one) =>
-      (category === "" || category === SEND) &&
-      `${one.label} ${one.description}`.toLowerCase().includes(words),
+    (one) => (category === "" || category === UPDATES) && one.label.toLowerCase().includes(words),
   );
   const offers = groups.filter((group) => group.routes.every(isOffer));
   const offered = offers.filter(
@@ -346,9 +337,6 @@ export function AddSheet({
     .toSorted((a, b) => Number(added.has(b.setup.slug)) - Number(added.has(a.setup.slug)));
 
   const choosing = entry === undefined && !advanced;
-  if (service !== undefined) {
-    return <SendSheet kind={service} onBack={() => setService(undefined)} onClose={onClose} />;
-  }
   return (
     <ConnectorSheet
       logo={
@@ -416,24 +404,22 @@ export function AddSheet({
           <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
           <fieldset className={styles.categories}>
             <legend className="visually-hidden">Kind of app</legend>
-            {[
-              { value: "", label: "All" },
-              ...CATEGORIES,
-              { value: SEND, label: "Send results" },
-            ].map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={`${styles.toggleChip} ${category === value ? styles.toggleOn : ""}`}
-                aria-pressed={category === value}
-                onClick={() => setCategory(value)}
-              >
-                {label}
-              </button>
-            ))}
+            {[{ value: "", label: "All" }, ...CATEGORIES, { value: UPDATES, label: "Updates" }].map(
+              ({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`${styles.toggleChip} ${category === value ? styles.toggleOn : ""}`}
+                  aria-pressed={category === value}
+                  onClick={() => setCategory(value)}
+                >
+                  {label}
+                </button>
+              ),
+            )}
           </fieldset>
           <ul className={styles.list} aria-label="Apps to add">
-            {category === SEND ? null : (
+            {category === UPDATES ? null : (
               <li>
                 <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
                   <span className={`${styles.logo} ${styles.md}`} aria-hidden>
@@ -496,13 +482,15 @@ export function AddSheet({
                 <button
                   type="button"
                   className={styles.connRow}
-                  onClick={() => setService(one.kind)}
+                  onClick={() => {
+                    onClose();
+                    openConnect({ kind: one.kind });
+                  }}
                 >
-                  <AppLogo app={one.label} />
+                  <ServiceLogo kind={one.kind} size="md" />
                   <span className={styles.connText}>
                     <span className={styles.connName}>{one.label}</span>
-                    <span className={styles.twoLines}>{one.description}</span>
-                    <span className={styles.sub}>Sends automation results, set up with a key</span>
+                    <span className={styles.sub}>Results and alerts from your team</span>
                   </span>
                 </button>
               </li>

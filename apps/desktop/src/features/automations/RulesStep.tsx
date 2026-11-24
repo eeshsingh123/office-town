@@ -1,8 +1,7 @@
 import { type AutomationRules, automationRulesSchema } from "@office-town/contract";
-import { navigate } from "../../store/app-store.ts";
-import { SwitchRow } from "../../ui/Switch.tsx";
+import { SettingRow, SwitchRow } from "../../ui/Switch.tsx";
 import { groupApps, isOffer, useConnectors } from "../connectors/connectors.ts";
-import { serviceLabel, useDestinations } from "../connectors/destinations.ts";
+import { PlacePicker } from "../updates/PlacePicker.tsx";
 import styles from "./NewAutomation.module.css";
 
 export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
@@ -79,7 +78,7 @@ function AppsRule({
   );
 }
 
-// Where its results go; set up once in Connectors (D-130).
+// Where its results go: places connected once, picked here (D-130).
 function SendTo({
   picked,
   onChange,
@@ -87,36 +86,19 @@ function SendTo({
   picked: readonly string[];
   onChange: (next: string[]) => void;
 }) {
-  const destinations = useDestinations();
-  if (destinations === undefined) return null;
   return (
     <div className={styles.switches}>
-      <p className={styles.rule}>Send its results, failures and asks to:</p>
-      {destinations.map((destination) => (
-        <SwitchRow
-          key={destination.id}
-          label={destination.name}
-          hint={serviceLabel(destination)}
-          on={picked.includes(destination.id)}
-          onChange={(on) =>
-            onChange(
-              on ? [...picked, destination.id] : picked.filter((id) => id !== destination.id),
-            )
-          }
+      <SettingRow
+        label="Send its results to"
+        hint="With a short note when a run fails, pauses or asks you something."
+      >
+        <PlacePicker
+          label="Send its results to"
+          picked={picked}
+          onChange={onChange}
+          empty="Nowhere"
         />
-      ))}
-      <p className={styles.note}>
-        {destinations.length === 0 ? "Nowhere set up yet. " : ""}
-        <button
-          type="button"
-          className={styles.textButton}
-          onClick={() => navigate({ name: "connectors", sendResults: true })}
-        >
-          {destinations.length === 0 ? "Set one up in Connectors" : "Add another in Connectors"}
-        </button>{" "}
-        To have an agent post with an app you connected, such as Slack on Claude, say so in its task
-        and let it use that app without asking.
-      </p>
+      </SettingRow>
     </div>
   );
 }
