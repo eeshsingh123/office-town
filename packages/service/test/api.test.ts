@@ -14,7 +14,7 @@ import { ConnectorHub } from "../src/connectors/hub.ts";
 import { MilestoneEdits } from "../src/goal/edits.ts";
 import { Notifier } from "../src/notify/notifier.ts";
 import { Outbox } from "../src/notify/outbox.ts";
-import { TelegramReplies } from "../src/notify/telegram-replies.ts";
+import { TelegramLink } from "../src/notify/telegram-link.ts";
 import { PreviewServer } from "../src/outputs/preview-server.ts";
 import { TaskFiles } from "../src/outputs/task-files.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
@@ -139,7 +139,7 @@ beforeEach(async () => {
         shared: { lastChange: () => undefined },
         keysOf: () => ({}),
       });
-      const delivery = { outbox, telegram: new TelegramReplies(team, outbox) };
+      const delivery = { outbox, telegram: new TelegramLink(team.store, outbox) };
       return { stoppedLeads, stoppedTasks: new StoppedTasks(team, queue), runner, delivery };
     })(),
     token: TOKEN,

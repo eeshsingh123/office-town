@@ -56,47 +56,30 @@ export async function callTelegram<T>(
   return reply.result as T;
 }
 
-export const keyboardOf = (message: Pick<Outgoing, "ref" | "choices">) =>
-  message.choices === undefined || message.choices.length === 0
-    ? undefined
-    : {
-        inline_keyboard: message.choices.map((choice) => [
-          // At most 64 bytes, as Telegram allows.
-          { text: choice.label.slice(0, 60), callback_data: `${message.ref}:${choice.id}` },
-        ]),
-      };
-
 // Plain text, never Markdown or HTML, so an agent's words can't hide a link or break the message.
+// One way: the chat is the one linked with a code, and nothing sent there is read back (D-132).
 async function send(message: Outgoing, place: Place<"telegram">) {
   const token = place.keys.token;
   const chatId = place.link?.chatId;
   if (token === undefined) throw new SendError("it has no bot key", false);
   if (chatId === undefined) {
-    throw new SendError("link your chat first: send the bot the code from Settings", false);
+    throw new SendError("link your chat first: send the bot the code from Connectors", false);
   }
   const text = fullText(message);
-  const keyboard = keyboardOf(message);
-  const sent =
-    text.length <= TEXT_CHARS
-      ? await callTelegram<{ message_id: number }>(
-          token,
-          "sendMessage",
-          { chat_id: chatId, text, ...(keyboard === undefined ? {} : { reply_markup: keyboard }) },
-          place.base,
-        )
-      : await sendAsFile(token, chatId, message, place.base);
-  return { id: String(sent.message_id) };
+  if (text.length <= TEXT_CHARS) {
+    await callTelegram(token, "sendMessage", { chat_id: chatId, text }, place.base);
+  } else {
+    await sendAsFile(token, chatId, message, place.base);
+  }
 }
 
-// A long result goes as its file, with its start as the caption: one message to reply to.
+// A long result goes as its file, with its start as the caption.
 function sendAsFile(token: string, chatId: number, message: Outgoing, base?: string) {
   const form = new FormData();
   form.set("chat_id", String(chatId));
   form.set("caption", cut(fullText(message), CAPTION_CHARS));
   form.set("document", resultFile(message), "result.md");
-  const keyboard = keyboardOf(message);
-  if (keyboard !== undefined) form.set("reply_markup", JSON.stringify(keyboard));
-  return callTelegram<{ message_id: number }>(token, "sendDocument", form, base);
+  return callTelegram(token, "sendDocument", form, base);
 }
 
 export const telegram: Destination<"telegram"> = {

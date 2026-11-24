@@ -207,7 +207,7 @@ describe("the runner", () => {
     expect(core.store.automationEvents.pending(id)).toMatchObject({ count: 1 });
   });
 
-  it("sends a run's result once to where it was picked, keeps notes, stays quiet with nothing new, and takes a Telegram tap and reply", async () => {
+  it("sends a run's result once to where it was picked, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
     const fake = await startFakeServices();
     await core.close();
     core = await startCore(join(directory, "delivery"), { telegram: fake.url });
@@ -292,7 +292,8 @@ describe("the runner", () => {
       expect(fake.sentToTelegram()).toHaveLength(sentBefore);
       expect(core.store.automations.lastFinishedTask(id)).toBe(run1?.taskId);
 
-      // Run 3 asks: the question goes out with buttons, and a tap answers it from Telegram.
+      // Run 3 asks: the question goes out as plain words, answered in Office Town, and once linked
+      // the core reads nothing from Telegram, so a reply there is left alone.
       const third = await runNow();
       third?.emit({ type: "turn.started", payload: { turnId: "turn" } });
       await core.callTool(third, "ask_user", {
@@ -300,52 +301,27 @@ describe("the runner", () => {
         options: ["Feed", "Site"],
       });
       await eventually(() =>
-        fake.sentToTelegram().some((message) => message.reply_markup !== undefined),
+        fake.sentToTelegram().some((message) => message.text?.includes("Which source?")),
       );
-      const asked = fake.sentToTelegram().find((message) => message.reply_markup !== undefined);
-      const keyboard = asked?.reply_markup as { inline_keyboard: { callback_data: string }[][] };
-      const button = keyboard.inline_keyboard[0]?.[0];
-      fake.updates.push({
-        callback_query: {
-          id: "tap",
-          from: { id: 7 },
-          message: { message_id: asked?.message_id, chat: { id: 42, type: "private" } },
-          data: button?.callback_data,
-        },
-      });
-      await eventually(() => core.store.listPendingRequests().requests.length === 0);
-      await settle();
-      expect(third?.sent.at(-1)).toMatchObject({
-        type: "prompt",
-        text: expect.stringContaining("Feed"),
-      });
-
-      // A reply to run 1's result is its next step; a stranger's message does nothing.
+      const asked = fake
+        .sentToTelegram()
+        .find((message) => message.text?.includes("Which source?"));
+      expect(asked?.text).toContain("Answer it in Office Town.");
+      expect(asked?.reply_markup).toBeUndefined();
       const sessions = core.sessions.length;
-      fake.updates.push(
-        {
-          message: {
-            message_id: 2,
-            chat: { id: 99, type: "private" },
-            from: { id: 8 },
-            text: "Hi",
-          },
+      fake.updates.push({
+        message: {
+          message_id: 3,
+          chat: { id: 42, type: "private" },
+          from: { id: 7 },
+          text: "Feed",
+          reply_to_message: { message_id: asked?.message_id },
         },
-        {
-          message: {
-            message_id: 3,
-            chat: { id: 42, type: "private" },
-            from: { id: 7 },
-            text: "Also check B",
-            reply_to_message: { message_id: result?.message_id },
-          },
-        },
-      );
-      await eventually(() => core.sessions.length > sessions);
-      expect(core.sessions.at(-1)?.sent).toContainEqual(
-        expect.objectContaining({ type: "prompt", text: expect.stringContaining("Also check B") }),
-      );
-      expect(core.sessions).toHaveLength(sessions + 1);
+      });
+      await settle();
+      expect(fake.updates).toHaveLength(1);
+      expect(core.store.listPendingRequests().requests).toHaveLength(1);
+      expect(core.sessions).toHaveLength(sessions);
     } finally {
       await fake.close();
     }

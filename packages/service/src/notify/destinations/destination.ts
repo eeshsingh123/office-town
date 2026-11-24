@@ -3,18 +3,9 @@ import type { DestinationKind, DestinationSettings, TelegramLink } from "@office
 // One message to send, already cleaned of secrets (D-130). Its title is the core's own words; its
 // text is the run's result or the ask's words, or the core's own sentence for an alert.
 export interface Outgoing {
-  // The outbox row, so an answer tapped in the service finds it again.
-  ref: number;
   kind: "result" | "alert" | "ask" | "test";
   title: string;
   text: string;
-  // Buttons, for a destination that takes answers (D-132); their ids are short.
-  choices?: { id: string; label: string }[];
-}
-
-// The service's own id for what it sent, where a reply can name it.
-export interface Sent {
-  id?: string;
 }
 
 // What the service said, in plain words for "Couldn't send to Telegram: …". `retry` when trying
@@ -48,7 +39,7 @@ export interface Destination<K extends DestinationKind = DestinationKind> {
   keys: readonly string[];
   // The least time between two sends to one place, under the service's own limit.
   gapMs: number;
-  send(message: Outgoing, place: Place<K>): Promise<Sent>;
+  send(message: Outgoing, place: Place<K>): Promise<void>;
 }
 
 const TIMEOUT_MS = 30_000;

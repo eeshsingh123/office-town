@@ -35,7 +35,7 @@ async function send(message: Outgoing, place: Place<"discord">) {
     body,
     ...(typeof body === "string" ? { headers: { "content-type": "application/json" } } : {}),
   });
-  if (response.ok) return {};
+  if (response.ok) return;
   const reply = (await response.json().catch(() => ({}))) as { retry_after?: number };
   const gone = response.status === 401 || response.status === 403 || response.status === 404;
   throw refused(

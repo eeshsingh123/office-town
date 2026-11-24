@@ -7,18 +7,18 @@ import type {
   TelegramLink,
 } from "@office-town/contract";
 
-// Messages are kept a month, at most 2,000, so a reply still finds what it answers (D-130).
+// Messages are kept a month, at most 2,000, so a key queued again is still known (D-130).
 const KEPT_MS = 30 * 24 * 60 * 60 * 1000;
 const MOST_KEPT = 2_000;
 
 const DESTINATION_SELECT = `
-  SELECT ref, id, name, settings, problem, link, next_update AS nextUpdate,
+  SELECT ref, id, name, settings, problem, link,
          created_at AS createdAt, updated_at AS updatedAt
   FROM destinations`;
 
 const OUTBOX_SELECT = `
   SELECT o.ref, d.id AS destinationId, o.key, o.automation_id AS automationId, o.run_id AS runId,
-         o.message, o.state, o.attempts, o.next_at AS nextAt, o.sent_id AS sentId,
+         o.message, o.state, o.attempts, o.next_at AS nextAt,
          o.created_at AS createdAt
   FROM outbox o JOIN destinations d ON d.ref = o.destination_ref`;
 
@@ -28,7 +28,6 @@ const queries = {
   update: "UPDATE destinations SET name = ?, settings = ?, updated_at = ? WHERE id = ?",
   setProblem: "UPDATE destinations SET problem = ? WHERE id = ?",
   setLink: "UPDATE destinations SET link = ?, updated_at = ? WHERE id = ?",
-  setNextUpdate: "UPDATE destinations SET next_update = ? WHERE id = ?",
   remove: "DELETE FROM destinations WHERE id = ?",
   // A person keeps a handful.
   all: `${DESTINATION_SELECT} ORDER BY created_at`,
@@ -39,12 +38,9 @@ const queries = {
     VALUES ((SELECT ref FROM destinations WHERE id = ?), ?, ?, ?, ?, 'waiting', ?, ?)`,
   due: `${OUTBOX_SELECT} WHERE o.state = 'waiting' AND o.next_at <= ? ORDER BY o.next_at, o.ref`,
   earliest: "SELECT min(next_at) AS at FROM outbox WHERE state = 'waiting'",
-  sent: "UPDATE outbox SET state = 'sent', sent_id = ?, attempts = attempts + 1 WHERE ref = ?",
+  sent: "UPDATE outbox SET state = 'sent', attempts = attempts + 1 WHERE ref = ?",
   retry: "UPDATE outbox SET attempts = attempts + 1, next_at = ? WHERE ref = ?",
   failed: "UPDATE outbox SET state = 'failed', attempts = attempts + 1 WHERE ref = ?",
-  byRef: `${OUTBOX_SELECT} WHERE o.ref = ?`,
-  bySent: `${OUTBOX_SELECT} WHERE o.destination_ref = (SELECT ref FROM destinations WHERE id = ?)
-    AND o.sent_id = ?`,
   staleBefore: `${OUTBOX_SELECT} WHERE o.state = 'waiting' AND o.created_at < ?`,
   pruneOld: "DELETE FROM outbox WHERE created_at < ?",
   pruneMost: `
@@ -58,7 +54,6 @@ interface DestinationRow {
   settings: string;
   problem: string | null;
   link: string | null;
-  nextUpdate: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -74,7 +69,6 @@ export interface OutboxRow {
   state: "waiting" | "sent" | "failed";
   attempts: number;
   nextAt: number;
-  sentId: string | null;
   createdAt: number;
 }
 
@@ -141,15 +135,6 @@ export class DestinationsStore {
     return this.#published(id);
   }
 
-  nextUpdate(id: string): number | undefined {
-    const row = this.#statements.byId.get(id) as DestinationRow | undefined;
-    return row?.nextUpdate ?? undefined;
-  }
-
-  setNextUpdate(id: string, next: number): void {
-    this.#statements.setNextUpdate.run(next, id);
-  }
-
   // False when that key was queued before: each message goes out once.
   queue(
     destinationId: string,
@@ -180,8 +165,8 @@ export class DestinationsStore {
     return row?.at ?? undefined;
   }
 
-  markSent(ref: number, sentId: string | undefined): void {
-    this.#statements.sent.run(sentId ?? null, ref);
+  markSent(ref: number): void {
+    this.#statements.sent.run(ref);
   }
 
   retryAt(ref: number, at: number): void {
@@ -190,15 +175,6 @@ export class DestinationsStore {
 
   markFailed(ref: number): void {
     this.#statements.failed.run(ref);
-  }
-
-  sentRow(ref: number): OutboxRow | undefined {
-    return this.#statements.byRef.get(ref) as OutboxRow | undefined;
-  }
-
-  // What a reply in that service was a reply to.
-  bySentId(destinationId: string, sentId: string): OutboxRow | undefined {
-    return this.#statements.bySent.get(destinationId, sentId) as OutboxRow | undefined;
   }
 
   waitingSince(before: number): OutboxRow[] {

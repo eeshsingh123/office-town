@@ -20,7 +20,7 @@ import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts"
 import { followLibraryUses } from "../../src/library/library-uses.ts";
 import { Notifier } from "../../src/notify/notifier.ts";
 import { Outbox } from "../../src/notify/outbox.ts";
-import { TelegramReplies } from "../../src/notify/telegram-replies.ts";
+import { TelegramLink } from "../../src/notify/telegram-link.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
@@ -152,9 +152,8 @@ export async function startCore(
   );
   const stoppedTasks = new StoppedTasks(team, queue);
   stoppedTasks.announce(notifier);
-  const telegram = new TelegramReplies(team, outbox, bases.telegram);
+  const telegram = new TelegramLink(store, outbox, bases.telegram);
   outbox.start();
-  telegram.start();
   tools.offer([
     askUser(registry),
     proposeTeam(team),

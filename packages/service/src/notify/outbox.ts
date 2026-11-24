@@ -3,7 +3,6 @@ import type { DestinationKind, DestinationRecord } from "@office-town/contract";
 import { readKeys, type Secrets } from "../connectors/secrets.ts";
 import type { OutboxRow } from "../store/destinations-store.ts";
 import type { Store } from "../store/store.ts";
-import type { AskAnswers } from "./asks.ts";
 import { DESTINATIONS } from "./destinations/all.ts";
 import {
   type Destination,
@@ -24,7 +23,6 @@ export interface Queued {
   kind: Outgoing["kind"];
   title: string;
   text: string;
-  ask?: AskAnswers;
 }
 
 export const keysId = (destinationId: string) => `destination:${destinationId}`;
@@ -116,7 +114,6 @@ export class Outbox {
     try {
       await service.send(
         {
-          ref: 0,
           kind: "test",
           title: "Office Town",
           text: "This is a test. Results from your automations will arrive here.",
@@ -179,15 +176,12 @@ export class Outbox {
   async #send(destination: DestinationRecord, rows: OutboxRow[]): Promise<void> {
     const [first] = rows;
     if (first === undefined) return;
-    const message =
-      rows.length === 1
-        ? { ref: first.ref, ...outgoingOf(parse(first)) }
-        : together(first.ref, rows);
+    const message = rows.length === 1 ? outgoingOf(parse(first)) : together(rows);
     try {
-      const sent = await serviceOf(destination).send(message, this.placeOf(destination));
+      await serviceOf(destination).send(message, this.placeOf(destination));
       this.#lastSent.set(destination.id, Date.now());
       for (const row of rows) {
-        this.#store.destinations.markSent(row.ref, sent.id);
+        this.#store.destinations.markSent(row.ref);
         this.#sentFor(row);
       }
       this.#store.destinations.setProblem(destination.id, undefined);
@@ -238,22 +232,14 @@ export function serviceOf(destination: DestinationRecord): Destination {
 
 export const parse = (row: OutboxRow) => JSON.parse(row.message) as Queued;
 
-const outgoingOf = ({ kind, title, text, ask }: Queued): Omit<Outgoing, "ref"> => ({
-  kind,
-  title,
-  text,
-  ...(ask?.choices === undefined
-    ? {}
-    : { choices: ask.choices.map(({ id, label }) => ({ id, label })) }),
-});
+const outgoingOf = ({ kind, title, text }: Queued): Outgoing => ({ kind, title, text });
 
-function together(ref: number, rows: OutboxRow[]): Outgoing {
+function together(rows: OutboxRow[]): Outgoing {
   const lines = rows.map((row) => {
     const { title, text } = parse(row);
     return `${title}: ${text}`;
   });
   return {
-    ref,
     kind: "alert",
     title: `${rows.length} alerts from Office Town`,
     text: lines.join("\n"),

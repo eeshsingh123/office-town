@@ -23,7 +23,7 @@ async function send(message: Outgoing, place: Place<"webhook">) {
       sentAt: new Date().toISOString(),
     }),
   });
-  if (response.ok) return {};
+  if (response.ok) return;
   throw refused(response, `the address answered ${response.status}`);
 }
 

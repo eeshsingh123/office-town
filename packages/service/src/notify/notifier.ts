@@ -180,11 +180,11 @@ export class Notifier {
 
   automationPaused(automation: AutomationRecord, reason: string): void {
     this.notify("automation", undefined, `${automation.name} is paused`, reason);
-    this.#sendOut(automation, `paused:${Date.now()}`, undefined, () => ({
+    this.#sendOut(automation, `paused:${Date.now()}`, undefined, {
       kind: "alert",
       title: automation.name,
       text: `Paused: ${reason}`,
-    }));
+    });
   }
 
   // A run's result or failure goes to its automation's destinations; nothing new sends nothing
@@ -193,17 +193,17 @@ export class Notifier {
     if (run.quiet === true) return;
     const title = `${automation.name} · run ${run.number}`;
     if ((run.status === "done" || run.status === "review") && result.trim() !== "") {
-      this.#sendOut(automation, `result:${run.id}`, run.id, () => ({
+      this.#sendOut(automation, `result:${run.id}`, run.id, {
         kind: "result",
         title,
         text: result.trim(),
-      }));
+      });
     } else if (run.status === "failed") {
-      this.#sendOut(automation, `failed:${run.id}`, run.id, () => ({
+      this.#sendOut(automation, `failed:${run.id}`, run.id, {
         kind: "alert",
         title,
         text: `It failed.${run.reason === undefined ? "" : ` ${run.reason}`} Open it in Office Town to see why.`,
-      }));
+      });
     }
   }
 
@@ -219,22 +219,21 @@ export class Notifier {
       automation,
       `ask:${event.sessionId}:${event.payload.requestId}`,
       origin.runId,
-      (twoWay) => askMessage(event, who, title, twoWay),
+      askMessage(event, who, title),
     );
   }
 
-  // Only Telegram, once linked, carries answers back (D-132).
+  // Every destination is one way: an ask is answered in Office Town (D-132).
   #sendOut(
     automation: AutomationRecord,
     key: string,
     runId: string | undefined,
-    message: (twoWay: boolean) => Queued,
+    message: Queued,
   ): void {
     for (const id of automation.rules.sendTo ?? []) {
       const destination = this.#store.destinations.get(id);
       if (destination === undefined) continue;
-      const twoWay = destination.settings.kind === "telegram" && destination.link !== undefined;
-      this.#outbox.queue(destination, key, automation.id, runId, message(twoWay));
+      this.#outbox.queue(destination, key, automation.id, runId, message);
     }
   }
 

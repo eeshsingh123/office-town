@@ -439,8 +439,8 @@ ${text}`,
     return next.accountId === from ? undefined : next;
   }
 
-  // `by`: who answered when not the user at the computer, such as an automation on Auto (D-126) or
-  // the user from Telegram (D-132), so the trace says so.
+  // `by`: who answered when not the user at the computer, such as an automation on Auto (D-126),
+  // so the trace says so.
   async send(sessionId: string, command: AgentCommand, by?: AnsweredBy): Promise<void> {
     const live = this.#running(sessionId);
     const key = "requestId" in command ? askedKey(sessionId, command.requestId) : undefined;

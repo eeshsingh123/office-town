@@ -38,7 +38,6 @@ async function send(message: Outgoing, place: Place<"slack">) {
     const said = (await response.text().catch(() => "")).trim();
     throw refused(response, REASONS[said] ?? `Slack answered ${response.status}`);
   }
-  return {};
 }
 
 export const slack: Destination<"slack"> = {

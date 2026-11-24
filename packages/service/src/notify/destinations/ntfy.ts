@@ -40,7 +40,7 @@ async function send(message: Outgoing, place: Place<"ntfy">) {
     body: long ? fullText(message) : text,
     ...(token === undefined ? {} : { headers: { authorization: `Bearer ${token}` } }),
   });
-  if (response.ok) return {};
+  if (response.ok) return;
   throw refused(response, reasonOf(response.status));
 }
 

@@ -11,11 +11,11 @@ import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { DESTINATIONS } from "./destinations/all.ts";
 import { SendError } from "./destinations/destination.ts";
 import { keysId, type Outbox } from "./outbox.ts";
-import type { TelegramReplies } from "./telegram-replies.ts";
+import type { TelegramLink } from "./telegram-link.ts";
 
 export interface Delivery {
   outbox: Outbox;
-  telegram: TelegramReplies;
+  telegram: TelegramLink;
 }
 
 // Only the keys its service takes, every one it needs.
@@ -37,7 +37,7 @@ const couldNot = (error: unknown) => {
   return new RequestError(400, "invalid_request", `Couldn't send: ${error.message}.`);
 };
 
-// Destinations are set up once, in Settings, by pasting a key, token or address (D-130).
+// Destinations are set up once, in Connectors, by pasting a key, token or address (D-130).
 export function destinationRoutes(store: Store, { outbox, telegram }: Delivery): Route[] {
   const { destinations } = store;
   const found = (id: string) => {
@@ -62,7 +62,6 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
         const kept = keysFor(settings, keys ?? {});
         const created = destinations.create(name, settings);
         writeKeys(outbox.secrets, keysId(created.id), kept);
-        telegram.follow(created);
         return { status: 201, json: created };
       },
     },
@@ -78,12 +77,13 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
         }
         if (keys !== undefined) {
           const kept = keysFor(settings, { ...outbox.keysOf(before.id), ...keys });
-          if (kept.token !== outbox.keysOf(before.id).token)
+          if (kept.token !== outbox.keysOf(before.id).token) {
+            telegram.forget(before.id);
             destinations.setLink(before.id, undefined);
+          }
           writeKeys(outbox.secrets, keysId(before.id), kept);
         }
         const updated = destinations.update(before.id, name, settings);
-        telegram.follow(updated);
         return { status: 200, json: updated };
       },
     },
@@ -92,6 +92,7 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
       path: "/destinations/:id",
       reply: ({ param }) => {
         const { id } = found(param("id"));
+        telegram.forget(id);
         destinations.remove(id);
         outbox.secrets.remove(keysId(id));
         return { status: 204 };

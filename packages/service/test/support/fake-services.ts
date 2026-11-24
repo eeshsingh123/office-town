@@ -10,7 +10,7 @@ export interface Received {
 export interface FakeServices {
   url: string;
   received: Received[];
-  // What Telegram has for the bot's next long poll.
+  // What Telegram has for the bot's next long poll, while a link code waits.
   updates: object[];
   sentToTelegram(): { message_id: number; text?: string; reply_markup?: unknown }[];
   close(): Promise<void>;

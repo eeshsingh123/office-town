@@ -639,8 +639,6 @@ function addAutomationDelivery(db: DatabaseSync): void {
     settings    TEXT NOT NULL,
     problem     TEXT,
     link        TEXT,
-    -- Telegram: the next update to read, stored before one is acted on, so none acts twice.
-    next_update INTEGER,
     created_at  INTEGER NOT NULL,
     updated_at  INTEGER NOT NULL
   ) STRICT;
@@ -655,15 +653,11 @@ function addAutomationDelivery(db: DatabaseSync): void {
     state           TEXT NOT NULL CHECK (state IN ('waiting', 'sent', 'failed')),
     attempts        INTEGER NOT NULL DEFAULT 0,
     next_at         INTEGER NOT NULL,
-    -- The service's own id for what was sent, so a reply to it finds it.
-    sent_id         TEXT,
     created_at      INTEGER NOT NULL
   ) STRICT;
 
   CREATE UNIQUE INDEX IF NOT EXISTS outbox_key ON outbox (destination_ref, key);
   CREATE INDEX IF NOT EXISTS outbox_due ON outbox (next_at) WHERE state = 'waiting';
-  CREATE INDEX IF NOT EXISTS outbox_by_sent ON outbox (destination_ref, sent_id)
-    WHERE sent_id IS NOT NULL;
   CREATE INDEX IF NOT EXISTS outbox_by_time ON outbox (created_at);
   `);
 }

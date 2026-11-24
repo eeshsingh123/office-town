@@ -35,7 +35,7 @@ async function send(message: Outgoing, place: Place<"email">) {
       text: fullText(message).slice(0, BODY_CHARS),
     }),
   });
-  if (response.ok) return {};
+  if (response.ok) return;
   const reply = (await response.json().catch(() => ({}))) as { message?: string };
   throw refused(response, reasonOf(response.status, reply.message));
 }
