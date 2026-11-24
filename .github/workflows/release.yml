@@ -1,7 +1,7 @@
 name: Release
 
 # Run only on the owner's word (D-75). Started by hand it builds, and publishes only when
-# "publish" is ticked; on a pull request that changes packaging it is a dry run.
+# "publish" is ticked.
 on:
   workflow_dispatch:
     inputs:
@@ -9,12 +9,6 @@ on:
         description: Publish the release (off builds only, as a dry run)
         type: boolean
         default: false
-  pull_request:
-    paths:
-      - .github/workflows/release.yml
-      - apps/desktop/packaging/**
-      - apps/desktop/electron/**
-      - pnpm-lock.yaml
 
 permissions:
   contents: read
@@ -47,7 +41,7 @@ jobs:
 
   publish:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main'
+    if: inputs.publish && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write

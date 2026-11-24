@@ -1,10 +1,9 @@
 name: Beta
 
-# Every merge to main that passes CI becomes a beta: a prerelease only betas follow (D-75).
+# Every merge to main becomes a beta: a prerelease only betas follow (D-75). Windows and
+# Linux only; no CI and no Mac beta until the public release (D-135).
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
+  push:
     branches: [main]
 
 permissions:
@@ -15,15 +14,12 @@ concurrency:
 
 jobs:
   build:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v5
         with:
@@ -42,37 +38,9 @@ jobs:
             apps/desktop/out/package/installers/beta*.yml
           if-no-files-found: error
 
-  # Mac betas (D-116): ad-hoc signed, so they only say an update is ready. Kept apart from the
-  # build above, so a Mac failure never holds back the Windows and Linux beta.
-  build-mac:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm package --beta ${{ github.run_number }}
-      - run: codesign --verify --deep --strict apps/desktop/out/package/installers/mac-arm64/*.app
-      - uses: actions/upload-artifact@v7
-        with:
-          name: installer-macos
-          path: |
-            apps/desktop/out/package/installers/*.dmg
-            apps/desktop/out/package/installers/*.zip
-            apps/desktop/out/package/installers/*.blockmap
-            apps/desktop/out/package/installers/beta-mac.yml
-          if-no-files-found: error
-
   # One job publishes every platform, so two builds never race to create the release.
   publish:
-    needs: [build, build-mac]
-    if: always() && needs.build.result == 'success'
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -84,7 +52,7 @@ jobs:
       - name: Publish the prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
+          SHA: ${{ github.sha }}
         run: |
           version=$(sed -n 's/^version: //p' release/beta.yml)
           gh release create "v$version" release/* \
