@@ -38,6 +38,7 @@ const passthroughAdapter: Adapter = {
       outgoing: [`${requestId}:${answered.map((a) => a.selected.join("+")).join(",")}`],
     }),
     interrupt: () => ({ events: [], outgoing: ["interrupt"] }),
+    waiting: () => 0,
   }),
 };
 

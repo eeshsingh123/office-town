@@ -122,6 +122,8 @@ export class HarnessSession implements Session {
   #sequence = 0;
   #process: RunningProcess | undefined;
   #turnId: string | undefined;
+  // The last count of user messages reported as waiting for the step at work (D-134).
+  #waiting = 0;
   #plan: PlanStep[] = [];
   // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
   #idle = false;
@@ -385,6 +387,16 @@ export class HarnessSession implements Session {
       this.#notifyLine({ direction: "out", text: line, partial: false });
       this.#process.writeLine(line);
     }
+    this.#reportWaiting();
+  }
+
+  // Only during a turn: between turns a message starts one at once. A count left above 0 when the
+  // session ends names the messages it never read, which its next session gets (D-134).
+  #reportWaiting(): void {
+    const waiting = this.#turnId === undefined ? 0 : this.#translator.waiting();
+    if (waiting === this.#waiting) return;
+    this.#waiting = waiting;
+    this.#emit({ type: "message.waiting", payload: { count: waiting } });
   }
 
   // Tokens last one launch and are never stored (D-43), so lines are handed on without them.

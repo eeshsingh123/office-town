@@ -38,6 +38,11 @@
   overflow-wrap: anywhere;
 }
 
+.userNote {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
 .text {
   margin: 6px 0 10px;
   padding-left: 34px;

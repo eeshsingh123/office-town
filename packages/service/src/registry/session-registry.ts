@@ -31,6 +31,7 @@ import {
   sessionAccountId,
 } from "../accounts/accounts.ts";
 import { forPrompt, hasAccess, withAccess } from "../attachments/attachments.ts";
+import { unreadMessages } from "../store/session-events.ts";
 import {
   type NewSession,
   RecordNotFoundError,
@@ -163,6 +164,17 @@ const NOT_RECORDED =
 const NOT_STOPPED = "The agent could not be stopped either, so it may still be running.";
 
 const askedKey = (sessionId: string, requestId: string) => `${sessionId}/${requestId}`;
+
+// What the agent never read before it stopped goes first in its next conversation (D-134).
+function withUnread(store: Store, sessionId: string, message: Message): Message {
+  const unread = unreadMessages(store, sessionId);
+  if (unread.length === 0) return message;
+  const texts = unread.map(({ text, attachments = [] }) =>
+    [text, ...attachments.map((file) => `(Attached: ${file.name} at ${file.path})`)].join("\n"),
+  );
+  const intro = "Sent to you before you stopped, not read yet:";
+  return { ...message, text: [intro, ...texts, "---", message.text].join("\n\n") };
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -333,9 +345,10 @@ ${text}`,
     };
   }
 
-  async resume(sessionId: string, message: Message): Promise<SessionRecord> {
+  async resume(sessionId: string, given: Message): Promise<SessionRecord> {
     const earlier = this.#store.getSession(sessionId);
     if (earlier === undefined) throw new RecordNotFoundError("session");
+    const message = withUnread(this.#store, sessionId, given);
     if (earlier.harnessSessionId === undefined) {
       throw new SessionNotResumableError("it never started.");
     }

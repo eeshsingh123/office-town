@@ -401,10 +401,22 @@ function UserSaid({ text, children }: { text: string; children?: ReactNode }) {
   );
 }
 
-function UserMessage({ item, sessionId }: { item: TraceMessage; sessionId: string }) {
+// Where it came from, and whether the agent has read it yet (D-132, D-134).
+function noteOf(item: TraceMessage, live: boolean): string | undefined {
+  if (item.unread === true) {
+    return live
+      ? "Waiting for its current step to finish"
+      : "Not read before it stopped. It gets this when it carries on.";
+  }
+  return item.origin?.kind === "telegram" ? "From Telegram" : undefined;
+}
+
+function UserMessage({ item, place }: { item: TraceMessage; place: Place }) {
+  const note = noteOf(item, place.live);
   return (
     <UserSaid text={item.text}>
-      <MessageFiles item={item} sessionId={sessionId} />
+      <MessageFiles item={item} sessionId={place.sessionId} />
+      {note === undefined ? null : <span className={styles.userNote}>{note}</span>}
     </UserSaid>
   );
 }
@@ -583,7 +595,7 @@ export const ItemView = memo(function ItemView({ id, place }: { id: string; plac
       if (item.origin?.kind === "handover") {
         return <FromOffice summary={CONTINUED_LINE} text={item.text} />;
       }
-      if (item.role === "user") return <UserMessage item={item} sessionId={place.sessionId} />;
+      if (item.role === "user") return <UserMessage item={item} place={place} />;
       return (
         <MessageMenu text={item.text}>
           <div className={styles.text}>
