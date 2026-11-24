@@ -32,8 +32,6 @@ function statusOf(destination: DestinationRecord): string {
 // The fields a service's settings keep, with their defaults.
 function settingsOf(kind: DestinationKind, values: Record<string, string>): DestinationSettings {
   switch (kind) {
-    case "ntfy":
-      return { kind, server: values.server?.trim() || "https://ntfy.sh" };
     case "email":
       return {
         kind,
@@ -46,7 +44,6 @@ function settingsOf(kind: DestinationKind, values: Record<string, string>): Dest
 }
 
 function settingValues(settings: DestinationSettings): Record<string, string> {
-  if (settings.kind === "ntfy") return { server: settings.server };
   if (settings.kind === "email") return { to: settings.to, from: settings.from ?? "" };
   return {};
 }
@@ -148,9 +145,7 @@ export function SendSheet({ kind, editing, onBack, onClose }: SendSheetProps) {
             placeholder={
               field.secret && editing !== undefined
                 ? "Saved. Paste a new one to replace it."
-                : field.key === "server"
-                  ? "https://ntfy.sh"
-                  : undefined
+                : undefined
             }
             onChange={(event) => setValues({ ...values, [field.key]: event.target.value })}
           />

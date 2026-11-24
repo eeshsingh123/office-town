@@ -63,16 +63,6 @@ export const SERVICES: Record<
     hint: "In a channel's settings, open Integrations, then Webhooks, and copy one's address.",
     keys: [{ key: "url", label: "Webhook address", secret: true }],
   },
-  ntfy: {
-    label: "ntfy",
-    description: "Results and alerts as notifications on your phone",
-    hint: "Anyone who knows the topic can read it, so pick one that's hard to guess.",
-    keys: [
-      { key: "topic", label: "Topic", secret: true },
-      { key: "token", label: "Access token", secret: true, optional: true },
-    ],
-    settings: [{ key: "server", label: "Server", secret: false }],
-  },
   email: {
     label: "Email",
     description: "Results and alerts by email, through Resend",

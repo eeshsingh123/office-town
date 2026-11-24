@@ -1,13 +1,10 @@
-import { randomBytes } from "node:crypto";
 import {
-  type DestinationCreated,
   type DestinationKeys,
   type DestinationKind,
   type DestinationList,
   type DestinationSettings,
   destinationRequestSchema,
   NEW_PLACE_HEARS,
-  type PhoneChannel,
   pasteFits,
   type Settings,
   type Updates,
@@ -32,7 +29,6 @@ const EXPECTED: Partial<Record<DestinationKind, string>> = {
   slack: "the link Slack shows under Incoming Webhooks",
   discord: "the link Discord gives you with Copy Webhook URL",
   telegram: "the key BotFather sends you",
-  ntfy: "a channel name of letters, numbers, - and _",
 };
 
 // Only the keys its service takes, every one it needs, each shaped as its service gives it.
@@ -53,19 +49,6 @@ function keysFor(settings: DestinationSettings, keys: DestinationKeys): Destinat
     kept[key] = value.trim();
   }
   return kept;
-}
-
-// Its name is its password, so it is long and random and never typed.
-const newTopic = () => `ot-${randomBytes(18).toString("base64url")}`;
-
-function phoneChannel(server: string, topic: string): PhoneChannel {
-  const url = new URL(server);
-  const secure = url.protocol === "https:" ? "" : "&secure=false";
-  return {
-    topic,
-    appLink: `ntfy://${url.host}${url.pathname.replace(/\/$/, "")}/${topic}?display=Office+Town${secure}`,
-    webLink: `${server.replace(/\/$/, "")}/${topic}`,
-  };
 }
 
 // A newly connected place starts ticked for a few alerts; a removed one leaves every list.
@@ -98,7 +81,7 @@ const couldNot = (error: unknown) => {
   return new RequestError(400, "invalid_request", `Couldn't send: ${error.message}.`);
 };
 
-// A place is connected once, by pasting what its service gives, or for a phone by nothing at all.
+// A place is connected once, by pasting what its service gives.
 export function destinationRoutes(store: Store, { outbox, telegram }: Delivery): Route[] {
   const { destinations } = store;
   const found = (id: string) => {
@@ -120,18 +103,11 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
       path: "/destinations",
       reply: async ({ body }) => {
         const { name, settings, keys = {} } = destinationRequestSchema.parse(await body());
-        const topic = settings.kind === "ntfy" && keys.topic === undefined ? newTopic() : undefined;
-        const kept = keysFor(settings, topic === undefined ? keys : { ...keys, topic });
+        const kept = keysFor(settings, keys);
         const created = destinations.create(name, settings);
         writeKeys(outbox.secrets, keysId(created.id), kept);
         store.saveSettings(withPlace(store.readSettings(), created.id));
-        const answer: DestinationCreated = {
-          ...created,
-          ...(topic !== undefined && settings.kind === "ntfy"
-            ? { phone: phoneChannel(settings.server, topic) }
-            : {}),
-        };
-        return { status: 201, json: answer };
+        return { status: 201, json: created };
       },
     },
     {

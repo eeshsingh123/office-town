@@ -2,7 +2,6 @@ import type { DestinationKind } from "@office-town/contract";
 import type { Destination } from "./destination.ts";
 import { discord } from "./discord.ts";
 import { email } from "./email.ts";
-import { ntfy } from "./ntfy.ts";
 import { slack } from "./slack.ts";
 import { telegram } from "./telegram.ts";
 import { webhook } from "./webhook.ts";
@@ -12,7 +11,6 @@ export const DESTINATIONS: { [K in DestinationKind]: Destination<K> } = {
   telegram,
   slack,
   discord,
-  ntfy,
   email,
   webhook,
 };

@@ -1,14 +1,7 @@
 import { z } from "zod";
 
 // Where an automation's results and alerts go out (D-130). Each kind is one file in the core.
-export const destinationKindSchema = z.enum([
-  "telegram",
-  "slack",
-  "discord",
-  "ntfy",
-  "email",
-  "webhook",
-]);
+export const destinationKindSchema = z.enum(["telegram", "slack", "discord", "email", "webhook"]);
 export type DestinationKind = z.infer<typeof destinationKindSchema>;
 
 // What is not secret, by kind. The key, token or address is pasted apart and kept only in the
@@ -17,10 +10,6 @@ export const destinationSettingsSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("telegram") }),
   z.object({ kind: z.literal("slack") }),
   z.object({ kind: z.literal("discord") }),
-  z.object({
-    kind: z.literal("ntfy"),
-    server: z.url({ protocol: /^https?$/ }).default("https://ntfy.sh"),
-  }),
   z.object({
     kind: z.literal("email"),
     to: z.email(),
@@ -31,8 +20,8 @@ export const destinationSettingsSchema = z.discriminatedUnion("kind", [
 ]);
 export type DestinationSettings = z.infer<typeof destinationSettingsSchema>;
 
-// The secret parts, by name: Telegram's bot key, a Slack or Discord webhook address, an ntfy
-// topic (its name is its password) and optional token, a Resend key, a webhook address.
+// The secret parts, by name: Telegram's bot key, a Slack or Discord webhook address, a Resend key,
+// a webhook address.
 export const destinationKeysSchema = z.record(z.string(), z.string().trim().min(1).max(2_000));
 export type DestinationKeys = z.infer<typeof destinationKeysSchema>;
 
@@ -85,8 +74,6 @@ export const PASTE_PATTERNS: Partial<Record<DestinationKind, Record<string, RegE
     url: /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/,
   },
   telegram: { token: /^\d+:[A-Za-z0-9_-]{30,}$/ },
-  // ntfy's own rule for a topic name.
-  ntfy: { topic: /^[A-Za-z0-9_-]{1,64}$/ },
 };
 
 export function pasteFits(kind: DestinationKind, key: string, value: string): boolean {
@@ -100,19 +87,3 @@ export const deliverySchema = z.object({
   problem: z.string().min(1).optional(),
 });
 export type Delivery = z.infer<typeof deliverySchema>;
-
-// A phone channel the core made: its topic is its password, so it is given only when asked for.
-export const phoneChannelSchema = z.object({
-  topic: z.string().min(1),
-  // What the Android app opens from a scanned code.
-  appLink: z.string().min(1),
-  // The same channel on the web, for a computer or a phone without the app.
-  webLink: z.url(),
-});
-export type PhoneChannel = z.infer<typeof phoneChannelSchema>;
-
-// Adding a phone with no topic of its own gives back the one the core made.
-export const destinationCreatedSchema = destinationRecordSchema.extend({
-  phone: phoneChannelSchema.optional(),
-});
-export type DestinationCreated = z.infer<typeof destinationCreatedSchema>;
