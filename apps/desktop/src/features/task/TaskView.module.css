@@ -105,8 +105,18 @@
   content: "";
 }
 
+/* Under the chat, the same width as its column: boxes in the chat, the composer and the review
+   bar share one left and right edge, and text sits at the trace's indent inside it. */
+.foot {
+  flex: none;
+  width: 100%;
+  max-width: calc(720px + 2 * 28px);
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
 .composer {
-  padding: 8px 28px 18px;
+  padding: 8px 0 18px;
 }
 
 .picked {
@@ -300,11 +310,9 @@
 }
 
 /* Mark done also where the user looks at the result. */
+/* As wide as the outputs above it, on the same 28px edges. */
 .outputsReview {
   flex: none;
-  width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
   padding: 0 28px 20px;
 }
 

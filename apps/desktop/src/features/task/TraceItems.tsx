@@ -613,7 +613,7 @@ interface ActionGroupProps {
 function ResultUnder({ action, place }: { action: TraceAction; place: Place }) {
   if (action.shows === undefined || action.status !== "completed") return null;
   return (
-    <div className={styles.under}>
+    <div className={styles.result}>
       <ShownResult sessionId={place.sessionId} shows={action.shows} />
     </div>
   );

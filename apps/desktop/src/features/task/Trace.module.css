@@ -285,6 +285,11 @@
   padding: 0 8px 4px 32px;
 }
 
+/* A file or page an action made, on the chat text's left edge (the group's 26px plus 8px). */
+.result {
+  padding: 2px 8px 6px;
+}
+
 .earlier {
   display: flex;
   justify-content: center;

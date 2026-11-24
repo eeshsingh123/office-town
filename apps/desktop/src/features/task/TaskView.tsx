@@ -125,7 +125,7 @@ function SoloTaskView({ taskId }: { taskId: string }) {
                 <ReviewOffer agent={agent} members={[agent]} onReview={review} />
               </div>
             </div>
-            <div className={styles.traceWidth}>
+            <div className={styles.foot}>
               <MessageBox
                 agent={agent}
                 above={<ReviewBar agent={agent} onReview={review} />}

@@ -294,7 +294,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                   ) : null}
                 </div>
               </div>
-              <div className={styles.traceWidth}>
+              <div className={styles.foot}>
                 <MessageBox
                   key={shown.id}
                   agent={shown}
