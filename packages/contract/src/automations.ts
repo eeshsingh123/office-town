@@ -14,6 +14,8 @@ export const FILL_INS = {
 // Chains past this many runs in a row stop (D-125).
 export const CHAIN_DEPTH = 5;
 export const RUNS_KEPT = 500;
+// The most an automation's notes hold; the core refuses more (D-133).
+export const NOTES_CHARS = 8_000;
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time such as 09:00");
 const dateSchema = z.iso.date();
@@ -147,6 +149,9 @@ export const automationRulesSchema = z.object({
   // Apps, by `appKeyOf`, whose changes go through without asking in its runs and checks, where
   // the app is on Ask me first. Read only still refuses; reads never ask (D-129).
   appsWithoutAsking: z.array(z.string().min(1)).max(100).optional(),
+  // Destinations its results and alerts go to (D-130). Neither the drafter nor
+  // `propose_schedule` sets it.
+  sendTo: z.array(z.string().min(1)).max(10).optional(),
 });
 export type AutomationRules = z.infer<typeof automationRulesSchema>;
 
@@ -191,6 +196,10 @@ export const automationRunSchema = z.object({
   status: runStatusSchema,
   // One plain sentence, only when something was not ordinary.
   reason: z.string().min(1).optional(),
+  // Its agent said there was nothing new: no alert, no send, no review (D-131).
+  quiet: z.literal(true).optional(),
+  // A send that failed, in plain words: "Couldn't send to Telegram: the bot key was refused."
+  sendProblem: z.string().min(1).optional(),
   // Runs missed while Office Town was closed, kept as this one record.
   missed: z.number().int().positive().optional(),
   // How many runs in a row led to this one, for a chain.
@@ -217,6 +226,12 @@ export const automationRecordSchema = automationRequestSchema.extend({
   lastLook: z.object({ at: z.iso.datetime(), found: z.number().int().nonnegative() }).optional(),
   // The files every run sends, kept while it exists (D-125).
   files: z.array(attachmentSchema),
+  // What its agents keep from run to run, given to each run as data (D-133).
+  notes: z.string().max(NOTES_CHARS).optional(),
+  // Sends that failed in a row, with the latest reason; three show a banner (D-130).
+  sendFailures: z
+    .object({ count: z.number().int().positive(), reason: z.string().min(1) })
+    .optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -224,6 +239,9 @@ export type AutomationRecord = z.infer<typeof automationRecordSchema>;
 
 export const automationListSchema = z.object({ automations: z.array(automationRecordSchema) });
 export type AutomationList = z.infer<typeof automationListSchema>;
+
+export const notesRequestSchema = z.object({ notes: z.string().max(NOTES_CHARS) });
+export type NotesRequest = z.infer<typeof notesRequestSchema>;
 
 export const enabledRequestSchema = z.object({ enabled: z.boolean() });
 export type EnabledRequest = z.infer<typeof enabledRequestSchema>;

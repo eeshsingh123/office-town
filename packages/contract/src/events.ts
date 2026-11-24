@@ -100,6 +100,8 @@ export const messageOriginSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("message"), from: z.string().min(1) }),
   // The user's change to a list of milestones or steps, word for word.
   z.object({ kind: z.literal("milestones"), summary: z.string().min(1) }),
+  // The user's own words, sent from Telegram (D-132).
+  z.object({ kind: z.literal("telegram") }),
   // The first message of a session that carries on from `fromSessionId` with a handover (D-94).
   z.object({ kind: z.literal("handover"), fromSessionId: z.string().min(1) }),
 ]);
@@ -148,6 +150,8 @@ const payloadSchemas = {
     // Stopped by its lead rather than the user.
     stoppedBy: stoppedBySchema.optional(),
   }),
+  // How many of the user messages last sent wait for the agent's current step to end (D-134).
+  "message.waiting": z.object({ count: z.number().int().nonnegative() }),
   "turn.started": z.object({ turnId: z.string().min(1) }),
   "turn.ended": z.object({
     turnId: z.string().min(1),
@@ -306,6 +310,7 @@ function eventOf<T extends keyof typeof payloadSchemas>(type: T) {
 export const sessionEventSchema = z.discriminatedUnion("type", [
   eventOf("session.started"),
   eventOf("session.ended"),
+  eventOf("message.waiting"),
   eventOf("turn.started"),
   eventOf("turn.ended"),
   eventOf("message"),

@@ -17,9 +17,11 @@ export function lowerAutonomy(level: Autonomy, cap: Autonomy | undefined): Auton
 }
 
 // "app": an app's own permission answered it (D-68). "automation": an automation on Auto (D-126).
-// "automation_app": an automation's own allowance for that app (D-129).
+// "automation_app": an automation's own allowance for that app (D-129). "telegram": the user, from
+// Telegram (D-132).
 export const answeredBySchema = z.union([
   z.literal("user"),
+  z.literal("telegram"),
   z.literal("app"),
   z.literal("automation"),
   z.literal("automation_app"),
