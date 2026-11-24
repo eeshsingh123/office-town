@@ -305,9 +305,6 @@ function resolutionText(request: TraceRequest): string | undefined {
   if ("answeredBy" in resolution && resolution.answeredBy === "automation") {
     return "Decided by Auto";
   }
-  // The user answered from Telegram (D-132).
-  const from =
-    "answeredBy" in resolution && resolution.answeredBy === "telegram" ? " from Telegram" : "";
   if (event.type === "proposal.requested") {
     if (!("outcome" in resolution)) return undefined;
     return PROPOSAL_OUTCOMES[resolution.outcome as keyof typeof PROPOSAL_OUTCOMES] ?? "Answered";
@@ -324,16 +321,15 @@ function resolutionText(request: TraceRequest): string | undefined {
       if ("answeredBy" in resolution && resolution.answeredBy === "automation_app") {
         return "Allowed by this automation";
       }
-      if (from !== "") return `Allowed${from}`;
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
     if (resolution.outcome !== "denied") return "Cancelled";
     return "answeredBy" in resolution && resolution.answeredBy === "app"
       ? "Refused by the app's setting"
-      : `Denied${from}`;
+      : "Denied";
   }
   if (resolution.outcome !== "answered" || !("answers" in resolution)) return "Not answered";
-  return `Answered${from}: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;
+  return `Answered: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;
 }
 
 const PROPOSAL_OUTCOMES = {
@@ -405,14 +401,12 @@ function UserSaid({ text, children }: { text: string; children?: ReactNode }) {
   );
 }
 
-// Where it came from, and whether the agent has read it yet (D-132, D-134).
+// Whether the agent has read it yet (D-134).
 function noteOf(item: TraceMessage, live: boolean): string | undefined {
-  if (item.unread === true) {
-    return live
-      ? "Waiting for its current step to finish"
-      : "Not read before it stopped. It gets this when it carries on.";
-  }
-  return item.origin?.kind === "telegram" ? "From Telegram" : undefined;
+  if (item.unread !== true) return undefined;
+  return live
+    ? "Waiting for its current step to finish"
+    : "Not read before it stopped. It gets this when it carries on.";
 }
 
 function UserMessage({ item, place }: { item: TraceMessage; place: Place }) {

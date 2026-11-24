@@ -57,7 +57,7 @@ export type View =
   | { name: "providers" }
   | { name: "provider"; harness: string }
   // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
-  | { name: "connectors"; connect?: string; audience?: Audience }
+  | { name: "connectors"; connect?: string; audience?: Audience; sendResults?: true }
   | { name: "connector"; connectorId: string }
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }

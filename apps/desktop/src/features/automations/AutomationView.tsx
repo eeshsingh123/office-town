@@ -177,9 +177,7 @@ function Banner({ automation }: { automation: AutomationRecord }) {
         <span>
           Its last {sendFailures.count} sends failed. {sendFailures.reason}
         </span>
-        <Button onClick={() => navigate({ name: "settings", section: "destinations" })}>
-          Destinations
-        </Button>
+        <Button onClick={() => navigate({ name: "connectors" })}>Connectors</Button>
       </div>
     );
   }

@@ -17,6 +17,7 @@ import {
   Plug,
   Plus,
   Search,
+  Send,
   Settings,
   Sparkles,
   SunMoon,
@@ -224,6 +225,12 @@ export function CommandMenu() {
                   label="Add app"
                   keywords={["connector", "connect"]}
                   onSelect={() => go({ name: "connectors", connect: "" })}
+                />
+                <Row
+                  icon={Send}
+                  label="Send automation results"
+                  keywords={["telegram", "slack", "discord", "email", "ntfy", "webhook"]}
+                  onSelect={() => go({ name: "connectors", sendResults: true })}
                 />
               </Command.Group>
               <Command.Group heading="Go to">

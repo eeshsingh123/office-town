@@ -6,6 +6,7 @@ import type {
   ConnectorCatalog,
   ConnectorPermission,
   ConnectorSetup,
+  DestinationKind,
 } from "@office-town/contract";
 import { providerOf } from "@office-town/contract";
 import { ArrowLeft, BadgeCheck, Check, Plug } from "lucide-react";
@@ -22,8 +23,10 @@ import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
 import { type AppGroup, CATEGORIES, isOffer, setUpThrough } from "./connectors.ts";
+import { SERVICES } from "./destinations.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
+import { SendSheet } from "./SendResults.tsx";
 import { ConnectorSheet, Field, KeyFields, PermissionField, WhoField } from "./SheetParts.tsx";
 
 interface AddSheetProps {
@@ -35,8 +38,17 @@ interface AddSheetProps {
   // An app to open at once, by slug or name, such as one an agent asked for.
   app?: string;
   audience?: Audience;
+  // Opens on the services automations send results to.
+  sendResults?: boolean;
   onClose: () => void;
 }
+
+// Not a kind of app agents use: the services the core sends automation results to (D-130).
+const SEND = "send";
+const SERVICE_LIST = Object.entries(SERVICES).map(([kind, service]) => ({
+  kind: kind as DestinationKind,
+  ...service,
+}));
 
 interface OwnSetup {
   name: string;
@@ -243,11 +255,13 @@ export function AddSheet({
   groups,
   app,
   audience: asked,
+  sendResults = false,
   onClose,
 }: AddSheetProps) {
   const harnesses = useApp((state) => state.harnesses);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(sendResults ? SEND : "");
+  const [service, setService] = useState<DestinationKind>();
   const [entry, setEntry] = useState(() => findEntry(entries, app));
   const [advanced, setAdvanced] = useState(
     app !== undefined && findEntry(entries, app) === undefined,
@@ -301,6 +315,11 @@ export function AddSheet({
   const words = query.trim().toLowerCase();
   const inCategory = (listed: CatalogEntry | undefined) =>
     category === "" || listed?.category === category;
+  const services = SERVICE_LIST.filter(
+    (one) =>
+      (category === "" || category === SEND) &&
+      `${one.label} ${one.description}`.toLowerCase().includes(words),
+  );
   const offers = groups.filter((group) => group.routes.every(isOffer));
   const offered = offers.filter(
     (group) =>
@@ -327,6 +346,9 @@ export function AddSheet({
     .toSorted((a, b) => Number(added.has(b.setup.slug)) - Number(added.has(a.setup.slug)));
 
   const choosing = entry === undefined && !advanced;
+  if (service !== undefined) {
+    return <SendSheet kind={service} onBack={() => setService(undefined)} onClose={onClose} />;
+  }
   return (
     <ConnectorSheet
       logo={
@@ -394,7 +416,11 @@ export function AddSheet({
           <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
           <fieldset className={styles.categories}>
             <legend className="visually-hidden">Kind of app</legend>
-            {[{ value: "", label: "All" }, ...CATEGORIES].map(({ value, label }) => (
+            {[
+              { value: "", label: "All" },
+              ...CATEGORIES,
+              { value: SEND, label: "Send results" },
+            ].map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
@@ -407,17 +433,19 @@ export function AddSheet({
             ))}
           </fieldset>
           <ul className={styles.list} aria-label="Apps to add">
-            <li>
-              <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
-                <span className={`${styles.logo} ${styles.md}`} aria-hidden>
-                  <Plug size={16} />
-                </span>
-                <span className={styles.connText}>
-                  <span className={styles.connName}>Add your own</span>
-                  <span className={styles.sub}>An address or a program on this computer</span>
-                </span>
-              </button>
-            </li>
+            {category === SEND ? null : (
+              <li>
+                <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
+                  <span className={`${styles.logo} ${styles.md}`} aria-hidden>
+                    <Plug size={16} />
+                  </span>
+                  <span className={styles.connText}>
+                    <span className={styles.connName}>Add your own</span>
+                    <span className={styles.sub}>An address or a program on this computer</span>
+                  </span>
+                </button>
+              </li>
+            )}
             {offered.map((group) => {
               const [route] = group.routes;
               if (route === undefined) return null;
@@ -463,8 +491,24 @@ export function AddSheet({
                 </li>
               );
             })}
+            {services.map((one) => (
+              <li key={one.kind}>
+                <button
+                  type="button"
+                  className={styles.connRow}
+                  onClick={() => setService(one.kind)}
+                >
+                  <AppLogo app={one.label} />
+                  <span className={styles.connText}>
+                    <span className={styles.connName}>{one.label}</span>
+                    <span className={styles.twoLines}>{one.description}</span>
+                    <span className={styles.sub}>Sends automation results, set up with a key</span>
+                  </span>
+                </button>
+              </li>
+            ))}
           </ul>
-          {found.length + offered.length === 0 ? (
+          {found.length + offered.length + services.length === 0 ? (
             <p className={styles.empty}>No app matches.</p>
           ) : null}
         </>

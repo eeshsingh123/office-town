@@ -40,28 +40,32 @@ export interface KeyField {
   optional?: true;
 }
 
-// What each service asks for, and where to find it. Settings fields carry no secret.
+// What each service is for, what it asks for and where to find it. Settings fields carry no secret.
 export const SERVICES: Record<
   DestinationKind,
-  { label: string; hint: string; keys: KeyField[]; settings?: KeyField[] }
+  { label: string; description: string; hint: string; keys: KeyField[]; settings?: KeyField[] }
 > = {
   telegram: {
     label: "Telegram",
+    description: "Results and alerts in a chat with your own bot",
     hint: "In Telegram, message @BotFather, send /newbot, and paste the key it gives you.",
     keys: [{ key: "token", label: "Bot key", secret: true }],
   },
   slack: {
     label: "Slack",
+    description: "Results and alerts in a channel, through a webhook",
     hint: "In Slack, make an app with Incoming Webhooks on and add one to a channel.",
     keys: [{ key: "url", label: "Webhook address", secret: true }],
   },
   discord: {
     label: "Discord",
+    description: "Results and alerts in a channel, through a webhook",
     hint: "In a channel's settings, open Integrations, then Webhooks, and copy one's address.",
     keys: [{ key: "url", label: "Webhook address", secret: true }],
   },
   ntfy: {
     label: "ntfy",
+    description: "Results and alerts as notifications on your phone",
     hint: "Anyone who knows the topic can read it, so pick one that's hard to guess.",
     keys: [
       { key: "topic", label: "Topic", secret: true },
@@ -71,6 +75,7 @@ export const SERVICES: Record<
   },
   email: {
     label: "Email",
+    description: "Results and alerts by email, through Resend",
     hint: "Sent through Resend. Without your own domain there, it only sends to your Resend account's address.",
     keys: [{ key: "key", label: "Resend key", secret: true }],
     settings: [
@@ -80,6 +85,7 @@ export const SERVICES: Record<
   },
   webhook: {
     label: "Webhook",
+    description: "Results and alerts as JSON, to an address you run",
     hint: "Each message is posted as JSON, for n8n, Home Assistant or your own script.",
     keys: [{ key: "url", label: "Address", secret: true }],
   },

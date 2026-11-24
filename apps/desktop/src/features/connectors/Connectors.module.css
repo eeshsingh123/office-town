@@ -150,6 +150,34 @@
   color: var(--warn);
 }
 
+/* A row with its own buttons, so the row itself is not one. */
+.staticRow {
+  cursor: default;
+}
+
+.staticRow:hover {
+  background: none;
+}
+
+.sendStatus,
+.sendCode {
+  font-size: var(--size-meta);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.sendStatus.warn {
+  color: var(--warn);
+}
+
+.sendCode {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  color: var(--text-2);
+}
+
 .by {
   display: inline-flex;
   align-items: center;

@@ -100,6 +100,7 @@ function Main({ view }: { view: View }) {
         <ConnectorsView
           {...(view.connect === undefined ? {} : { connect: view.connect })}
           {...(view.audience === undefined ? {} : { audience: view.audience })}
+          {...(view.sendResults === undefined ? {} : { sendResults: true })}
         />
       );
     case "connector":

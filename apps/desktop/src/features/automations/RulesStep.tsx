@@ -2,7 +2,7 @@ import { type AutomationRules, automationRulesSchema } from "@office-town/contra
 import { navigate } from "../../store/app-store.ts";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import { groupApps, isOffer, useConnectors } from "../connectors/connectors.ts";
-import { serviceLabel, useDestinations } from "../settings/destinations.ts";
+import { serviceLabel, useDestinations } from "../connectors/destinations.ts";
 import styles from "./NewAutomation.module.css";
 
 export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
@@ -79,7 +79,7 @@ function AppsRule({
   );
 }
 
-// Where its results go; set up once in Settings (D-130).
+// Where its results go; set up once in Connectors (D-130).
 function SendTo({
   picked,
   onChange,
@@ -106,14 +106,16 @@ function SendTo({
         />
       ))}
       <p className={styles.note}>
-        {destinations.length === 0 ? "No destinations yet. " : ""}
+        {destinations.length === 0 ? "Nowhere set up yet. " : ""}
         <button
           type="button"
           className={styles.textButton}
-          onClick={() => navigate({ name: "settings", section: "destinations" })}
+          onClick={() => navigate({ name: "connectors", sendResults: true })}
         >
-          {destinations.length === 0 ? "Add one in Settings" : "Destinations in Settings"}
-        </button>
+          {destinations.length === 0 ? "Set one up in Connectors" : "Add another in Connectors"}
+        </button>{" "}
+        To have an agent post with an app you connected, such as Slack on Claude, say so in its task
+        and let it use that app without asking.
       </p>
     </div>
   );
