@@ -132,7 +132,8 @@ interface Window {
 interface Seen {
   ended: boolean;
   paused: boolean;
-  // For a task that sends its result: the result is ready, or the task failed.
+  // Send result was on, so a finish or failure after this is sent; one before it never is.
+  sends: boolean;
   finished: boolean;
   failed: boolean;
 }
@@ -210,9 +211,11 @@ export class Notifier {
   // A run's result or failure goes to its automation's destinations; nothing new sends nothing
   // (D-130, D-131). The result is the text the Library keeps, never a trace or another file.
   runEnded(automation: AutomationRecord, run: AutomationRun, result: string): void {
-    if (run.quiet === true) return;
+    const finished = run.status === "done" || run.status === "review";
+    // A run that failed after reporting nothing new is still told.
+    if (finished && run.quiet === true) return;
     const title = `${automation.name} · run ${run.number}`;
-    if ((run.status === "done" || run.status === "review") && result.trim() !== "") {
+    if (finished && result.trim() !== "") {
       this.#sendOut(automation, `result:${run.id}`, run.id, {
         kind: "result",
         title,
@@ -349,27 +352,29 @@ export class Notifier {
   // A part of a chief's goal reports to the chief, so only the whole goal alerts.
   #taskChanged(task: TaskRecord): void {
     const before = this.#seen.get(task.id);
-    const status = this.#wantsResult(task) ? statusOf(this.#store, task) : undefined;
+    const sends = this.#wantsResult(task);
+    const status = sends ? statusOf(this.#store, task) : undefined;
     const now: Seen = {
       ended: task.state === "ended",
       paused: task.paused !== undefined,
+      sends,
       finished: status !== undefined && OVER.has(status),
       failed: status === "failed",
     };
     this.#seen.set(task.id, now);
     if (before === undefined) return;
-    if (now.finished && !before.finished) this.#resultOut(task);
-    if (now.failed && !before.failed) this.#failedOut(task);
+    if (before.sends && now.finished && !before.finished) this.#resultOut(task);
+    if (before.sends && now.failed && !before.failed) this.#failedOut(task);
     if (now.paused && !before.paused) this.#paused(task);
     if (!now.ended || before.ended || task.parentTaskId !== undefined) return;
-    // An automation's check speaks through its automation, not as a task of its own, and a run
-    // with nothing new stays quiet (D-131).
+    // An automation's check speaks through its automation, not as a task of its own.
     if (task.origin?.kind === "check") return;
-    if (task.origin?.kind === "automation") {
-      if (this.#store.automations.getRun(task.origin.runId)?.quiet === true) return;
-    }
     if (task.reviewedAt !== undefined) return;
     const top = topSession(task, this.#store.listSessions(task.id));
+    // A run with nothing new stays quiet unless it then failed (D-131).
+    if (task.origin?.kind === "automation" && top?.status !== "failed") {
+      if (this.#store.automations.getRun(task.origin.runId)?.quiet === true) return;
+    }
     const own = this.#automationPlaces(task);
     if (top?.status === "failed") {
       this.notify("failed", task.id, "A task failed", taskName(task), own);

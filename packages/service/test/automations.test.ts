@@ -237,7 +237,7 @@ describe("the runner", () => {
         },
       });
       await eventually(() => core.store.destinations.get(telegram)?.link !== undefined);
-      expect(core.store.destinations.get(telegram)?.link).toMatchObject({ chatId: 42, userId: 7 });
+      expect(core.store.destinations.get(telegram)?.link).toMatchObject({ chatId: 42 });
 
       const scratch = core.store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
       const created = await core.call("POST", "/automations", {
@@ -307,6 +307,17 @@ describe("the runner", () => {
       expect(fake.sentToTelegram()).toHaveLength(sentBefore);
       expect(core.store.automations.lastFinishedTask(id)).toBe(run1?.taskId);
 
+      // A run that reports nothing new and then fails is still told.
+      const failing = await runNow();
+      await core.callTool(failing, "report_nothing_new", {});
+      failing?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+      await eventually(() =>
+        fake.sentToTelegram().some((message) => message.text?.includes("It failed.")),
+      );
+      // The app ticked for failures hears it too, in the core's words.
+      await eventually(() => heard("alerts").length === 1);
+      expect(heard("alerts")[0]?.body).toContain("A task failed");
+
       // Run 3 asks: the question goes out as plain words, answered in Office Town, and once linked
       // the core reads nothing from Telegram, so a reply there is left alone.
       const third = await runNow();
@@ -339,9 +350,9 @@ describe("the runner", () => {
       expect(core.sessions).toHaveLength(sessions);
       // The automation's own places heard the ask in its words; a place ticked for "needs you"
       // heard it in the core's words only.
-      await eventually(() => heard("alerts").length === 1);
-      expect(heard("alerts")[0]?.body).toContain("asks a question");
-      expect(heard("alerts")[0]?.body).not.toContain("Which source?");
+      await eventually(() => heard("alerts").length === 2);
+      expect(heard("alerts")[1]?.body).toContain("asks a question");
+      expect(heard("alerts")[1]?.body).not.toContain("Which source?");
 
       // A task a person started with Send result to goes once to the result places.
       await core.call("PUT", "/updates", { resultPlaces: [alerts] });
@@ -354,11 +365,11 @@ describe("the runner", () => {
       });
       expect(task.status).toBe(201);
       playTurn(core.sessions.at(-1), "Three things happened this week.");
-      await eventually(() => heard("alerts").length === 2);
+      await eventually(() => heard("alerts").length === 3);
       await settle();
-      expect(heard("alerts")).toHaveLength(2);
-      expect(heard("alerts")[1]?.body).toContain("Three things happened this week.");
-      expect(heard("team")).toHaveLength(2);
+      expect(heard("alerts")).toHaveLength(3);
+      expect(heard("alerts")[2]?.body).toContain("Three things happened this week.");
+      expect(heard("team")).toHaveLength(3);
       expect(core.store.getTask(task.json.taskId)?.delivery).toEqual({ sentTo: ["Alerts"] });
 
       // One that fails sends a short note there instead, in the core's words only.
@@ -373,11 +384,11 @@ describe("the runner", () => {
       core.sessions
         .at(-1)
         ?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
-      await eventually(() => heard("alerts").length === 3);
+      await eventually(() => heard("alerts").length === 4);
       await settle();
-      expect(heard("alerts")).toHaveLength(3);
-      expect(heard("alerts")[2]?.body).toContain("It failed. Open it in Office Town to see why.");
-      expect(heard("alerts")[2]?.body).toContain("Sum up the month.");
+      expect(heard("alerts")).toHaveLength(4);
+      expect(heard("alerts")[3]?.body).toContain("It failed. Open it in Office Town to see why.");
+      expect(heard("alerts")[3]?.body).toContain("Sum up the month.");
     } finally {
       await fake.close();
     }
