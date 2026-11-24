@@ -71,6 +71,7 @@ import {
   type WorkspaceRequest,
 } from "@office-town/contract";
 import { AttachmentFiles } from "./attachment-files.ts";
+import { AutomationEventsStore } from "./automation-events-store.ts";
 import { AutomationsStore } from "./automations-store.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
 import { NoticesStore } from "./notices-store.ts";
@@ -124,6 +125,7 @@ import { matchTasks, type TaskFacts } from "./task-search.ts";
 const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
 const LINE_CAP_BYTES = 64 * 1024;
+const USAGE_KEPT_MS = 30 * 24 * 60 * 60 * 1000;
 // Published live and never kept: text fragments, and the size of a conversation during a turn.
 const UNSTORED = new Set<SessionEvent["type"]>([
   "message.delta",
@@ -741,6 +743,7 @@ class SqliteStore implements Store {
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
+  readonly automationEvents: AutomationEventsStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -774,6 +777,7 @@ class SqliteStore implements Store {
       (change) => this.#publish(change),
       (id) => this.getAttachment(id),
     );
+    this.automationEvents = new AutomationEventsStore(db);
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
@@ -947,13 +951,19 @@ class SqliteStore implements Store {
     );
   }
 
-  async deleteTask(id: string): Promise<void> {
+  async deleteTask(id: string, keepUsage?: { agentId?: string }): Promise<void> {
     const task = this.#taskRow(id);
     if (one(this.#statements.unfinishedInTask, task.ref) !== undefined) {
       throw new TaskActiveError();
     }
     this.#deleting.add(id);
     try {
+      if (keepUsage !== undefined) {
+        transaction(this.#db, () => {
+          this.#statements.pruneKeptUsage.run(Date.now() - USAGE_KEPT_MS);
+          this.#statements.keepUsage.run(keepUsage.agentId ?? null, task.ref);
+        });
+      }
       const sessions = all<SessionRow>(this.#statements.sessionsOfTask, task.ref);
       const agents = all<{ ref: number }>(this.#statements.agentsOfTask, task.ref);
       for (const session of sessions) {
@@ -1786,9 +1796,11 @@ class SqliteStore implements Store {
   }
 
   accountUsageSince(since: string): TaskModelUsage[] {
+    const from = Date.parse(since);
     const rows = all<TaskModelUsage & { task: number | null; model: string | null }>(
       this.#statements.accountUsageSince,
-      Date.parse(since),
+      from,
+      from,
     );
     return rows.map(({ task, model, ...row }) => ({
       ...row,

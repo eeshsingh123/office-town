@@ -56,6 +56,7 @@ import type {
   WorkspaceRecord,
   WorkspaceRequest,
 } from "@office-town/contract";
+import type { AutomationEventsStore } from "./automation-events-store.ts";
 import type { AutomationsStore } from "./automations-store.ts";
 import type { NoticesStore } from "./notices-store.ts";
 import type { QueueStore } from "./queue-store.ts";
@@ -277,6 +278,7 @@ export interface Store {
   readonly notices: NoticesStore;
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
+  readonly automationEvents: AutomationEventsStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
@@ -305,8 +307,9 @@ export interface Store {
   // With a session a close, crash or pause cut off at or after this time, newest first.
   listInterruptedTasks(since: number): TaskSummary[];
   searchTasks(filters: TaskSearch): TaskSearchResult;
-  // An agent that worked on no other task is deleted with it.
-  deleteTask(id: string): Promise<void>;
+  // An agent that worked on no other task is deleted with it. With `keepUsage`, Usage still
+  // counts its tokens, under `agentId` when one is given, else under the agent that spent them.
+  deleteTask(id: string, keepUsage?: { agentId?: string }): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];

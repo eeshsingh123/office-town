@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import {
   type AutomationFields,
   type AutomationPreview,
@@ -46,13 +47,49 @@ function longestThrough(byId: Map<string, Trigger>, id: string): number {
   return before + later(id, new Set([id]));
 }
 
+// What event-triggered work would run at, if it is No safety checks (D-118): its name.
+export function unsafeFor(store: Store, task: AutomationTask): string | undefined {
+  switch (task.kind) {
+    case "assistant":
+      return task.request.autonomy === "bypass" ? "This assistant" : undefined;
+    case "department": {
+      const department = store.getDepartment(task.request.team.departmentId);
+      return department?.autonomy === "bypass" ? department.name : undefined;
+    }
+    case "chief":
+      return store.listDepartments().find((department) => department.autonomy === "bypass")?.name;
+  }
+}
+
+function sourceProblem(store: Store, trigger: Extract<Trigger, { kind: "event" }>) {
+  const { source } = trigger;
+  if (
+    source.kind === "folder" &&
+    statSync(source.path, { throwIfNoEntry: false })?.isDirectory() !== true
+  ) {
+    return "That folder doesn't exist.";
+  }
+  if (source.kind === "github" && store.getConnector(source.connectorId)?.setup.slug !== "github") {
+    return "Add the GitHub app in Connectors first.";
+  }
+  return undefined;
+}
+
 // What Save refuses, in one sentence; undefined when it can be saved.
 export function problemWith(
   store: Store,
   id: string | undefined,
   trigger: Trigger,
+  task?: AutomationTask,
   now = new Date(),
 ): string | undefined {
+  if (trigger.kind === "event") {
+    const unsafe = task === undefined ? undefined : unsafeFor(store, task);
+    if (unsafe !== undefined) {
+      return `${unsafe} is set to No safety checks, which events never start work at.`;
+    }
+    return sourceProblem(store, trigger);
+  }
   const saved = id === undefined ? undefined : store.automations.get(id);
   if (trigger.kind === "schedule") {
     if (
@@ -108,7 +145,7 @@ export function preview(store: Store, request: AutomationPreviewRequest): Automa
   const { id, task, trigger } = automationPreviewRequestSchema.parse(request);
   const saved = id === undefined ? undefined : store.automations.get(id);
   const now = new Date();
-  const problem = problemWith(store, id, trigger);
+  const problem = problemWith(store, id, trigger, task);
   const warning = warningFor(store, id, task, trigger);
   return {
     nextRuns:

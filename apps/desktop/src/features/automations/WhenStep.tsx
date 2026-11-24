@@ -8,15 +8,27 @@ import type {
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useAutomations } from "../../store/automations.ts";
+import { OptionRows, type RowOption } from "../../ui/Choice.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
+import { Segments } from "../../ui/Segments.tsx";
 import { CalendarField, today } from "./CalendarField.tsx";
+import {
+  blankEvent,
+  EventFields,
+  type EventForm,
+  eventOf,
+  Field,
+  sourceOf,
+  useGitHubApp,
+} from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText } from "./parts.tsx";
 import { DAY_NAMES, localZone, runTime } from "./words.ts";
 
 export interface WhenForm {
-  mode: "schedule" | "after";
+  mode: "schedule" | "event" | "after";
+  event: EventForm;
   preset: Schedule["repeat"];
   time: string;
   days: number[];
@@ -34,6 +46,7 @@ export interface WhenForm {
 
 export const blankWhen = (): WhenForm => ({
   mode: "schedule",
+  event: blankEvent(),
   preset: "weekdays",
   time: "09:00",
   days: [1],
@@ -70,7 +83,12 @@ export function scheduleOf(when: WhenForm): Schedule {
   }
 }
 
-export function triggerOf(when: WhenForm): Trigger | undefined {
+// The GitHub app's id, for a GitHub watch: the app holds its key.
+export function triggerOf(when: WhenForm, githubId?: string): Trigger | undefined {
+  if (when.mode === "event") {
+    const source = sourceOf(when.event, githubId);
+    return source === undefined ? undefined : { kind: "event", source };
+  }
   if (when.mode === "after") {
     return when.afterId === undefined
       ? undefined
@@ -88,6 +106,7 @@ export function triggerOf(when: WhenForm): Trigger | undefined {
 
 export function whenOf(trigger: Trigger): WhenForm {
   const blank = blankWhen();
+  if (trigger.kind === "event") return { ...blank, mode: "event", event: eventOf(trigger.source) };
   if (trigger.kind === "after") {
     return { ...blank, mode: "after", afterId: trigger.automationId, outcome: trigger.outcome };
   }
@@ -199,7 +218,8 @@ function Chip({
   );
 }
 
-function Sentence({
+// The panel's footer: the When in words, then the next runs or what Save would refuse.
+function Summary({
   trigger,
   preview,
 }: {
@@ -208,7 +228,7 @@ function Sentence({
 }) {
   const text = useWhenText({ trigger });
   return (
-    <div className={styles.sentence} aria-live="polite">
+    <div className={styles.summary} aria-live="polite">
       <strong>{text}</strong>
       {preview?.problem !== undefined ? (
         <span className={page.error}>{preview.problem}</span>
@@ -217,6 +237,233 @@ function Sentence({
           Next: {preview.nextRuns.map((at) => runTime(at)).join(", ")}
         </span>
       ) : null}
+    </div>
+  );
+}
+
+const MODES: RowOption<WhenForm["mode"]>[] = [
+  { value: "schedule", title: "On a schedule", description: "At set times" },
+  {
+    value: "event",
+    title: "When something arrives",
+    description: "A new file, post, issue or check result",
+  },
+  { value: "after", title: "After another automation", description: "When another one ends" },
+];
+
+function ScheduleFields({
+  value,
+  set,
+}: {
+  value: WhenForm;
+  set: (change: Partial<WhenForm>) => void;
+}) {
+  return (
+    <>
+      <Segments
+        label="How often"
+        value={value.preset}
+        options={PRESETS}
+        onChange={(preset) => set({ preset })}
+      />
+      <div className={styles.fields}>
+        {value.preset === "weekly" ? (
+          <Field label="Days">
+            {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+              <Chip
+                key={day}
+                pressed={value.days.includes(day)}
+                onClick={() =>
+                  set({
+                    days: value.days.includes(day)
+                      ? value.days.filter((each) => each !== day)
+                      : [...value.days, day],
+                  })
+                }
+              >
+                {DAY_NAMES[day]?.slice(0, 3) ?? ""}
+              </Chip>
+            ))}
+          </Field>
+        ) : null}
+        {value.preset === "monthly" ? (
+          <Field label="Day">
+            <select
+              className={styles.inline}
+              aria-label="Day of the month"
+              value={String(value.day)}
+              onChange={(event) =>
+                set({ day: event.target.value === "last" ? "last" : Number(event.target.value) })
+              }
+            >
+              {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ))}
+              <option value="last">Last day</option>
+            </select>
+            of each month
+          </Field>
+        ) : null}
+        {value.preset === "once" ? (
+          <Field label="Date">
+            <CalendarField label="Date" value={value.date} onChange={(date) => set({ date })} />
+          </Field>
+        ) : null}
+        {value.preset === "hours" ? (
+          <Field label="Every">
+            <select
+              className={styles.inline}
+              aria-label="Hours between runs"
+              value={value.every}
+              onChange={(event) => set({ every: Number(event.target.value) })}
+            >
+              {[1, 2, 3, 4, 6, 8, 12].map((hours) => (
+                <option key={hours} value={hours}>
+                  {hours === 1 ? "Hour" : `${hours} hours`}
+                </option>
+              ))}
+            </select>
+            from
+            <TimeField label="First run" value={value.from} onChange={(from) => set({ from })} />
+            to
+            <TimeField
+              label="Last run"
+              value={value.until ?? "23:00"}
+              onChange={(until) => set({ until })}
+            />
+          </Field>
+        ) : (
+          <Field label="Time">
+            <TimeField label="Time" value={value.time} onChange={(time) => set({ time })} />
+            {value.timeZone === localZone() ? null : (
+              <span className={styles.muted}>{value.timeZone}</span>
+            )}
+          </Field>
+        )}
+        {value.preset === "once" ? null : (
+          <>
+            <Field label="Starts">
+              <select
+                className={styles.inline}
+                aria-label="Starts"
+                value={value.starts === undefined ? "now" : "on"}
+                onChange={(event) =>
+                  set({ starts: event.target.value === "now" ? undefined : today() })
+                }
+              >
+                <option value="now">Now</option>
+                <option value="on">On a date</option>
+              </select>
+              {value.starts === undefined ? null : (
+                <CalendarField
+                  label="Start date"
+                  value={value.starts}
+                  onChange={(starts) => set({ starts })}
+                />
+              )}
+            </Field>
+            <Field label="Ends">
+              <select
+                className={styles.inline}
+                aria-label="Ends"
+                value={value.ends.kind}
+                onChange={(event) => {
+                  const kind = event.target.value;
+                  set({
+                    ends:
+                      kind === "on"
+                        ? { kind: "on", date: value.starts ?? today() }
+                        : kind === "after"
+                          ? { kind: "after", runs: 10 }
+                          : { kind: "never" },
+                  });
+                }}
+              >
+                <option value="never">Never</option>
+                <option value="on">On a date</option>
+                <option value="after">After a number of runs</option>
+              </select>
+              {value.ends.kind === "on" ? (
+                <CalendarField
+                  label="End date"
+                  value={value.ends.date}
+                  from={value.starts ?? today()}
+                  onChange={(date) => set({ ends: { kind: "on", date } })}
+                />
+              ) : value.ends.kind === "after" ? (
+                <>
+                  <input
+                    type="number"
+                    className={styles.count}
+                    aria-label="Runs"
+                    min={1}
+                    max={1000}
+                    value={value.ends.runs}
+                    onChange={(event) =>
+                      set({
+                        ends: {
+                          kind: "after",
+                          runs: Math.min(1000, Math.max(1, Number(event.target.value) || 1)),
+                        },
+                      })
+                    }
+                  />
+                  runs
+                </>
+              ) : null}
+            </Field>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function AfterFields({
+  id,
+  value,
+  set,
+}: {
+  id: string | undefined;
+  value: WhenForm;
+  set: (change: Partial<WhenForm>) => void;
+}) {
+  const others = (useAutomations() ?? []).filter((one) => one.id !== id);
+  if (others.length === 0) {
+    return (
+      <p className={form.hint}>Save another automation first. This one can then run after it.</p>
+    );
+  }
+  return (
+    <div className={styles.fields}>
+      <Field label="After">
+        <select
+          className={styles.inline}
+          aria-label="The automation it runs after"
+          value={value.afterId ?? ""}
+          onChange={(event) => set({ afterId: event.target.value || undefined })}
+        >
+          <option value="">Choose one</option>
+          {others.map((one) => (
+            <option key={one.id} value={one.id}>
+              {one.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Runs if it">
+        <select
+          className={styles.inline}
+          aria-label="How it must end"
+          value={value.outcome}
+          onChange={(event) => set({ outcome: event.target.value as "done" | "any" })}
+        >
+          <option value="done">Finishes well</option>
+          <option value="any">Ends, however it went</option>
+        </select>
+      </Field>
     </div>
   );
 }
@@ -232,243 +479,28 @@ export function WhenStep({
   onChange: (next: WhenForm) => void;
   task: AutomationTask | undefined;
 }) {
-  const others = (useAutomations() ?? []).filter((one) => one.id !== id);
   const set = (change: Partial<WhenForm>) => onChange({ ...value, ...change });
-  const trigger = triggerOf(value);
+  const trigger = triggerOf(value, useGitHubApp()?.id);
   const preview = usePreview(id, task, trigger);
-  const timed = value.preset !== "hours";
   return (
     <div className={styles.step}>
-      <div className={styles.chipRow}>
-        <Chip pressed={value.mode === "schedule"} onClick={() => set({ mode: "schedule" })}>
-          On a schedule
-        </Chip>
-        <Chip pressed={value.mode === "after"} onClick={() => set({ mode: "after" })}>
-          After another automation
-        </Chip>
+      <div className={styles.modes}>
+        <OptionRows
+          name="when-mode"
+          label="When it runs"
+          value={value.mode}
+          options={MODES}
+          onChange={(mode) => set({ mode })}
+        />
       </div>
-
-      {value.mode === "after" ? (
-        others.length === 0 ? (
-          <p className={page.hint}>
-            Save another automation first; this one can then run after it.
-          </p>
-        ) : (
-          <div className={styles.lines}>
-            <p className={styles.rule}>
-              Run after{" "}
-              <select
-                className={styles.inline}
-                aria-label="The automation it runs after"
-                value={value.afterId ?? ""}
-                onChange={(event) => set({ afterId: event.target.value || undefined })}
-              >
-                <option value="">choose one</option>
-                {others.map((one) => (
-                  <option key={one.id} value={one.id}>
-                    {one.name}
-                  </option>
-                ))}
-              </select>{" "}
-              <select
-                className={styles.inline}
-                aria-label="How it must end"
-                value={value.outcome}
-                onChange={(event) => set({ outcome: event.target.value as "done" | "any" })}
-              >
-                <option value="done">finishes well</option>
-                <option value="any">ends, however it went</option>
-              </select>
-              .
-            </p>
-          </div>
-        )
-      ) : (
-        <>
-          <div className={styles.chipRow}>
-            {PRESETS.map((preset) => (
-              <Chip
-                key={preset.value}
-                pressed={value.preset === preset.value}
-                onClick={() => set({ preset: preset.value })}
-              >
-                {preset.label}
-              </Chip>
-            ))}
-          </div>
-          <div className={styles.lines}>
-            {value.preset === "weekly" ? (
-              <div className={styles.chipRow}>
-                {[1, 2, 3, 4, 5, 6, 0].map((day) => (
-                  <Chip
-                    key={day}
-                    pressed={value.days.includes(day)}
-                    onClick={() =>
-                      set({
-                        days: value.days.includes(day)
-                          ? value.days.filter((each) => each !== day)
-                          : [...value.days, day],
-                      })
-                    }
-                  >
-                    {DAY_NAMES[day]?.slice(0, 3) ?? ""}
-                  </Chip>
-                ))}
-              </div>
-            ) : null}
-            {value.preset === "monthly" ? (
-              <p className={styles.rule}>
-                On the{" "}
-                <select
-                  className={styles.inline}
-                  aria-label="Day of the month"
-                  value={String(value.day)}
-                  onChange={(event) =>
-                    set({
-                      day: event.target.value === "last" ? "last" : Number(event.target.value),
-                    })
-                  }
-                >
-                  {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => (
-                    <option key={day} value={day}>
-                      {day}
-                    </option>
-                  ))}
-                  <option value="last">last day</option>
-                </select>{" "}
-                of each month
-              </p>
-            ) : null}
-            {value.preset === "once" ? (
-              <p className={styles.rule}>
-                On{" "}
-                <CalendarField label="Date" value={value.date} onChange={(date) => set({ date })} />
-              </p>
-            ) : null}
-            {value.preset === "hours" ? (
-              <p className={styles.rule}>
-                Every{" "}
-                <select
-                  className={styles.inline}
-                  aria-label="Hours between runs"
-                  value={value.every}
-                  onChange={(event) => set({ every: Number(event.target.value) })}
-                >
-                  {[1, 2, 3, 4, 6, 8, 12].map((hours) => (
-                    <option key={hours} value={hours}>
-                      {hours === 1 ? "hour" : `${hours} hours`}
-                    </option>
-                  ))}
-                </select>{" "}
-                from{" "}
-                <TimeField
-                  label="First run"
-                  value={value.from}
-                  onChange={(from) => set({ from })}
-                />{" "}
-                to{" "}
-                <TimeField
-                  label="Last run"
-                  value={value.until ?? "23:00"}
-                  onChange={(until) => set({ until })}
-                />
-              </p>
-            ) : null}
-            {timed ? (
-              <p className={styles.rule}>
-                At <TimeField label="Time" value={value.time} onChange={(time) => set({ time })} />
-                {value.timeZone === localZone() ? null : (
-                  <span className={page.hint}> ({value.timeZone})</span>
-                )}
-              </p>
-            ) : null}
-            {value.preset === "once" ? null : (
-              <>
-                <p className={styles.rule}>
-                  Starts{" "}
-                  <select
-                    className={styles.inline}
-                    aria-label="Starts"
-                    value={value.starts === undefined ? "now" : "on"}
-                    onChange={(event) =>
-                      set({ starts: event.target.value === "now" ? undefined : today() })
-                    }
-                  >
-                    <option value="now">now</option>
-                    <option value="on">on a date</option>
-                  </select>
-                  {value.starts === undefined ? null : (
-                    <>
-                      {" "}
-                      <CalendarField
-                        label="Start date"
-                        value={value.starts}
-                        onChange={(starts) => set({ starts })}
-                      />
-                    </>
-                  )}
-                </p>
-                <p className={styles.rule}>
-                  Ends{" "}
-                  <select
-                    className={styles.inline}
-                    aria-label="Ends"
-                    value={value.ends.kind}
-                    onChange={(event) => {
-                      const kind = event.target.value;
-                      set({
-                        ends:
-                          kind === "on"
-                            ? { kind: "on", date: value.starts ?? today() }
-                            : kind === "after"
-                              ? { kind: "after", runs: 10 }
-                              : { kind: "never" },
-                      });
-                    }}
-                  >
-                    <option value="never">never</option>
-                    <option value="on">on a date</option>
-                    <option value="after">after a number of runs</option>
-                  </select>
-                  {value.ends.kind === "on" ? (
-                    <>
-                      {" "}
-                      <CalendarField
-                        label="End date"
-                        value={value.ends.date}
-                        from={value.starts ?? today()}
-                        onChange={(date) => set({ ends: { kind: "on", date } })}
-                      />
-                    </>
-                  ) : value.ends.kind === "after" ? (
-                    <>
-                      {" "}
-                      <input
-                        type="number"
-                        className={styles.count}
-                        aria-label="Runs"
-                        min={1}
-                        max={1000}
-                        value={value.ends.runs}
-                        onChange={(event) =>
-                          set({
-                            ends: {
-                              kind: "after",
-                              runs: Math.min(1000, Math.max(1, Number(event.target.value) || 1)),
-                            },
-                          })
-                        }
-                      />{" "}
-                      runs
-                    </>
-                  ) : null}
-                </p>
-              </>
-            )}
-          </div>
-        </>
-      )}
-      {trigger === undefined ? null : <Sentence trigger={trigger} preview={preview} />}
+      <div className={styles.panel}>
+        {value.mode === "schedule" ? <ScheduleFields value={value} set={set} /> : null}
+        {value.mode === "event" ? (
+          <EventFields value={value.event} onChange={(event) => set({ event })} />
+        ) : null}
+        {value.mode === "after" ? <AfterFields id={id} value={value} set={set} /> : null}
+        {trigger === undefined ? null : <Summary trigger={trigger} preview={preview} />}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   History,
+  Inbox,
   Laptop,
   LayoutGrid,
   type LucideIcon,
@@ -19,6 +20,21 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-23",
+    title: "Automations that start when something arrives",
+    icon: Inbox,
+    changes: [
+      "An automation can start when a new file lands in a folder, an RSS feed posts, or a GitHub repository gets a new issue or pull request",
+      "An agent check looks through your apps as often as you choose, such as your email for invoices, and starts a run only when it finds something new",
+      "Type @ in the task to add What started this run. Things that arrive together go to one run",
+      "Edits to files already in the folder, and files the automation's own runs make, don't start it",
+      "Things that arrived while Office Town was closed run when it opens, within the catch-up window",
+      "Each automation shows when it last looked and what it found, and agent checks count in Usage",
+      "The When step shows the three ways to start side by side, with the details underneath",
+      "In Rules, pick apps whose changes go through without asking in that automation's runs, so a run at night doesn't wait for you. Other tasks still ask",
+    ],
+  },
   {
     date: "2026-11-22",
     title: "Automations: tasks that start on their own",

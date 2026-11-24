@@ -188,7 +188,8 @@ export type Guard = (
 ) => Autonomy | undefined;
 
 // An app's own permission on one of its calls; without a verdict the user answers (D-68).
-export type AppVerdict = { allow: true } | { allow: false; reason: string };
+// `by`: an automation's own allowance for the app let it through (D-129), else the app's setting.
+export type AppVerdict = { allow: true; by?: "automation_app" } | { allow: false; reason: string };
 export type AppGuard = (
   session: SessionRecord,
   request: PermissionRequest["payload"],
@@ -768,7 +769,7 @@ ${text}`,
       type: "answerPermission",
       requestId: request.payload.requestId,
       optionId: option.optionId,
-      answeredBy: "app",
+      answeredBy: verdict.allow ? (verdict.by ?? "app") : "app",
     });
     const told = verdict.allow
       ? answered

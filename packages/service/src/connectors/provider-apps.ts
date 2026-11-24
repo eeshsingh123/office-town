@@ -20,7 +20,7 @@ import {
 import { allAccounts, hasSignIn, sessionAccountId } from "../accounts/accounts.ts";
 import type { AppVerdict, SessionRegistry } from "../registry/session-registry.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
-import { decide, isRead, mayUse, providerName } from "./access.ts";
+import { automationAllows, decide, isRead, mayUse, providerName } from "./access.ts";
 import { ConnectError } from "./links.ts";
 
 type PermissionRequest = Extract<SessionEvent, { type: "permission.requested" }>["payload"];
@@ -194,6 +194,10 @@ export class ProviderApps {
     if (decision === "go") {
       record("done");
       return { allow: true };
+    }
+    if (automationAllows(this.#store, session.id, connector)) {
+      record("done");
+      return { allow: true, by: "automation_app" };
     }
     this.#asked.set(`${session.id}/${request.requestId}`, record("asked").id);
     return undefined;

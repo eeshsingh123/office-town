@@ -24,7 +24,7 @@ export function automationRoutes(context: TeamContext, runner: Runner): Route[] 
   };
   const checked = async (body: () => Promise<unknown>, id?: string) => {
     const fields = automationRequestSchema.parse(await body());
-    const problem = problemWith(store, id, fields.trigger);
+    const problem = problemWith(store, id, fields.trigger, fields.task);
     if (problem !== undefined) throw new RequestError(400, "invalid_request", problem);
     return fields;
   };

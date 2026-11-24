@@ -229,6 +229,8 @@ export class Notifier {
     if (before === undefined) return;
     if (now.paused && !before.paused) this.#paused(task);
     if (!now.ended || before.ended || task.parentTaskId !== undefined) return;
+    // An automation's check speaks through its automation, not as a task of its own.
+    if (task.origin?.kind === "check") return;
     if (task.reviewedAt !== undefined) return;
     const top = topSession(task, this.#store.listSessions(task.id));
     if (top?.status === "failed") this.notify("failed", task.id, "A task failed", taskName(task));

@@ -132,7 +132,10 @@ beforeEach(async () => {
     unattended: (() => {
       const stoppedLeads = new StoppedLeads(team);
       const notifier = new Notifier(store, registry);
-      const { runner, queue } = startAutomations(team, notifier, stoppedLeads, () => {}, "launch");
+      const { runner, queue } = startAutomations(team, notifier, stoppedLeads, () => {}, "launch", {
+        shared: { lastChange: () => undefined },
+        keysOf: () => ({}),
+      });
       return { stoppedLeads, stoppedTasks: new StoppedTasks(team, queue), runner };
     })(),
     token: TOKEN,

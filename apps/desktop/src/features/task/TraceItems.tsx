@@ -317,6 +317,10 @@ function resolutionText(request: TraceRequest): string | undefined {
       if ("answeredBy" in resolution && resolution.answeredBy === "app") {
         return "Allowed by the app's setting";
       }
+      // An automation lets this app act without asking (D-129).
+      if ("answeredBy" in resolution && resolution.answeredBy === "automation_app") {
+        return "Allowed by this automation";
+      }
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
     if (resolution.outcome !== "denied") return "Cancelled";

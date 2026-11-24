@@ -14,7 +14,7 @@ import { ConnectorGateway } from "./gateway.ts";
 import { ConnectError, ConnectorLinks, probe } from "./links.ts";
 import { ProviderApps } from "./provider-apps.ts";
 import { AppRequests } from "./request-app.ts";
-import { type Secrets, writeKeys } from "./secrets.ts";
+import { readKeys, type Secrets, writeKeys } from "./secrets.ts";
 
 // The core keeps one link per key app and program, which every harness reaches (D-67). Provider
 // apps are the provider's own: the hub only keeps their settings (D-68, D-96).
@@ -49,6 +49,10 @@ export class ConnectorHub {
     this.gateway = new ConnectorGateway(store, registry, this.links);
     this.providerApps = new ProviderApps(store, registry);
     this.asks = new AppRequests(store, registry, carryOn);
+  }
+
+  keysOf(id: string): Record<string, string> {
+    return readKeys(this.#secrets, id);
   }
 
   get secretsKind(): Secrets["kind"] {

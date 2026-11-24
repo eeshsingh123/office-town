@@ -23,10 +23,12 @@ const DECIDES = new Set<SessionEvent["type"]>([
   "retry.requested",
 ]);
 
-// An automation's run on Auto, or a part of a chief's goal that is one.
+// An automation's run or check on Auto, or a part of a chief's goal that is one.
 export function onAuto(store: Store, task: TaskRecord | undefined): boolean {
   if (task === undefined) return false;
-  if (task.origin?.kind === "automation") return task.origin.auto === true;
+  if (task.origin?.kind === "automation" || task.origin?.kind === "check") {
+    return task.origin.auto === true;
+  }
   const parent = task.parentTaskId === undefined ? undefined : store.getTask(task.parentTaskId);
   return parent?.origin?.kind === "automation" && parent.origin.auto === true;
 }

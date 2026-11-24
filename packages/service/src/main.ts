@@ -146,7 +146,7 @@ const notifier = new Notifier(store, registry);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
-new SharedFiles(team);
+const sharedFiles = new SharedFiles(team);
 taskStates.follow(registry, (sessionId) => (activity.of(sessionId)?.subAgents.size ?? 0) > 0);
 const pauses = new UsagePauses(team);
 cleanUpWorktrees(team);
@@ -157,7 +157,15 @@ store.stopOpenChecks();
 await removeAllSandboxes(store, dataFolder);
 const scheduler = new Scheduler(team);
 const nameTask = titlesFor(team);
-const { runner, queue } = startAutomations(team, notifier, stoppedLeads, nameTask, randomUUID());
+const {
+  runner,
+  queue,
+  watch,
+  checks: agentChecks,
+} = startAutomations(team, notifier, stoppedLeads, nameTask, randomUUID(), {
+  shared: sharedFiles,
+  keysOf: (id) => connectors.keysOf(id),
+});
 toolServer.offer([
   askUser(registry),
   proposeTeam(team),
@@ -179,6 +187,7 @@ toolServer.offer([
   connectors.asks.tool(),
   showResult(team),
   proposeSchedule(team, runner),
+  agentChecks.tool(),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
@@ -227,6 +236,7 @@ async function shutdown(): Promise<void> {
   quiet.stop();
   notifier.stop();
   queue.stop();
+  watch.stop();
   runner.stop();
   await server.close();
   await preview.close();

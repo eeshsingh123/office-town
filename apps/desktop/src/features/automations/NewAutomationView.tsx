@@ -30,9 +30,10 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { eventMissing, useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
-import { DEFAULT_RULES, hours, RulesStep } from "./RulesStep.tsx";
+import { DEFAULT_RULES, hours, RulesStep, useAskingApps } from "./RulesStep.tsx";
 import { blankWhen, triggerOf, usePreview, type WhenForm, WhenStep, whenOf } from "./WhenStep.tsx";
 import { localZone, promptOf, runTime, whoKey } from "./words.ts";
 
@@ -159,7 +160,8 @@ function Setup({
     existing?.task,
   );
   const current = task ?? lastTask;
-  const trigger = triggerOf(when);
+  const githubId = useGitHubApp()?.id;
+  const trigger = triggerOf(when, githubId);
   const preview = usePreview(existing?.id, current, trigger);
 
   const go = (next: number) => {
@@ -213,7 +215,9 @@ function Setup({
       : current === undefined
         ? (taskMissing ?? "Write the task each run starts with.")
         : trigger === undefined
-          ? "Choose the automation it runs after."
+          ? when.mode === "event"
+            ? eventMissing(when.event, githubId)
+            : "Choose the automation it runs after."
           : preview?.problem;
 
   const save = async (run: boolean) => {
@@ -292,7 +296,7 @@ function Setup({
                   : step === TASK
                     ? "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
                     : step === WHEN
-                      ? "On a schedule in your time zone, or after another automation. The shortest repeat is every hour."
+                      ? "Pick what starts each run."
                       : "What a run does when its team is busy, Office Town was closed, or it waits for you."}
               </p>
             )}
@@ -482,6 +486,10 @@ function Review({
     trigger: trigger ?? { kind: "after", automationId: "", outcome: "done" },
   });
   const answer = rules.answerWithinHours;
+  const allowed = rules.appsWithoutAsking ?? [];
+  const freeApps = useAskingApps(allowed)
+    .filter(({ key }) => allowed.includes(key))
+    .map(({ name }) => name);
   return (
     <div className={styles.review}>
       <p className={styles.sentence}>
@@ -541,6 +549,11 @@ function Review({
               ? "Waits for an answer as long as it takes"
               : `Ends a run after ${hours(answer)} without an answer`}
           </li>
+          {freeApps.length === 0 ? null : (
+            <li>
+              Changes in {new Intl.ListFormat("en").format(freeApps)} go through without asking
+            </li>
+          )}
           <li>{rules.review ? "You review each run" : "A finished run counts as Done"}</li>
           {rules.saveResult && task?.kind !== "chief" ? (
             <li>Saves each result to the Library</li>

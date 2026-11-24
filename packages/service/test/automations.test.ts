@@ -114,7 +114,7 @@ afterEach(async () => {
 });
 
 describe("the runner", () => {
-  it("writes a run under its key before it starts, and after a restart starts it once and never fires that slot again", async () => {
+  it("writes a run under its key before it starts, never fires a slot or an event twice, and makes a burst of events one run", async () => {
     const scratch = core.store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
     if (scratch === undefined) throw new Error("Scratch always exists.");
     const created = await core.call("POST", "/automations", {
@@ -170,5 +170,39 @@ describe("the runner", () => {
     core = await startCore(join(directory, "data"));
     await settle();
     expect(core.store.automations.runs(automation.id, {}).runs).toHaveLength(1);
+
+    // Events: a burst is one run, a key seen before never runs again, and what arrives while a run
+    // works waits for it to end.
+    const watched = mkdtempSync(join(directory, "inbox-"));
+    const onEvents = await core.call("POST", "/automations", {
+      name: "Inbox",
+      task: {
+        ...automation.task,
+        request: { ...automation.task.request, prompt: "File {event}." },
+      },
+      trigger: { kind: "event", source: { kind: "folder", path: watched } },
+      rules: {},
+    });
+    expect(onEvents.status).toBe(201);
+    const id = onEvents.json.id as string;
+    const burst = ["a.txt", "b.txt", "c.txt"].map((name, index) => ({
+      key: name,
+      at: Date.now() + index,
+      text: `A file: ${name}`,
+    }));
+    expect(core.store.automationEvents.take(id, burst)).toBe(3);
+    core.runner.fireEvents(id);
+    expect(core.store.automationEvents.take(id, burst)).toBe(0);
+    await eventually(() => core.sessions.length > 1);
+    await settle();
+    const [first] = core.store.automations.runs(id, {}).runs;
+    expect(first).toMatchObject({ by: "event", events: 3, status: "working" });
+    const prompt = core.sessions.at(-1)?.sent.find((command) => command.type === "prompt");
+    expect(prompt).toMatchObject({ text: expect.stringContaining("<<<what started this run") });
+    expect(prompt).toMatchObject({ text: expect.stringContaining("A file: c.txt") });
+    core.store.automationEvents.take(id, [{ key: "d.txt", at: Date.now(), text: "A file: d.txt" }]);
+    core.runner.fireEvents(id);
+    expect(core.store.automations.runs(id, {}).runs).toHaveLength(1);
+    expect(core.store.automationEvents.pending(id)).toMatchObject({ count: 1 });
   });
 });

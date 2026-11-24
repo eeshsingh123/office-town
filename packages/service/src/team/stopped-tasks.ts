@@ -37,7 +37,8 @@ export async function resumeTask(context: TeamContext, taskId: string): Promise<
 
 function startedByAutomation(store: Store, task: TaskRecord): boolean {
   const parent = task.parentTaskId === undefined ? undefined : store.getTask(task.parentTaskId);
-  return task.origin?.kind === "automation" || parent?.origin?.kind === "automation";
+  const kinds = [task.origin?.kind, parent?.origin?.kind];
+  return kinds.includes("automation") || kinds.includes("check");
 }
 
 // The tasks a close or crash cut off, for Home's card. Nothing the user started resumes on its

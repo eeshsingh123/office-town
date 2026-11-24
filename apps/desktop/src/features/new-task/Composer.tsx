@@ -104,6 +104,12 @@ const FILL_OPTIONS: Option[] = [
     note: "What the last finished run ended with",
     fill: FILL_INS.lastResult,
   },
+  {
+    id: "fill:event",
+    name: "What started this run",
+    note: "What arrived, for a run started by an event",
+    fill: FILL_INS.event,
+  },
 ];
 const FILL_TEXTS = FILL_OPTIONS.flatMap((option) => option.fill ?? []);
 
