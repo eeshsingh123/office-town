@@ -8,7 +8,7 @@ Last updated: 2026-11-24
 - Open: PR #106 on `feat/automation-delivery`, M12 PR 3: automations end to end with Updates (D-130, D-131, D-133, D-134). Awaiting the owner's review and merge. A dev data folder made on this branch with an ntfy place needs recreating.
 - After M12: M15 Ready-made teams (D-115), discussed with the owner end to end first. Kickoff: `docs/briefs/ready-made-teams/README.md` (local only). M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
 - Parked: OpenCode's own automations (MODULES, M12). OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, read with `opencode api --standalone`); its event stream has no automation events.
-- No CI and no Mac beta until the public release (D-135); nothing checks the Mac now. Before the release, bring back CI and the Mac smoke job (in git history: `.github/workflows/ci.yml`).
+- No CI until the public release (D-135); Mac betas still build, but nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (in git history: `.github/workflows/ci.yml`).
 - Owner's machine: the installed app on the beta channel; development on `OfficeTown Dev`. Codex is signed in (ChatGPT Free: only its default model runs); Copilot, Cursor and Muse are installed, not signed in. OpenCode 2.4 (npm `@opencode/cli`); its 1.x files are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs; the old `OpenCode Auto Update` task fails with EEXIST.
 
 ## Owner requirements not yet built
