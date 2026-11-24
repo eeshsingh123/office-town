@@ -20,7 +20,7 @@ function bodyOf(event: Asked): string {
 }
 
 // The ask as it goes out: who asks and what, in its own words. Every destination is one way, so it
-// is answered in Office Town (D-132).
+// is answered in Office Town (D-130).
 export function askMessage(event: Asked, who: string, title: string): Queued {
   return {
     kind: "ask",

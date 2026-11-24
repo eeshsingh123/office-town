@@ -32,7 +32,7 @@ interface Waiting {
 
 // A bot can't message anyone who hasn't messaged it first, so the user sends it a one-time code,
 // which names their chat. The core reads Telegram only while a code waits, at most 10 minutes, and
-// never again once linked: Telegram is one way, like every destination (D-132).
+// never again once linked: Telegram is one way, like every destination (D-130).
 export class TelegramLink {
   readonly #store: Store;
   readonly #outbox: Outbox;

@@ -33,7 +33,7 @@ export const destinationRequestSchema = z.object({
 });
 export type DestinationRequest = z.input<typeof destinationRequestSchema>;
 
-// The one Telegram chat and person whose replies are taken, linked with a one-time code (D-132).
+// The one Telegram chat and person whose replies are taken, linked with a one-time code (D-130).
 export const telegramLinkSchema = z.object({
   chatId: z.number().int(),
   userId: z.number().int(),

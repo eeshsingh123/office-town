@@ -5,8 +5,7 @@ Last updated: 2026-11-24
 ## State
 
 - Merged to `main`: M1 to M12 PR 2 (PR #105), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why.
-- Open: PR #106 on `feat/automation-delivery`, M12 PR 3, automations end to end (D-130 to D-134). Live smoke passed on 2026-11-24 (OpenCode free model, a local fake Slack): a schedule fired, its result was sent, notes were kept, a run with nothing new stayed quiet.
-- Next, on the same branch: the Updates rework (owner, 2026-11-24). Results and alerts become Updates for tasks and automations, set up with no upkeep (no sign-ins, servers or vendor app registration), each service with a short picture guide; no WhatsApp. Build guide: `docs/briefs/updates/README.md` (local only). Then the owner reviews and merges PR #106.
+- Open: PR #106 on `feat/automation-delivery`, M12 PR 3: automations end to end with Updates (D-130, D-131, D-133, D-134). Awaiting the owner's review and merge. A dev data folder made on this branch with an ntfy place needs recreating.
 - After M12: M15 Ready-made teams (D-115), discussed with the owner end to end first. Kickoff: `docs/briefs/ready-made-teams/README.md` (local only). M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
 - Parked: OpenCode's own automations (MODULES, M12). OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, read with `opencode api --standalone`); its event stream has no automation events.
 - Mac: checked by CI and a Mac smoke job only. The smoke job's OpenCode half waits on the owner allowing `@opencode/cli`'s install script (`--allow-scripts=@opencode/cli`).

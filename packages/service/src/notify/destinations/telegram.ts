@@ -57,7 +57,7 @@ export async function callTelegram<T>(
 }
 
 // Plain text, never Markdown or HTML, so an agent's words can't hide a link or break the message.
-// One way: the chat is the one linked with a code, and nothing sent there is read back (D-132).
+// One way: the chat is the one linked with a code, and nothing sent there is read back (D-130).
 async function send(message: Outgoing, place: Place<"telegram">) {
   const token = place.keys.token;
   const chatId = place.link?.chatId;

@@ -23,16 +23,17 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-24",
-    title: "Automation results where you already are",
+    title: "Updates in Slack, Discord or Telegram",
     icon: Send,
     changes: [
-      "Connectors has Send results to: paste a key once for Telegram, Slack, Discord, ntfy, email through Resend or a webhook, and send a test. Add lists them under Send results",
-      "In Rules, pick where an automation sends its results, failed runs, pauses and asks. A long result goes as a file where the service takes files",
-      "Things that look like keys or passwords are hidden before anything is sent. A send that fails says so on the run, and three in a row show on the automation",
-      "Link Telegram once by sending your bot a code. It gets results and alerts like Slack and Discord, and you answer in Office Town",
-      "A run with nothing new ends quietly: no message, nothing to review, and the next run still sees the last real result",
+      "Connect Slack, Discord or Telegram once from Settings, Connectors, a task or an automation. Each has a short guide, and a wrong paste tells you what to copy instead",
+      "Settings > Updates shows each place and what it hears about, such as when an agent needs you or a task fails. Choose changes it. Your computer's notifications are still there",
+      "Turn on Send result to in a task's options and its result goes to the places you picked once it's done. If it fails, you get a short note there instead",
+      "An automation's Rules pick where its results go, starting with your usual places. Under a result you see where it was sent, or why it couldn't be",
+      "Alerts use Office Town's own words, never an agent's. Things that look like keys or passwords are hidden before a result is sent",
+      "A run with nothing new ends quietly: no message, nothing to review",
       "An automation keeps notes from run to run, which you can read, edit and clear on its page",
-      "A message you send while an agent is in a long step now shows as waiting until it reads it, and one it never read goes with it when it carries on",
+      "A message you send while an agent is in a long step now shows as waiting until it reads it",
     ],
   },
   {

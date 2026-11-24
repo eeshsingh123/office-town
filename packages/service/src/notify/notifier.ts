@@ -243,7 +243,7 @@ export class Notifier {
     );
   }
 
-  // Every place is one way: an ask is answered in Office Town (D-132).
+  // Every place is one way: an ask is answered in Office Town (D-130).
   #sendOut(
     automation: AutomationRecord,
     key: string,
