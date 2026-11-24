@@ -143,7 +143,6 @@ export class TelegramLink {
     const { destinations } = this.#store;
     destinations.setLink(destinationId, {
       chatId: message.chat.id,
-      userId: from.id,
       name: from.username === undefined ? (from.first_name ?? "Telegram") : `@${from.username}`,
       linkedAt: new Date().toISOString(),
     });
@@ -153,7 +152,7 @@ export class TelegramLink {
       "sendMessage",
       {
         chat_id: message.chat.id,
-        text: "Linked. Results and alerts from your automations will arrive here. Answer them in Office Town.",
+        text: "Linked. Updates from Office Town will arrive here. Answer them in Office Town.",
       },
       this.#base,
     ).catch(() => undefined);

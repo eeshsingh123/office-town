@@ -619,7 +619,7 @@ function addAutomationEvents(db: DatabaseSync): void {
   `);
 }
 
-// Results sent out, quiet runs and notes kept across runs (D-130 to D-133). Destinations hold no
+// Results sent out, quiet runs and notes kept across runs (D-130, D-131, D-133). Destinations hold no
 // key: keys stay in the credential store. The outbox is written before a send, under a key, so a
 // message goes out once, and a restart sends what waited.
 function addAutomationDelivery(db: DatabaseSync): void {
@@ -637,9 +637,6 @@ function addAutomationDelivery(db: DatabaseSync): void {
     db.exec("ALTER TABLE tasks ADD COLUMN send_result INTEGER");
     db.exec("ALTER TABLE tasks ADD COLUMN delivery TEXT");
   }
-  // An outbox made before sends could belong to a task or to nothing holds only messages, so a
-  // data folder from before this branch's last change starts it again.
-  if (!hasColumn(db, "outbox", "task_id")) db.exec("DROP TABLE IF EXISTS outbox");
   db.exec(`
   CREATE TABLE IF NOT EXISTS destinations (
     ref         INTEGER PRIMARY KEY,

@@ -16,8 +16,7 @@ export function ServiceLogo({ kind, size = "xs" }: { kind: DestinationKind; size
   );
 }
 
-// Every place is named the same way: its logo and its name, highlighted, so two Slacks or a Slack
-// and a Discord are told apart at a glance.
+// Every connected app is named the same way: its logo and its name, in plain text.
 export function PlaceTag({ place }: { place: DestinationRecord }) {
   return (
     <span className={styles.tag} title={`${place.name} · ${GUIDES[place.settings.kind].label}`}>
@@ -38,7 +37,7 @@ export function ComputerTag() {
   );
 }
 
-// Places by their ids, in the order given; one removed meanwhile is left out.
+// Connected apps in the order given.
 export function PlaceTags({ places }: { places: readonly DestinationRecord[] }) {
   return (
     <span className={styles.tags}>

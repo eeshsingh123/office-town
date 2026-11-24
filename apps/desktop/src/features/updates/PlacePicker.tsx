@@ -16,8 +16,8 @@ interface PlacePickerProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-// A small menu of place tags to tick, with Connect a third-party application at its end. The trigger shows the
-// picked places themselves.
+// A small menu of connected apps to tick, with Connect a third-party application at its end. The
+// trigger shows the picked ones.
 export function PlacePicker({
   label,
   picked,
