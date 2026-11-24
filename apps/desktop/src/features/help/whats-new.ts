@@ -7,6 +7,7 @@ import {
   type LucideIcon,
   MousePointerClick,
   Rocket,
+  Send,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -20,6 +21,21 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-24",
+    title: "Automation results where you already are",
+    icon: Send,
+    changes: [
+      "Settings has Destinations: paste a key once for Telegram, Slack, Discord, ntfy, email through Resend or a webhook, and send a test",
+      "In Rules, pick where an automation sends its results, failed runs, pauses and asks. A long result goes as a file where the service takes files",
+      "Things that look like keys or passwords are hidden before anything is sent. A send that fails says so on the run, and three in a row show on the automation",
+      "Link Telegram with a code to answer from there: tap to answer a question, approve a plan or allow a file read or edit; commands and deletes still wait for your computer",
+      "Reply to a result in Telegram to give that run its next step",
+      "A run with nothing new ends quietly: no message, nothing to review, and the next run still sees the last real result",
+      "An automation keeps notes from run to run, which you can read, edit and clear on its page",
+      "A message you send while an agent is in a long step now shows as waiting until it reads it, and one it never read goes with it when it carries on",
+    ],
+  },
   {
     date: "2026-11-23",
     title: "Automations that start when something arrives",
