@@ -9,7 +9,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-7** Open source. Free and low-cost models are first class.
 - **D-8, D-9, D-11** A command center across harnesses; a harness's own sub-agents show as nested activity. Task agnostic, with connectors as plugins.
 - **D-29** No per-agent budgets or dollar tracking; each provider's own limit is the truth.
-- **D-115** No Office Town cloud: "cloud" means an always-on machine the user owns, running the same core (M14), with no relay of ours. Order: M10.5 macOS, M11 Unattended runs, M12 Automations, M13 Remote control, M14 Always-on host, M15 Ready-made teams (independent). Swarms are a scale mode of departments and the chief, capped in window share (D-29 stays). Computer use: a browser connector now; desktop control only in a future sandbox environment, never on the real desktop while the user is away.
+- **D-115** No Office Town cloud: "cloud" means an always-on machine the user owns, running the same core (M14), with no relay of ours. Order: M10.5 macOS, M11 Unattended runs, M12 Automations, then M15 Ready-made teams (owner, 2026-11-24: it cuts a new user's friction directly), then M13 Remote control and M14 Always-on host once real users ask for them. Numbers stay. Swarms are a scale mode of departments and the chief, capped in window share (D-29 stays). Computer use: a browser connector now; desktop control only in a future sandbox environment, never on the real desktop while the user is away.
 
 ## Harnesses
 
