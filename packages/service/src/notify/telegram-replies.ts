@@ -271,6 +271,7 @@ export class TelegramReplies {
       this.#base,
     );
     if (tap.message !== undefined) {
+      // Taking the buttons off is a courtesy: an old message may refuse it, and the answer went.
       await callTelegram(
         token,
         "editMessageReplyMarkup",
