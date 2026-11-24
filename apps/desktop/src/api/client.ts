@@ -427,6 +427,8 @@ export const api = {
   runAutomation: (automationId: string): Promise<AutomationRun> =>
     write("POST", `/automations/${id(automationId)}/run`, undefined, automationRunSchema),
   markLoginOffered: (): Promise<void> => send("POST", "/automations/login-offered"),
+  setNotes: (automationId: string, notes: string): Promise<AutomationRecord> =>
+    write("PUT", `/automations/${id(automationId)}/notes`, { notes }, automationRecordSchema),
   cancelRun: (runId: string): Promise<void> => send("POST", `/automation-runs/${id(runId)}/cancel`),
   listRuns: (automationId: string, query: RunPageQuery): Promise<RunPage> => {
     const params = new URLSearchParams(

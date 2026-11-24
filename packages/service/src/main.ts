@@ -16,6 +16,7 @@ import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
 import { startAutomations } from "./automations/automations.ts";
 import { proposeSchedule } from "./automations/propose-schedule.ts";
+import { keepNotes, reportNothingNew } from "./automations/run-tools.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
 import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
@@ -188,6 +189,8 @@ toolServer.offer([
   showResult(team),
   proposeSchedule(team, runner),
   agentChecks.tool(),
+  reportNothingNew(store),
+  keepNotes(store),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

@@ -619,6 +619,55 @@ function addAutomationEvents(db: DatabaseSync): void {
   `);
 }
 
+// Results sent out, quiet runs and notes kept across runs (D-130 to D-133). Destinations hold no
+// key: keys stay in the credential store. The outbox is written before a send, under a key, so a
+// message goes out once, and a restart sends what waited.
+function addAutomationDelivery(db: DatabaseSync): void {
+  if (!hasColumn(db, "automations", "notes")) {
+    db.exec("ALTER TABLE automations ADD COLUMN notes TEXT");
+    db.exec("ALTER TABLE automations ADD COLUMN send_failures TEXT");
+  }
+  if (!hasColumn(db, "automation_runs", "quiet")) {
+    db.exec("ALTER TABLE automation_runs ADD COLUMN quiet INTEGER");
+    db.exec("ALTER TABLE automation_runs ADD COLUMN send_problem TEXT");
+  }
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS destinations (
+    ref         INTEGER PRIMARY KEY,
+    id          TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL,
+    settings    TEXT NOT NULL,
+    problem     TEXT,
+    link        TEXT,
+    -- Telegram: the next update to read, stored before one is acted on, so none acts twice.
+    next_update INTEGER,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE IF NOT EXISTS outbox (
+    ref             INTEGER PRIMARY KEY,
+    destination_ref INTEGER NOT NULL REFERENCES destinations (ref) ON DELETE CASCADE,
+    key             TEXT NOT NULL,
+    automation_id   TEXT NOT NULL,
+    run_id          TEXT,
+    message         TEXT NOT NULL,
+    state           TEXT NOT NULL CHECK (state IN ('waiting', 'sent', 'failed')),
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    next_at         INTEGER NOT NULL,
+    -- The service's own id for what was sent, so a reply to it finds it.
+    sent_id         TEXT,
+    created_at      INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS outbox_key ON outbox (destination_ref, key);
+  CREATE INDEX IF NOT EXISTS outbox_due ON outbox (next_at) WHERE state = 'waiting';
+  CREATE INDEX IF NOT EXISTS outbox_by_sent ON outbox (destination_ref, sent_id)
+    WHERE sent_id IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS outbox_by_time ON outbox (created_at);
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -1070,4 +1119,5 @@ export const migrations: readonly Migration[] = [
 
   CREATE INDEX IF NOT EXISTS kept_usage_at ON kept_usage (at);
   `,
+  addAutomationDelivery,
 ];

@@ -1,4 +1,5 @@
 import {
+  type AutomationRecord,
   NOTICE_DEFAULTS,
   type NoticeKind,
   type SessionEvent,
@@ -171,6 +172,10 @@ export class Notifier {
     this.#windows.set(kind, { extra: 0, timer });
   }
 
+  automationPaused(automation: AutomationRecord, reason: string): void {
+    this.notify("automation", undefined, `${automation.name} is paused`, reason);
+  }
+
   #closeWindow(kind: NoticeKind): void {
     const window = this.#windows.get(kind);
     this.#windows.delete(kind);
@@ -229,8 +234,12 @@ export class Notifier {
     if (before === undefined) return;
     if (now.paused && !before.paused) this.#paused(task);
     if (!now.ended || before.ended || task.parentTaskId !== undefined) return;
-    // An automation's check speaks through its automation, not as a task of its own.
+    // An automation's check speaks through its automation, not as a task of its own, and a run
+    // with nothing new stays quiet (D-131).
     if (task.origin?.kind === "check") return;
+    if (task.origin?.kind === "automation") {
+      if (this.#store.automations.getRun(task.origin.runId)?.quiet === true) return;
+    }
     if (task.reviewedAt !== undefined) return;
     const top = topSession(task, this.#store.listSessions(task.id));
     if (top?.status === "failed") this.notify("failed", task.id, "A task failed", taskName(task));

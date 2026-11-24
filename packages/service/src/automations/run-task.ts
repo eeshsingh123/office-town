@@ -157,7 +157,20 @@ ${text.replace(/<{3,}|>{3,}/g, "")}
 ${name}>>>`;
 }
 
-// `{last result}` and what started the run are data, never instructions.
+// The run-only tools of the agent in charge, and the notes it kept, which are data (D-131, D-133).
+function runGuide(automation: AutomationRecord): string[] {
+  const notes = automation.notes?.trim() ?? "";
+  return [
+    "If this run finds nothing new worth telling the user since the last run, call " +
+      "report_nothing_new instead of writing a result, then stop. To remember something for the " +
+      "next run, such as what you have already reported, call keep_notes with the whole new text.",
+    notes === ""
+      ? "You have kept no notes yet."
+      : dataBlock("notes you kept", "The notes you kept in earlier runs", notes),
+  ];
+}
+
+// `{last result}`, what started the run and its notes are data, never instructions.
 export function fillIn(store: Store, automation: AutomationRecord, run: AutomationRun): string {
   const { trigger } = automation;
   const prompt =
@@ -187,6 +200,7 @@ export function fillIn(store: Store, automation: AutomationRecord, run: Automati
     ...(wantsLast
       ? [dataBlock("last result", "The last run's result", lastResultOf(store, automation))]
       : []),
+    ...runGuide(automation),
   ].join("\n\n");
 }
 

@@ -1,9 +1,10 @@
-import type {
-  AutomationRecord,
-  AutomationRun,
-  RunPage,
-  RunTab,
-  Trigger,
+import {
+  type AutomationRecord,
+  type AutomationRun,
+  NOTES_CHARS,
+  type RunPage,
+  type RunTab,
+  type Trigger,
 } from "@office-town/contract";
 import { CircleMinus, Clock, Eye, Pencil, Play, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,6 +16,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
+import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import icons from "../../ui/StatusIcon.module.css";
@@ -36,8 +38,12 @@ import { eventsText, RUN_LABELS, runTime } from "./words.ts";
 const PAGE = 50;
 const REREAD_MS = 300;
 
+// A run that ended with nothing new finished well, quietly (D-131).
+const quietEnd = (run: AutomationRun) =>
+  run.quiet === true && (run.status === "done" || run.status === "review");
+
 function RunStatus({ run }: { run: AutomationRun }) {
-  const label = RUN_LABELS[run.status];
+  const label = quietEnd(run) ? "Nothing new" : RUN_LABELS[run.status];
   const icon =
     run.status === "waiting" ? (
       <Clock size={14} aria-hidden className={`${icons.icon} ${icons.quiet}`} />
@@ -60,7 +66,10 @@ function noteOf(run: AutomationRun, trigger: Trigger): string | undefined {
     trigger.kind === "event" && run.events !== undefined
       ? eventsText(trigger.source, run.events)
       : undefined;
-  return [arrived, run.reason].filter((part) => part !== undefined).join(" · ") || undefined;
+  return (
+    [arrived, run.reason, run.sendProblem].filter((part) => part !== undefined).join(" · ") ||
+    undefined
+  );
 }
 
 function RunRow({ run, trigger }: { run: AutomationRun; trigger: Trigger }) {
@@ -222,6 +231,58 @@ function Chips({ automation }: { automation: AutomationRecord }) {
   );
 }
 
+// What its runs keep for the next one; the user can read, edit and clear it (D-133).
+function Notes({ automation }: { automation: AutomationRecord }) {
+  const saved = automation.notes ?? "";
+  const [text, setText] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  // A run that rewrites them while the box is untouched shows its words.
+  const [base, setBase] = useState(saved);
+  if (saved !== base) {
+    setBase(saved);
+    if (text === base) setText(saved);
+  }
+  const save = async (notes: string) => {
+    setBusy(true);
+    try {
+      await api.setNotes(automation.id, notes);
+      setText(notes);
+    } catch (failure) {
+      showToast(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className={page.section} aria-labelledby="notes-title">
+      <div className={page.sectionHead}>
+        <h2 id="notes-title" className={page.sectionTitle}>
+          Notes
+        </h2>
+        <span className={page.hint}>
+          Kept by its runs for the next one. Runs read them as information, not instructions.
+        </span>
+      </div>
+      <textarea
+        className={form.input}
+        aria-label="Notes"
+        value={text}
+        maxLength={NOTES_CHARS}
+        placeholder="None yet."
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className={page.row}>
+        <Button disabled={text === saved} busy={busy} onClick={() => void save(text)}>
+          Save
+        </Button>
+        <Button variant="ghost" disabled={saved === ""} onClick={() => void save("")}>
+          Clear
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 export function AutomationView({ automationId }: { automationId: string }) {
   const automation = useAutomation(automationId);
   const [tab, setTab] = useState<RunTab>("all");
@@ -302,6 +363,7 @@ export function AutomationView({ automationId }: { automationId: string }) {
             </Button>
           </div>
         </section>
+        <Notes automation={automation} />
       </section>
     </div>
   );

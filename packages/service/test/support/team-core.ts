@@ -5,6 +5,7 @@ import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
 import { startAutomations } from "../../src/automations/automations.ts";
 import { proposeSchedule } from "../../src/automations/propose-schedule.ts";
+import { keepNotes, reportNothingNew } from "../../src/automations/run-tools.ts";
 import type { Runner } from "../../src/automations/runner.ts";
 import { autonomyGuard } from "../../src/autonomy/policy.ts";
 import { messageLead } from "../../src/chief/message-lead.ts";
@@ -165,6 +166,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
     connectors.asks.tool(),
     showResult(team),
     proposeSchedule(team, runner),
+    reportNothingNew(store),
+    keepNotes(store),
   ]);
   const preview = await PreviewServer.start();
   const server: ApiServer = await startApiServer({
