@@ -70,7 +70,7 @@ async function startAgent() {
 }
 
 describe("connectors", () => {
-  it("reads always, and a change asks, is refused or goes through by the connector's own setting, or by an automation that lets the app act", async () => {
+  it("reads always, and a change asks, is refused or goes through by the connector's own setting or an automation's, with its key kept out of SQLite and launches", async () => {
     for (const permission of ["read_only", "ask", "dont_ask"] as const) {
       expect(decide(permission, true)).toBe("go");
     }
@@ -112,17 +112,12 @@ describe("connectors", () => {
     expect(saved.text).toContain("Saved note");
     expect(app.notes).toContain("From the run");
 
-    const { session } = await startAgent();
+    const { record, session } = await startAgent();
     const asked = await core.callTool(session, "create_note", { text: "From you" }, "notes");
     expect(asked.text).toContain("waits for the user's OK");
     expect(app.notes).not.toContain("From you");
-  });
 
-  // D-68: Claude Code connects Claude apps itself; the core picks who gets them and decides calls.
-  it("keeps keys out of SQLite and out of what a harness is launched with", async () => {
-    await connect("notes", "ask");
-    const { record, session } = await startAgent();
-    await core.callTool(session, "search_notes", { query: "Pricing" }, "notes");
+    // Keys stay out of SQLite and out of what a harness is launched with (D-67).
     const stored = ["store.db", "store.db-wal"]
       .map((name) => join(directory, "data", name))
       .filter((file) => existsSync(file))
