@@ -1,11 +1,5 @@
-import {
-  type Display,
-  type EverydayAutonomy,
-  NOTICE_DEFAULTS,
-  type NoticeKind,
-} from "@office-town/contract";
+import type { Display, EverydayAutonomy } from "@office-town/contract";
 import { type ReactNode, useEffect, useState } from "react";
-import { api } from "../../api/client.ts";
 import { type DesktopPreferences, shell, type UpdateStatus } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -27,12 +21,17 @@ import {
   useTaskDefaults,
 } from "../task/task-options.ts";
 import { useStoreInfo } from "../tasks/store-size.ts";
+import { UpdatesSettings } from "../updates/UpdatesSettings.tsx";
 import styles from "./Settings.module.css";
 
 // The groups in the order people come for them; Ctrl K opens each by its id (D-111).
 export const SETTINGS_SECTIONS = [
   { id: "appearance", title: "Appearance", keywords: ["theme", "dark mode", "light mode", "size"] },
-  { id: "notifications", title: "Notifications", keywords: ["alerts", "notify"] },
+  {
+    id: "updates",
+    title: "Updates",
+    keywords: ["notifications", "alerts", "slack", "telegram", "discord", "email", "webhook"],
+  },
   { id: "new-tasks", title: "New tasks", keywords: ["permission", "manual", "auto", "efficient"] },
   {
     id: "accessibility",
@@ -104,81 +103,6 @@ async function saveDisplayOrSay(change: Partial<Display>): Promise<void> {
     useApp.setState({ display: before });
     showToast("The choice could not be saved.");
   }
-}
-
-let notifyWrites: Promise<void> = Promise.resolve();
-
-// Kept in the core, which makes the notices (D-124). Shown at once; writes go one at a time, so
-// two quick changes cannot undo each other, and a refused one is put back.
-function saveNotify(kind: NoticeKind, on: boolean): void {
-  const before = useApp.getState().notifications[kind];
-  useApp.setState((state) => ({ notifications: { ...state.notifications, [kind]: on } }));
-  notifyWrites = notifyWrites.then(() =>
-    api.saveNotifications({ [kind]: on }).then(
-      () => undefined,
-      () => {
-        useApp.setState((state) => {
-          const { [kind]: _, ...rest } = state.notifications;
-          return { notifications: before === undefined ? rest : { ...rest, [kind]: before } };
-        });
-        showToast("The choice could not be saved.");
-      },
-    ),
-  );
-}
-
-// No row for work stopped by a close: that notice is made at start, before the window can show
-// it, so its switch waits for the phone (M13).
-const NOTICE_ROWS: { kind: NoticeKind; label: string }[] = [
-  { kind: "needs-you", label: "When an agent needs you" },
-  { kind: "lead-stopped", label: "When a lead stops after an error" },
-  { kind: "finished", label: "When a task is finished" },
-  { kind: "failed", label: "When a task fails" },
-  { kind: "usage-paused", label: "When work pauses as your usage runs out" },
-  { kind: "automation", label: "When an automation pauses or misses runs" },
-];
-
-type TestResult = "sent" | "blocked" | undefined;
-
-async function sendTest(): Promise<TestResult> {
-  if (typeof Notification === "undefined") return "blocked";
-  if (Notification.permission === "default") await Notification.requestPermission();
-  if (Notification.permission !== "granted") return "blocked";
-  new Notification("Notifications are on", {
-    body: "This is how the app tells you an agent needs you.",
-    tag: "test",
-  });
-  return "sent";
-}
-
-function Notifications() {
-  const notifications = useApp((state) => state.notifications);
-  const [test, setTest] = useState<TestResult>();
-  return (
-    <Group id="notifications">
-      {NOTICE_ROWS.map(({ kind, label }, index) => (
-        <SwitchRow
-          key={kind}
-          label={label}
-          {...(index === 0 ? { hint: "While the app is in the background." } : {})}
-          on={notifications[kind] ?? NOTICE_DEFAULTS[kind]}
-          onChange={(on) => saveNotify(kind, on)}
-        />
-      ))}
-      <SettingRow
-        label="Test"
-        hint={
-          test === "blocked"
-            ? "Notifications are blocked for this app. Allow them in your computer's settings."
-            : test === "sent"
-              ? "Sent. If nothing appeared, check your computer's notification settings."
-              : "Send one now to see how it looks."
-        }
-      >
-        <Button onClick={() => void sendTest().then(setTest)}>Send a test</Button>
-      </SettingRow>
-    </Group>
-  );
 }
 
 const LEVELS: { value: EverydayAutonomy; label: string }[] = [
@@ -399,7 +323,9 @@ export function SettingsView() {
       <div className={page.form}>
         <PageHeader id="settings-title" title="Settings" />
         <Appearance />
-        <Notifications />
+        <Group id="updates">
+          <UpdatesSettings />
+        </Group>
         <NewTasks />
         <Accessibility />
         <Desktop />

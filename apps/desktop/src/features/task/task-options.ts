@@ -74,7 +74,8 @@ export function adoptRememberedLevel(): void {
   if (last?.autonomy === "supervised") saveDefaultLevel("supervised");
 }
 
-export function setTaskOption(taskId: string, key: TaskOption, on: boolean): void {
+// Send result is a task's own, with no default in Settings.
+export function setTaskOption(taskId: string, key: TaskOption | "sendResult", on: boolean): void {
   api
     .setTaskOptions(taskId, { [key]: on })
     .catch(() => showToast("The choice could not be saved."));
