@@ -132,8 +132,9 @@ interface Window {
 interface Seen {
   ended: boolean;
   paused: boolean;
-  // Its result is ready, for a task that sends it.
+  // For a task that sends its result: the result is ready, or the task failed.
   finished: boolean;
+  failed: boolean;
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -348,14 +349,17 @@ export class Notifier {
   // A part of a chief's goal reports to the chief, so only the whole goal alerts.
   #taskChanged(task: TaskRecord): void {
     const before = this.#seen.get(task.id);
+    const status = this.#wantsResult(task) ? statusOf(this.#store, task) : undefined;
     const now: Seen = {
       ended: task.state === "ended",
       paused: task.paused !== undefined,
-      finished: this.#wantsResult(task) && OVER.has(statusOf(this.#store, task)),
+      finished: status !== undefined && OVER.has(status),
+      failed: status === "failed",
     };
     this.#seen.set(task.id, now);
     if (before === undefined) return;
     if (now.finished && !before.finished) this.#resultOut(task);
+    if (now.failed && !before.failed) this.#failedOut(task);
     if (now.paused && !before.paused) this.#paused(task);
     if (!now.ended || before.ended || task.parentTaskId !== undefined) return;
     // An automation's check speaks through its automation, not as a task of its own, and a run
@@ -383,12 +387,29 @@ export class Notifier {
   #resultOut(task: TaskRecord): void {
     const result = resultOf(this.#store, task).trim();
     if (result === "") return;
-    this.#queue(
-      this.#store.readSettings().resultPlaces ?? [],
-      `task-result:${task.id}`,
-      { taskId: task.id },
-      { kind: "result", title: `${teamName(this.#store, task)} · ${taskName(task)}`, text: result },
-    );
+    this.#taskOut(task, "task-result", {
+      kind: "result",
+      title: this.#taskTitle(task),
+      text: result,
+    });
+  }
+
+  // Where its result was awaited, a failure is told once, in the core's words only.
+  #failedOut(task: TaskRecord): void {
+    this.#taskOut(task, "task-failed", {
+      kind: "alert",
+      title: this.#taskTitle(task),
+      text: "It failed. Open it in Office Town to see why.",
+    });
+  }
+
+  #taskOut(task: TaskRecord, key: string, message: Queued): void {
+    const places = this.#store.readSettings().resultPlaces ?? [];
+    this.#queue(places, `${key}:${task.id}`, { taskId: task.id }, message);
+  }
+
+  #taskTitle(task: TaskRecord): string {
+    return `${teamName(this.#store, task)} · ${taskName(task)}`;
   }
 
   #paused(task: TaskRecord): void {

@@ -207,7 +207,7 @@ describe("the runner", () => {
     expect(core.store.automationEvents.pending(id)).toMatchObject({ count: 1 });
   });
 
-  it("sends results once to where they were asked for, alerts in the core's words, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
+  it("sends results once to where they were asked for, a failure as a plain note, alerts in the core's words, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
     const fake = await startFakeServices();
     await core.close();
     core = await startCore(join(directory, "delivery"), { telegram: fake.url, slack: fake.url });
@@ -360,6 +360,24 @@ describe("the runner", () => {
       expect(heard("alerts")[1]?.body).toContain("Three things happened this week.");
       expect(heard("team")).toHaveLength(2);
       expect(core.store.getTask(task.json.taskId)?.delivery).toEqual({ sentTo: ["Alerts"] });
+
+      // One that fails sends a short note there instead, in the core's words only.
+      await core.call("POST", "/tasks", {
+        prompt: "Sum up the month.",
+        agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+        autonomy: "full",
+        workspaceId: scratch?.id,
+        sendResult: true,
+      });
+      await settle();
+      core.sessions
+        .at(-1)
+        ?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+      await eventually(() => heard("alerts").length === 3);
+      await settle();
+      expect(heard("alerts")).toHaveLength(3);
+      expect(heard("alerts")[2]?.body).toContain("It failed. Open it in Office Town to see why.");
+      expect(heard("alerts")[2]?.body).toContain("Sum up the month.");
     } finally {
       await fake.close();
     }
