@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HarnessCatalog, teamToolServer } from "@office-town/contract";
+import { type DestinationKind, type HarnessCatalog, teamToolServer } from "@office-town/contract";
 import { UnknownHarnessError } from "@office-town/harness";
 import { permissionModeOf } from "../../src/agents/options.ts";
 import { type ApiServer, startApiServer } from "../../src/api/server.ts";
@@ -19,6 +19,8 @@ import { referenceOf } from "../../src/library/library.ts";
 import { addToLibrary, changeLibrary } from "../../src/library/library-tools.ts";
 import { followLibraryUses } from "../../src/library/library-uses.ts";
 import { Notifier } from "../../src/notify/notifier.ts";
+import { Outbox } from "../../src/notify/outbox.ts";
+import { TelegramReplies } from "../../src/notify/telegram-replies.ts";
 import { PreviewServer } from "../../src/outputs/preview-server.ts";
 import { showResult } from "../../src/outputs/show-result.ts";
 import { TaskFiles } from "../../src/outputs/task-files.ts";
@@ -87,7 +89,11 @@ export interface ToolReply {
 }
 
 // The core as main.ts wires it, with harness sessions the test plays and catalogs it makes up.
-export async function startCore(dataFolder: string): Promise<Core> {
+// `bases` points services such as Telegram at a fake server.
+export async function startCore(
+  dataFolder: string,
+  bases: Partial<Record<DestinationKind, string>> = {},
+): Promise<Core> {
   const store = openStore(dataFolder);
   const taskStates = new TaskStates(store);
   const tools = await startToolServer(store);
@@ -125,7 +131,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
   const handovers = new Handovers(team, activity);
   reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
   wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
-  const notifier = new Notifier(store, registry);
+  const outbox = new Outbox(store, secrets, bases);
+  const notifier = new Notifier(store, registry, outbox);
   const stoppedLeads = new StoppedLeads(team);
   recoverLeads(team, activity, stoppedLeads);
   const quiet = new QuietWorkers(team, activity);
@@ -145,6 +152,9 @@ export async function startCore(dataFolder: string): Promise<Core> {
   );
   const stoppedTasks = new StoppedTasks(team, queue);
   stoppedTasks.announce(notifier);
+  const telegram = new TelegramReplies(team, outbox, bases.telegram);
+  outbox.start();
+  telegram.start();
   tools.offer([
     askUser(registry),
     proposeTeam(team),
@@ -177,7 +187,7 @@ export async function startCore(dataFolder: string): Promise<Core> {
     checks,
     milestones,
     outputs: { preview, files: new TaskFiles(store), ownPorts: new Set([preview.port]) },
-    unattended: { stoppedLeads, stoppedTasks, runner },
+    unattended: { stoppedLeads, stoppedTasks, runner, delivery: { outbox, telegram } },
     token: TOKEN,
     port: 0,
   });
@@ -224,6 +234,8 @@ export async function startCore(dataFolder: string): Promise<Core> {
     async close() {
       quiet.stop();
       notifier.stop();
+      telegram.stop();
+      outbox.stop();
       queue.stop();
       runner.stop();
       await server.close();

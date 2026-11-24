@@ -51,6 +51,7 @@ import type { MilestoneEdits } from "../goal/edits.ts";
 import { setMilestonesOn } from "../goal/record.ts";
 import { goalRoutes } from "../goal/routes.ts";
 import { libraryRoutes } from "../library/routes.ts";
+import { destinationRoutes } from "../notify/destination-routes.ts";
 import { type OutputServices, outputRoutes } from "../outputs/routes.ts";
 import type { PriceList } from "../prices/prices.ts";
 import { answerPermissions } from "../registry/answer-permissions.ts";
@@ -131,6 +132,7 @@ export function apiRoutes(
     ...installRoutes(),
     ...unattendedRoutes(store, unattended),
     ...automationRoutes(team, unattended.runner),
+    ...destinationRoutes(store, unattended.delivery),
     {
       method: "POST",
       path: "/accounts/:id/resume-paused",

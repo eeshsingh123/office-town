@@ -183,7 +183,7 @@ export class HarnessSession implements Session {
         return;
       case "answerQuestion":
         this.#requireActive("answer a question");
-        this.#answerQuestion(command.requestId, command.answers);
+        this.#answerQuestion(command.requestId, command.answers, command.answeredBy);
         return;
       case "interrupt":
         this.#requireActive("stop");
@@ -331,7 +331,7 @@ export class HarnessSession implements Session {
     });
   }
 
-  #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
+  #answerQuestion(requestId: string, answers: QuestionAnswer[], answeredBy?: AnsweredBy): void {
     const questions = this.#pendingQuestions.get(requestId);
     if (questions === undefined) {
       throw new SessionStateError(`No pending question "${requestId}".`);
@@ -351,7 +351,12 @@ export class HarnessSession implements Session {
     }));
     this.#emit({
       type: "question.resolved",
-      payload: { requestId, outcome: "answered", answers: given },
+      payload: {
+        requestId,
+        outcome: "answered",
+        answers: given,
+        ...(answeredBy === undefined ? {} : { answeredBy }),
+      },
     });
   }
 

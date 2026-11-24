@@ -103,7 +103,7 @@ export function decideOnAuto(context: TeamContext, stoppedLeads: StoppedLeads): 
       }
       const answer = answerOf(store, event);
       if (answer === undefined) return;
-      registry.send(event.sessionId, answer, true).catch((error: unknown) => {
+      registry.send(event.sessionId, answer, "automation").catch((error: unknown) => {
         console.error(`Auto could not answer ${event.type}.`, error);
       });
     });

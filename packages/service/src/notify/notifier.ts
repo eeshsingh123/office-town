@@ -1,5 +1,6 @@
 import {
   type AutomationRecord,
+  type AutomationRun,
   NOTICE_DEFAULTS,
   type NoticeKind,
   type SessionEvent,
@@ -11,6 +12,8 @@ import { isChiefTask } from "../chief/chief.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
 import { topSession } from "../team/task-state.ts";
+import { askMessage, isAsk } from "./asks.ts";
+import type { Outbox, Queued } from "./outbox.ts";
 
 // Coalescing (D-124): the first of a kind at once, the rest of that window once at its end.
 const WINDOW_MS = 5 * 60_000;
@@ -137,8 +140,11 @@ export class Notifier {
   // The tasks that changed in this launch, so a change into ended or paused is told once.
   readonly #seen = new Map<string, Seen>();
 
-  constructor(store: Store, registry: SessionRegistry) {
+  readonly #outbox: Outbox;
+
+  constructor(store: Store, registry: SessionRegistry, outbox: Outbox) {
     this.#store = store;
+    this.#outbox = outbox;
     moveSwitches(store);
     registry.subscribe(({ event }) => this.#heard(event));
     store.subscribe((change) => {
@@ -174,6 +180,62 @@ export class Notifier {
 
   automationPaused(automation: AutomationRecord, reason: string): void {
     this.notify("automation", undefined, `${automation.name} is paused`, reason);
+    this.#sendOut(automation, `paused:${Date.now()}`, undefined, () => ({
+      kind: "alert",
+      title: automation.name,
+      text: `Paused: ${reason}`,
+    }));
+  }
+
+  // A run's result or failure goes to its automation's destinations; nothing new sends nothing
+  // (D-130, D-131). The result is the text the Library keeps, never a trace or another file.
+  runEnded(automation: AutomationRecord, run: AutomationRun, result: string): void {
+    if (run.quiet === true) return;
+    const title = `${automation.name} · run ${run.number}`;
+    if ((run.status === "done" || run.status === "review") && result.trim() !== "") {
+      this.#sendOut(automation, `result:${run.id}`, run.id, () => ({
+        kind: "result",
+        title,
+        text: result.trim(),
+      }));
+    } else if (run.status === "failed") {
+      this.#sendOut(automation, `failed:${run.id}`, run.id, () => ({
+        kind: "alert",
+        title,
+        text: `It failed.${run.reason === undefined ? "" : ` ${run.reason}`} Open it in Office Town to see why.`,
+      }));
+    }
+  }
+
+  // An automation's run, or a part of a chief's goal one started, asks: its destinations hear it.
+  #askOut(event: Parameters<typeof askMessage>[0], task: TaskRecord, who: string): void {
+    const goal = task.parentTaskId === undefined ? task : this.#store.getTask(task.parentTaskId);
+    const origin = goal?.origin;
+    if (origin?.kind !== "automation") return;
+    const automation = this.#store.automations.get(origin.automationId);
+    if (automation === undefined) return;
+    const title = `${automation.name} · run ${origin.run}`;
+    this.#sendOut(
+      automation,
+      `ask:${event.sessionId}:${event.payload.requestId}`,
+      origin.runId,
+      (twoWay) => askMessage(event, who, title, twoWay),
+    );
+  }
+
+  // Only Telegram, once linked, carries answers back (D-132).
+  #sendOut(
+    automation: AutomationRecord,
+    key: string,
+    runId: string | undefined,
+    message: (twoWay: boolean) => Queued,
+  ): void {
+    for (const id of automation.rules.sendTo ?? []) {
+      const destination = this.#store.destinations.get(id);
+      if (destination === undefined) continue;
+      const twoWay = destination.settings.kind === "telegram" && destination.link !== undefined;
+      this.#outbox.queue(destination, key, automation.id, runId, message(twoWay));
+    }
   }
 
   #closeWindow(kind: NoticeKind): void {
@@ -202,13 +264,14 @@ export class Notifier {
     const { requestId } = event.payload;
     const timer = setTimeout(() => {
       this.#asks.delete(timer);
-      this.#askStillWaits(event.sessionId, requestId, want);
+      this.#askStillWaits(event, requestId, want);
     }, ASK_SETTLES_MS);
     timer.unref();
     this.#asks.add(timer);
   }
 
-  #askStillWaits(sessionId: string, requestId: string, want: string): void {
+  #askStillWaits(event: SessionEvent, requestId: string, want: string): void {
+    const { sessionId } = event;
     const waiting = this.#store
       .listPendingRequests()
       .requests.some(
@@ -218,6 +281,7 @@ export class Notifier {
     const task = this.#taskOf(sessionId);
     if (!waiting || session === undefined || task === undefined) return;
     const name = this.#store.getAgent(session.agentId)?.name ?? "An agent";
+    if (isAsk(event)) this.#askOut(event, task, name);
     this.notify("needs-you", task.id, `${name} ${want}`, taskName(task));
   }
 

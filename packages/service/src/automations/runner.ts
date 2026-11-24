@@ -380,6 +380,7 @@ export class Runner {
       if (trigger.outcome === "done" && (!finished || quiet)) continue;
       this.fire(next, new Date(), "chain", run.depth + 1);
     }
+    this.#notifier.runEnded(automation, run, finished ? resultOf(store, task) : "");
     // What its source saw while this run worked starts the next one.
     if (automation.trigger.kind === "event") this.fireEvents(automation.id);
   }

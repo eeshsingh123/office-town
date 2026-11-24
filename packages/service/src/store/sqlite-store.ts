@@ -74,6 +74,7 @@ import { AttachmentFiles } from "./attachment-files.ts";
 import { AutomationEventsStore } from "./automation-events-store.ts";
 import { AutomationsStore } from "./automations-store.ts";
 import { openDatabase, readNumber, transaction } from "./database.ts";
+import { DestinationsStore } from "./destinations-store.ts";
 import { NoticesStore } from "./notices-store.ts";
 import { queries } from "./queries.ts";
 import { QueueStore } from "./queue-store.ts";
@@ -744,6 +745,7 @@ class SqliteStore implements Store {
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
   readonly automationEvents: AutomationEventsStore;
+  readonly destinations: DestinationsStore;
   readonly #db: DatabaseSync;
   readonly #file: string;
   readonly #results: ResultFiles;
@@ -778,6 +780,7 @@ class SqliteStore implements Store {
       (id) => this.getAttachment(id),
     );
     this.automationEvents = new AutomationEventsStore(db);
+    this.destinations = new DestinationsStore(db, (change) => this.#publish(change));
     this.#statements = Object.fromEntries(
       Object.entries(queries).map(([name, sql]) => [name, db.prepare(sql)]),
     ) as Statements;
