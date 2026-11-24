@@ -24,7 +24,6 @@ import { TabRow } from "../../ui/TabRow.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
 import { DeliveryLine } from "../updates/Delivery.tsx";
-import { GUIDES } from "../updates/guides/all.ts";
 import styles from "./Automations.module.css";
 import {
   AutomationStatus,
@@ -172,18 +171,6 @@ function useRuns(
 // Three sends in a row that failed show here; they never pause it (D-130).
 const SENDS_SHOWN = 3;
 
-// The place its sends failed at, when the reason names one of its places' services.
-function placeOf(automation: AutomationRecord): { place?: string } {
-  const places = useApp.getState().places ?? {};
-  const reason = automation.sendFailures?.reason ?? "";
-  const failing = (automation.rules.sendTo ?? [])
-    .map((id) => places[id])
-    .find(
-      (place) => place?.problem !== undefined && reason.includes(GUIDES[place.settings.kind].label),
-    );
-  return failing === undefined ? {} : { place: failing.id };
-}
-
 // What waits on the user, as the one banner with its one fix.
 function Banner({ automation }: { automation: AutomationRecord }) {
   const { paused, sendFailures } = automation;
@@ -193,7 +180,14 @@ function Banner({ automation }: { automation: AutomationRecord }) {
         <span>
           Its last {sendFailures.count} sends failed. {sendFailures.reason}
         </span>
-        <Button onClick={() => navigate({ name: "connectors", ...placeOf(automation) })}>
+        <Button
+          onClick={() =>
+            navigate({
+              name: "connectors",
+              ...(sendFailures.placeId === undefined ? {} : { place: sendFailures.placeId }),
+            })
+          }
+        >
           Open in Connectors
         </Button>
       </div>

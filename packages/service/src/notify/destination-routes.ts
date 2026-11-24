@@ -84,6 +84,19 @@ const couldNot = (error: unknown) => {
 // A place is connected once, by pasting what its service gives.
 export function destinationRoutes(store: Store, { outbox, telegram }: Delivery): Route[] {
   const { destinations } = store;
+  // Names tell two of a service apart wherever results show where they went.
+  const requireFreeName = (name: string, self?: string) => {
+    const taken = destinations
+      .list()
+      .some((each) => each.id !== self && each.name.toLowerCase() === name.toLowerCase());
+    if (taken) {
+      throw new RequestError(
+        400,
+        "invalid_request",
+        `You already have one called ${name}. Give this one another name.`,
+      );
+    }
+  };
   const found = (id: string) => {
     const destination = destinations.get(id);
     if (destination === undefined) throw new RecordNotFoundError("destination");
@@ -103,6 +116,7 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
       path: "/destinations",
       reply: async ({ body }) => {
         const { name, settings, keys = {} } = destinationRequestSchema.parse(await body());
+        requireFreeName(name);
         const kept = keysFor(settings, keys);
         const created = destinations.create(name, settings);
         writeKeys(outbox.secrets, keysId(created.id), kept);
@@ -118,8 +132,9 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
         const before = found(param("id"));
         const { name, settings, keys } = destinationRequestSchema.parse(await body());
         if (settings.kind !== before.settings.kind) {
-          throw new RequestError(400, "invalid_request", "A destination keeps its service.");
+          throw new RequestError(400, "invalid_request", "An app can't change its service.");
         }
+        requireFreeName(name, before.id);
         if (keys !== undefined) {
           const kept = keysFor(settings, { ...outbox.keysOf(before.id), ...keys });
           if (kept.token !== outbox.keysOf(before.id).token) {

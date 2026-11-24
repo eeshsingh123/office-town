@@ -203,7 +203,11 @@ export class Outbox {
       row.automationId === null ? undefined : store.automations.get(row.automationId);
     if (automation === undefined) return;
     const count = (automation.sendFailures?.count ?? 0) + 1;
-    store.automations.setSendFailures(automation.id, { count, reason: problem });
+    store.automations.setSendFailures(automation.id, {
+      count,
+      reason: problem,
+      ...(destination === undefined ? {} : { placeId: destination.id }),
+    });
   }
 
   #sentFor(row: OutboxRow, destination: DestinationRecord): void {

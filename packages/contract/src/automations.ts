@@ -229,9 +229,13 @@ export const automationRecordSchema = automationRequestSchema.extend({
   files: z.array(attachmentSchema),
   // What its agents keep from run to run, given to each run as data (D-133).
   notes: z.string().max(NOTES_CHARS).optional(),
-  // Sends that failed in a row, with the latest reason; three show a banner (D-130).
+  // Sends that failed in a row, with the latest reason and place; three show a banner (D-130).
   sendFailures: z
-    .object({ count: z.number().int().positive(), reason: z.string().min(1) })
+    .object({
+      count: z.number().int().positive(),
+      reason: z.string().min(1),
+      placeId: z.string().min(1).optional(),
+    })
     .optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

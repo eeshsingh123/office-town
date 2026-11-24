@@ -537,7 +537,7 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   connector: "app",
   automation: "automation",
   run: "run",
-  destination: "destination",
+  destination: "connected app",
 };
 
 export class RecordNotFoundError extends Error {
