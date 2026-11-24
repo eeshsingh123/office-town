@@ -4,9 +4,9 @@ import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema, everydayAutonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { taskChecklistSchema } from "./checks.ts";
+import { deliverySchema } from "./destinations.ts";
 import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
-import { deliverySchema } from "./destinations.ts";
 import { notificationsSchema, updateRoutesSchema } from "./unattended.ts";
 
 // idle: none of the others, such as a team cut off by a restart. queued: a chief's goal behind another.
