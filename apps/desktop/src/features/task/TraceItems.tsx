@@ -305,6 +305,9 @@ function resolutionText(request: TraceRequest): string | undefined {
   if ("answeredBy" in resolution && resolution.answeredBy === "automation") {
     return "Decided by Auto";
   }
+  // The user answered from Telegram (D-132).
+  const from =
+    "answeredBy" in resolution && resolution.answeredBy === "telegram" ? " from Telegram" : "";
   if (event.type === "proposal.requested") {
     if (!("outcome" in resolution)) return undefined;
     return PROPOSAL_OUTCOMES[resolution.outcome as keyof typeof PROPOSAL_OUTCOMES] ?? "Answered";
@@ -321,15 +324,16 @@ function resolutionText(request: TraceRequest): string | undefined {
       if ("answeredBy" in resolution && resolution.answeredBy === "automation_app") {
         return "Allowed by this automation";
       }
+      if (from !== "") return `Allowed${from}`;
       return `Allowed by you${option ? ` · ${option.label}` : ""}`;
     }
     if (resolution.outcome !== "denied") return "Cancelled";
     return "answeredBy" in resolution && resolution.answeredBy === "app"
       ? "Refused by the app's setting"
-      : "Denied";
+      : `Denied${from}`;
   }
   if (resolution.outcome !== "answered" || !("answers" in resolution)) return "Not answered";
-  return `Answered: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;
+  return `Answered${from}: ${(resolution.answers ?? []).flatMap((answer) => answer.selected).join(", ")}`;
 }
 
 const PROPOSAL_OUTCOMES = {

@@ -42,3 +42,16 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+.destinationForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.code {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}

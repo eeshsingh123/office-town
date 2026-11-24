@@ -165,9 +165,24 @@ function useRuns(
   return { page: loaded, more };
 }
 
+// Three sends in a row that failed show here; they never pause it (D-130).
+const SENDS_SHOWN = 3;
+
 // What waits on the user, as the one banner with its one fix.
 function Banner({ automation }: { automation: AutomationRecord }) {
-  const { paused } = automation;
+  const { paused, sendFailures } = automation;
+  if (paused === undefined && sendFailures !== undefined && sendFailures.count >= SENDS_SHOWN) {
+    return (
+      <div className={styles.banner} role="status">
+        <span>
+          Its last {sendFailures.count} sends failed. {sendFailures.reason}
+        </span>
+        <Button onClick={() => navigate({ name: "settings", section: "destinations" })}>
+          Destinations
+        </Button>
+      </div>
+    );
+  }
   if (paused === undefined) return null;
   const fix =
     paused.fix === "turn-on" ? (

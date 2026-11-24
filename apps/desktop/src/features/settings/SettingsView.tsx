@@ -27,12 +27,18 @@ import {
   useTaskDefaults,
 } from "../task/task-options.ts";
 import { useStoreInfo } from "../tasks/store-size.ts";
+import { DestinationRows } from "./Destinations.tsx";
 import styles from "./Settings.module.css";
 
 // The groups in the order people come for them; Ctrl K opens each by its id (D-111).
 export const SETTINGS_SECTIONS = [
   { id: "appearance", title: "Appearance", keywords: ["theme", "dark mode", "light mode", "size"] },
   { id: "notifications", title: "Notifications", keywords: ["alerts", "notify"] },
+  {
+    id: "destinations",
+    title: "Destinations",
+    keywords: ["send results", "telegram", "slack", "discord", "email", "ntfy", "webhook"],
+  },
   { id: "new-tasks", title: "New tasks", keywords: ["permission", "manual", "auto", "efficient"] },
   {
     id: "accessibility",
@@ -400,6 +406,9 @@ export function SettingsView() {
         <PageHeader id="settings-title" title="Settings" />
         <Appearance />
         <Notifications />
+        <Group id="destinations">
+          <DestinationRows />
+        </Group>
         <NewTasks />
         <Accessibility />
         <Desktop />

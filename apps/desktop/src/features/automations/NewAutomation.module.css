@@ -30,6 +30,16 @@
   font-size: var(--size-meta);
 }
 
+.textButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .inline {
   display: inline-flex;
   vertical-align: middle;

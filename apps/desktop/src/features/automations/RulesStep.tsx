@@ -1,6 +1,8 @@
 import { type AutomationRules, automationRulesSchema } from "@office-town/contract";
+import { navigate } from "../../store/app-store.ts";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import { groupApps, isOffer, useConnectors } from "../connectors/connectors.ts";
+import { serviceLabel, useDestinations } from "../settings/destinations.ts";
 import styles from "./NewAutomation.module.css";
 
 export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
@@ -73,6 +75,46 @@ function AppsRule({
         />
       ))}
       <p className={styles.note}>Reading never asks. An app set to Read only stays read only.</p>
+    </div>
+  );
+}
+
+// Where its results go; set up once in Settings (D-130).
+function SendTo({
+  picked,
+  onChange,
+}: {
+  picked: readonly string[];
+  onChange: (next: string[]) => void;
+}) {
+  const destinations = useDestinations();
+  if (destinations === undefined) return null;
+  return (
+    <div className={styles.switches}>
+      <p className={styles.rule}>Send its results, failures and asks to:</p>
+      {destinations.map((destination) => (
+        <SwitchRow
+          key={destination.id}
+          label={destination.name}
+          hint={serviceLabel(destination)}
+          on={picked.includes(destination.id)}
+          onChange={(on) =>
+            onChange(
+              on ? [...picked, destination.id] : picked.filter((id) => id !== destination.id),
+            )
+          }
+        />
+      ))}
+      <p className={styles.note}>
+        {destinations.length === 0 ? "No destinations yet. " : ""}
+        <button
+          type="button"
+          className={styles.textButton}
+          onClick={() => navigate({ name: "settings", section: "destinations" })}
+        >
+          {destinations.length === 0 ? "Add one in Settings" : "Destinations in Settings"}
+        </button>
+      </p>
     </div>
   );
 }
@@ -189,6 +231,13 @@ export function RulesStep({
         onChange={(next) => {
           const { appsWithoutAsking: _, ...rest } = value;
           onChange(next.length === 0 ? rest : { ...rest, appsWithoutAsking: next });
+        }}
+      />
+      <SendTo
+        picked={value.sendTo ?? []}
+        onChange={(next) => {
+          const { sendTo: _, ...rest } = value;
+          onChange(next.length === 0 ? rest : { ...rest, sendTo: next });
         }}
       />
       <div className={styles.switches}>

@@ -58,10 +58,14 @@ import {
   type DepartmentModelRequest,
   type DepartmentRecord,
   type DepartmentSettings,
+  type DestinationRecord,
+  type DestinationRequest,
   type Display,
   delegationRecordSchema,
   departmentDraftReplySchema,
   departmentRecordSchema,
+  destinationListSchema,
+  destinationRecordSchema,
   displaySchema,
   type EnvironmentList,
   type EnvironmentSpec,
@@ -132,11 +136,13 @@ import {
   type TaskSearch,
   type TaskSearchResult,
   type Team,
+  type TelegramCode,
   taskDetailSchema,
   taskOutputsSchema,
   taskPageSchema,
   taskRecordSchema,
   taskSearchResultSchema,
+  telegramCodeSchema,
   type UserProfile,
   userProfileSchema,
   type WorkspaceRecord,
@@ -427,6 +433,23 @@ export const api = {
   runAutomation: (automationId: string): Promise<AutomationRun> =>
     write("POST", `/automations/${id(automationId)}/run`, undefined, automationRunSchema),
   markLoginOffered: (): Promise<void> => send("POST", "/automations/login-offered"),
+  listDestinations: async (): Promise<DestinationRecord[]> =>
+    (await read("/destinations", destinationListSchema)).destinations,
+  addDestination: (request: DestinationRequest): Promise<DestinationRecord> =>
+    write("POST", "/destinations", request, destinationRecordSchema),
+  updateDestination: (
+    destinationId: string,
+    request: DestinationRequest,
+  ): Promise<DestinationRecord> =>
+    write("PUT", `/destinations/${id(destinationId)}`, request, destinationRecordSchema),
+  removeDestination: (destinationId: string): Promise<void> =>
+    send("DELETE", `/destinations/${id(destinationId)}`),
+  testDestination: (destinationId: string): Promise<void> =>
+    send("POST", `/destinations/${id(destinationId)}/test`),
+  linkTelegram: (destinationId: string): Promise<TelegramCode> =>
+    write("POST", `/destinations/${id(destinationId)}/link`, undefined, telegramCodeSchema),
+  unlinkTelegram: (destinationId: string): Promise<DestinationRecord> =>
+    write("DELETE", `/destinations/${id(destinationId)}/link`, undefined, destinationRecordSchema),
   setNotes: (automationId: string, notes: string): Promise<AutomationRecord> =>
     write("PUT", `/automations/${id(automationId)}/notes`, { notes }, automationRecordSchema),
   cancelRun: (runId: string): Promise<void> => send("POST", `/automation-runs/${id(runId)}/cancel`),

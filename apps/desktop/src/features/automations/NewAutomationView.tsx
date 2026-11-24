@@ -30,6 +30,7 @@ import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { useDestinations } from "../settings/destinations.ts";
 import { eventMissing, useGitHubApp } from "./EventFields.tsx";
 import styles from "./NewAutomation.module.css";
 import { useWhenText, useWho } from "./parts.tsx";
@@ -490,6 +491,9 @@ function Review({
   const freeApps = useAskingApps(allowed)
     .filter(({ key }) => allowed.includes(key))
     .map(({ name }) => name);
+  const sendTo = (useDestinations() ?? [])
+    .filter((destination) => rules.sendTo?.includes(destination.id) === true)
+    .map((destination) => destination.name);
   return (
     <div className={styles.review}>
       <p className={styles.sentence}>
@@ -553,6 +557,9 @@ function Review({
             <li>
               Changes in {new Intl.ListFormat("en").format(freeApps)} go through without asking
             </li>
+          )}
+          {sendTo.length === 0 ? null : (
+            <li>Sends results to {new Intl.ListFormat("en").format(sendTo)}</li>
           )}
           <li>{rules.review ? "You review each run" : "A finished run counts as Done"}</li>
           {rules.saveResult && task?.kind !== "chief" ? (
