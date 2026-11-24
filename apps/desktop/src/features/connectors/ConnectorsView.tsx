@@ -379,7 +379,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         <PageHeader
           id="connectors-title"
           title="Connectors"
-          lead="Apps your agents can use, and the places your updates go to."
+          lead="Apps your agents can use, and the apps your updates go to."
           actions={
             <Button variant="primary" data-tour="connectors-add" onClick={() => setAdding({})}>
               <Plus size={14} aria-hidden />

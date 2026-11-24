@@ -37,7 +37,7 @@ export function SendResultRow({ on, onChange }: { on: boolean; onChange: (on: bo
         <PlacePicker
           label="Send result to"
           picked={resultPlaces}
-          empty="Choose places"
+          empty="Choose apps"
           open={picking}
           onOpenChange={setPicking}
           onChange={(next) => {
