@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { startTaskRequestSchema } from "./api.ts";
 import { attachmentSchema } from "./attachments.ts";
+import { deliverySchema } from "./destinations.ts";
 import { chiefTaskRequestSchema } from "./plans.ts";
 import { startTeamTaskRequestSchema } from "./team.ts";
 
@@ -198,8 +199,8 @@ export const automationRunSchema = z.object({
   reason: z.string().min(1).optional(),
   // Its agent said there was nothing new: no alert, no send, no review (D-131).
   quiet: z.literal(true).optional(),
-  // A send that failed, in plain words: "Couldn't send to Telegram: the bot key was refused."
-  sendProblem: z.string().min(1).optional(),
+  // Where its result went, and a send that failed.
+  delivery: deliverySchema.optional(),
   // Runs missed while Office Town was closed, kept as this one record.
   missed: z.number().int().positive().optional(),
   // How many runs in a row led to this one, for a chain.

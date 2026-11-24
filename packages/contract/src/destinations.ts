@@ -76,3 +76,43 @@ export const telegramCodeSchema = z.object({
   expiresAt: z.iso.datetime(),
 });
 export type TelegramCode = z.infer<typeof telegramCodeSchema>;
+
+// What a paste must look like, by service and key. The Connect sheet explains a wrong one as it is
+// pasted, and the core refuses the same, so the two never disagree.
+export const PASTE_PATTERNS: Partial<Record<DestinationKind, Record<string, RegExp>>> = {
+  slack: { url: /^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9_/-]+$/ },
+  discord: {
+    url: /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/,
+  },
+  telegram: { token: /^\d+:[A-Za-z0-9_-]{30,}$/ },
+  // ntfy's own rule for a topic name.
+  ntfy: { topic: /^[A-Za-z0-9_-]{1,64}$/ },
+};
+
+export function pasteFits(kind: DestinationKind, key: string, value: string): boolean {
+  return PASTE_PATTERNS[kind]?.[key]?.test(value.trim()) ?? true;
+}
+
+// Where a task's or a run's result went, by the places' names when it was sent.
+export const deliverySchema = z.object({
+  sentTo: z.array(z.string().min(1)),
+  // The last send that failed, in plain words: "Couldn't send to Slack: the link was removed."
+  problem: z.string().min(1).optional(),
+});
+export type Delivery = z.infer<typeof deliverySchema>;
+
+// A phone channel the core made: its topic is its password, so it is given only when asked for.
+export const phoneChannelSchema = z.object({
+  topic: z.string().min(1),
+  // What the Android app opens from a scanned code.
+  appLink: z.string().min(1),
+  // The same channel on the web, for a computer or a phone without the app.
+  webLink: z.url(),
+});
+export type PhoneChannel = z.infer<typeof phoneChannelSchema>;
+
+// Adding a phone with no topic of its own gives back the one the core made.
+export const destinationCreatedSchema = destinationRecordSchema.extend({
+  phone: phoneChannelSchema.optional(),
+});
+export type DestinationCreated = z.infer<typeof destinationCreatedSchema>;
