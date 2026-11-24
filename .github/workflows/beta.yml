@@ -1,7 +1,9 @@
 name: Beta
+# A run started by a push is otherwise titled after the commit.
+run-name: Beta
 
-# Every merge to main becomes a beta: a prerelease only betas follow (D-75). Windows and
-# Linux only; no CI and no Mac beta until the public release (D-135).
+# Every merge to main becomes a beta: a prerelease only betas follow (D-75). No CI runs
+# before it until the public release (D-135).
 on:
   push:
     branches: [main]
@@ -38,9 +40,36 @@ jobs:
             apps/desktop/out/package/installers/beta*.yml
           if-no-files-found: error
 
+  # Mac betas (D-116): ad-hoc signed, so they only say an update is ready. Kept apart from the
+  # build above, so a Mac failure never holds back the Windows and Linux beta.
+  build-mac:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm package --beta ${{ github.run_number }}
+      # A build without a valid signature is one a Mac calls damaged; don't ship it.
+      - run: codesign --verify --deep --strict apps/desktop/out/package/installers/mac-arm64/*.app
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-macos
+          path: |
+            apps/desktop/out/package/installers/*.dmg
+            apps/desktop/out/package/installers/*.zip
+            apps/desktop/out/package/installers/*.blockmap
+            apps/desktop/out/package/installers/beta-mac.yml
+          if-no-files-found: error
+
   # One job publishes every platform, so two builds never race to create the release.
   publish:
-    needs: build
+    needs: [build, build-mac]
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
