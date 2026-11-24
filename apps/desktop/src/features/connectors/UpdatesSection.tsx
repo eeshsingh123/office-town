@@ -115,7 +115,7 @@ export function UpdatesSection({ place: pointed }: { place?: string | undefined 
         <h2 className={page.sectionTitle}>Updates</h2>
         <Button variant="ghost" onClick={() => openConnect()}>
           <Plus size={14} aria-hidden />
-          Connect a place
+          Connect a third-party application
         </Button>
       </div>
       <ul className={styles.list} aria-label="Updates">

@@ -26,14 +26,16 @@ export const RELEASES: Release[] = [
     title: "Updates in Slack, Discord or Telegram",
     icon: Send,
     changes: [
-      "Connect Slack, Discord or Telegram once from Settings, Connectors, a task or an automation. Each has a short guide, and a wrong paste tells you what to copy instead",
-      "Settings > Updates shows each place and what it hears about, such as when an agent needs you or a task fails. Choose changes it. Your computer's notifications are still there",
+      "Connect apps such as Slack, Discord or Telegram once from Settings, Connectors, a task or an automation. Each has a short guide, and a wrong paste tells you what to copy instead",
+      "Settings > Updates lists each app with what it hears about: All updates, or how many, with their names on hover. Click it to change, such as only when an agent needs you or a task fails. Your computer's notifications are still there",
       "Turn on Send result to in a task's options and its result goes to the places you picked once it's done. If it fails, you get a short note there instead",
       "An automation's Rules pick where its results go, starting with your usual places. Under a result you see where it was sent, or why it couldn't be",
       "Alerts use Office Town's own words, never an agent's. Things that look like keys or passwords are hidden before a result is sent",
       "A run with nothing new ends quietly: no message, nothing to review",
       "An automation keeps notes from run to run, which you can read, edit and clear on its page",
       "A message you send while an agent is in a long step now shows as waiting until it reads it",
+      "What's new closes from the × at its top, so a long list needs no scrolling",
+      "In a task's chat, the message box, review bar and the files a task made line up with the chat, and Sent to sits under the answer. The review bar under Outputs spans the outputs above it",
     ],
   },
   {

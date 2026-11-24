@@ -55,7 +55,7 @@ function ChooseService({ onPick }: { onPick: (kind: DestinationKind) => void }) 
   return (
     <ConnectorSheet
       logo={null}
-      title="Connect a place"
+      title="Connect apps"
       onClose={closeConnect}
       foot={
         <Button variant="ghost" onClick={closeConnect}>

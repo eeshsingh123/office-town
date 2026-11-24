@@ -7,7 +7,6 @@ import { PlacePicker } from "./PlacePicker.tsx";
 import { HearsMenu, PlaceRow } from "./PlaceRow.tsx";
 import { ComputerTag, PlaceTag } from "./PlaceTag.tsx";
 import {
-  hearsText,
   openConnect,
   sendTest,
   setComputerHears,
@@ -27,7 +26,7 @@ export function UpdatesSettings() {
     notifications[kind] ?? NOTICE_DEFAULTS[kind];
   return (
     <>
-      <PlaceRow tag={<ComputerTag />} detail={hearsText(computerHears)}>
+      <PlaceRow tag={<ComputerTag />}>
         <HearsMenu place="This computer" heard={computerHears} onChange={setComputerHears} />
         <Button onClick={() => void testThisComputer()}>Send a test</Button>
       </PlaceRow>
@@ -38,7 +37,7 @@ export function UpdatesSettings() {
           <PlaceRow
             key={place.id}
             tag={<PlaceTag place={place} />}
-            detail={place.problem ?? hearsText(heard)}
+            detail={place.problem}
             warn={place.problem !== undefined}
           >
             <HearsMenu
@@ -53,7 +52,7 @@ export function UpdatesSettings() {
       <div>
         <button type="button" className={styles.connect} onClick={() => openConnect()}>
           <Plus size={14} aria-hidden />
-          Connect a place
+          Connect a third-party application
         </button>
       </div>
       <SettingRow label="Send results to" hint="For a task with Send result on.">

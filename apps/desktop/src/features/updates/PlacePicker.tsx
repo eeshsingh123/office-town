@@ -16,7 +16,7 @@ interface PlacePickerProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-// A small menu of place tags to tick, with Connect a place at its end. The trigger shows the
+// A small menu of place tags to tick, with Connect a third-party application at its end. The trigger shows the
 // picked places themselves.
 export function PlacePicker({
   label,
@@ -64,7 +64,7 @@ export function PlacePicker({
             onSelect={() => openConnect({ onConnected: (id) => onChange([...picked, id]) })}
           >
             <Plus size={14} className={menu.itemIcon} aria-hidden />
-            Connect a place
+            Connect a third-party application
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

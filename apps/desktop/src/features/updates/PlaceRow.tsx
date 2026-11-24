@@ -2,13 +2,12 @@ import type { NoticeKind } from "@office-town/contract";
 import { Check, ChevronDown } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
-import { Button } from "../../ui/Button.tsx";
 import menu from "../../ui/Menu.module.css";
 import { ALERTS } from "./places.ts";
 import styles from "./Updates.module.css";
 
-// One place: its tag, a short line under it, then its controls. The same row in Settings and
-// Connectors.
+// One place: its tag, a short line under it when there is one, then its controls. The same row
+// in Settings and Connectors.
 export function PlaceRow({
   tag,
   detail,
@@ -16,7 +15,7 @@ export function PlaceRow({
   children,
 }: {
   tag: ReactNode;
-  detail: ReactNode;
+  detail?: ReactNode;
   warn?: boolean;
   children: ReactNode;
 }) {
@@ -24,14 +23,17 @@ export function PlaceRow({
     <div className={styles.row}>
       <span className={styles.rowText}>
         {tag}
-        <span className={`${styles.detail} ${warn ? styles.warn : ""}`}>{detail}</span>
+        {detail === undefined ? null : (
+          <span className={`${styles.detail} ${warn ? styles.warn : ""}`}>{detail}</span>
+        )}
       </span>
       <span className={styles.rowEnd}>{children}</span>
     </div>
   );
 }
 
-// Which alerts a place hears, ticked in a small menu.
+// Which alerts a place hears, ticked in a small menu. The chip says All updates, or how many,
+// with their names on hover.
 export function HearsMenu({
   place,
   heard,
@@ -41,13 +43,23 @@ export function HearsMenu({
   heard: (kind: NoticeKind) => boolean;
   onChange: (kind: NoticeKind, on: boolean) => void;
 }) {
+  const on = ALERTS.filter(({ kind }) => heard(kind));
+  const label =
+    on.length === ALERTS.length
+      ? "All updates"
+      : on.length === 0
+        ? "No updates"
+        : `${on.length} ${on.length === 1 ? "update" : "updates"}`;
+  const names = on.map(({ short }) => short).join(", ");
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button variant="ghost" aria-label={`Choose what ${place} hears about`}>
-          Choose
-          <ChevronDown size={13} aria-hidden />
-        </Button>
+      <DropdownMenu.Trigger
+        className={`${menu.chip} ${styles.hears}`}
+        title={on.length === 0 || on.length === ALERTS.length ? undefined : names}
+        aria-label={`What ${place} hears: ${on.length === ALERTS.length ? "every update" : names || "nothing"}. Change`}
+      >
+        {label}
+        <ChevronDown size={13} aria-hidden />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content className={menu.surface} align="end" sideOffset={4}>

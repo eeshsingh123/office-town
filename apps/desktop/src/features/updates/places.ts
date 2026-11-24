@@ -29,16 +29,6 @@ export const ALERTS: { kind: NoticeKind; label: string; short: string }[] = [
   { kind: "automation", label: "An automation pauses or misses runs", short: "Automations" },
 ];
 
-// "Needs you, Fails", or short words for none, all, or all but one.
-export function hearsText(heard: (kind: NoticeKind) => boolean): string {
-  const on = ALERTS.filter(({ kind }) => heard(kind));
-  const off = ALERTS.filter(({ kind }) => !heard(kind));
-  if (on.length === 0) return "Nothing";
-  if (off.length === 0) return "Everything";
-  if (off.length === 1) return `Everything but ${off[0]?.short}`;
-  return on.map(({ short }) => short).join(", ");
-}
-
 let writes: Promise<void> = Promise.resolve();
 
 // Shown at once; writes go one at a time so two quick changes cannot undo each other, and a

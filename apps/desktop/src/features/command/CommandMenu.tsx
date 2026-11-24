@@ -229,7 +229,7 @@ export function CommandMenu() {
                 />
                 <Row
                   icon={Send}
-                  label="Connect a place for updates"
+                  label="Connect apps for updates"
                   keywords={[
                     "updates",
                     "notifications",

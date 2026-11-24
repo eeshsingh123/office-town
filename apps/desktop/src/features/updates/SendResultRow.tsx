@@ -25,7 +25,7 @@ export function SendResultRow({ on, onChange }: { on: boolean; onChange: (on: bo
             })
           }
         >
-          Connect a place
+          Connect apps
         </Button>
       </SettingRow>
     );
