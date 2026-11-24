@@ -43,6 +43,31 @@ export type Notice = z.infer<typeof noticeSchema>;
 export const notificationsSchema = z.partialRecord(noticeKindSchema, z.boolean());
 export type Notifications = z.infer<typeof notificationsSchema>;
 
+const placeIdsSchema = z.array(z.string().min(1)).max(20);
+
+// Which connected places hear each alert, by destination id. This computer stays `notifications`.
+export const updateRoutesSchema = z.partialRecord(noticeKindSchema, placeIdsSchema);
+export type UpdateRoutes = z.infer<typeof updateRoutesSchema>;
+
+// What a newly connected place starts ticked for; the user can change it.
+export const NEW_PLACE_HEARS: readonly NoticeKind[] = ["needs-you", "failed"];
+
+// Settings > Updates: the alerts each place hears, and where a task's result goes when asked.
+export const updatesSchema = z.object({
+  routes: updateRoutesSchema,
+  resultPlaces: placeIdsSchema,
+});
+export type Updates = z.infer<typeof updatesSchema>;
+
+// A kind left out of `routes` keeps its places.
+export const updatesRequestSchema = updatesSchema
+  .partial()
+  .refine(
+    (change) => change.routes !== undefined || change.resultPlaces !== undefined,
+    "Nothing to change",
+  );
+export type UpdatesRequest = z.infer<typeof updatesRequestSchema>;
+
 // A start no person typed (D-121): a resume, or an automation's run (D-125).
 export const queuedStartSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("resume"), taskId: z.string().min(1) }),

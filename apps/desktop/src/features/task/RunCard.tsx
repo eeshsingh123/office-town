@@ -16,6 +16,7 @@ import { STATE_LABELS, StatusIcon } from "../../ui/StatusIcon.tsx";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import chip from "../new-task/Composer.module.css";
 import { ModelChip, Segments } from "../new-task/ModelChip.tsx";
+import { SendResultRow } from "../updates/SendResultRow.tsx";
 import { accountLabel, useIdentities } from "../usage/identity.ts";
 import { sessionAccountId } from "../usage/limits.ts";
 import styles from "./RunCard.module.css";
@@ -148,6 +149,12 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
           onChange={(on) => setTaskOption(taskId, option.key, on)}
         />
       ))}
+      {task.origin === undefined && task.parentTaskId === undefined ? (
+        <SendResultRow
+          on={task.sendResult === true}
+          onChange={(on) => setTaskOption(taskId, "sendResult", on)}
+        />
+      ) : null}
     </section>
   );
 }

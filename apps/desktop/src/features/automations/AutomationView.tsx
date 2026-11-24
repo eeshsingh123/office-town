@@ -1,9 +1,10 @@
-import type {
-  AutomationRecord,
-  AutomationRun,
-  RunPage,
-  RunTab,
-  Trigger,
+import {
+  type AutomationRecord,
+  type AutomationRun,
+  NOTES_CHARS,
+  type RunPage,
+  type RunTab,
+  type Trigger,
 } from "@office-town/contract";
 import { CircleMinus, Clock, Eye, Pencil, Play, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,12 +16,14 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
+import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import icons from "../../ui/StatusIcon.module.css";
 import { TabRow } from "../../ui/TabRow.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { TaskStatusIcon } from "../tasks/TaskStatusIcon.tsx";
+import { DeliveryLine } from "../updates/Delivery.tsx";
 import styles from "./Automations.module.css";
 import {
   AutomationStatus,
@@ -36,8 +39,12 @@ import { eventsText, RUN_LABELS, runTime } from "./words.ts";
 const PAGE = 50;
 const REREAD_MS = 300;
 
+// A run that ended with nothing new finished well, quietly (D-131).
+const quietEnd = (run: AutomationRun) =>
+  run.quiet === true && (run.status === "done" || run.status === "review");
+
 function RunStatus({ run }: { run: AutomationRun }) {
-  const label = RUN_LABELS[run.status];
+  const label = quietEnd(run) ? "Nothing new" : RUN_LABELS[run.status];
   const icon =
     run.status === "waiting" ? (
       <Clock size={14} aria-hidden className={`${icons.icon} ${icons.quiet}`} />
@@ -81,8 +88,13 @@ function RunRow({ run, trigger }: { run: AutomationRun; trigger: Trigger }) {
       <span className={styles.number}>Run {run.number}</span>
       <span className={`${styles.line} ${styles.when}`}>{runTime(run.scheduledFor)}</span>
       <RunStatus run={run} />
-      <span className={styles.reason} title={note}>
-        {note}
+      <span className={styles.reasonCell}>
+        {note === undefined ? null : (
+          <span className={styles.reason} title={note}>
+            {note}
+          </span>
+        )}
+        <DeliveryLine delivery={run.delivery} />
       </span>
       {run.status === "waiting" ? (
         <Button variant="ghost" onClick={cancel} busy={cancelling}>
@@ -156,9 +168,31 @@ function useRuns(
   return { page: loaded, more };
 }
 
+// Three sends in a row that failed show here; they never pause it (D-130).
+const SENDS_SHOWN = 3;
+
 // What waits on the user, as the one banner with its one fix.
 function Banner({ automation }: { automation: AutomationRecord }) {
-  const { paused } = automation;
+  const { paused, sendFailures } = automation;
+  if (paused === undefined && sendFailures !== undefined && sendFailures.count >= SENDS_SHOWN) {
+    return (
+      <div className={styles.banner} role="status">
+        <span>
+          Its last {sendFailures.count} sends failed. {sendFailures.reason}
+        </span>
+        <Button
+          onClick={() =>
+            navigate({
+              name: "connectors",
+              ...(sendFailures.placeId === undefined ? {} : { place: sendFailures.placeId }),
+            })
+          }
+        >
+          Open in Connectors
+        </Button>
+      </div>
+    );
+  }
   if (paused === undefined) return null;
   const fix =
     paused.fix === "turn-on" ? (
@@ -219,6 +253,58 @@ function Chips({ automation }: { automation: AutomationRecord }) {
         </span>
       ) : null}
     </div>
+  );
+}
+
+// What its runs keep for the next one; the user can read, edit and clear it (D-133).
+function Notes({ automation }: { automation: AutomationRecord }) {
+  const saved = automation.notes ?? "";
+  const [text, setText] = useState(saved);
+  const [busy, setBusy] = useState(false);
+  // A run that rewrites them while the box is untouched shows its words.
+  const [base, setBase] = useState(saved);
+  if (saved !== base) {
+    setBase(saved);
+    if (text === base) setText(saved);
+  }
+  const save = async (notes: string) => {
+    setBusy(true);
+    try {
+      await api.setNotes(automation.id, notes);
+      setText(notes);
+    } catch (failure) {
+      showToast(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className={page.section} aria-labelledby="notes-title">
+      <div className={page.sectionHead}>
+        <h2 id="notes-title" className={page.sectionTitle}>
+          Notes
+        </h2>
+        <span className={page.hint}>
+          Kept by its runs for the next one. Runs read them as information, not instructions.
+        </span>
+      </div>
+      <textarea
+        className={form.input}
+        aria-label="Notes"
+        value={text}
+        maxLength={NOTES_CHARS}
+        placeholder="None yet."
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className={page.row}>
+        <Button disabled={text === saved} busy={busy} onClick={() => void save(text)}>
+          Save
+        </Button>
+        <Button variant="ghost" disabled={saved === ""} onClick={() => void save("")}>
+          Clear
+        </Button>
+      </div>
+    </section>
   );
 }
 
@@ -302,6 +388,7 @@ export function AutomationView({ automationId }: { automationId: string }) {
             </Button>
           </div>
         </section>
+        <Notes automation={automation} />
       </section>
     </div>
   );

@@ -94,6 +94,8 @@ export interface Translator {
   answerPermission(requestId: string, option: PermissionOption): Translation;
   answerQuestion(requestId: string, answers: AnsweredQuestion[]): Translation;
   interrupt(): Translation;
+  // User messages given to it that the CLI has not taken yet, such as during a long tool (D-134).
+  waiting(): number;
 }
 
 // One question asked by running the CLI: `input` is written once it starts and `read` finds the

@@ -4,7 +4,8 @@ import { join } from "node:path";
 import type { Trigger } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { catchUp, missedSince, nextRuns } from "../src/automations/clock.ts";
-import { type Core, eventually, settle, startCore } from "./support/team-core.ts";
+import { startFakeServices } from "./support/fake-services.ts";
+import { type Core, eventually, playTurn, settle, startCore } from "./support/team-core.ts";
 
 type ScheduleTrigger = Extract<Trigger, { kind: "schedule" }>;
 
@@ -204,5 +205,192 @@ describe("the runner", () => {
     core.runner.fireEvents(id);
     expect(core.store.automations.runs(id, {}).runs).toHaveLength(1);
     expect(core.store.automationEvents.pending(id)).toMatchObject({ count: 1 });
+  });
+
+  it("sends results once to where they were asked for, a failure as a plain note, alerts in the core's words, keeps notes, stays quiet with nothing new, and keeps Telegram one way", async () => {
+    const fake = await startFakeServices();
+    await core.close();
+    core = await startCore(join(directory, "delivery"), { telegram: fake.url, slack: fake.url });
+    try {
+      const add = (name: string, kind: string, keys: Record<string, string>) =>
+        core.call("POST", "/destinations", { name, settings: { kind }, keys });
+      const hook = (name: string) => `https://hooks.slack.com/services/T1/B1/${name}`;
+      // A paste that is not what Slack gives is refused at the edge.
+      const wrong = await add("Wrong", "slack", { url: "https://team.slack.com/archives/C1" });
+      expect(wrong.status).toBe(400);
+      const token = "123456:AAbbCCddEEffGGhhIIjjKKllMMnnOOppQQr";
+      const telegram = (await add("Phone", "telegram", { token })).json.id as string;
+      const slack = (await add("Team", "slack", { url: hook("team") })).json.id as string;
+      const gone = (await add("Old", "slack", { url: hook("gone") })).json.id as string;
+      // Not an automation's place: it hears alerts by their kind, and a task's result when asked.
+      const alerts = (await add("Alerts", "slack", { url: hook("alerts") })).json.id as string;
+      const heard = (path: string) =>
+        fake.received.filter((each) => each.path === `/services/T1/B1/${path}`);
+      // Linked with the one-time code, from one chat and one person.
+      const { code } = (await core.call("POST", `/destinations/${telegram}/link`)).json;
+      fake.updates.push({
+        message: {
+          message_id: 1,
+          chat: { id: 42, type: "private" },
+          from: { id: 7 },
+          text: `/start ${code}`,
+        },
+      });
+      await eventually(() => core.store.destinations.get(telegram)?.link !== undefined);
+      expect(core.store.destinations.get(telegram)?.link).toMatchObject({ chatId: 42 });
+
+      const scratch = core.store.listWorkspaces().find((workspace) => workspace.kind === "scratch");
+      const created = await core.call("POST", "/automations", {
+        name: "Digest",
+        task: {
+          kind: "assistant",
+          request: {
+            prompt: "Report what is new.",
+            agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+            autonomy: "full",
+            workspaceId: scratch?.id,
+          },
+        },
+        trigger: daily("09:00"),
+        rules: { sendTo: [telegram, slack, gone] },
+      });
+      const id = created.json.id as string;
+      const runNow = async () => {
+        const before = core.sessions.length;
+        await core.call("POST", `/automations/${id}/run`);
+        await eventually(() => core.sessions.length > before);
+        await settle();
+        return core.sessions.at(-1);
+      };
+
+      // Run 1 keeps a note; its result goes out once, cleaned of a key, and a refused send is told
+      // on the run without failing it.
+      const first = await runNow();
+      const brief = first?.sent.find((command) => command.type === "prompt");
+      expect(brief).toMatchObject({ text: expect.stringContaining("You have kept no notes yet.") });
+      await core.callTool(first, "keep_notes", { notes: "Reported: item A" });
+      playTurn(first, "Item A is new. Key: sk-ant-abcdefghijklmnopqrstuvwxyz123");
+      const [run1] = core.store.automations.runs(id, {}).runs;
+      await eventually(() => {
+        const delivery = core.store.automations.getRun(run1?.id ?? "")?.delivery;
+        return delivery?.sentTo.length === 2 && delivery.problem !== undefined;
+      });
+      const result = fake.sentToTelegram().find((message) => message.text?.includes("Item A"));
+      expect(result?.text).toContain("[hidden]");
+      expect(result?.text).not.toContain("sk-ant-");
+      expect(heard("team")).toHaveLength(1);
+      expect(heard("alerts")).toHaveLength(0);
+      expect(core.store.automations.getRun(run1?.id ?? "")).toMatchObject({
+        status: "done",
+        delivery: {
+          sentTo: ["Phone", "Team"],
+          problem: "Couldn't send to Slack: the webhook was turned off or removed.",
+        },
+      });
+      expect(core.store.destinations.get(gone)?.problem).toBeDefined();
+      const owner = { automationId: id, runId: run1?.id ?? "" };
+      expect(core.store.destinations.queue(telegram, `result:${run1?.id}`, owner, "{}")).toBe(
+        false,
+      );
+
+      // Run 2 reads its notes as data, finds nothing new and stays quiet.
+      const sentBefore = fake.sentToTelegram().length;
+      const second = await runNow();
+      const notes = second?.sent.find((command) => command.type === "prompt");
+      expect(notes).toMatchObject({ text: expect.stringContaining("<<<notes you kept") });
+      expect(notes).toMatchObject({ text: expect.stringContaining("Reported: item A") });
+      await core.callTool(second, "report_nothing_new", {});
+      playTurn(second, "Nothing new.");
+      await eventually(() => core.store.automations.runs(id, {}).runs[0]?.status === "done");
+      await settle();
+      expect(core.store.automations.runs(id, {}).runs[0]).toMatchObject({ quiet: true });
+      expect(fake.sentToTelegram()).toHaveLength(sentBefore);
+      expect(core.store.automations.lastFinishedTask(id)).toBe(run1?.taskId);
+
+      // A run that reports nothing new and then fails is still told.
+      const failing = await runNow();
+      await core.callTool(failing, "report_nothing_new", {});
+      failing?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+      await eventually(() =>
+        fake.sentToTelegram().some((message) => message.text?.includes("It failed.")),
+      );
+      // The app ticked for failures hears it too, in the core's words.
+      await eventually(() => heard("alerts").length === 1);
+      expect(heard("alerts")[0]?.body).toContain("A task failed");
+
+      // Run 3 asks: the question goes out as plain words, answered in Office Town, and once linked
+      // the core reads nothing from Telegram, so a reply there is left alone.
+      const third = await runNow();
+      third?.emit({ type: "turn.started", payload: { turnId: "turn" } });
+      await core.callTool(third, "ask_user", {
+        question: "Which source?",
+        options: ["Feed", "Site"],
+      });
+      await eventually(() =>
+        fake.sentToTelegram().some((message) => message.text?.includes("Which source?")),
+      );
+      const asked = fake
+        .sentToTelegram()
+        .find((message) => message.text?.includes("Which source?"));
+      expect(asked?.text).toContain("Answer it in Office Town.");
+      expect(asked?.reply_markup).toBeUndefined();
+      const sessions = core.sessions.length;
+      fake.updates.push({
+        message: {
+          message_id: 3,
+          chat: { id: 42, type: "private" },
+          from: { id: 7 },
+          text: "Feed",
+          reply_to_message: { message_id: asked?.message_id },
+        },
+      });
+      await settle();
+      expect(fake.updates).toHaveLength(1);
+      expect(core.store.listPendingRequests().requests).toHaveLength(1);
+      expect(core.sessions).toHaveLength(sessions);
+      // The automation's own places heard the ask in its words; a place ticked for "needs you"
+      // heard it in the core's words only.
+      await eventually(() => heard("alerts").length === 2);
+      expect(heard("alerts")[1]?.body).toContain("asks a question");
+      expect(heard("alerts")[1]?.body).not.toContain("Which source?");
+
+      // A task a person started with Send result to goes once to the result places.
+      await core.call("PUT", "/updates", { resultPlaces: [alerts] });
+      const task = await core.call("POST", "/tasks", {
+        prompt: "Sum up the week.",
+        agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+        autonomy: "full",
+        workspaceId: scratch?.id,
+        sendResult: true,
+      });
+      expect(task.status).toBe(201);
+      playTurn(core.sessions.at(-1), "Three things happened this week.");
+      await eventually(() => heard("alerts").length === 3);
+      await settle();
+      expect(heard("alerts")).toHaveLength(3);
+      expect(heard("alerts")[2]?.body).toContain("Three things happened this week.");
+      expect(heard("team")).toHaveLength(3);
+      expect(core.store.getTask(task.json.taskId)?.delivery).toEqual({ sentTo: ["Alerts"] });
+
+      // One that fails sends a short note there instead, in the core's words only.
+      await core.call("POST", "/tasks", {
+        prompt: "Sum up the month.",
+        agent: { settings: { harness: "claude", environment: { kind: "native" } } },
+        autonomy: "full",
+        workspaceId: scratch?.id,
+        sendResult: true,
+      });
+      await settle();
+      core.sessions
+        .at(-1)
+        ?.emit({ type: "session.ended", payload: { reason: "failed", exitCode: 1 } });
+      await eventually(() => heard("alerts").length === 4);
+      await settle();
+      expect(heard("alerts")).toHaveLength(4);
+      expect(heard("alerts")[3]?.body).toContain("It failed. Open it in Office Town to see why.");
+      expect(heard("alerts")[3]?.body).toContain("Sum up the month.");
+    } finally {
+      await fake.close();
+    }
   });
 });

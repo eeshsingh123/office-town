@@ -186,7 +186,14 @@ function requireWanted(piece: PieceStart | undefined): void {
 // A new lead first proposes its team; only the lead starts, as it hands out the work.
 export async function startTeamTask(
   context: TeamContext,
-  { goal, team, attachments: attachmentIds, efficient, milestones }: StartTeamTaskRequest,
+  {
+    goal,
+    team,
+    attachments: attachmentIds,
+    efficient,
+    milestones,
+    sendResult,
+  }: StartTeamTaskRequest,
   piece?: PieceStart,
   origin?: TaskOrigin,
 ): Promise<SessionRecord> {
@@ -197,6 +204,10 @@ export async function startTeamTask(
     ...(piece === undefined ? {} : { parentTaskId: piece.parentTaskId }),
     ...(efficient === undefined ? {} : { efficient }),
     ...(milestones === undefined ? {} : { milestones }),
+    // An automation's run sends through its own rules, and a piece reports to the chief.
+    ...(sendResult === true && origin === undefined && piece === undefined
+      ? { sendResult: true }
+      : {}),
     ...(origin === undefined ? {} : { origin }),
   };
   // The upstream departments' folders a piece of a chief's plan may read.

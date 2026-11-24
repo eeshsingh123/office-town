@@ -94,6 +94,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     library,
     connectors,
     outputs,
+    places,
   ] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
@@ -106,6 +107,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     api.listLibrary(),
     api.listConnectors(),
     api.listOutputs(),
+    api.listDestinations(),
   ]);
   // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
@@ -147,6 +149,8 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     onboarding: settings.onboarding ?? { setupDone: tasks.length > 0 || agents.length > 0 },
     display: settings.display ?? {},
     notifications: settings.notifications ?? {},
+    places: byId(places),
+    updates: { routes: settings.updateRoutes ?? {}, resultPlaces: settings.resultPlaces ?? [] },
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,

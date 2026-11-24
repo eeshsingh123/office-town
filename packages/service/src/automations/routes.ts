@@ -4,6 +4,7 @@ import {
   automationPreviewRequestSchema,
   automationRequestSchema,
   enabledRequestSchema,
+  notesRequestSchema,
   runPageQuerySchema,
 } from "@office-town/contract";
 import { RequestError } from "../api/errors.ts";
@@ -117,6 +118,17 @@ export function automationRoutes(context: TeamContext, runner: Runner): Route[] 
         runner.cancelWaiting(id, "Its automation was deleted.");
         automations.remove(id);
         return { status: 204 };
+      },
+    },
+    {
+      method: "PUT",
+      path: "/automations/:id/notes",
+      // The user reads, edits and clears what its runs keep (D-133).
+      reply: async ({ param, body }) => {
+        const { notes } = notesRequestSchema.parse(await body());
+        const id = found(param("id")).id;
+        automations.setNotes(id, notes);
+        return { status: 200, json: automations.get(id) };
       },
     },
     {

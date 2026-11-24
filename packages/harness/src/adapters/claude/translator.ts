@@ -203,6 +203,11 @@ export class ClaudeTranslator implements Translator {
     return handler === undefined ? translated([]) : handler(message);
   }
 
+  // Sent in a turn, it waits until Claude replays it as taken.
+  waiting(): number {
+    return this.#sentInTurn;
+  }
+
   prompt(text: string, images: InlineImage[]): Translation {
     if (this.#turnOpen) this.#sentInTurn += 1;
     const content =

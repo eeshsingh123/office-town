@@ -57,6 +57,8 @@ export interface TraceMessage {
   // Set when the core sent it in the user's place.
   origin?: MessageOrigin;
   attachments?: SentAttachment[];
+  // Not read by the agent yet: its current step is still at work, or it stopped first (D-134).
+  unread?: true;
 }
 
 export interface TraceReasoning {
@@ -120,6 +122,8 @@ export interface Trace {
   // What its provider's release shares of its sub-agents.
   subAgents?: SubAgentSupport;
   ended?: Extract<SessionEvent, { type: "session.ended" }>["payload"];
+  // Every user message in order, so a waiting count names the last ones.
+  userMessageIds: string[];
 }
 
 export function emptyTrace(sessionId: string): Trace {
@@ -133,6 +137,7 @@ export function emptyTrace(sessionId: string): Trace {
     streaming: {},
     turnOpen: false,
     answered: false,
+    userMessageIds: [],
     usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
   };
 }
@@ -146,6 +151,7 @@ export function applyEvents(trace: Trace, events: readonly StreamedEvent[]): Tra
     items: new Map(trace.items),
     order: [...trace.order],
     streaming: { ...trace.streaming },
+    userMessageIds: [...trace.userMessageIds],
   };
   for (const { position, event } of events) {
     if (position !== undefined) {
@@ -178,6 +184,16 @@ function addUsage(trace: Trace, usage: TokenUsage): void {
     outputTokens: trace.usage.outputTokens + usage.outputTokens,
     cachedInputTokens: trace.usage.cachedInputTokens + (usage.cachedInputTokens ?? 0),
   };
+}
+
+function markUnread(trace: Trace, count: number): void {
+  const unread = new Set(count === 0 ? [] : trace.userMessageIds.slice(-count));
+  for (const id of trace.userMessageIds) {
+    const item = trace.items.get(id);
+    if (item?.kind !== "message" || (item.unread === true) === unread.has(id)) continue;
+    const { unread: _, ...rest } = item;
+    trace.items.set(id, unread.has(id) ? { ...rest, unread: true } : rest);
+  }
 }
 
 function apply(trace: Trace, event: SessionEvent): void {
@@ -214,9 +230,13 @@ function apply(trace: Trace, event: SessionEvent): void {
     case "usage.recounted":
       addUsage(trace, event.payload.usage);
       return;
+    case "message.waiting":
+      markUnread(trace, event.payload.count);
+      return;
     case "message": {
       const { role, text, parentActionId, origin, attachments } = event.payload;
       delete trace.streaming[parentActionId ?? ""];
+      if (role === "user") trace.userMessageIds.push(event.id);
       if (role === "assistant") trace.answered = true;
       if (text.trim() === "") return;
       trace.items.set(event.id, {

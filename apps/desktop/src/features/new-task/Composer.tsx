@@ -184,6 +184,9 @@ export function Composer({ home = false, automation }: ComposerProps) {
   );
   const defaults = useTaskDefaults();
   const options: TaskOptions = { ...defaults, ...changedOptions };
+  // A task's own, never an automation's: its Rules say where its results go.
+  const [sendResult, setSendResult] = useDraft(`${DRAFT}.sendResult`, false);
+  const started = { ...options, ...(sendResult ? { sendResult: true } : {}) };
   const [mention, setMention] = useState<Mention>();
   const [highlight, setHighlight] = useState(0);
   const [starting, setStarting] = useState(false);
@@ -354,7 +357,7 @@ export function Composer({ home = false, automation }: ComposerProps) {
       };
       if (target === CHIEF) {
         if (chief === undefined) return;
-        const { task } = await api.startChiefTask(goal, attached.ids, options);
+        const { task } = await api.startChiefTask(goal, attached.ids, started);
         keep();
         await track(task.id);
         selectAgent(chief.record.id);
@@ -378,7 +381,7 @@ export function Composer({ home = false, automation }: ComposerProps) {
               goal,
               team: { departmentId: department.id, workspaceId: goalWorkspaceId },
               ...files,
-              ...options,
+              ...started,
             })
           : workspace === undefined
             ? undefined
@@ -387,7 +390,7 @@ export function Composer({ home = false, automation }: ComposerProps) {
                   goal,
                   team: { lead: agent, workspaceId: workspace.id, autonomy: level },
                   ...files,
-                  ...options,
+                  ...started,
                 })
               : await api.startTask({
                   prompt: goal,
@@ -395,7 +398,7 @@ export function Composer({ home = false, automation }: ComposerProps) {
                   autonomy: level,
                   workspaceId: workspace.id,
                   ...files,
-                  ...options,
+                  ...started,
                 });
       if (session === undefined) return;
       keep();
@@ -779,6 +782,9 @@ export function Composer({ home = false, automation }: ComposerProps) {
             <OptionsChip
               value={options}
               onChange={(key, on) => setChangedOptions({ ...changedOptions, [key]: on })}
+              {...(automation === undefined
+                ? { sendResult: { on: sendResult, onChange: setSendResult } }
+                : {})}
             />
           </div>
           {automation === undefined ? (

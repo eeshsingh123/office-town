@@ -7,6 +7,7 @@ import {
   type AutomationRecord,
   type AutomationRun,
   type Change,
+  type Delivery,
   RUN_TAB_STATUSES,
   RUNS_KEPT,
   type RunPage,
@@ -19,13 +20,14 @@ import { transaction } from "./database.ts";
 
 const AUTOMATION_SELECT = `
   SELECT ref, id, name, enabled, fields, paused, next_run_at AS nextRunAt, failures,
-         last_look AS lastLook, created_at AS createdAt, updated_at AS updatedAt
+         last_look AS lastLook, notes, send_failures AS sendFailures, created_at AS createdAt,
+         updated_at AS updatedAt
   FROM automations`;
 
 const RUN_SELECT = `
   SELECT r.ref, r.id, a.id AS automationId, r.number, r.scheduled_for AS scheduledFor, r.by,
          r.status, r.reason, r.missed, r.depth, r.events, r.wait_until AS waitUntil, t.id AS taskId,
-         r.created_at AS createdAt, r.ended_at AS endedAt
+         r.quiet, r.delivery, r.created_at AS createdAt, r.ended_at AS endedAt
   FROM automation_runs r
   JOIN automations a ON a.ref = r.automation_ref
   LEFT JOIN tasks t ON t.ref = r.task_ref`;
@@ -39,6 +41,8 @@ const queries = {
   setNextRun: "UPDATE automations SET next_run_at = ? WHERE id = ?",
   setFailures: "UPDATE automations SET failures = ? WHERE id = ?",
   setLastLook: "UPDATE automations SET last_look = ? WHERE id = ?",
+  setNotes: "UPDATE automations SET notes = ? WHERE id = ?",
+  setSendFailures: "UPDATE automations SET send_failures = ? WHERE id = ?",
   remove: "DELETE FROM automations WHERE id = ?",
   // The list page shows every one; a person keeps a handful to a few hundred.
   all: `${AUTOMATION_SELECT} ORDER BY created_at`,
@@ -67,7 +71,7 @@ const queries = {
   lastFinishedTask: `
     SELECT t.id AS taskId FROM automation_runs r JOIN tasks t ON t.ref = r.task_ref
     WHERE r.automation_ref = (SELECT ref FROM automations WHERE id = ?)
-      AND r.status IN ('review', 'done')
+      AND r.status IN ('review', 'done') AND r.quiet IS NULL
     ORDER BY r.number DESC LIMIT 1`,
   page: `${RUN_SELECT} WHERE r.automation_ref = (SELECT ref FROM automations WHERE id = ?)
     AND r.number < ? AND (? = 0 OR r.status IN (SELECT value FROM json_each(?)))
@@ -77,7 +81,7 @@ const queries = {
     WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?) GROUP BY status`,
   updateRun: `
     UPDATE automation_runs SET status = ?, reason = ?, task_ref = (SELECT ref FROM tasks WHERE id = ?),
-      events = ?, wait_until = ?, ended_at = ?
+      events = ?, wait_until = ?, ended_at = ?, quiet = ?, delivery = ?
     WHERE id = ?`,
   prune: `
     DELETE FROM automation_runs WHERE automation_ref = (SELECT ref FROM automations WHERE id = ?)
@@ -100,6 +104,8 @@ interface AutomationRow {
   nextRunAt: number | null;
   failures: number;
   lastLook: string | null;
+  notes: string | null;
+  sendFailures: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -118,6 +124,8 @@ interface RunRow {
   events: number | null;
   waitUntil: number | null;
   taskId: string | null;
+  quiet: number | null;
+  delivery: string | null;
   createdAt: number;
   endedAt: number | null;
 }
@@ -139,6 +147,8 @@ const toRun = (row: RunRow): AutomationRun => ({
   ...(row.events === null ? {} : { events: row.events }),
   ...(row.waitUntil === null ? {} : { waitUntil: iso(row.waitUntil) }),
   ...(row.taskId === null ? {} : { taskId: row.taskId }),
+  ...(row.quiet === null ? {} : { quiet: true as const }),
+  ...(row.delivery === null ? {} : { delivery: JSON.parse(row.delivery) as Delivery }),
   createdAt: iso(row.createdAt),
   ...(row.endedAt === null ? {} : { endedAt: iso(row.endedAt) }),
 });
@@ -155,7 +165,10 @@ export interface NewRun {
 }
 
 export type RunChange = Partial<
-  Pick<AutomationRun, "status" | "reason" | "taskId" | "events" | "waitUntil" | "endedAt">
+  Pick<
+    AutomationRun,
+    "status" | "reason" | "taskId" | "events" | "waitUntil" | "endedAt" | "quiet" | "delivery"
+  >
 >;
 
 // Automations and their runs (D-125), each change published whole after its write.
@@ -262,6 +275,20 @@ export class AutomationsStore {
     this.#published(id);
   }
 
+  // Last write wins, as for two runs of an assistant's automation at once (D-133).
+  setNotes(id: string, notes: string): void {
+    this.#statements.setNotes.run(notes.trim() === "" ? null : notes, id);
+    this.#published(id);
+  }
+
+  setSendFailures(id: string, failures: AutomationRecord["sendFailures"]): void {
+    this.#statements.setSendFailures.run(
+      failures === undefined ? null : JSON.stringify(failures),
+      id,
+    );
+    this.#published(id);
+  }
+
   earliestNextRun(): number | undefined {
     const row = this.#statements.earliest.get() as { at: number | null } | undefined;
     return row?.at ?? undefined;
@@ -341,6 +368,8 @@ export class AutomationsStore {
       after.events ?? null,
       after.waitUntil === undefined ? null : Date.parse(after.waitUntil),
       after.endedAt === undefined ? null : Date.parse(after.endedAt),
+      after.quiet === true ? 1 : null,
+      after.delivery === undefined ? null : JSON.stringify(after.delivery),
       id,
     );
     const run = this.getRun(id);
@@ -407,6 +436,14 @@ export class AutomationsStore {
         ? {}
         : { lastLook: JSON.parse(row.lastLook) as NonNullable<AutomationRecord["lastLook"]> }),
       files: (stored.task.request.attachments ?? []).flatMap((id) => this.#fileOf(id) ?? []),
+      ...(row.notes === null ? {} : { notes: row.notes }),
+      ...(row.sendFailures === null
+        ? {}
+        : {
+            sendFailures: JSON.parse(row.sendFailures) as NonNullable<
+              AutomationRecord["sendFailures"]
+            >,
+          }),
       createdAt: iso(row.createdAt),
       updatedAt: iso(row.updatedAt),
     };

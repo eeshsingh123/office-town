@@ -1,6 +1,7 @@
 import { type AutomationRules, automationRulesSchema } from "@office-town/contract";
-import { SwitchRow } from "../../ui/Switch.tsx";
+import { SettingRow, SwitchRow } from "../../ui/Switch.tsx";
 import { groupApps, isOffer, useConnectors } from "../connectors/connectors.ts";
+import { PlacePicker } from "../updates/PlacePicker.tsx";
 import styles from "./NewAutomation.module.css";
 
 export const DEFAULT_RULES: AutomationRules = automationRulesSchema.parse({});
@@ -73,6 +74,31 @@ function AppsRule({
         />
       ))}
       <p className={styles.note}>Reading never asks. An app set to Read only stays read only.</p>
+    </div>
+  );
+}
+
+// Where its results go: places connected once, picked here (D-130).
+function SendTo({
+  picked,
+  onChange,
+}: {
+  picked: readonly string[];
+  onChange: (next: string[]) => void;
+}) {
+  return (
+    <div className={styles.switches}>
+      <SettingRow
+        label="Send its results to"
+        hint="With a short note when a run fails, pauses or asks you something."
+      >
+        <PlacePicker
+          label="Send its results to"
+          picked={picked}
+          onChange={onChange}
+          empty="Nowhere"
+        />
+      </SettingRow>
     </div>
   );
 }
@@ -189,6 +215,13 @@ export function RulesStep({
         onChange={(next) => {
           const { appsWithoutAsking: _, ...rest } = value;
           onChange(next.length === 0 ? rest : { ...rest, appsWithoutAsking: next });
+        }}
+      />
+      <SendTo
+        picked={value.sendTo ?? []}
+        onChange={(next) => {
+          const { sendTo: _, ...rest } = value;
+          onChange(next.length === 0 ? rest : { ...rest, sendTo: next });
         }}
       />
       <div className={styles.switches}>

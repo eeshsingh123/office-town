@@ -90,6 +90,7 @@ export async function startChiefGoal(
   modes: {
     efficient?: boolean | undefined;
     milestones?: boolean | undefined;
+    sendResult?: boolean | undefined;
     origin?: TaskOrigin;
   } = {},
 ): Promise<TaskDetail> {
@@ -107,6 +108,7 @@ export async function startChiefGoal(
       ...(waits ? { queued: true } : {}),
       ...(modes.efficient === undefined ? {} : { efficient: modes.efficient }),
       ...(modes.milestones === undefined ? {} : { milestones: modes.milestones }),
+      ...(modes.sendResult === true ? { sendResult: true } : {}),
       ...(modes.origin === undefined ? {} : { origin: modes.origin }),
     },
   );

@@ -11,6 +11,7 @@ export * from "./changes.ts";
 export * from "./checks.ts";
 export * from "./commands.ts";
 export * from "./connectors.ts";
+export * from "./destinations.ts";
 export * from "./drafts.ts";
 export * from "./events.ts";
 export * from "./library.ts";

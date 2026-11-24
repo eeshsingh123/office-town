@@ -34,6 +34,8 @@ export async function startSoloTask(
     workspaceId: request.workspaceId,
     ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
     ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
+    // An automation's run sends through its own rules, never this switch.
+    ...(request.sendResult === true && origin === undefined ? { sendResult: true } : {}),
     ...(origin === undefined ? {} : { origin }),
   });
   return startFirstAgent(store, task.id, () =>

@@ -3,28 +3,32 @@ import { Popover } from "radix-ui";
 import menu from "../../ui/Menu.module.css";
 import { SwitchRow } from "../../ui/Switch.tsx";
 import { TASK_OPTIONS, type TaskOption, type TaskOptions } from "../task/task-options.ts";
+import { SendResultRow } from "../updates/SendResultRow.tsx";
 import styles from "./Composer.module.css";
 
 interface OptionsChipProps {
   value: TaskOptions;
   onChange: (key: TaskOption, on: boolean) => void;
+  // Left out for an automation, whose Rules say where its results go.
+  sendResult?: { on: boolean; onChange: (on: boolean) => void };
 }
 
 // This task's own choices, starting from the defaults in Settings.
-export function OptionsChip({ value, onChange }: OptionsChipProps) {
-  const on = TASK_OPTIONS.filter((option) => value[option.key]);
+export function OptionsChip({ value, onChange, sendResult }: OptionsChipProps) {
   // Says what is on, so both off never reads as both on.
   const short = (option: (typeof TASK_OPTIONS)[number]) => option.label.replace(/ mode$/, "");
+  const on = [
+    ...TASK_OPTIONS.filter((option) => value[option.key]).map(short),
+    ...(sendResult?.on === true ? ["Send result"] : []),
+  ];
   const label =
-    on.length === 0
-      ? `${TASK_OPTIONS.map(short).join(" & ")} off`
-      : `${on.map(short).join(" & ")} on`;
+    on.length === 0 ? `${TASK_OPTIONS.map(short).join(" & ")} off` : `${on.join(" & ")} on`;
   return (
     <Popover.Root>
       <Popover.Trigger
         className={`${styles.chip} ${on.length === 0 ? styles.chipOff : ""}`}
-        aria-label={`Efficient mode and Milestones: ${on.length === 0 ? "both off" : label}`}
-        title="Efficient mode and Milestones"
+        aria-label={`Options for this task: ${label}`}
+        title="Options for this task"
       >
         <SlidersHorizontal size={14} aria-hidden />
         <span className={styles.chipText}>{label}</span>
@@ -45,6 +49,7 @@ export function OptionsChip({ value, onChange }: OptionsChipProps) {
               onChange={(next) => onChange(option.key, next)}
             />
           ))}
+          {sendResult === undefined ? null : <SendResultRow {...sendResult} />}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

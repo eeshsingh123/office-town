@@ -171,6 +171,10 @@ export class CodexTranslator implements Translator {
     }
   }
 
+  waiting(): number {
+    return this.#queuedPrompts.length + this.#steering.length;
+  }
+
   // During a turn a prompt goes into it, once the turn's id is known; a refused one waits it out.
   prompt(text: string, images: InlineImage[]): Translation {
     this.#queuedPrompts.push([

@@ -18,6 +18,9 @@ import page from "../../ui/Page.module.css";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { EVERYONE, givenToSomeone } from "../library/library.ts";
+import { GUIDES } from "../updates/guides/all.ts";
+import { ServiceLogo } from "../updates/PlaceTag.tsx";
+import { openConnect } from "../updates/places.ts";
 import { ActionGroups } from "./ActionGroups.tsx";
 import { AppLogo } from "./AppLogo.tsx";
 import styles from "./Connectors.module.css";
@@ -37,6 +40,10 @@ interface AddSheetProps {
   audience?: Audience;
   onClose: () => void;
 }
+
+// Not a kind of app agents use: the places the core sends updates to (D-130).
+const UPDATES = "updates";
+const SERVICE_LIST = Object.values(GUIDES);
 
 interface OwnSetup {
   name: string;
@@ -301,6 +308,9 @@ export function AddSheet({
   const words = query.trim().toLowerCase();
   const inCategory = (listed: CatalogEntry | undefined) =>
     category === "" || listed?.category === category;
+  const services = SERVICE_LIST.filter(
+    (one) => (category === "" || category === UPDATES) && one.label.toLowerCase().includes(words),
+  );
   const offers = groups.filter((group) => group.routes.every(isOffer));
   const offered = offers.filter(
     (group) =>
@@ -394,30 +404,34 @@ export function AddSheet({
           <SearchBox value={query} onChange={setQuery} label="Search apps" autoFocus />
           <fieldset className={styles.categories}>
             <legend className="visually-hidden">Kind of app</legend>
-            {[{ value: "", label: "All" }, ...CATEGORIES].map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={`${styles.toggleChip} ${category === value ? styles.toggleOn : ""}`}
-                aria-pressed={category === value}
-                onClick={() => setCategory(value)}
-              >
-                {label}
-              </button>
-            ))}
+            {[{ value: "", label: "All" }, ...CATEGORIES, { value: UPDATES, label: "Updates" }].map(
+              ({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`${styles.toggleChip} ${category === value ? styles.toggleOn : ""}`}
+                  aria-pressed={category === value}
+                  onClick={() => setCategory(value)}
+                >
+                  {label}
+                </button>
+              ),
+            )}
           </fieldset>
           <ul className={styles.list} aria-label="Apps to add">
-            <li>
-              <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
-                <span className={`${styles.logo} ${styles.md}`} aria-hidden>
-                  <Plug size={16} />
-                </span>
-                <span className={styles.connText}>
-                  <span className={styles.connName}>Add your own</span>
-                  <span className={styles.sub}>An address or a program on this computer</span>
-                </span>
-              </button>
-            </li>
+            {category === UPDATES ? null : (
+              <li>
+                <button type="button" className={styles.connRow} onClick={() => setAdvanced(true)}>
+                  <span className={`${styles.logo} ${styles.md}`} aria-hidden>
+                    <Plug size={16} />
+                  </span>
+                  <span className={styles.connText}>
+                    <span className={styles.connName}>Add your own</span>
+                    <span className={styles.sub}>An address or a program on this computer</span>
+                  </span>
+                </button>
+              </li>
+            )}
             {offered.map((group) => {
               const [route] = group.routes;
               if (route === undefined) return null;
@@ -463,8 +477,26 @@ export function AddSheet({
                 </li>
               );
             })}
+            {services.map((one) => (
+              <li key={one.kind}>
+                <button
+                  type="button"
+                  className={styles.connRow}
+                  onClick={() => {
+                    onClose();
+                    openConnect({ kind: one.kind });
+                  }}
+                >
+                  <ServiceLogo kind={one.kind} size="md" />
+                  <span className={styles.connText}>
+                    <span className={styles.connName}>{one.label}</span>
+                    <span className={styles.sub}>Results and alerts from your team</span>
+                  </span>
+                </button>
+              </li>
+            ))}
           </ul>
-          {found.length + offered.length === 0 ? (
+          {found.length + offered.length + services.length === 0 ? (
             <p className={styles.empty}>No app matches.</p>
           ) : null}
         </>

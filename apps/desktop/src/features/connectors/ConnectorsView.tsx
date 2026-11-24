@@ -43,11 +43,14 @@ import {
 } from "./connectors.ts";
 import { ProviderTags } from "./ProviderTags.tsx";
 import { RenewAction } from "./RenewAction.tsx";
+import { UpdatesSection } from "./UpdatesSection.tsx";
 
 interface ConnectorsViewProps {
   // An app to set up at once, by slug or name, such as one an agent asked for.
   connect?: string;
   audience?: Audience;
+  // A place to point at in Updates, by id.
+  place?: string;
 }
 
 type Tab = "all" | "needs" | "off";
@@ -376,7 +379,7 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         <PageHeader
           id="connectors-title"
           title="Connectors"
-          lead="Apps your agents can use."
+          lead="Apps your agents can use, and the apps your updates go to."
           actions={
             <Button variant="primary" data-tour="connectors-add" onClick={() => setAdding({})}>
               <Plus size={14} aria-hidden />
@@ -495,6 +498,8 @@ export function ConnectorsView(props: ConnectorsViewProps) {
             <CodexFold groups={codexOwn} />
           </div>
         )}
+
+        <UpdatesSection place={props.place} />
 
         {suggesting ? (
           <div className={page.section}>

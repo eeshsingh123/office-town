@@ -18,6 +18,7 @@ import type {
   ConnectorSetup,
   ConnectorStatus,
   DelegationRecord,
+  Delivery,
   DepartmentRecord,
   DepartmentSettings,
   EnvironmentSpec,
@@ -58,6 +59,7 @@ import type {
 } from "@office-town/contract";
 import type { AutomationEventsStore } from "./automation-events-store.ts";
 import type { AutomationsStore } from "./automations-store.ts";
+import type { DestinationsStore } from "./destinations-store.ts";
 import type { NoticesStore } from "./notices-store.ts";
 import type { QueueStore } from "./queue-store.ts";
 import type { RecoveryStore } from "./recovery-store.ts";
@@ -177,6 +179,8 @@ export interface TaskPlacement {
   queued?: true;
   efficient?: boolean;
   milestones?: boolean;
+  // Send result to: only a task a person started asks for it.
+  sendResult?: boolean;
 }
 
 export type NewPiece = Pick<PlanPiece, "taskId" | "key" | "title" | "brief" | "waitsOn"> &
@@ -279,6 +283,7 @@ export interface Store {
   readonly queue: QueueStore;
   readonly automations: AutomationsStore;
   readonly automationEvents: AutomationEventsStore;
+  readonly destinations: DestinationsStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
@@ -299,6 +304,8 @@ export interface Store {
   setTaskTitle(taskId: string, title: string): TaskRecord;
   setTaskEfficient(taskId: string, efficient: boolean): TaskRecord;
   setTaskMilestones(taskId: string, milestones: boolean): TaskRecord;
+  setTaskSendResult(taskId: string, on: boolean): TaskRecord;
+  setTaskDelivery(taskId: string, delivery: Delivery): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
   // Newest first.
   listTasks(query: TaskQuery): TaskPage;
@@ -506,7 +513,8 @@ type RecordKind =
   | "milestone"
   | "connector"
   | "automation"
-  | "run";
+  | "run"
+  | "destination";
 
 // The user reads these, so each kind is named the way the app names it.
 const RECORD_WORDS: Record<RecordKind, string> = {
@@ -529,6 +537,7 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   connector: "app",
   automation: "automation",
   run: "run",
+  destination: "connected app",
 };
 
 export class RecordNotFoundError extends Error {

@@ -1,4 +1,11 @@
-import type { SessionEvent, SessionRecord, TaskRecord, TaskState } from "@office-town/contract";
+import {
+  type RunStatus,
+  type SessionEvent,
+  type SessionRecord,
+  type TaskRecord,
+  type TaskState,
+  taskStatus,
+} from "@office-town/contract";
 import { isBlocked } from "../chief/plan-graph.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { Store } from "../store/store.ts";
@@ -122,4 +129,36 @@ export class TaskStates {
       this.#store.setTaskState(taskId, stateOf(this.#store, task, this.#subAgentsAt));
     }
   }
+}
+
+// Where a task stands, as Tasks shows it.
+export function statusOf(store: Store, task: TaskRecord): RunStatus {
+  const sessions = store.listSessions(task.id);
+  const openPieces = store
+    .listPieces(task.id)
+    .some(
+      (piece) =>
+        piece.status === "waiting" || piece.status === "queued" || piece.status === "working",
+    );
+  return taskStatus(
+    {
+      state: task.state,
+      reviewed: task.reviewedAt !== undefined,
+      isPart: task.parentTaskId !== undefined,
+      openPieces,
+    },
+    topSession(task, sessions)?.status,
+  );
+}
+
+// The last words of the agent that joined first, the lead or the assistant.
+export function resultOf(store: Store, task: TaskRecord): string {
+  const sessions = store.listSessions(task.id);
+  const top = topSession(task, sessions);
+  if (top === undefined) return "";
+  for (const session of sessions.filter((each) => each.agentId === top.agentId).reverse()) {
+    const text = store.lastMessage(session.id);
+    if (text !== undefined) return text;
+  }
+  return "";
 }

@@ -10,10 +10,10 @@ import { chiefOf } from "../../chief/chief.ts";
 import { accountOf, waitOn } from "../../queue/admission.ts";
 import { startSoloTask } from "../../task-start.ts";
 import type { TeamContext } from "../../team/members.ts";
+import { statusOf } from "../../team/task-state.ts";
 import { stopTeam } from "../../team/team-tasks.ts";
 import { defineTool, ToolError } from "../../tools/tools.ts";
 import { readerOf, workspaceOf } from "../run-task.ts";
-import { statusOf } from "../runner.ts";
 import { type EventSource, lookEvery, MINUTE_MS, type SourceContext } from "./source.ts";
 
 type CheckConfig = Extract<EventSourceConfig, { kind: "check" }>;
@@ -239,7 +239,7 @@ export class AgentChecks {
   #follow(task: TaskRecord): void {
     const open = this.#open.get(task.id);
     if (open === undefined) return;
-    if (task.state !== "ended" && !OVER.has(statusOf(this.#team, task))) return;
+    if (task.state !== "ended" && !OVER.has(statusOf(this.#team.store, task))) return;
     this.#open.delete(task.id);
     const context = this.#contexts.get(open.automationId);
     const state = context?.state<CheckState>() ?? {};

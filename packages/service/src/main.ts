@@ -16,6 +16,7 @@ import { startApiServer } from "./api/server.ts";
 import { imageSight } from "./attachments/attachments.ts";
 import { startAutomations } from "./automations/automations.ts";
 import { proposeSchedule } from "./automations/propose-schedule.ts";
+import { keepNotes, reportNothingNew } from "./automations/run-tools.ts";
 import { autonomyGuard } from "./autonomy/policy.ts";
 import { messageLead } from "./chief/message-lead.ts";
 import { proposePlan } from "./chief/propose-plan.ts";
@@ -32,6 +33,8 @@ import { referenceOf } from "./library/library.ts";
 import { addToLibrary, changeLibrary } from "./library/library-tools.ts";
 import { followLibraryUses } from "./library/library-uses.ts";
 import { Notifier } from "./notify/notifier.ts";
+import { Outbox } from "./notify/outbox.ts";
+import { TelegramLink } from "./notify/telegram-link.ts";
 import { PreviewServer } from "./outputs/preview-server.ts";
 import { showResult } from "./outputs/show-result.ts";
 import { TaskFiles } from "./outputs/task-files.ts";
@@ -133,7 +136,8 @@ const stopIdle = stopIdleAgents(
   ...(idleAfter === undefined ? [] : [idleAfter * 1000]),
 );
 const handovers = new Handovers(team, activity, handOverAt === undefined ? {} : { handOverAt });
-const connectors = new ConnectorHub(store, registry, openSecrets(dataFolder), (sessionId) =>
+const secrets = openSecrets(dataFolder);
+const connectors = new ConnectorHub(store, registry, secrets, (sessionId) =>
   handovers.allow(sessionId),
 );
 toolServer.offerApps({
@@ -142,7 +146,8 @@ toolServer.offerApps({
 });
 reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
-const notifier = new Notifier(store, registry);
+const outbox = new Outbox(store, secrets);
+const notifier = new Notifier(store, registry, outbox);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
@@ -188,11 +193,15 @@ toolServer.offer([
   showResult(team),
   proposeSchedule(team, runner),
   agentChecks.tool(),
+  reportNothingNew(store),
+  keepNotes(store),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
 const stoppedTasks = new StoppedTasks(team, queue);
 stoppedTasks.announce(notifier);
+const telegram = new TelegramLink(store, outbox);
+outbox.start();
 const token = randomBytes(32).toString("base64url");
 const preview = await PreviewServer.start();
 const ownPorts = new Set([preview.port, Number(new URL(toolServer.url).port)]);
@@ -207,7 +216,7 @@ const server = await startApiServer({
   outputs: { preview, files: new TaskFiles(store), ownPorts },
   prices,
   statuses,
-  unattended: { stoppedLeads, stoppedTasks, runner },
+  unattended: { stoppedLeads, stoppedTasks, runner, delivery: { outbox, telegram } },
   nameTask,
   token,
   port,
@@ -235,6 +244,8 @@ async function shutdown(): Promise<void> {
   stopIdle();
   quiet.stop();
   notifier.stop();
+  telegram.stop();
+  outbox.stop();
   queue.stop();
   watch.stop();
   runner.stop();

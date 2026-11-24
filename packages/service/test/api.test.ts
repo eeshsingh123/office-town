@@ -13,6 +13,8 @@ import { startAutomations } from "../src/automations/automations.ts";
 import { ConnectorHub } from "../src/connectors/hub.ts";
 import { MilestoneEdits } from "../src/goal/edits.ts";
 import { Notifier } from "../src/notify/notifier.ts";
+import { Outbox } from "../src/notify/outbox.ts";
+import { TelegramLink } from "../src/notify/telegram-link.ts";
 import { PreviewServer } from "../src/outputs/preview-server.ts";
 import { TaskFiles } from "../src/outputs/task-files.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
@@ -131,12 +133,14 @@ beforeEach(async () => {
     outputs,
     unattended: (() => {
       const stoppedLeads = new StoppedLeads(team);
-      const notifier = new Notifier(store, registry);
+      const outbox = new Outbox(store, memorySecrets());
+      const notifier = new Notifier(store, registry, outbox);
       const { runner, queue } = startAutomations(team, notifier, stoppedLeads, () => {}, "launch", {
         shared: { lastChange: () => undefined },
         keysOf: () => ({}),
       });
-      return { stoppedLeads, stoppedTasks: new StoppedTasks(team, queue), runner };
+      const delivery = { outbox, telegram: new TelegramLink(team.store, outbox) };
+      return { stoppedLeads, stoppedTasks: new StoppedTasks(team, queue), runner, delivery };
     })(),
     token: TOKEN,
     port: 0,

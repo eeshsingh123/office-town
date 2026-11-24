@@ -7,6 +7,7 @@ import {
   type LucideIcon,
   MousePointerClick,
   Rocket,
+  Send,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -20,6 +21,23 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-24",
+    title: "Updates in Slack, Discord or Telegram",
+    icon: Send,
+    changes: [
+      "Connect apps such as Slack, Discord or Telegram once from Settings, Connectors, a task or an automation. Each has a short guide, and a wrong paste tells you what to copy instead",
+      "Settings > Updates sets what each app hears, such as only when an agent needs you or a task fails. Your computer's notifications are there too",
+      "Turn on Send result to in a task's options and its result goes to the apps you picked once it's done. If it fails, you get a short note there instead",
+      "An automation's Rules pick where its results go, starting with your usual apps. Under a result you see where it was sent, or why it couldn't be",
+      "Alerts use Office Town's own words, never an agent's. Things that look like keys or passwords are hidden before a result is sent",
+      "A run with nothing new ends quietly: no message, nothing to review",
+      "An automation keeps notes from run to run, which you can read, edit and clear on its page",
+      "A message you send while an agent is in a long step now shows as waiting until it reads it",
+      "What's new closes from the × at its top, so a long list needs no scrolling",
+      "The message box and review bar now line up with the chat",
+    ],
+  },
   {
     date: "2026-11-23",
     title: "Automations that start when something arrives",

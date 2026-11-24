@@ -17,6 +17,7 @@ import {
   Plug,
   Plus,
   Search,
+  Send,
   Settings,
   Sparkles,
   SunMoon,
@@ -45,6 +46,7 @@ import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { startTutorial } from "../onboarding/tutorial-state.ts";
 import { TUTORIALS } from "../onboarding/tutorials.ts";
 import { SETTINGS_SECTIONS } from "../settings/SettingsView.tsx";
+import { openConnect } from "../updates/places.ts";
 import styles from "./CommandMenu.module.css";
 import { setCommandMenuOpen, useCommandMenu } from "./command-menu.ts";
 
@@ -224,6 +226,23 @@ export function CommandMenu() {
                   label="Add app"
                   keywords={["connector", "connect"]}
                   onSelect={() => go({ name: "connectors", connect: "" })}
+                />
+                <Row
+                  icon={Send}
+                  label="Connect apps for updates"
+                  keywords={[
+                    "updates",
+                    "notifications",
+                    "slack",
+                    "telegram",
+                    "discord",
+                    "email",
+                    "webhook",
+                  ]}
+                  onSelect={() => {
+                    close();
+                    openConnect();
+                  }}
                 />
               </Command.Group>
               <Command.Group heading="Go to">

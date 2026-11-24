@@ -4,6 +4,7 @@ import {
   resumeTasksRequestSchema,
 } from "@office-town/contract";
 import type { Runner } from "../automations/runner.ts";
+import type { Delivery } from "../notify/destination-routes.ts";
 import type { Store } from "../store/store.ts";
 import type { StoppedLeads } from "../team/lead-stopped.ts";
 import type { StoppedTasks } from "../team/stopped-tasks.ts";
@@ -15,6 +16,7 @@ export interface Unattended {
   stoppedLeads: StoppedLeads;
   stoppedTasks: StoppedTasks;
   runner: Runner;
+  delivery: Delivery;
 }
 
 // A task at work, or one waiting on the user while its workers still work (D-123).

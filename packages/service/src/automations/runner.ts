@@ -4,9 +4,7 @@ import {
   CHAIN_DEPTH,
   type Change,
   EVENTS_A_RUN,
-  type RunStatus,
   type TaskRecord,
-  taskStatus,
 } from "@office-town/contract";
 import { isChiefTask } from "../chief/chief.ts";
 import { stopChiefGoal } from "../chief/goals.ts";
@@ -15,11 +13,11 @@ import type { Notifier } from "../notify/notifier.ts";
 import { type Wait, waitOn } from "../queue/admission.ts";
 import type { AdmissionQueue } from "../queue/admission-queue.ts";
 import type { TeamContext } from "../team/members.ts";
-import { topSession } from "../team/task-state.ts";
+import { resultOf, statusOf, topSession } from "../team/task-state.ts";
 import { markDone, stopTeam } from "../team/team-tasks.ts";
 import { Clock, catchUp, LATE_MS, missedSince, nextRuns } from "./clock.ts";
 import { saveResult } from "./results.ts";
-import { claimantOf, goneReason, pastShare, resultOf, startRunTask } from "./run-task.ts";
+import { claimantOf, goneReason, pastShare, startRunTask } from "./run-task.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FAILURES_TO_PAUSE = 3;
@@ -324,7 +322,7 @@ export class Runner {
     if (task.origin?.kind !== "automation") return;
     const run = store.automations.getRun(task.origin.runId);
     if (run === undefined) return;
-    const status = statusOf(this.#context, task);
+    const status = statusOf(this.#context.store, task);
     // Once over, it still shows its task's status, such as Done after a review.
     if (run.endedAt !== undefined) {
       store.automations.updateRun(run.id, { status });
@@ -352,6 +350,8 @@ export class Runner {
     const automation = store.automations.get(run.automationId);
     if (automation === undefined) return;
     const finished = run.status === "review" || run.status === "done";
+    // Nothing new counts as finished well, yet keeps no result and asks for no review (D-131).
+    const quiet = finished && run.quiet === true;
     if (run.status === "failed") {
       const failures = automation.failures + 1;
       store.automations.setFailures(automation.id, failures);
@@ -362,8 +362,10 @@ export class Runner {
       store.automations.setFailures(automation.id, 0);
     }
     if (finished) {
-      if (automation.rules.saveResult) saveResult(store, automation, run, resultOf(store, task));
-      if (!automation.rules.review && run.status === "review") {
+      if (automation.rules.saveResult && !quiet) {
+        saveResult(store, automation, run, resultOf(store, task));
+      }
+      if ((quiet || !automation.rules.review) && run.status === "review") {
         markDone(this.#context, task.id).catch((error: unknown) => {
           console.error(`Could not mark run ${run.number} of ${automation.name} done.`, error);
         });
@@ -373,9 +375,10 @@ export class Runner {
       const { trigger } = next;
       if (trigger.kind !== "after" || trigger.automationId !== automation.id) continue;
       if (!next.enabled || next.paused !== undefined) continue;
-      if (trigger.outcome === "done" && !finished) continue;
+      if (trigger.outcome === "done" && (!finished || quiet)) continue;
       this.fire(next, new Date(), "chain", run.depth + 1);
     }
+    this.#notifier.runEnded(automation, run, finished ? resultOf(store, task) : "");
     // What its source saw while this run worked starts the next one.
     if (automation.trigger.kind === "event") this.fireEvents(automation.id);
   }
@@ -386,7 +389,7 @@ export class Runner {
     automations.setPaused(automation.id, { reason, fix });
     this.cancelWaiting(automation.id, "Not run: the automation is paused.");
     this.refreshNext(automation.id);
-    this.#notifier.notify("automation", undefined, `${automation.name} is paused`, reason);
+    this.#notifier.automationPaused(automation, reason);
   }
 
   #checkGone(): void {
@@ -465,23 +468,4 @@ export class Runner {
       });
     }
   }
-}
-
-export function statusOf({ store }: Pick<TeamContext, "store">, task: TaskRecord): RunStatus {
-  const sessions = store.listSessions(task.id);
-  const openPieces = store
-    .listPieces(task.id)
-    .some(
-      (piece) =>
-        piece.status === "waiting" || piece.status === "queued" || piece.status === "working",
-    );
-  return taskStatus(
-    {
-      state: task.state,
-      reviewed: task.reviewedAt !== undefined,
-      isPart: task.parentTaskId !== undefined,
-      openPieces,
-    },
-    topSession(task, sessions)?.status,
-  );
 }

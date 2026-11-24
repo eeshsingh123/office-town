@@ -4,9 +4,10 @@ import { attachmentIdsSchema } from "./attachments.ts";
 import { autonomySchema, everydayAutonomySchema } from "./autonomy.ts";
 import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { taskChecklistSchema } from "./checks.ts";
+import { deliverySchema } from "./destinations.ts";
 import { userRequestEventSchema } from "./events.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
-import { notificationsSchema } from "./unattended.ts";
+import { notificationsSchema, updateRoutesSchema } from "./unattended.ts";
 
 // idle: none of the others, such as a team cut off by a restart. queued: a chief's goal behind another.
 export const taskStateSchema = z.enum(["queued", "working", "waiting", "idle", "ended"]);
@@ -85,6 +86,9 @@ export const taskRecordSchema = z.object({
   efficient: z.boolean().optional(),
   // Milestones: the team writes what the user will get and checks each part against it.
   milestones: z.boolean().optional(),
+  // Send result to: its result goes to Settings' result places once it is done.
+  sendResult: z.boolean().optional(),
+  delivery: deliverySchema.optional(),
   // By harness.
   usage: z.array(taskUsageSchema),
   origin: taskOriginSchema.optional(),
@@ -352,6 +356,9 @@ export const settingsSchema = z.object({
   autonomyByDefault: everydayAutonomySchema.optional(),
   // Which notices the core makes (D-124).
   notifications: notificationsSchema.optional(),
+  // The connected places each alert also goes to, and where results go when a task asks.
+  updateRoutes: updateRoutesSchema.optional(),
+  resultPlaces: z.array(z.string().min(1)).max(20).optional(),
   // When the user closed Home's card of stopped tasks; it shows again for work cut off after.
   stoppedCardClosedAt: z.iso.datetime().optional(),
   // Open at login was offered once, when the first automation was saved.
@@ -369,16 +376,19 @@ export const startTaskRequestSchema = z.object({
   // Without them, the app's defaults.
   efficient: z.boolean().optional(),
   milestones: z.boolean().optional(),
+  sendResult: z.boolean().optional(),
 });
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
-// Either or both. Efficient is taken at each size check; Milestones at each agent's next start.
+// Any of them. Efficient is taken at each size check, Milestones at each agent's next start, Send
+// result when the task ends.
 export const taskModeRequestSchema = z
-  .object({ efficient: z.boolean().optional(), milestones: z.boolean().optional() })
-  .refine(
-    (mode) => mode.efficient !== undefined || mode.milestones !== undefined,
-    "Nothing to change",
-  );
+  .object({
+    efficient: z.boolean().optional(),
+    milestones: z.boolean().optional(),
+    sendResult: z.boolean().optional(),
+  })
+  .refine((mode) => Object.values(mode).some((on) => on !== undefined), "Nothing to change");
 export type TaskModeRequest = z.infer<typeof taskModeRequestSchema>;
 
 // Settings' defaults for new tasks: the task options and the permission level.

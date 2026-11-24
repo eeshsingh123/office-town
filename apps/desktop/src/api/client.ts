@@ -58,10 +58,14 @@ import {
   type DepartmentModelRequest,
   type DepartmentRecord,
   type DepartmentSettings,
+  type DestinationRecord,
+  type DestinationRequest,
   type Display,
   delegationRecordSchema,
   departmentDraftReplySchema,
   departmentRecordSchema,
+  destinationListSchema,
+  destinationRecordSchema,
   displaySchema,
   type EnvironmentList,
   type EnvironmentSpec,
@@ -132,12 +136,17 @@ import {
   type TaskSearch,
   type TaskSearchResult,
   type Team,
+  type TelegramCode,
   taskDetailSchema,
   taskOutputsSchema,
   taskPageSchema,
   taskRecordSchema,
   taskSearchResultSchema,
+  telegramCodeSchema,
+  type Updates,
+  type UpdatesRequest,
   type UserProfile,
+  updatesSchema,
   userProfileSchema,
   type WorkspaceRecord,
   type WorkspaceRequest,
@@ -427,6 +436,25 @@ export const api = {
   runAutomation: (automationId: string): Promise<AutomationRun> =>
     write("POST", `/automations/${id(automationId)}/run`, undefined, automationRunSchema),
   markLoginOffered: (): Promise<void> => send("POST", "/automations/login-offered"),
+  listDestinations: async (): Promise<DestinationRecord[]> =>
+    (await read("/destinations", destinationListSchema)).destinations,
+  addDestination: (request: DestinationRequest): Promise<DestinationRecord> =>
+    write("POST", "/destinations", request, destinationRecordSchema),
+  updateDestination: (
+    destinationId: string,
+    request: DestinationRequest,
+  ): Promise<DestinationRecord> =>
+    write("PUT", `/destinations/${id(destinationId)}`, request, destinationRecordSchema),
+  removeDestination: (destinationId: string): Promise<void> =>
+    send("DELETE", `/destinations/${id(destinationId)}`),
+  testDestination: (destinationId: string): Promise<void> =>
+    send("POST", `/destinations/${id(destinationId)}/test`),
+  linkTelegram: (destinationId: string): Promise<TelegramCode> =>
+    write("POST", `/destinations/${id(destinationId)}/link`, undefined, telegramCodeSchema),
+  unlinkTelegram: (destinationId: string): Promise<DestinationRecord> =>
+    write("DELETE", `/destinations/${id(destinationId)}/link`, undefined, destinationRecordSchema),
+  setNotes: (automationId: string, notes: string): Promise<AutomationRecord> =>
+    write("PUT", `/automations/${id(automationId)}/notes`, { notes }, automationRecordSchema),
   cancelRun: (runId: string): Promise<void> => send("POST", `/automation-runs/${id(runId)}/cancel`),
   listRuns: (automationId: string, query: RunPageQuery): Promise<RunPage> => {
     const params = new URLSearchParams(
@@ -443,6 +471,9 @@ export const api = {
   // Only the kinds given change; the answer is every kind the user set.
   saveNotifications: (change: Notifications): Promise<Notifications> =>
     write("PUT", "/notifications", change, notificationsSchema),
+  // A kind left out of `routes` keeps its places.
+  saveUpdates: (change: UpdatesRequest): Promise<Updates> =>
+    write("PUT", "/updates", change, updatesSchema),
   saveTaskDefaults: (defaults: TaskDefaultsRequest): Promise<void> =>
     send("PUT", "/task-defaults", defaults),
   // `fresh` waits for every CLI to answer; otherwise the last result comes at once (D-93).

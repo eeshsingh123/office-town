@@ -7,6 +7,7 @@ import type {
   ConnectorRecord,
   DelegationRecord,
   DepartmentRecord,
+  DestinationRecord,
   Display,
   EverydayAutonomy,
   HarnessDescription,
@@ -19,6 +20,7 @@ import type {
   PlanPiece,
   ProfileRecord,
   RoomPosition,
+  Updates,
   UserProfile,
   WorkspaceRecord,
 } from "@office-town/contract";
@@ -57,7 +59,7 @@ export type View =
   | { name: "providers" }
   | { name: "provider"; harness: string }
   // `connect` opens the sheet for that app at once, for the departments and agents in `audience`.
-  | { name: "connectors"; connect?: string; audience?: Audience }
+  | { name: "connectors"; connect?: string; audience?: Audience; place?: string }
   | { name: "connector"; connectorId: string }
   | { name: "usage" }
   | { name: "workspace"; workspaceId: string; tab?: "library" }
@@ -124,6 +126,9 @@ export interface AppState extends Records {
   display: Display;
   // Which notices the core makes; a kind left out keeps its default (D-124).
   notifications: Notifications;
+  // The places updates go to, by id, undefined until read; and what each hears (D-130).
+  places: Record<string, DestinationRecord> | undefined;
+  updates: Updates;
   // New tasks start in Efficient mode (D-94), and with Milestones (D-95).
   efficientByDefault: boolean;
   milestonesByDefault: boolean;
@@ -165,6 +170,8 @@ export const useApp = create<AppState>(() => ({
   onboarding: undefined,
   display: {},
   notifications: {},
+  places: undefined,
+  updates: { routes: {}, resultPlaces: [] },
   efficientByDefault: false,
   milestonesByDefault: false,
   autonomyByDefault: undefined,

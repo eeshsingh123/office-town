@@ -1,0 +1,345 @@
+.iconLogo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--text-2);
+}
+
+.xs {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+}
+
+.md {
+  width: 36px;
+  height: 36px;
+}
+
+/* One place named everywhere: its own logo, then its name in plain text. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* A text button that lines up with the rows' text. */
+.connect {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* A place's row: its tag, what it hears, then its controls. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.rowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.rowText > .tag {
+  font-weight: 600;
+}
+
+/* In Connectors: the logo and text on the same columns as the app rows above. */
+.withLogo {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.withLogo > .rowText {
+  gap: 2px;
+}
+
+/* What a place hears: every update, or how many, listed on hover. */
+.hears {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.detail {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.rowEnd {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A menu's trigger that shows the picked places. */
+.pick {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  margin-left: -7px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pick:hover,
+.pick[data-state="open"] {
+  border-color: var(--border);
+  background: var(--hover);
+}
+
+.box {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--on-accent);
+}
+
+.boxOn {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* The Connect sheet. */
+.guide {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--side);
+}
+
+.guideLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.guideLine::-webkit-details-marker {
+  display: none;
+}
+
+.chevron {
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+
+.guide[open] .chevron {
+  transform: rotate(90deg);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 4px 16px 18px 40px;
+}
+
+.step {
+  padding-left: 4px;
+  line-height: 1.5;
+}
+
+.step::marker {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stepOn {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+}
+
+.drawFrame {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+}
+
+.drawBar {
+  fill: var(--bg);
+  stroke: var(--border-strong);
+}
+
+.drawDot {
+  fill: var(--border-strong);
+}
+
+.drawTitle {
+  fill: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.drawField {
+  fill: var(--bg);
+  stroke: var(--border);
+}
+
+.drawLine {
+  fill: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.drawPress {
+  fill: var(--accent);
+  stroke: var(--accent-soft);
+  stroke-width: 6;
+  paint-order: stroke;
+}
+
+.drawPressText {
+  fill: var(--on-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.services {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.serviceButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.serviceButton:hover {
+  background: var(--hover);
+}
+
+.moreLabel {
+  margin: 8px 0 0;
+  font-size: var(--size-small);
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.outcome {
+  margin: 0;
+  font-size: var(--size-meta);
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.code {
+  padding: 2px 6px;
+  border-radius: var(--radius-small);
+  background: var(--code);
+  font-family: var(--font-mono);
+}
+
+/* Under a result: where it went. In a chat, under the message text (the trace's 34px indent). */
+.inChat {
+  padding: 4px 0 0 34px;
+}
+
+.delivery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
+/* A connected app in Connectors' list, as tall as an app row. */
+.listRow {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 64px;
+  padding: 12px 20px;
+  scroll-margin: 24px;
+}
+
+.listRow + .listRow {
+  border-top: 1px solid var(--border);
+}
+
+.pointed {
+  box-shadow: inset 3px 0 0 var(--warn);
+}

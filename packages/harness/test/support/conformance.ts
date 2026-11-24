@@ -40,6 +40,8 @@ function expectEveryMessageTaken(events: SessionEvent[]): void {
   const sent = events.findLastIndex((e) => e.type === "message" && e.payload.role === "user");
   const started = events.findLastIndex((e) => e.type === "turn.started");
   expect(started).toBeGreaterThanOrEqual(sent);
+  // Nothing is left unread, or the next conversation would get it again (D-134).
+  expect(payloadsOf(events, "message.waiting").at(-1)?.count ?? 0).toBe(0);
 }
 
 // A long turn can be handed over only if its size is known before it ends (D-94): every turn

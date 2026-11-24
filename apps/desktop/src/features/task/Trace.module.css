@@ -38,6 +38,11 @@
   overflow-wrap: anywhere;
 }
 
+.userNote {
+  font-size: var(--size-meta);
+  color: var(--text-3);
+}
+
 .text {
   margin: 6px 0 10px;
   padding-left: 34px;
@@ -278,6 +283,11 @@
 
 .under {
   padding: 0 8px 4px 32px;
+}
+
+/* A file or page an action made, on the chat text's left edge (the group's 26px plus 8px). */
+.result {
+  padding: 2px 8px 6px;
 }
 
 .earlier {

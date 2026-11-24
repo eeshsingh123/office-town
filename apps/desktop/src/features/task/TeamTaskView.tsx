@@ -11,6 +11,7 @@ import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
 import { useModelName } from "../profiles/model-line.ts";
+import { DeliveryLine } from "../updates/Delivery.tsx";
 import { useFollow } from "./follow.ts";
 import { GoalParts } from "./GoalParts.tsx";
 import { MessageBox } from "./MessageBox.tsx";
@@ -281,16 +282,19 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                 <div className={styles.traceWidth}>
                   <AgentTrace key={shown.id} sessions={shown.sessions} />
                   {shown.id === lead.id ? (
-                    <ReviewOffer
-                      agent={lead}
-                      members={members}
-                      onReview={() => setReviewing(lead)}
-                      onShow={setChosenId}
-                    />
+                    <>
+                      <DeliveryLine delivery={lead.task.delivery} inChat />
+                      <ReviewOffer
+                        agent={lead}
+                        members={members}
+                        onReview={() => setReviewing(lead)}
+                        onShow={setChosenId}
+                      />
+                    </>
                   ) : null}
                 </div>
               </div>
-              <div className={styles.traceWidth}>
+              <div className={styles.foot}>
                 <MessageBox
                   key={shown.id}
                   agent={shown}

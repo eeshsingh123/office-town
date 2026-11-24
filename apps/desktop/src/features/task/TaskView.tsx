@@ -8,6 +8,7 @@ import { isBusy, type Progress, progressOf, stageOf } from "../../trace/progress
 import { requestKey } from "../../trace/trace.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
 import { TaskTabs, useTaskTab } from "../outputs/TaskTabs.tsx";
+import { DeliveryLine } from "../updates/Delivery.tsx";
 import { useFollow } from "./follow.ts";
 import { MessageBox } from "./MessageBox.tsx";
 import { PermissionChip } from "./PermissionChip.tsx";
@@ -120,10 +121,11 @@ function SoloTaskView({ taskId }: { taskId: string }) {
             <div className={styles.scroll} ref={follow.ref} onScroll={follow.onScroll}>
               <div className={styles.traceWidth}>
                 <AgentTrace key={agent.id} sessions={agent.sessions} />
+                <DeliveryLine delivery={agent.task.delivery} inChat />
                 <ReviewOffer agent={agent} members={[agent]} onReview={review} />
               </div>
             </div>
-            <div className={styles.traceWidth}>
+            <div className={styles.foot}>
               <MessageBox
                 agent={agent}
                 above={<ReviewBar agent={agent} onReview={review} />}

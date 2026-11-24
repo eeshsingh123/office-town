@@ -87,3 +87,29 @@
 .check input {
   accent-color: var(--accent);
 }
+
+/* A dialog whose body scrolls under a fixed head, so its close button never scrolls away. */
+.content.fixed {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 16px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  padding: 20px 28px 28px;
+  overflow-y: auto;
+}

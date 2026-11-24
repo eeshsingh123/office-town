@@ -220,7 +220,7 @@ export class AcpTranslator implements Translator {
   // A waiting message on its way into the turn: by a cancel, then sent once it is answered, or
   // by native steering, carrying the message.
   #steering: "cancel" | "native" | undefined;
-  #steeringPrompt: object[] = [];
+  #steeringPrompts: object[][] = [];
   // What the cancelled part of a turn used, counted when the turn ends.
   #carriedUsage: TokenUsage | undefined;
   // The conversation's size as the app last reported it, and the text seen since, so its size
@@ -354,8 +354,8 @@ export class AcpTranslator implements Translator {
     if (this.#queuedPrompts.length === 0) return [];
     if (this.#nativeSteering) {
       this.#steering = "native";
-      this.#steeringPrompt = this.#queuedPrompts.splice(0).flat();
-      const params = { sessionId: this.#sessionId, prompt: this.#steeringPrompt };
+      this.#steeringPrompts = this.#queuedPrompts.splice(0);
+      const params = { sessionId: this.#sessionId, prompt: this.#steeringPrompts.flat() };
       return [this.#peer.request(STEERING, params)];
     }
     if (this.#actions.size > 0) return [];
@@ -367,13 +367,13 @@ export class AcpTranslator implements Translator {
   // ended meanwhile, OpenCode keeps the steer for its next prompt, so sending it again may show it
   // twice; without a prompt it would wait unread until the user's next message.
   #steeringAnswered(injected: boolean): Translation {
-    const prompt = this.#steeringPrompt;
+    const prompts = this.#steeringPrompts;
     this.#steering = undefined;
-    this.#steeringPrompt = [];
+    this.#steeringPrompts = [];
     if (injected && this.#turnActive) {
       return { events: [...this.#flush(), { type: "turn.started" }], outgoing: [] };
     }
-    this.#queuedPrompts.unshift(prompt);
+    this.#queuedPrompts.unshift(prompts.flat());
     return this.#nextPrompt();
   }
 
@@ -392,6 +392,10 @@ export class AcpTranslator implements Translator {
       events: [...this.#flush(), ...cut, { type: "turn.started" }],
       outgoing: [this.#peer.request("session/prompt", params)],
     };
+  }
+
+  waiting(): number {
+    return this.#queuedPrompts.length + this.#steeringPrompts.length;
   }
 
   // Later prompts wait for the turn in progress to end, or for the next tool to end.

@@ -122,6 +122,8 @@ export class HarnessSession implements Session {
   #sequence = 0;
   #process: RunningProcess | undefined;
   #turnId: string | undefined;
+  // The last count of user messages reported as waiting for the step at work (D-134).
+  #waiting = 0;
   #plan: PlanStep[] = [];
   // Set when the core stops an agent left idle, which is recorded as finished, not stopped.
   #idle = false;
@@ -181,7 +183,7 @@ export class HarnessSession implements Session {
         return;
       case "answerQuestion":
         this.#requireActive("answer a question");
-        this.#answerQuestion(command.requestId, command.answers);
+        this.#answerQuestion(command.requestId, command.answers, command.answeredBy);
         return;
       case "interrupt":
         this.#requireActive("stop");
@@ -329,7 +331,7 @@ export class HarnessSession implements Session {
     });
   }
 
-  #answerQuestion(requestId: string, answers: QuestionAnswer[]): void {
+  #answerQuestion(requestId: string, answers: QuestionAnswer[], answeredBy?: AnsweredBy): void {
     const questions = this.#pendingQuestions.get(requestId);
     if (questions === undefined) {
       throw new SessionStateError(`No pending question "${requestId}".`);
@@ -349,7 +351,12 @@ export class HarnessSession implements Session {
     }));
     this.#emit({
       type: "question.resolved",
-      payload: { requestId, outcome: "answered", answers: given },
+      payload: {
+        requestId,
+        outcome: "answered",
+        answers: given,
+        ...(answeredBy === undefined ? {} : { answeredBy }),
+      },
     });
   }
 
@@ -385,6 +392,16 @@ export class HarnessSession implements Session {
       this.#notifyLine({ direction: "out", text: line, partial: false });
       this.#process.writeLine(line);
     }
+    this.#reportWaiting();
+  }
+
+  // Only during a turn: between turns a message starts one at once. A count left above 0 when the
+  // session ends names the messages it never read, which its next session gets (D-134).
+  #reportWaiting(): void {
+    const waiting = this.#turnId === undefined ? 0 : this.#translator.waiting();
+    if (waiting === this.#waiting) return;
+    this.#waiting = waiting;
+    this.#emit({ type: "message.waiting", payload: { count: waiting } });
   }
 
   // Tokens last one launch and are never stored (D-43), so lines are handed on without them.
