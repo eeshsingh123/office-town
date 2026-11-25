@@ -1,3 +1,4 @@
+import { Count } from "./Count.tsx";
 import styles from "./TabRow.module.css";
 
 export interface Tab<T extends string> {
@@ -28,7 +29,10 @@ export function TabRow<T extends string>(props: {
           onClick={() => props.onChange(tab.value)}
         >
           {tab.label}
-          <span className={tab.urgent === true ? styles.urgent : styles.count}>{tab.count}</span>
+          <Count
+            value={tab.count}
+            tone={tab.urgent === true ? "urgent" : props.value === tab.value ? "accent" : "plain"}
+          />
         </button>
       ))}
     </div>

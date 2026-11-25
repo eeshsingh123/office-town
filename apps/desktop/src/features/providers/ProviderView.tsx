@@ -5,6 +5,7 @@ import { environmentKey } from "../../api/catalogs.ts";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
@@ -145,7 +146,7 @@ export function ProviderView({ harness }: { harness: string }) {
           <div className={page.section}>
             <div className={page.sectionHead}>
               <h2 className={page.sectionTitle}>
-                Accounts <span className={styles.count}>{mine.length}</span>
+                Accounts <Count value={mine.length} />
               </h2>
               {description.manyAccounts ? (
                 <Button onClick={() => setSheet("add")}>

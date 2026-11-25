@@ -11,6 +11,7 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
 import form from "../../ui/Form.module.css";
@@ -249,7 +250,7 @@ function Editor({
         <Tabs.List className={tabs.tabs} aria-label="Department">
           <Tabs.Trigger value="people" className={tabs.tab}>
             People
-            <span className={tabs.count}>{people}</span>
+            <Count value={people} />
           </Tabs.Trigger>
           <Tabs.Trigger value="settings" className={tabs.tab}>
             Settings

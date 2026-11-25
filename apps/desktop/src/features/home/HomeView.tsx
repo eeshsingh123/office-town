@@ -7,6 +7,7 @@ import { progressOf } from "../../trace/progress.ts";
 import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AutomationsCard } from "../automations/AutomationsCard.tsx";
@@ -190,7 +191,7 @@ function TaskSection(props: {
         <h2 id={props.id} className={styles.sectionTitle}>
           {props.title}
         </h2>
-        <span className={styles.sectionCount}>{props.items.length}</span>
+        <Count value={props.items.length} />
         {props.all === undefined || props.items.length <= SHOWN ? null : (
           <button type="button" className={styles.sectionLink} onClick={props.all.open}>
             {props.all.label}

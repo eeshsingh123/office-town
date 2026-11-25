@@ -8,6 +8,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { ago } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -487,8 +488,8 @@ export function ConnectorsView(props: ConnectorsViewProps) {
                 <div key={section.key} className={styles.listSection}>
                   {section.title === "" ? null : (
                     <h2 className={styles.groupTitle}>
-                      {section.title}{" "}
-                      <span className={styles.chipCount}>{section.groups.length}</span>
+                      {section.title}
+                      <Count value={section.groups.length} />
                     </h2>
                   )}
                   <AppList groups={section.groups} label={section.title || "Your apps"} />

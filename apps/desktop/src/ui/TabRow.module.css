@@ -10,7 +10,7 @@
 .tab {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin-bottom: -1px;
   padding: 9px 12px 10px;
   border: 0;
@@ -29,20 +29,4 @@
   border-bottom-color: var(--accent);
   color: var(--text);
   font-weight: 600;
-}
-
-.count {
-  font-size: var(--size-small);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.urgent {
-  padding: 0 7px;
-  border-radius: 10px;
-  background: var(--attention);
-  color: var(--on-attention);
-  font-size: var(--size-small);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }

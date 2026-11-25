@@ -47,19 +47,8 @@
 }
 
 .count {
+  display: flex;
   margin-left: auto;
-  font-weight: 500;
-  font-size: var(--size-meta);
-  font-variant-numeric: tabular-nums;
-  color: var(--text-3);
-}
-
-.badge {
-  padding: 0 7px;
-  border-radius: 10px;
-  background: var(--attention);
-  font-weight: 700;
-  color: var(--on-attention);
 }
 
 .lane {

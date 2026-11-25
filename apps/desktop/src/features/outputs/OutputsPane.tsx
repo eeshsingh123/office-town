@@ -13,6 +13,7 @@ import { forSession, useKept } from "../../store/kept.ts";
 import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { ago } from "../../ui/format.ts";
 import { fileMenu } from "../attachments/file-menu.ts";
 import { fileName, KIND_LABELS, latestDocument, shownPath, viewKindOf } from "./kinds.ts";
@@ -179,7 +180,9 @@ export function OutputsPane({
                 className={changedOpen ? styles.chevronOpen : styles.chevron}
               />
               {results.length === 0 ? "Changed files" : "Other changed files"}
-              <span className={styles.count}>{changed.length}</span>
+              <span className={styles.count}>
+                <Count value={changed.length} />
+              </span>
             </button>
             {changedOpen ? (
               <ul className={styles.files}>
