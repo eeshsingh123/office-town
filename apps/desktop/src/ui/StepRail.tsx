@@ -1,9 +1,10 @@
-import { Check } from "lucide-react";
+import { ArrowLeft, Check } from "lucide-react";
 import type { ReactNode } from "react";
 import page from "./Page.module.css";
 import styles from "./Steps.module.css";
 
 interface StepRailProps {
+  // Where the setup was opened from; past the first step, back goes to the step before.
   back: { label: string; onClick: () => void };
   title: string;
   note?: ReactNode;
@@ -26,14 +27,19 @@ export function StepRail({
   allDone,
   onGo,
 }: StepRailProps) {
+  const previous = step > 0 ? steps[step - 1] : undefined;
   return (
     <nav className={styles.rail} aria-label="Setup steps">
-      <button type="button" className={page.back} onClick={back.onClick}>
-        ← {back.label}
+      <button
+        type="button"
+        className={page.back}
+        onClick={previous === undefined ? back.onClick : () => onGo(step - 1)}
+      >
+        <ArrowLeft size={14} aria-hidden />
+        {previous === undefined ? back.label : `Back to ${previous}`}
       </button>
       <div className={styles.railHead}>
         <h1 className={styles.railTitle}>{title}</h1>
-        {note}
       </div>
       <ol className={styles.stepList}>
         {steps.map((item, index) => {
@@ -56,6 +62,7 @@ export function StepRail({
           );
         })}
       </ol>
+      {note === undefined ? null : <div className={styles.railFoot}>{note}</div>}
     </nav>
   );
 }

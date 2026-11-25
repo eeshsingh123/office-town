@@ -4,8 +4,8 @@ Last updated: 2026-11-25
 
 ## State
 
-- Merged to `main`: M1 to M12 (PR #106 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why.
-- Open: M15 Ready-made teams and recipes (D-136) on `feat/ready-made-teams`, awaiting the owner's review. The owner simplified it on 2026-11-25; the local `docs/briefs/ready-made-teams/README.md` is the older, larger plan, superseded: delete it once the PR merges.
+- Merged to `main`: M1 to M12 and M15 (PR #109 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why. The local `docs/briefs/ready-made-teams/README.md` is superseded: delete it.
+- Open: PR #110 (`fix/setup-steps-polish`), the owner's setup feedback: back link steps back, Start over button, fitted review chart, one count pill app-wide. Awaiting review.
 - After M15: M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
 - Parked: OpenCode's own automations (MODULES, M12). OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, read with `opencode api --standalone`); its event stream has no automation events.
 - No CI until the public release (D-135); Mac betas still build, but nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (in git history: `.github/workflows/ci.yml`).

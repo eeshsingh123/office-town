@@ -6,6 +6,7 @@ import { useLoadProgress } from "../../store/milestones.ts";
 import { isOpen, teamAtWork } from "../../store/records.ts";
 import { type AgentState, isBusy, progressOf, stageOf } from "../../trace/progress.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { StatusIcon, stateLabel } from "../../ui/StatusIcon.tsx";
 import { byRole, roleNumber } from "../departments/team-form.ts";
 import { OutputsPane } from "../outputs/OutputsPane.tsx";
@@ -225,7 +226,7 @@ export function TeamTaskView({ taskId }: { taskId: string }) {
                   <Fragment key={role}>
                     <div className={`${team.branch} ${team.group}`}>
                       <span className={team.groupName}>{role || "Team"}</span>
-                      <span className={team.groupCount}>{people.length}</span>
+                      <Count value={people.length} />
                       <span className={team.groupSummary}>
                         {summaryOf(people.map((one) => stateById.get(one.id) ?? "idle"))}
                       </span>

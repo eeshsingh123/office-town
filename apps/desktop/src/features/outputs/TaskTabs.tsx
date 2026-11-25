@@ -1,4 +1,5 @@
 import { useApp } from "../../store/app-store.ts";
+import { Count } from "../../ui/Count.tsx";
 import styles from "./Outputs.module.css";
 import { useResults } from "./use-task-outputs.ts";
 
@@ -36,7 +37,7 @@ export function TaskTabs({ taskId }: { taskId: string }) {
       </button>
       <button type="button" aria-pressed={outputs} onClick={() => show(taskId, true)}>
         Outputs
-        {count === 0 ? null : <span className={styles.tabCount}>{count}</span>}
+        {count === 0 ? null : <Count value={count} tone="accent" />}
       </button>
     </fieldset>
   );

@@ -30,16 +30,6 @@
   color: var(--text);
 }
 
-.count {
-  min-width: 20px;
-  padding: 0 7px;
-  border-radius: var(--radius-chip);
-  background: var(--hover);
-  color: var(--text-2);
-  font-size: var(--size-small);
-  text-align: center;
-}
-
 .panel {
   display: flex;
   flex-direction: column;

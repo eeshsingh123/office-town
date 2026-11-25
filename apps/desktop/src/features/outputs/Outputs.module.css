@@ -235,10 +235,8 @@
 }
 
 .count {
+  display: flex;
   margin-left: auto;
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--text-3);
 }
 
 .files {
@@ -960,20 +958,6 @@
 }
 
 /* A pill of its own height, so it sits centred beside the label whatever the font. */
-.tabCount {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius-chip);
-  background: var(--accent-soft);
-  font-size: var(--size-small);
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: var(--accent-text);
-}
 
 .review {
   display: flex;

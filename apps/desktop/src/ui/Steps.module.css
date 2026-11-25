@@ -39,6 +39,17 @@
   list-style: none;
 }
 
+/* Under the steps, where it is seen but never in the way. */
+.railFoot {
+  margin-top: 10px;
+  padding: 14px 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.railFoot:empty {
+  display: none;
+}
+
 .stepItem {
   display: flex;
   align-items: flex-start;

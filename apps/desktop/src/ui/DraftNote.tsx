@@ -1,3 +1,4 @@
+import { RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { discardDrafts, useHasDraft } from "../store/drafts.ts";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
@@ -20,8 +21,8 @@ export function DraftNote({ scope, editing = false, onDiscard }: DraftNoteProps)
   return (
     <span className={styles.note}>
       {editing ? "Unsaved changes" : "Draft saved"}
-      {" · "}
       <button type="button" className={styles.action} onClick={() => setAsking(true)}>
+        <RotateCcw size={13} aria-hidden />
         {action}
       </button>
       <ConfirmDialog

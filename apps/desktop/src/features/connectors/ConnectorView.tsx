@@ -17,6 +17,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
@@ -512,7 +513,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
                 <h2 className={page.sectionTitle}>
                   What agents can do
                   {Array.isArray(actions) && actions.length > 0 ? (
-                    <span className={styles.chipCount}>{actions.length}</span>
+                    <Count value={actions.length} />
                   ) : null}
                 </h2>
               </div>
@@ -528,7 +529,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
             <div className={page.section}>
               <div className={page.sectionHead}>
                 <h2 className={page.sectionTitle}>
-                  Recent use <span className={styles.chipCount}>This week</span>
+                  Recent use <span className={styles.period}>This week</span>
                 </h2>
                 {use.week === undefined || use.week.total === 0 ? null : (
                   <span className={styles.rowEnd}>

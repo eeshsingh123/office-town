@@ -69,7 +69,7 @@
 
 .sectionHead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
 }
 
@@ -77,11 +77,6 @@
   margin: 0;
   font-size: var(--size-title);
   font-weight: 700;
-}
-
-.sectionCount {
-  font-size: var(--size-meta);
-  color: var(--text-3);
 }
 
 .sectionLink {

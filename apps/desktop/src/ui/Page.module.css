@@ -88,18 +88,26 @@
 }
 
 .back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   align-self: flex-start;
+  height: 28px;
   margin-bottom: 8px;
-  padding: 0;
+  /* Lines the arrow up with the step numbers under it. */
+  padding: 0 12px 0 10px;
   border: 0;
+  border-radius: var(--radius-control);
   background: none;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: var(--size-meta);
   font-weight: 600;
+  line-height: 1;
   cursor: pointer;
 }
 
 .back:hover {
+  background: var(--hover);
   color: var(--text);
 }
 
@@ -135,6 +143,9 @@
 }
 
 .sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-size: var(--size-title);
   font-weight: 700;

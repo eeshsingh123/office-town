@@ -3,6 +3,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { type AppState, navigate, useApp } from "../../store/app-store.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { composeIn, type PanelKind, selectAgent, selectRoom } from "../office/office-state.ts";
@@ -250,10 +251,11 @@ export function BoardView() {
               <h2 className={styles.head}>
                 <TaskStatusIcon status={column.status} />
                 {column.title}
-                <span
-                  className={`${styles.count} ${column.id === "needs-you" && cards.length > 0 ? styles.badge : ""}`}
-                >
-                  {cards.length}
+                <span className={styles.count}>
+                  <Count
+                    value={cards.length}
+                    tone={column.id === "needs-you" && cards.length > 0 ? "urgent" : "plain"}
+                  />
                 </span>
               </h2>
               <div className={styles.lane}>

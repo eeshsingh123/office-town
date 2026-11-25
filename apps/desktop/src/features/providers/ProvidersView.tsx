@@ -3,6 +3,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { Button } from "../../ui/Button.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { environmentName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -158,7 +159,7 @@ export function ProvidersView() {
               {ready.length === 0 ? null : (
                 <div className={page.sectionHead}>
                   <h2 className={page.sectionTitle}>
-                    Ready <span className={styles.count}>{ready.length}</span>
+                    Ready <Count value={ready.length} />
                   </h2>
                   {accounts.length > SEARCH_FROM ? (
                     <SearchBox value={query} onChange={setQuery} label="Search accounts" />
@@ -187,7 +188,7 @@ export function ProvidersView() {
               <div className={page.section}>
                 <div className={page.sectionHead}>
                   <h2 className={page.sectionTitle}>
-                    Not signed in <span className={styles.count}>{toSignIn.length}</span>
+                    Not signed in <Count value={toSignIn.length} />
                   </h2>
                 </div>
                 <ul className={styles.pgroup} aria-label="Providers to sign in">
@@ -200,7 +201,7 @@ export function ProvidersView() {
               <div className={page.section}>
                 <div className={page.sectionHead}>
                   <h2 className={page.sectionTitle}>
-                    Get more <span className={styles.count}>{missing.length}</span>
+                    Get more <Count value={missing.length} />
                   </h2>
                 </div>
                 <ul className={styles.grid} aria-label="Providers to install">

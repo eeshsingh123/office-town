@@ -251,19 +251,6 @@
   white-space: nowrap;
 }
 
-.groupCount {
-  flex: none;
-  min-width: 16px;
-  padding: 0 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-chip);
-  background: var(--surface);
-  font-size: 10px;
-  line-height: 14px;
-  color: var(--text-2);
-  text-align: center;
-}
-
 .groupSummary {
   flex: 0 4 auto;
   min-width: 0;

@@ -12,12 +12,6 @@
   color: var(--text-3);
 }
 
-.count {
-  font-size: var(--size-meta);
-  font-weight: 500;
-  color: var(--text-3);
-}
-
 /* Logos */
 .logo {
   display: inline-grid;
