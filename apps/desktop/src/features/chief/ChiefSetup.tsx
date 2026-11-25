@@ -189,7 +189,7 @@ export function ChiefSetup() {
                 aria-pressed={!describing}
                 onClick={() => setDescribing(false)}
               >
-                Answer step by step
+                Build it manually
               </button>
             </div>
           ) : null}

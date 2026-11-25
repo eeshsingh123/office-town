@@ -42,6 +42,8 @@ export interface DepartmentForm extends TeamForm {
   // The default first; empty until the user chooses.
   workspaceIds: string[];
   autonomy: Autonomy;
+  // A ready-made code team: it never falls back to Scratch.
+  needsProject?: boolean;
 }
 
 // Unique on one screen, where a kept draft can bring back keys from an earlier launch.
@@ -156,6 +158,7 @@ export function formOfDraft(draft: DepartmentDraft, kept?: DepartmentForm): Depa
     rules: draft.rules,
     workspaceIds: kept?.workspaceIds ?? [],
     autonomy: kept?.autonomy ?? defaultLevel(),
+    ...(kept?.needsProject ? { needsProject: true } : {}),
     lead: personOfDraft(draft.lead),
     members: draft.members.map(personOfDraft),
   };

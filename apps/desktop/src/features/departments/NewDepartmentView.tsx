@@ -1,4 +1,4 @@
-import type { Autonomy, RoleSettings } from "@office-town/contract";
+import type { Autonomy, DraftPerson, RoleSettings } from "@office-town/contract";
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
@@ -17,7 +17,11 @@ import { PointsField } from "../../ui/PointsField.tsx";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
 import { DraftBox } from "../drafts/DraftBox.tsx";
+import { NoProvider, useNoProvider } from "../new-task/NoProvider.tsx";
 import { selectRoom } from "../office/office-state.ts";
+import { powerSettings, useReadyHarnesses } from "../ready-made/models.ts";
+import { ReadyCards } from "../ready-made/ReadyCards.tsx";
+import { READY_TEAMS, type ReadyPerson } from "../ready-made/teams.ts";
 import { defaultLevel } from "../task/task-options.ts";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
@@ -38,9 +42,10 @@ const WORKSPACES_STEP = 2;
 const RULES_STEP = 3;
 const DRAFT = "new-department";
 const DRAFT_BOX = `${DRAFT}.box`;
+const keptId = (saved: unknown) => (typeof saved === "string" ? saved : undefined);
 
-// Departments from the user's words or built by hand; nothing is saved until Create, and what is
-// entered is kept until then, one draft at a time.
+// Departments from the user's words, a ready-made team or built manually; nothing is saved until
+// Create, and what is entered is kept until then, one draft at a time.
 export function NewDepartmentView({ describe, byHand }: { describe?: string; byHand: boolean }) {
   const harnesses = useApp((state) => state.harnesses);
   const workspaces = useWorkspaces() ?? [];
@@ -66,16 +71,26 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   );
   const [reached, setReached] = useDraft<number>(`${DRAFT}.reached`, byHand ? 1 : 0);
   const [drafted, setDrafted] = useDraft(`${DRAFT}.drafted`, false);
+  // The ready-made team the forms were filled from, until the user drafts from words instead.
+  const [readyMade, setReadyMade] = useDraft<string | undefined>(
+    `${DRAFT}.readyMade`,
+    undefined,
+    keptId,
+  );
+  const [picking, setPicking] = useState<string>();
+  const ready = useReadyHarnesses();
+  const noProvider = useNoProvider(undefined);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
   const current = forms[at] ?? forms[0];
   const departments = useApp((state) => state.departments);
   const existingNames = Object.values(departments).map((one) => one.name);
-  // With none picked it works in Scratch. A kept draft can name a workspace removed since.
+  // With none picked it works in Scratch, unless it works on the user's own code. A kept draft can
+  // name a workspace removed since.
   const chosenOf = (one: DepartmentForm) => {
     const chosen = one.workspaceIds.filter((id) => workspaces.some((known) => known.id === id));
-    const scratch = defaultWorkspace(workspaces, undefined);
+    const scratch = one.needsProject ? undefined : defaultWorkspace(workspaces, undefined);
     return chosen.length > 0 || scratch === undefined ? chosen : [scratch.id];
   };
   const nameOf = (one: DepartmentForm | undefined, index: number) =>
@@ -98,7 +113,11 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
         ]),
       )
       .find((reason) => reason !== undefined) ??
-    (unplaced === -1 ? undefined : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`);
+    (unplaced === -1
+      ? undefined
+      : forms[unplaced]?.needsProject
+        ? `Choose the project folder ${nameOf(forms[unplaced], unplaced)} works in.`
+        : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`);
 
   const go = (next: number) => {
     setStep(next);
@@ -116,9 +135,42 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
       setAt(0);
       setSelected({});
       setDrafted(true);
+      setReadyMade(undefined);
       setReached(Math.max(reached, STEPS.length - 1));
     }
     return reply;
+  };
+
+  // One click fills every step; a code team asks for its project folder first.
+  const pick = async (id: string) => {
+    const team = READY_TEAMS.find((one) => one.id === id);
+    if (team === undefined) return;
+    setPicking(id);
+    const power = await powerSettings(ready, defaults.harness);
+    const person = (one: ReadyPerson): DraftPerson => ({
+      role: one.role,
+      purpose: one.purpose,
+      instructions: one.instructions,
+      settings: power[one.power],
+      modelGuessed: true,
+    });
+    let name = team.name;
+    for (let count = 2; existingNames.includes(name); count += 1) name = `${team.name} ${count}`;
+    const filled = formOfDraft({
+      name,
+      purpose: team.purpose,
+      rules: team.rules,
+      lead: person(team.lead),
+      members: team.members.map(person),
+    });
+    setForms([team.needsProject ? { ...filled, needsProject: true } : filled]);
+    setAt(0);
+    setSelected({});
+    setDrafted(true);
+    setReadyMade(id);
+    setPicking(undefined);
+    setReached(STEPS.length - 1);
+    setStep(team.needsProject ? WORKSPACES_STEP : STEPS.length - 1);
   };
 
   const create = async () => {
@@ -159,8 +211,20 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   if (current === undefined) return null;
   // The team card sits beside the steps that do not show the team themselves.
   const withCard = step === WORKSPACES_STEP || step === RULES_STEP;
-  // The team, a drafted team and the review use the whole width.
-  const wide = (step === 0 && drafted) || step === 1 || step === STEPS.length - 1;
+  // A ready-made team stays one click away until the user builds one manually.
+  const builtManually =
+    !drafted &&
+    (forms.length > 1 ||
+      forms.some(
+        (one) =>
+          one.name.trim() !== "" ||
+          one.purpose.trim() !== "" ||
+          one.rules.trim() !== "" ||
+          one.lead.instructions.trim() !== "" ||
+          one.members.length > 0,
+      ));
+  // Describe with its ready-made teams, the team and the review use the whole width.
+  const wide = step === 0 || step === 1 || step === STEPS.length - 1;
   const switcher =
     forms.length < 2 ? null : (
       <div className={styles.switcher}>
@@ -222,6 +286,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
 
           {step === 0 ? (
             <>
+              {noProvider ? <NoProvider /> : null}
               <DraftBox
                 name={DRAFT_BOX}
                 label="Describe the team"
@@ -231,7 +296,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 {...(describe === undefined ? {} : { initial: describe })}
                 run={draft}
               />
-              {drafted ? (
+              {drafted && readyMade === undefined ? (
                 <div className={styles.drafts}>
                   {forms.map((one) => (
                     <TeamCard key={one.key} form={one} chart />
@@ -246,10 +311,31 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                   </Button>
                 ) : (
                   <Button variant="ghost" onClick={() => go(1)}>
-                    Build it by hand instead
+                    Build it manually
                   </Button>
                 )}
               </div>
+              {(drafted && readyMade === undefined) || builtManually ? null : (
+                <ReadyCards
+                  title="Or start from a ready-made team"
+                  cards={READY_TEAMS.map((team) => ({
+                    id: team.id,
+                    name: team.name,
+                    icon: team.icon,
+                    colour: team.colour,
+                    description: team.does,
+                    facts: [
+                      { label: "Team", text: team.who },
+                      { label: "You get", text: team.youGet },
+                    ],
+                    ...(team.needsProject ? { needs: { text: "Needs a project folder" } } : {}),
+                  }))}
+                  picked={readyMade}
+                  disabled={noProvider}
+                  busy={picking}
+                  onPick={(id) => void pick(id)}
+                />
+              )}
             </>
           ) : null}
 

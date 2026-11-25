@@ -416,7 +416,7 @@ export function MemberEditor({
                     note={
                       person.modelGuessed ? (
                         <span className={styles.guessed}>
-                          Chosen by the draft. Make sure it fits the job.
+                          Picked for you. Make sure it fits the job.
                         </span>
                       ) : undefined
                     }
