@@ -1,19 +1,28 @@
 .note {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
   font-size: var(--size-meta);
-  line-height: 1.5;
   color: var(--text-3);
 }
 
 .action {
-  padding: 0;
-  border: 0;
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   color: var(--text-2);
   font: inherit;
-  text-decoration: underline;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .action:hover {
+  border-color: var(--border-strong);
   color: var(--text);
 }
