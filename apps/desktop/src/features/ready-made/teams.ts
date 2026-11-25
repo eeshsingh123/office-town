@@ -1,3 +1,5 @@
+import type { AgentColour } from "@office-town/contract";
+import { Bug, type LucideIcon, PenLine, ScanSearch, Telescope } from "lucide-react";
 import type { Power } from "./models.ts";
 
 export interface ReadyPerson {
@@ -10,6 +12,8 @@ export interface ReadyPerson {
 export interface ReadyTeam {
   id: string;
   name: string;
+  icon: LucideIcon;
+  colour: AgentColour;
   // The card: what it does, who is on it, what you get.
   does: string;
   who: string;
@@ -27,6 +31,8 @@ export const READY_TEAMS: ReadyTeam[] = [
   {
     id: "research-desk",
     name: "Research desk",
+    icon: Telescope,
+    colour: "#3A6EA5",
     does: "Looks into a question from several sides and writes up what it found.",
     who: "A lead, two researchers and a writer",
     youGet: "A one-page summary with sources",
@@ -71,6 +77,8 @@ export const READY_TEAMS: ReadyTeam[] = [
   {
     id: "content-team",
     name: "Content team",
+    icon: PenLine,
+    colour: "#B5602B",
     does: "Turns an idea or rough notes into a polished piece of writing.",
     who: "A lead, a writer and an editor",
     youGet: "A finished, edited post or article",
@@ -108,6 +116,8 @@ export const READY_TEAMS: ReadyTeam[] = [
   {
     id: "code-review-team",
     name: "Code review team",
+    icon: ScanSearch,
+    colour: "#6553AE",
     does: "Reviews the recent changes in your project and ranks what needs fixing. It changes nothing.",
     who: "A lead, a correctness reviewer and a test checker",
     youGet: "A ranked list of problems, each with where it is and why it matters",
@@ -145,6 +155,8 @@ export const READY_TEAMS: ReadyTeam[] = [
   {
     id: "bug-fix-team",
     name: "Bug-fix team",
+    icon: Bug,
+    colour: "#A2456E",
     does: "Finds the cause of a bug you describe, fixes it and proves the fix with a test.",
     who: "A lead, a fixer and a tester",
     youGet: "The fix, a test that shows it works, and a short note on the cause",

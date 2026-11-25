@@ -435,6 +435,8 @@ function Setup({
                   cards={RECIPES.map((one) => ({
                     id: one.id,
                     name: one.name,
+                    icon: one.icon,
+                    colour: one.colour,
                     facts: [
                       { label: "When", text: one.when },
                       { label: "You get", text: one.youGet },

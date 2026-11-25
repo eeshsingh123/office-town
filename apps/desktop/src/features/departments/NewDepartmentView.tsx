@@ -321,6 +321,8 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                   cards={READY_TEAMS.map((team) => ({
                     id: team.id,
                     name: team.name,
+                    icon: team.icon,
+                    colour: team.colour,
                     description: team.does,
                     facts: [
                       { label: "Team", text: team.who },

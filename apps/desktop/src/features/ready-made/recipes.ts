@@ -1,10 +1,20 @@
-import { FILL_INS } from "@office-town/contract";
+import { type AgentColour, FILL_INS } from "@office-town/contract";
+import {
+  CalendarClock,
+  FileText,
+  FlaskConical,
+  Inbox,
+  type LucideIcon,
+  Newspaper,
+} from "lucide-react";
 import { blankEvent } from "../automations/EventFields.tsx";
 import type { WhenForm } from "../automations/WhenStep.tsx";
 
 export interface Recipe {
   id: string;
   name: string;
+  icon: LucideIcon;
+  colour: AgentColour;
   youGet: string;
   // The card's When line.
   when: string;
@@ -23,6 +33,8 @@ export const RECIPES: Recipe[] = [
   {
     id: "morning-brief",
     name: "Morning brief",
+    icon: Newspaper,
+    colour: "#B5602B",
     youGet: "The five news stories that matter on your topics, with links",
     when: "Weekdays at 8:00",
     prompt: [
@@ -37,6 +49,8 @@ export const RECIPES: Recipe[] = [
   {
     id: "inbox-digest",
     name: "Inbox digest",
+    icon: Inbox,
+    colour: "#3A6EA5",
     youGet: "What needs your reply first, then the rest in one line each",
     when: "Weekdays at 8:30",
     prompt: [
@@ -51,6 +65,8 @@ export const RECIPES: Recipe[] = [
   {
     id: "meetings-prep",
     name: "Tomorrow's meetings",
+    icon: CalendarClock,
+    colour: "#6553AE",
     youGet: "Each meeting tomorrow with who is coming and what to prepare",
     when: "Sunday to Thursday at 18:00",
     prompt: [
@@ -66,6 +82,8 @@ export const RECIPES: Recipe[] = [
   {
     id: "summarise-new-files",
     name: "Summarise new files",
+    icon: FileText,
+    colour: "#5E7A2F",
     youGet: "A short summary of every file that lands in a folder",
     when: "When a file is added to a folder you pick",
     prompt: [
@@ -79,6 +97,8 @@ export const RECIPES: Recipe[] = [
   {
     id: "nightly-test-check",
     name: "Nightly test check",
+    icon: FlaskConical,
+    colour: "#2F7565",
     youGet: "A note only when a test breaks, with what failed and the likely cause",
     when: "Every night at 2:00",
     prompt: [

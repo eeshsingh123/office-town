@@ -69,14 +69,20 @@
 .top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
+  gap: 10px;
 }
 
-.spinner {
+/* Tinted with the card's own colour, mixed with the text colour so it reads in both themes. */
+.tile {
+  display: inline-flex;
   flex: none;
-  color: var(--accent);
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tile) 16%, transparent);
+  color: color-mix(in srgb, var(--tile) 75%, var(--text));
 }
 
 .name {

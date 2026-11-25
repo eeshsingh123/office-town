@@ -1,10 +1,13 @@
-import { Folder, LoaderCircle } from "lucide-react";
+import { Folder, LoaderCircle, type LucideIcon } from "lucide-react";
+import type { CSSProperties } from "react";
 import { AppLogo } from "../connectors/AppLogo.tsx";
 import styles from "./ReadyCards.module.css";
 
 export interface ReadyCard {
   id: string;
   name: string;
+  icon: LucideIcon;
+  colour: string;
   description?: string;
   facts: { label: string; text: string }[];
   // What it needs before it can run: an app, shown by its logo, or else a project folder.
@@ -27,7 +30,7 @@ export function ReadyCards({ title, cards, picked, disabled, busy, onPick }: Rea
     <section className={styles.section} aria-label={title}>
       <h3 className={styles.heading}>{title}</h3>
       <div className={styles.grid}>
-        {cards.map((card) => (
+        {cards.map(({ icon: Icon, ...card }) => (
           <button
             key={card.id}
             type="button"
@@ -38,10 +41,19 @@ export function ReadyCards({ title, cards, picked, disabled, busy, onPick }: Rea
             onClick={() => onPick(card.id)}
           >
             <span className={styles.top}>
+              {/* The icon turns into a spinner while the pick loads. */}
+              <span
+                className={styles.tile}
+                style={{ "--tile": card.colour } as CSSProperties}
+                aria-hidden
+              >
+                {busy === card.id ? (
+                  <LoaderCircle size={16} className="spin" />
+                ) : (
+                  <Icon size={16} strokeWidth={1.8} />
+                )}
+              </span>
               <strong className={styles.name}>{card.name}</strong>
-              {busy === card.id ? (
-                <LoaderCircle size={14} className={`spin ${styles.spinner}`} aria-hidden />
-              ) : null}
             </span>
             {card.description === undefined ? null : (
               <span className={styles.description}>{card.description}</span>
