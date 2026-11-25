@@ -3,11 +3,12 @@ import {
   type AutomationRecord,
   type AutomationRules,
   type AutomationTask,
+  appKeyOf,
   automationRulesSchema,
   type LibraryItem,
 } from "@office-town/contract";
 import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { shell } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -20,6 +21,7 @@ import {
   useDraft,
   writeDraft,
 } from "../../store/drafts.ts";
+import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
@@ -27,9 +29,15 @@ import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
+import { AppLogo } from "../connectors/AppLogo.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
+import { NoProvider, useNoProvider } from "../new-task/NoProvider.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { powerSettings, useReadyHarnesses } from "../ready-made/models.ts";
+import { ReadyCards } from "../ready-made/ReadyCards.tsx";
+import { RECIPES } from "../ready-made/recipes.ts";
+import { defaultLevel } from "../task/task-options.ts";
 import { PlaceTags } from "../updates/PlaceTag.tsx";
 import { usePlaces } from "../updates/places.ts";
 import { eventMissing, useGitHubApp } from "./EventFields.tsx";
@@ -50,7 +58,7 @@ const targetOf = (who: string) => (who === "assistant" ? SOLO : who === "chief" 
 // The New task box keeps its own drafts; an automation's task is written into them to edit it.
 function writeTask(
   box: string,
-  { task, files: kept }: AutomationRecord,
+  { task, files: kept }: Pick<AutomationRecord, "task" | "files">,
   library: Record<string, LibraryItem>,
 ): void {
   writeDraft(`${box}.prompt`, promptOf(task));
@@ -102,6 +110,8 @@ const keptRules = (saved: unknown) => {
   const parsed = automationRulesSchema.safeParse(saved);
   return parsed.success ? parsed.data : undefined;
 };
+
+const keptId = (saved: unknown) => (typeof saved === "string" ? saved : undefined);
 
 // Opened from the list, or straight from a link once the list is read.
 export function NewAutomationView({ edit, describe }: { edit?: string; describe?: string }) {
@@ -160,6 +170,23 @@ function Setup({
   const [saving, setSaving] = useState<"save" | "run">();
   const [error, setError] = useState<string>();
   const [offer, setOffer] = useState<string>();
+  // The recipe the steps were filled from, until the user drafts from words instead.
+  const [recipeId, setRecipeId] = useDraft<string | undefined>(
+    `${scope}.recipe`,
+    undefined,
+    keptId,
+  );
+  const recipe = RECIPES.find((one) => one.id === recipeId);
+  const [picking, setPicking] = useState<string>();
+  const ready = useReadyHarnesses();
+  const noProvider = useNoProvider(undefined);
+  const workspaces = useWorkspaces() ?? [];
+  const connectors = useApp((state) => state.connectors);
+  // The recipe's app as Claude lists it; not set up until its first sign-in.
+  const claudeRoute = (key: string) =>
+    Object.values(connectors).find(
+      ({ setup }) => setup.kind === "claude" && appKeyOf(setup.name) === key,
+    );
   // The box is only on its own step, so what it last handed over stands for it elsewhere.
   const [lastTask, setLastTask] = useDraft<AutomationTask | undefined>(
     `${scope}.built`,
@@ -203,10 +230,56 @@ function Setup({
       if (drafted_.trigger !== undefined) setWhen(whenOf(drafted_.trigger));
       setRules(automationRulesSchema.parse({ ...rules, ...drafted_.rules }));
       setDrafted(true);
+      setRecipeId(undefined);
       setReached(REVIEW);
     }
     return reply;
   };
+
+  // One click fills every step; a recipe that needs a folder opens on the step that asks for it.
+  const pickRecipe = async (id: string) => {
+    const picked = RECIPES.find((one) => one.id === id);
+    if (picked === undefined) return;
+    setPicking(id);
+    // A claude.ai app is reached only through Claude Code.
+    const power = await powerSettings(
+      picked.app === undefined ? ready : ["claude"],
+      harnesses[0]?.harness ?? "claude",
+    );
+    const workspace = defaultWorkspace(workspaces, undefined);
+    setName(picked.name);
+    writeDraft(`${box}.prompt`, picked.prompt);
+    writeDraft(`${box}.target`, SOLO);
+    if (workspace !== undefined) {
+      const built: AutomationTask = {
+        kind: "assistant",
+        request: {
+          prompt: picked.prompt,
+          agent: { settings: power.cheap },
+          autonomy: defaultLevel(),
+          workspaceId: workspace.id,
+        },
+      };
+      writeTask(box, { task: built, files: [] }, library);
+      setLastTask(built);
+    }
+    setTask(undefined);
+    setWhen({ ...blankWhen(), ...picked.schedule });
+    setRules(
+      automationRulesSchema.parse({
+        ...newRules(useApp.getState().updates.resultPlaces),
+        ...picked.rules,
+      }),
+    );
+    setDrafted(true);
+    setRecipeId(id);
+    setPicking(undefined);
+    setReached(REVIEW);
+    setStep(picked.asks === "folder" ? WHEN : picked.asks === "project" ? TASK : REVIEW);
+  };
+  const appRoute = recipe?.app === undefined ? undefined : claudeRoute(recipe.app.key);
+  const appMissing =
+    recipe?.app !== undefined && appRoute?.status !== "connected" ? recipe.app : undefined;
 
   const reader =
     current?.kind === "assistant" && "settings" in current.request.agent
@@ -216,15 +289,17 @@ function Setup({
     (accountId) => reader === undefined || accountId.startsWith(reader),
   );
   const missing =
-    name.trim() === ""
-      ? "Give it a name."
-      : current === undefined
-        ? (taskMissing ?? "Write the task each run starts with.")
-        : trigger === undefined
-          ? when.mode === "event"
-            ? eventMissing(when.event, githubId)
-            : "Choose the automation it runs after."
-          : preview?.problem;
+    appMissing !== undefined
+      ? `Connect ${appMissing.name} first.`
+      : name.trim() === ""
+        ? "Give it a name."
+        : current === undefined
+          ? (taskMissing ?? "Write the task each run starts with.")
+          : trigger === undefined
+            ? when.mode === "event"
+              ? eventMissing(when.event, githubId)
+              : "Choose the automation it runs after."
+            : preview?.problem;
 
   const save = async (run: boolean) => {
     if (missing !== undefined || current === undefined || trigger === undefined) return;
@@ -300,9 +375,13 @@ function Setup({
                 {step === 0
                   ? "Say what each run does, who does it and when. It fills in every later step."
                   : step === TASK
-                    ? "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
+                    ? recipe?.asks === "project"
+                      ? "Choose the project folder it tests in the box below."
+                      : "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
                     : step === WHEN
-                      ? "Pick what starts each run."
+                      ? recipe?.asks === "folder"
+                        ? "Choose the folder to watch. A run starts each time a file is added."
+                        : "Pick what starts each run."
                       : "What a run does when its team is busy, Office Town was closed, or it waits for you."}
               </p>
             )}
@@ -310,6 +389,7 @@ function Setup({
 
           {step === 0 ? (
             <>
+              {noProvider ? <NoProvider /> : null}
               <DraftBox
                 name={`${scope}.box`}
                 label="Describe the automation"
@@ -320,7 +400,7 @@ function Setup({
                 {...(describe === undefined ? {} : { initial: describe })}
                 run={draft}
               />
-              {drafted && current !== undefined && trigger !== undefined ? (
+              {drafted && recipe === undefined && current !== undefined && trigger !== undefined ? (
                 <Summary name={name} task={current} trigger={trigger} />
               ) : null}
               <div className={page.row}>
@@ -331,10 +411,39 @@ function Setup({
                   </Button>
                 ) : (
                   <Button variant="ghost" onClick={() => go(TASK)}>
-                    Set it up by hand instead
+                    Set it up manually
                   </Button>
                 )}
               </div>
+              {drafted && recipe === undefined ? null : (
+                <ReadyCards
+                  title="Or start from a recipe"
+                  cards={RECIPES.map((one) => ({
+                    id: one.id,
+                    name: one.name,
+                    facts: [
+                      { label: "When", text: one.when },
+                      { label: "You get", text: one.youGet },
+                    ],
+                    ...(one.app === undefined
+                      ? one.asks === "project"
+                        ? { needs: "Needs a project folder" }
+                        : {}
+                      : {
+                          needs: (
+                            <>
+                              <AppLogo app={one.app.logo} size="xs" />
+                              Needs {one.app.name} through Claude
+                            </>
+                          ),
+                        }),
+                  }))}
+                  picked={recipeId}
+                  disabled={noProvider}
+                  busy={picking}
+                  onPick={(id) => void pickRecipe(id)}
+                />
+              )}
             </>
           ) : null}
 
@@ -385,6 +494,28 @@ function Setup({
               nextRuns={preview?.nextRuns ?? []}
               warning={preview?.warning}
               onEdit={go}
+              note={
+                appMissing !== undefined ? (
+                  appRoute === undefined ? (
+                    <p className={styles.warning} role="status">
+                      {appMissing.name} is not in your Claude account yet. Add it at claude.ai, then
+                      it shows in Connectors.
+                    </p>
+                  ) : (
+                    <p className={styles.warning} role="status">
+                      {appMissing.name} is not set up through Claude yet.{" "}
+                      <Button
+                        variant="ghost"
+                        onClick={() => navigate({ name: "connector", connectorId: appRoute.id })}
+                      >
+                        Set up {appMissing.name}
+                      </Button>
+                    </p>
+                  )
+                ) : recipe?.tip === undefined ? undefined : (
+                  <p className={styles.meta}>{recipe.tip}</p>
+                )
+              }
             />
           ) : null}
 
@@ -478,6 +609,7 @@ function Review({
   nextRuns,
   warning,
   onEdit,
+  note,
 }: {
   name: string;
   task: AutomationTask | undefined;
@@ -486,6 +618,7 @@ function Review({
   nextRuns: string[];
   warning: string | undefined;
   onEdit: (step: number) => void;
+  note?: ReactNode;
 }) {
   const who = useWho(task ?? { kind: "chief", request: { goal: "" } });
   const when = useWhenText({
@@ -506,6 +639,7 @@ function Review({
           {trigger === undefined ? "No time yet" : when}
         </span>
       </p>
+      {note}
       {warning === undefined ? null : (
         <p className={styles.warning} role="status">
           {warning} Both can be saved.
