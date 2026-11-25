@@ -42,6 +42,8 @@ export interface DepartmentForm extends TeamForm {
   // The default first; empty until the user chooses.
   workspaceIds: string[];
   autonomy: Autonomy;
+  // A ready-made code team: it never falls back to Scratch.
+  needsProject?: boolean;
 }
 
 // Unique on one screen, where a kept draft can bring back keys from an earlier launch.
