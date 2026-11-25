@@ -31,7 +31,7 @@ export const RELEASES: Release[] = [
       "New automation starts with five recipes: Morning brief, Inbox digest, Tomorrow's meetings, Summarise new files and Nightly test check. One click fills every step, then Save or Save and run now",
       "Recipes that read Gmail or Google Calendar run through Claude and say so on the card. If the app isn't set up yet, Review links to it",
       "With no provider ready, both pages show how to set one up first",
-      "Build it by hand is now Build it manually, and Set it up by hand is now Set it up manually",
+      "Build it by hand is now Build it manually, and so is Answer step by step when you set up the chief. Set it up by hand is now Set it up manually",
     ],
   },
   {
