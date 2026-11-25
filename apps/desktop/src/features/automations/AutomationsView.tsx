@@ -30,7 +30,7 @@ const SEARCH_PAST = 8;
 const STEPS: GuideStep[] = [
   {
     title: "Say what and when",
-    text: "Describe it in your own words, or set it up by hand: a task and when it runs.",
+    text: "Describe it in your own words, or set it up manually: a task and when it runs.",
     picture: (
       <span className={styles.picture}>
         <Sparkles size={14} aria-hidden />

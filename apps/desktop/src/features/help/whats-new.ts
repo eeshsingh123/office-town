@@ -22,6 +22,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-25",
+    title: "Ready-made teams and recipes",
+    icon: LayoutGrid,
+    changes: [
+      "New department starts with four ready-made teams: Research desk, Content team, Code review team and Bug-fix team. Each card says what it does, who is on it and what you get",
+      "Pick one and it goes straight to Review. The lead gets your strongest model and the members a cheap or free one, all marked picked for you. Code teams ask for the project folder first",
+      "New automation starts with five recipes: Morning brief, Inbox digest, Tomorrow's meetings, Summarise new files and Nightly test check. One click fills every step, then Save or Save and run now",
+      "Recipes that read Gmail or Google Calendar run through Claude and say so on the card. If the app isn't set up yet, Review links to it",
+      "With no provider ready, both pages show how to set one up first",
+      "Build it by hand is now Build it manually, and Set it up by hand is now Set it up manually",
+    ],
+  },
+  {
     date: "2026-11-24",
     title: "Updates in Slack, Discord or Telegram",
     icon: Send,
