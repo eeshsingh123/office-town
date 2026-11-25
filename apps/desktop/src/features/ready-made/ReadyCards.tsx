@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { Folder, LoaderCircle } from "lucide-react";
+import { AppLogo } from "../connectors/AppLogo.tsx";
 import styles from "./ReadyCards.module.css";
 
 export interface ReadyCard {
@@ -6,8 +7,8 @@ export interface ReadyCard {
   name: string;
   description?: string;
   facts: { label: string; text: string }[];
-  // What it needs before it can run, such as a project folder or an app.
-  needs?: ReactNode;
+  // What it needs before it can run: an app, shown by its logo, or else a project folder.
+  needs?: { text: string; logo?: string };
 }
 
 interface ReadyCardsProps {
@@ -36,7 +37,12 @@ export function ReadyCards({ title, cards, picked, disabled, busy, onPick }: Rea
             disabled={disabled === true || busy !== undefined}
             onClick={() => onPick(card.id)}
           >
-            <strong className={styles.name}>{card.name}</strong>
+            <span className={styles.top}>
+              <strong className={styles.name}>{card.name}</strong>
+              {busy === card.id ? (
+                <LoaderCircle size={14} className={`spin ${styles.spinner}`} aria-hidden />
+              ) : null}
+            </span>
             {card.description === undefined ? null : (
               <span className={styles.description}>{card.description}</span>
             )}
@@ -48,7 +54,18 @@ export function ReadyCards({ title, cards, picked, disabled, busy, onPick }: Rea
                 </div>
               ))}
             </dl>
-            {card.needs === undefined ? null : <span className={styles.needs}>{card.needs}</span>}
+            {card.needs === undefined ? null : (
+              <span className={styles.needs}>
+                {card.needs.logo === undefined ? (
+                  <span className={styles.needsIcon}>
+                    <Folder size={13} aria-hidden />
+                  </span>
+                ) : (
+                  <AppLogo app={card.needs.logo} size="xs" />
+                )}
+                {card.needs.text}
+              </span>
+            )}
           </button>
         ))}
       </div>

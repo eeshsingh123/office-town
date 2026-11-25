@@ -41,7 +41,7 @@ export const READY_TEAMS: ReadyTeam[] = [
       role: "Lead",
       purpose: "Splits the question and checks the final summary",
       instructions:
-        "Break the question into two or three parts and give each researcher one. When their notes are in, have the writer turn them into the summary. Read it before it is done: every claim needs a source, and the answer to the question comes first.",
+        "Break the question into two parts and give each researcher one. When their notes are in, have the writer turn them into the summary. Read it before it is done: every claim needs a source, and the answer to the question comes first.",
       power: "strong",
     },
     members: [
@@ -122,7 +122,7 @@ export const READY_TEAMS: ReadyTeam[] = [
       role: "Lead",
       purpose: "Picks what to review and ranks the findings",
       instructions:
-        "Find what to review: the changes the task names, otherwise the latest commits (git log, git diff). Give the correctness reviewer the changed code and the test checker the changed behaviour. Merge their findings, drop duplicates and anything unproven, and write review.md: the most important problems first, each with file and line, what goes wrong and a suggested fix.",
+        "Find what to review: the changes the task names, otherwise the latest commits (git log, git diff). Give the correctness reviewer the changed code and the test checker the changed behaviour. Merge their findings, drop duplicates and anything unproven, and finish with the review as your answer: the most important problems first, each with file and line, what goes wrong and a suggested fix.",
       power: "strong",
     },
     members: [

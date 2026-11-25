@@ -25,8 +25,12 @@ export function useReadyHarnesses(): string[] {
     return at === -1 ? (harness === FREE_PROVIDER ? 99 : 50) : at;
   };
   ready.sort((a, b) => rank(a) - rank(b));
-  // A catalog takes seconds to read, so it starts with the page and a pick finds it ready.
-  const key = ready.join(",");
+  // A catalog takes seconds to read, so it starts with the page and a pick finds it ready. Only
+  // the ones a pick reads: the strongest, Claude for its apps, and the free provider.
+  const used = ready.filter(
+    (harness, at) => at === 0 || harness === "claude" || harness === FREE_PROVIDER,
+  );
+  const key = used.join(",");
   useEffect(() => {
     for (const harness of key.split(",").filter(Boolean)) void catalogOf(harness);
   }, [key]);

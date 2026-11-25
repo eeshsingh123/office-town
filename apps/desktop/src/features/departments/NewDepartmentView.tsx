@@ -211,6 +211,18 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
   if (current === undefined) return null;
   // The team card sits beside the steps that do not show the team themselves.
   const withCard = step === WORKSPACES_STEP || step === RULES_STEP;
+  // A ready-made team stays one click away until the user builds one manually.
+  const builtManually =
+    !drafted &&
+    (forms.length > 1 ||
+      forms.some(
+        (one) =>
+          one.name.trim() !== "" ||
+          one.purpose.trim() !== "" ||
+          one.rules.trim() !== "" ||
+          one.lead.instructions.trim() !== "" ||
+          one.members.length > 0,
+      ));
   // Describe with its ready-made teams, the team and the review use the whole width.
   const wide = step === 0 || step === 1 || step === STEPS.length - 1;
   const switcher =
@@ -303,7 +315,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                   </Button>
                 )}
               </div>
-              {drafted && readyMade === undefined ? null : (
+              {(drafted && readyMade === undefined) || builtManually ? null : (
                 <ReadyCards
                   title="Or start from a ready-made team"
                   cards={READY_TEAMS.map((team) => ({
@@ -314,7 +326,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                       { label: "Team", text: team.who },
                       { label: "You get", text: team.youGet },
                     ],
-                    ...(team.needsProject ? { needs: "Needs a project folder" } : {}),
+                    ...(team.needsProject ? { needs: { text: "Needs a project folder" } } : {}),
                   }))}
                   picked={readyMade}
                   disabled={noProvider}

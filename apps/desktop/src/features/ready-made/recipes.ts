@@ -1,4 +1,4 @@
-import { type AutomationRules, FILL_INS } from "@office-town/contract";
+import { FILL_INS } from "@office-town/contract";
 import { blankEvent } from "../automations/EventFields.tsx";
 import type { WhenForm } from "../automations/WhenStep.tsx";
 
@@ -10,7 +10,6 @@ export interface Recipe {
   when: string;
   prompt: string;
   schedule: Partial<WhenForm>;
-  rules?: Partial<AutomationRules>;
   // A claude.ai app it reads, so it runs on Claude Code (app sign-in goes through Claude).
   app?: { key: string; name: string; logo: string };
   // The one thing only the user can give; the recipe opens on the step that asks it.

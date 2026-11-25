@@ -158,6 +158,7 @@ export function formOfDraft(draft: DepartmentDraft, kept?: DepartmentForm): Depa
     rules: draft.rules,
     workspaceIds: kept?.workspaceIds ?? [],
     autonomy: kept?.autonomy ?? defaultLevel(),
+    ...(kept?.needsProject ? { needsProject: true } : {}),
     lead: personOfDraft(draft.lead),
     members: draft.members.map(personOfDraft),
   };

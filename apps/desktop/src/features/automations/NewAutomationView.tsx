@@ -29,11 +29,11 @@ import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { StepRail } from "../../ui/StepRail.tsx";
 import steps from "../../ui/Steps.module.css";
-import { AppLogo } from "../connectors/AppLogo.tsx";
 import { DraftBox } from "../drafts/DraftBox.tsx";
 import { Composer } from "../new-task/Composer.tsx";
 import { NoProvider, useNoProvider } from "../new-task/NoProvider.tsx";
 import { CHIEF, SOLO } from "../new-task/targets.ts";
+import { isReady, useHarnessStatuses } from "../providers/providers.ts";
 import { powerSettings, useReadyHarnesses } from "../ready-made/models.ts";
 import { ReadyCards } from "../ready-made/ReadyCards.tsx";
 import { RECIPES } from "../ready-made/recipes.ts";
@@ -179,6 +179,7 @@ function Setup({
   const recipe = RECIPES.find((one) => one.id === recipeId);
   const [picking, setPicking] = useState<string>();
   const ready = useReadyHarnesses();
+  const statuses = useHarnessStatuses();
   const noProvider = useNoProvider(undefined);
   const workspaces = useWorkspaces() ?? [];
   const connectors = useApp((state) => state.connectors);
@@ -265,12 +266,7 @@ function Setup({
     }
     setTask(undefined);
     setWhen({ ...blankWhen(), ...picked.schedule });
-    setRules(
-      automationRulesSchema.parse({
-        ...newRules(useApp.getState().updates.resultPlaces),
-        ...picked.rules,
-      }),
-    );
+    setRules(newRules(useApp.getState().updates.resultPlaces));
     setDrafted(true);
     setRecipeId(id);
     setPicking(undefined);
@@ -280,6 +276,20 @@ function Setup({
   const appRoute = recipe?.app === undefined ? undefined : claudeRoute(recipe.app.key);
   const appMissing =
     recipe?.app !== undefined && appRoute?.status !== "connected" ? recipe.app : undefined;
+  // Unknown until checked, so the note never flashes while the providers are read.
+  const claudeStatus = statuses?.claude;
+  const claude = harnesses.find((one) => one.harness === "claude");
+  const claudeMissing =
+    appMissing !== undefined && claudeStatus !== undefined && !isReady(claudeStatus)
+      ? (claude?.name ?? "Claude Code")
+      : undefined;
+  // Tests run in the user's project; Scratch has none.
+  const projectMissing =
+    recipe?.asks === "project" &&
+    current?.kind === "assistant" &&
+    workspaces.find((one) => one.id === current.request.workspaceId)?.kind === "scratch";
+  // A recipe stays one click away until the user builds the automation manually.
+  const builtManually = !drafted && (name.trim() !== "" || lastTask !== undefined);
 
   const reader =
     current?.kind === "assistant" && "settings" in current.request.agent
@@ -289,17 +299,21 @@ function Setup({
     (accountId) => reader === undefined || accountId.startsWith(reader),
   );
   const missing =
-    appMissing !== undefined
-      ? `Connect ${appMissing.name} first.`
-      : name.trim() === ""
-        ? "Give it a name."
-        : current === undefined
-          ? (taskMissing ?? "Write the task each run starts with.")
-          : trigger === undefined
-            ? when.mode === "event"
-              ? eventMissing(when.event, githubId)
-              : "Choose the automation it runs after."
-            : preview?.problem;
+    claudeMissing !== undefined
+      ? `Set up ${claudeMissing} first.`
+      : appMissing !== undefined
+        ? `Set up ${appMissing.name} first.`
+        : projectMissing
+          ? "Choose the project folder it tests."
+          : name.trim() === ""
+            ? "Give it a name."
+            : current === undefined
+              ? (taskMissing ?? "Write the task each run starts with.")
+              : trigger === undefined
+                ? when.mode === "event"
+                  ? eventMissing(when.event, githubId)
+                  : "Choose the automation it runs after."
+                : preview?.problem;
 
   const save = async (run: boolean) => {
     if (missing !== undefined || current === undefined || trigger === undefined) return;
@@ -376,7 +390,7 @@ function Setup({
                   ? "Say what each run does, who does it and when. It fills in every later step."
                   : step === TASK
                     ? recipe?.asks === "project"
-                      ? "Choose the project folder it tests in the box below."
+                      ? "Choose the project folder it tests."
                       : "The same box as New task. Type @ for who does it, an app, or a fill-in such as today's date."
                     : step === WHEN
                       ? recipe?.asks === "folder"
@@ -415,7 +429,7 @@ function Setup({
                   </Button>
                 )}
               </div>
-              {drafted && recipe === undefined ? null : (
+              {(drafted && recipe === undefined) || builtManually ? null : (
                 <ReadyCards
                   title="Or start from a recipe"
                   cards={RECIPES.map((one) => ({
@@ -427,15 +441,13 @@ function Setup({
                     ],
                     ...(one.app === undefined
                       ? one.asks === "project"
-                        ? { needs: "Needs a project folder" }
+                        ? { needs: { text: "Needs a project folder" } }
                         : {}
                       : {
-                          needs: (
-                            <>
-                              <AppLogo app={one.app.logo} size="xs" />
-                              Needs {one.app.name} through Claude
-                            </>
-                          ),
+                          needs: {
+                            text: `Needs ${one.app.name} through Claude`,
+                            logo: one.app.logo,
+                          },
                         }),
                   }))}
                   picked={recipeId}
@@ -495,7 +507,17 @@ function Setup({
               warning={preview?.warning}
               onEdit={go}
               note={
-                appMissing !== undefined ? (
+                claudeMissing !== undefined ? (
+                  <p className={styles.warning} role="status">
+                    {recipe?.app?.name} runs through {claudeMissing}, which is not set up yet.{" "}
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigate({ name: "provider", harness: "claude" })}
+                    >
+                      Set up {claudeMissing}
+                    </Button>
+                  </p>
+                ) : appMissing !== undefined ? (
                   appRoute === undefined ? (
                     <p className={styles.warning} role="status">
                       {appMissing.name} is not in your Claude account yet. Add it at claude.ai, then

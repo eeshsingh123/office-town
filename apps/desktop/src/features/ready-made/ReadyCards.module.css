@@ -61,6 +61,24 @@
   border-color: var(--accent);
 }
 
+/* An odd last card takes the whole row instead of standing alone. */
+.card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.spinner {
+  flex: none;
+  color: var(--accent);
+}
+
 .name {
   font-size: 13.5px;
   font-weight: 600;
@@ -73,22 +91,21 @@
   color: var(--text-2);
 }
 
+/* The labels share one column, so every value starts at the same place. */
 .facts {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 8px;
   margin: 4px 0 0;
   font-size: var(--size-meta);
   line-height: 1.5;
 }
 
 .facts div {
-  display: flex;
-  gap: 6px;
+  display: contents;
 }
 
 .facts dt {
-  flex: none;
   color: var(--text-3);
 }
 
@@ -104,4 +121,12 @@
   margin-top: 6px;
   font-size: var(--size-small);
   color: var(--text-3);
+}
+
+.needsIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
 }

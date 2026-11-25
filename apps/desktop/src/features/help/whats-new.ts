@@ -28,10 +28,10 @@ export const RELEASES: Release[] = [
     changes: [
       "New department starts with four ready-made teams: Research desk, Content team, Code review team and Bug-fix team. Each card says what it does, who is on it and what you get",
       "Pick one and it goes straight to Review. The lead gets your strongest model and the members a cheap or free one, all marked picked for you. Code teams ask for the project folder first",
-      "New automation starts with five recipes: Morning brief, Inbox digest, Tomorrow's meetings, Summarise new files and Nightly test check. One click fills every step, then Save or Save and run now",
-      "Recipes that read Gmail or Google Calendar run through Claude and say so on the card. If the app isn't set up yet, Review links to it",
-      "With no provider ready, both pages show how to set one up first",
-      "Build it by hand is now Build it manually, and so is Answer step by step when you set up the chief. Set it up by hand is now Set it up manually",
+      "New automation starts with five recipes: Morning brief, Inbox digest, Tomorrow's meetings, Summarise new files and Nightly test check. One click fills every step, then Save or Save and run now. Nightly test check asks for the project folder first",
+      "Recipes that read Gmail or Google Calendar run through Claude and say so on the card. If the app or Claude Code isn't set up yet, Review links to it",
+      "With no provider ready, both pages show how to set one up first. Once you start building one manually, the cards hide so a click never replaces your work",
+      "Build it by hand, Set it up by hand and the chief's Answer step by step now say manually",
     ],
   },
   {
