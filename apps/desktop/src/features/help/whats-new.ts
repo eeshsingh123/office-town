@@ -23,11 +23,23 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-25",
+    title: "Tidier setup pages",
+    icon: SlidersHorizontal,
+    changes: [
+      "In a setup with steps, the back link at the top goes to the step before. Only the first step leaves the page",
+      "Start over is a button under the steps, and starts the setup again from the first step",
+      "The team on Review is only as wide as its people, centred under the lead",
+      "Workspaces, Permissions and Team rules on Review are tiles you click to change",
+      "Numbers beside tabs and headings now look the same everywhere",
+    ],
+  },
+  {
+    date: "2026-11-25",
     title: "Ready-made teams and recipes",
     icon: LayoutGrid,
     changes: [
-      "New department starts with four ready-made teams: Research desk, Content team, Code review team and Bug-fix team. Each card says what it does, who is on it and what you get",
-      "Pick one and it goes straight to Review. The lead gets your strongest model and the members a cheap or free one, all marked picked for you. Code teams ask for the project folder first",
+      "New department starts with four team templates: Research desk, Content team, Code review team and Bug-fix team. Each card says what it does, who is on it and what you get",
+      "Pick one and it opens on the Team step to look over. The lead gets your strongest model and the members a cheap or free one, all marked picked for you. Code teams can't go past Workspaces until you choose the project folder",
       "New automation starts with five recipes: Morning brief, Inbox digest, Tomorrow's meetings, Summarise new files and Nightly test check. One click fills every step, then Save or Save and run now. Nightly test check asks for the project folder first",
       "Recipes that read Gmail or Google Calendar run through Claude and say so on the card. If the app or Claude Code isn't set up yet, Review links to it",
       "With no provider ready, both pages show how to set one up first. Once you start building one manually, the cards hide so a click never replaces your work",

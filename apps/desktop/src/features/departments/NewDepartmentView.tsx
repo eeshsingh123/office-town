@@ -6,7 +6,6 @@ import { navigate, useApp } from "../../store/app-store.ts";
 import { clearDrafts, ignoreDraft, readDraft, useDraft } from "../../store/drafts.ts";
 import { defaultWorkspace, useWorkspaces } from "../../store/workspaces.ts";
 import { AutonomyChoice } from "../../ui/AutonomyChoice.tsx";
-import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { useBypassGate } from "../../ui/BypassDialog.tsx";
 import { DraftNote } from "../../ui/DraftNote.tsx";
@@ -26,6 +25,7 @@ import { defaultLevel } from "../task/task-options.ts";
 import { DepartmentWorkspaces } from "./DepartmentWorkspaces.tsx";
 import { MemberEditor } from "./MemberEditor.tsx";
 import styles from "./NewDepartment.module.css";
+import { ReviewFacts } from "./ReviewFacts.tsx";
 import { TeamCard } from "./TeamCard.tsx";
 import {
   blankDepartment,
@@ -104,6 +104,12 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     current?.name.trim() || "the department",
   );
   const unplaced = forms.findIndex((one) => chosenOf(one).length === 0);
+  const nowhere =
+    unplaced === -1
+      ? undefined
+      : forms[unplaced]?.needsProject
+        ? `Choose the project folder ${nameOf(forms[unplaced], unplaced)} works in.`
+        : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`;
   const missing =
     forms
       .map((one, index) =>
@@ -112,14 +118,12 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
           ...forms.filter((_, other) => other !== index).map((other) => other.name),
         ]),
       )
-      .find((reason) => reason !== undefined) ??
-    (unplaced === -1
-      ? undefined
-      : forms[unplaced]?.needsProject
-        ? `Choose the project folder ${nameOf(forms[unplaced], unplaced)} works in.`
-        : `Choose where ${nameOf(forms[unplaced], unplaced)} works.`);
+      .find((reason) => reason !== undefined) ?? nowhere;
 
+  // Nothing past Workspaces opens while a department has nowhere to work.
+  const open = nowhere === undefined ? reached : Math.min(reached, WORKSPACES_STEP);
   const go = (next: number) => {
+    if (nowhere !== undefined && next > WORKSPACES_STEP) return;
     setStep(next);
     setReached(Math.max(reached, next));
   };
@@ -141,7 +145,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     return reply;
   };
 
-  // One click fills every step; a code team asks for its project folder first.
+  // One click fills every step and opens the team to look over; a code team still needs its folder.
   const pick = async (id: string) => {
     const team = READY_TEAMS.find((one) => one.id === id);
     if (team === undefined) return;
@@ -170,7 +174,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
     setReadyMade(id);
     setPicking(undefined);
     setReached(STEPS.length - 1);
-    setStep(team.needsProject ? WORKSPACES_STEP : STEPS.length - 1);
+    setStep(1);
   };
 
   const create = async () => {
@@ -250,7 +254,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
         note={<DraftNote scope={DRAFT} />}
         steps={STEPS}
         step={step}
-        reached={reached}
+        reached={open}
         onGo={go}
       />
       <div className={`${steps.setupBody} ${wide ? steps.wide : ""}`}>
@@ -317,7 +321,7 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
               </div>
               {(drafted && readyMade === undefined) || builtManually ? null : (
                 <ReadyCards
-                  title="Or start from a ready-made team"
+                  title="Or start from one of these team templates"
                   cards={READY_TEAMS.map((team) => ({
                     id: team.id,
                     name: team.name,
@@ -418,40 +422,18 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 const chosen = chosenOf(one).flatMap(
                   (id) => workspaces.find((known) => known.id === id)?.name ?? [],
                 );
-                const noRules = one.rules.trim() === "";
                 return (
                   <TeamCard
                     key={one.key}
                     form={one}
                     chart
                     footer={
-                      <dl className={styles.facts}>
-                        <div>
-                          <dt>Workspaces</dt>
-                          <dd>
-                            {chosen
-                              .map((name, place) => (place === 0 ? `${name} (default)` : name))
-                              .join(", ")}
-                          </dd>
-                          <Button variant="ghost" onClick={edit(WORKSPACES_STEP)}>
-                            Change
-                          </Button>
-                        </div>
-                        <div>
-                          <dt>Permissions</dt>
-                          <dd>{AUTONOMY[one.autonomy].label}</dd>
-                          <Button variant="ghost" onClick={edit(RULES_STEP)}>
-                            Change
-                          </Button>
-                        </div>
-                        <div>
-                          <dt>Team rules</dt>
-                          <dd>{noRules ? "None" : "Set"}</dd>
-                          <Button variant="ghost" onClick={edit(RULES_STEP)}>
-                            {noRules ? "Add" : "Edit"}
-                          </Button>
-                        </div>
-                      </dl>
+                      <ReviewFacts
+                        form={one}
+                        workspaceNames={chosen}
+                        onWorkspaces={edit(WORKSPACES_STEP)}
+                        onRules={edit(RULES_STEP)}
+                      />
                     }
                   />
                 );
@@ -470,7 +452,11 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
                 Back
               </Button>
               {step < STEPS.length - 1 ? (
-                <Button variant="primary" onClick={() => go(step + 1)}>
+                <Button
+                  variant="primary"
+                  onClick={() => go(step + 1)}
+                  disabled={step === WORKSPACES_STEP && nowhere !== undefined}
+                >
                   Continue
                   <ArrowRight size={15} aria-hidden />
                 </Button>
@@ -488,6 +474,8 @@ export function NewDepartmentView({ describe, byHand }: { describe?: string; byH
               )}
               {step === STEPS.length - 1 && missing !== undefined ? (
                 <span className={page.hint}>{missing}</span>
+              ) : step === WORKSPACES_STEP && nowhere !== undefined ? (
+                <span className={page.hint}>{nowhere}</span>
               ) : null}
             </div>
           )}
