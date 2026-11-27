@@ -27,6 +27,7 @@ import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
+import { postUpdate } from "./feed/post-update.ts";
 import { FeedProjector } from "./feed/projector.ts";
 import { MilestoneEdits } from "./goal/edits.ts";
 import { goalTools } from "./goal/tools.ts";
@@ -197,6 +198,7 @@ toolServer.offer([
   agentChecks.tool(),
   reportNothingNew(store),
   keepNotes(store),
+  postUpdate(store),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

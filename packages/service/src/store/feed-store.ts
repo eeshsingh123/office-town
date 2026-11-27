@@ -59,6 +59,12 @@ const queries = {
     SELECT count(*) AS count FROM feed_posts
     WHERE kind = ? AND task_ref = (SELECT ref FROM tasks WHERE id = ?) AND created_at >= ?`,
   expired: "SELECT id FROM feed_posts WHERE expires_at < ?",
+  // When the user asked for the same thing before, in tasks of their own.
+  sameRequests: `
+    SELECT created_at AS at FROM tasks
+    WHERE prompt = ? AND created_at >= ? AND parent_ref IS NULL
+      AND (origin IS NULL OR origin = '{"kind":"you"}')
+    ORDER BY created_at`,
   // Past the most kept, the oldest that are not an open ask or a task at work go first.
   overflow: `
     SELECT id FROM feed_posts WHERE expires_at IS NOT NULL
@@ -208,8 +214,15 @@ export class FeedStore {
     return (this.#statements.countForTask.get(kind, taskId, since) as { count: number }).count;
   }
 
+  sameRequests(prompt: string, since: number): number[] {
+    return (this.#statements.sameRequests.all(prompt, since) as { at: number }[]).map(
+      (row) => row.at,
+    );
+  }
+
   page({ before, show, departmentId, search }: FeedQuery): FeedPage {
-    const where: string[] = [];
+    // A suggestion the user turned down is gone from the page.
+    const where: string[] = ["NOT (kind = 'suggested' AND state <> 'open')"];
     const values: (string | number)[] = [];
     if (before !== undefined) {
       const position = this.#statements.position.get(before) as
@@ -235,7 +248,7 @@ export class FeedStore {
     }
     const rows = this.#db
       .prepare(`
-        SELECT data FROM feed_posts ${where.length === 0 ? "" : `WHERE ${where.join(" AND ")}`}
+        SELECT data FROM feed_posts WHERE ${where.join(" AND ")}
         ORDER BY created_at DESC, ref DESC LIMIT ?`)
       .all(...values, FEED_PAGE + 1) as unknown as DataRow[];
     const posts = rows.slice(0, FEED_PAGE).flatMap((row) => parse(row) ?? []);

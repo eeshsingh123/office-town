@@ -1,4 +1,5 @@
 import {
+  type FeedPost,
   feedQuerySchema,
   feedSeenRequestSchema,
   suggestionsRequestSchema,
@@ -9,6 +10,12 @@ import type { Store } from "../store/store.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 const QUIET_FOR_MS = 30 * 24 * 60 * 60_000;
+
+// Turned down: it leaves the page but still counts toward the day's suggestions (D-139).
+function turnDown(store: Store, post: FeedPost): void {
+  const { id: _, createdAt: __, updatedAt: ___, ...draft } = post;
+  store.feed.update(post, { ...draft, state: "answered" });
+}
 
 function suggestionOf(store: Store, postId: string) {
   const post = store.feed.get(postId);
@@ -60,7 +67,8 @@ export function feedRoutes(store: Store): Route[] {
       method: "DELETE",
       path: "/feed/:id",
       reply: ({ param }) => {
-        if (suggestionOf(store, param("id")) !== undefined) store.feed.remove(param("id"));
+        const found = suggestionOf(store, param("id"));
+        if (found !== undefined) turnDown(store, found.post);
         return NO_CONTENT;
       },
     },
@@ -78,7 +86,7 @@ export function feedRoutes(store: Store): Route[] {
             [found.suggestion.rule]: new Date(Date.now() + QUIET_FOR_MS).toISOString(),
           },
         });
-        store.feed.remove(found.post.id);
+        turnDown(store, found.post);
         return NO_CONTENT;
       },
     },

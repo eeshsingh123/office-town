@@ -18,6 +18,7 @@ import type { SessionRegistry } from "../registry/session-registry.ts";
 import type { PostDraft } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 import { resultOf, statusOf, topSession } from "../team/task-state.ts";
+import { suggestRepeat } from "./suggestions.ts";
 
 // Changes are gathered and written together (D-138), so a burst of them is one write.
 const FLUSH_MS = 250;
@@ -233,6 +234,7 @@ export class FeedProjector {
     }
     if (living === undefined) this.#store.feed.create(ended);
     else this.#store.feed.update(living, ended, { key: null, rise: true });
+    if (ended.kind === "result") suggestRepeat(this.#store, task);
   }
 
   #living(task: TaskRecord, top: SessionRecord, living: FeedPost | undefined): void {

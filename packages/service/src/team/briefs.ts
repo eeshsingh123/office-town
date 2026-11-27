@@ -1,5 +1,5 @@
 import type { HarnessDescription, HarnessModel, MilestoneRecord } from "@office-town/contract";
-import { HANDOVER_ASK, PLAN_ASK, SHOW_ASK } from "../agents/briefs.ts";
+import { HANDOVER_ASK, PLAN_ASK, POST_ASK, SHOW_ASK } from "../agents/briefs.ts";
 import { LEAD_CHECKS, leadMilestones } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
@@ -103,7 +103,7 @@ ${where_}
 Your piece of work, from ${input.lead.name}:
 ${input.work}
 
-Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${PLAN_ASK} ${SHOW_ASK} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
+Before you finish, check your own piece: it builds and its own tests pass. ${QUIET_OUTPUT} ${PLAN_ASK} ${SHOW_ASK} ${POST_ASK} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {
     text,
     origin: { kind: "brief", summary: `Work from ${input.lead.name}`, from: input.lead.id },
@@ -191,6 +191,7 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - When the goal is done, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run the work, and what changed. The user can have a fresh agent outside the team run it.
 - ${PLAN_ASK}
 - ${SHOW_ASK}
+- ${POST_ASK} A next task worth doing goes in its follow_up, for the user to start or not.
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 
 ${change} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
