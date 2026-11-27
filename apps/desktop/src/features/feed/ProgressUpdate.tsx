@@ -209,24 +209,42 @@ function Picture({ image }: { image: NonNullable<ProgressUpdate["image"]> }) {
   );
 }
 
-function UpdateHead({ update, now }: { update: ProgressUpdate; now: number }) {
+// In the history every entry is an update, so only the card's own block says so.
+function UpdateHead({
+  update,
+  now,
+  inList,
+}: {
+  update: ProgressUpdate;
+  now: number;
+  inList: boolean;
+}) {
   return (
     <div className={styles.head}>
-      <span className={styles.label}>Update</span>
+      {inList ? null : <span className={styles.label}>Update</span>}
       <time dateTime={update.at}>{ago(update.at, now)}</time>
-      <span aria-hidden>·</span>
       <span className={styles.after}>
         <Check size={13} aria-hidden className={styles.afterIcon} />
-        <span className={styles.afterText}>{update.after}</span>
+        <span className={styles.afterText} title={update.after}>
+          {update.after}
+        </span>
       </span>
     </div>
   );
 }
 
-function UpdateBody({ update, now }: { update: ProgressUpdate; now: number }) {
+function UpdateBody({
+  update,
+  now,
+  inList = false,
+}: {
+  update: ProgressUpdate;
+  now: number;
+  inList?: boolean;
+}) {
   return (
     <>
-      <UpdateHead update={update} now={now} />
+      <UpdateHead update={update} now={now} inList={inList} />
       <h4 className={styles.title}>{update.title}</h4>
       {update.chart === undefined ? null : <Chart chart={update.chart} />}
       {update.image === undefined ? null : <Picture image={update.image} />}
@@ -264,8 +282,17 @@ function History({ post, now }: { post: FeedPost; now: number }) {
   return (
     <ol className={styles.history} aria-label="Progress updates, newest first">
       {updates.map((update, index) => (
-        <li key={update.id} className={`${styles.historyItem} ${index === 0 ? styles.newest : ""}`}>
-          <UpdateBody update={update} now={now} />
+        <li key={update.id} className={styles.historyItem}>
+          {/* The dot is centred on the update's first line; the stem runs on to the next one. */}
+          <span className={styles.rail} aria-hidden>
+            <span className={styles.knob}>
+              <span className={`${styles.dot} ${index === 0 ? styles.dotNewest : ""}`} />
+            </span>
+            <span className={styles.stem} />
+          </span>
+          <div className={styles.historyBody}>
+            <UpdateBody update={update} now={now} inList />
+          </div>
         </li>
       ))}
     </ol>

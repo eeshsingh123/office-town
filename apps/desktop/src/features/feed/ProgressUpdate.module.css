@@ -10,17 +10,23 @@
   background: var(--bg);
 }
 
+.update {
+  --head-line: 18px;
+}
+
 .head {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 8px;
+  min-height: var(--head-line);
+  line-height: var(--head-line);
+  gap: 0 10px;
   min-width: 0;
   color: var(--text-3);
   font-size: var(--size-small);
 }
 
 .label {
+  flex: none;
   color: var(--accent-text);
   font-size: var(--size-label);
   font-weight: 600;
@@ -28,12 +34,17 @@
   text-transform: uppercase;
 }
 
+.head time {
+  flex: none;
+}
+
+/* What earned it takes the rest of the line and gives way first; hover shows it whole. */
 .after {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
   gap: 5px;
   min-width: 0;
-  max-width: 100%;
 }
 
 .afterIcon {
@@ -85,47 +96,74 @@
   font-size: var(--size-meta);
 }
 
-/* Show all: newest first, in a capped scroll area so a day of updates stays one card. */
+/* Show all: newest first, in a capped scroll area so a day of updates stays one card. Each entry
+   has its own rail, so the dot and line stay lined up with the entry however it wraps. */
 .history {
   display: flex;
   flex-direction: column;
   max-height: 520px;
   margin: 0;
-  padding: 0 4px 0 24px;
+  padding: 0 4px 0 0;
   overflow-y: auto;
-  /* The line is drawn inside the scroll area, so its dots are never cut at its edge. */
-  background: linear-gradient(var(--border), var(--border)) 6px 0 / 2px 100% no-repeat local;
   list-style: none;
 }
 
 .historyItem {
-  position: relative;
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  column-gap: 10px;
+  --rail: 14px;
+}
+
+.rail {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding-bottom: 18px;
+  align-items: center;
 }
 
-.historyItem:last-child {
-  padding-bottom: 0;
+/* As tall as the update's first line, so the dot sits on its centre. */
+.knob {
+  display: grid;
+  flex: none;
+  place-items: center;
+  height: var(--head-line);
 }
 
-.historyItem::before {
-  position: absolute;
-  top: 4px;
-  left: -24px;
+.dot {
   width: 10px;
   height: 10px;
   border: 2px solid var(--border-strong);
   border-radius: 50%;
   background: var(--surface);
-  content: "";
 }
 
-.newest::before {
+.dotNewest {
   border-color: var(--accent);
   background: var(--accent);
+}
+
+.stem {
+  flex: 1;
+  width: 2px;
+  margin-top: 4px;
+  border-radius: 1px;
+  background: var(--border-strong);
+}
+
+.historyItem:last-child .stem {
+  display: none;
+}
+
+.historyBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding-bottom: 20px;
+}
+
+.historyItem:last-child .historyBody {
+  padding-bottom: 0;
 }
 
 .caption {
