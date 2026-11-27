@@ -30,7 +30,7 @@ export const RELEASES: Release[] = [
       "Settings > Feed sets whether new tasks start with updates. Tasks in Efficient mode start without them, and a card's menu turns them off",
       "With updates on, a working card also shows how many milestones are met and parts done",
       "The step bar on a working card now fits any number of steps",
-      "In a task's chat, an agent's Feed posts now read as \"Told you: …\" and \"Posted a progress update: …\"",
+      'In a task\'s chat, an agent\'s Feed posts now read as "Told you: …" and "Posted a progress update: …"',
     ],
   },
   {
