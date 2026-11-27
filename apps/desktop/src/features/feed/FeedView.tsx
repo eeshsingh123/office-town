@@ -7,7 +7,7 @@ import { forSession, useKept } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
-import { Count } from "../../ui/Count.tsx";
+import { Fact, Facts } from "../../ui/Facts.tsx";
 import { clockTime } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -134,30 +134,20 @@ function Lead({ since, posts }: { since: string | undefined; posts: FeedPost[] }
   const working = posts.filter((post) => post.kind === "living" && post.state === "open").length;
   const fresh = since === undefined ? 0 : posts.filter((post) => post.createdAt > since).length;
   if (asks === 0 && working === 0 && since === undefined) return null;
-  // Each number in its own pill beside its words, so the line reads as separate facts.
   return (
-    <span className={styles.facts}>
+    <Facts>
       {asks === 0 ? null : (
-        <span className={styles.fact}>
-          <Count value={asks} tone="urgent" />
+        <Fact count={asks} urgent>
           {asks === 1 ? "needs you" : "need you"}
-        </span>
+        </Fact>
       )}
-      {working === 0 ? null : (
-        <span className={styles.fact}>
-          <Count value={working} />
-          at work
-        </span>
-      )}
+      {working === 0 ? null : <Fact count={working}>at work</Fact>}
       {since === undefined ? null : fresh === 0 ? (
-        <span className={styles.fact}>Nothing new since {clockTime(since)}</span>
+        <Fact>Nothing new since {clockTime(since)}</Fact>
       ) : (
-        <span className={styles.fact}>
-          <Count value={fresh} tone="accent" />
-          new since {clockTime(since)}
-        </span>
+        <Fact count={fresh}>new since {clockTime(since)}</Fact>
       )}
-    </span>
+    </Facts>
   );
 }
 

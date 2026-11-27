@@ -31,6 +31,8 @@ export const RELEASES: Release[] = [
       "Agents can post a heads-up when they find something you should know, a few an hour at most",
       "Feed can suggest an automation for a request you repeat, or a next task a lead names. Nothing starts until you set it up, and Settings turns suggestions off",
       "On the office floor, a new post shows over its agent for a few seconds",
+      "A long result opens in place with the arrow under it",
+      "Home, Needs you and Tasks show their counts as pills beside the words",
     ],
   },
   {

@@ -276,6 +276,7 @@
 
 /* What a post carries: a result's first lines, a card's progress. */
 .preview {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -286,7 +287,55 @@
   border-radius: var(--radius-control);
   background: var(--bg);
   font-size: var(--size-meta);
-  mask-image: linear-gradient(to bottom, #000 80%, transparent);
+}
+
+/* Cut off: the last lines fade under the arrow, the frame stays sharp. */
+.previewCut {
+  padding-bottom: 44px;
+}
+
+.previewCut::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 88px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 70%);
+  content: "";
+  pointer-events: none;
+}
+
+.previewOpen {
+  max-height: none;
+  padding-bottom: 44px;
+}
+
+/* One quiet round arrow, centred at the bottom: down opens, up folds. */
+.expand {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transform: translateX(-50%);
+}
+
+.expand:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.expand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .preview > :first-child {
@@ -499,20 +548,6 @@ strong.rowTitle {
   flex: none;
   padding-right: 6px;
   font-variant-numeric: tabular-nums;
-}
-
-/* The header's facts: each number in its pill beside its words. */
-.facts {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 18px;
-}
-
-.fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .caught {

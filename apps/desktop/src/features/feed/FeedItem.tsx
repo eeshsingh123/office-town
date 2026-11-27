@@ -1,6 +1,8 @@
 import type { FeedPost } from "@office-town/contract";
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   EyeOff,
   FileText,
   MessageSquareReply,
@@ -9,7 +11,7 @@ import {
   SquareArrowOutUpRight,
   Zap,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { writeDraft } from "../../store/drafts.ts";
@@ -228,6 +230,43 @@ function LivingProgress({ post }: { post: FeedPost }) {
   );
 }
 
+// A result's first lines; when it runs longer, an arrow opens the rest in place.
+function ResultPreview({ text }: { text: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [cut, setCut] = useState(false);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (element === null || open) return;
+    const measure = () => setCut(element.scrollHeight > element.clientHeight + 2);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [open]);
+  const label = open ? "Show less" : "Show the whole result";
+  return (
+    <div
+      ref={box}
+      className={`${styles.preview} ${open ? styles.previewOpen : cut ? styles.previewCut : ""}`}
+    >
+      <Markdown text={text} />
+      {cut ? (
+        <button
+          type="button"
+          className={styles.expand}
+          aria-expanded={open}
+          aria-label={label}
+          title={label}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 const FILES_SHOWN = 4;
 
 function ResultFiles({ taskId }: { taskId: string }) {
@@ -417,9 +456,7 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
         </p>
       ) : null}
       {post.body === undefined ? null : post.kind === "result" || post.kind === "automation" ? (
-        <div className={styles.preview}>
-          <Markdown text={post.body} />
-        </div>
+        <ResultPreview text={post.body} />
       ) : (
         <p className={styles.text}>{post.body}</p>
       )}
