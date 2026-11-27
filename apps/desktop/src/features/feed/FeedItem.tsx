@@ -19,6 +19,7 @@ import { progressOf, stageOf } from "../../trace/progress.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { ago } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { showToast } from "../../ui/Toast.tsx";
@@ -109,11 +110,15 @@ function Head({ post, author, now }: { post: FeedPost; author: Author; now: numb
           <span className={styles.role}>{author.line}</span>
         )}
       </div>
-      <span className={`${styles.kind} ${kind.tone ?? ""}`}>
-        {post.kind === "living" ? <span className={styles.pulse} aria-hidden /> : null}
-        {label}
-        <time dateTime={post.createdAt}>{ago(post.createdAt, now)}</time>
-      </span>
+      <div className={styles.meta}>
+        <span className={`${styles.kind} ${kind.tone ?? ""}`}>
+          {post.kind === "living" ? <span className={styles.pulse} aria-hidden /> : null}
+          {label}
+        </span>
+        <time className={styles.when} dateTime={post.createdAt}>
+          {ago(post.createdAt, now)}
+        </time>
+      </div>
     </div>
   );
 }
@@ -151,7 +156,12 @@ function useReply(post: FeedPost) {
   const agentId = useReplyTo(post);
   const button =
     agentId === undefined || post.taskId === undefined ? null : (
-      <Button variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>
+      // Alone on a heads-up it gets a frame, so it lines up with the text above it.
+      <Button
+        variant={post.kind === "heads-up" ? "secondary" : "ghost"}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <MessageSquareReply size={14} aria-hidden />
         Reply
       </Button>
@@ -203,20 +213,22 @@ function LivingProgress({ post }: { post: FeedPost }) {
           ))}
         </div>
       )}
-      <div className={styles.liveLine}>
-        {progress.step === undefined ? null : (
-          <span>
-            <strong>
-              Step {progress.step.number} of {progress.stepCount}
-            </strong>{" "}
-            · {progress.step.title}
+      {progress.step === undefined ? null : (
+        <div className={styles.stepLine}>
+          <span title={`Step ${progress.step.number} of ${progress.stepCount}`}>
+            <Count value={`${progress.step.number}/${progress.stepCount}`} />
           </span>
-        )}
-        {now === undefined ? null : <span className={styles.now}>{now}</span>}
-      </div>
+          <span className={styles.stepTitle}>{progress.step.title}</span>
+        </div>
+      )}
+      {now === undefined || now === progress.step?.title ? null : (
+        <span className={styles.now}>{now}</span>
+      )}
     </div>
   );
 }
+
+const FILES_SHOWN = 4;
 
 function ResultFiles({ taskId }: { taskId: string }) {
   const all = useApp((state) => state.outputs);
@@ -225,9 +237,10 @@ function ResultFiles({ taskId }: { taskId: string }) {
     [all, taskId],
   );
   if (outputs.length === 0) return null;
+  const hidden = outputs.length - FILES_SHOWN;
   return (
     <div className={styles.files}>
-      {outputs.slice(0, 4).map((output) => (
+      {outputs.slice(0, FILES_SHOWN).map((output) => (
         <button
           key={output.id}
           type="button"
@@ -238,6 +251,16 @@ function ResultFiles({ taskId }: { taskId: string }) {
           {output.title}
         </button>
       ))}
+      {hidden <= 0 ? null : (
+        <button
+          type="button"
+          className={styles.file}
+          onClick={() => navigate({ name: "task", taskId, tab: "outputs" })}
+        >
+          All files
+          <Count value={outputs.length} />
+        </button>
+      )}
     </div>
   );
 }
@@ -330,11 +353,13 @@ function Row({ post, author, now }: { post: FeedPost; author: Author; now: numbe
       <span className={styles.rowText}>
         {post.kind === "needs-you" ? (
           <>
-            <strong>{post.title}</strong> · Answered
+            <strong className={styles.rowTitle}>{post.title}</strong>
+            <span className={styles.answered}>Answered</span>
           </>
         ) : (
           <>
-            <strong>{author.name}</strong> · {post.title}
+            <strong className={styles.rowName}>{author.name}</strong>
+            <span className={styles.rowTitle}>{post.title}</span>
           </>
         )}
       </span>

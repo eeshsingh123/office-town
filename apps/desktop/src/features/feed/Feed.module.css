@@ -173,40 +173,53 @@
   height: 26px;
 }
 
-.kind {
-  display: inline-flex;
+/* What kind of post as a tinted chip, the time beside it in its own colour. */
+.meta {
+  display: flex;
   flex: none;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   margin-left: auto;
-  color: var(--text-3);
-  font-size: var(--size-label);
+}
+
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--radius-chip);
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: var(--size-small);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
-.kind time {
+.when {
+  color: var(--text-3);
   font-size: var(--size-meta);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .kindNeeds {
+  background: var(--warn-soft);
   color: var(--warn);
 }
 
 .kindLive {
+  background: var(--ok-soft);
   color: var(--ok);
 }
 
 .kindResult {
+  background: var(--review-soft);
   color: var(--review);
 }
 
 .kindBad {
+  background: var(--bad-soft);
   color: var(--bad);
 }
 
@@ -315,23 +328,29 @@
   background: color-mix(in srgb, var(--ok) 45%, var(--border));
 }
 
-.liveLine {
+/* The step count as a pill, the step's name beside it. */
+.stepLine {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 12px;
-  color: var(--text-3);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   font-size: var(--size-meta);
 }
 
-.liveLine strong {
+.stepTitle {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-2);
   font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .now {
   min-width: 0;
   overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--size-meta);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -436,22 +455,64 @@
   contain-intrinsic-size: auto 46px;
 }
 
+/* Who, then what, spaced rather than joined by a dot. */
 .rowText {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rowName {
+  flex: none;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.rowTitle {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.rowText strong {
+strong.rowTitle {
   color: var(--text-2);
+  font-weight: 600;
+}
+
+.answered {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-chip);
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: var(--size-small);
   font-weight: 600;
 }
 
 .rowTime {
   flex: none;
   padding-right: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The header's facts: each number in its pill beside its words. */
+.facts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+}
+
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .caught {

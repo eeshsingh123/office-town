@@ -7,6 +7,7 @@ import { forSession, useKept } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { Count } from "../../ui/Count.tsx";
 import { clockTime } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -132,18 +133,32 @@ function Lead({ since, posts }: { since: string | undefined; posts: FeedPost[] }
   const asks = useApp((state) => Object.keys(state.waiting).length);
   const working = posts.filter((post) => post.kind === "living" && post.state === "open").length;
   const fresh = since === undefined ? 0 : posts.filter((post) => post.createdAt > since).length;
-  const parts = [
-    asks === 0 ? undefined : `${asks} ${asks === 1 ? "needs" : "need"} you`,
-    working === 0 ? undefined : `${working} at work`,
-    since === undefined
-      ? undefined
-      : fresh === 0
-        ? `nothing new since ${clockTime(since)}`
-        : `${fresh} new since ${clockTime(since)}`,
-  ].filter((part) => part !== undefined);
-  if (parts.length === 0) return null;
-  const text = parts.join(" · ");
-  return <>{`${text[0]?.toUpperCase()}${text.slice(1)}`}</>;
+  if (asks === 0 && working === 0 && since === undefined) return null;
+  // Each number in its own pill beside its words, so the line reads as separate facts.
+  return (
+    <span className={styles.facts}>
+      {asks === 0 ? null : (
+        <span className={styles.fact}>
+          <Count value={asks} tone="urgent" />
+          {asks === 1 ? "needs you" : "need you"}
+        </span>
+      )}
+      {working === 0 ? null : (
+        <span className={styles.fact}>
+          <Count value={working} />
+          at work
+        </span>
+      )}
+      {since === undefined ? null : fresh === 0 ? (
+        <span className={styles.fact}>Nothing new since {clockTime(since)}</span>
+      ) : (
+        <span className={styles.fact}>
+          <Count value={fresh} tone="accent" />
+          new since {clockTime(since)}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function FeedView() {
