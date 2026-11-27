@@ -3,18 +3,19 @@ import type { DatabaseSync, StatementSync } from "node:sqlite";
 import {
   type Change,
   FEED_PAGE,
+  FEED_SHOWN,
   type FeedKind,
   type FeedPage,
   type FeedPost,
   type FeedQuery,
-  type FeedShow,
 } from "@office-town/contract";
 import { transaction } from "./database.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const MOST_KEPT = 2000;
 
-// Kept from its last change (D-137); an ask waiting or a task at work is kept until it closes.
+// Kept from its last change (D-137); an ask waiting or a task at work is kept until it closes. A
+// suggestion is kept 30 days, open or not, so the same one is never made twice in a month (D-139).
 const KEPT_DAYS: Record<FeedKind, number> = {
   "needs-you": 7,
   living: 7,
@@ -23,17 +24,14 @@ const KEPT_DAYS: Record<FeedKind, number> = {
   stopped: 7,
   automation: 7,
   "heads-up": 7,
-  suggested: 7,
-};
-
-const SHOWN: Record<Exclude<FeedShow, "all">, readonly FeedKind[]> = {
-  "needs-you": ["needs-you"],
-  results: ["result", "milestone"],
-  automations: ["automation"],
-  suggested: ["suggested"],
+  suggested: 30,
 };
 
 export type PostDraft = Omit<FeedPost, "id" | "createdAt" | "updatedAt">;
+
+// A post as a draft, to write it again with a change.
+export const draftOf = ({ id: _, createdAt: __, updatedAt: ___, ...draft }: FeedPost): PostDraft =>
+  draft;
 
 const queries = {
   insert: `
@@ -81,7 +79,7 @@ const parse = (row: DataRow | undefined): FeedPost | undefined =>
 const searchText = (post: FeedPost) => `${post.title}\n${post.body ?? ""}`.toLowerCase();
 
 function expiresAt(post: FeedPost, at: number): number | null {
-  if (post.state === "open") return null;
+  if (post.state === "open" && post.kind !== "suggested") return null;
   return at + KEPT_DAYS[post.kind] * DAY;
 }
 
@@ -234,7 +232,7 @@ export class FeedStore {
       }
     }
     if (show !== "all") {
-      const kinds = SHOWN[show];
+      const kinds = FEED_SHOWN[show];
       where.push(`kind IN (${kinds.map(() => "?").join(", ")})`);
       values.push(...kinds);
     }

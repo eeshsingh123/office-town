@@ -10,21 +10,33 @@ import styles from "./Feed.module.css";
 interface ReplyBoxProps {
   postId: string;
   agentId: string;
+  // The post's own conversation: a part of a goal posts on the goal, but works in its own task.
+  sessionId: string | undefined;
   taskId: string;
   onSent: () => void;
 }
 
 // The task page's message box in a post: at work, the agent reads it after its current step;
 // once finished, the task continues with it.
-export function ReplyBox({ postId, agentId, taskId, onSent }: ReplyBoxProps) {
+export function ReplyBox({
+  postId,
+  agentId,
+  sessionId: postSession,
+  taskId,
+  onSent,
+}: ReplyBoxProps) {
   const id = useId();
   const draft = `feed.reply.${postId}`;
   const [text, setText] = useDraft(draft, "");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const name = useApp((state) => state.agents[agentId]?.name ?? "the agent");
+  const knownTaskId = useApp((state) =>
+    postSession === undefined ? undefined : state.sessions[postSession]?.taskId,
+  );
+  const workTaskId = knownTaskId ?? taskId;
   const sessionId = useApp((state) =>
-    (state.tasks[taskId]?.sessionIds ?? []).findLast(
+    (state.tasks[workTaskId]?.sessionIds ?? []).findLast(
       (id) => state.sessions[id]?.agentId === agentId,
     ),
   );
@@ -43,8 +55,11 @@ export function ReplyBox({ postId, agentId, taskId, onSent }: ReplyBoxProps) {
     setSending(true);
     setError(undefined);
     try {
-      await api.messageAgent(agentId, message, taskId);
-      if (!live) await track(taskId);
+      const target =
+        knownTaskId ??
+        (postSession === undefined ? taskId : (await api.getSession(postSession)).taskId);
+      await api.messageAgent(agentId, message, target);
+      if (!live) await track(target);
       clearDrafts(draft);
       onSent();
     } catch (failure) {

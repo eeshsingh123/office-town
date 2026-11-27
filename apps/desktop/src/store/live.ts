@@ -2,6 +2,8 @@ import type {
   AgentRecord,
   Change,
   DelegationRecord,
+  FeedPage,
+  FeedPost,
   MilestoneRecord,
   PlanPiece,
   RoomPosition,
@@ -77,6 +79,15 @@ async function refresh(openStream?: (after: number) => void): Promise<void> {
     refreshing -= 1;
     if (refreshing === 0 && (queue.length > 0 || changes.length > 0)) schedule();
   }
+}
+
+// Posts older than everything in `page`, which a fresh read of the newest page leaves as they were.
+function olderThan(feed: Record<string, FeedPost>, page: FeedPage): Record<string, FeedPost> {
+  const oldest = page.posts.at(-1);
+  if (!page.more || oldest === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(feed).filter(([, post]) => post.createdAt < oldest.createdAt),
+  );
 }
 
 async function readAll(openStream: ((after: number) => void) | undefined): Promise<void> {
@@ -159,8 +170,9 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     autonomyByDefault: settings.autonomyByDefault,
     feedSeenAt: settings.feedSeenAt,
     suggestions: settings.suggestions !== false,
-    // Pages read before stay; a reconnect adds what it missed at the top.
-    feed: { ...state.feed, ...byId(feed.posts) },
+    // The newest page replaces the posts it covers, so one removed while away is gone; older
+    // pages read before stay.
+    feed: { ...olderThan(state.feed, feed), ...byId(feed.posts) },
     // One removed meanwhile is gone; one that arrived during the read stays.
     agents: {
       ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),

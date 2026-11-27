@@ -1,8 +1,7 @@
-import { FEED_BODY_CHARS, FEED_TITLE_CHARS, type TaskRecord } from "@office-town/contract";
+import { FEED_BODY_CHARS, FEED_TITLE_CHARS } from "@office-town/contract";
 import { z } from "zod";
-import { taskName } from "../notify/notifier.ts";
 import { redact } from "../notify/redact.ts";
-import type { PostDraft } from "../store/feed-store.ts";
+import { draftOf, type PostDraft } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 import { defineTool, ToolError } from "../tools/tools.ts";
 import { clip, taskKey } from "./projector.ts";
@@ -59,7 +58,7 @@ export function postUpdate(store: Store) {
         sessionId: caller.sessionId,
         ...(departmentId === undefined ? {} : { departmentId }),
       };
-      if (follow_up !== undefined) return suggest(store, base, follow_up, agent?.name, task);
+      if (follow_up !== undefined) return suggest(store, base, follow_up);
       const now = Date.now();
       const crowded =
         store.feed.countForTask("heads-up", ownerId, now - HOUR) >= TASK_POSTS_AN_HOUR ||
@@ -76,18 +75,11 @@ function foldIntoCard(store: Store, taskId: string, line: string): string {
   if (card === undefined) {
     return "Not posted: you have posted enough for now. Put it in your result instead.";
   }
-  const { id: _, createdAt: __, updatedAt: ___, ...draft } = card;
-  store.feed.update(card, { ...draft, note: line });
+  store.feed.update(card, { ...draftOf(card), note: line });
   return "You have posted enough for now, so this line shows on your task's card instead.";
 }
 
-function suggest(
-  store: Store,
-  base: Omit<PostDraft, "kind" | "state">,
-  prompt: string,
-  agentName: string | undefined,
-  task: TaskRecord,
-): string {
+function suggest(store: Store, base: Omit<PostDraft, "kind" | "state">, prompt: string): string {
   if (!mayFeedSuggest(store, "follow-up")) {
     return "Not posted: the user is not taking suggestions now. Name it in your result instead.";
   }
@@ -97,7 +89,6 @@ function suggest(
     state: "open",
     suggestion: {
       rule: "follow-up",
-      why: `${agentName ?? "An agent"} suggested it while working on "${taskName(task)}".`,
       open: {
         kind: "task",
         prompt: redact(prompt),

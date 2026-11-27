@@ -28,6 +28,7 @@ import { showToast } from "../../ui/Toast.tsx";
 import { TARGET_DRAFT } from "../new-task/targets.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
+import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./Feed.module.css";
 import { ReplyBox } from "./ReplyBox.tsx";
 
@@ -55,9 +56,10 @@ export function useAuthor(post: FeedPost): Author {
     if (agentId !== undefined && agent === undefined) void knowAgents([agentId]);
   }, [agentId, agent]);
   if (post.by.kind === "automation") {
+    // Its kind chip already says Automation.
     return {
       name: post.by.name,
-      line: "Automation",
+      line: undefined,
       face: (size) => tile(<Zap size={size / 2} />, size < 30),
     };
   }
@@ -101,7 +103,14 @@ const STOPPED: Record<NonNullable<FeedPost["stopped"]>, string> = {
 };
 
 function Head({ post, author, now }: { post: FeedPost; author: Author; now: number }) {
-  const kind = KIND[post.kind];
+  // A task waiting for its turn has a card, but is not at work yet.
+  const queued = useApp(
+    (state) =>
+      post.kind === "living" &&
+      post.taskId !== undefined &&
+      statusOfTask(state, post.taskId) === "queued",
+  );
+  const kind = queued ? { label: "Queued" } : KIND[post.kind];
   const label = post.stopped === undefined ? kind.label : STOPPED[post.stopped];
   return (
     <div className={styles.head}>
@@ -114,7 +123,7 @@ function Head({ post, author, now }: { post: FeedPost; author: Author; now: numb
       </div>
       <div className={styles.meta}>
         <span className={`${styles.kind} ${kind.tone ?? ""}`}>
-          {post.kind === "living" ? <span className={styles.pulse} aria-hidden /> : null}
+          {post.kind === "living" && !queued ? <span className={styles.pulse} aria-hidden /> : null}
           {label}
         </span>
         <time className={styles.when} dateTime={post.createdAt}>
@@ -173,6 +182,7 @@ function useReply(post: FeedPost) {
       <ReplyBox
         postId={post.id}
         agentId={agentId}
+        sessionId={post.sessionId}
         taskId={post.taskId}
         onSent={() => setOpen(false)}
       />
@@ -342,6 +352,11 @@ function Suggested({ post, author, now }: { post: FeedPost; author: Author; now:
       <Head post={post} author={author} now={now} />
       <h3 className={styles.title}>{post.title}</h3>
       {post.body === undefined ? null : <p className={styles.text}>{post.body}</p>}
+      {/* What Set it up fills in, so the user knows before opening it. */}
+      {suggestion.open.kind === "task" ? (
+        <p className={styles.prompt}>{suggestion.open.prompt}</p>
+      ) : null}
+      {post.by.kind === "agent" ? <TaskLink post={post} /> : null}
       <div className={styles.actions}>
         <Button onClick={setUp}>Set it up</Button>
         <Button variant="ghost" onClick={() => void dismiss()}>

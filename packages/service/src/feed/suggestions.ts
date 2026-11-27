@@ -54,7 +54,6 @@ export function suggestRepeat(store: Store, task: TaskRecord): void {
     kind: "suggested",
     by: { kind: "app" },
     title: `Run "${name}" ${when}?`,
-    body: `As an automation it runs ${when} and posts its result here.`,
     ...(task.departmentId === undefined ? {} : { departmentId: task.departmentId }),
     state: "open",
     suggestion: {

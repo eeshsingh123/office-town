@@ -6,6 +6,7 @@ import {
 } from "@office-town/contract";
 import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
+import { draftOf } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 
 const NO_CONTENT = { status: 204 } as const;
@@ -13,8 +14,7 @@ const QUIET_FOR_MS = 30 * 24 * 60 * 60_000;
 
 // Turned down: it leaves the page but still counts toward the day's suggestions (D-139).
 function turnDown(store: Store, post: FeedPost): void {
-  const { id: _, createdAt: __, updatedAt: ___, ...draft } = post;
-  store.feed.update(post, { ...draft, state: "answered" });
+  store.feed.update(post, { ...draftOf(post), state: "answered" });
 }
 
 function suggestionOf(store: Store, postId: string) {

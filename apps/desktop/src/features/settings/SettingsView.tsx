@@ -152,7 +152,7 @@ function Feed() {
     <Group id="feed">
       <SwitchRow
         label="Suggestions"
-        hint="Tasks and automations suggested from your work. Nothing starts until you set it up."
+        hint="Tasks and automations suggested from your work."
         on={on}
         onChange={(next) => void choose(next)}
       />

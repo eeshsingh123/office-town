@@ -8,7 +8,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { Fact, Facts } from "../../ui/Facts.tsx";
-import { clockTime } from "../../ui/format.ts";
+import { sinceTime } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -16,7 +16,14 @@ import { TabRow } from "../../ui/TabRow.tsx";
 import { startNewTask } from "../new-task/start-new-task.ts";
 import styles from "./Feed.module.css";
 import { FeedItem, useAuthor } from "./FeedItem.tsx";
-import { type FeedFilter, markSeen, NO_FILTER, newestFirst, postsInView } from "./feed.ts";
+import {
+  type FeedFilter,
+  markSeen,
+  NO_FILTER,
+  newestFirst,
+  newestShown,
+  postsInView,
+} from "./feed.ts";
 
 const SHOW: { value: FeedShow; label: string }[] = [
   { value: "all", label: "All" },
@@ -94,7 +101,7 @@ function usePages(filter: FeedFilter) {
     more: () => {
       if (!cursor.loading && cursor.more) void read(cursor.oldest);
     },
-    again: () => void read(cursor.oldest === undefined ? undefined : cursor.oldest),
+    again: () => void read(cursor.oldest),
   };
 }
 
@@ -102,7 +109,7 @@ function Face({ post }: { post: FeedPost }) {
   return <>{useAuthor(post).face(26)}</>;
 }
 
-// X style: who posted, then how many wait above.
+// Who posted, then how many wait above.
 function NewPostsPill({ posts, onShow }: { posts: FeedPost[]; onShow: () => void }) {
   if (posts.length === 0) return null;
   const faces: FeedPost[] = [];
@@ -143,9 +150,9 @@ function Lead({ since, posts }: { since: string | undefined; posts: FeedPost[] }
       )}
       {working === 0 ? null : <Fact count={working}>at work</Fact>}
       {since === undefined ? null : fresh === 0 ? (
-        <Fact>Nothing new since {clockTime(since)}</Fact>
+        <Fact>Nothing new since {sinceTime(since)}</Fact>
       ) : (
-        <Fact count={fresh}>new since {clockTime(since)}</Fact>
+        <Fact count={fresh}>new since {sinceTime(since)}</Fact>
       )}
     </Facts>
   );
@@ -163,33 +170,39 @@ export function FeedView() {
   const [openedAt] = useState(() => new Date().toISOString());
   const scroller = useRef<HTMLElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
+  const readMore = useRef(more);
+  readMore.current = more;
   // Set while scrolled down: posts newer than this wait behind the pill.
   const [holdAfter, setHoldAfter] = useState<string>();
 
   const all = useMemo(() => postsInView(feed, filter, cursor.oldest), [feed, filter, cursor]);
   const held = holdAfter === undefined ? [] : all.filter((post) => post.createdAt > holdAfter);
   const shown = holdAfter === undefined ? all : all.filter((post) => post.createdAt <= holdAfter);
-  const newest = all[0];
+  const listed = all.length > 0;
 
-  // At the top with the window in front, everything shown counts as seen.
-  useEffect(() => {
-    if (holdAfter !== undefined || newest === undefined || !document.hasFocus()) return;
-    const timer = setTimeout(() => markSeen(newest.createdAt), 1000);
-    return () => clearTimeout(timer);
-  }, [holdAfter, newest]);
-
+  // Watched while the list is on the page; near its bottom, the next page is read.
   useEffect(() => {
     const target = sentinel.current;
-    if (target === null) return;
+    if (!listed || target === null) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) more();
+        if (entries.some((entry) => entry.isIntersecting)) readMore.current();
       },
       { root: scroller.current, rootMargin: "600px" },
     );
     observer.observe(target);
     return () => observer.disconnect();
-  });
+  }, [listed]);
+  const newest = all[0];
+  // Any filter: opening Feed is a look at it, as the sidebar dot counts every new post.
+  const newestAt = useMemo(() => newestShown(feed), [feed]);
+
+  // At the top with the window in front, everything counts as seen.
+  useEffect(() => {
+    if (holdAfter !== undefined || newestAt === undefined || !document.hasFocus()) return;
+    const timer = setTimeout(() => markSeen(newestAt), 1000);
+    return () => clearTimeout(timer);
+  }, [holdAfter, newestAt]);
 
   const onScroll = () => {
     const top = scroller.current?.scrollTop ?? 0;

@@ -36,7 +36,8 @@ export type SuggestionRule = z.infer<typeof suggestionRuleSchema>;
 // "Set it up" opens a filled-in form; nothing starts on its own (D-139).
 export const suggestionSchema = z.object({
   rule: suggestionRuleSchema,
-  why: z.string().min(1),
+  // Office Town's own reason; an agent's suggestion links the task it came from instead.
+  why: z.string().min(1).optional(),
   open: z.discriminatedUnion("kind", [
     z.object({
       kind: z.literal("task"),
@@ -78,6 +79,14 @@ export type FeedPost = z.infer<typeof feedPostSchema>;
 
 export const feedShowSchema = z.enum(["all", "needs-you", "results", "automations", "suggested"]);
 export type FeedShow = z.infer<typeof feedShowSchema>;
+
+// The kinds each Show tab lists, the same in the core's pages and in posts that arrive live.
+export const FEED_SHOWN: Record<Exclude<FeedShow, "all">, readonly FeedKind[]> = {
+  "needs-you": ["needs-you"],
+  results: ["result", "milestone"],
+  automations: ["automation"],
+  suggested: ["suggested"],
+};
 
 export const FEED_PAGE = 50;
 

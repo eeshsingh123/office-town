@@ -38,7 +38,7 @@
   gap: 14px;
 }
 
-/* New posts wait above while the list is scrolled, X style: faces of who posted, then a count. */
+/* New posts wait above while the list is scrolled: faces of who posted, then a count. */
 .pillRow {
   position: sticky;
   top: 12px;
@@ -404,6 +404,17 @@
   text-overflow: ellipsis;
 }
 
+.prompt {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: var(--size-meta);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .note {
   margin: 0;
   color: var(--text-2);
@@ -458,8 +469,10 @@
 .replyField {
   width: 100%;
   min-height: 64px;
+  max-height: 200px;
   padding: 8px 10px;
-  resize: vertical;
+  resize: none;
+  field-sizing: content;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);

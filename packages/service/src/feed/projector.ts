@@ -15,7 +15,7 @@ import { accountTitle } from "../accounts/accounts.ts";
 import { taskName, wantOf } from "../notify/notifier.ts";
 import { redact } from "../notify/redact.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
-import type { PostDraft } from "../store/feed-store.ts";
+import { draftOf, type PostDraft } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 import { resultOf, statusOf, topSession } from "../team/task-state.ts";
 import { suggestRepeat } from "./suggestions.ts";
@@ -195,8 +195,7 @@ export class FeedProjector {
   }
 
   #answered(post: FeedPost): void {
-    const { id: _, createdAt: __, updatedAt: ___, ...draft } = post;
-    this.#store.feed.update(post, { ...draft, state: "answered" });
+    this.#store.feed.update(post, { ...draftOf(post), state: "answered" });
   }
 
   // `settled`: an end seen again after a pause, so a lead's gap between turns is not an end.

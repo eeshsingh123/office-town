@@ -113,6 +113,8 @@ function StatusLine({ items }: { items: Item[] }) {
   );
   const needs = count("needs");
   const newPosts = useNewPosts();
+  const feedOpened = useApp((state) => state.feedSeenAt !== undefined);
+  const postsWhere = feedOpened ? "since you were here" : "in Feed";
   const parts = [
     {
       key: "needs",
@@ -129,7 +131,7 @@ function StatusLine({ items }: { items: Item[] }) {
     {
       key: "feed",
       count: newPosts,
-      text: newPosts === 1 ? "new post since you were here" : "new posts since you were here",
+      text: `${newPosts === 1 ? "new post" : "new posts"} ${postsWhere}`,
       open: () => navigate({ name: "feed" }),
     },
   ].filter((part) => part.count > 0);

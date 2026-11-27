@@ -838,7 +838,9 @@ export function Floor(props: FloorProps) {
                 <span className={styles.doze}>z</span>
               </div>
             )}
-            {bubble === undefined || asleep === true ? null : posted === true ? (
+            {/* A post shows over a sleeping agent too: a team's members sleep once it finishes. */}
+            {bubble === undefined || (asleep === true && posted !== true) ? null : posted ===
+              true ? (
               // A new post: it opens in Feed (D-140).
               <button
                 type="button"

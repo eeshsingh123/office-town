@@ -1,4 +1,4 @@
-import type { FeedKind, FeedPost, FeedShow } from "@office-town/contract";
+import { FEED_SHOWN, type FeedPost, type FeedShow } from "@office-town/contract";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 
@@ -10,20 +10,13 @@ export interface FeedFilter {
 
 export const NO_FILTER: FeedFilter = { show: "all", departmentId: undefined, search: "" };
 
-const SHOWN: Record<Exclude<FeedShow, "all">, readonly FeedKind[]> = {
-  "needs-you": ["needs-you"],
-  results: ["result", "milestone"],
-  automations: ["automation"],
-  suggested: ["suggested"],
-};
-
 // A suggestion the user turned down is gone, as the core leaves it off every page.
 export const isShown = (post: FeedPost) => post.kind !== "suggested" || post.state === "open";
 
 // The same test the core's page makes, for posts that arrive live.
 export function matches(post: FeedPost, filter: FeedFilter): boolean {
   if (!isShown(post)) return false;
-  if (filter.show !== "all" && !SHOWN[filter.show].includes(post.kind)) return false;
+  if (filter.show !== "all" && !FEED_SHOWN[filter.show].includes(post.kind)) return false;
   if (filter.departmentId !== undefined && post.departmentId !== filter.departmentId) return false;
   const search = filter.search.trim().toLowerCase();
   if (search === "") return true;
@@ -44,6 +37,15 @@ export function postsInView(
     .filter((post) => oldest === undefined || newestFirst(post, oldest) <= 0)
     .sort(newestFirst);
 }
+
+// When the newest post the sidebar dot counts was made.
+export const newestShown = (feed: Record<string, FeedPost>) =>
+  Object.values(feed)
+    .filter(isShown)
+    .reduce<string | undefined>(
+      (at, post) => (at === undefined || post.createdAt > at ? post.createdAt : at),
+      undefined,
+    );
 
 const isNew = (post: FeedPost, seenAt: string | undefined) =>
   isShown(post) && (seenAt === undefined || post.createdAt > seenAt);

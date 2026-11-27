@@ -66,6 +66,17 @@ export function clockTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// "14:32" today, "Tuesday 14:32" this past week, "12 Nov 14:32" before that.
+export function sinceTime(iso: string, now = Date.now()): string {
+  const at = new Date(iso);
+  if (at.toDateString() === new Date(now).toDateString()) return clockTime(iso);
+  const day =
+    now - at.getTime() < 6 * 24 * 60 * 60 * 1000
+      ? at.toLocaleDateString([], { weekday: "long" })
+      : at.toLocaleDateString([], { day: "numeric", month: "short" });
+  return `${day} ${clockTime(iso)}`;
+}
+
 // A time within the next day reads as a clock time, a later one as a day.
 export function whenNext(iso: string): string {
   const at = new Date(iso);

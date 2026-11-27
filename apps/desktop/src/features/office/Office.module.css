@@ -343,7 +343,6 @@
 
 /* A post of the last few seconds, in the accent, as the one bubble that opens something. */
 .bubblePosted {
-  max-width: 240px;
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
   background: var(--accent-soft);
   color: var(--accent-text);
