@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { postUpdate } from "../src/feed/post-update.ts";
+import { ProgressMarks, postProgress } from "../src/feed/progress.ts";
 import { FeedProjector, taskKey } from "../src/feed/projector.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
@@ -58,7 +59,8 @@ beforeEach(async () => {
   });
   states.follow(registry);
   feed = new FeedProjector(store, registry);
-  tools.offer([askUser(registry), postUpdate(store)]);
+  new ProgressMarks(store, registry);
+  tools.offer([askUser(registry), postUpdate(store), postProgress(store)]);
 });
 
 afterEach(async () => {
@@ -72,7 +74,9 @@ afterEach(async () => {
 describe("tool server", () => {
   // Feed (D-137, D-138): one card while the task works, the ask as a post that closes when
   // answered, an agent's posts capped into its card, and a restart that writes nothing twice.
-  it("serves only the session it gave a token, puts ask_user's question in Needs you and Feed, sends the answer back, and caps an agent's posts", async () => {
+  // Progress updates (D-141): not offered while off, refused with nothing new or too soon, and
+  // taken in place on the card, which moves to the top.
+  it("serves only the session it gave a token, puts ask_user's question in Needs you and Feed, sends the answer back, caps an agent's posts, and takes progress updates only when earned", async () => {
     const task = store.createTask("Pick a colour");
     const agent = addAgent(store);
     const session = await registry.start({
@@ -128,12 +132,41 @@ describe("tool server", () => {
       .posts.filter((post) => post.kind === "heads-up");
     expect(posted.map((post) => post.title)).toEqual(["Three", "Two", "One"]);
     expect(store.feed.byKey(taskKey(task.id))?.note).toBe("Four");
+
     const count = store.feed.page({ show: "all" }).posts.length;
     const again = new FeedProjector(store, registry);
     again.start();
     await new Promise((resolve) => setTimeout(resolve, 400));
     again.stop();
     expect(store.feed.page({ show: "all" }).posts).toHaveLength(count);
+
+    const progress = (title: string) =>
+      rpc(token, "tools/call", { name: "post_progress", arguments: { title } });
+    const text = (reply: Awaited<ReturnType<typeof rpc>>) =>
+      reply.body.result?.content[0]?.text ?? "";
+    expect(listed.body.result.tools.map((tool) => tool.name)).not.toContain("post_progress");
+    await progress("Off");
+    expect(store.feed.updatesOf(task.id)).toEqual([]);
+    store.setTaskUpdates(task.id, true);
+    expect(text(await progress("Too early"))).toContain("nothing new");
+    const milestone = store.createMilestone({
+      taskId: task.id,
+      outcome: "Blue everywhere",
+      see: "Every page is blue",
+      origin: "agent",
+    });
+    store.updateMilestone(milestone.id, { status: "met" });
+    expect(text(await progress("Blue is in"))).toContain("Posted");
+    const card = store.feed.byKey(taskKey(task.id));
+    expect(card?.update).toMatchObject({
+      title: "Blue is in",
+      after: 'After "Blue everywhere" was met',
+    });
+    expect(card?.updates).toBe(1);
+    expect(store.feed.page({ show: "all" }).posts[0]?.id).toBe(card?.id);
+    store.updateMilestone(milestone.id, { status: "not_met" });
+    expect(text(await progress("Again"))).toContain("30 minutes apart");
+    expect(store.feed.updatesOf(task.id).map((update) => update.title)).toEqual(["Blue is in"]);
 
     await registry.stop(session.id);
     expect((await rpc(token, "tools/list")).status).toBe(401);

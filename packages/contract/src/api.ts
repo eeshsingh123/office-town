@@ -87,6 +87,8 @@ export const taskRecordSchema = z.object({
   efficient: z.boolean().optional(),
   // Milestones: the team writes what the user will get and checks each part against it.
   milestones: z.boolean().optional(),
+  // Progress updates: the agent that owns its Feed card writes what it found there (D-141).
+  updates: z.boolean().optional(),
   // Send result to: its result goes to Settings' result places once it is done.
   sendResult: z.boolean().optional(),
   delivery: deliverySchema.optional(),
@@ -353,6 +355,8 @@ export const settingsSchema = z.object({
   // New tasks start with these unless the user picks otherwise (D-94).
   efficientByDefault: z.boolean().optional(),
   milestonesByDefault: z.boolean().optional(),
+  // A task in Efficient mode starts with updates off all the same (D-141).
+  updatesByDefault: z.boolean().optional(),
   // The level new tasks, teams and departments start at; unset is Auto (D-111).
   autonomyByDefault: everydayAutonomySchema.optional(),
   // Which notices the core makes (D-124).
@@ -383,16 +387,18 @@ export const startTaskRequestSchema = z.object({
   // Without them, the app's defaults.
   efficient: z.boolean().optional(),
   milestones: z.boolean().optional(),
+  updates: z.boolean().optional(),
   sendResult: z.boolean().optional(),
 });
 export type StartTaskRequest = z.infer<typeof startTaskRequestSchema>;
 
-// Any of them. Efficient is taken at each size check, Milestones at each agent's next start, Send
-// result when the task ends.
+// Any of them. Efficient is taken at each size check, Milestones at each agent's next start,
+// Progress updates off at once and on at the next start, Send result when the task ends.
 export const taskModeRequestSchema = z
   .object({
     efficient: z.boolean().optional(),
     milestones: z.boolean().optional(),
+    updates: z.boolean().optional(),
     sendResult: z.boolean().optional(),
   })
   .refine((mode) => Object.values(mode).some((on) => on !== undefined), "Nothing to change");
@@ -403,6 +409,7 @@ export const taskDefaultsRequestSchema = z
   .object({
     efficient: z.boolean().optional(),
     milestones: z.boolean().optional(),
+    updates: z.boolean().optional(),
     autonomy: everydayAutonomySchema.optional(),
   })
   .refine(

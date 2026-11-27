@@ -38,7 +38,12 @@ import { TagLayer, tagOf, useTaggableApps } from "../connectors/AppTags.tsx";
 import { keptLevel } from "../departments/team-form.ts";
 import { useLibrary } from "../library/library.ts";
 import { selectAgent } from "../office/office-state.ts";
-import { type TaskOptions, useDefaultLevel, useTaskDefaults } from "../task/task-options.ts";
+import {
+  startingOptions,
+  type TaskOptions,
+  useDefaultLevel,
+  useTaskDefaults,
+} from "../task/task-options.ts";
 import { useSharedWith, WorkspacePicker } from "../workspaces/WorkspacePicker.tsx";
 import { AskChip } from "./AskChip.tsx";
 import styles from "./Composer.module.css";
@@ -183,7 +188,7 @@ export function Composer({ home = false, automation }: ComposerProps) {
     {},
   );
   const defaults = useTaskDefaults();
-  const options: TaskOptions = { ...defaults, ...changedOptions };
+  const options = startingOptions(defaults, changedOptions);
   // A task's own, never an automation's: its Rules say where its results go.
   const [sendResult, setSendResult] = useDraft(`${DRAFT}.sendResult`, false);
   const started = { ...options, ...(sendResult ? { sendResult: true } : {}) };

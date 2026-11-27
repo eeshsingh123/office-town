@@ -7,7 +7,7 @@ import {
 import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
 import { draftOf } from "../store/feed-store.ts";
-import type { Store } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 const QUIET_FOR_MS = 30 * 24 * 60 * 60_000;
@@ -39,6 +39,31 @@ export function feedRoutes(store: Store): Route[] {
           search: query.get("search") || undefined,
         });
         return { status: 200, json: store.feed.page(request) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/feed/posts/:id/updates",
+      // A task card's progress updates, newest first (D-141).
+      reply: ({ param }) => {
+        const post = store.feed.get(param("id"));
+        if (post === undefined) throw new RecordNotFoundError("feed post");
+        const updates = post.taskId === undefined ? [] : store.feed.updatesOf(post.taskId);
+        return { status: 200, json: { updates } };
+      },
+    },
+    {
+      method: "GET",
+      path: "/feed/images/:id",
+      reply: ({ param }) => {
+        const image = store.feed.image(param("id"));
+        if (image === undefined) throw new RecordNotFoundError("picture");
+        return {
+          status: 200,
+          bytes: Buffer.from(image.bytes),
+          type: image.type,
+          headers: { "cache-control": "private, max-age=31536000, immutable" },
+        };
       },
     },
     {

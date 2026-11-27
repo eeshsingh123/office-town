@@ -134,6 +134,8 @@ export interface AppState extends Records {
   // New tasks start in Efficient mode (D-94), and with Milestones (D-95).
   efficientByDefault: boolean;
   milestonesByDefault: boolean;
+  // And with progress updates, unless in Efficient mode (D-141).
+  updatesByDefault: boolean;
   // The level new work starts at (D-111); undefined until the user picks one, which reads as Auto.
   autonomyByDefault: EverydayAutonomy | undefined;
   // Of the tasks whose milestones were read, and each one written since.
@@ -181,6 +183,7 @@ export const useApp = create<AppState>(() => ({
   updates: { routes: {}, resultPlaces: [] },
   efficientByDefault: false,
   milestonesByDefault: false,
+  updatesByDefault: false,
   autonomyByDefault: undefined,
   milestones: {},
   feed: {},

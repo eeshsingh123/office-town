@@ -57,6 +57,10 @@ function headlineOf(text: string): string | undefined {
   return line === undefined ? undefined : clip(line, FEED_TITLE_CHARS);
 }
 
+// A card keeps its progress updates as it changes, and once it becomes the task's result (D-141).
+const updatesOf = (post: FeedPost | undefined) =>
+  post?.update === undefined ? {} : { update: post.update, updates: post.updates ?? 1 };
+
 const isRequest = (event: SessionEvent): event is UserRequestEvent =>
   userRequestEventSchema.safeParse(event).success;
 
@@ -235,7 +239,12 @@ export class FeedProjector {
       return;
     }
     if (living === undefined) this.#store.feed.create(ended);
-    else this.#store.feed.update(living, ended, { key: null, rise: true });
+    else
+      this.#store.feed.update(
+        living,
+        { ...ended, ...updatesOf(living) },
+        { key: null, rise: true },
+      );
     if (ended.kind === "result") suggestRepeat(this.#store, task);
   }
 
@@ -249,6 +258,7 @@ export class FeedProjector {
       ...this.#department(task, top.agentId),
       state: "open",
       ...(living?.note === undefined ? {} : { note: living.note }),
+      ...updatesOf(living),
     };
     if (living === undefined) this.#store.feed.create(draft, { key: taskKey(task.id) });
     else this.#store.feed.update(living, draft);

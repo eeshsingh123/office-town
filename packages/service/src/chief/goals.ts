@@ -74,6 +74,7 @@ async function startChief(
           departments: departmentViews(store),
           choices: await harnessChoices(context, options.environment),
           milestones: task.milestones === true,
+          updates: task.updates === true,
         }),
         attachments: store.taskAttachments(taskId),
       },
@@ -90,6 +91,7 @@ export async function startChiefGoal(
   modes: {
     efficient?: boolean | undefined;
     milestones?: boolean | undefined;
+    updates?: boolean | undefined;
     sendResult?: boolean | undefined;
     origin?: TaskOrigin;
   } = {},
@@ -108,6 +110,7 @@ export async function startChiefGoal(
       ...(waits ? { queued: true } : {}),
       ...(modes.efficient === undefined ? {} : { efficient: modes.efficient }),
       ...(modes.milestones === undefined ? {} : { milestones: modes.milestones }),
+      ...(modes.updates === undefined ? {} : { updates: modes.updates }),
       ...(modes.sendResult === true ? { sendResult: true } : {}),
       ...(modes.origin === undefined ? {} : { origin: modes.origin }),
     },

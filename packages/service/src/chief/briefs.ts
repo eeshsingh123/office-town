@@ -1,4 +1,4 @@
-import { HANDOVER_ASK } from "../agents/briefs.ts";
+import { HANDOVER_ASK, PROGRESS_ASK } from "../agents/briefs.ts";
 import { CHIEF_MILESTONES } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { describeChoices, type HarnessChoices } from "../team/briefs.ts";
@@ -47,8 +47,10 @@ export function chiefBrief(input: {
   departments: DepartmentView[];
   choices: HarnessChoices[];
   milestones?: boolean;
+  updates?: boolean;
 }): Message {
   const milestones = input.milestones === true ? ` ${CHIEF_MILESTONES}` : "";
+  const updates = input.updates === true ? `\n\n${PROGRESS_ASK}` : "";
   const text = `You are the chief in Office Town, an app where teams of AI agents work on goals for the user. Each department is a team with a lead and workers. You do not do the work yourself: you split the goal into pieces, one per department's part of it, and the departments do them.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -64,7 +66,7 @@ Your first step is to plan. Look around just enough to judge the work, then call
 Harnesses and models for a new department's lead:
 ${describeChoices(input.choices)}
 
-Each piece's result reaches you as a message when its department finishes, and passes on to the pieces that wait on it. To steer a lead while its department works, use message_lead. If a piece fails, propose a changed plan with propose_plan, or finish. When every piece is done, end with a short account of the whole goal for the user.
+Each piece's result reaches you as a message when its department finishes, and passes on to the pieces that wait on it. To steer a lead while its department works, use message_lead. If a piece fails, propose a changed plan with propose_plan, or finish. When every piece is done, end with a short account of the whole goal for the user.${updates}
 
 ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;
   return {

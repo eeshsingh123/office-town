@@ -39,7 +39,7 @@ What later work builds on; the why is in DECISIONS.md.
 - **M11 Unattended runs (D-120 to D-124).** Stored retries, the stopped-lead item, quiet workers, owed results first; one admission queue for every start no person typed (`service/src/queue`); Home's card of tasks a close cut off; keep awake; the notifier (`service/src/notify`).
 - **M12 Automations (D-125 to D-134).** A saved New task plus a When, every run an ordinary task through the queue (`service/src/automations`); four event sources behind one interface (`automations/sources/`); Updates to Slack, Discord, Telegram, email or a webhook through an outbox (`notify/`, `features/updates/`); Nothing new runs, notes across runs. Parked: OpenCode 2.4's own automations, MCP events as a source.
 - **M15 Ready-made teams and recipes (D-136).** One click into the existing Describe steps (`features/ready-made/`), as data in the app.
-- **M16 Feed (D-137 to D-140).** Posts projected by the core from tasks, asks, parts and milestones (`service/src/feed`, `store/feed-store.ts`), `post_update` with its cap, rule-based suggestions; the Feed page, its sidebar dot and Home line, floor bubbles (`features/feed/`).
+- **M16 Feed (D-137 to D-141).** Posts projected by the core from tasks, asks, parts and milestones (`service/src/feed`, `store/feed-store.ts`), `post_update` with its cap, rule-based suggestions; the Feed page, its sidebar dot and Home line, floor bubbles (`features/feed/`). Opt-in progress updates in a task's own card with app-drawn charts and pictures (`feed/progress.ts`, `ProgressUpdate.tsx`).
 
 ## Next
 

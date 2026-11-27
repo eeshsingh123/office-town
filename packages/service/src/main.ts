@@ -28,6 +28,7 @@ import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
 import { postUpdate } from "./feed/post-update.ts";
+import { ProgressMarks, postProgress } from "./feed/progress.ts";
 import { FeedProjector } from "./feed/projector.ts";
 import { MilestoneEdits } from "./goal/edits.ts";
 import { goalTools } from "./goal/tools.ts";
@@ -151,6 +152,8 @@ wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessio
 const outbox = new Outbox(store, secrets);
 const notifier = new Notifier(store, registry, outbox);
 const feed = new FeedProjector(store, registry);
+// What earns each task its next progress update (D-141).
+new ProgressMarks(store, registry);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
@@ -199,6 +202,7 @@ toolServer.offer([
   reportNothingNew(store),
   keepNotes(store),
   postUpdate(store),
+  postProgress(store),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();

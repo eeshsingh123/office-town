@@ -123,7 +123,7 @@ function NewTasks() {
       >
         <Segments label="Permissions" value={level} options={LEVELS} onChange={saveDefaultLevel} />
       </SettingRow>
-      {TASK_OPTIONS.map((option) => (
+      {TASK_OPTIONS.filter((option) => option.key !== "updates").map((option) => (
         <SwitchRow
           key={option.key}
           label={option.label}
@@ -139,6 +139,7 @@ function NewTasks() {
 // Saved at once; put back with a note if the core refuses it.
 function Feed() {
   const on = useApp((state) => state.suggestions);
+  const updates = useApp((state) => state.updatesByDefault);
   const choose = async (next: boolean) => {
     useApp.setState({ suggestions: next });
     try {
@@ -155,6 +156,12 @@ function Feed() {
         hint="Tasks and automations suggested from your work."
         on={on}
         onChange={(next) => void choose(next)}
+      />
+      <SwitchRow
+        label="Progress updates for new tasks"
+        hint="The agent in charge posts on its task's card when real progress is made. Tasks in Efficient mode start without them."
+        on={updates}
+        onChange={(next) => saveTaskDefault("updates", next)}
       />
     </Group>
   );

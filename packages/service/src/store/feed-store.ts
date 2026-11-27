@@ -8,11 +8,14 @@ import {
   type FeedPage,
   type FeedPost,
   type FeedQuery,
+  type ProgressUpdate,
 } from "@office-town/contract";
 import { transaction } from "./database.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const MOST_KEPT = 2000;
+// A task's history of updates; at one every 30 minutes, a day's work and more (D-141).
+const UPDATES_KEPT = 50;
 
 // Kept from its last change (D-137); an ask waiting or a task at work is kept until it closes. A
 // suggestion is kept 30 days, open or not, so the same one is never made twice in a month (D-139).
@@ -63,6 +66,31 @@ const queries = {
     WHERE prompt = ? AND created_at >= ? AND parent_ref IS NULL
       AND (origin IS NULL OR origin = '{"kind":"you"}')
     ORDER BY created_at`,
+  insertUpdate: `
+    INSERT INTO progress_updates (id, task_ref, data, search, created_at)
+    VALUES (?, (SELECT ref FROM tasks WHERE id = ?), ?, ?, ?)`,
+  updatesOf: `
+    SELECT data FROM progress_updates WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)
+    ORDER BY created_at DESC, ref DESC`,
+  latestUpdate: `
+    SELECT max(created_at) AS at FROM progress_updates
+    WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
+  removeUpdate: "DELETE FROM progress_updates WHERE id = ?",
+  removeUpdates: `
+    DELETE FROM progress_updates WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
+  insertImage: `
+    INSERT INTO progress_images (id, task_ref, type, bytes)
+    VALUES (?, (SELECT ref FROM tasks WHERE id = ?), ?, ?)`,
+  image: "SELECT type, bytes FROM progress_images WHERE id = ?",
+  removeImage: "DELETE FROM progress_images WHERE id = ?",
+  removeImages: `
+    DELETE FROM progress_images WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
+  setMark: `
+    INSERT INTO progress_marks (task_ref, after, at)
+    VALUES ((SELECT ref FROM tasks WHERE id = ?), ?, ?)
+    ON CONFLICT (task_ref) DO UPDATE SET after = excluded.after, at = excluded.at`,
+  markOf: `
+    SELECT after, at FROM progress_marks WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
   // Past the most kept, the oldest that are not an open ask or a task at work go first.
   overflow: `
     SELECT id FROM feed_posts WHERE expires_at IS NOT NULL
@@ -76,7 +104,8 @@ interface DataRow {
 const parse = (row: DataRow | undefined): FeedPost | undefined =>
   row === undefined ? undefined : (JSON.parse(row.data) as FeedPost);
 
-const searchText = (post: FeedPost) => `${post.title}\n${post.body ?? ""}`.toLowerCase();
+const searchText = (post: { title: string; body?: string | undefined }) =>
+  `${post.title}\n${post.body ?? ""}`.toLowerCase();
 
 function expiresAt(post: FeedPost, at: number): number | null {
   if (post.state === "open" && post.kind !== "suggested") return null;
@@ -200,8 +229,57 @@ export class FeedStore {
   }
 
   remove(id: string): void {
+    const post = this.get(id);
+    // A card's updates go with it.
+    if (post?.updates !== undefined && post.taskId !== undefined) {
+      this.#statements.removeUpdates.run(post.taskId);
+      this.#statements.removeImages.run(post.taskId);
+    }
     const { changes } = this.#statements.remove.run(id);
     if (changes > 0) this.#tell({ type: "feed.removed", postId: id });
+  }
+
+  // Newest first.
+  updatesOf(taskId: string): ProgressUpdate[] {
+    return (this.#statements.updatesOf.all(taskId) as unknown as DataRow[]).map(
+      (row) => JSON.parse(row.data) as ProgressUpdate,
+    );
+  }
+
+  latestUpdateAt(taskId: string): number | undefined {
+    return (this.#statements.latestUpdate.get(taskId) as { at: number | null }).at ?? undefined;
+  }
+
+  // The oldest past the most kept go, with their pictures.
+  addUpdate(taskId: string, update: ProgressUpdate): void {
+    this.#statements.insertUpdate.run(
+      update.id,
+      taskId,
+      JSON.stringify(update),
+      searchText(update),
+      Date.parse(update.at),
+    );
+    for (const old of this.updatesOf(taskId).slice(UPDATES_KEPT)) {
+      this.#statements.removeUpdate.run(old.id);
+      if (old.image !== undefined) this.#statements.removeImage.run(old.image.id);
+    }
+  }
+
+  addImage(taskId: string, id: string, type: string, bytes: Uint8Array): void {
+    this.#statements.insertImage.run(id, taskId, type, bytes);
+  }
+
+  image(id: string): { type: string; bytes: Uint8Array } | undefined {
+    return this.#statements.image.get(id) as { type: string; bytes: Uint8Array } | undefined;
+  }
+
+  // The newest thing that happened in a task, which earns its next update (D-141).
+  setMark(taskId: string, after: string, at = Date.now()): void {
+    this.#statements.setMark.run(taskId, after, at);
+  }
+
+  markOf(taskId: string): { after: string; at: number } | undefined {
+    return this.#statements.markOf.get(taskId) as { after: string; at: number } | undefined;
   }
 
   countSince(kind: FeedKind, since: number): number {
@@ -241,8 +319,11 @@ export class FeedStore {
       values.push(departmentId);
     }
     if (search !== undefined) {
-      where.push("instr(search, ?) > 0");
-      values.push(search.toLowerCase());
+      // A task's card is found by its updates' words too.
+      where.push(`(instr(search, ?) > 0 OR (kind IN ('living', 'result', 'stopped') AND EXISTS (
+        SELECT 1 FROM progress_updates u
+        WHERE u.task_ref = feed_posts.task_ref AND instr(u.search, ?) > 0)))`);
+      values.push(search.toLowerCase(), search.toLowerCase());
     }
     const rows = this.#db
       .prepare(`

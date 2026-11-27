@@ -167,6 +167,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     updates: { routes: settings.updateRoutes ?? {}, resultPlaces: settings.resultPlaces ?? [] },
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
+    updatesByDefault: settings.updatesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,
     feedSeenAt: settings.feedSeenAt,
     suggestions: settings.suggestions !== false,

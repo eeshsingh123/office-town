@@ -619,6 +619,41 @@ function addAutomationEvents(db: DatabaseSync): void {
   `);
 }
 
+function addProgressUpdates(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "updates")) db.exec("ALTER TABLE tasks ADD COLUMN updates INTEGER");
+  db.exec(`
+  -- A task's progress updates (D-141), newest shown on its Feed card, the rest kept for its history.
+  CREATE TABLE IF NOT EXISTS progress_updates (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    task_ref   INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    data       TEXT NOT NULL,
+    search     TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS progress_by_task ON progress_updates (task_ref, created_at);
+
+  -- An update's picture, copied from the work folder, so it outlives the file.
+  CREATE TABLE IF NOT EXISTS progress_images (
+    ref      INTEGER PRIMARY KEY,
+    id       TEXT NOT NULL UNIQUE,
+    task_ref INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    type     TEXT NOT NULL,
+    bytes    BLOB NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS progress_images_by_task ON progress_images (task_ref);
+
+  -- The newest thing that happened in a task, which earns its next update.
+  CREATE TABLE IF NOT EXISTS progress_marks (
+    task_ref INTEGER PRIMARY KEY REFERENCES tasks (ref) ON DELETE CASCADE,
+    after    TEXT NOT NULL,
+    at       INTEGER NOT NULL
+  ) STRICT;
+  `);
+}
+
 // Results sent out, quiet runs and notes kept across runs (D-130, D-131, D-133). Destinations hold no
 // key: keys stay in the credential store. The outbox is written before a send, under a key, so a
 // message goes out once, and a restart sends what waited.
@@ -1147,4 +1182,5 @@ export const migrations: readonly Migration[] = [
     WHERE fold_key IS NOT NULL;
   CREATE INDEX IF NOT EXISTS feed_by_expiry ON feed_posts (expires_at) WHERE expires_at IS NOT NULL;
   `,
+  addProgressUpdates,
 ];

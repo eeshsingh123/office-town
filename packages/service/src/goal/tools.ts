@@ -1,5 +1,6 @@
 import type { DelegationRecord, MilestoneRecord } from "@office-town/contract";
 import { z } from "zod";
+import { progressNudge } from "../feed/progress.ts";
 import { NOT_YET, startWork, teamOf } from "../team/delegate.ts";
 import { isOpen, leadsTeam } from "../team/lead.ts";
 import type { TeamContext } from "../team/members.ts";
@@ -135,9 +136,10 @@ export function reportMilestone(context: TeamContext) {
       const left = (
         part === undefined ? goalMilestones(store, caller.taskId) : partMilestones(store, part)
       ).filter((one) => one.status === "not_started");
+      const nudge = worker ? "" : progressNudge(store, caller.taskId);
       return left.length === 0
-        ? `Saved: ${milestone.key} ${met ? "met" : "not met"}. Every milestone is reported.`
-        : `Saved: ${milestone.key} ${met ? "met" : "not met"}. Still to report: ${left.map((one) => one.key).join(", ")}.`;
+        ? `Saved: ${milestone.key} ${met ? "met" : "not met"}. Every milestone is reported.${nudge}`
+        : `Saved: ${milestone.key} ${met ? "met" : "not met"}. Still to report: ${left.map((one) => one.key).join(", ")}.${nudge}`;
     },
   });
 }

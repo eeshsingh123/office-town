@@ -1,5 +1,6 @@
 import type { FeedPost } from "@office-town/contract";
 import {
+  BellOff,
   Check,
   ChevronDown,
   ChevronUp,
@@ -16,6 +17,7 @@ import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { writeDraft } from "../../store/drafts.ts";
 import { knowAgents, useTraces } from "../../store/live.ts";
+import { useLoadProgress } from "../../store/milestones.ts";
 import { waitingKey } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
 import { MoreMenu } from "../../ui/ActionMenu.tsx";
@@ -28,8 +30,10 @@ import { showToast } from "../../ui/Toast.tsx";
 import { TARGET_DRAFT } from "../new-task/targets.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
+import { goalStatuses, metCount, pieceStatuses } from "../task/goal-progress.ts";
 import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./Feed.module.css";
+import { UpdateBlock, useWidth } from "./ProgressUpdate.tsx";
 import { ReplyBox } from "./ReplyBox.tsx";
 
 interface Author {
@@ -194,36 +198,102 @@ const openTask = (taskId: string | undefined) => {
   if (taskId !== undefined) navigate({ name: "task", taskId });
 };
 
-function LivingProgress({ post }: { post: FeedPost }) {
+// Under this width a step's segment is too thin to read, so the bar fills as one.
+const THINNEST_STEP = 4;
+const NARROW_GAP_PAST = 16;
+
+// Every step fits the card: segments narrow as steps grow, then one bar filled to the share done.
+function StepBar({ done, current, count }: { done: number; current: number; count: number }) {
+  const box = useRef<HTMLDivElement>(null);
+  const width = useWidth(box);
+  const gap = count > NARROW_GAP_PAST ? 2 : 4;
+  const whole = width > 0 && (width - gap * (count - 1)) / count < THINNEST_STEP;
+  const share = (steps: number) => `${(Math.min(steps, count) / count) * 100}%`;
+  return (
+    <div
+      ref={box}
+      className={styles.steps}
+      style={{ gap }}
+      role="img"
+      aria-label={`${done} of ${count} steps done`}
+    >
+      {whole ? (
+        <span className={styles.stepsWhole}>
+          {current > done ? (
+            <span className={styles.stepsNow} style={{ width: share(current) }} />
+          ) : null}
+          <span className={styles.stepsDone} style={{ width: share(done) }} />
+        </span>
+      ) : (
+        Array.from({ length: count }, (_, index) => (
+          <span
+            // biome-ignore lint/suspicious/noArrayIndexKey: steps have no ids of their own.
+            key={index}
+            className={`${styles.step} ${index < done ? styles.stepDone : index === current - 1 ? styles.stepNow : ""}`}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+// With updates on, the counts the app keeps, so an update never has to say them (D-141).
+function Tally({ taskId }: { taskId: string }) {
+  useLoadProgress(taskId);
+  const task = useApp((state) => state.tasks[taskId]?.task);
+  const isChief = useApp((state) => task !== undefined && state.chiefId === task.leadAgentId);
+  const milestones = useApp((state) => state.milestones);
+  const delegations = useApp((state) => state.delegations);
+  const pieces = useApp((state) => state.pieces);
+  const met = useMemo(() => goalStatuses(milestones, taskId, false), [milestones, taskId]);
+  const parts = useMemo(() => {
+    if (isChief) {
+      const statuses = pieceStatuses(Object.values(pieces).filter((one) => one.taskId === taskId));
+      return { done: metCount(statuses), all: statuses.length };
+    }
+    const own = Object.values(delegations).filter((one) => one.taskId === taskId);
+    return { done: own.filter((one) => one.status === "done").length, all: own.length };
+  }, [isChief, pieces, delegations, taskId]);
+  if (task === undefined) return null;
+  const showMet = task.milestones === true && met.length > 0;
+  if (!showMet && parts.all === 0) return null;
+  return (
+    <div className={styles.tally}>
+      {showMet ? (
+        <span className={`${styles.tallyPill} ${styles.tallyMet}`}>
+          {metCount(met)} of {met.length} milestones met
+        </span>
+      ) : null}
+      {parts.all === 0 ? null : (
+        <span className={styles.tallyPill}>
+          {parts.done} of {parts.all} parts done
+        </span>
+      )}
+    </div>
+  );
+}
+
+function LivingProgress({ post, tally }: { post: FeedPost; tally: boolean }) {
   const sessionId = post.sessionId ?? "";
   useTraces(post.sessionId === undefined ? [] : [sessionId]);
   const trace = useApp((state) => state.traces[sessionId]);
   const session = useApp((state) => state.sessions[sessionId]);
-  if (trace === undefined || session === undefined) return null;
+  const counts = tally && post.taskId !== undefined ? <Tally taskId={post.taskId} /> : null;
+  if (trace === undefined || session === undefined) {
+    return counts === null ? null : <div className={styles.progress}>{counts}</div>;
+  }
   const progress = progressOf(trace);
   const stage = stageOf(session.status === "starting" ? "starting" : "working", trace);
   const now = progress.current?.title ?? stage;
-  const steps = Array.from({ length: Math.min(progress.stepCount, 12) }, (_, index) =>
-    index < progress.stepsDone
-      ? styles.stepDone
-      : index === (progress.step?.number ?? 0) - 1
-        ? styles.stepNow
-        : "",
-  );
-  if (progress.step === undefined && now === undefined) return null;
+  if (progress.step === undefined && now === undefined && counts === null) return null;
   return (
     <div className={styles.progress}>
-      {steps.length === 0 ? null : (
-        <div
-          className={styles.steps}
-          role="img"
-          aria-label={`${progress.stepsDone} of ${progress.stepCount} steps done`}
-        >
-          {steps.map((tone, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: steps have no ids of their own.
-            <span key={index} className={`${styles.step} ${tone}`} />
-          ))}
-        </div>
+      {progress.stepCount === 0 ? null : (
+        <StepBar
+          done={progress.stepsDone}
+          current={progress.step?.number ?? 0}
+          count={progress.stepCount}
+        />
       )}
       {progress.step === undefined ? null : (
         <div className={styles.stepLine}>
@@ -236,7 +306,31 @@ function LivingProgress({ post }: { post: FeedPost }) {
       {now === undefined || now === progress.step?.title ? null : (
         <span className={styles.now}>{now}</span>
       )}
+      {counts}
     </div>
+  );
+}
+
+// Turned off from the card, it stops at once (D-141).
+function UpdatesMenu({ taskId }: { taskId: string }) {
+  return (
+    <span className={styles.push}>
+      <MoreMenu
+        label="More for this task"
+        menu={() => ({
+          actions: [
+            {
+              label: "Turn off updates for this task",
+              icon: BellOff,
+              run: async () => {
+                await api.setTaskOptions(taskId, { updates: false });
+                showToast("Progress updates are off for this task.");
+              },
+            },
+          ],
+        })}
+      />
+    </span>
   );
 }
 
@@ -454,6 +548,9 @@ interface FeedItemProps {
 export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
   const author = useAuthor(post);
   const reply = useReply(post);
+  const updatesOn = useApp(
+    (state) => post.taskId !== undefined && state.tasks[post.taskId]?.task.updates === true,
+  );
   if (post.kind === "needs-you") return <NeedsYou post={post} author={author} now={now} />;
   if (post.kind === "suggested") return <Suggested post={post} author={author} now={now} />;
   if (post.kind === "milestone" || (post.kind === "automation" && post.body === undefined)) {
@@ -464,7 +561,7 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
     <article className={classes.join(" ")} aria-label={post.title}>
       <Head post={post} author={author} now={now} />
       <h3 className={styles.title}>{post.title}</h3>
-      {post.kind === "living" ? <LivingProgress post={post} /> : null}
+      {post.kind === "living" ? <LivingProgress post={post} tally={updatesOn} /> : null}
       {post.kind === "living" && post.note !== undefined ? (
         <p className={styles.note}>
           {author.name}: {post.note}
@@ -475,6 +572,9 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
       ) : (
         <p className={styles.text}>{post.body}</p>
       )}
+      {post.kind === "living" || post.kind === "result" || post.kind === "stopped" ? (
+        <UpdateBlock post={post} now={now} />
+      ) : null}
       {post.kind === "heads-up" ? <TaskLink post={post} /> : null}
       {post.kind === "result" && post.taskId !== undefined ? (
         <ResultFiles taskId={post.taskId} />
@@ -493,6 +593,9 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
             </Button>
           ) : null}
           {reply.button}
+          {post.kind === "living" && updatesOn && post.taskId !== undefined ? (
+            <UpdatesMenu taskId={post.taskId} />
+          ) : null}
         </div>
       )}
       {reply.box}

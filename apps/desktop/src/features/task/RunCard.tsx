@@ -137,10 +137,14 @@ function TaskOptionsSection({ taskId }: { taskId: string }) {
   const task = useApp((state) => state.tasks[taskId]?.task);
   if (task === undefined) return null;
   const options = optionsOf(task);
+  // Only the task with its own Feed card has updates; a piece of a goal follows the goal (D-141).
+  const shown = TASK_OPTIONS.filter(
+    (option) => option.key !== "updates" || task.parentTaskId === undefined,
+  );
   return (
     <section className={styles.options} aria-label="For this task">
       <span className={styles.optionsLabel}>For this task</span>
-      {TASK_OPTIONS.map((option) => (
+      {shown.map((option) => (
         <SwitchRow
           key={option.key}
           label={option.label}

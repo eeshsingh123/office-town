@@ -41,8 +41,15 @@ export const PLAN_ASK =
   "If you keep a todo list, update it as you go: mark each step done as you finish it and start the next, as the user follows your progress there.";
 
 // Claude defers this tool too; without the line, agents never post (D-138).
-export const POST_ASK =
-  "If the user should know something now, such as a blocker, a risk or a surprise, tell them with post_update in one plain line. Never post progress, which the user already sees.";
+const HEADS_UP_ASK =
+  "If the user should know something now, such as a blocker, a risk or a surprise, tell them with post_update in one plain line.";
+export const POST_ASK = `${HEADS_UP_ASK} Never post progress, which the user already sees.`;
+// With progress updates on, progress has its own tool, so the heads-up line drops its "never".
+export const postAsk = (updates: boolean) => (updates ? HEADS_UP_ASK : POST_ASK);
+
+// In the brief only while updates are on, so a task without them reads as it always has (D-141).
+export const PROGRESS_ASK =
+  "Progress updates are on for this task. When you reach something worth showing the user, such as a milestone met, a part or step done, or a finding, post it with post_progress, with a chart of numbers you already have or a picture you already made when one shows it best. The app refuses an update less than 30 minutes after the last one or with nothing new since.";
 
 // Every role's line; the app asks in Efficient mode, and an agent's own wish goes to the user (D-94).
 export const HANDOVER_ASK =
@@ -54,13 +61,15 @@ export function soloMessage(
   instructions: string | undefined,
   scratch = false,
   milestones = false,
+  updates = false,
 ): Message {
   const asks = [
     ...(milestones ? [SOLO_MILESTONES] : []),
     ...(scratch ? [SCRATCH_ASK] : []),
     PLAN_ASK,
     SHOW_ASK,
-    POST_ASK,
+    postAsk(updates),
+    ...(updates ? [PROGRESS_ASK] : []),
     CHECKLIST_ASK,
     HANDOVER_ASK,
   ];
