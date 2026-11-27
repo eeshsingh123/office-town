@@ -17,6 +17,7 @@ import { transaction } from "./database.ts";
 const DAY = 24 * 60 * 60 * 1000;
 const MOST_KEPT = 2000;
 const UPDATES_KEPT_DAYS = 30;
+const TOLD_KEPT_DAYS = 90;
 
 // Kept from its last change (D-137); an ask waiting or a task at work is kept until it closes. A
 // suggestion is kept 30 days, open or not, so the same one is never made twice in a month (D-139).
@@ -90,6 +91,8 @@ const queries = {
     INSERT INTO progress_images (id, update_ref, type, bytes)
     VALUES (?, (SELECT ref FROM progress_updates WHERE id = ?), ?, ?)`,
   image: "SELECT type, bytes FROM progress_images WHERE id = ?",
+  tellOnce: "INSERT INTO feed_told (key, at) VALUES (?, ?) ON CONFLICT (key) DO NOTHING",
+  pruneTold: "DELETE FROM feed_told WHERE at < ?",
   addMark: `
     INSERT INTO progress_marks (task_ref, key, after, at)
     VALUES ((SELECT ref FROM tasks WHERE id = ?), ?, ?, ?)
@@ -303,6 +306,11 @@ export class FeedStore {
     return this.#statements.image.get(id) as { type: string; bytes: Uint8Array } | undefined;
   }
 
+  // True the first time a thing is told: a post made once ever, across restarts.
+  tellOnce(key: string): boolean {
+    return this.#statements.tellOnce.run(key, Date.now()).changes > 0;
+  }
+
   // Each thing that happens in a task is kept once under its key, however often it is heard.
   addMark(taskId: string, key: string, after: string, at = Date.now()): void {
     this.#statements.addMark.run(taskId, key, after, at);
@@ -371,6 +379,8 @@ export class FeedStore {
       const expired = this.#statements.expired.all(now) as { id: string }[];
       const overflow = this.#statements.overflow.all(MOST_KEPT) as { id: string }[];
       for (const { id } of [...expired, ...overflow]) this.remove(id);
+      // Past the longest a post it told is kept, telling it again cannot double one.
+      this.#statements.pruneTold.run(now - TOLD_KEPT_DAYS * DAY);
     });
   }
 

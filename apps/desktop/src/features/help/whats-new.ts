@@ -28,6 +28,7 @@ export const RELEASES: Release[] = [
       "Updates come at most every 30 minutes, each after a milestone, part or step, and say what earned it. Settings > Feed sets whether new tasks start with them",
       "A card with updates stays in Feed for 30 days, and its × deletes it sooner. Show all opens every earlier update",
       "The step bar on a working card now fits any number of steps",
+      "Feed never shows the same heads-up or milestone twice, even after a restart, and every new question reaches it",
     ],
   },
   {

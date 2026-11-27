@@ -128,7 +128,8 @@ describe("tool server", () => {
     });
     await vi.waitFor(() => expect(asks().map((post) => post.state)).toEqual(["answered"]));
 
-    for (const title of ["One", "Two", "Three", "Four"]) {
+    // A retried "One" is the same post, so it neither shows twice nor counts toward the cap.
+    for (const title of ["One", "One", "Two", "Three", "Four"]) {
       await rpc(token, "tools/call", { name: "post_update", arguments: { title } });
     }
     const posted = store.feed

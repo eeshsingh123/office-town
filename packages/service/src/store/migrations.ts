@@ -1233,4 +1233,15 @@ export const migrations: readonly Migration[] = [
   addProgressUpdates,
   tieUpdatesToCards,
   addUpdateMarks,
+  `
+  -- What Feed has told once ever, such as a milestone met, so a restart never posts it twice.
+  CREATE TABLE IF NOT EXISTS feed_told (
+    key TEXT PRIMARY KEY,
+    at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS feed_told_by_age ON feed_told (at);
+  -- A task's newest mark, read at each update, without a sort.
+  CREATE INDEX IF NOT EXISTS progress_marks_by_task ON progress_marks (task_ref, ref);
+  `,
 ];
