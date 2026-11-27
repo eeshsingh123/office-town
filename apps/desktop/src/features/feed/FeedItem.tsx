@@ -10,7 +10,7 @@ import {
   SquareArrowOutUpRight,
   Zap,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { writeDraft } from "../../store/drafts.ts";
@@ -220,8 +220,10 @@ function LivingProgress({ post }: { post: FeedPost }) {
 }
 
 function ResultFiles({ taskId }: { taskId: string }) {
-  const outputs = useApp((state) =>
-    Object.values(state.outputs).filter((output) => output.taskId === taskId),
+  const all = useApp((state) => state.outputs);
+  const outputs = useMemo(
+    () => Object.values(all).filter((output) => output.taskId === taskId),
+    [all, taskId],
   );
   if (outputs.length === 0) return null;
   return (
@@ -328,9 +330,17 @@ function Row({ post, author, now }: { post: FeedPost; author: Author; now: numbe
       ) : (
         <span aria-hidden>{author.face(26)}</span>
       )}
+      {/* An ask's title already names who asked. */}
       <span className={styles.rowText}>
-        <strong>{author.name}</strong> · {post.title}
-        {post.kind === "needs-you" ? " · Answered" : ""}
+        {post.kind === "needs-you" ? (
+          <>
+            <strong>{post.title}</strong> · Answered
+          </>
+        ) : (
+          <>
+            <strong>{author.name}</strong> · {post.title}
+          </>
+        )}
       </span>
       <time className={styles.rowTime} dateTime={post.createdAt}>
         {ago(post.createdAt, now)}

@@ -23,13 +23,19 @@ export function ReplyBox({ postId, agentId, taskId, onSent }: ReplyBoxProps) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const name = useApp((state) => state.agents[agentId]?.name ?? "the agent");
+  const sessionId = useApp((state) =>
+    (state.tasks[taskId]?.sessionIds ?? []).findLast(
+      (id) => state.sessions[id]?.agentId === agentId,
+    ),
+  );
   const live = useApp((state) => {
-    const entry = state.tasks[taskId];
-    return (entry?.sessionIds ?? []).some((sessionId) => {
-      const session = state.sessions[sessionId];
-      return session?.agentId === agentId && isOpen(session);
-    });
+    const session = sessionId === undefined ? undefined : state.sessions[sessionId];
+    return session !== undefined && isOpen(session);
   });
+  // Mid-turn, a message waits for the current step; otherwise it starts the next turn.
+  const busy = useApp(
+    (state) => live && sessionId !== undefined && state.traces[sessionId]?.turnOpen === true,
+  );
   const send = async (event?: FormEvent) => {
     event?.preventDefault();
     const message = text.trim();
@@ -66,7 +72,7 @@ export function ReplyBox({ postId, agentId, taskId, onSent }: ReplyBoxProps) {
       />
       <div className={styles.replyRow}>
         <span>
-          {live ? `${name} reads it after the current step.` : "Your reply continues the task."}
+          {busy ? `${name} reads it after the current step.` : "Your reply continues the task."}
         </span>
         <Button type="submit" variant="primary" busy={sending} disabled={text.trim() === ""}>
           Send

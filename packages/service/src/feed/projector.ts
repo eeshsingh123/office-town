@@ -213,10 +213,13 @@ export class FeedProjector {
       this.#living(task, top, living);
       return;
     }
-    const told = `${taskId}/${top.id}`;
-    if (this.#told.has(told)) return;
-    // A task finished while Office Town was closed was never at work here: nothing to tell.
-    if (living === undefined && Date.parse(top.createdAt) < this.#startedAt) return;
+    // Once a turn: a reply that continues the task in the same session ends again later.
+    const told = `${taskId}/${top.id}/${this.#store.latestTurn(top.id)?.at ?? ""}`;
+    if (living === undefined) {
+      if (this.#told.has(told)) return;
+      // A task finished while Office Town was closed was never at work here: nothing to tell.
+      if (Date.parse(top.createdAt) < this.#startedAt) return;
+    }
     if (!settled) {
       this.#later(() => this.#task(taskId, true));
       return;
