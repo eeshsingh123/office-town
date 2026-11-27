@@ -26,7 +26,8 @@ export const feedAuthorSchema = z.discriminatedUnion("kind", [
 export type FeedAuthor = z.infer<typeof feedAuthorSchema>;
 
 // Why work stopped, named plainly on the post.
-export const stopReasonSchema = z.enum(["failed", "usage", "closed"]);
+// "you": a stop the user made, kept as a card only when it has progress updates (D-141).
+export const stopReasonSchema = z.enum(["failed", "usage", "closed", "you"]);
 export type StopReason = z.infer<typeof stopReasonSchema>;
 
 // Repeated requests and an agent's named follow-up; each can be quietened for 30 days.
@@ -52,6 +53,64 @@ export type Suggestion = z.infer<typeof suggestionSchema>;
 export const FEED_TITLE_CHARS = 160;
 export const FEED_BODY_CHARS = 1200;
 
+// A progress update's chart is a handful of numbers the app draws itself (D-141).
+export const CHART_POINTS = 12;
+export const CHART_NUMBERS = 4;
+const label = (most: number) => z.string().trim().min(1).max(most);
+
+export const progressChartSchema = z.discriminatedUnion("kind", [
+  // Big numbers, each with what it was before.
+  z.object({
+    kind: z.literal("numbers"),
+    items: z
+      .array(z.object({ label: label(40), value: label(24), from: label(24).optional() }))
+      .min(1)
+      .max(CHART_NUMBERS),
+  }),
+  z.object({
+    kind: z.literal("bars"),
+    caption: label(80).optional(),
+    items: z
+      .array(
+        z.object({
+          label: label(40),
+          value: z.number().finite().min(0),
+          // The value as the reader knows it, such as "$9".
+          shown: label(24).optional(),
+          highlight: z.boolean().optional(),
+        }),
+      )
+      .min(2)
+      .max(CHART_POINTS),
+  }),
+  z.object({
+    kind: z.literal("line"),
+    caption: label(80).optional(),
+    points: z
+      .array(
+        z.object({ label: label(24), value: z.number().finite(), shown: label(24).optional() }),
+      )
+      .min(2)
+      .max(CHART_POINTS),
+  }),
+]);
+export type ProgressChart = z.infer<typeof progressChartSchema>;
+
+export const progressUpdateSchema = z.object({
+  id: z.string().min(1),
+  agentId: z.string().min(1),
+  title: z.string().min(1).max(FEED_TITLE_CHARS),
+  // Markdown.
+  body: z.string().max(FEED_BODY_CHARS).optional(),
+  chart: progressChartSchema.optional(),
+  // A picture from the work folder, kept by the app.
+  image: z.object({ id: z.string().min(1), name: z.string().min(1) }).optional(),
+  // What earned it, in the app's words: a milestone met, a part or step finished.
+  after: z.string().min(1).max(FEED_TITLE_CHARS),
+  at: z.iso.datetime(),
+});
+export type ProgressUpdate = z.infer<typeof progressUpdateSchema>;
+
 export const feedPostSchema = z.object({
   id: z.string().min(1),
   kind: feedKindSchema,
@@ -71,6 +130,10 @@ export const feedPostSchema = z.object({
   count: z.number().int().min(2).optional(),
   // An agent's own words that came past its cap, shown on its living card.
   note: z.string().min(1).optional(),
+  // A task's card: its newest progress update and how many it has, written by the store from the
+  // card's own updates so they never drift (D-141).
+  update: progressUpdateSchema.optional(),
+  updates: z.number().int().min(1).optional(),
   suggestion: suggestionSchema.optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -104,6 +167,14 @@ export const feedPageSchema = z.object({
   more: z.boolean(),
 });
 export type FeedPage = z.infer<typeof feedPageSchema>;
+
+// A card's progress updates, newest first, a page at a time.
+export const PROGRESS_PAGE = 20;
+export const progressUpdatesSchema = z.object({
+  updates: z.array(progressUpdateSchema),
+  more: z.boolean(),
+});
+export type ProgressUpdates = z.infer<typeof progressUpdatesSchema>;
 
 export const feedSeenRequestSchema = z.object({ at: z.iso.datetime() });
 export const suggestionsRequestSchema = z.object({ on: z.boolean() });

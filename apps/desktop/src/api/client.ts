@@ -104,12 +104,14 @@ import {
   type ProfileRecord,
   type ProfileRequest,
   type ProfileUses,
+  type ProgressUpdates,
   type ProviderSetupRequest,
   pendingRequestListSchema,
   planPieceSchema,
   previewReplySchema,
   profileRecordSchema,
   profileUsesSchema,
+  progressUpdatesSchema,
   type ReviewerRecord,
   type ReviewerRequest,
   type RoomPosition,
@@ -231,6 +233,8 @@ function fileQuery(query: OutputFileQuery): string {
 // Read straight by an <img> or fetch, as the shell forwards the token.
 export const fileAddress = (taskId: string, query: OutputFileQuery, limit?: number) =>
   `/api/tasks/${id(taskId)}/file?${fileQuery(query)}${limit === undefined ? "" : `&limit=${limit}`}`;
+
+export const updateImageAddress = (imageId: string) => `/api/feed/images/${id(imageId)}`;
 
 export const pictureAddress = (output: OutputRecord) =>
   `/api/outputs/${id(output.id)}/picture?at=${id(output.picturedAt ?? "")}`;
@@ -427,9 +431,16 @@ export const api = {
     });
     return read(`/feed?${query}`, feedPageSchema);
   },
+  // Newest first; `before` is the oldest update already shown.
+  progressUpdates: (postId: string, before?: string): Promise<ProgressUpdates> =>
+    read(
+      `/feed/posts/${id(postId)}/updates${before === undefined ? "" : `?before=${id(before)}`}`,
+      progressUpdatesSchema,
+    ),
   markFeedSeen: (at: string): Promise<void> => send("POST", "/feed/seen", { at }),
   setSuggestions: (on: boolean): Promise<void> => send("PUT", "/feed/suggestions", { on }),
   dismissSuggestion: (postId: string): Promise<void> => send("DELETE", `/feed/${id(postId)}`),
+  deleteFeedCard: (postId: string): Promise<void> => send("DELETE", `/feed/${id(postId)}`),
   fewerSuggestions: (postId: string): Promise<void> => send("POST", `/feed/${id(postId)}/fewer`),
   saveOnboarding: (onboarding: Onboarding): Promise<Onboarding> =>
     write("PUT", "/onboarding", onboarding, onboardingSchema),

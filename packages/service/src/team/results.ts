@@ -1,4 +1,5 @@
 import type { DelegationRecord, SessionEvent, SessionRecord } from "@office-town/contract";
+import { progressNudge } from "../feed/progress.ts";
 import { acceptIfMet, resultLine } from "../goal/record.ts";
 import type { SessionActivity } from "../registry/activity.ts";
 import type { Message } from "../registry/session-registry.ts";
@@ -71,7 +72,7 @@ export function reportResults(
     recovery.oweResult(delegation.id);
     // Told before the delegation ends, so the lead owes a turn and its goal never reads finished in between.
     const told = tellLead(context, delegation.taskId, {
-      text: `${resultText(name, outcome, result)}${line === undefined ? "" : `\n\n${line}`}`,
+      text: `${resultText(name, outcome, result)}${line === undefined ? "" : `\n\n${line}`}${outcome === "done" ? progressNudge(store, delegation.taskId) : ""}`,
       origin: {
         kind: "result",
         delegationId: delegation.id,

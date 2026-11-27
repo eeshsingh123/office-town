@@ -4,6 +4,7 @@ import type {
   StartTeamTaskRequest,
   TaskRecord,
 } from "@office-town/contract";
+import { progressNudge } from "../feed/progress.ts";
 import { earlierRun } from "../queue/admission.ts";
 import { RecordNotFoundError, type Store } from "../store/store.ts";
 import { latestSession, tellLead } from "../team/lead.ts";
@@ -121,7 +122,7 @@ export class Scheduler {
       ? "\n\nNo piece of the plan is left open. Give the user a short account of the whole goal."
       : "";
     const told = tellLead(this.#context, piece.taskId, {
-      text: `${pieceResult(departmentNameOf(store, piece), piece.title, ending, result)}${summary}`,
+      text: `${pieceResult(departmentNameOf(store, piece), piece.title, ending, result)}${summary}${ending === "done" ? progressNudge(store, piece.taskId) : ""}`,
       origin: { kind: "piece", pieceId: piece.id, outcome: ending },
     });
     store.updatePiece(piece.id, { status: ending, result });

@@ -7,7 +7,7 @@ import {
 import { RequestError } from "../api/errors.ts";
 import type { Route } from "../api/routes.ts";
 import { draftOf } from "../store/feed-store.ts";
-import type { Store } from "../store/store.ts";
+import { RecordNotFoundError, type Store } from "../store/store.ts";
 
 const NO_CONTENT = { status: 204 } as const;
 const QUIET_FOR_MS = 30 * 24 * 60 * 60_000;
@@ -26,6 +26,14 @@ function suggestionOf(store: Store, postId: string) {
   return { post, suggestion: post.suggestion };
 }
 
+// Only the user deletes a finished task's card, and with it its progress updates (D-141).
+function removeCard(store: Store, post: FeedPost): void {
+  if (post.taskId === undefined || post.state !== "ended" || post.kind === "milestone") {
+    throw new RequestError(400, "invalid_request", "Only a finished task's card can be deleted.");
+  }
+  store.feed.remove(post.id);
+}
+
 export function feedRoutes(store: Store): Route[] {
   return [
     {
@@ -39,6 +47,31 @@ export function feedRoutes(store: Store): Route[] {
           search: query.get("search") || undefined,
         });
         return { status: 200, json: store.feed.page(request) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/feed/posts/:id/updates",
+      // A card's own progress updates, newest first, a page at a time (D-141).
+      reply: ({ param, query }) => {
+        const post = store.feed.get(param("id"));
+        if (post === undefined) throw new RecordNotFoundError("feed post");
+        const before = query.get("before") || undefined;
+        return { status: 200, json: store.feed.updatesOf(post.id, before) };
+      },
+    },
+    {
+      method: "GET",
+      path: "/feed/images/:id",
+      reply: ({ param }) => {
+        const image = store.feed.image(param("id"));
+        if (image === undefined) throw new RecordNotFoundError("picture");
+        return {
+          status: 200,
+          bytes: Buffer.from(image.bytes),
+          type: image.type,
+          headers: { "cache-control": "private, max-age=31536000, immutable" },
+        };
       },
     },
     {
@@ -66,9 +99,12 @@ export function feedRoutes(store: Store): Route[] {
     {
       method: "DELETE",
       path: "/feed/:id",
+      // A suggestion is turned down; a finished task's card is deleted.
       reply: ({ param }) => {
-        const found = suggestionOf(store, param("id"));
-        if (found !== undefined) turnDown(store, found.post);
+        const post = store.feed.get(param("id"));
+        if (post === undefined) return NO_CONTENT;
+        if (post.suggestion === undefined) removeCard(store, post);
+        else turnDown(store, post);
         return NO_CONTENT;
       },
     },

@@ -180,6 +180,7 @@ export interface TaskPlacement {
   queued?: true;
   efficient?: boolean;
   milestones?: boolean;
+  updates?: boolean;
   // Send result to: only a task a person started asks for it.
   sendResult?: boolean;
 }
@@ -306,6 +307,7 @@ export interface Store {
   setTaskTitle(taskId: string, title: string): TaskRecord;
   setTaskEfficient(taskId: string, efficient: boolean): TaskRecord;
   setTaskMilestones(taskId: string, milestones: boolean): TaskRecord;
+  setTaskUpdates(taskId: string, updates: boolean): TaskRecord;
   setTaskSendResult(taskId: string, on: boolean): TaskRecord;
   setTaskDelivery(taskId: string, delivery: Delivery): TaskRecord;
   getTask(id: string): TaskRecord | undefined;
@@ -516,7 +518,9 @@ type RecordKind =
   | "connector"
   | "automation"
   | "run"
-  | "destination";
+  | "destination"
+  | "feed post"
+  | "picture";
 
 // The user reads these, so each kind is named the way the app names it.
 const RECORD_WORDS: Record<RecordKind, string> = {
@@ -540,6 +544,8 @@ const RECORD_WORDS: Record<RecordKind, string> = {
   automation: "automation",
   run: "run",
   destination: "connected app",
+  "feed post": "Feed post",
+  picture: "picture",
 };
 
 export class RecordNotFoundError extends Error {

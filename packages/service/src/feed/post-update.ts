@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { FEED_BODY_CHARS, FEED_TITLE_CHARS } from "@office-town/contract";
 import { z } from "zod";
 import { redact } from "../notify/redact.ts";
@@ -12,6 +13,11 @@ const HOUR = 60 * 60_000;
 // task's card instead.
 const TASK_POSTS_AN_HOUR = 3;
 const POSTS_A_MINUTE = 30;
+const MONTH = 30 * 24 * HOUR;
+
+// The same words again, as a retried call sends them, are one post.
+const sameKey = (kind: string, scope: string, text: string) =>
+  `${kind}:${scope}:${createHash("sha256").update(text.trim().toLowerCase()).digest("hex").slice(0, 16)}`;
 
 // An agent's own words in Feed: a heads-up, or a task it suggests the user start next.
 export function postUpdate(store: Store) {
@@ -60,11 +66,15 @@ export function postUpdate(store: Store) {
       };
       if (follow_up !== undefined) return suggest(store, base, follow_up);
       const now = Date.now();
+      const foldKey = sameKey("heads-up", ownerId, base.title);
+      if (store.feed.latestFold(foldKey, now - HOUR) !== undefined) {
+        return "Already posted: the user has this one.";
+      }
       const crowded =
         store.feed.countForTask("heads-up", ownerId, now - HOUR) >= TASK_POSTS_AN_HOUR ||
         store.feed.countSince("heads-up", now - 60_000) >= POSTS_A_MINUTE;
       if (crowded) return foldIntoCard(store, ownerId, base.title);
-      store.feed.create({ ...base, kind: "heads-up", state: "ended" });
+      store.feed.create({ ...base, kind: "heads-up", state: "ended" }, { foldKey });
       return "Posted to the user's Feed.";
     },
   });
@@ -83,18 +93,26 @@ function suggest(store: Store, base: Omit<PostDraft, "kind" | "state">, prompt: 
   if (!mayFeedSuggest(store, "follow-up")) {
     return "Not posted: the user is not taking suggestions now. Name it in your result instead.";
   }
-  store.feed.create({
-    ...base,
-    kind: "suggested",
-    state: "open",
-    suggestion: {
-      rule: "follow-up",
-      open: {
-        kind: "task",
-        prompt: redact(prompt),
-        ...(base.departmentId === undefined ? {} : { departmentId: base.departmentId }),
+  // Never the same suggestion twice a month (D-139).
+  const foldKey = sameKey("suggest:follow-up", "", prompt);
+  if (store.feed.latestFold(foldKey, Date.now() - MONTH) !== undefined) {
+    return "Already suggested: the user has this one.";
+  }
+  store.feed.create(
+    {
+      ...base,
+      kind: "suggested",
+      state: "open",
+      suggestion: {
+        rule: "follow-up",
+        open: {
+          kind: "task",
+          prompt: redact(prompt),
+          ...(base.departmentId === undefined ? {} : { departmentId: base.departmentId }),
+        },
       },
     },
-  });
+    { foldKey },
+  );
   return "Suggested to the user in Feed. They decide whether to start it.";
 }

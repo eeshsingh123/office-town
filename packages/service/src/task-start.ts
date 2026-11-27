@@ -34,6 +34,7 @@ export async function startSoloTask(
     workspaceId: request.workspaceId,
     ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
     ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
+    ...(request.updates === undefined ? {} : { updates: request.updates }),
     // An automation's run sends through its own rules, never this switch.
     ...(request.sendResult === true && origin === undefined ? { sendResult: true } : {}),
     ...(origin === undefined ? {} : { origin }),
@@ -49,6 +50,7 @@ export async function startSoloTask(
           instructionsFor(store, agent),
           folders.scratch,
           task.milestones === true,
+          task.updates === true,
         ),
         attachments,
       },

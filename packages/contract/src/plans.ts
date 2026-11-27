@@ -93,6 +93,7 @@ export const chiefTaskRequestSchema = z.object({
   // Without them, the app's defaults; the plan's pieces follow the goal.
   efficient: z.boolean().optional(),
   milestones: z.boolean().optional(),
+  updates: z.boolean().optional(),
   sendResult: z.boolean().optional(),
 });
 export type ChiefTaskRequest = z.infer<typeof chiefTaskRequestSchema>;

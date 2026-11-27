@@ -6,7 +6,7 @@ import { loadRemembered } from "../new-task/choices.ts";
 
 // The choices a task makes for itself, with the same words wherever they are picked: Settings
 // for new tasks, the composer's Options, and a running task's run card.
-export type TaskOption = "efficient" | "milestones";
+export type TaskOption = "efficient" | "milestones" | "updates";
 
 export const TASK_OPTIONS: { key: TaskOption; label: string; hint: string }[] = [
   {
@@ -19,6 +19,11 @@ export const TASK_OPTIONS: { key: TaskOption; label: string; hint: string }[] = 
     label: "Milestones",
     hint: "The team writes down what you'll get, checks each part against it, and shows progress.",
   },
+  {
+    key: "updates",
+    label: "Progress updates",
+    hint: "The agent in charge posts on the task's Feed card when real progress is made.",
+  },
 ];
 
 export type TaskOptions = Record<TaskOption, boolean>;
@@ -26,18 +31,30 @@ export type TaskOptions = Record<TaskOption, boolean>;
 export const optionsOf = (task: TaskRecord): TaskOptions => ({
   efficient: task.efficient === true,
   milestones: task.milestones === true,
+  updates: task.updates === true,
 });
 
 const DEFAULTS = {
   efficient: "efficientByDefault",
   milestones: "milestonesByDefault",
+  updates: "updatesByDefault",
 } as const satisfies Record<TaskOption, keyof AppState>;
 
 export function useTaskDefaults(): TaskOptions {
   const efficient = useApp((state) => state.efficientByDefault);
   const milestones = useApp((state) => state.milestonesByDefault);
-  return { efficient, milestones };
+  const updates = useApp((state) => state.updatesByDefault);
+  return { efficient, milestones, updates };
 }
+
+// A task in Efficient mode starts without updates unless the user picks them (D-141).
+export const startingOptions = (
+  defaults: TaskOptions,
+  changed: Partial<TaskOptions>,
+): TaskOptions => {
+  const options = { ...defaults, ...changed };
+  return { ...options, updates: changed.updates ?? (defaults.updates && !options.efficient) };
+};
 
 // Saved at once; put back if the core refuses it.
 export function saveTaskDefault(key: TaskOption, on: boolean): void {

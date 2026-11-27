@@ -68,7 +68,7 @@ export class FeedProjector {
   readonly #dirty = new Set<string>();
   readonly #jobs: (() => void)[] = [];
   readonly #timers = new Set<NodeJS.Timeout>();
-  // Ends and parts already told in this launch, so a repeated change tells nothing twice.
+  // Task ends already told in this launch; parts and milestones are kept told in the store.
   readonly #told = new Set<string>();
   #flushing: NodeJS.Timeout | undefined;
   #pruning: NodeJS.Timeout | undefined;
@@ -194,8 +194,10 @@ export class FeedProjector {
     );
   }
 
+  // Answered, the ask no longer stands for its request, so its key is free (D-138): a CLI that
+  // numbers requests per run may use the same id again.
   #answered(post: FeedPost): void {
-    this.#store.feed.update(post, { ...draftOf(post), state: "answered" });
+    this.#store.feed.update(post, { ...draftOf(post), state: "answered" }, { key: null });
   }
 
   // `settled`: an end seen again after a pause, so a lead's gap between turns is not an end.
@@ -224,7 +226,8 @@ export class FeedProjector {
       return;
     }
     this.#told.add(told);
-    const ended = this.#ended(task, top, status);
+    // A card with progress updates is never removed by the app: it stays, ended (D-141).
+    const ended = this.#ended(task, top, status, living?.updates !== undefined);
     if (ended === undefined) {
       if (living !== undefined) this.#store.feed.remove(living.id);
       return;
@@ -255,8 +258,13 @@ export class FeedProjector {
   }
 
   // What a task that stopped working says: its result, why it stopped, or nothing for a stop the
-  // user made.
-  #ended(task: TaskRecord, top: SessionRecord, status: string): PostDraft | "quiet" | undefined {
+  // user made. A card that must stay says something in every case.
+  #ended(
+    task: TaskRecord,
+    top: SessionRecord,
+    status: string,
+    stays: boolean,
+  ): PostDraft | "quiet" | undefined {
     const base = {
       by: { kind: "agent", agentId: top.agentId } as FeedAuthor,
       title: taskName(task),
@@ -278,14 +286,22 @@ export class FeedProjector {
     }
     if (status === "failed") return { ...base, kind: "stopped", stopped: "failed" };
     if (status === "stopped") {
-      return top.status === "interrupted"
-        ? { ...base, kind: "stopped", stopped: "closed", body: "Stopped when Office Town closed." }
+      if (top.status === "interrupted") {
+        return {
+          ...base,
+          kind: "stopped",
+          stopped: "closed",
+          body: "Stopped when Office Town closed.",
+        };
+      }
+      return stays
+        ? { ...base, kind: "stopped", stopped: "you", body: "You stopped it." }
         : undefined;
     }
     const result = resultOf(this.#store, task);
     const origin = task.origin;
     if (origin?.kind === "automation") {
-      if (this.#store.automations.getRun(origin.runId)?.quiet === true) return "quiet";
+      if (!stays && this.#store.automations.getRun(origin.runId)?.quiet === true) return "quiet";
       const excerpt = excerptOf(result);
       return {
         ...base,
@@ -314,9 +330,9 @@ export class FeedProjector {
   }
 
   #piece(piece: PlanPiece): void {
-    if (piece.status !== "done" || this.#told.has(`piece:${piece.id}`)) return;
+    if (piece.status !== "done") return;
     if (piece.endedAt === undefined || Date.parse(piece.endedAt) < this.#startedAt) return;
-    this.#told.add(`piece:${piece.id}`);
+    if (!this.#store.feed.tellOnce(`piece:${piece.id}`)) return;
     const goal = this.#store.getTask(piece.taskId);
     if (goal === undefined) return;
     const top = topSession(goal, this.#store.listSessions(goal.id));
@@ -341,8 +357,10 @@ export class FeedProjector {
   }
 
   #milestone(milestone: MilestoneRecord): void {
-    if (milestone.status !== "met" || this.#told.has(`milestone:${milestone.id}`)) return;
-    this.#told.add(`milestone:${milestone.id}`);
+    // Once ever, so an edit to a met milestone after a restart is not a second "met".
+    if (milestone.status !== "met" || !this.#store.feed.tellOnce(`milestone:${milestone.id}`)) {
+      return;
+    }
     const task = this.#store.getTask(milestone.taskId);
     if (task === undefined) return;
     const owner = task.parentTaskId === undefined ? task : this.#store.getTask(task.parentTaskId);

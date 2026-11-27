@@ -2,7 +2,7 @@ const TASK_SELECT = `
   SELECT t.ref, t.id, t.prompt, t.created_at AS createdAt, l.id AS leadAgentId,
          d.id AS departmentId, p.id AS parentTaskId,
          (SELECT id FROM workspaces WHERE ref = t.workspace_ref) AS workspaceId, t.setup, t.state,
-         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient, t.milestones, t.origin,
+         t.reviewed_at AS reviewedAt, t.paused, t.checklist, t.title, t.efficient, t.milestones, t.updates, t.origin,
          t.send_result AS sendResult, t.delivery,
          (SELECT json_group_array(a.id) FROM task_workers w JOIN agents a ON a.ref = w.agent_ref
           WHERE w.task_ref = t.ref) AS workerAgentIds
@@ -144,8 +144,8 @@ export const queries = {
   insertTask: `
     INSERT INTO tasks
       (id, prompt, created_at, lead_ref, department_ref, setup, state, parent_ref, workspace_ref,
-       efficient, milestones, origin, send_result)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       efficient, milestones, updates, origin, send_result)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   insertTaskWorker: "INSERT INTO task_workers (task_ref, agent_ref) VALUES (?, ?)",
   taskById: `${TASK_SELECT} WHERE t.id = ?`,
   taskByRef: `${TASK_SELECT} WHERE t.ref = ?`,
@@ -193,6 +193,7 @@ export const queries = {
   setTaskTitle: "UPDATE tasks SET title = ? WHERE ref = ?",
   setTaskEfficient: "UPDATE tasks SET efficient = ? WHERE ref = ?",
   setTaskMilestones: "UPDATE tasks SET milestones = ? WHERE ref = ?",
+  setTaskUpdates: "UPDATE tasks SET updates = ? WHERE ref = ?",
   setTaskSendResult: "UPDATE tasks SET send_result = ? WHERE ref = ?",
   setTaskDelivery: "UPDATE tasks SET delivery = ? WHERE ref = ?",
   pausedTasks: "SELECT id FROM tasks WHERE paused IS NOT NULL ORDER BY ref DESC",

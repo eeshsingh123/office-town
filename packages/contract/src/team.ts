@@ -103,6 +103,7 @@ export const startTeamTaskRequestSchema = z.object({
   // Without them, the app's defaults.
   efficient: z.boolean().optional(),
   milestones: z.boolean().optional(),
+  updates: z.boolean().optional(),
   sendResult: z.boolean().optional(),
   team: z.union([
     // Without a workspace, the department's default.

@@ -153,6 +153,7 @@ interface TaskRow {
   title: string | null;
   efficient: number | null;
   milestones: number | null;
+  updates: number | null;
   origin: string | null;
   sendResult: number | null;
   delivery: string | null;
@@ -416,6 +417,7 @@ function toTask(row: TaskRow, usage: TaskUsage[]): TaskRecord {
     ...(row.title === null ? {} : { title: row.title }),
     ...(row.efficient === null ? {} : { efficient: row.efficient === 1 }),
     ...(row.milestones === null ? {} : { milestones: row.milestones === 1 }),
+    ...(row.updates === null ? {} : { updates: row.updates === 1 }),
     ...(row.sendResult === 1 ? { sendResult: true } : {}),
     ...(row.delivery === null ? {} : { delivery: JSON.parse(row.delivery) as Delivery }),
     usage,
@@ -822,6 +824,11 @@ class SqliteStore implements Store {
       (parent === undefined ? undefined : parent.milestones === 1) ??
       this.readSettings().milestonesByDefault ??
       false;
+    // Efficient mode saves usage, so it starts without updates unless the user picks them (D-141).
+    const updates =
+      placement.updates ??
+      (parent === undefined ? undefined : parent.updates === 1) ??
+      (!efficient && this.readSettings().updatesByDefault === true);
     const workers =
       team !== undefined && "workerAgentIds" in team
         ? team.workerAgentIds.map((agentId) => this.#agentRow(agentId))
@@ -839,6 +846,7 @@ class SqliteStore implements Store {
         workspace?.ref ?? null,
         efficient ? 1 : 0,
         milestones ? 1 : 0,
+        updates ? 1 : 0,
         placement.origin === undefined ? null : JSON.stringify(placement.origin),
         placement.sendResult === true ? 1 : null,
       );
@@ -907,6 +915,11 @@ class SqliteStore implements Store {
 
   setTaskMilestones(taskId: string, milestones: boolean): TaskRecord {
     this.#statements.setTaskMilestones.run(milestones ? 1 : 0, this.#taskRow(taskId).ref);
+    return this.#publishTask(taskId);
+  }
+
+  setTaskUpdates(taskId: string, updates: boolean): TaskRecord {
+    this.#statements.setTaskUpdates.run(updates ? 1 : 0, this.#taskRow(taskId).ref);
     return this.#publishTask(taskId);
   }
 

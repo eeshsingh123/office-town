@@ -619,6 +619,89 @@ function addAutomationEvents(db: DatabaseSync): void {
   `);
 }
 
+// A progress update belongs to its card and a picture to its update, so a card's history never
+// mixes with another card of the same task and goes only with its own card (D-141).
+function createProgressTables(db: DatabaseSync): void {
+  db.exec(`
+  CREATE TABLE IF NOT EXISTS progress_updates (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    post_ref   INTEGER NOT NULL REFERENCES feed_posts (ref) ON DELETE CASCADE,
+    data       TEXT NOT NULL,
+    search     TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS progress_by_post ON progress_updates (post_ref, ref);
+
+  -- Copied from the work folder, so it outlives the file.
+  CREATE TABLE IF NOT EXISTS progress_images (
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    update_ref INTEGER NOT NULL UNIQUE REFERENCES progress_updates (ref) ON DELETE CASCADE,
+    type       TEXT NOT NULL,
+    bytes      BLOB NOT NULL
+  ) STRICT;
+
+  -- What happened in a task that earns its next update, once per thing, so a restart or a repeated
+  -- change never makes something old count as new.
+  CREATE TABLE IF NOT EXISTS progress_marks (
+    ref      INTEGER PRIMARY KEY,
+    task_ref INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    key      TEXT NOT NULL,
+    after    TEXT NOT NULL,
+    at       INTEGER NOT NULL,
+    UNIQUE (task_ref, key)
+  ) STRICT;
+  `);
+}
+
+function addProgressUpdates(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "updates")) db.exec("ALTER TABLE tasks ADD COLUMN updates INTEGER");
+  createProgressTables(db);
+}
+
+// A store from a test build kept updates by task: each moves to the card that showed it.
+function tieUpdatesToCards(db: DatabaseSync): void {
+  if (hasColumn(db, "progress_updates", "post_ref")) return;
+  db.exec(`
+  ALTER TABLE progress_updates RENAME TO old_updates;
+  ALTER TABLE progress_images RENAME TO old_images;
+  ALTER TABLE progress_marks RENAME TO old_marks;
+  `);
+  createProgressTables(db);
+  db.exec(`
+  INSERT INTO progress_updates (id, post_ref, data, search, created_at)
+    SELECT o.id, p.ref, o.data, o.search, o.created_at FROM old_updates o
+    JOIN feed_posts p ON p.ref = (
+      SELECT ref FROM feed_posts WHERE task_ref = o.task_ref AND json_extract(data, '$.update') IS NOT NULL
+      ORDER BY created_at DESC, ref DESC LIMIT 1)
+    ORDER BY o.created_at, o.ref;
+  INSERT INTO progress_images (id, update_ref, type, bytes)
+    SELECT i.id, u.ref, i.type, i.bytes FROM old_images i
+    JOIN progress_updates u ON json_extract(u.data, '$.image.id') = i.id;
+  INSERT INTO progress_marks (task_ref, key, after, at)
+    SELECT task_ref, 'earlier', after, at FROM old_marks;
+  UPDATE feed_posts SET data = json_set(data, '$.updates',
+      (SELECT count(*) FROM progress_updates u WHERE u.post_ref = feed_posts.ref))
+    WHERE ref IN (SELECT post_ref FROM progress_updates);
+  DROP TABLE old_images;
+  DROP TABLE old_updates;
+  DROP TABLE old_marks;
+  `);
+}
+
+// The mark each update used, so a mark recorded after it is new whatever the clock says; and a
+// finished card with updates kept 30 days from its last change, as test builds kept it otherwise.
+function addUpdateMarks(db: DatabaseSync): void {
+  if (!hasColumn(db, "progress_updates", "mark_ref")) {
+    db.exec("ALTER TABLE progress_updates ADD COLUMN mark_ref INTEGER");
+  }
+  db.exec(`
+  UPDATE feed_posts SET expires_at = updated_at + 30 * 86400000
+    WHERE state <> 'open' AND ref IN (SELECT post_ref FROM progress_updates)`);
+}
+
 // Results sent out, quiet runs and notes kept across runs (D-130, D-131, D-133). Destinations hold no
 // key: keys stay in the credential store. The outbox is written before a send, under a key, so a
 // message goes out once, and a restart sends what waited.
@@ -1146,5 +1229,19 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS feed_by_fold ON feed_posts (fold_key, created_at)
     WHERE fold_key IS NOT NULL;
   CREATE INDEX IF NOT EXISTS feed_by_expiry ON feed_posts (expires_at) WHERE expires_at IS NOT NULL;
+  `,
+  addProgressUpdates,
+  tieUpdatesToCards,
+  addUpdateMarks,
+  `
+  -- What Feed has told once ever, such as a milestone met, so a restart never posts it twice.
+  CREATE TABLE IF NOT EXISTS feed_told (
+    key TEXT PRIMARY KEY,
+    at  INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS feed_told_by_age ON feed_told (at);
+  -- A task's newest mark, read at each update, without a sort.
+  CREATE INDEX IF NOT EXISTS progress_marks_by_task ON progress_marks (task_ref, ref);
   `,
 ];

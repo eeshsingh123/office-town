@@ -192,6 +192,7 @@ export async function startTeamTask(
     attachments: attachmentIds,
     efficient,
     milestones,
+    updates,
     sendResult,
   }: StartTeamTaskRequest,
   piece?: PieceStart,
@@ -204,6 +205,7 @@ export async function startTeamTask(
     ...(piece === undefined ? {} : { parentTaskId: piece.parentTaskId }),
     ...(efficient === undefined ? {} : { efficient }),
     ...(milestones === undefined ? {} : { milestones }),
+    ...(updates === undefined ? {} : { updates }),
     // An automation's run sends through its own rules, and a piece reports to the chief.
     ...(sendResult === true && origin === undefined && piece === undefined
       ? { sendResult: true }
@@ -253,6 +255,7 @@ export async function startTeamTask(
               branches: department.branchPerWorker && isRepository(folders.workspacePath),
               codeFlow: department.codeFlow,
               milestones: briefMilestones(store, task.id),
+              updates: task.updates === true && task.parentTaskId === undefined,
             }),
             piece,
             attachments,
@@ -311,7 +314,7 @@ async function startGroupTask(
   goal: string,
   team: GroupTeam,
   attachments: Attachment[],
-  modes: Pick<TaskPlacement, "efficient" | "milestones">,
+  modes: Pick<TaskPlacement, "efficient" | "milestones" | "updates">,
 ): Promise<SessionRecord> {
   const { store, registry } = context;
   const { lead, workers } = groupOf(store, team);
@@ -345,6 +348,7 @@ async function startGroupTask(
             codeFlow: false,
             fixedTeam: true,
             milestones: briefMilestones(store, task.id),
+            updates: task.updates === true,
           }),
           undefined,
           attachments,

@@ -67,6 +67,7 @@ function writeTask(
   const options = {
     ...(request.efficient === undefined ? {} : { efficient: request.efficient }),
     ...(request.milestones === undefined ? {} : { milestones: request.milestones }),
+    ...(request.updates === undefined ? {} : { updates: request.updates }),
   };
   writeDraft(`${box}.options`, options);
   const shared = new Set(Object.values(library).map((item) => item.file.id));

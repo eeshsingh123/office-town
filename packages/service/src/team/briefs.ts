@@ -1,5 +1,12 @@
 import type { HarnessDescription, HarnessModel, MilestoneRecord } from "@office-town/contract";
-import { HANDOVER_ASK, PLAN_ASK, POST_ASK, SHOW_ASK } from "../agents/briefs.ts";
+import {
+  HANDOVER_ASK,
+  PLAN_ASK,
+  POST_ASK,
+  PROGRESS_ASK,
+  postAsk,
+  SHOW_ASK,
+} from "../agents/briefs.ts";
 import { LEAD_CHECKS, leadMilestones } from "../goal/briefs.ts";
 import type { Message } from "../registry/session-registry.ts";
 import { SCRATCH_ASK, type TaskFolders } from "../task-folders.ts";
@@ -147,6 +154,8 @@ export function leadBrief(input: {
   fixedTeam?: boolean;
   // With Milestones on: the goal's, which may come from the chief's plan (D-95).
   milestones?: readonly MilestoneRecord[] | undefined;
+  // Progress updates on, for a task of its own; a piece of a goal reports to the chief.
+  updates?: boolean;
 }): Message {
   const branches = input.branches
     ? "\n\nThis workspace is a git repository, and each worker works on a branch of its own, made from your branch's last commit: commit what a worker needs before you hand out its piece. When a worker's result says its work is committed, merge its branch into yours."
@@ -163,6 +172,7 @@ export function leadBrief(input: {
     input.milestones === undefined
       ? "Each worker checks its own piece: it builds and its own tests pass. You check that the merged work builds and its tests pass. A tester on the team checks a piece once and reports; you decide what must be fixed and hand that out once. Do not run rounds of testing and fixing: the end-to-end check comes after, outside the team."
       : LEAD_CHECKS;
+  const updates = input.updates === true ? `\n- ${PROGRESS_ASK}` : "";
   const text = `You lead ${input.teamName} in Office Town, an app where a team of AI agents works on a goal for the user. Each worker runs in its own harness and session; you hand them work and put their results together.
 
 ${instructionsOf(input.instructions)}The goal:
@@ -191,7 +201,7 @@ You plan, decide and put the results together; your workers do the work. Everyth
 - When the goal is done, call write_checklist before your final message: what to check, each with the result it expects, how to set up and run the work, and what changed. The user can have a fresh agent outside the team run it.
 - ${PLAN_ASK}
 - ${SHOW_ASK}
-- ${POST_ASK} A next task worth doing goes in its follow_up, for the user to start or not.
+- ${postAsk(input.updates === true)} A next task worth doing goes in its follow_up, for the user to start or not.${updates}
 - ${QUIET_OUTPUT}${branches}${codeFlow}
 
 ${change} ${HANDOVER_ASK} If you cannot go on without the user's decision, ask with the ask_user tool.`;

@@ -21,8 +21,13 @@ export function OptionsChip({ value, onChange, sendResult }: OptionsChipProps) {
     ...TASK_OPTIONS.filter((option) => value[option.key]).map(short),
     ...(sendResult?.on === true ? ["Send result"] : []),
   ];
+  // Past two, a count, so the chip stays one short line.
   const label =
-    on.length === 0 ? `${TASK_OPTIONS.map(short).join(" & ")} off` : `${on.join(" & ")} on`;
+    on.length === 0
+      ? "Options off"
+      : on.length > 2
+        ? `${on.length} options on`
+        : `${on.join(" & ")} on`;
   return (
     <Popover.Root>
       <Popover.Trigger
