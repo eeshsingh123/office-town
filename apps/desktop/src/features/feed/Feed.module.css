@@ -378,12 +378,6 @@
   margin-left: auto;
 }
 
-.why {
-  margin: 0;
-  color: var(--text-3);
-  font-size: var(--size-meta);
-}
-
 /* A reply, inside the post it answers. */
 .reply {
   display: flex;

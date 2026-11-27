@@ -3,7 +3,6 @@ import {
   Check,
   EyeOff,
   FileText,
-  Info,
   MessageSquareReply,
   PowerOff,
   Sparkles,
@@ -263,7 +262,6 @@ function ResultActions({ post, reply }: { post: FeedPost; reply: ReactNode }) {
 }
 
 function Suggested({ post, author, now }: { post: FeedPost; author: Author; now: number }) {
-  const [why, setWhy] = useState(false);
   const suggestion = post.suggestion;
   if (suggestion === undefined) return null;
   const setUp = () => {
@@ -282,7 +280,6 @@ function Suggested({ post, author, now }: { post: FeedPost; author: Author; now:
       <Head post={post} author={author} now={now} />
       <h3 className={styles.title}>{post.title}</h3>
       {post.body === undefined ? null : <p className={styles.text}>{post.body}</p>}
-      {why ? <p className={styles.why}>{suggestion.why}</p> : null}
       <div className={styles.actions}>
         <Button onClick={setUp}>Set it up</Button>
         <Button variant="ghost" onClick={() => void dismiss()}>
@@ -293,7 +290,6 @@ function Suggested({ post, author, now }: { post: FeedPost; author: Author; now:
             label="More for this suggestion"
             menu={() => ({
               actions: [
-                { label: "Why am I seeing this?", icon: Info, run: () => setWhy(true) },
                 {
                   label: "Fewer like this",
                   icon: EyeOff,

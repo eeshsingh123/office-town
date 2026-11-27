@@ -5,7 +5,7 @@ import type { PostDraft } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 
 const DAY = 24 * 60 * 60_000;
-// D-139: at most 3 a day, the same request 3 times in 30 days, never one suggested twice a month.
+// D-139: at most 3 a day, the same request on 3 days in 30, never one suggested twice a month.
 const MOST_A_DAY = 3;
 const REPEATS = 3;
 const LOOK_BACK = 30 * DAY;
@@ -42,7 +42,9 @@ export function suggestRepeat(store: Store, task: TaskRecord): void {
   if (!mayFeedSuggest(store, "repeat")) return;
   const prompt = task.prompt.trim();
   const times = store.feed.sameRequests(task.prompt, Date.now() - LOOK_BACK);
-  if (times.length < REPEATS) return;
+  // On different days: three in one sitting is not a habit worth a schedule.
+  const days = new Set(times.map((at) => new Date(at).toDateString()));
+  if (days.size < REPEATS) return;
   if (store.automations.list().some((automation) => promptOf(automation.task) === prompt)) return;
   const foldKey = `suggest:repeat:${createHash("sha256").update(prompt).digest("hex").slice(0, 16)}`;
   if (store.feed.latestFold(foldKey, Date.now() - LOOK_BACK) !== undefined) return;
@@ -57,7 +59,7 @@ export function suggestRepeat(store: Store, task: TaskRecord): void {
     state: "open",
     suggestion: {
       rule: "repeat",
-      why: `You asked for this ${times.length} times in the last 30 days.`,
+      why: `You asked for this on ${days.size} different days in the last 30.`,
       open: {
         kind: "automation",
         describe: `${when[0]?.toUpperCase()}${when.slice(1)}: ${prompt}`,
