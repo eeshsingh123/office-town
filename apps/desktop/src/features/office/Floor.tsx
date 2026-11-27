@@ -58,8 +58,9 @@ export interface FloorAgent {
   state: AgentState;
   position: Point;
   harness: string;
-  // Shown above its head while it works or waits.
+  // Shown above its head while it works or waits, or for a moment after it posts.
   bubble?: string;
+  posted?: true;
   // By name, to group a selection.
   group: string;
   // "Lead" or its role, for the hover line (design audit a2-26).
@@ -104,6 +105,7 @@ interface Seated {
   state?: AgentState;
   position: Point;
   bubble?: string;
+  posted?: true;
   part?: ShownStatus[];
   // The session whose request the floor opens when it pans to this agent.
   sessionId?: string;
@@ -302,7 +304,18 @@ function seatedOf(
       ? position
       : { x: position.x + move.at.x - move.from.x, y: position.y + move.at.y - move.from.y };
   const seated: Seated[] = agents.map((one) => {
-    const { agent, state, position, harness, bubble, part, role, group, free: asleep } = one;
+    const {
+      agent,
+      state,
+      position,
+      harness,
+      bubble,
+      posted,
+      part,
+      role,
+      group,
+      free: asleep,
+    } = one;
     const where = [role, group].filter((line) => line !== undefined && line !== "").join(" · ");
     return {
       id: agent.id,
@@ -314,6 +327,7 @@ function seatedOf(
       sessionId: agent.latest.id,
       detail: detailOf(harness, agent.latest.options),
       ...(bubble === undefined ? {} : { bubble }),
+      ...(posted === undefined ? {} : { posted }),
       ...(part === undefined ? {} : { part }),
       ...(where === "" ? {} : { where }),
     };
@@ -794,7 +808,8 @@ export function Floor(props: FloorProps) {
         )}
       </button>
       {seated.map((one) => {
-        const { id, name, colour, state, position, bubble, detail, where, part, asleep } = one;
+        const { id, name, colour, state, position, bubble, posted, detail, where, part, asleep } =
+          one;
         const selected = selection.includes(id);
         const finished = state !== undefined && FINISHED.includes(state);
         return (
@@ -823,7 +838,17 @@ export function Floor(props: FloorProps) {
                 <span className={styles.doze}>z</span>
               </div>
             )}
-            {bubble === undefined || asleep === true ? null : (
+            {bubble === undefined || asleep === true ? null : posted === true ? (
+              // A new post: it opens in Feed (D-140).
+              <button
+                type="button"
+                className={`${styles.bubble} ${styles.bubblePosted}`}
+                style={{ left: position.x, top: position.y - 46 }}
+                onClick={() => navigate({ name: "feed" })}
+              >
+                {bubble}
+              </button>
+            ) : (
               <div
                 className={`${styles.bubble} ${state === "waiting" ? styles.bubbleWaiting : styles.bubbleWork} ${id === near?.id ? styles.bubbleNear : ""}`}
                 style={{ left: position.x, top: position.y - 46 }}

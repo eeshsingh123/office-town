@@ -341,6 +341,32 @@
   color: var(--warn);
 }
 
+/* A post of the last few seconds, in the accent, as the one bubble that opens something. */
+.bubblePosted {
+  max-width: 240px;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-family: inherit;
+  pointer-events: auto;
+  z-index: 2;
+  cursor: pointer;
+  animation: bubble-rise 200ms ease-out;
+}
+
+@keyframes bubble-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubblePosted {
+    animation: none;
+  }
+}
+
 /* Always shown (design audit a2-1), as narrow as a desk's pitch so neighbours never overlap; the
    whole line shows for the agent pointed at or walked up to. */
 .bubbleWork {
