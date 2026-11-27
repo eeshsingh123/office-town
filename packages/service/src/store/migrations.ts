@@ -1121,4 +1121,30 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS kept_usage_at ON kept_usage (at);
   `,
   addAutomationDelivery,
+  `
+  -- Feed (D-137): the post as JSON, with the columns its page filters on. A key marks a post that
+  -- still stands for one thing, such as a task at work or an ask.
+  CREATE TABLE IF NOT EXISTS feed_posts (
+    ref           INTEGER PRIMARY KEY,
+    id            TEXT NOT NULL UNIQUE,
+    key           TEXT UNIQUE,
+    kind          TEXT NOT NULL,
+    task_ref      INTEGER REFERENCES tasks (ref) ON DELETE CASCADE,
+    department_id TEXT,
+    fold_key      TEXT,
+    state         TEXT NOT NULL,
+    data          TEXT NOT NULL,
+    search        TEXT NOT NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    expires_at    INTEGER
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS feed_by_time ON feed_posts (created_at, ref);
+  CREATE INDEX IF NOT EXISTS feed_by_kind ON feed_posts (kind, created_at);
+  CREATE INDEX IF NOT EXISTS feed_by_task ON feed_posts (task_ref, kind, created_at);
+  CREATE INDEX IF NOT EXISTS feed_by_fold ON feed_posts (fold_key, created_at)
+    WHERE fold_key IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS feed_by_expiry ON feed_posts (expires_at) WHERE expires_at IS NOT NULL;
+  `,
 ];

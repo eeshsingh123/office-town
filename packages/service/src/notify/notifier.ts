@@ -81,7 +81,7 @@ const WANTS: Partial<Record<NonNullable<PermissionRequest["payload"]["kind"]>, s
 };
 
 // What an agent wants, from the kind of its ask, never from the ask's own words.
-function wantOf(event: SessionEvent): string | undefined {
+export function wantOf(event: SessionEvent): string | undefined {
   switch (event.type) {
     case "permission.requested":
       if (event.payload.tool !== undefined) return "wants to use an app";

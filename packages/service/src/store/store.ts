@@ -60,6 +60,7 @@ import type {
 import type { AutomationEventsStore } from "./automation-events-store.ts";
 import type { AutomationsStore } from "./automations-store.ts";
 import type { DestinationsStore } from "./destinations-store.ts";
+import type { FeedStore } from "./feed-store.ts";
 import type { NoticesStore } from "./notices-store.ts";
 import type { QueueStore } from "./queue-store.ts";
 import type { RecoveryStore } from "./recovery-store.ts";
@@ -284,6 +285,7 @@ export interface Store {
   readonly automations: AutomationsStore;
   readonly automationEvents: AutomationEventsStore;
   readonly destinations: DestinationsStore;
+  readonly feed: FeedStore;
   // Hears every record change after its write, in write order.
   subscribe(listener: ChangeListener): () => void;
   createTask(prompt: string, team?: TaskTeam, placement?: TaskPlacement): TaskRecord;
