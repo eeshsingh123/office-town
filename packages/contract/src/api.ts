@@ -6,6 +6,7 @@ import { adapterCapabilitiesSchema } from "./capabilities.ts";
 import { taskChecklistSchema } from "./checks.ts";
 import { deliverySchema } from "./destinations.ts";
 import { userRequestEventSchema } from "./events.ts";
+import { suggestionRuleSchema } from "./feed.ts";
 import { absolutePathSchema, environmentSpecSchema, sessionOptionsSchema } from "./options.ts";
 import { notificationsSchema, updateRoutesSchema } from "./unattended.ts";
 
@@ -363,6 +364,12 @@ export const settingsSchema = z.object({
   stoppedCardClosedAt: z.iso.datetime().optional(),
   // Open at login was offered once, when the first automation was saved.
   loginOffered: z.boolean().optional(),
+  // The newest post the user has seen in Feed (D-137).
+  feedSeenAt: z.iso.datetime().optional(),
+  // Suggested posts; unset is on (D-139).
+  suggestions: z.boolean().optional(),
+  // A rule the user asked to hear less from stays quiet until then.
+  suggestionsQuietUntil: z.partialRecord(suggestionRuleSchema, z.iso.datetime()).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 

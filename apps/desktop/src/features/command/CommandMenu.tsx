@@ -16,6 +16,7 @@ import {
   Network,
   Plug,
   Plus,
+  Rss,
   Search,
   Send,
   Settings,
@@ -247,6 +248,7 @@ export function CommandMenu() {
               </Command.Group>
               <Command.Group heading="Go to">
                 <Row icon={House} label="Home" onSelect={() => go({ name: "home" })} />
+                <Row icon={Rss} label="Feed" onSelect={() => go({ name: "feed" })} />
                 <Row icon={Inbox} label="Needs you" onSelect={() => go({ name: "needs-you" })} />
                 <Row icon={List} label="Tasks" onSelect={() => go({ name: "tasks" })} />
                 <Row

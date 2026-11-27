@@ -1,5 +1,6 @@
 import type { Display, EverydayAutonomy } from "@office-town/contract";
 import { type ReactNode, useEffect, useState } from "react";
+import { api } from "../../api/client.ts";
 import { type DesktopPreferences, shell, type UpdateStatus } from "../../shell.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { AUTONOMY } from "../../ui/autonomy.ts";
@@ -32,6 +33,7 @@ export const SETTINGS_SECTIONS = [
     title: "Updates",
     keywords: ["notifications", "alerts", "slack", "telegram", "discord", "email", "webhook"],
   },
+  { id: "feed", title: "Feed", keywords: ["suggestions", "posts"] },
   { id: "new-tasks", title: "New tasks", keywords: ["permission", "manual", "auto", "efficient"] },
   {
     id: "accessibility",
@@ -130,6 +132,30 @@ function NewTasks() {
           onChange={(on) => saveTaskDefault(option.key, on)}
         />
       ))}
+    </Group>
+  );
+}
+
+// Saved at once; put back with a note if the core refuses it.
+function Feed() {
+  const on = useApp((state) => state.suggestions);
+  const choose = async (next: boolean) => {
+    useApp.setState({ suggestions: next });
+    try {
+      await api.setSuggestions(next);
+    } catch {
+      useApp.setState({ suggestions: !next });
+      showToast("The choice could not be saved.");
+    }
+  };
+  return (
+    <Group id="feed">
+      <SwitchRow
+        label="Suggestions"
+        hint="Tasks and automations suggested from your work."
+        on={on}
+        onChange={(next) => void choose(next)}
+      />
     </Group>
   );
 }
@@ -326,6 +352,7 @@ export function SettingsView() {
         <Group id="updates">
           <UpdatesSettings />
         </Group>
+        <Feed />
         <NewTasks />
         <Accessibility />
         <Desktop />

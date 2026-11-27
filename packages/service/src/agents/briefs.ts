@@ -40,6 +40,10 @@ export const SHOW_ASK =
 export const PLAN_ASK =
   "If you keep a todo list, update it as you go: mark each step done as you finish it and start the next, as the user follows your progress there.";
 
+// Claude defers this tool too; without the line, agents never post (D-138).
+export const POST_ASK =
+  "If the user should know something now, such as a blocker, a risk or a surprise, tell them with post_update in one plain line. Never post progress, which the user already sees.";
+
 // Every role's line; the app asks in Efficient mode, and an agent's own wish goes to the user (D-94).
 export const HANDOVER_ASK =
   "When the user or the app asks you to carry on in a new session, call hand_over.";
@@ -56,6 +60,7 @@ export function soloMessage(
     ...(scratch ? [SCRATCH_ASK] : []),
     PLAN_ASK,
     SHOW_ASK,
+    POST_ASK,
     CHECKLIST_ASK,
     HANDOVER_ASK,
   ];

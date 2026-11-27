@@ -8,10 +8,12 @@ import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Count } from "../../ui/Count.tsx";
+import { Fact, Facts } from "../../ui/Facts.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AutomationsCard } from "../automations/AutomationsCard.tsx";
 import { peopleLine } from "../departments/team-line.ts";
+import { useNewPosts } from "../feed/feed.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
@@ -110,37 +112,45 @@ function StatusLine({ items }: { items: Item[] }) {
     (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
   );
   const needs = count("needs");
+  const newPosts = useNewPosts();
+  const feedOpened = useApp((state) => state.feedSeenAt !== undefined);
+  const postsWhere = feedOpened ? "since you were here" : "in Feed";
   const parts = [
     {
       key: "needs",
       count: needs,
       text: needs === 1 ? "needs you" : "need you",
-      tone: styles.countNeeds,
       open: () => navigate({ name: "needs-you" }),
     },
     {
       key: "review",
       count: count("review"),
       text: "to review",
-      tone: styles.countReview,
       open: () => showTasksTab("review"),
+    },
+    {
+      key: "feed",
+      count: newPosts,
+      text: `${newPosts === 1 ? "new post" : "new posts"} ${postsWhere}`,
+      open: () => navigate({ name: "feed" }),
     },
   ].filter((part) => part.count > 0);
   if (workers.length === 0 && parts.length === 0) {
     return <>{hasTeam ? "Your team is idle and ready for a new task." : "Ready for a new task."}</>;
   }
   return (
-    <>
-      {workers.length === 0 ? null : <WorkingLine workers={workers} />}
-      {parts.map((part, index) => (
-        <Fragment key={part.key}>
-          {index === 0 && workers.length === 0 ? null : " · "}
-          <button type="button" className={`${styles.count} ${part.tone}`} onClick={part.open}>
-            {part.count} {part.text}
-          </button>
-        </Fragment>
+    <Facts>
+      {workers.length === 0 ? null : (
+        <span>
+          <WorkingLine workers={workers} />
+        </span>
+      )}
+      {parts.map((part) => (
+        <Fact key={part.key} count={part.count} urgent={part.key === "needs"} onClick={part.open}>
+          {part.text}
+        </Fact>
       ))}
-    </>
+    </Facts>
   );
 }
 

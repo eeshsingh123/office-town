@@ -10,6 +10,7 @@ import { ConnectorsView } from "./features/connectors/ConnectorsView.tsx";
 import { ConnectorView } from "./features/connectors/ConnectorView.tsx";
 import { DepartmentSettings } from "./features/departments/DepartmentSettings.tsx";
 import { NewDepartmentView } from "./features/departments/NewDepartmentView.tsx";
+import { FeedView } from "./features/feed/FeedView.tsx";
 import { RequestAnnouncer, useDisplay } from "./features/help/display.tsx";
 import { HelpView } from "./features/help/HelpView.tsx";
 import { WhatsNewDialog } from "./features/help/WhatsNewDialog.tsx";
@@ -69,6 +70,8 @@ function Main({ view }: { view: View }) {
       return <ChiefView key={view.edit ? "edit" : "page"} edit={view.edit ?? false} />;
     case "needs-you":
       return <NeedsYouView />;
+    case "feed":
+      return <FeedView />;
     case "tasks":
       return (
         <TasksView

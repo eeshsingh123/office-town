@@ -150,12 +150,9 @@
 }
 
 .waiting {
-  padding: 3px 10px;
-  border-radius: var(--radius-chip);
-  background: var(--warn-soft);
-  font-size: var(--size-small);
-  font-weight: 600;
-  color: var(--warn);
+  flex: none;
+  color: var(--text-2);
+  font-size: var(--size-meta);
 }
 
 .groupActions {

@@ -47,6 +47,7 @@ import { connectorRoutes } from "../connectors/routes.ts";
 import { draftChief } from "../drafts/chief.ts";
 import { draftDepartments } from "../drafts/departments.ts";
 import type { NameTask } from "../drafts/title.ts";
+import { feedRoutes } from "../feed/routes.ts";
 import type { MilestoneEdits } from "../goal/edits.ts";
 import { setMilestonesOn } from "../goal/record.ts";
 import { goalRoutes } from "../goal/routes.ts";
@@ -144,6 +145,7 @@ export function apiRoutes(
     },
     ...libraryRoutes(store),
     ...goalRoutes(store, milestones),
+    ...feedRoutes(store),
     ...outputRoutes(team, outputs),
     ...connectorRoutes(store, connectors),
     {

@@ -1,4 +1,4 @@
-import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
+import type { AgentRecord, DepartmentRecord, FeedPost } from "@office-town/contract";
 import { useEffect, useMemo, useState } from "react";
 import { type Agent, stateOf, useAgents } from "../../store/agents.ts";
 import { type AppState, navigate, select, useApp } from "../../store/app-store.ts";
@@ -11,6 +11,7 @@ import { stateLabel } from "../../ui/StatusIcon.tsx";
 import { BoardView } from "../board/BoardView.tsx";
 import { byRole } from "../departments/team-form.ts";
 import { newTokens } from "../departments/usage.ts";
+import { bubbleText, useRecentPosts } from "../feed/recent-posts.ts";
 import { requestLabel } from "../needs-you/request-label.ts";
 import { fraction, goalStatuses, partStatuses, pieceStatuses } from "../task/goal-progress.ts";
 import { chiefGoal } from "./doors.ts";
@@ -42,9 +43,20 @@ const BUBBLE_LENGTH = 42;
 const OPEN = OPEN_FLOOR;
 const GUESTS = "guest";
 
-// What it asks, or what it does now. Others stay quiet.
-function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progress) {
+const short = (text: string) =>
+  text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text;
+
+// What it asks, what it just posted, or what it does now. Others stay quiet.
+function bubbleOf(
+  state: AgentState,
+  request?: WaitingRequest,
+  progress?: Progress,
+  posted?: FeedPost,
+): { bubble?: string; posted?: true } {
   let text: string | undefined;
+  if (request === undefined && posted !== undefined) {
+    return { bubble: short(bubbleText(posted)), posted: true };
+  }
   if (request !== undefined) {
     text = requestLabel(request);
   } else if (state === "working" && progress?.step !== undefined) {
@@ -55,7 +67,7 @@ function bubbleOf(state: AgentState, request?: WaitingRequest, progress?: Progre
     text = stateLabel(state, progress?.subAgents.length ?? 0);
   }
   if (text === undefined) return {};
-  return { bubble: text.length > BUBBLE_LENGTH ? `${text.slice(0, BUBBLE_LENGTH - 1)}…` : text };
+  return { bubble: short(text) };
 }
 
 interface Team {
@@ -108,6 +120,8 @@ interface Layout {
   agents: Agent[];
   traces: Record<string, Trace>;
   waiting: Record<string, WaitingRequest>;
+  // Each agent's post of the last few seconds (D-140).
+  posted: Record<string, FeedPost>;
   harnessName: (harness: string) => string;
   departments: DepartmentRecord[];
   state: Known;
@@ -124,7 +138,7 @@ const freeAt = (state: AgentState) => !isBusy(state) && state !== "waiting";
 // Every agent at work or done today, at a desk, and every department member, free or not. The
 // chief keeps its office whenever it is set up.
 function layOut(layout: Layout) {
-  const { agents, traces, waiting, harnessName, departments, state, chiefId } = layout;
+  const { agents, traces, waiting, posted, harnessName, departments, state, chiefId } = layout;
   const asking = new Map(
     Object.values(waiting).map((request) => [request.event.sessionId, request]),
   );
@@ -220,6 +234,7 @@ function layOut(layout: Layout) {
         agentState,
         asking.get(agent.latest.id),
         trace === undefined ? undefined : progressOf(trace),
+        posted[agent.id],
       ),
     };
   });
@@ -321,6 +336,7 @@ export function OfficeView() {
     [departmentRecords],
   );
   const { links, goalId, doors } = useCommandFloor(departments);
+  const posted = useRecentPosts();
   // Past FOLD_AFTER departments, a room with nothing on its door folds, unless it is open or
   // holds someone picked (design audit a2-2).
   // Kept by its ids, so picking someone does not lay the floor out again.
@@ -340,6 +356,7 @@ export function OfficeView() {
       agents,
       traces,
       waiting,
+      posted,
       harnessName,
       departments: departments.filter((one) => !folded.has(one.id)),
       state: { agents: records, tasks, sessions, delegations, milestones, pieces },
@@ -352,6 +369,7 @@ export function OfficeView() {
     agents,
     traces,
     waiting,
+    posted,
     harnesses,
     departments,
     records,

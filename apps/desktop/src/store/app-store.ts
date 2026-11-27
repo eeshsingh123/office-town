@@ -10,6 +10,7 @@ import type {
   DestinationRecord,
   Display,
   EverydayAutonomy,
+  FeedPost,
   HarnessDescription,
   HarnessStatus,
   LibraryItem,
@@ -48,6 +49,7 @@ export type View =
   // Set up or edit the chief; once it exists, its page.
   | { name: "chief"; edit?: boolean }
   | { name: "needs-you" }
+  | { name: "feed" }
   // `startedBy` opens it filtered to "you" or an automation's runs.
   | { name: "tasks"; startedBy?: string }
   | { name: "automations" }
@@ -136,6 +138,11 @@ export interface AppState extends Records {
   autonomyByDefault: EverydayAutonomy | undefined;
   // Of the tasks whose milestones were read, and each one written since.
   milestones: Record<string, MilestoneRecord>;
+  // Feed's posts: the newest page, the pages read since and each one posted since (D-137).
+  feed: Record<string, FeedPost>;
+  // The newest post seen in Feed; undefined until the user first opens it.
+  feedSeenAt: string | undefined;
+  suggestions: boolean;
 }
 
 export const useApp = create<AppState>(() => ({
@@ -176,6 +183,9 @@ export const useApp = create<AppState>(() => ({
   milestonesByDefault: false,
   autonomyByDefault: undefined,
   milestones: {},
+  feed: {},
+  feedSeenAt: undefined,
+  suggestions: true,
 }));
 
 export function focusAgent(agentId: string | undefined): void {

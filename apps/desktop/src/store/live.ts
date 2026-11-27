@@ -2,6 +2,8 @@ import type {
   AgentRecord,
   Change,
   DelegationRecord,
+  FeedPage,
+  FeedPost,
   MilestoneRecord,
   PlanPiece,
   RoomPosition,
@@ -79,6 +81,15 @@ async function refresh(openStream?: (after: number) => void): Promise<void> {
   }
 }
 
+// Posts older than everything in `page`, which a fresh read of the newest page leaves as they were.
+function olderThan(feed: Record<string, FeedPost>, page: FeedPage): Record<string, FeedPost> {
+  const oldest = page.posts.at(-1);
+  if (!page.more || oldest === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(feed).filter(([, post]) => post.createdAt < oldest.createdAt),
+  );
+}
+
 async function readAll(openStream: ((after: number) => void) | undefined): Promise<void> {
   const waiting = await api.listPendingRequests();
   openStream?.(waiting.position);
@@ -95,6 +106,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     connectors,
     outputs,
     places,
+    feed,
   ] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
@@ -108,6 +120,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     api.listConnectors(),
     api.listOutputs(),
     api.listDestinations(),
+    api.feed(),
   ]);
   // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
@@ -132,6 +145,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
         ...(item.addedByAgentId === undefined ? [] : [item.addedByAgentId]),
       ]),
       ...connectors.flatMap((connector) => connector.audience.agentIds),
+      ...feed.posts.flatMap((post) => (post.by.kind === "agent" ? [post.by.agentId] : [])),
     ].filter((id) => !standing.has(id)),
   );
   const [delegations, pieces, milestones, more] = await Promise.all([
@@ -154,6 +168,11 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,
+    feedSeenAt: settings.feedSeenAt,
+    suggestions: settings.suggestions !== false,
+    // The newest page replaces the posts it covers, so one removed while away is gone; older
+    // pages read before stay.
+    feed: { ...olderThan(state.feed, feed), ...byId(feed.posts) },
     // One removed meanwhile is gone; one that arrived during the read stays.
     agents: {
       ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),

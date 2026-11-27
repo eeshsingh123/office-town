@@ -1,12 +1,12 @@
 # Memory
 
-Last updated: 2026-11-25
+Last updated: 2026-11-27
 
 ## State
 
-- Merged to `main`: M1 to M12 and M15 (PR #109 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why. The local `docs/briefs/ready-made-teams/README.md` is superseded: delete it.
-- Open: PR #110 (`fix/setup-steps-polish`), the owner's setup feedback: back link steps back, Start over button, fitted review chart, one count pill app-wide. Awaiting review.
-- After M15: M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
+- Merged to `main`: M1 to M12 and M15 (PR #110 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why.
+- Open: M16 Feed on `feat/feed` (D-137 to D-140), awaiting review.
+- Next (owner, 2026-11-27): agent memory across tasks, which then feeds Feed suggestions (D-139). M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
 - Parked: OpenCode's own automations (MODULES, M12). OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, read with `opencode api --standalone`); its event stream has no automation events.
 - No CI until the public release (D-135); Mac betas still build, but nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (in git history: `.github/workflows/ci.yml`).
 - Owner's machine: the installed app on the beta channel; development on `OfficeTown Dev`. Codex is signed in (ChatGPT Free: only its default model runs); Copilot, Cursor and Muse are installed, not signed in. OpenCode 2.4 (npm `@opencode/cli`); its 1.x files are backed up in `~opencode-v1-backup-2026-11-13`. Logon tasks update the CLIs; the old `OpenCode Auto Update` task fails with EEXIST.
@@ -19,7 +19,6 @@ Last updated: 2026-11-25
 - Telling the user a CLI is out of date (needs the CLI's version in the catalog: a contract change).
 - Voice input, parked by the owner (2026-10-24); the plan (on-device sherpa-onnx with Parakeet) is on closed PR #68.
 - Pixel art and character themes, later, as a skin of `features/office/Character.tsx`.
-- Agent memory across tasks, deferred (2026-10-23): the harnesses keep their own.
 
 ## Open questions for the owner
 

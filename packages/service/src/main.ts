@@ -27,6 +27,8 @@ import { openSecrets } from "./connectors/secrets.ts";
 import { defaultDataFolder } from "./data-folder.ts";
 import { imageDescriber } from "./drafts/image-description.ts";
 import { titlesFor } from "./drafts/title.ts";
+import { postUpdate } from "./feed/post-update.ts";
+import { FeedProjector } from "./feed/projector.ts";
 import { MilestoneEdits } from "./goal/edits.ts";
 import { goalTools } from "./goal/tools.ts";
 import { referenceOf } from "./library/library.ts";
@@ -148,6 +150,7 @@ reportResults(team, activity, (sessionId) => handovers.isHandingOver(sessionId))
 wakeAfterSubAgents(team, activity, (sessionId) => handovers.isHandingOver(sessionId));
 const outbox = new Outbox(store, secrets);
 const notifier = new Notifier(store, registry, outbox);
+const feed = new FeedProjector(store, registry);
 const stoppedLeads = new StoppedLeads(team);
 recoverLeads(team, activity, stoppedLeads);
 const quiet = new QuietWorkers(team, activity);
@@ -195,9 +198,11 @@ toolServer.offer([
   agentChecks.tool(),
   reportNothingNew(store),
   keepNotes(store),
+  postUpdate(store),
 ]);
 // After a restart, queued work may be free to start.
 void scheduler.advance();
+feed.start();
 const stoppedTasks = new StoppedTasks(team, queue);
 stoppedTasks.announce(notifier);
 const telegram = new TelegramLink(store, outbox);
@@ -244,6 +249,7 @@ async function shutdown(): Promise<void> {
   stopIdle();
   quiet.stop();
   notifier.stop();
+  feed.stop();
   telegram.stop();
   outbox.stop();
   queue.stop();
