@@ -36,14 +36,12 @@ What later work builds on; the why is in DECISIONS.md.
 - **M6 to M8: files, onboarding, connectors, outputs.** Attachments and a Library; setup, tutorials and Help; shared and provider apps through the core's hub (`service/src/connectors`); `show_result` in a sandboxed viewer (`service/src/outputs`).
 - **M9 to M10.5: packaging, providers, macOS.** Self-updating Windows installer and Linux AppImage, ad-hoc signed Mac .dmg betas (D-116), betas on every merge (no CI until the public release, D-135); Codex, Muse, Copilot and Cursor; the Providers page; on a Mac the login shell read once and Claude's usage from its Keychain on Refresh (D-117).
 - **After M10 and Phase 2.** OpenCode 1 and 2 (`harness/src/versions.ts`), sub-agents in a side panel, team recovery and mid-turn messages, `propose_change`, Scratch per task, Efficient mode with handovers (`team/handover.ts`), Milestones (`service/src/goal`), and the feedback, audit and design rounds (D-100 to D-114).
-- **M11 Unattended runs (D-120 to D-124).** Stored retries and the stopped-lead item (`team/lead-stopped.ts`), quiet workers, owed results first; one admission queue for every start no person typed (`service/src/queue`); Home's card of tasks a close cut off; keep awake (`GET /keep-awake`); the notifier (`service/src/notify`).
-- **M12 Automations (D-125 to D-134).** A saved New task plus a When; every run an ordinary task through M11's queue (`service/src/automations`: clock, runner, run keys, chains, Auto decisions, the Describe drafter); four event sources behind one interface (`automations/sources/`); Updates to Slack, Discord, Telegram, email or a webhook through an outbox (`notify/`, `features/updates/`); Nothing new runs, notes across runs. Parked: OpenCode 2.4's own automations (its HTTP API lists, pauses and deletes them; no events), and MCP events (SEP-3415) as one more source.
+- **M11 Unattended runs (D-120 to D-124).** Stored retries, the stopped-lead item, quiet workers, owed results first; one admission queue for every start no person typed (`service/src/queue`); Home's card of tasks a close cut off; keep awake; the notifier (`service/src/notify`).
+- **M12 Automations (D-125 to D-134).** A saved New task plus a When, every run an ordinary task through the queue (`service/src/automations`); four event sources behind one interface (`automations/sources/`); Updates to Slack, Discord, Telegram, email or a webhook through an outbox (`notify/`, `features/updates/`); Nothing new runs, notes across runs. Parked: OpenCode 2.4's own automations, MCP events as a source.
+- **M15 Ready-made teams and recipes (D-136).** One click into the existing Describe steps (`features/ready-made/`), as data in the app.
+- **M16 Feed (D-137 to D-140).** Posts projected by the core from tasks, asks, parts and milestones (`service/src/feed`, `store/feed-store.ts`), `post_update` with its cap, rule-based suggestions; the Feed page, its sidebar dot and Home line, floor bubbles (`features/feed/`).
 
 ## Next
-
-### M15 Ready-made teams and recipes (D-136), on `feat/ready-made-teams`
-
-Four ready-made teams on New department's Describe step and five recipes on New automation's, each one click into the existing steps (`features/ready-made/`). No contract or core change. Left out when the owner simplified it (2026-11-25): team files, a first-task box, recipe blanks, Repeat this, Free badges, community teams.
 
 ### M13 and M14 (outline only, wait until real users ask)
 
@@ -62,4 +60,5 @@ Four ready-made teams on New department's Describe step and five recipes on New 
 ## Later (outline only)
 
 - Swarms: discuss first a Decisions list (from send-back notes, `propose_change` answers and handovers) and a read-only goal file, and free workers picking up parts whose inputs are done.
-- Deferred: agent memory across tasks (the harnesses keep their own), a sandbox environment for computer use.
+- Agent memory across tasks, after Feed (owner, 2026-11-27); it becomes one more source of Feed suggestions (D-139).
+- Deferred: a sandbox environment for computer use.

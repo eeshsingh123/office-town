@@ -5,11 +5,9 @@ import {
   Laptop,
   LayoutGrid,
   type LucideIcon,
-  MousePointerClick,
-  Rocket,
+  Rss,
   Send,
   SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 
 export interface Release {
@@ -21,6 +19,20 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-27",
+    title: "Feed",
+    icon: Rss,
+    changes: [
+      "Feed, under Home in the sidebar, shows what your team does as it happens: work in progress, results, what needs you, automation runs and what your agents want you to know",
+      "Answer an ask right in Feed; it closes in Needs you too",
+      "Reply on any post to send the agent a message in its task",
+      "A dot on Feed and a line on Home say when there are new posts since you last looked",
+      "Agents can post a heads-up when they find something you should know, a few an hour at most",
+      "Feed can suggest an automation for a request you repeat, or a next task a lead names. Nothing starts until you set it up, and Settings turns suggestions off",
+      "On the office floor, a new post shows over its agent for a few seconds",
+    ],
+  },
   {
     date: "2026-11-25",
     title: "Tidier setup pages",
@@ -134,72 +146,6 @@ export const RELEASES: Release[] = [
       "Change with words is now Describe a change",
       "Workspaces is a list you can sort by name or last used, with who uses each, its branch and who works there now",
       "A workspace's page shows its kind, branch, tasks and last use as labelled facts, and long folder paths wrap at each folder",
-    ],
-  },
-  {
-    date: "2026-11-20",
-    title: "A smoother Office, clearer Usage",
-    icon: MousePointerClick,
-    changes: [
-      "Usage shows one card per provider and one row per account, with its 5-hour and weekly limits side by side",
-      "Each provider links to its own usage page. Providers that share no limits show the tokens your agents used",
-      "A provider with more than 4 accounts gets its own search and sort",
-      "The warning that an account will reach a limit is quieter and can be dismissed until that limit resets",
-      "Home's Plan usage shows your most used accounts as small cards, the same as Usage",
-      "Providers lists signed-in providers first and the ones to sign in below, with their buttons lined up",
-      "Opening or closing a department keeps the floor as it is: the side panel pushes in beside it and the room glides into view, with no zooming or jumping",
-      "Clicking a room's sign redraws the floor once instead of three times, so rooms open without a stutter",
-      "The panel's close button closes the department, so its sign opens it again",
-      "A click anywhere around the floor, also below it, closes the department",
-      "Lists with filters have a Clear filters button beside them while any filter is on",
-      "Your profile is lighter: the name preview is gone and the groups have more room",
-      "New task works from every page: on Home and on New task it puts the cursor in the box, elsewhere it opens New task",
-      "A department's + picks that department in the task box, also on Home and on New task, and what you typed stays",
-      "Small icon buttons, such as the sidebar's + and the fold arrows, have their icon centred",
-      "Home names who is working, each name opening where it works, and says your team is ready for a new task when everyone is free",
-    ],
-  },
-  {
-    date: "2026-11-19",
-    title: "A clearer start",
-    icon: Sparkles,
-    changes: [
-      "Departments are made in one place, New department. Home, the sidebar and Team no longer have their own boxes for it",
-      "Home stays on your task until one is done, then offers Make this a department, which drafts a team for work like it",
-      "An empty Office shows a sample room with a New department button. Add a chief shows once you have a department",
-      "The tutorial card sits beside what it points at instead of on top of it, and has a Stop tutorial button",
-      "When no provider is ready, a line above the task box says so, with a button to install OpenCode, which has free models. Start stays off until a provider is ready",
-    ],
-  },
-  {
-    date: "2026-11-19",
-    title: "Settings, your profile and agent profiles",
-    icon: SlidersHorizontal,
-    changes: [
-      "Settings is in the order people look for things: Appearance, Notifications, New tasks, Accessibility, Desktop, then Storage and About. Every row has its control on the right and saves at once",
-      "Theme can follow your computer again: System, Light or Dark. Text size is now Interface size, since it grows icons and spacing too",
-      "New tasks has a default for Permissions, Manual or Auto (Auto unless you change it). New tasks, teams and departments start there, and the composer's chip changes one task only. If the composer was on Manual before, Manual becomes your default",
-      "Notifications save at once and can send a test, and say when your computer blocks them",
-      "Desktop: choose whether closing the window keeps agents running in the tray or quits, and open the app at login. The first time closing hides the window, a note says where it went",
-      "Storage and About: open the data folder, see your version and channel, check for updates or restart to install one",
-      "Ctrl , opens Settings, and Ctrl K finds each Settings group by name",
-      "Your profile is split into How you appear, with a preview, and What agents should know. Answer length is one pick, short or detailed",
-      "Colour pickers show a tick on the pick and its name",
-      "An agent's Profile, a team member and a template share one set of fields in one order: Identity, Job, Runs on. Save lights up only when something changed, and Save as template is in the … menu",
-      "A team member links to its full profile, and a lead's profile says its colour is also the team's",
-    ],
-  },
-  {
-    date: "2026-11-19",
-    title: "A shorter first run",
-    icon: Rocket,
-    changes: [
-      "Setup is two steps: what the app does, then the provider to start with. It ends on your first real task",
-      "Ready providers come first and you pick one; OpenCode, which has free models, is picked unless you choose another. The rest fold under More providers",
-      "Your first task matches what you said you will use the app for",
-      "Whether you finish setup or skip it, new tasks run on Auto and save to a new folder each. Pick Manual on a task to have agents ask first",
-      "Tutorials put your saved model and permission back when they end, even when you stop one",
-      "Home shows one next step instead of the Getting started list. All tutorials are in Help",
     ],
   },
 ];
