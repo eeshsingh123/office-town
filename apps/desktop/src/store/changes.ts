@@ -93,6 +93,8 @@ function applyChange(state: AppState, change: Change): AppState {
     case "automation":
     case "automation.removed":
     case "run":
+    case "feed.post":
+    case "feed.removed":
       return state;
     case "destination":
       return withPlace(state, change.destination);

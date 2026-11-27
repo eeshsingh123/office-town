@@ -6,6 +6,7 @@ import { automationRecordSchema, automationRunSchema } from "./automations.ts";
 import { checkRecordSchema } from "./checks.ts";
 import { connectorRecordSchema } from "./connectors.ts";
 import { destinationRecordSchema } from "./destinations.ts";
+import { feedPostSchema } from "./feed.ts";
 import { libraryItemSchema } from "./library.ts";
 import { milestoneRecordSchema } from "./milestones.ts";
 import { outputRecordSchema } from "./outputs.ts";
@@ -44,5 +45,7 @@ export const changeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("run"), run: automationRunSchema }),
   z.object({ type: z.literal("destination"), destination: destinationRecordSchema }),
   z.object({ type: z.literal("destination.removed"), destinationId: z.string().min(1) }),
+  z.object({ type: z.literal("feed.post"), post: feedPostSchema }),
+  z.object({ type: z.literal("feed.removed"), postId: z.string().min(1) }),
 ]);
 export type Change = z.infer<typeof changeSchema>;
