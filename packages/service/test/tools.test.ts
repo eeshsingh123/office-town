@@ -123,7 +123,9 @@ describe("tool server", () => {
     for (const title of ["One", "Two", "Three", "Four"]) {
       await rpc(token, "tools/call", { name: "post_update", arguments: { title } });
     }
-    const posted = store.feed.page({ show: "all" }).posts.filter((post) => post.kind === "heads-up");
+    const posted = store.feed
+      .page({ show: "all" })
+      .posts.filter((post) => post.kind === "heads-up");
     expect(posted.map((post) => post.title)).toEqual(["Three", "Two", "One"]);
     expect(store.feed.byKey(taskKey(task.id))?.note).toBe("Four");
     const count = store.feed.page({ show: "all" }).posts.length;
