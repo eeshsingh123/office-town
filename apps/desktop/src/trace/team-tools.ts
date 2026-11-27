@@ -50,6 +50,12 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
     title: (input) => `Reported ${words(input.id)} as ${input.met === true ? "met" : "not met"}`,
   },
   send_back: { kind: "other", title: (input) => `Sent ${words(input.agent)}'s part back` },
+  // Feed posts (D-138, D-141).
+  post_update: { kind: "other", title: (input) => `Told you: ${words(input.title)}` },
+  post_progress: {
+    kind: "other",
+    title: (input) => `Posted a progress update: ${words(input.title)}`,
+  },
 };
 
 export function teamToolAction(name: string, input: unknown) {
