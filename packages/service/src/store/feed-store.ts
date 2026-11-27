@@ -16,6 +16,7 @@ import { transaction } from "./database.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 const MOST_KEPT = 2000;
+const UPDATES_KEPT_DAYS = 30;
 
 // Kept from its last change (D-137); an ask waiting or a task at work is kept until it closes. A
 // suggestion is kept 30 days, open or not, so the same one is never made twice in a month (D-139).
@@ -67,8 +68,8 @@ const queries = {
       AND (origin IS NULL OR origin = '{"kind":"you"}')
     ORDER BY created_at`,
   insertUpdate: `
-    INSERT INTO progress_updates (id, post_ref, data, search, created_at)
-    VALUES (?, (SELECT ref FROM feed_posts WHERE id = ?), ?, ?, ?)`,
+    INSERT INTO progress_updates (id, post_ref, mark_ref, data, search, created_at)
+    VALUES (?, (SELECT ref FROM feed_posts WHERE id = ?), ?, ?, ?, ?)`,
   // A card's newest update and how many it has, read from its own rows.
   newestUpdate: `
     SELECT u.data, (SELECT count(*) FROM progress_updates WHERE post_ref = u.post_ref) AS count
@@ -80,9 +81,10 @@ const queries = {
     WHERE post_ref = (SELECT ref FROM feed_posts WHERE id = ?)
       AND (? IS NULL OR ref < (SELECT ref FROM progress_updates WHERE id = ?))
     ORDER BY ref DESC LIMIT ?`,
-  // The gap is the task's, across every card it has had.
+  // The gap and the last mark used are the task's, across every card it has had.
   latestUpdate: `
-    SELECT max(u.created_at) AS at FROM progress_updates u JOIN feed_posts p ON p.ref = u.post_ref
+    SELECT max(u.created_at) AS at, max(u.mark_ref) AS mark FROM progress_updates u
+    JOIN feed_posts p ON p.ref = u.post_ref
     WHERE p.task_ref = (SELECT ref FROM tasks WHERE id = ?)`,
   insertImage: `
     INSERT INTO progress_images (id, update_ref, type, bytes)
@@ -93,11 +95,13 @@ const queries = {
     VALUES ((SELECT ref FROM tasks WHERE id = ?), ?, ?, ?)
     ON CONFLICT (task_ref, key) DO NOTHING`,
   markOf: `
-    SELECT after, at FROM progress_marks WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)
+    SELECT ref, after FROM progress_marks WHERE task_ref = (SELECT ref FROM tasks WHERE id = ?)
     ORDER BY ref DESC LIMIT 1`,
-  // Past the most kept, the oldest that are not an open ask or a task at work go first.
+  // Past the most kept, the oldest that are not an open ask, a task at work or a card with
+  // progress updates go first: those stay their full time.
   overflow: `
     SELECT id FROM feed_posts WHERE expires_at IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM progress_updates u WHERE u.post_ref = feed_posts.ref)
     ORDER BY created_at LIMIT max(0, (SELECT count(*) FROM feed_posts) - ?)`,
 };
 
@@ -113,9 +117,8 @@ const searchText = (post: { title: string; body?: string | undefined }) =>
 
 function expiresAt(post: FeedPost, at: number): number | null {
   if (post.state === "open" && post.kind !== "suggested") return null;
-  // A card with progress updates is the user's record of the work: only the user deletes it.
-  if (post.updates !== undefined) return null;
-  return at + KEPT_DAYS[post.kind] * DAY;
+  // A card with progress updates had activity: it stays 30 days from its last change (D-141).
+  return at + (post.updates === undefined ? KEPT_DAYS[post.kind] : UPDATES_KEPT_DAYS) * DAY;
 }
 
 export interface Placement {
@@ -264,20 +267,27 @@ export class FeedStore {
     return { updates, more: rows.length > PROGRESS_PAGE };
   }
 
-  latestUpdateAt(taskId: string): number | undefined {
-    return (this.#statements.latestUpdate.get(taskId) as { at: number | null }).at ?? undefined;
+  // When the task's last update was taken, and the mark it used.
+  latestUpdate(taskId: string): { at: number; mark: number | undefined } | undefined {
+    const row = this.#statements.latestUpdate.get(taskId) as {
+      at: number | null;
+      mark: number | null;
+    };
+    return row.at === null ? undefined : { at: row.at, mark: row.mark ?? undefined };
   }
 
   // On the card it was posted on, with its picture; the card then rises to the top.
   addUpdate(
     card: FeedPost,
     update: ProgressUpdate,
+    markRef: number,
     image?: { type: string; bytes: Uint8Array },
   ): FeedPost {
     return this.batch(() => {
       this.#statements.insertUpdate.run(
         update.id,
         card.id,
+        markRef,
         JSON.stringify(update),
         searchText(update),
         Date.parse(update.at),
@@ -299,8 +309,8 @@ export class FeedStore {
   }
 
   // The newest thing that happened in a task, which earns its next update (D-141).
-  markOf(taskId: string): { after: string; at: number } | undefined {
-    return this.#statements.markOf.get(taskId) as { after: string; at: number } | undefined;
+  markOf(taskId: string): { ref: number; after: string } | undefined {
+    return this.#statements.markOf.get(taskId) as { ref: number; after: string } | undefined;
   }
 
   countSince(kind: FeedKind, since: number): number {

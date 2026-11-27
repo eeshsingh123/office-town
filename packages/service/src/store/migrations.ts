@@ -682,13 +682,24 @@ function tieUpdatesToCards(db: DatabaseSync): void {
     JOIN progress_updates u ON json_extract(u.data, '$.image.id') = i.id;
   INSERT INTO progress_marks (task_ref, key, after, at)
     SELECT task_ref, 'earlier', after, at FROM old_marks;
-  UPDATE feed_posts SET expires_at = NULL, data = json_set(data, '$.updates',
-    (SELECT count(*) FROM progress_updates u WHERE u.post_ref = feed_posts.ref))
+  UPDATE feed_posts SET data = json_set(data, '$.updates',
+      (SELECT count(*) FROM progress_updates u WHERE u.post_ref = feed_posts.ref))
     WHERE ref IN (SELECT post_ref FROM progress_updates);
   DROP TABLE old_images;
   DROP TABLE old_updates;
   DROP TABLE old_marks;
   `);
+}
+
+// The mark each update used, so a mark recorded after it is new whatever the clock says; and a
+// finished card with updates kept 30 days from its last change, as test builds kept it otherwise.
+function addUpdateMarks(db: DatabaseSync): void {
+  if (!hasColumn(db, "progress_updates", "mark_ref")) {
+    db.exec("ALTER TABLE progress_updates ADD COLUMN mark_ref INTEGER");
+  }
+  db.exec(`
+  UPDATE feed_posts SET expires_at = updated_at + 30 * 86400000
+    WHERE state <> 'open' AND ref IN (SELECT post_ref FROM progress_updates)`);
 }
 
 // Results sent out, quiet runs and notes kept across runs (D-130, D-131, D-133). Destinations hold no
@@ -1221,4 +1232,5 @@ export const migrations: readonly Migration[] = [
   `,
   addProgressUpdates,
   tieUpdatesToCards,
+  addUpdateMarks,
 ];

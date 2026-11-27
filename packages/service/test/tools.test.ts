@@ -2,7 +2,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionOptions } from "@office-town/contract";
+import jpeg from "jpeg-js";
+import { PNG } from "pngjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { shrink } from "../src/feed/picture.ts";
 import { postUpdate } from "../src/feed/post-update.ts";
 import { ProgressMarks, postProgress } from "../src/feed/progress.ts";
 import { FeedProjector, taskKey } from "../src/feed/projector.ts";
@@ -178,8 +181,8 @@ describe("tool server", () => {
     expect(text(await progress("Again"))).toContain("30 minutes apart");
     expect(titles(card.id)).toEqual(["Blue is in"]);
 
-    // A task continued after its result gets a new card: each keeps only its own updates, the
-    // app never deletes a card with updates, and deleting one leaves the other whole.
+    // A task continued after its result gets a new card: each keeps only its own updates, a card
+    // with updates stays its 30 days, and its going leaves the other card whole.
     const result = store.feed.update(
       card,
       { ...draftOf(card), kind: "result", state: "ended" },
@@ -190,14 +193,29 @@ describe("tool server", () => {
     expect(next.update).toBeUndefined();
     const first = result.update;
     if (first === undefined) throw new Error("The result lost its update.");
-    store.feed.addUpdate(next, { ...first, id: "second", title: "Green next" });
+    store.feed.addUpdate(next, { ...first, id: "second", title: "Green next" }, 1);
     expect(titles(next.id)).toEqual(["Green next"]);
     expect(store.feed.get(result.id)?.updates).toBe(1);
-    store.feed.prune(Date.now() + 365 * 24 * 60 * 60_000);
+    const day = 24 * 60 * 60_000;
+    store.feed.prune(Date.now() + 29 * day);
     expect(store.feed.get(result.id)?.updates).toBe(1);
-    store.feed.remove(result.id);
+    store.feed.prune(Date.now() + 31 * day);
+    expect(store.feed.get(result.id)).toBeUndefined();
     expect(titles(next.id)).toEqual(["Green next"]);
     expect(store.feed.get(next.id)?.updates).toBe(1);
+
+    // A picture is kept small: scaled to fit, as JPEG for a busy one and PNG for a flat one.
+    const picture = (busy: boolean) => {
+      const png = new PNG({ width: 3000, height: 2000 });
+      for (let i = 0; i < png.data.length; i++) png.data[i] = busy ? (i * 7919) % 251 : 200;
+      return PNG.sync.write(png);
+    };
+    const busy = shrink(picture(true), "image/png");
+    expect(busy.type).toBe("image/jpeg");
+    expect(jpeg.decode(busy.bytes).width).toBe(1400);
+    const flat = shrink(picture(false), "image/png");
+    expect(flat.type).toBe("image/png");
+    expect(PNG.sync.read(Buffer.from(flat.bytes)).width).toBe(1400);
 
     await registry.stop(session.id);
     expect((await rpc(token, "tools/list")).status).toBe(401);

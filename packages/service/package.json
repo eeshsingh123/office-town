@@ -12,9 +12,12 @@
     "@office-town/contract": "workspace:*",
     "@office-town/harness": "workspace:*",
     "croner": "11.0.1",
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/node": "^24.19.0"
+    "@types/node": "^24.19.0",
+    "@types/pngjs": "6.0.5"
   }
 }

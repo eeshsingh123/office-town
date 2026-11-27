@@ -10,7 +10,7 @@ import {
   PowerOff,
   Sparkles,
   SquareArrowOutUpRight,
-  Trash2,
+  X,
   Zap,
 } from "lucide-react";
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -21,9 +21,10 @@ import { knowAgents, useTraces } from "../../store/live.ts";
 import { useLoadProgress } from "../../store/milestones.ts";
 import { waitingKey } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
-import { confirmed, type MenuAction, MoreMenu } from "../../ui/ActionMenu.tsx";
+import { type MenuAction, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { ConfirmButton } from "../../ui/ConfirmDialog.tsx";
 import { Count } from "../../ui/Count.tsx";
 import { ago } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
@@ -136,8 +137,33 @@ function Head({ post, author, now }: { post: FeedPost; author: Author; now: numb
         <time className={styles.when} dateTime={post.createdAt}>
           {ago(post.createdAt, now)}
         </time>
+        {post.state === "ended" && post.updates !== undefined ? <DeleteCard post={post} /> : null}
       </div>
     </div>
+  );
+}
+
+// A finished card with progress updates stays 30 days; the user can delete it sooner, after a
+// confirm (D-141).
+function DeleteCard({ post }: { post: FeedPost }) {
+  const count =
+    post.updates === 1 ? "Its progress update goes" : `Its ${post.updates} progress updates go`;
+  return (
+    <ConfirmButton
+      variant="ghost"
+      icon
+      className={styles.dismiss}
+      aria-label="Delete this card"
+      title="Delete this card"
+      ask={{
+        title: "Delete this card?",
+        description: `${count} with it, pictures included. The task and its chat stay.`,
+        confirmLabel: "Delete",
+        run: () => api.deleteFeedCard(post.id),
+      }}
+    >
+      <X size={15} aria-hidden />
+    </ConfirmButton>
   );
 }
 
@@ -314,8 +340,7 @@ function LivingProgress({ post, tally }: { post: FeedPost; tally: boolean }) {
   );
 }
 
-// A working card turns its updates off, which stops them at once; a finished card with updates is
-// kept until the user deletes it, which always asks first (D-141).
+// A working card turns its updates off, which stops them at once (D-141).
 function CardMenu({ post, updatesOn }: { post: FeedPost; updatesOn: boolean }) {
   const taskId = post.taskId;
   if (taskId === undefined) return null;
@@ -329,21 +354,6 @@ function CardMenu({ post, updatesOn }: { post: FeedPost; updatesOn: boolean }) {
         showToast("Progress updates are off for this task.");
       },
     });
-  }
-  if (post.state === "ended" && post.updates !== undefined) {
-    const count =
-      post.updates === 1 ? "Its progress update goes" : `Its ${post.updates} progress updates go`;
-    actions.push(
-      confirmed(
-        { label: "Delete this card", icon: Trash2 },
-        {
-          title: "Delete this card?",
-          description: `${count} with it, pictures included. The task and its chat stay.`,
-          confirmLabel: "Delete",
-          run: () => api.deleteFeedCard(post.id),
-        },
-      ),
-    );
   }
   if (actions.length === 0) return null;
   return (

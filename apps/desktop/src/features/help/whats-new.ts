@@ -26,7 +26,7 @@ export const RELEASES: Release[] = [
     changes: [
       "Turn on Progress updates in a task's Options or on its run card, and the agent in charge posts what it found on the task's Feed card, with a chart or a picture",
       "Updates come at most every 30 minutes, each after a milestone, part or step, and say what earned it. Settings > Feed sets whether new tasks start with them",
-      "A card with updates stays in Feed until you delete it from its menu. Show all opens every earlier update",
+      "A card with updates stays in Feed for 30 days, and its × deletes it sooner. Show all opens every earlier update",
       "The step bar on a working card now fits any number of steps",
     ],
   },
