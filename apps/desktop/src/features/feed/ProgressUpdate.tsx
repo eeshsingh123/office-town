@@ -1,28 +1,22 @@
-import type { FeedPost, ProgressChart, ProgressUpdate } from "@office-town/contract";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
-import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type {
+  FeedPost,
+  ProgressChart,
+  ProgressUpdate,
+  ProgressUpdates,
+} from "@office-town/contract";
+import { ChevronDown, ChevronUp, CornerDownRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { api, updateImageAddress } from "../../api/client.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ago } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
+import { useWidth } from "../../ui/use-width.ts";
 import styles from "./ProgressUpdate.module.css";
 
-// The width an element is drawn at, followed as the window changes.
-export function useWidth(ref: RefObject<HTMLElement | null>): number {
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (element === null) return;
-    const measure = () => setWidth(element.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
-  return width;
-}
-
-const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+const compact = new Intl.NumberFormat(undefined, {
+  notation: "compact",
+  maximumSignificantDigits: 3,
+});
 
 function Numbers({ chart }: { chart: Extract<ProgressChart, { kind: "numbers" }> }) {
   return (
@@ -63,10 +57,9 @@ function Bars({ chart }: { chart: Extract<ProgressChart, { kind: "bars" }> }) {
             // biome-ignore lint/suspicious/noArrayIndexKey: two bars may share a label.
             key={index}
             className={`${styles.barRow} ${item.highlight === true ? styles.barPicked : ""}`}
+            title={`${item.label}: ${item.shown ?? compact.format(item.value)}`}
           >
-            <span className={styles.barName} title={item.label}>
-              {item.label}
-            </span>
+            <span className={styles.barName}>{item.label}</span>
             <div className={styles.barTrack}>
               <i className={styles.barFill} style={{ width: `${share}%` }} />
               <em
@@ -91,13 +84,38 @@ const BOTTOM = 26;
 // Room an x label needs, so labels are thinned rather than run together.
 const LABEL_ROOM = 64;
 
+// A round step, 1, 2 or 5 times a power of ten, so the axis reads in plain numbers.
+function roundStep(span: number): number {
+  const raw = span / 2;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const unit = raw / power;
+  return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 5 ? 5 : 10) * power;
+}
+
+// A line fills its own range, so a change of a few percent still shows. Bars keep zero, as a bar
+// cut short would overstate the change.
+function lineScale(values: readonly number[]) {
+  const least = Math.min(...values);
+  const most = Math.max(...values);
+  const flat = least === most;
+  const step = roundStep(flat ? Math.abs(most) || 1 : most - least);
+  const low = flat ? least - step : Math.floor(least / step) * step;
+  const high = flat ? most + step : Math.ceil(most / step) * step;
+  const ticks: number[] = [];
+  for (let at = low; at <= high + step / 2; at += step) ticks.push(Number(at.toPrecision(12)));
+  // Enough digits that no two ticks read the same.
+  const digits = Math.ceil(Math.log10(Math.max(Math.abs(low), Math.abs(high)) / step + 1)) + 1;
+  const format = new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumSignificantDigits: Math.min(Math.max(digits, 1), 21),
+  });
+  return { low, high, ticks, tick: (value: number) => format.format(value) };
+}
+
 function Line({ chart }: { chart: Extract<ProgressChart, { kind: "line" }> }) {
   const box = useRef<HTMLDivElement>(null);
   const width = Math.max(useWidth(box), 200);
-  const values = chart.points.map((point) => point.value);
-  const low = Math.min(0, ...values);
-  let high = Math.max(...values);
-  if (high === low) high = low + 1;
+  const { low, high, ticks, tick } = lineScale(chart.points.map((point) => point.value));
   const plotWidth = width - LEFT - RIGHT;
   const plotHeight = LINE_HEIGHT - TOP - BOTTOM;
   const last = chart.points.length - 1;
@@ -111,11 +129,10 @@ function Line({ chart }: { chart: Extract<ProgressChart, { kind: "line" }> }) {
   const path = chart.points
     .map((point, index) => `${index === 0 ? "M" : "L"}${x(index)} ${y(point.value)}`)
     .join(" ");
-  const grid = [low, (low + high) / 2, high];
   const end = chart.points[last];
-  const words = chart.points
-    .map((point) => `${point.label} ${point.shown ?? compact.format(point.value)}`)
-    .join(", ");
+  const shown = (point: (typeof chart.points)[number]) =>
+    point.shown ?? compact.format(point.value);
+  const words = chart.points.map((point) => `${point.label} ${shown(point)}`).join(", ");
   return (
     <div className={styles.line} ref={box}>
       {chart.caption === undefined ? null : <span className={styles.caption}>{chart.caption}</span>}
@@ -126,7 +143,7 @@ function Line({ chart }: { chart: Extract<ProgressChart, { kind: "line" }> }) {
         role="img"
         aria-label={`${chart.caption === undefined ? "" : `${chart.caption}: `}${words}`}
       >
-        {grid.map((value) => (
+        {ticks.map((value) => (
           <g key={value}>
             <line
               className={styles.grid}
@@ -136,25 +153,29 @@ function Line({ chart }: { chart: Extract<ProgressChart, { kind: "line" }> }) {
               y2={y(value)}
             />
             <text className={styles.axis} x={LEFT - 8} y={y(value) + 4} textAnchor="end">
-              {compact.format(value)}
+              {tick(value)}
             </text>
           </g>
         ))}
         <path className={styles.area} d={`${path} L${x(last)} ${y(low)} L${x(0)} ${y(low)} Z`} />
         <path className={styles.path} d={path} />
         {chart.points.map((point, index) => (
-          <circle
-            // biome-ignore lint/suspicious/noArrayIndexKey: points are in order and have no ids.
-            key={index}
-            className={`${styles.dot} ${index === last ? styles.dotEnd : ""}`}
-            cx={x(index)}
-            cy={y(point.value)}
-            r={index === last ? 4.5 : 3.5}
-          />
+          // biome-ignore lint/suspicious/noArrayIndexKey: points are in order and have no ids.
+          <g key={index}>
+            <title>{`${point.label}: ${shown(point)}`}</title>
+            {/* A wider target than the dot, so its value is easy to hover. */}
+            <circle className={styles.pointTarget} cx={x(index)} cy={y(point.value)} r={10} />
+            <circle
+              className={`${styles.point} ${index === last ? styles.pointEnd : ""}`}
+              cx={x(index)}
+              cy={y(point.value)}
+              r={index === last ? 4.5 : 3.5}
+            />
+          </g>
         ))}
         {end === undefined ? null : (
           <text className={styles.value} x={x(last)} y={y(end.value) - 10} textAnchor="end">
-            {end.shown ?? compact.format(end.value)}
+            {shown(end)}
           </text>
         )}
         {chart.points.map((point, index) =>
@@ -224,7 +245,7 @@ function UpdateHead({
       {inList ? null : <span className={styles.label}>Update</span>}
       <time dateTime={update.at}>{ago(update.at, now)}</time>
       <span className={styles.after}>
-        <Check size={13} aria-hidden className={styles.afterIcon} />
+        <CornerDownRight size={13} aria-hidden className={styles.afterIcon} />
         <span className={styles.afterText} title={update.after}>
           {update.after}
         </span>
@@ -257,18 +278,31 @@ function UpdateBody({
   );
 }
 
-// The card's history, newest first, read when opened and again when a new one arrives.
+// Each page after the last one read, so a list that started again never takes an old page twice.
+const joined = (shown: ProgressUpdates, page: ProgressUpdates): ProgressUpdates => {
+  const have = new Set(shown.updates.map((update) => update.id));
+  return {
+    updates: [...shown.updates, ...page.updates.filter((update) => !have.has(update.id))],
+    more: page.more,
+  };
+};
+
+// The card's history, newest first: read from the newest when opened and when a new one arrives,
+// and a page further each time its end scrolls into view.
 function History({ post, now }: { post: FeedPost; now: number }) {
-  const [updates, setUpdates] = useState<ProgressUpdate[]>();
+  const [read, setRead] = useState<ProgressUpdates>();
   const [failed, setFailed] = useState(false);
+  const list = useRef<HTMLOListElement>(null);
+  const end = useRef<HTMLLIElement>(null);
   const newest = post.update?.id;
   // biome-ignore lint/correctness/useExhaustiveDependencies: read again when a new update arrives
   useEffect(() => {
     let live = true;
+    setFailed(false);
     api
       .progressUpdates(post.id)
-      .then((read) => {
-        if (live) setUpdates(read.updates);
+      .then((page) => {
+        if (live) setRead(page);
       })
       .catch(() => {
         if (live) setFailed(true);
@@ -277,16 +311,49 @@ function History({ post, now }: { post: FeedPost; now: number }) {
       live = false;
     };
   }, [post.id, newest]);
-  if (failed) return <p className={styles.earlier}>The earlier updates could not be read.</p>;
-  if (updates === undefined) return <p className={styles.earlier}>Reading the updates…</p>;
+  const oldest = read?.updates.at(-1)?.id;
+  const more = read?.more === true && !failed;
+  useEffect(() => {
+    const root = list.current;
+    const sentinel = end.current;
+    if (!more || oldest === undefined || root === null || sentinel === null) return;
+    let live = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        api
+          .progressUpdates(post.id, oldest)
+          .then((page) => {
+            if (live) setRead((shown) => (shown === undefined ? page : joined(shown, page)));
+          })
+          .catch(() => {
+            if (live) setFailed(true);
+          });
+      },
+      { root },
+    );
+    observer.observe(sentinel);
+    return () => {
+      live = false;
+      observer.disconnect();
+    };
+  }, [post.id, oldest, more]);
+  if (read === undefined) {
+    return (
+      <p className={styles.earlier}>
+        {failed ? "The earlier updates could not be read." : "Reading the updates…"}
+      </p>
+    );
+  }
   return (
-    <ol className={styles.history} aria-label="Progress updates, newest first">
-      {updates.map((update, index) => (
+    <ol ref={list} className={styles.history} aria-label="Progress updates, newest first">
+      {read.updates.map((update, index) => (
         <li key={update.id} className={styles.historyItem}>
           {/* The dot is centred on the update's first line; the stem runs on to the next one. */}
           <span className={styles.rail} aria-hidden>
             <span className={styles.knob}>
-              <span className={`${styles.dot} ${index === 0 ? styles.dotNewest : ""}`} />
+              <span className={`${styles.railDot} ${index === 0 ? styles.railDotNewest : ""}`} />
             </span>
             <span className={styles.stem} />
           </span>
@@ -295,6 +362,11 @@ function History({ post, now }: { post: FeedPost; now: number }) {
           </div>
         </li>
       ))}
+      {more || failed ? (
+        <li ref={end} className={styles.historyEnd}>
+          {failed ? "The earlier updates could not be read." : "Reading earlier updates…"}
+        </li>
+      ) : null}
     </ol>
   );
 }

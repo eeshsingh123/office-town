@@ -619,38 +619,75 @@ function addAutomationEvents(db: DatabaseSync): void {
   `);
 }
 
-function addProgressUpdates(db: DatabaseSync): void {
-  if (!hasColumn(db, "tasks", "updates")) db.exec("ALTER TABLE tasks ADD COLUMN updates INTEGER");
+// A progress update belongs to its card and a picture to its update, so a card's history never
+// mixes with another card of the same task and goes only with its own card (D-141).
+function createProgressTables(db: DatabaseSync): void {
   db.exec(`
-  -- A task's progress updates (D-141), newest shown on its Feed card, the rest kept for its history.
   CREATE TABLE IF NOT EXISTS progress_updates (
     ref        INTEGER PRIMARY KEY,
     id         TEXT NOT NULL UNIQUE,
-    task_ref   INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    post_ref   INTEGER NOT NULL REFERENCES feed_posts (ref) ON DELETE CASCADE,
     data       TEXT NOT NULL,
     search     TEXT NOT NULL,
     created_at INTEGER NOT NULL
   ) STRICT;
 
-  CREATE INDEX IF NOT EXISTS progress_by_task ON progress_updates (task_ref, created_at);
+  CREATE INDEX IF NOT EXISTS progress_by_post ON progress_updates (post_ref, ref);
 
-  -- An update's picture, copied from the work folder, so it outlives the file.
+  -- Copied from the work folder, so it outlives the file.
   CREATE TABLE IF NOT EXISTS progress_images (
-    ref      INTEGER PRIMARY KEY,
-    id       TEXT NOT NULL UNIQUE,
-    task_ref INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
-    type     TEXT NOT NULL,
-    bytes    BLOB NOT NULL
+    ref        INTEGER PRIMARY KEY,
+    id         TEXT NOT NULL UNIQUE,
+    update_ref INTEGER NOT NULL UNIQUE REFERENCES progress_updates (ref) ON DELETE CASCADE,
+    type       TEXT NOT NULL,
+    bytes      BLOB NOT NULL
   ) STRICT;
 
-  CREATE INDEX IF NOT EXISTS progress_images_by_task ON progress_images (task_ref);
-
-  -- The newest thing that happened in a task, which earns its next update.
+  -- What happened in a task that earns its next update, once per thing, so a restart or a repeated
+  -- change never makes something old count as new.
   CREATE TABLE IF NOT EXISTS progress_marks (
-    task_ref INTEGER PRIMARY KEY REFERENCES tasks (ref) ON DELETE CASCADE,
+    ref      INTEGER PRIMARY KEY,
+    task_ref INTEGER NOT NULL REFERENCES tasks (ref) ON DELETE CASCADE,
+    key      TEXT NOT NULL,
     after    TEXT NOT NULL,
-    at       INTEGER NOT NULL
+    at       INTEGER NOT NULL,
+    UNIQUE (task_ref, key)
   ) STRICT;
+  `);
+}
+
+function addProgressUpdates(db: DatabaseSync): void {
+  if (!hasColumn(db, "tasks", "updates")) db.exec("ALTER TABLE tasks ADD COLUMN updates INTEGER");
+  createProgressTables(db);
+}
+
+// A store from a test build kept updates by task: each moves to the card that showed it.
+function tieUpdatesToCards(db: DatabaseSync): void {
+  if (hasColumn(db, "progress_updates", "post_ref")) return;
+  db.exec(`
+  ALTER TABLE progress_updates RENAME TO old_updates;
+  ALTER TABLE progress_images RENAME TO old_images;
+  ALTER TABLE progress_marks RENAME TO old_marks;
+  `);
+  createProgressTables(db);
+  db.exec(`
+  INSERT INTO progress_updates (id, post_ref, data, search, created_at)
+    SELECT o.id, p.ref, o.data, o.search, o.created_at FROM old_updates o
+    JOIN feed_posts p ON p.ref = (
+      SELECT ref FROM feed_posts WHERE task_ref = o.task_ref AND json_extract(data, '$.update') IS NOT NULL
+      ORDER BY created_at DESC, ref DESC LIMIT 1)
+    ORDER BY o.created_at, o.ref;
+  INSERT INTO progress_images (id, update_ref, type, bytes)
+    SELECT i.id, u.ref, i.type, i.bytes FROM old_images i
+    JOIN progress_updates u ON json_extract(u.data, '$.image.id') = i.id;
+  INSERT INTO progress_marks (task_ref, key, after, at)
+    SELECT task_ref, 'earlier', after, at FROM old_marks;
+  UPDATE feed_posts SET expires_at = NULL, data = json_set(data, '$.updates',
+    (SELECT count(*) FROM progress_updates u WHERE u.post_ref = feed_posts.ref))
+    WHERE ref IN (SELECT post_ref FROM progress_updates);
+  DROP TABLE old_images;
+  DROP TABLE old_updates;
+  DROP TABLE old_marks;
   `);
 }
 
@@ -1183,4 +1220,5 @@ export const migrations: readonly Migration[] = [
   CREATE INDEX IF NOT EXISTS feed_by_expiry ON feed_posts (expires_at) WHERE expires_at IS NOT NULL;
   `,
   addProgressUpdates,
+  tieUpdatesToCards,
 ];

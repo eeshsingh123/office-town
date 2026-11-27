@@ -51,7 +51,7 @@ const TEAM_TOOLS: Record<string, { kind: ActionKind; title: (input: Input) => st
   },
   send_back: { kind: "other", title: (input) => `Sent ${words(input.agent)}'s part back` },
   // Feed posts (D-138, D-141).
-  post_update: { kind: "other", title: (input) => `Told you: ${words(input.title)}` },
+  post_update: { kind: "other", title: (input) => `Heads-up: ${words(input.title)}` },
   post_progress: {
     kind: "other",
     title: (input) => `Posted a progress update: ${words(input.title)}`,

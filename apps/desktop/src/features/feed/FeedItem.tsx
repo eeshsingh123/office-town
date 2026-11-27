@@ -10,6 +10,7 @@ import {
   PowerOff,
   Sparkles,
   SquareArrowOutUpRight,
+  Trash2,
   Zap,
 } from "lucide-react";
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -20,20 +21,21 @@ import { knowAgents, useTraces } from "../../store/live.ts";
 import { useLoadProgress } from "../../store/milestones.ts";
 import { waitingKey } from "../../store/records.ts";
 import { progressOf, stageOf } from "../../trace/progress.ts";
-import { MoreMenu } from "../../ui/ActionMenu.tsx";
+import { confirmed, type MenuAction, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Count } from "../../ui/Count.tsx";
 import { ago } from "../../ui/format.ts";
 import { Markdown } from "../../ui/Markdown.tsx";
 import { showToast } from "../../ui/Toast.tsx";
+import { useWidth } from "../../ui/use-width.ts";
 import { TARGET_DRAFT } from "../new-task/targets.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import { goalStatuses, metCount, pieceStatuses } from "../task/goal-progress.ts";
 import { statusOfTask } from "../tasks/task-list.ts";
 import styles from "./Feed.module.css";
-import { UpdateBlock, useWidth } from "./ProgressUpdate.tsx";
+import { UpdateBlock } from "./ProgressUpdate.tsx";
 import { ReplyBox } from "./ReplyBox.tsx";
 
 interface Author {
@@ -104,6 +106,7 @@ const STOPPED: Record<NonNullable<FeedPost["stopped"]>, string> = {
   failed: "Failed",
   usage: "Paused",
   closed: "Stopped",
+  you: "Stopped",
 };
 
 function Head({ post, author, now }: { post: FeedPost; author: Author; now: number }) {
@@ -311,25 +314,41 @@ function LivingProgress({ post, tally }: { post: FeedPost; tally: boolean }) {
   );
 }
 
-// Turned off from the card, it stops at once (D-141).
-function UpdatesMenu({ taskId }: { taskId: string }) {
+// A working card turns its updates off, which stops them at once; a finished card with updates is
+// kept until the user deletes it, which always asks first (D-141).
+function CardMenu({ post, updatesOn }: { post: FeedPost; updatesOn: boolean }) {
+  const taskId = post.taskId;
+  if (taskId === undefined) return null;
+  const actions: MenuAction[] = [];
+  if (post.kind === "living" && updatesOn) {
+    actions.push({
+      label: "Turn off updates for this task",
+      icon: BellOff,
+      run: async () => {
+        await api.setTaskOptions(taskId, { updates: false });
+        showToast("Progress updates are off for this task.");
+      },
+    });
+  }
+  if (post.state === "ended" && post.updates !== undefined) {
+    const count =
+      post.updates === 1 ? "Its progress update goes" : `Its ${post.updates} progress updates go`;
+    actions.push(
+      confirmed(
+        { label: "Delete this card", icon: Trash2 },
+        {
+          title: "Delete this card?",
+          description: `${count} with it, pictures included. The task and its chat stay.`,
+          confirmLabel: "Delete",
+          run: () => api.deleteFeedCard(post.id),
+        },
+      ),
+    );
+  }
+  if (actions.length === 0) return null;
   return (
     <span className={styles.push}>
-      <MoreMenu
-        label="More for this task"
-        menu={() => ({
-          actions: [
-            {
-              label: "Turn off updates for this task",
-              icon: BellOff,
-              run: async () => {
-                await api.setTaskOptions(taskId, { updates: false });
-                showToast("Progress updates are off for this task.");
-              },
-            },
-          ],
-        })}
-      />
+      <MoreMenu label="More for this card" menu={() => ({ actions })} />
     </span>
   );
 }
@@ -408,7 +427,15 @@ function ResultFiles({ taskId }: { taskId: string }) {
   );
 }
 
-function ResultActions({ post, reply }: { post: FeedPost; reply: ReactNode }) {
+function ResultActions({
+  post,
+  reply,
+  menu,
+}: {
+  post: FeedPost;
+  reply: ReactNode;
+  menu: ReactNode;
+}) {
   // A result the user has not marked done waits for review, as Tasks shows it.
   const review = useApp(
     (state) =>
@@ -423,6 +450,7 @@ function ResultActions({ post, reply }: { post: FeedPost; reply: ReactNode }) {
         {review ? "Review" : "Open"}
       </Button>
       {reply}
+      {menu}
     </div>
   );
 }
@@ -553,10 +581,13 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
   );
   if (post.kind === "needs-you") return <NeedsYou post={post} author={author} now={now} />;
   if (post.kind === "suggested") return <Suggested post={post} author={author} now={now} />;
-  if (post.kind === "milestone" || (post.kind === "automation" && post.body === undefined)) {
+  const quietRun =
+    post.kind === "automation" && post.body === undefined && post.update === undefined;
+  if (post.kind === "milestone" || quietRun) {
     return <Row post={post} author={author} now={now} />;
   }
   const classes = [styles.post, older ? styles.older : "", arrived ? styles.arrived : ""];
+  const menu = <CardMenu post={post} updatesOn={updatesOn} />;
   return (
     <article className={classes.join(" ")} aria-label={post.title}>
       <Head post={post} author={author} now={now} />
@@ -572,15 +603,13 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
       ) : (
         <p className={styles.text}>{post.body}</p>
       )}
-      {post.kind === "living" || post.kind === "result" || post.kind === "stopped" ? (
-        <UpdateBlock post={post} now={now} />
-      ) : null}
+      <UpdateBlock post={post} now={now} />
       {post.kind === "heads-up" ? <TaskLink post={post} /> : null}
       {post.kind === "result" && post.taskId !== undefined ? (
         <ResultFiles taskId={post.taskId} />
       ) : null}
       {post.kind === "result" || post.kind === "automation" ? (
-        <ResultActions post={post} reply={reply.button} />
+        <ResultActions post={post} reply={reply.button} menu={menu} />
       ) : (
         <div className={styles.actions}>
           {post.kind === "stopped" || post.kind === "living" ? (
@@ -593,9 +622,7 @@ export function FeedItem({ post, now, older, arrived }: FeedItemProps) {
             </Button>
           ) : null}
           {reply.button}
-          {post.kind === "living" && updatesOn && post.taskId !== undefined ? (
-            <UpdatesMenu taskId={post.taskId} />
-          ) : null}
+          {menu}
         </div>
       )}
       {reply.box}

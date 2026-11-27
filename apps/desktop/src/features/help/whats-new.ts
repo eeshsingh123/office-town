@@ -24,13 +24,10 @@ export const RELEASES: Release[] = [
     title: "Progress updates in Feed",
     icon: Rss,
     changes: [
-      "Turn on Progress updates for a task, in its Options or on its run card, and the agent in charge posts what it found on the task's Feed card, with a chart or a picture when one shows it best",
-      "Updates are at least 30 minutes apart, and only after something real happened, such as a milestone met or a part finished. Each says what earned it",
-      "The card shows the newest update; Show all opens the earlier ones. A new update moves the card to the top, and the card keeps them once it becomes the result",
-      "Settings > Feed sets whether new tasks start with updates. Tasks in Efficient mode start without them, and a card's menu turns them off",
-      "With updates on, a working card also shows how many milestones are met and parts done",
+      "Turn on Progress updates in a task's Options or on its run card, and the agent in charge posts what it found on the task's Feed card, with a chart or a picture",
+      "Updates come at most every 30 minutes, each after a milestone, part or step, and say what earned it. Settings > Feed sets whether new tasks start with them",
+      "A card with updates stays in Feed until you delete it from its menu. Show all opens every earlier update",
       "The step bar on a working card now fits any number of steps",
-      'In a task\'s chat, an agent\'s Feed posts now read as "Told you: …" and "Posted a progress update: …"',
     ],
   },
   {

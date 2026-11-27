@@ -22,7 +22,7 @@ export const TASK_OPTIONS: { key: TaskOption; label: string; hint: string }[] = 
   {
     key: "updates",
     label: "Progress updates",
-    hint: "Post to Feed when real progress is made.",
+    hint: "The agent in charge posts on the task's Feed card when real progress is made.",
   },
 ];
 

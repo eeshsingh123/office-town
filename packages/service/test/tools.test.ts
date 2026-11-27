@@ -7,6 +7,7 @@ import { postUpdate } from "../src/feed/post-update.ts";
 import { ProgressMarks, postProgress } from "../src/feed/progress.ts";
 import { FeedProjector, taskKey } from "../src/feed/projector.ts";
 import { SessionRegistry } from "../src/registry/session-registry.ts";
+import { draftOf } from "../src/store/feed-store.ts";
 import { openStore } from "../src/store/sqlite-store.ts";
 import type { Store } from "../src/store/store.ts";
 import { TaskStates } from "../src/team/task-state.ts";
@@ -144,9 +145,13 @@ describe("tool server", () => {
       rpc(token, "tools/call", { name: "post_progress", arguments: { title } });
     const text = (reply: Awaited<ReturnType<typeof rpc>>) =>
       reply.body.result?.content[0]?.text ?? "";
+    const titles = (postId: string) =>
+      store.feed.updatesOf(postId).updates.map((update) => update.title);
+    const living = store.feed.byKey(taskKey(task.id));
+    if (living === undefined) throw new Error("The task has no card.");
     expect(listed.body.result.tools.map((tool) => tool.name)).not.toContain("post_progress");
     await progress("Off");
-    expect(store.feed.updatesOf(task.id)).toEqual([]);
+    expect(titles(living.id)).toEqual([]);
     store.setTaskUpdates(task.id, true);
     expect(text(await progress("Too early"))).toContain("nothing new");
     const milestone = store.createMilestone({
@@ -157,16 +162,42 @@ describe("tool server", () => {
     });
     store.updateMilestone(milestone.id, { status: "met" });
     expect(text(await progress("Blue is in"))).toContain("Posted");
-    const card = store.feed.byKey(taskKey(task.id));
-    expect(card?.update).toMatchObject({
+    const card = store.feed.get(living.id);
+    if (card === undefined) throw new Error("The card is gone.");
+    expect(card.update).toMatchObject({
       title: "Blue is in",
       after: 'After "Blue everywhere" was met',
     });
-    expect(card?.updates).toBe(1);
-    expect(store.feed.page({ show: "all" }).posts[0]?.id).toBe(card?.id);
+    expect(card.updates).toBe(1);
+    expect(store.feed.page({ show: "all" }).posts[0]?.id).toBe(card.id);
+    // Heard again, as after a restart, a thing already marked is nothing new.
+    const mark = store.feed.markOf(task.id);
+    store.feed.addMark(task.id, `milestone:${milestone.id}:met`, "Heard again");
+    expect(store.feed.markOf(task.id)).toEqual(mark);
     store.updateMilestone(milestone.id, { status: "not_met" });
     expect(text(await progress("Again"))).toContain("30 minutes apart");
-    expect(store.feed.updatesOf(task.id).map((update) => update.title)).toEqual(["Blue is in"]);
+    expect(titles(card.id)).toEqual(["Blue is in"]);
+
+    // A task continued after its result gets a new card: each keeps only its own updates, the
+    // app never deletes a card with updates, and deleting one leaves the other whole.
+    const result = store.feed.update(
+      card,
+      { ...draftOf(card), kind: "result", state: "ended" },
+      { key: null },
+    );
+    expect(result.updates).toBe(1);
+    const next = store.feed.create(draftOf(card), { key: taskKey(task.id) });
+    expect(next.update).toBeUndefined();
+    const first = result.update;
+    if (first === undefined) throw new Error("The result lost its update.");
+    store.feed.addUpdate(next, { ...first, id: "second", title: "Green next" });
+    expect(titles(next.id)).toEqual(["Green next"]);
+    expect(store.feed.get(result.id)?.updates).toBe(1);
+    store.feed.prune(Date.now() + 365 * 24 * 60 * 60_000);
+    expect(store.feed.get(result.id)?.updates).toBe(1);
+    store.feed.remove(result.id);
+    expect(titles(next.id)).toEqual(["Green next"]);
+    expect(store.feed.get(next.id)?.updates).toBe(1);
 
     await registry.stop(session.id);
     expect((await rpc(token, "tools/list")).status).toBe(401);

@@ -18,7 +18,6 @@ import { ownsGoal } from "../goal/record.ts";
 import { redact } from "../notify/redact.ts";
 import { hostPathOf, rootOf, taskRoots } from "../outputs/paths.ts";
 import type { SessionRegistry } from "../registry/session-registry.ts";
-import { draftOf } from "../store/feed-store.ts";
 import type { Store } from "../store/store.ts";
 import { type Caller, defineTool, ToolError } from "../tools/tools.ts";
 import { clip, taskKey } from "./projector.ts";
@@ -64,12 +63,10 @@ export function progressNudge(store: Store, taskId: string): string {
 const quoted = (text: string) => `"${clip(text.trim(), NAMED)}"`;
 
 // What earns a task its next update, in the words its card shows: a milestone reported, a part,
-// piece or plan step finished, or the chief's plan approved.
+// piece or plan step finished, or the chief's plan approved. Each is kept once under its own key,
+// so hearing it again, or again after a restart, never counts as something new.
 export class ProgressMarks {
   readonly #store: Store;
-  readonly #told = new Set<string>();
-  // Plan steps done by session, so only a newly finished one counts.
-  readonly #steps = new Map<string, number>();
 
   constructor(store: Store, registry: SessionRegistry) {
     this.#store = store;
@@ -81,42 +78,39 @@ export class ProgressMarks {
     registry.subscribe(({ event }) => this.#heard(event));
   }
 
-  #mark(taskId: string, after: string): void {
+  #mark(taskId: string, key: string, after: string): void {
     const task = this.#store.getTask(taskId);
     const owner = task?.parentTaskId ?? taskId;
     if (!updatesOn(this.#store, owner)) return;
-    this.#store.feed.setMark(owner, clip(after, FEED_TITLE_CHARS));
-  }
-
-  #once(key: string): boolean {
-    if (this.#told.has(key)) return false;
-    this.#told.add(key);
-    return true;
+    this.#store.feed.addMark(owner, key, clip(after, FEED_TITLE_CHARS));
   }
 
   #milestone(milestone: MilestoneRecord): void {
     if (milestone.status === "not_started") return;
-    if (!this.#once(`milestone:${milestone.id}:${milestone.status}`)) return;
     const outcome = quoted(milestone.outcome);
     this.#mark(
       milestone.taskId,
-      milestone.status === "met" ? `After ${outcome} was met` : `After ${outcome} was checked`,
+      `milestone:${milestone.id}:${milestone.status}`,
+      milestone.status === "met"
+        ? `After ${outcome} was met`
+        : `After ${outcome} was found not met`,
     );
   }
 
   #part(part: DelegationRecord): void {
-    if (part.status !== "done" || !this.#once(`part:${part.id}`)) return;
+    if (part.status !== "done") return;
     const name = this.#store.getAgent(part.workerAgentId)?.name ?? "A worker";
     const what = part.title === undefined ? "a part" : quoted(part.title);
-    this.#mark(part.taskId, `After ${name} finished ${what}`);
+    this.#mark(part.taskId, `part:${part.id}`, `After ${name} finished ${what}`);
   }
 
   #piece(piece: PlanPiece): void {
-    if (piece.status !== "done" || !this.#once(`piece:${piece.id}`)) return;
+    if (piece.status !== "done") return;
     const department =
       piece.departmentId === undefined ? undefined : this.#store.getDepartment(piece.departmentId);
     this.#mark(
       piece.taskId,
+      `piece:${piece.id}`,
       `After ${department?.name ?? "A department"} finished ${quoted(piece.title)}`,
     );
   }
@@ -128,15 +122,16 @@ export class ProgressMarks {
     const caller = { sessionId: session.id, agentId: session.agentId, taskId: session.taskId };
     if (!updatesOn(this.#store, session.taskId) || !ownsCard(this.#store, caller)) return;
     if (event.type === "plan.resolved") {
-      if (event.payload.outcome === "approved" || event.payload.outcome === "revised") {
-        this.#mark(session.taskId, "After the plan was approved");
+      const { outcome, requestId } = event.payload;
+      if (outcome === "approved" || outcome === "revised") {
+        this.#mark(session.taskId, `plan:${requestId}`, "After the plan was approved");
       }
       return;
     }
+    // Keyed by how many steps are done, so only a newly finished one counts.
     const done = event.payload.steps.filter((step) => step.status === "completed").length;
-    const before = this.#steps.get(session.id) ?? 0;
-    this.#steps.set(session.id, done);
-    if (done > before) this.#mark(session.taskId, `After step ${done} finished`);
+    if (done > 0)
+      this.#mark(session.taskId, `step:${session.id}:${done}`, `After step ${done} finished`);
   }
 }
 
@@ -172,7 +167,7 @@ async function keepPicture(
   store: Store,
   caller: Caller,
   path: string,
-): Promise<{ id: string; name: string; type: string; bytes: Uint8Array }> {
+): Promise<{ name: string; type: string; bytes: Uint8Array }> {
   const session = store.getSession(caller.sessionId);
   const file = session === undefined ? undefined : hostPathOf(session, path);
   if (file === undefined || rootOf(taskRoots(store, caller.taskId), file) === undefined) {
@@ -186,7 +181,35 @@ async function keepPicture(
     throw new ToolError("That picture is over 2 MB. Show a smaller one.");
   }
   const name = file.split(/[\\/]/).at(-1) ?? "picture";
-  return { id: randomUUID(), name, type, bytes: await readFile(file) };
+  return { name, type, bytes: await readFile(file) };
+}
+
+const minutes = (count: number) => (count === 1 ? "1 minute" : `${count} minutes`);
+
+// Whether an update would be taken now, and on which card with what earned it; refused otherwise.
+function takenOn(store: Store, taskId: string, now = Date.now()) {
+  // Turned off mid-task, it refuses at once (D-141).
+  if (!updatesOn(store, taskId)) {
+    throw new ToolError("Not posted: progress updates are off for this task.");
+  }
+  const card = store.feed.byKey(taskKey(taskId));
+  if (card?.kind !== "living") {
+    throw new ToolError("Your task has no card at work in Feed now. Put this in your result.");
+  }
+  const last = store.feed.latestUpdateAt(taskId);
+  if (!updatesDue(store, taskId, now)) {
+    const ago = Math.max(1, Math.round((now - (last ?? now)) / 60_000));
+    throw new ToolError(
+      `Not posted: updates are at least 30 minutes apart, and your last was ${minutes(ago)} ago.`,
+    );
+  }
+  const mark = store.feed.markOf(taskId);
+  if (mark === undefined || (last !== undefined && mark.at <= last)) {
+    throw new ToolError(
+      "Not posted: nothing new since your last update. Post after a milestone, part or step is done.",
+    );
+  }
+  return { card, after: mark.after };
 }
 
 // The card's owner shows how the task is going, in place on its Feed card (D-141).
@@ -228,53 +251,26 @@ export function postProgress(store: Store) {
     }),
     offeredTo: (caller) => updatesOn(store, caller.taskId) && ownsCard(store, caller),
     call: async ({ title, detail, chart, picture }, caller) => {
-      // Turned off mid-task, it refuses at once (D-141).
-      if (!updatesOn(store, caller.taskId)) {
-        throw new ToolError("Not posted: progress updates are off for this task.");
-      }
       if (chart !== undefined && picture !== undefined) {
         throw new ToolError("Give a chart or a picture, not both.");
       }
-      const card = store.feed.byKey(taskKey(caller.taskId));
-      if (card?.kind !== "living") {
-        throw new ToolError("Your task has no card at work in Feed now. Put this in your result.");
-      }
-      const now = Date.now();
-      const last = store.feed.latestUpdateAt(caller.taskId);
-      if (!updatesDue(store, caller.taskId, now)) {
-        const minutes = Math.max(1, Math.round((now - (last ?? now)) / 60_000));
-        throw new ToolError(
-          `Not posted: updates are at least 30 minutes apart, and your last was ${minutes} minutes ago.`,
-        );
-      }
-      const mark = store.feed.markOf(caller.taskId);
-      if (mark === undefined || (last !== undefined && mark.at <= last)) {
-        throw new ToolError(
-          "Not posted: nothing new since your last update. Post after a milestone, part or step is done.",
-        );
-      }
+      takenOn(store, caller.taskId);
       const image = picture === undefined ? undefined : await keepPicture(store, caller, picture);
+      // Checked again once the picture is read, so a change while it was read, or two calls at
+      // once, never puts an update on the wrong card or two inside the gap.
+      const now = Date.now();
+      const { card, after } = takenOn(store, caller.taskId, now);
       const update: ProgressUpdate = {
         id: randomUUID(),
         agentId: caller.agentId,
         title: clip(redact(title), FEED_TITLE_CHARS),
         ...(detail === undefined ? {} : { body: clip(redact(detail), FEED_BODY_CHARS) }),
         ...(chart === undefined ? {} : { chart: redactChart(chart) }),
-        ...(image === undefined ? {} : { image: { id: image.id, name: image.name } }),
-        after: mark.after,
+        ...(image === undefined ? {} : { image: { id: randomUUID(), name: image.name } }),
+        after,
         at: new Date(now).toISOString(),
       };
-      store.feed.batch(() => {
-        if (image !== undefined) {
-          store.feed.addImage(caller.taskId, image.id, image.type, image.bytes);
-        }
-        store.feed.addUpdate(caller.taskId, update);
-        store.feed.update(
-          card,
-          { ...draftOf(card), update, updates: (card.updates ?? 0) + 1 },
-          { rise: true },
-        );
-      });
+      store.feed.addUpdate(card, update, image);
       return "Posted on your task's card in Feed.";
     },
   });

@@ -57,10 +57,6 @@ function headlineOf(text: string): string | undefined {
   return line === undefined ? undefined : clip(line, FEED_TITLE_CHARS);
 }
 
-// A card keeps its progress updates as it changes, and once it becomes the task's result (D-141).
-const updatesOf = (post: FeedPost | undefined) =>
-  post?.update === undefined ? {} : { update: post.update, updates: post.updates ?? 1 };
-
 const isRequest = (event: SessionEvent): event is UserRequestEvent =>
   userRequestEventSchema.safeParse(event).success;
 
@@ -228,7 +224,8 @@ export class FeedProjector {
       return;
     }
     this.#told.add(told);
-    const ended = this.#ended(task, top, status);
+    // A card with progress updates is never removed by the app: it stays, ended (D-141).
+    const ended = this.#ended(task, top, status, living?.updates !== undefined);
     if (ended === undefined) {
       if (living !== undefined) this.#store.feed.remove(living.id);
       return;
@@ -239,12 +236,7 @@ export class FeedProjector {
       return;
     }
     if (living === undefined) this.#store.feed.create(ended);
-    else
-      this.#store.feed.update(
-        living,
-        { ...ended, ...updatesOf(living) },
-        { key: null, rise: true },
-      );
+    else this.#store.feed.update(living, ended, { key: null, rise: true });
     if (ended.kind === "result") suggestRepeat(this.#store, task);
   }
 
@@ -258,15 +250,19 @@ export class FeedProjector {
       ...this.#department(task, top.agentId),
       state: "open",
       ...(living?.note === undefined ? {} : { note: living.note }),
-      ...updatesOf(living),
     };
     if (living === undefined) this.#store.feed.create(draft, { key: taskKey(task.id) });
     else this.#store.feed.update(living, draft);
   }
 
   // What a task that stopped working says: its result, why it stopped, or nothing for a stop the
-  // user made.
-  #ended(task: TaskRecord, top: SessionRecord, status: string): PostDraft | "quiet" | undefined {
+  // user made. A card that must stay says something in every case.
+  #ended(
+    task: TaskRecord,
+    top: SessionRecord,
+    status: string,
+    stays: boolean,
+  ): PostDraft | "quiet" | undefined {
     const base = {
       by: { kind: "agent", agentId: top.agentId } as FeedAuthor,
       title: taskName(task),
@@ -288,14 +284,22 @@ export class FeedProjector {
     }
     if (status === "failed") return { ...base, kind: "stopped", stopped: "failed" };
     if (status === "stopped") {
-      return top.status === "interrupted"
-        ? { ...base, kind: "stopped", stopped: "closed", body: "Stopped when Office Town closed." }
+      if (top.status === "interrupted") {
+        return {
+          ...base,
+          kind: "stopped",
+          stopped: "closed",
+          body: "Stopped when Office Town closed.",
+        };
+      }
+      return stays
+        ? { ...base, kind: "stopped", stopped: "you", body: "You stopped it." }
         : undefined;
     }
     const result = resultOf(this.#store, task);
     const origin = task.origin;
     if (origin?.kind === "automation") {
-      if (this.#store.automations.getRun(origin.runId)?.quiet === true) return "quiet";
+      if (!stays && this.#store.automations.getRun(origin.runId)?.quiet === true) return "quiet";
       const excerpt = excerptOf(result);
       return {
         ...base,

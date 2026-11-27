@@ -8,9 +8,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--bg);
-}
-
-.update {
   --head-line: 18px;
 }
 
@@ -49,7 +46,6 @@
 
 .afterIcon {
   flex: none;
-  color: var(--ok);
 }
 
 .afterText {
@@ -129,7 +125,7 @@
   height: var(--head-line);
 }
 
-.dot {
+.railDot {
   width: 10px;
   height: 10px;
   border: 2px solid var(--border-strong);
@@ -137,7 +133,7 @@
   background: var(--surface);
 }
 
-.dotNewest {
+.railDotNewest {
   border-color: var(--accent);
   background: var(--accent);
 }
@@ -164,6 +160,13 @@
 
 .historyItem:last-child .historyBody {
   padding-bottom: 0;
+}
+
+/* Lined up with the entries' text, past the rail. */
+.historyEnd {
+  padding-left: 24px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
 }
 
 .caption {
@@ -299,7 +302,7 @@
 .axis {
   fill: var(--text-3);
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: var(--size-label);
 }
 
 .area {
@@ -314,20 +317,24 @@
   stroke-linejoin: round;
 }
 
-.dot {
+.point {
   fill: var(--surface);
   stroke: var(--accent);
   stroke-width: 2;
 }
 
-.dotEnd {
+.pointTarget {
+  fill: transparent;
+}
+
+.pointEnd {
   fill: var(--accent);
 }
 
 .value {
   fill: var(--text-2);
   font-family: var(--font-ui);
-  font-size: 11.5px;
+  font-size: var(--size-small);
   font-weight: 600;
 }
 

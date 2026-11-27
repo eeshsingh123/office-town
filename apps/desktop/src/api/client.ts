@@ -431,11 +431,16 @@ export const api = {
     });
     return read(`/feed?${query}`, feedPageSchema);
   },
-  progressUpdates: (postId: string): Promise<ProgressUpdates> =>
-    read(`/feed/posts/${id(postId)}/updates`, progressUpdatesSchema),
+  // Newest first; `before` is the oldest update already shown.
+  progressUpdates: (postId: string, before?: string): Promise<ProgressUpdates> =>
+    read(
+      `/feed/posts/${id(postId)}/updates${before === undefined ? "" : `?before=${id(before)}`}`,
+      progressUpdatesSchema,
+    ),
   markFeedSeen: (at: string): Promise<void> => send("POST", "/feed/seen", { at }),
   setSuggestions: (on: boolean): Promise<void> => send("PUT", "/feed/suggestions", { on }),
   dismissSuggestion: (postId: string): Promise<void> => send("DELETE", `/feed/${id(postId)}`),
+  deleteFeedCard: (postId: string): Promise<void> => send("DELETE", `/feed/${id(postId)}`),
   fewerSuggestions: (postId: string): Promise<void> => send("POST", `/feed/${id(postId)}/fewer`),
   saveOnboarding: (onboarding: Onboarding): Promise<Onboarding> =>
     write("PUT", "/onboarding", onboarding, onboardingSchema),

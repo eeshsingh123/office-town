@@ -26,7 +26,8 @@ export const feedAuthorSchema = z.discriminatedUnion("kind", [
 export type FeedAuthor = z.infer<typeof feedAuthorSchema>;
 
 // Why work stopped, named plainly on the post.
-export const stopReasonSchema = z.enum(["failed", "usage", "closed"]);
+// "you": a stop the user made, kept as a card only when it has progress updates (D-141).
+export const stopReasonSchema = z.enum(["failed", "usage", "closed", "you"]);
 export type StopReason = z.infer<typeof stopReasonSchema>;
 
 // Repeated requests and an agent's named follow-up; each can be quietened for 30 days.
@@ -129,7 +130,8 @@ export const feedPostSchema = z.object({
   count: z.number().int().min(2).optional(),
   // An agent's own words that came past its cap, shown on its living card.
   note: z.string().min(1).optional(),
-  // A task's card: its newest progress update and how many it has had.
+  // A task's card: its newest progress update and how many it has, written by the store from the
+  // card's own updates so they never drift (D-141).
   update: progressUpdateSchema.optional(),
   updates: z.number().int().min(1).optional(),
   suggestion: suggestionSchema.optional(),
@@ -166,8 +168,12 @@ export const feedPageSchema = z.object({
 });
 export type FeedPage = z.infer<typeof feedPageSchema>;
 
-// A card's progress updates, newest first.
-export const progressUpdatesSchema = z.object({ updates: z.array(progressUpdateSchema) });
+// A card's progress updates, newest first, a page at a time.
+export const PROGRESS_PAGE = 20;
+export const progressUpdatesSchema = z.object({
+  updates: z.array(progressUpdateSchema),
+  more: z.boolean(),
+});
 export type ProgressUpdates = z.infer<typeof progressUpdatesSchema>;
 
 export const feedSeenRequestSchema = z.object({ at: z.iso.datetime() });

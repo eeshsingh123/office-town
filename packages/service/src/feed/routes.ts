@@ -26,6 +26,14 @@ function suggestionOf(store: Store, postId: string) {
   return { post, suggestion: post.suggestion };
 }
 
+// Only the user deletes a finished task's card, and with it its progress updates (D-141).
+function removeCard(store: Store, post: FeedPost): void {
+  if (post.taskId === undefined || post.state !== "ended" || post.kind === "milestone") {
+    throw new RequestError(400, "invalid_request", "Only a finished task's card can be deleted.");
+  }
+  store.feed.remove(post.id);
+}
+
 export function feedRoutes(store: Store): Route[] {
   return [
     {
@@ -44,12 +52,12 @@ export function feedRoutes(store: Store): Route[] {
     {
       method: "GET",
       path: "/feed/posts/:id/updates",
-      // A task card's progress updates, newest first (D-141).
-      reply: ({ param }) => {
+      // A card's own progress updates, newest first, a page at a time (D-141).
+      reply: ({ param, query }) => {
         const post = store.feed.get(param("id"));
         if (post === undefined) throw new RecordNotFoundError("feed post");
-        const updates = post.taskId === undefined ? [] : store.feed.updatesOf(post.taskId);
-        return { status: 200, json: { updates } };
+        const before = query.get("before") || undefined;
+        return { status: 200, json: store.feed.updatesOf(post.id, before) };
       },
     },
     {
@@ -91,9 +99,12 @@ export function feedRoutes(store: Store): Route[] {
     {
       method: "DELETE",
       path: "/feed/:id",
+      // A suggestion is turned down; a finished task's card is deleted.
       reply: ({ param }) => {
-        const found = suggestionOf(store, param("id"));
-        if (found !== undefined) turnDown(store, found.post);
+        const post = store.feed.get(param("id"));
+        if (post === undefined) return NO_CONTENT;
+        if (post.suggestion === undefined) removeCard(store, post);
+        else turnDown(store, post);
         return NO_CONTENT;
       },
     },
