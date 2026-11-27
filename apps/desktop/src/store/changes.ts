@@ -36,6 +36,10 @@ export function withoutTask(state: AppState, taskId: string): AppState {
   const milestones = Object.fromEntries(
     Object.entries(state.milestones).filter(([, milestone]) => milestone.taskId !== taskId),
   );
+  // The core deletes a task's posts with it.
+  const feed = Object.fromEntries(
+    Object.entries(state.feed).filter(([, post]) => post.taskId !== taskId),
+  );
   return {
     ...state,
     ...removeTask(state, taskId),
@@ -45,6 +49,7 @@ export function withoutTask(state: AppState, taskId: string): AppState {
     checks,
     outputs,
     milestones,
+    feed,
   };
 }
 
@@ -93,9 +98,13 @@ function applyChange(state: AppState, change: Change): AppState {
     case "automation":
     case "automation.removed":
     case "run":
-    case "feed.post":
-    case "feed.removed":
       return state;
+    case "feed.post":
+      return { ...state, feed: { ...state.feed, [change.post.id]: change.post } };
+    case "feed.removed": {
+      const { [change.postId]: _, ...feed } = state.feed;
+      return { ...state, feed };
+    }
     case "destination":
       return withPlace(state, change.destination);
     case "destination.removed":

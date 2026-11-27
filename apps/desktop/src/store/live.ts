@@ -95,6 +95,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     connectors,
     outputs,
     places,
+    feed,
   ] = await Promise.all([
     api.listTasks(),
     api.listActiveTasks(),
@@ -108,6 +109,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     api.listConnectors(),
     api.listOutputs(),
     api.listDestinations(),
+    api.feed(),
   ]);
   // One still held as open that neither list has may have been interrupted by a restart; read it again.
   const listed = new Set([...page.tasks, ...active.tasks].map((task) => task.id));
@@ -132,6 +134,7 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
         ...(item.addedByAgentId === undefined ? [] : [item.addedByAgentId]),
       ]),
       ...connectors.flatMap((connector) => connector.audience.agentIds),
+      ...feed.posts.flatMap((post) => (post.by.kind === "agent" ? [post.by.agentId] : [])),
     ].filter((id) => !standing.has(id)),
   );
   const [delegations, pieces, milestones, more] = await Promise.all([
@@ -154,6 +157,10 @@ async function readAll(openStream: ((after: number) => void) | undefined): Promi
     efficientByDefault: settings.efficientByDefault === true,
     milestonesByDefault: settings.milestonesByDefault === true,
     autonomyByDefault: settings.autonomyByDefault,
+    feedSeenAt: settings.feedSeenAt,
+    suggestions: settings.suggestions !== false,
+    // Pages read before stay; a reconnect adds what it missed at the top.
+    feed: { ...state.feed, ...byId(feed.posts) },
     // One removed meanwhile is gone; one that arrived during the read stays.
     agents: {
       ...Object.fromEntries(Object.entries(state.agents).filter(([id]) => !held.has(id))),

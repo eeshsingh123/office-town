@@ -12,6 +12,7 @@ import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AutomationsCard } from "../automations/AutomationsCard.tsx";
 import { peopleLine } from "../departments/team-line.ts";
+import { useNewPosts } from "../feed/feed.ts";
 import { Composer } from "../new-task/Composer.tsx";
 import { selectAgent, selectRoom } from "../office/office-state.ts";
 import { saveOnboarding } from "../onboarding/onboarding.ts";
@@ -110,6 +111,7 @@ function StatusLine({ items }: { items: Item[] }) {
     (state) => state.chiefId !== undefined || Object.keys(state.departments).length > 0,
   );
   const needs = count("needs");
+  const newPosts = useNewPosts();
   const parts = [
     {
       key: "needs",
@@ -124,6 +126,13 @@ function StatusLine({ items }: { items: Item[] }) {
       text: "to review",
       tone: styles.countReview,
       open: () => showTasksTab("review"),
+    },
+    {
+      key: "feed",
+      count: newPosts,
+      text: newPosts === 1 ? "new post since you were here" : "new posts since you were here",
+      tone: "",
+      open: () => navigate({ name: "feed" }),
     },
   ].filter((part) => part.count > 0);
   if (workers.length === 0 && parts.length === 0) {

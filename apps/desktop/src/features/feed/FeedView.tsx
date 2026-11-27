@@ -1,0 +1,330 @@
+import type { FeedPost, FeedShow } from "@office-town/contract";
+import { ArrowUp, CheckCircle2, LoaderCircle } from "lucide-react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../api/client.ts";
+import { useApp } from "../../store/app-store.ts";
+import { forSession, useKept } from "../../store/kept.ts";
+import { Button } from "../../ui/Button.tsx";
+import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
+import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { clockTime } from "../../ui/format.ts";
+import page from "../../ui/Page.module.css";
+import { PageHeader } from "../../ui/PageHeader.tsx";
+import { SearchBox } from "../../ui/SearchBox.tsx";
+import { TabRow } from "../../ui/TabRow.tsx";
+import { startNewTask } from "../new-task/start-new-task.ts";
+import styles from "./Feed.module.css";
+import { FeedItem, useAuthor } from "./FeedItem.tsx";
+import { type FeedFilter, markSeen, NO_FILTER, newestFirst, postsInView } from "./feed.ts";
+
+const SHOW: { value: FeedShow; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "needs-you", label: "Needs you" },
+  { value: "results", label: "Results" },
+  { value: "automations", label: "Automations" },
+  { value: "suggested", label: "Suggested" },
+];
+
+const FILTER = forSession<FeedFilter>("feed.filter", NO_FILTER);
+// Scrolled further than this, new posts wait behind the pill instead of moving the list.
+const AT_TOP = 120;
+const SEARCH_WAIT_MS = 250;
+const PILL_FACES = 3;
+
+interface Cursor {
+  // The oldest post read for this filter; the list shows nothing older, so no gap shows.
+  oldest: FeedPost | undefined;
+  more: boolean;
+  loading: boolean;
+  error: string | undefined;
+}
+
+const START: Cursor = { oldest: undefined, more: false, loading: true, error: undefined };
+
+function useNow(): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  return now;
+}
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+// Reads pages of the core's feed for one filter, newest first, into the app's posts.
+function usePages(filter: FeedFilter) {
+  const [cursor, setCursor] = useState<Cursor>(START);
+  const [search, setSearch] = useState(filter.search);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(filter.search), SEARCH_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [filter.search]);
+  const query = useMemo(
+    () => ({
+      show: filter.show,
+      ...(filter.departmentId === undefined ? {} : { departmentId: filter.departmentId }),
+      ...(search.trim() === "" ? {} : { search: search.trim() }),
+    }),
+    [filter.show, filter.departmentId, search],
+  );
+  const read = async (before: FeedPost | undefined) => {
+    setCursor((current) => ({ ...current, loading: true, error: undefined }));
+    try {
+      const { posts, more } = await api.feed({
+        ...query,
+        ...(before === undefined ? {} : { before: before.id }),
+      });
+      useApp.setState((state) => ({
+        feed: { ...state.feed, ...Object.fromEntries(posts.map((post) => [post.id, post])) },
+      }));
+      setCursor({ oldest: posts.at(-1) ?? before, more, loading: false, error: undefined });
+    } catch {
+      setCursor((current) => ({ ...current, loading: false, error: "Posts could not be read." }));
+    }
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new filter starts from the top.
+  useEffect(() => {
+    setCursor(START);
+    void read(undefined);
+  }, [query]);
+  return {
+    cursor,
+    more: () => {
+      if (!cursor.loading && cursor.more) void read(cursor.oldest);
+    },
+    again: () => void read(cursor.oldest === undefined ? undefined : cursor.oldest),
+  };
+}
+
+function Face({ post }: { post: FeedPost }) {
+  return <>{useAuthor(post).face(26)}</>;
+}
+
+// X style: who posted, then how many wait above.
+function NewPostsPill({ posts, onShow }: { posts: FeedPost[]; onShow: () => void }) {
+  if (posts.length === 0) return null;
+  const faces: FeedPost[] = [];
+  const seen = new Set<string>();
+  for (const post of posts) {
+    const who = post.by.kind === "agent" ? post.by.agentId : JSON.stringify(post.by);
+    if (seen.has(who)) continue;
+    seen.add(who);
+    faces.push(post);
+    if (faces.length === PILL_FACES) break;
+  }
+  return (
+    <div className={styles.pillRow}>
+      <button type="button" className={styles.pill} onClick={onShow}>
+        <span className={styles.faces} aria-hidden>
+          {faces.map((post) => (
+            <Face key={post.id} post={post} />
+          ))}
+        </span>
+        <ArrowUp size={14} aria-hidden />
+        {plural(posts.length, "new post", "new posts")}
+      </button>
+    </div>
+  );
+}
+
+function Lead({ since, posts }: { since: string | undefined; posts: FeedPost[] }) {
+  const asks = useApp((state) => Object.keys(state.waiting).length);
+  const working = posts.filter((post) => post.kind === "living" && post.state === "open").length;
+  const fresh = since === undefined ? 0 : posts.filter((post) => post.createdAt > since).length;
+  const parts = [
+    asks === 0 ? undefined : `${asks} ${asks === 1 ? "needs" : "need"} you`,
+    working === 0 ? undefined : `${working} at work`,
+    since === undefined
+      ? undefined
+      : fresh === 0
+        ? `nothing new since ${clockTime(since)}`
+        : `${fresh} new since ${clockTime(since)}`,
+  ].filter((part) => part !== undefined);
+  if (parts.length === 0) return null;
+  const text = parts.join(" · ");
+  return <>{`${text[0]?.toUpperCase()}${text.slice(1)}`}</>;
+}
+
+export function FeedView() {
+  const [filter, setFilter] = useKept(FILTER);
+  const update = (change: Partial<FeedFilter>) => setFilter({ ...filter, ...change });
+  const { cursor, more, again } = usePages(filter);
+  const feed = useApp((state) => state.feed);
+  const departments = useApp((state) => state.departments);
+  const now = useNow();
+  // When the user last looked, as it was on opening: newer posts sit above "You're caught up".
+  const [since] = useState(() => useApp.getState().feedSeenAt);
+  const [openedAt] = useState(() => new Date().toISOString());
+  const scroller = useRef<HTMLElement>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
+  // Set while scrolled down: posts newer than this wait behind the pill.
+  const [holdAfter, setHoldAfter] = useState<string>();
+
+  const all = useMemo(() => postsInView(feed, filter, cursor.oldest), [feed, filter, cursor]);
+  const held = holdAfter === undefined ? [] : all.filter((post) => post.createdAt > holdAfter);
+  const shown = holdAfter === undefined ? all : all.filter((post) => post.createdAt <= holdAfter);
+  const newest = all[0];
+
+  // At the top with the window in front, everything shown counts as seen.
+  useEffect(() => {
+    if (holdAfter !== undefined || newest === undefined || !document.hasFocus()) return;
+    const timer = setTimeout(() => markSeen(newest.createdAt), 1000);
+    return () => clearTimeout(timer);
+  }, [holdAfter, newest]);
+
+  useEffect(() => {
+    const target = sentinel.current;
+    if (target === null) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) more();
+      },
+      { root: scroller.current, rootMargin: "600px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  });
+
+  const onScroll = () => {
+    const top = scroller.current?.scrollTop ?? 0;
+    if (top <= AT_TOP && holdAfter !== undefined) setHoldAfter(undefined);
+    if (top > AT_TOP && holdAfter === undefined) setHoldAfter(newest?.createdAt ?? openedAt);
+  };
+  const showHeld = () => {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scroller.current?.scrollTo({ top: 0, behavior: still ? "auto" : "smooth" });
+    setHoldAfter(undefined);
+  };
+
+  const filtering =
+    filter.show !== "all" || filter.departmentId !== undefined || filter.search !== "";
+  const departmentChoices = [
+    { value: "", label: "All" },
+    ...Object.values(departments)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((department) => ({ value: department.id, label: department.name })),
+  ];
+  const caughtUpAt = since === undefined ? -1 : shown.findIndex((post) => post.createdAt <= since);
+
+  let body: ReactNode;
+  if (cursor.error !== undefined && all.length === 0) {
+    body = (
+      <div className={styles.state}>
+        <p>{cursor.error}</p>
+        <Button onClick={again}>Try again</Button>
+      </div>
+    );
+  } else if (all.length === 0 && cursor.loading) {
+    body = (
+      <p className={styles.loading}>
+        <LoaderCircle size={14} className="spin" aria-hidden />
+        Reading posts
+      </p>
+    );
+  } else if (all.length === 0 && filtering) {
+    body = (
+      <div className={styles.state}>
+        <p>Nothing matches these filters.</p>
+        <Button onClick={() => setFilter(NO_FILTER)}>Clear filters</Button>
+      </div>
+    );
+  } else if (all.length === 0) {
+    body = (
+      <div className={styles.state}>
+        <p>Nothing here yet. Posts appear here as your agents work.</p>
+        <Button variant="primary" onClick={() => startNewTask()}>
+          New task
+        </Button>
+      </div>
+    );
+  } else {
+    body = (
+      <div className={styles.list}>
+        <NewPostsPill posts={held} onShow={showHeld} />
+        {shown.map((post, index) => (
+          <Fragment key={post.id}>
+            {index === caughtUpAt ? <CaughtUp /> : null}
+            <FeedItem
+              post={post}
+              now={now}
+              older={since !== undefined && post.createdAt <= since}
+              arrived={post.createdAt > openedAt}
+            />
+          </Fragment>
+        ))}
+        {caughtUpAt === -1 && since !== undefined && !cursor.more && shown.length > 0 ? (
+          <CaughtUp />
+        ) : null}
+        <div ref={sentinel} className={styles.sentinel} aria-hidden />
+        {cursor.loading ? (
+          <p className={styles.loading}>
+            <LoaderCircle size={14} className="spin" aria-hidden />
+            Reading older posts
+          </p>
+        ) : null}
+        {cursor.error === undefined ? null : (
+          <div className={styles.state}>
+            <p>{cursor.error}</p>
+            <Button onClick={again}>Try again</Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <section
+      ref={scroller}
+      onScroll={onScroll}
+      className={`${page.page} ${styles.page}`}
+      aria-labelledby="feed-title"
+    >
+      <div className={styles.column}>
+        <PageHeader
+          id="feed-title"
+          title="Feed"
+          lead={<Lead since={since} posts={Object.values(feed).sort(newestFirst)} />}
+        />
+        <div className={styles.tools}>
+          <div className={styles.tabsRow}>
+            <TabRow
+              label="Show"
+              tabs={SHOW}
+              value={filter.show}
+              onChange={(show) => update({ show })}
+            />
+          </div>
+          <div className={styles.filters}>
+            <SearchBox
+              value={filter.search}
+              onChange={(search) => update({ search })}
+              label="Search posts"
+            />
+            {Object.keys(departments).length === 0 ? null : (
+              <ChoiceMenu
+                label="Department"
+                value={filter.departmentId ?? ""}
+                choices={departmentChoices}
+                onChange={(chosen) => update({ departmentId: chosen === "" ? undefined : chosen })}
+              />
+            )}
+            <ClearFilters shown={filtering} onClear={() => setFilter(NO_FILTER)} />
+          </div>
+        </div>
+        {body}
+      </div>
+    </section>
+  );
+}
+
+function CaughtUp() {
+  return (
+    <p className={styles.caught}>
+      <span className={styles.caughtLabel}>
+        <CheckCircle2 size={14} aria-hidden />
+        You're caught up
+      </span>
+    </p>
+  );
+}

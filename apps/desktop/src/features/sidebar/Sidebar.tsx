@@ -14,6 +14,7 @@ import {
   Plug,
   Plus,
   RefreshCw,
+  Rss,
   Search,
   Settings,
   SwatchBook,
@@ -31,6 +32,7 @@ import { ResizeHandle } from "../../ui/ResizeHandle.tsx";
 import { shortcut } from "../../ui/system.ts";
 import { openCommandMenu } from "../command/command-menu.ts";
 import { useConnectorNeedsUser } from "../connectors/connectors.ts";
+import { useNewPosts } from "../feed/feed.ts";
 import { startNewTask } from "../new-task/start-new-task.ts";
 import { useAnyAccountHigh } from "../usage/use-usage.ts";
 import { useYou } from "../you/you.ts";
@@ -55,6 +57,7 @@ interface NavItemProps {
     | "office"
     | "team"
     | "needs-you"
+    | "feed"
     | "tasks"
     | "automations"
     | "templates"
@@ -115,6 +118,16 @@ function WaitingCount() {
     <span className={styles.count} title={label}>
       {count}
       <span className="visually-hidden"> {count === 1 ? "request" : "requests"}</span>
+    </span>
+  );
+}
+
+// New posts since the user last looked; Needs you keeps the count (D-137).
+function FeedDot() {
+  if (useNewPosts() === 0) return null;
+  return (
+    <span className={styles.feedDot}>
+      <span className="visually-hidden"> New posts</span>
     </span>
   );
 }
@@ -245,6 +258,7 @@ export function Sidebar() {
           </button>
           <Group label="Work">
             <NavItem view="home" icon={House} label="Home" />
+            <NavItem view="feed" icon={Rss} label="Feed" badge={<FeedDot />} />
             <NavItem view="needs-you" icon={Inbox} label="Needs you" badge={<WaitingCount />} />
             <NavItem view="tasks" icon={List} label="Tasks" />
             <NavItem view="automations" icon={CalendarClock} label="Automations" />

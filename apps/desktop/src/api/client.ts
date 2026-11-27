@@ -70,6 +70,9 @@ import {
   type EnvironmentList,
   type EnvironmentSpec,
   environmentListSchema,
+  type FeedPage,
+  type FeedQuery,
+  feedPageSchema,
   type HarnessCatalog,
   type HarnessDescription,
   type HarnessInstall,
@@ -415,6 +418,19 @@ export const api = {
   listWorkspaceUsage: (): Promise<WorkspaceUsage[]> =>
     read("/workspaces/usage", listOf(workspaceUsageSchema)),
   readSettings: (): Promise<Settings> => read("/settings", settingsSchema),
+  feed: ({ before, show, departmentId, search }: Partial<FeedQuery> = {}): Promise<FeedPage> => {
+    const query = new URLSearchParams({
+      ...(before === undefined ? {} : { before }),
+      ...(show === undefined || show === "all" ? {} : { show }),
+      ...(departmentId === undefined ? {} : { departmentId }),
+      ...(search === undefined ? {} : { search }),
+    });
+    return read(`/feed?${query}`, feedPageSchema);
+  },
+  markFeedSeen: (at: string): Promise<void> => send("POST", "/feed/seen", { at }),
+  setSuggestions: (on: boolean): Promise<void> => send("PUT", "/feed/suggestions", { on }),
+  dismissSuggestion: (postId: string): Promise<void> => send("DELETE", `/feed/${id(postId)}`),
+  fewerSuggestions: (postId: string): Promise<void> => send("POST", `/feed/${id(postId)}/fewer`),
   saveOnboarding: (onboarding: Onboarding): Promise<Onboarding> =>
     write("PUT", "/onboarding", onboarding, onboardingSchema),
   saveDisplay: (display: Display): Promise<Display> =>

@@ -12,6 +12,7 @@ const PAGES: Record<string, string> = {
   team: "Team",
   chief: "Chief",
   "needs-you": "Needs you",
+  feed: "Feed",
   tasks: "Tasks",
   templates: "Templates",
   workspaces: "Workspaces",

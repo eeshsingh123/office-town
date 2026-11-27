@@ -1,0 +1,517 @@
+/* One readable column: posts are read top to bottom, so the line stays short. */
+.page {
+  position: relative;
+  padding-bottom: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 96px;
+}
+
+/* Tabs, then search and the department: the same as Needs you and Tasks (a3-15). */
+.tools {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tabsRow {
+  border-bottom: 1px solid var(--border);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* New posts wait above while the list is scrolled, X style: faces of who posted, then a count. */
+.pillRow {
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  height: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 16px 0 6px;
+  border: 0;
+  border-radius: var(--radius-chip);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-raised);
+  font-size: var(--size-meta);
+  font-weight: 600;
+  cursor: pointer;
+  animation: drop 180ms ease-out;
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.faces {
+  display: flex;
+}
+
+.faces > * {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.faces > * + * {
+  margin-left: -8px;
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* A post: who, what kind and when on one line, then its headline, then what it carries. */
+.post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  /* Off-screen posts skip layout and paint, so a long feed scrolls lightly. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
+}
+
+.arrived {
+  animation: arrive 220ms ease-out;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.suggested {
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.older {
+  opacity: 0.86;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.name {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.role {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A face for what is not an agent: an automation, or Office Town itself. */
+.tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--code);
+  color: var(--text-2);
+}
+
+.tileSmall {
+  width: 26px;
+  height: 26px;
+}
+
+.kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--size-label);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.kind time {
+  font-size: var(--size-meta);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.kindNeeds {
+  color: var(--warn);
+}
+
+.kindLive {
+  color: var(--ok);
+}
+
+.kindResult {
+  color: var(--review);
+}
+
+.kindBad {
+  color: var(--bad);
+}
+
+.pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.text {
+  margin: 0;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* What a post carries: a result's first lines, a card's progress. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow: hidden;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  font-size: var(--size-meta);
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
+}
+
+.preview > :first-child {
+  margin-top: 0;
+}
+
+.preview > :last-child {
+  margin-bottom: 0;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+}
+
+.steps {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+}
+
+.step {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.stepDone {
+  background: var(--ok);
+}
+
+.stepNow {
+  background: color-mix(in srgb, var(--ok) 45%, var(--border));
+}
+
+.liveLine {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.liveLine strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.now {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--size-meta);
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--size-meta);
+  cursor: pointer;
+}
+
+.file:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.push {
+  margin-left: auto;
+}
+
+.why {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+/* A reply, inside the post it answers. */
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.replyField {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 10px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--size-ui);
+  line-height: 1.5;
+}
+
+.replyField:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.replyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+}
+
+.error {
+  margin: 0;
+  color: var(--bad);
+  font-size: var(--size-meta);
+}
+
+/* One line for what is folded or settled: parts finished, a quiet run, an answered ask. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-3);
+  font-size: var(--size-meta);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 46px;
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rowText strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.rowTime {
+  flex: none;
+  padding-right: 6px;
+}
+
+.caught {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  color: var(--ok);
+  font-size: var(--size-meta);
+  font-weight: 600;
+}
+
+.caught::before,
+.caught::after {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+
+.caughtLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.state p {
+  margin: 0;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-3);
+}
+
+.sentinel {
+  height: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .arrived,
+  .pulse {
+    animation: none;
+  }
+}
