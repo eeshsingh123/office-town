@@ -11,6 +11,8 @@ import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { Count } from "../../ui/Count.tsx";
+import { Fact, Facts } from "../../ui/Facts.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -207,8 +209,12 @@ function GroupSection(props: GroupSectionProps) {
           <span className={styles.groupMeta}>{group.meta}</span>
         </div>
         <span className={styles.waiting}>
-          {plural(group.asks.length, "request", "requests")} · oldest{" "}
-          {waitedFor(group.oldestAt, now)}
+          <Facts>
+            <Fact count={group.asks.length}>
+              {group.asks.length === 1 ? "request" : "requests"}
+            </Fact>
+            <Fact>Oldest {waitedFor(group.oldestAt, now)}</Fact>
+          </Facts>
         </span>
         {approvals === 0 ? null : (
           <div className={styles.groupActions}>
@@ -362,17 +368,23 @@ export function NeedsYouView() {
           id="needs-you-title"
           title="Needs you"
           lead={
-            asks.length === 0
-              ? "Nothing needs you."
-              : [
-                  `${plural(asks.length, "request", "requests")} across ${plural(taskCount, "task", "tasks")}`,
-                  decisions === 0
-                    ? undefined
-                    : `${plural(decisions, "plan or team", "plans or teams")} to approve`,
-                  `oldest waiting ${waitedFor(oldest, now)}`,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
+            asks.length === 0 ? (
+              "Nothing needs you."
+            ) : (
+              <Facts>
+                <Fact count={asks.length} urgent>
+                  {asks.length === 1 ? "request" : "requests"} across
+                  <Count value={taskCount} />
+                  {taskCount === 1 ? "task" : "tasks"}
+                </Fact>
+                {decisions === 0 ? null : (
+                  <Fact count={decisions}>
+                    {decisions === 1 ? "plan or team" : "plans or teams"} to approve
+                  </Fact>
+                )}
+                <Fact>Oldest waiting {waitedFor(oldest, now)}</Fact>
+              </Facts>
+            )
           }
         />
 

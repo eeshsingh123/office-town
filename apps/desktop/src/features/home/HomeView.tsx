@@ -8,6 +8,7 @@ import type { Trace } from "../../trace/trace.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { Count } from "../../ui/Count.tsx";
+import { Fact, Facts } from "../../ui/Facts.tsx";
 import { ago, taskName } from "../../ui/format.ts";
 import { STATE_LABELS } from "../../ui/StatusIcon.tsx";
 import { AutomationsCard } from "../automations/AutomationsCard.tsx";
@@ -117,21 +118,18 @@ function StatusLine({ items }: { items: Item[] }) {
       key: "needs",
       count: needs,
       text: needs === 1 ? "needs you" : "need you",
-      tone: styles.countNeeds,
       open: () => navigate({ name: "needs-you" }),
     },
     {
       key: "review",
       count: count("review"),
       text: "to review",
-      tone: styles.countReview,
       open: () => showTasksTab("review"),
     },
     {
       key: "feed",
       count: newPosts,
       text: newPosts === 1 ? "new post since you were here" : "new posts since you were here",
-      tone: "",
       open: () => navigate({ name: "feed" }),
     },
   ].filter((part) => part.count > 0);
@@ -139,17 +137,18 @@ function StatusLine({ items }: { items: Item[] }) {
     return <>{hasTeam ? "Your team is idle and ready for a new task." : "Ready for a new task."}</>;
   }
   return (
-    <>
-      {workers.length === 0 ? null : <WorkingLine workers={workers} />}
-      {parts.map((part, index) => (
-        <Fragment key={part.key}>
-          {index === 0 && workers.length === 0 ? null : " · "}
-          <button type="button" className={`${styles.count} ${part.tone}`} onClick={part.open}>
-            {part.count} {part.text}
-          </button>
-        </Fragment>
+    <Facts>
+      {workers.length === 0 ? null : (
+        <span>
+          <WorkingLine workers={workers} />
+        </span>
+      )}
+      {parts.map((part) => (
+        <Fact key={part.key} count={part.count} urgent={part.key === "needs"} onClick={part.open}>
+          {part.text}
+        </Fact>
       ))}
-    </>
+    </Facts>
   );
 }
 

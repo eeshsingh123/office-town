@@ -17,6 +17,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { Fact, Facts } from "../../ui/Facts.tsx";
 import { byteSize } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
 import page from "../../ui/Page.module.css";
@@ -357,12 +358,19 @@ export function TasksView({ startedBy }: { startedBy?: string }) {
     (item) => item.status === "done" && Date.parse(item.activityAt) >= midnight,
   ).length;
   // Counted and worded as Home's status line (a3-25).
-  const summary = [
-    working === 0 ? undefined : `${working} working`,
-    needYou === 0 ? undefined : `${needYou} ${needYou === 1 ? "needs" : "need"} you`,
-    toReview === 0 ? undefined : `${toReview} to review`,
-    doneToday === 0 ? undefined : `${doneToday} done today`,
-  ].filter(Boolean);
+  const summary =
+    working + needYou + toReview + doneToday === 0 ? undefined : (
+      <Facts>
+        {working === 0 ? null : <Fact count={working}>working</Fact>}
+        {needYou === 0 ? null : (
+          <Fact count={needYou} urgent>
+            {needYou === 1 ? "needs you" : "need you"}
+          </Fact>
+        )}
+        {toReview === 0 ? null : <Fact count={toReview}>to review</Fact>}
+        {doneToday === 0 ? null : <Fact count={doneToday}>done today</Fact>}
+      </Facts>
+    );
 
   const update = (change: Partial<Filters>) => setFilters({ ...filters, ...change });
   const chooseBy = (value: GroupBy) => {
@@ -406,9 +414,7 @@ export function TasksView({ startedBy }: { startedBy?: string }) {
         <PageHeader
           id="tasks-title"
           title="Tasks"
-          lead={
-            taskItems.length === 0 ? "No tasks yet." : summary.join(" · ") || "Nothing is working."
-          }
+          lead={taskItems.length === 0 ? "No tasks yet." : (summary ?? "Nothing is working.")}
           actions={
             <Button variant="primary" onClick={() => startNewTask()}>
               <Plus size={14} aria-hidden />

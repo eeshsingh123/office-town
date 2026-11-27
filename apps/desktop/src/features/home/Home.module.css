@@ -51,15 +51,6 @@
   color: var(--accent-text);
 }
 
-.countNeeds {
-  font-weight: 600;
-  color: var(--warn);
-}
-
-.countReview {
-  color: var(--review);
-}
-
 .section {
   display: flex;
   flex-direction: column;
