@@ -85,13 +85,6 @@ export function effortName(effort: string): string {
   return `${effortLabel(effort)} effort`;
 }
 
-// Free comes first, so an AI app with free models reads as one you can use at no cost.
-export function accessNote(models: readonly HarnessModel[] | undefined): string | undefined {
-  if (models?.some((model) => model.access === "free")) return "Free models";
-  if (models?.some((model) => model.access === "plan")) return "In your plan";
-  return undefined;
-}
-
 // Such as "Sonnet 5.5 · Claude Code · Medium effort".
 export function modelLine(
   settings: Settings,

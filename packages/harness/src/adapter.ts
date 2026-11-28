@@ -110,7 +110,19 @@ export interface HarnessQuery<T> {
   read(output: string[], stderr?: string): T | undefined;
 }
 
-export type CatalogQuery = HarnessQuery<HarnessCatalog>;
+// One question asked of a private server the CLI starts, for a CLI whose server answers before it
+// has loaded what was asked. `ask` runs against the server's address until `read` finds the answer.
+// `password` names the variable that sets the server's password, a fresh one each time.
+export interface ServedQuery<T> {
+  served: true;
+  server: HarnessCommand;
+  password: string;
+  address(line: string): string | undefined;
+  ask(address: string): HarnessCommand;
+  read(output: string[]): T | undefined;
+}
+
+export type CatalogQuery = HarnessQuery<HarnessCatalog> | ServedQuery<HarnessCatalog>;
 
 // How a harness keeps several logins apart, each in a folder of its own (D-61).
 export interface AccountSupport {

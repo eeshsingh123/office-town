@@ -1,4 +1,4 @@
-import { Gauge, Inbox, LayoutGrid, type LucideIcon, Rss } from "lucide-react";
+import { Gauge, Inbox, type LucideIcon, Rss, Wrench } from "lucide-react";
 
 export interface Release {
   // YYYY-MM-DD, newest first.
@@ -9,6 +9,16 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-28",
+    title: "OpenCode models list again",
+    icon: Wrench,
+    changes: [
+      "The model picker lists OpenCode's models again with OpenCode 2.4, which had left the list empty",
+      "The model picker shows each provider by name only, without notes or usage under it",
+      "OpenCode agents can no longer set up OpenCode's own automations, which would run outside Office Town. Use Automations instead",
+    ],
+  },
   {
     date: "2026-11-28",
     title: "Clearer empty pages",
@@ -54,18 +64,6 @@ export const RELEASES: Release[] = [
       "A dot on Feed and a line on Home tell you when there are new posts",
       "Feed can suggest an automation for a request you repeat. Set it up opens it filled in",
       "On the office floor, a new post shows over its agent for a few seconds",
-    ],
-  },
-  {
-    date: "2026-11-25",
-    title: "Ready-made teams and recipes",
-    icon: LayoutGrid,
-    changes: [
-      "New department starts with four team templates: Research desk, Content team, Code review team and Bug-fix team",
-      "The lead gets your strongest model and the members a cheap or free one, all marked picked for you",
-      "New automation starts with five recipes, such as Morning brief and Nightly test check. One click fills every step",
-      "Recipes that read Gmail or Google Calendar run through Claude, and Review links to anything not set up yet",
-      "In a setup with steps, the back link goes to the step before, and Start over begins again",
     ],
   },
 ];

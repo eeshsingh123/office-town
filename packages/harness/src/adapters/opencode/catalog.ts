@@ -1,6 +1,6 @@
 import type { HarnessCatalog, HarnessModel } from "@office-town/contract";
 import { z } from "zod";
-import type { CatalogQuery } from "../../adapter.ts";
+import type { CatalogQuery, ServedQuery } from "../../adapter.ts";
 
 // OpenCode Go is OpenCode's own subscription; its models list a price but cost nothing beyond it.
 const PLAN_PROVIDER = "opencode-go";
@@ -136,10 +136,24 @@ const listSchema = z.looseObject({
   ),
 });
 
-// OpenCode 2 lists its models in detail only through its API. A private server, so the call
-// neither starts nor reaches the user's background one (D-97).
-export const catalog2: CatalogQuery = {
-  command: { binary: "opencode", args: ["api", "model.list", "--standalone"] },
+const addressSchema = z.looseObject({ url: z.string().min(1) });
+
+// OpenCode 2 lists its models in detail only through its API, on a private server so the user's
+// background one is never touched (D-97). From 2.4 a server that just started lists only what has
+// loaded, often nothing, so the app starts the server itself and asks until the models are there.
+export const catalog2: ServedQuery<HarnessCatalog> = {
+  served: true,
+  server: { binary: "opencode", args: ["serve", "--stdio", "--port", "0"] },
+  password: "OPENCODE_PASSWORD",
+  address(line) {
+    try {
+      const parsed = addressSchema.safeParse(JSON.parse(line));
+      return parsed.success ? parsed.data.url : undefined;
+    } catch {
+      return undefined;
+    }
+  },
+  ask: (address) => ({ binary: "opencode", args: ["api", "model.list", "--server", address] }),
   read(output) {
     const text = output.join("\n");
     const start = text.indexOf("{");

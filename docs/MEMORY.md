@@ -4,8 +4,8 @@ Last updated: 2026-11-28
 
 ## State
 
-- Merged to `main`: M1 to M12, M15, M16 Feed with progress updates, and the store audit (PR #113 last, D-142).
-- Open: empty states on `feat/empty-states` (one `ui/EmptyState` across pages and panes), awaiting review.
+- Merged to `main`: M1 to M12, M15, M16 Feed with progress updates, the store audit (D-142) and empty states (PR #114 last).
+- Open: `fix/opencode-models`, awaiting review: OpenCode 2.4's model list (D-97) and provider names only in the model picker.
 - Next (owner, 2026-11-27): agent memory across tasks, which then feeds Feed suggestions (D-139). M13 and M14 wait until real users ask.
 - Parked: OpenCode's own automations. OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, via `opencode api --standalone`); its event stream has no automation events.
 - No CI until the public release (D-135); nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (`.github/workflows/ci.yml` in git history).
@@ -50,7 +50,7 @@ Last updated: 2026-11-28
 Facts the fixtures do not show at a glance.
 
 - Claude Code (2.1.287 fixtures). A message sent during a turn folds in at the next tool end; `--replay-user-messages` echoes it. MCP tools are deferred behind `ToolSearch`, so a tool an agent must use needs a brief line. Read the plan from `tool_use_result`, not the model's input. Background sub-agents outlive the turn and the CLI then starts a turn of its own. It refuses a standalone `sleep` (use `ping -n N 127.0.0.1`). `AskUserQuestion` comes as a permission request. `CLAUDE_CONFIG_DIR` moves the login. Gmail, Drive and Calendar need `claude mcp login --no-browser "<app>"` headless.
-- OpenCode 1 (1.18.34) and 2 (2.3.0) over ACP, one adapter (D-97). 2.x: every command but `acp` uses a shared background service unless `--standalone`; Code Mode wraps MCP calls in a script unless the server has `codemode: false`; a finished background sub-agent wakes the agent with no end signal. 1.x: an `ask` rule on an MCP tool comes with an empty input (why the core decides connector calls); no sub-agent steps. Both wait for every MCP server in the user's global config before a session starts.
+- OpenCode 1 (1.18.34) and 2 (2.3.0 fixtures; 2.4.2 checked live 2026-11-28, native and WSL) over ACP, one adapter (D-97). 2.4: a just-started server lists models and plugins empty; MCP servers get a `server/discover` probe first, which the core's tool server answers "method not found" before the usual handshake; its own automations run later in any OpenCode on that data folder, with no events, so sessions set `automations: false`. 2.x: every command but `acp` uses a shared background service unless `--standalone`; Code Mode wraps MCP calls in a script unless the server has `codemode: false`; a finished background sub-agent wakes the agent with no end signal. 1.x: an `ask` rule on an MCP tool comes with an empty input (why the core decides connector calls); no sub-agent steps. Both wait for every MCP server in the user's global config before a session starts.
 - Codex 0.167.2 (`codex app-server`): asks before every MCP call as an elicitation, ignoring `auto`, so the translator accepts the core's own. Its sub-agent results wait for the parent's next turn. ChatGPT apps are grouped by `_meta.connector_id`.
 - Copilot 1.0.103 (`copilot --acp`), Cursor (`cursor-agent acp`), Muse 1.4.13 (`muse serve`); their sub-agents are unverified.
 

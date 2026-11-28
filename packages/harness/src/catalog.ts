@@ -1,7 +1,7 @@
 import { type HarnessCatalog, harnessCatalogSchema } from "@office-town/contract";
 import type { Adapter } from "./adapter.ts";
 import type { Environment } from "./environment/environment.ts";
-import { QueryError, runQuery } from "./query.ts";
+import { QueryError, runQuery, runServedQuery } from "./query.ts";
 
 const CATALOG_TIMEOUT_MS = 60_000;
 
@@ -20,13 +20,16 @@ export async function readCatalog(
   if (query === undefined) {
     throw new CatalogError(`The "${adapter.harness}" harness cannot list its models.`);
   }
-  const catalog = await runQuery(environment, query, { timeoutMs: CATALOG_TIMEOUT_MS }).catch(
-    (error: unknown) => {
-      if (!(error instanceof QueryError)) throw error;
-      throw new CatalogError(
-        `The "${adapter.harness}" harness did not list its models. ${error.message}`,
-      );
-    },
-  );
+  const options = { timeoutMs: CATALOG_TIMEOUT_MS };
+  const asked =
+    "served" in query
+      ? runServedQuery(environment, query, options)
+      : runQuery(environment, query, options);
+  const catalog = await asked.catch((error: unknown) => {
+    if (!(error instanceof QueryError)) throw error;
+    throw new CatalogError(
+      `The "${adapter.harness}" harness did not list its models. ${error.message}`,
+    );
+  });
   return harnessCatalogSchema.parse(catalog);
 }
