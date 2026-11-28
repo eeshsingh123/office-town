@@ -38,6 +38,17 @@
   gap: 14px;
 }
 
+/* Names its post for the scroll place, with no box of its own. */
+.slot {
+  display: contents;
+}
+
+/* Coming back to a place: every post at its real height for a frame (FeedView.tsx). */
+.settling .post,
+.settling .row {
+  content-visibility: visible;
+}
+
 /* New posts wait above while the list is scrolled: faces of who posted, then a count. */
 .pillRow {
   position: sticky;
@@ -478,6 +489,38 @@
   font-size: var(--size-meta);
 }
 
+/* As wide as the chat's card: pictures are taken 480 px wide, so wider would blur them. */
+.media {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* A page's picture reads from its top; an image shows whole. */
+.mediaImage img {
+  object-fit: contain;
+  object-position: center;
+}
+
+.media:hover {
+  border-color: var(--border-strong);
+}
+
 .files {
   display: flex;
   flex-wrap: wrap;
@@ -620,29 +663,22 @@ strong.rowTitle {
   font-variant-numeric: tabular-nums;
 }
 
-.caught {
+/* Where the feed starts; it stays at the top, whatever arrives. */
+.latest {
   display: flex;
   margin: 0;
   align-items: center;
   gap: 12px;
-  padding: 6px 0;
-  color: var(--ok);
+  color: var(--text-3);
   font-size: var(--size-meta);
   font-weight: 600;
 }
 
-.caught::before,
-.caught::after {
+.latest::after {
   flex: 1;
   height: 1px;
   background: var(--border);
   content: "";
-}
-
-.caughtLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .state {

@@ -2,7 +2,6 @@ import type { FeedPost, FeedShow } from "@office-town/contract";
 import {
   ArrowUp,
   CheckCheck,
-  CheckCircle2,
   Clock,
   CloudOff,
   Lightbulb,
@@ -12,10 +11,10 @@ import {
   PackageCheck,
   RotateCcw,
 } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
-import { forSession, useKept } from "../../store/kept.ts";
+import { forSession, readKept, useKept, writeKept } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
@@ -71,6 +70,7 @@ const EMPTY_TAB: Record<
 };
 
 const FILTER = forSession<FeedFilter>("feed.filter", NO_FILTER);
+const HOLD_AFTER = forSession<string | undefined>("feed.hold-after", undefined);
 // Scrolled further than this, new posts wait behind the pill instead of moving the list.
 const AT_TOP = 120;
 const SEARCH_WAIT_MS = 250;
@@ -81,10 +81,59 @@ interface Cursor {
   oldest: FeedPost | undefined;
   more: boolean;
   loading: boolean;
+  // Reading the page below the list, not the newest one again.
+  older: boolean;
   error: string | undefined;
 }
 
-const START: Cursor = { oldest: undefined, more: false, loading: true, error: undefined };
+const START: Cursor = {
+  oldest: undefined,
+  more: false,
+  loading: true,
+  older: false,
+  error: undefined,
+};
+
+// How far down a filter was read, so coming back keeps the list as deep as the user left it.
+interface Depth {
+  query: string;
+  oldest: FeedPost;
+  more: boolean;
+}
+const DEPTH = forSession<Depth | undefined>("feed.depth", undefined);
+
+// The post at the top of the view and how far into it, as pixels alone would land on another
+// post while posts above are still at their stand-in height (`content-visibility`).
+interface Place {
+  postId: string;
+  offset: number;
+}
+const PLACE = forSession<Place | undefined>("feed.place", undefined);
+
+// Near the top it starts from the top, where new posts show.
+function placeIn(scroller: HTMLElement): Place | undefined {
+  if (scroller.scrollTop <= AT_TOP) return undefined;
+  const top = scroller.getBoundingClientRect().top;
+  for (const slot of scroller.querySelectorAll<HTMLElement>("[data-post]")) {
+    const box = slot.firstElementChild?.getBoundingClientRect();
+    if (box !== undefined && box.bottom > top && slot.dataset.post !== undefined) {
+      return { postId: slot.dataset.post, offset: box.top - top };
+    }
+  }
+  return undefined;
+}
+
+function scrollToPlace(scroller: HTMLElement, place: Place): void {
+  const slot = scroller.querySelector(`[data-post="${CSS.escape(place.postId)}"]`);
+  const box = slot?.firstElementChild?.getBoundingClientRect();
+  if (box === undefined) return;
+  scroller.scrollTop += box.top - scroller.getBoundingClientRect().top - place.offset;
+}
+
+function startFor(query: string): Cursor {
+  const depth = readKept(DEPTH);
+  return depth?.query === query ? { ...START, oldest: depth.oldest, more: depth.more } : START;
+}
 
 function useNow(): number {
   const [now, setNow] = useState(Date.now);
@@ -99,7 +148,6 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 
 // Reads pages of the core's feed for one filter, newest first, into the app's posts.
 function usePages(filter: FeedFilter) {
-  const [cursor, setCursor] = useState<Cursor>(START);
   const [search, setSearch] = useState(filter.search);
   useEffect(() => {
     const timer = setTimeout(() => setSearch(filter.search), SEARCH_WAIT_MS);
@@ -113,8 +161,15 @@ function usePages(filter: FeedFilter) {
     }),
     [filter.show, filter.departmentId, search],
   );
+  const key = JSON.stringify(query);
+  const [cursor, setCursor] = useState(() => startFor(key));
   const read = async (before: FeedPost | undefined) => {
-    setCursor((current) => ({ ...current, loading: true, error: undefined }));
+    setCursor((current) => ({
+      ...current,
+      loading: true,
+      older: before !== undefined,
+      error: undefined,
+    }));
     try {
       const { posts, more } = await api.feed({
         ...query,
@@ -123,14 +178,30 @@ function usePages(filter: FeedFilter) {
       useApp.setState((state) => ({
         feed: { ...state.feed, ...Object.fromEntries(posts.map((post) => [post.id, post])) },
       }));
-      setCursor({ oldest: posts.at(-1) ?? before, more, loading: false, error: undefined });
+      let next = { oldest: posts.at(-1) ?? before, more };
+      // Reading the newest page again keeps what was read below it.
+      const depth = readKept(DEPTH);
+      const deeper =
+        before === undefined &&
+        depth?.query === key &&
+        next.oldest !== undefined &&
+        newestFirst(depth.oldest, next.oldest) > 0;
+      if (deeper) next = { oldest: depth.oldest, more: depth.more };
+      if (next.oldest !== undefined)
+        writeKept(DEPTH, { query: key, oldest: next.oldest, more: next.more });
+      setCursor({ ...next, loading: false, older: false, error: undefined });
     } catch {
-      setCursor((current) => ({ ...current, loading: false, error: "Posts could not be read." }));
+      setCursor((current) => ({
+        ...current,
+        loading: false,
+        older: false,
+        error: "Posts could not be read.",
+      }));
     }
   };
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new filter starts from the top.
   useEffect(() => {
-    setCursor(START);
+    setCursor(startFor(key));
     void read(undefined);
   }, [query]);
   return {
@@ -202,20 +273,44 @@ export function FeedView() {
   const feed = useApp((state) => state.feed);
   const departments = useApp((state) => state.departments);
   const now = useNow();
-  // When the user last looked, as it was on opening: newer posts sit above "You're caught up".
+  // When the user last looked, as it was on opening: posts from before it are dimmed.
   const [since] = useState(() => useApp.getState().feedSeenAt);
   const [openedAt] = useState(() => new Date().toISOString());
   const scroller = useRef<HTMLElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   const readMore = useRef(more);
   readMore.current = more;
-  // Set while scrolled down: posts newer than this wait behind the pill.
-  const [holdAfter, setHoldAfter] = useState<string>();
+  // Set while scrolled down: posts newer than this wait behind the pill. Kept with the scroll
+  // place, so posts that came while the user was away do not push the list down.
+  const [holdAfter, setHoldAfter] = useKept(HOLD_AFTER);
 
   const all = useMemo(() => postsInView(feed, filter, cursor.oldest), [feed, filter, cursor]);
   const held = holdAfter === undefined ? [] : all.filter((post) => post.createdAt > holdAfter);
   const shown = holdAfter === undefined ? all : all.filter((post) => post.createdAt <= holdAfter);
   const listed = all.length > 0;
+
+  // Back where the user left: every post lays out once at its real height, so the place lands on
+  // that post exactly. The browser keeps those heights for the posts it then skips out of view
+  // (`contain-intrinsic-size: auto`), so nothing moves after.
+  const [settling, setSettling] = useState(() => readKept(PLACE) !== undefined);
+  const restored = useRef(false);
+  useLayoutEffect(() => {
+    const element = scroller.current;
+    if (restored.current || element === null || !listed) return;
+    restored.current = true;
+    const place = readKept(PLACE);
+    if (place === undefined) return;
+    scrollToPlace(element, place);
+    // The browser records the heights in the next frame, so skipping resumes the one after.
+    requestAnimationFrame(() => requestAnimationFrame(() => setSettling(false)));
+  }, [listed]);
+  useLayoutEffect(
+    () => () => {
+      const element = scroller.current;
+      if (element !== null) writeKept(PLACE, placeIn(element));
+    },
+    [],
+  );
 
   // Watched while the list is on the page; near its bottom, the next page is read.
   useEffect(() => {
@@ -260,7 +355,6 @@ export function FeedView() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((department) => ({ value: department.id, label: department.name })),
   ];
-  const caughtUpAt = since === undefined ? -1 : shown.findIndex((post) => post.createdAt <= since);
 
   let body: ReactNode;
   if (cursor.error !== undefined && all.length === 0) {
@@ -285,24 +379,21 @@ export function FeedView() {
     body = <EmptyState {...EMPTY_TAB[filter.show]} />;
   } else {
     body = (
-      <div className={styles.list}>
+      <div className={`${styles.list} ${settling ? styles.settling : ""}`}>
         <NewPostsPill posts={held} onShow={showHeld} />
-        {shown.map((post, index) => (
-          <Fragment key={post.id}>
-            {index === caughtUpAt ? <CaughtUp /> : null}
+        <p className={styles.latest}>Latest</p>
+        {shown.map((post) => (
+          <div key={post.id} className={styles.slot} data-post={post.id}>
             <FeedItem
               post={post}
               now={now}
               older={since !== undefined && post.createdAt <= since}
               arrived={post.createdAt > openedAt}
             />
-          </Fragment>
+          </div>
         ))}
-        {caughtUpAt === -1 && since !== undefined && !cursor.more && shown.length > 0 ? (
-          <CaughtUp />
-        ) : null}
         <div ref={sentinel} className={styles.sentinel} aria-hidden />
-        {cursor.loading ? (
+        {cursor.loading && cursor.older ? (
           <p className={styles.loading}>
             <LoaderCircle size={14} className="spin" aria-hidden />
             Reading older posts
@@ -363,16 +454,5 @@ export function FeedView() {
         {body}
       </div>
     </section>
-  );
-}
-
-function CaughtUp() {
-  return (
-    <p className={styles.caught}>
-      <span className={styles.caughtLabel}>
-        <CheckCircle2 size={14} aria-hidden />
-        You're caught up
-      </span>
-    </p>
   );
 }

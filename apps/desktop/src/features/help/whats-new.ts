@@ -11,6 +11,17 @@ export interface Release {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-28",
+    title: "Pictures in Feed",
+    icon: Rss,
+    changes: [
+      "A result that made a page, site or image shows its picture on its Feed post. Click it to open it in Outputs",
+      "Feed marks where it starts with Latest at the top, instead of a You're caught up line that could land between posts",
+      "Coming back to Feed from a task or an output lands on the post you left, not at the top",
+      "Empty pages show their message in the middle of the page",
+    ],
+  },
+  {
+    date: "2026-11-28",
     title: "OpenCode models list again",
     icon: Wrench,
     changes: [
@@ -52,18 +63,6 @@ export const RELEASES: Release[] = [
       "A card with updates stays in Feed for 30 days, and Show all opens every earlier update",
       "The step bar on a working card fits any number of steps",
       "Feed never shows the same heads-up or milestone twice, even after a restart",
-    ],
-  },
-  {
-    date: "2026-11-27",
-    title: "Feed",
-    icon: Rss,
-    changes: [
-      "Feed, under Home, shows what your team does as it happens: work in progress, results, asks, automation runs and your agents' heads-ups",
-      "Answer an ask right in Feed, or reply on any post to message the agent in its task",
-      "A dot on Feed and a line on Home tell you when there are new posts",
-      "Feed can suggest an automation for a request you repeat. Set it up opens it filled in",
-      "On the office floor, a new post shows over its agent for a few seconds",
     ],
   },
 ];

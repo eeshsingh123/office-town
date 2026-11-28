@@ -1,4 +1,4 @@
-import type { FeedPost } from "@office-town/contract";
+import type { FeedPost, OutputRecord } from "@office-town/contract";
 import {
   BellOff,
   Check,
@@ -31,6 +31,11 @@ import { Markdown } from "../../ui/Markdown.tsx";
 import { showToast } from "../../ui/Toast.tsx";
 import { useWidth } from "../../ui/use-width.ts";
 import { TARGET_DRAFT } from "../new-task/targets.ts";
+import { type ViewKind, viewKindOf } from "../outputs/kinds.ts";
+import { openOutput } from "../outputs/OutputCards.tsx";
+import { pictureSource } from "../outputs/Picture.tsx";
+import { usePagePicture } from "../outputs/use-page-picture.ts";
+import { useResults } from "../outputs/use-task-outputs.ts";
 import { RequestCard } from "../requests/RequestCard.tsx";
 import { RequestContext } from "../requests/RequestContext.tsx";
 import { goalStatuses, metCount, pieceStatuses } from "../task/goal-progress.ts";
@@ -401,39 +406,61 @@ function ResultPreview({ text }: { text: string }) {
 }
 
 const FILES_SHOWN = 4;
+const PICTURED = new Set<ViewKind>(["page", "site", "image"]);
+
+// The newest page, site or image shows as the post's picture, as on a social feed.
+function ResultMedia({ output }: { output: OutputRecord }) {
+  usePagePicture(output);
+  const source = pictureSource(output);
+  if (source === undefined) return null;
+  return (
+    <button
+      type="button"
+      className={`${styles.media} ${viewKindOf(output.target) === "image" ? styles.mediaImage : ""}`}
+      aria-label={`Open ${output.title}`}
+      onClick={() => openOutput(output)}
+    >
+      <img src={source} alt="" loading="lazy" decoding="async" />
+    </button>
+  );
+}
 
 function ResultFiles({ taskId }: { taskId: string }) {
-  const all = useApp((state) => state.outputs);
-  const outputs = useMemo(
-    () => Object.values(all).filter((output) => output.taskId === taskId),
-    [all, taskId],
-  );
-  if (outputs.length === 0) return null;
+  const results = useResults(taskId);
+  const lead = results.find((output) => PICTURED.has(viewKindOf(output.target)));
+  const pictured = lead !== undefined && pictureSource(lead) !== undefined;
+  const outputs = pictured ? results.filter((output) => output !== lead) : results;
+  if (results.length === 0) return null;
   const hidden = outputs.length - FILES_SHOWN;
   return (
-    <div className={styles.files}>
-      {outputs.slice(0, FILES_SHOWN).map((output) => (
-        <button
-          key={output.id}
-          type="button"
-          className={styles.file}
-          onClick={() => navigate({ name: "task", taskId, tab: "outputs", output: output.id })}
-        >
-          <FileText size={13} aria-hidden />
-          {output.title}
-        </button>
-      ))}
-      {hidden <= 0 ? null : (
-        <button
-          type="button"
-          className={styles.file}
-          onClick={() => navigate({ name: "task", taskId, tab: "outputs" })}
-        >
-          All files
-          <Count value={outputs.length} />
-        </button>
+    <>
+      {lead === undefined ? null : <ResultMedia output={lead} />}
+      {outputs.length === 0 ? null : (
+        <div className={styles.files}>
+          {outputs.slice(0, FILES_SHOWN).map((output) => (
+            <button
+              key={output.id}
+              type="button"
+              className={styles.file}
+              onClick={() => openOutput(output)}
+            >
+              <FileText size={13} aria-hidden />
+              {output.title}
+            </button>
+          ))}
+          {hidden <= 0 ? null : (
+            <button
+              type="button"
+              className={styles.file}
+              onClick={() => navigate({ name: "task", taskId, tab: "outputs" })}
+            >
+              All files
+              <Count value={results.length} />
+            </button>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
