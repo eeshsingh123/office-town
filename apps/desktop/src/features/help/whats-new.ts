@@ -15,7 +15,7 @@ export const RELEASES: Release[] = [
     icon: Inbox,
     changes: [
       "A page with nothing to show has an icon and a short line on what lands there, instead of a bare sentence",
-      "When search or filters match nothing, Clear filters sits beside the filters only, no longer also in the list",
+      "When search or filters match nothing, Clear filters sits beside the filters only, no longer also in the list. Picking a Feed tab no longer counts as a filter",
       "Automations with none yet says so under its guide, and New automation stays at the top",
       "When Feed or Tasks cannot load, Try again shows under the message",
     ],

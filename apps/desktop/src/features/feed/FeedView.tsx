@@ -252,8 +252,8 @@ export function FeedView() {
     setHoldAfter(undefined);
   };
 
-  const filtering =
-    filter.show !== "all" || filter.departmentId !== undefined || filter.search !== "";
+  // As on the other lists, the tab is not a filter and stays as it is.
+  const filtering = filter.departmentId !== undefined || filter.search !== "";
   const departmentChoices = [
     { value: "", label: "All" },
     ...Object.values(departments)
@@ -265,7 +265,7 @@ export function FeedView() {
   let body: ReactNode;
   if (cursor.error !== undefined && all.length === 0) {
     body = (
-      <EmptyState icon={CloudOff} title="Posts could not load" hint={cursor.error} tone="bad">
+      <EmptyState icon={CloudOff} title="Posts could not load" tone="bad">
         <Button onClick={again}>
           <RotateCcw size={14} aria-hidden />
           Try again
@@ -279,7 +279,7 @@ export function FeedView() {
         Reading posts
       </p>
     );
-  } else if (all.length === 0 && (filter.departmentId !== undefined || filter.search !== "")) {
+  } else if (all.length === 0 && filtering) {
     body = <NoMatch />;
   } else if (all.length === 0) {
     body = <EmptyState {...EMPTY_TAB[filter.show]} />;
@@ -354,7 +354,10 @@ export function FeedView() {
                 onChange={(chosen) => update({ departmentId: chosen === "" ? undefined : chosen })}
               />
             )}
-            <ClearFilters shown={filtering} onClear={() => setFilter(NO_FILTER)} />
+            <ClearFilters
+              shown={filtering}
+              onClear={() => setFilter({ ...NO_FILTER, show: filter.show })}
+            />
           </div>
         </div>
         {body}
