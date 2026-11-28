@@ -40,8 +40,8 @@
 
 The four docs drive every session, so they stay short and current.
 
-- A new decision joins its topic in DECISIONS.md as one bullet under a new `D-n`, merged into an existing bullet where it refines one. A why stays only while it still guides work, and a line says what was decided, not how it is built. Numbers are never reused; a number the code cites stays findable, and one nothing cites or needs may be dropped at an audit.
+- A new decision joins its topic in DECISIONS.md as one bullet under a new `D-n`, merged into an existing bullet where it refines one. A bullet is at most three lines: what was decided and, while it still guides work, why. Limits, counts, copy, screen layouts and edge cases are how it is built: they go in the code comment that cites the number and in the PR, never in the bullet. Numbers are never reused; a number the code cites stays findable, and one nothing cites or needs may be dropped at an audit.
 - MEMORY.md holds what the next session needs: state, open questions, how to run. No "not checked" list (owner): unchecked items go in the PR description and the final report. Git already holds history; drop it.
 - A brief in `docs/briefs/` is deleted once its work is built; its decision keeps the outcome.
-- What's new keeps only the last 7 days of releases (owner): when adding an entry, delete the older ones.
+- What's new (`features/help/whats-new.ts`) keeps at most 5 releases from the last 7 days (owner), each at most 5 lines of what the user can now do or will notice. No polish, internal fixes or how it works. When adding one, delete what falls outside.
 - After each milestone (a module or phase merged), audit all four: merge overlaps, cut what no longer changes what the next session does, fix what went stale.
