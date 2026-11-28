@@ -6,7 +6,17 @@ import {
   type RunTab,
   type Trigger,
 } from "@office-town/contract";
-import { CircleMinus, Clock, Eye, Pencil, Play, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  CheckCheck,
+  CircleMinus,
+  Clock,
+  Eye,
+  type LucideIcon,
+  Pencil,
+  Play,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -16,6 +26,7 @@ import { MoreMenu } from "../../ui/ActionMenu.tsx";
 import { AUTONOMY } from "../../ui/autonomy.ts";
 import { Button } from "../../ui/Button.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
+import { EmptyState } from "../../ui/EmptyState.tsx";
 import form from "../../ui/Form.module.css";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -38,6 +49,16 @@ import { eventsText, RUN_LABELS, runTime } from "./words.ts";
 
 const PAGE = 50;
 const REREAD_MS = 300;
+
+const EMPTY_RUNS: Record<
+  RunTab,
+  { icon: LucideIcon; title: string; hint?: string; tone?: "good" }
+> = {
+  all: { icon: Play, title: "No runs yet", hint: "Run now to try it." },
+  finished: { icon: Play, title: "No runs have finished" },
+  failed: { icon: CheckCheck, title: "No runs failed", tone: "good" },
+  skipped: { icon: Play, title: "No runs were skipped" },
+};
 
 // A run that ended with nothing new finished well, quietly (D-131).
 const quietEnd = (run: AutomationRun) =>
@@ -362,9 +383,7 @@ export function AutomationView({ automationId }: { automationId: string }) {
             ]}
           />
           {runs === undefined ? null : runs.runs.length === 0 ? (
-            <p className={styles.empty}>
-              {tab === "all" ? "No runs yet. Run now to try it." : "None here."}
-            </p>
+            <EmptyState size="panel" {...EMPTY_RUNS[tab]} />
           ) : (
             <ul className={styles.rows} aria-label="Runs">
               {runs.runs.map((run) => (

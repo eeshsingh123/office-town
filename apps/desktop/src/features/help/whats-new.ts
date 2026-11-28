@@ -1,4 +1,4 @@
-import { Gauge, LayoutGrid, type LucideIcon, Rss, Send } from "lucide-react";
+import { Gauge, Inbox, LayoutGrid, type LucideIcon, Rss } from "lucide-react";
 
 export interface Release {
   // YYYY-MM-DD, newest first.
@@ -9,6 +9,17 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-28",
+    title: "Clearer empty pages",
+    icon: Inbox,
+    changes: [
+      "A page with nothing to show has an icon and a short line on what lands there, instead of a bare sentence",
+      "When search or filters match nothing, Clear filters sits beside the filters only, no longer also in the list. Picking a Feed tab no longer counts as a filter",
+      "Automations with none yet says so under its guide, and New automation stays at the top",
+      "When Feed or Tasks cannot load, Try again shows under the message",
+    ],
+  },
   {
     date: "2026-11-28",
     title: "Lighter and faster with long histories",
@@ -55,18 +66,6 @@ export const RELEASES: Release[] = [
       "New automation starts with five recipes, such as Morning brief and Nightly test check. One click fills every step",
       "Recipes that read Gmail or Google Calendar run through Claude, and Review links to anything not set up yet",
       "In a setup with steps, the back link goes to the step before, and Start over begins again",
-    ],
-  },
-  {
-    date: "2026-11-24",
-    title: "Updates in Slack, Discord or Telegram",
-    icon: Send,
-    changes: [
-      "Connect Slack, Discord or Telegram once, with a short guide for each. A wrong paste tells you what to copy instead",
-      "Settings > Updates sets what each app hears, such as only when an agent needs you or a task fails",
-      "Turn on Send result to in a task's options, or pick places in an automation's Rules, and results go there once done",
-      "A run with nothing new ends quietly: no message, nothing to review",
-      "An automation keeps notes from run to run, which you can read, edit and clear on its page",
     ],
   },
 ];

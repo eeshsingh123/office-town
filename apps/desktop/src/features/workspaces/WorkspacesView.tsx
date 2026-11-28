@@ -13,6 +13,7 @@ import {
 import { copyText, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { NoMatch } from "../../ui/EmptyState.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
@@ -270,7 +271,7 @@ export function WorkspacesView() {
           </div>
 
           {workspaces === undefined ? null : shown.length === 0 && all.length > 0 ? (
-            <p className={styles.empty}>No workspaces match.</p>
+            <NoMatch title="No workspaces match" hint="Try another word or filter." />
           ) : (
             <div className={styles.table}>
               <div className={styles.tableHead}>

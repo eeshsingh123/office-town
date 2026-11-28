@@ -7,6 +7,7 @@
 - One reason to change per module. If a change request touches more than two modules, revisit the boundary before coding.
 - Abstract only at real seams: an external boundary (harness, connector, storage, shell) or a second concrete implementation. No speculative interfaces, options or config.
 - Reuse before writing. Delete before adding.
+- A page, pane or list with nothing to show uses `ui/EmptyState` (`NoMatch` when search or filters find nothing). No buttons in it: creating sits in the page header, Clear filters beside the filters; only Try again after a failure goes inside.
 
 ## Code
 

@@ -38,15 +38,6 @@
   color: var(--text);
 }
 
-.empty {
-  margin: 0;
-  padding: 32px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-card);
-  color: var(--text-3);
-  text-align: center;
-}
-
 .optionText {
   display: flex;
   flex: 1;

@@ -62,18 +62,6 @@
   color: var(--text-2);
 }
 
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  color: var(--text-2);
-}
-
-.empty p {
-  margin: 0;
-}
-
 /* One block per group, its asks one line each. */
 .groups {
   display: flex;

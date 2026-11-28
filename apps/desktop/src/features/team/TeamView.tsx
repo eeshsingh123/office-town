@@ -1,10 +1,11 @@
 import type { AgentRecord, DepartmentRecord } from "@office-town/contract";
-import { ChevronDown, Crown, Plus, Settings, UserPlus } from "lucide-react";
+import { ChevronDown, Crown, Plus, Settings, UserPlus, Users } from "lucide-react";
 import { useDepartmentState, useLiveState } from "../../store/agents.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { forSession, useKept, useKeptScroll } from "../../store/kept.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -245,7 +246,11 @@ export function TeamView() {
         )}
 
         {empty && !hasChief ? (
-          <p className={page.hint}>No departments yet.</p>
+          <EmptyState
+            icon={Users}
+            title="No departments yet"
+            hint="Departments you add show up here."
+          />
         ) : (
           <ul className={styles.list}>
             {needle === "" ? <ChiefRow departments={all.length} /> : null}
@@ -262,7 +267,7 @@ export function TeamView() {
           </ul>
         )}
         {!empty && shown.length === 0 ? (
-          <p className={page.hint}>No department, role or name matches "{query.trim()}".</p>
+          <NoMatch title="No department, role or name matches" hint="Try another word." />
         ) : null}
       </div>
     </section>

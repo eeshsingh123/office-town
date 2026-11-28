@@ -1,5 +1,5 @@
 import type { UserRequestEvent } from "@office-town/contract";
-import { ChevronDown } from "lucide-react";
+import { CheckCheck, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useLevel, useSessionAgent } from "../../store/agents.ts";
@@ -12,6 +12,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { Count } from "../../ui/Count.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import { Fact, Facts } from "../../ui/Facts.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -60,6 +61,14 @@ const TYPES: { value: TypeFilter; label: string }[] = [
   { value: "question", label: "Questions" },
   { value: "approval", label: "Approvals" },
 ];
+
+// A tab with nothing in it and no other filter on is good news, not a failed search.
+const EMPTY_TYPE: Record<TypeFilter, string> = {
+  all: "You're caught up",
+  decisions: "No plans or teams to approve",
+  question: "No questions are waiting for you",
+  approval: "No approvals are waiting for you",
+};
 
 // Grouping by task is the default (D-57).
 const GROUPED_BY: Keep<GroupBy> = {
@@ -335,10 +344,6 @@ export function NeedsYouView() {
     setShown({});
     setGroupsShown(GROUP_PAGE);
   };
-  const clearFilters = () => {
-    setFilters(NO_FILTERS);
-    setOlderThanHour(false);
-  };
   const select = (key: string, next: boolean) => {
     const copy = new Set(picked);
     if (next) copy.add(key);
@@ -369,7 +374,7 @@ export function NeedsYouView() {
           title="Needs you"
           lead={
             asks.length === 0 ? (
-              "Nothing needs you."
+              "No requests are waiting for you."
             ) : (
               <Facts>
                 <Fact count={asks.length} urgent>
@@ -421,6 +426,14 @@ export function NeedsYouView() {
                 label="Search what needs you"
                 placeholder="Search requests, tasks, agents, commands"
               />
+              {/* Search alone can match nothing, so this shows with or without the filters. */}
+              <ClearFilters
+                shown={filtering}
+                onClear={() => {
+                  setFilters({ ...NO_FILTERS, type: filters.type });
+                  setOlderThanHour(false);
+                }}
+              />
               {/* A few requests need no filters (a3-15). */}
               {asks.length < FILTERS_FROM ? null : (
                 <>
@@ -450,13 +463,6 @@ export function NeedsYouView() {
                       { value: "hour", label: `Over 1 h (${oldCount})` },
                     ]}
                     onChange={(value) => setOlderThanHour(value === "hour")}
-                  />
-                  <ClearFilters
-                    shown={filtering}
-                    onClear={() => {
-                      setFilters({ ...NO_FILTERS, type: filters.type });
-                      setOlderThanHour(false);
-                    }}
                   />
                   <span className={styles.spacer} />
                   <ChoiceMenu label="Group by" value={by} choices={GROUP_BY} onChange={chooseBy} />
@@ -490,12 +496,18 @@ export function NeedsYouView() {
           </div>
         )}
 
-        {asks.length > 0 && visible.length === 0 ? (
-          <div className={styles.empty}>
-            <p>Nothing matches these filters.</p>
-            <Button onClick={clearFilters}>Clear filters</Button>
-          </div>
-        ) : null}
+        {asks.length === 0 ? (
+          <EmptyState
+            icon={CheckCheck}
+            title="You're caught up"
+            hint="Questions and approvals from your agents show up here."
+            tone="good"
+          />
+        ) : visible.length > 0 ? null : filtering ? (
+          <NoMatch />
+        ) : (
+          <EmptyState icon={CheckCheck} title={EMPTY_TYPE[filters.type]} tone="good" />
+        )}
 
         <div className={styles.groups}>
           {groups.slice(0, groupsShown).map((group) => (

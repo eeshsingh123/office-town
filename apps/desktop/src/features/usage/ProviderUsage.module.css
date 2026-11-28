@@ -50,13 +50,6 @@
   gap: 8px;
 }
 
-.none {
-  margin: 0;
-  padding: 20px 24px;
-  border-top: 1px solid var(--border);
-  color: var(--text-3);
-}
-
 .scroll {
   overflow-x: auto;
   border-top: 1px solid var(--border);

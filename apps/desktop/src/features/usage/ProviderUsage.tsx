@@ -11,6 +11,7 @@ import type { Agent } from "../../store/agents.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { NoMatch } from "../../ui/EmptyState.tsx";
 import { compactCount, environmentName } from "../../ui/format.ts";
 import { Pill } from "../../ui/Pill.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
@@ -173,7 +174,7 @@ export function ProviderUsage(props: ProviderUsageProps) {
       </header>
 
       {rows.length === 0 ? (
-        <p className={styles.none}>No accounts match.</p>
+        <NoMatch title="No accounts match these filters" size="panel" />
       ) : (
         <div className={styles.scroll}>
           <table className={styles.table}>

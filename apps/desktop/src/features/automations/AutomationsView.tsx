@@ -1,10 +1,11 @@
 import type { AutomationRecord } from "@office-town/contract";
-import { CalendarClock, FileText, Plus, Sparkles } from "lucide-react";
+import { CalendarClock, CheckCheck, FileText, type LucideIcon, Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { useAutomations } from "../../store/automations.ts";
 import { ContextMenu, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import { Guide, type GuideStep } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -26,6 +27,14 @@ type Tab = "all" | "needs" | "paused" | "off";
 
 // Search and filters only once the list is long (owner's layout feedback).
 const SEARCH_PAST = 8;
+
+// An empty tab with no search is not a failed search: say plainly what is not there.
+const EMPTY_TAB: Record<Tab, { icon: LucideIcon; title: string; tone?: "good" }> = {
+  all: { icon: CalendarClock, title: "No automations yet" },
+  needs: { icon: CheckCheck, title: "No automations are waiting for you", tone: "good" },
+  paused: { icon: CalendarClock, title: "Nothing is paused" },
+  off: { icon: CalendarClock, title: "Nothing is turned off" },
+};
 
 const STEPS: GuideStep[] = [
   {
@@ -148,6 +157,13 @@ export function AutomationsView() {
             onHide={() => setHideGuide(true)}
           />
         ) : null}
+        {automations !== undefined && all.length === 0 ? (
+          <EmptyState
+            icon={CalendarClock}
+            title="No automations yet"
+            hint="Save a task with when it runs, and it shows up here."
+          />
+        ) : null}
         {all.length === 0 ? null : (
           <div className={styles.tools}>
             <TabRow
@@ -174,9 +190,11 @@ export function AutomationsView() {
           </div>
         )}
         {all.length === 0 ? null : shown.length === 0 ? (
-          <p className={styles.empty}>
-            {needle === "" ? "None here." : `No automation matches "${text.trim()}".`}
-          </p>
+          needle === "" ? (
+            <EmptyState {...EMPTY_TAB[tab]} />
+          ) : (
+            <NoMatch title="No automation matches" hint="Try another word." />
+          )
         ) : (
           <ul className={styles.rows} aria-label="Automations">
             {shown.map((automation) => (

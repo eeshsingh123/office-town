@@ -1,5 +1,5 @@
 import type { ProfileRecord } from "@office-town/contract";
-import { Copy, LayoutGrid, List, Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, LayoutGrid, LayoutTemplate, List, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { type Keep, oneOf, useKept } from "../../store/kept.ts";
@@ -10,6 +10,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import form from "../../ui/Form.module.css";
 import { FoldedGuide, useGuideHidden } from "../../ui/Guide.tsx";
 import page from "../../ui/Page.module.css";
@@ -236,9 +237,11 @@ export function TemplatesView() {
         )}
 
         {templates === undefined ? null : all.length === 0 ? (
-          guideHidden ? (
-            <p className={form.hint}>No templates yet.</p>
-          ) : null
+          <EmptyState
+            icon={LayoutTemplate}
+            title="No templates yet"
+            hint="Templates you save show up here."
+          />
         ) : (
           <div className={styles.results}>
             <p className={form.hint}>
@@ -247,10 +250,7 @@ export function TemplatesView() {
                 : `${shown.length} of ${all.length} templates`}
             </p>
             {shown.length === 0 ? (
-              <div className={styles.empty}>
-                <strong>No templates match</strong>
-                <p className={form.hint}>Try a different word, or clear the filter.</p>
-              </div>
+              <NoMatch title="No templates match" />
             ) : shownLayout === "cards" ? (
               <ul className={styles.grid} aria-label="Templates">
                 {shown.map((template) => (
