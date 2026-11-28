@@ -4,8 +4,8 @@ Last updated: 2026-11-28
 
 ## State
 
-- Merged to `main`: M1 to M12, M15 and M16 Feed (PR #111 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why.
-- Open: Feed progress updates on `feat/feed-progress` (D-141), awaiting review.
+- Merged to `main`: M1 to M12, M15 and M16 Feed with progress updates (PR #112 last), with every feedback, audit and design round. MODULES.md says what each built, DECISIONS.md why.
+- Open: the store and scale audit fixes on `fix/store-audit` (D-142), awaiting review.
 - Next (owner, 2026-11-27): agent memory across tasks, which then feeds Feed suggestions (D-139). M13 phone and M14 always-on wait until real users ask; M13's plan is in `docs/briefs/autonomy/README.md` (local only).
 - Parked: OpenCode's own automations (MODULES, M12). OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, read with `opencode api --standalone`); its event stream has no automation events.
 - No CI until the public release (D-135); Mac betas still build, but nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (in git history: `.github/workflows/ci.yml`).

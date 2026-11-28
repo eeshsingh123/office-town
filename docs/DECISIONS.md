@@ -35,6 +35,7 @@ The decisions that still shape the work, grouped by topic. Code cites them as `D
 - **D-50** Every change to a record is published whole after its write. Task state is decided only in `team/task-state.ts`.
 - **D-91** One status rule shared by core and app (`contract/task-status.ts`); the core searches and counts every task.
 - **D-93** Provider status is a background job per provider; reads answer at once. Change only what measurements show is slow.
+- **D-142** Store audit (owner, 2026-11-28). Raw CLI lines are not kept: nothing read them and they were most of the file; a failure is read from the CLI's own records. Only the backup made before the latest migration is kept. A call to an app outlives its task and session, kept 90 days from the call, as a record of what agents did in the user's accounts. Free pages go back to the disk at open and hourly. A task cut off between its creation and its first start is removed at launch, as a failed start is. A whole record is read again right before it is written back when anything waits in between (an approval, a body, a stop).
 
 ## Shell and packaging
 

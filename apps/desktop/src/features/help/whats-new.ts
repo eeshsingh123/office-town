@@ -1,8 +1,7 @@
 import {
   CalendarClock,
-  History,
+  Gauge,
   Inbox,
-  Laptop,
   LayoutGrid,
   type LucideIcon,
   Rss,
@@ -19,6 +18,19 @@ export interface Release {
 }
 
 export const RELEASES: Release[] = [
+  {
+    date: "2026-11-28",
+    title: "Lighter and faster with long histories",
+    icon: Gauge,
+    changes: [
+      "Your data takes far less disk space: the raw copy of every line a provider printed is no longer kept, and only the newest backup from an update stays",
+      "Searching Tasks stays quick with thousands of tasks, and agents no longer pause while you type",
+      "The window stays smooth and light while agents stream, even on long tasks or when left open for days",
+      "What agents did in your apps stays in Connectors for 90 days, even after you delete the task",
+      "Removing a place from Updates also takes it off every automation that sent there",
+      "A department you removed no longer stops you from removing its workspace",
+    ],
+  },
   {
     date: "2026-11-28",
     title: "Progress updates in Feed",
@@ -118,48 +130,6 @@ export const RELEASES: Release[] = [
       "Tasks started by an automation show it beside their status, and Tasks can filter by who started them",
       "Agents can propose an automation for you to create, and quitting warns you when automations won't run",
       "If two agents change the same file, the later one is told to read it again, and its task shows it",
-    ],
-  },
-  {
-    date: "2026-11-21",
-    title: "Picking work back up after a close",
-    icon: History,
-    changes: [
-      "After Office Town closes or crashes, Home lists the tasks that stopped, with Resume all and Choose; nothing resumes until you say",
-      "A lead that fails twice in a row waits in Needs you with Try again and Stop, even across a restart",
-      "A worker with no news for 30 minutes says so in its trace, and its lead hears once",
-      "Results a stopped lead missed reach it first when it carries on",
-      "The computer stays awake while agents work, on battery too; turn it off in Settings > Desktop",
-      "Notifications never show an agent's own words, and each kind has its own switch in Settings",
-    ],
-  },
-  {
-    date: "2026-11-21",
-    title: "A first test version for the Mac",
-    icon: Laptop,
-    changes: [
-      "Office Town runs on Macs with Apple silicon and macOS 13 or later, as a test version",
-      "The Mac app has its own menu, quits with ⌘Q (asking first while agents work), and keeps running in the menu bar",
-      "Providers you installed for Terminal are found when the app is opened from the Dock",
-      "Claude's usage is read from your Keychain, read only, when you choose Refresh on Usage",
-      "Shortcuts show ⌘ on a Mac, and ⌘[ and ⌘] go back and forward",
-      "Help has a section on the Mac: opening it the first time, folders, usage and updates",
-    ],
-  },
-  {
-    date: "2026-11-21",
-    title: "A cleaner Team and Workspaces",
-    icon: LayoutGrid,
-    changes: [
-      "Agents and departments with nothing to do are Idle, with a green dot, instead of Free with a moon",
-      "On Team, every person in a department sits on one grid: role, handle, model with its provider's logo, and status",
-      "Add a chief and New department match, each with its icon",
-      "A department's page has tabs: People, Settings, Workspaces and apps, and Files",
-      "People lists the team in rows; pick one to edit them in the panel beside the list",
-      "Save shows at the bottom only when something changed, with Discard beside it",
-      "Change with words is now Describe a change",
-      "Workspaces is a list you can sort by name or last used, with who uses each, its branch and who works there now",
-      "A workspace's page shows its kind, branch, tasks and last use as labelled facts, and long folder paths wrap at each folder",
     ],
   },
 ];
