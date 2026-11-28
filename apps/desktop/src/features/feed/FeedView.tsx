@@ -81,10 +81,18 @@ interface Cursor {
   oldest: FeedPost | undefined;
   more: boolean;
   loading: boolean;
+  // Reading the page below the list, not the newest one again.
+  older: boolean;
   error: string | undefined;
 }
 
-const START: Cursor = { oldest: undefined, more: false, loading: true, error: undefined };
+const START: Cursor = {
+  oldest: undefined,
+  more: false,
+  loading: true,
+  older: false,
+  error: undefined,
+};
 
 // How far down a filter was read, so coming back keeps the list as deep as the user left it.
 interface Depth {
@@ -156,7 +164,12 @@ function usePages(filter: FeedFilter) {
   const key = JSON.stringify(query);
   const [cursor, setCursor] = useState(() => startFor(key));
   const read = async (before: FeedPost | undefined) => {
-    setCursor((current) => ({ ...current, loading: true, error: undefined }));
+    setCursor((current) => ({
+      ...current,
+      loading: true,
+      older: before !== undefined,
+      error: undefined,
+    }));
     try {
       const { posts, more } = await api.feed({
         ...query,
@@ -176,9 +189,14 @@ function usePages(filter: FeedFilter) {
       if (deeper) next = { oldest: depth.oldest, more: depth.more };
       if (next.oldest !== undefined)
         writeKept(DEPTH, { query: key, oldest: next.oldest, more: next.more });
-      setCursor({ ...next, loading: false, error: undefined });
+      setCursor({ ...next, loading: false, older: false, error: undefined });
     } catch {
-      setCursor((current) => ({ ...current, loading: false, error: "Posts could not be read." }));
+      setCursor((current) => ({
+        ...current,
+        loading: false,
+        older: false,
+        error: "Posts could not be read.",
+      }));
     }
   };
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new filter starts from the top.
@@ -271,14 +289,20 @@ export function FeedView() {
   const shown = holdAfter === undefined ? all : all.filter((post) => post.createdAt <= holdAfter);
   const listed = all.length > 0;
 
-  // Back where the user left: on that post, however far the posts above it have been laid out.
+  // Back where the user left: every post lays out once at its real height, so the place lands on
+  // that post exactly. The browser keeps those heights for the posts it then skips out of view
+  // (`contain-intrinsic-size: auto`), so nothing moves after.
+  const [settling, setSettling] = useState(() => readKept(PLACE) !== undefined);
   const restored = useRef(false);
   useLayoutEffect(() => {
     const element = scroller.current;
     if (restored.current || element === null || !listed) return;
     restored.current = true;
     const place = readKept(PLACE);
-    if (place !== undefined) scrollToPlace(element, place);
+    if (place === undefined) return;
+    scrollToPlace(element, place);
+    // The browser records the heights in the next frame, so skipping resumes the one after.
+    requestAnimationFrame(() => requestAnimationFrame(() => setSettling(false)));
   }, [listed]);
   useLayoutEffect(
     () => () => {
@@ -355,7 +379,7 @@ export function FeedView() {
     body = <EmptyState {...EMPTY_TAB[filter.show]} />;
   } else {
     body = (
-      <div className={styles.list}>
+      <div className={`${styles.list} ${settling ? styles.settling : ""}`}>
         <NewPostsPill posts={held} onShow={showHeld} />
         <p className={styles.latest}>Latest</p>
         {shown.map((post) => (
@@ -369,7 +393,7 @@ export function FeedView() {
           </div>
         ))}
         <div ref={sentinel} className={styles.sentinel} aria-hidden />
-        {cursor.loading ? (
+        {cursor.loading && cursor.older ? (
           <p className={styles.loading}>
             <LoaderCircle size={14} className="spin" aria-hidden />
             Reading older posts

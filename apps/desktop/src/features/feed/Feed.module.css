@@ -43,6 +43,12 @@
   display: contents;
 }
 
+/* Coming back to a place: every post at its real height for a frame (FeedView.tsx). */
+.settling .post,
+.settling .row {
+  content-visibility: visible;
+}
+
 /* New posts wait above while the list is scrolled: faces of who posted, then a count. */
 .pillRow {
   position: sticky;
