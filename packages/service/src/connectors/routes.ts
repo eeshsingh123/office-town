@@ -1,6 +1,7 @@
 import {
   type Audience,
   type ConnectorCatalog,
+  connectorActivityDays,
   connectorActivityQuerySchema,
   connectorChangeSchema,
   connectorTestRequestSchema,
@@ -14,7 +15,7 @@ import { catalog } from "./catalog.ts";
 import type { ConnectorHub } from "./hub.ts";
 
 const NO_CONTENT = { status: 204 } as const;
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function requireAudience(store: Store, audience: Audience): void {
   for (const id of audience.departmentIds) {
@@ -113,7 +114,8 @@ export function connectorRoutes(store: Store, hub: ConnectorHub): Route[] {
       path: "/connectors/:id/activity",
       reply: ({ param, query }) => {
         const filters = connectorActivityQuerySchema.parse(Object.fromEntries(query));
-        const since = new Date(Date.now() - WEEK_MS);
+        const days = connectorActivityDays[filters.period ?? "week"];
+        const since = new Date(Date.now() - days * DAY_MS);
         return { status: 200, json: store.connectorActivity(param("id"), filters, since) };
       },
     },

@@ -1,5 +1,6 @@
 import {
   type ConnectorAction,
+  type ConnectorActivityPeriod,
   type ConnectorCall,
   type ConnectorChange,
   type ConnectorRecord,
@@ -7,7 +8,7 @@ import {
   providerOf,
 } from "@office-town/contract";
 import { Globe, KeyRound, Monitor, Power, SquareArrowOutUpRight, Unplug } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { knowAgents } from "../../store/live.ts";
@@ -19,7 +20,7 @@ import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Count } from "../../ui/Count.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { ago, taskName } from "../../ui/format.ts";
+import { ago, clockTime, taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { AudienceMenu, useHolders } from "../library/GivenToMenu.tsx";
@@ -212,7 +213,7 @@ function CallRow({ call }: { call: ConnectorCall }) {
         </span>
         <span className={styles.when}>
           <span className={styles.badge}>{outcome}</span>
-          {ago(call.at)}
+          {clockTime(call.at)}
         </span>
       </button>
     </li>
@@ -221,27 +222,47 @@ function CallRow({ call }: { call: ConnectorCall }) {
 
 const SHORT = 5;
 
-interface Week {
+const PERIODS: { value: ConnectorActivityPeriod; label: string; within: string }[] = [
+  { value: "week", label: "This week", within: "this week" },
+  { value: "month", label: "Last 30 days", within: "in the last 30 days" },
+  { value: "all", label: "Last 90 days", within: "in the last 90 days" },
+];
+const within = (period: ConnectorActivityPeriod) =>
+  PERIODS.find((one) => one.value === period)?.within ?? "";
+
+interface Activity {
   calls: ConnectorCall[];
   total: number;
   teams: string[];
   next: Record<string, number | undefined>;
 }
 
-// This week's calls through every way in, newest first, by team and changes only on request.
-function useWeek(routes: ConnectorRecord[], team: string, changes: boolean) {
-  const [week, setWeek] = useState<Week>();
+interface Filters {
+  period: ConnectorActivityPeriod;
+  team: string;
+  changes: boolean;
+}
+
+const queryOf = ({ period, team, changes }: Filters) => ({
+  ...(period === "week" ? {} : { period }),
+  ...(team === "" ? {} : { team }),
+  ...(changes ? { changes } : {}),
+});
+
+// The period's calls through every way in, newest first, by team and changes only on request.
+function useActivity(routes: ConnectorRecord[], { period, team, changes }: Filters) {
+  const [activity, setActivity] = useState<Activity>();
   const ids = routes.map(({ id }) => id).join(",");
   useEffect(() => {
     let current = true;
     const routeIds = ids.split(",");
-    const query = { ...(team === "" ? {} : { team }), ...(changes ? { changes } : {}) };
+    const query = queryOf({ period, team, changes });
     Promise.all(routeIds.map((id) => api.connectorActivity(id, query))).then(
       (pages) => {
         if (!current) return;
         const calls = pages.flatMap((read) => read.calls);
         knowAgents(calls.map((call) => call.agentId)).catch(() => undefined);
-        setWeek({
+        setActivity({
           calls: calls.toSorted((a, b) => b.at.localeCompare(a.at)),
           total: pages.reduce((sum, read) => sum + read.total, 0),
           teams: [
@@ -257,12 +278,12 @@ function useWeek(routes: ConnectorRecord[], team: string, changes: boolean) {
     return () => {
       current = false;
     };
-  }, [ids, team, changes]);
+  }, [ids, period, team, changes]);
   const more = async () => {
-    if (week === undefined) return;
-    const query = { ...(team === "" ? {} : { team }), ...(changes ? { changes } : {}) };
+    if (activity === undefined) return;
+    const query = queryOf({ period, team, changes });
     const pages = await Promise.all(
-      Object.entries(week.next)
+      Object.entries(activity.next)
         .filter(([, before]) => before !== undefined)
         .map(
           async ([id, before]) =>
@@ -271,26 +292,63 @@ function useWeek(routes: ConnectorRecord[], team: string, changes: boolean) {
     );
     const older = pages.flatMap(([, read]) => read.calls);
     knowAgents(older.map((call) => call.agentId)).catch(() => undefined);
-    setWeek({
-      ...week,
-      calls: [...week.calls, ...older].toSorted((a, b) => b.at.localeCompare(a.at)),
-      next: { ...week.next, ...Object.fromEntries(pages.map(([id, read]) => [id, read.next])) },
+    setActivity({
+      ...activity,
+      calls: [...activity.calls, ...older].toSorted((a, b) => b.at.localeCompare(a.at)),
+      next: {
+        ...activity.next,
+        ...Object.fromEntries(pages.map(([id, read]) => [id, read.next])),
+      },
     });
   };
-  return { week, more };
+  return { activity, more };
 }
 
-function RecentUse({ week, more }: ReturnType<typeof useWeek>) {
+// "Today", "Yesterday", a weekday in the past week, then "12 Nov" ("12 Nov 2025" in another year).
+function dayOf(iso: string, now = new Date()): string {
+  const at = new Date(iso);
+  const midnight = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const days = Math.round((midnight(now) - midnight(at)) / 86_400_000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return at.toLocaleDateString([], { weekday: "long" });
+  return at.toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+// Grouped under a heading per day, so a long stretch reads as a timeline.
+function RecentUse({
+  activity,
+  more,
+  period,
+}: ReturnType<typeof useActivity> & { period: ConnectorActivityPeriod }) {
   const [shown, setShown] = useState(SHORT);
-  if (week === undefined) return null;
+  if (activity === undefined) return null;
   const hasMore =
-    shown < week.calls.length || Object.values(week.next).some((before) => before !== undefined);
-  if (week.calls.length === 0) return <p className={styles.empty}>Not used this week.</p>;
+    shown < activity.calls.length ||
+    Object.values(activity.next).some((before) => before !== undefined);
+  if (activity.calls.length === 0) {
+    return <p className={styles.empty}>Not used {within(period)}.</p>;
+  }
+  const calls = activity.calls.slice(0, shown);
   return (
     <ul className={styles.list} aria-label="Recent use">
-      {week.calls.slice(0, shown).map((call) => (
-        <CallRow key={call.id} call={call} />
-      ))}
+      {calls.map((call, index) => {
+        const day = dayOf(call.at);
+        const previous = calls[index - 1];
+        return (
+          <Fragment key={call.id}>
+            {previous !== undefined && dayOf(previous.at) === day ? null : (
+              <li className={styles.day}>{day}</li>
+            )}
+            <CallRow call={call} />
+          </Fragment>
+        );
+      })}
       {hasMore ? (
         <li className={styles.more}>
           <Button
@@ -298,7 +356,7 @@ function RecentUse({ week, more }: ReturnType<typeof useWeek>) {
             onClick={() => {
               const wanted = shown + 10;
               setShown(wanted);
-              if (wanted > week.calls.length) void more();
+              if (wanted > activity.calls.length) void more();
             }}
           >
             Show more
@@ -343,6 +401,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
   const harnesses = useApp((state) => state.harnesses);
   const departments = useApp((state) => state.departments);
   const [confirming, setConfirming] = useState(false);
+  const [period, setPeriod] = useState<ConnectorActivityPeriod>("week");
   const [team, setTeam] = useState("");
   const [changesOnly, setChangesOnly] = useState(false);
   const group = groupApps(connectors, catalog?.entries).find(({ routes }) =>
@@ -350,7 +409,7 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
   );
   const routes = group?.routes ?? [];
   const actions = useActions(routes);
-  const use = useWeek(routes, team, changesOnly);
+  const use = useActivity(routes, { period, team, changes: changesOnly });
   const [main] = routes;
   if (group === undefined || main === undefined) {
     return (
@@ -377,9 +436,9 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
   const renewing = routes.find(needsRenewing);
   const lead = [
     group.entry?.description.replace(/\.$/, ""),
-    offer || use.week === undefined || use.week.total === 0
+    offer || use.activity === undefined || use.activity.total === 0
       ? undefined
-      : `${plural(use.week.total, "call")} this week`,
+      : `${plural(use.activity.total, "call")} ${within(period)}`,
     offer ? undefined : usedAt === undefined ? "Never used" : `last used ${ago(usedAt)}`,
   ]
     .filter((part) => part !== undefined)
@@ -528,42 +587,54 @@ export function ConnectorView({ connectorId }: { connectorId: string }) {
 
             <div className={page.section}>
               <div className={page.sectionHead}>
-                <h2 className={page.sectionTitle}>
-                  Recent use <span className={styles.period}>This week</span>
-                </h2>
-                {use.week === undefined || use.week.total === 0 ? null : (
+                <h2 className={page.sectionTitle}>Recent use</h2>
+                {usedAt === undefined ? null : (
                   <span className={styles.rowEnd}>
                     <ChoiceMenu
-                      label="Team"
-                      value={team}
-                      choices={[
-                        { value: "", label: "All" },
-                        ...use.week.teams.map((id) => ({
-                          value: id,
-                          label: id === "none" ? "No team" : (departments[id]?.name ?? "A team"),
-                        })),
-                      ]}
-                      onChange={setTeam}
+                      label="Period"
+                      value={period}
+                      choices={PERIODS}
+                      onChange={setPeriod}
                     />
-                    <button
-                      type="button"
-                      className={`${styles.toggleChip} ${changesOnly ? styles.toggleOn : ""}`}
-                      aria-pressed={changesOnly}
-                      onClick={() => setChangesOnly(!changesOnly)}
-                    >
-                      Only changes
-                    </button>
-                    <ClearFilters
-                      shown={team !== "" || changesOnly}
-                      onClear={() => {
-                        setTeam("");
-                        setChangesOnly(false);
-                      }}
-                    />
+                    {use.activity === undefined || use.activity.total === 0 ? null : (
+                      <>
+                        <ChoiceMenu
+                          label="Team"
+                          value={team}
+                          choices={[
+                            { value: "", label: "All" },
+                            // The chosen team stays listed when the period has no calls from it.
+                            ...[
+                              ...new Set([...use.activity.teams, ...(team === "" ? [] : [team])]),
+                            ].map((id) => ({
+                              value: id,
+                              label:
+                                id === "none" ? "No team" : (departments[id]?.name ?? "A team"),
+                            })),
+                          ]}
+                          onChange={setTeam}
+                        />
+                        <button
+                          type="button"
+                          className={`${styles.toggleChip} ${changesOnly ? styles.toggleOn : ""}`}
+                          aria-pressed={changesOnly}
+                          onClick={() => setChangesOnly(!changesOnly)}
+                        >
+                          Only changes
+                        </button>
+                        <ClearFilters
+                          shown={team !== "" || changesOnly}
+                          onClear={() => {
+                            setTeam("");
+                            setChangesOnly(false);
+                          }}
+                        />
+                      </>
+                    )}
                   </span>
                 )}
               </div>
-              <RecentUse {...use} />
+              <RecentUse key={period} {...use} period={period} />
             </div>
           </>
         )}

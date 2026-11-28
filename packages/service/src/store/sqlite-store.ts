@@ -23,6 +23,7 @@ import {
   type ConnectorRecord,
   type ConnectorSetup,
   type ConnectorStatus,
+  connectorActivityDays,
   type DelegationRecord,
   type Delivery,
   type DepartmentRecord,
@@ -128,7 +129,7 @@ const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
 const USAGE_KEPT_MS = 30 * 24 * 60 * 60 * 1000;
 // A record of what agents did in the user's apps outlives their tasks, for a set time.
-const CALLS_KEPT_MS = 90 * 24 * 60 * 60 * 1000;
+const CALLS_KEPT_MS = connectorActivityDays.all * 24 * 60 * 60 * 1000;
 // Published live and never kept: text fragments, and the size of a conversation during a turn.
 const UNSTORED = new Set<SessionEvent["type"]>([
   "message.delta",

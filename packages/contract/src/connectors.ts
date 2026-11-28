@@ -196,7 +196,14 @@ export const connectorCallSchema = z.object({
 });
 export type ConnectorCall = z.infer<typeof connectorCallSchema>;
 
+// How far back the Recent use list reaches, in days; "all" is every call still kept.
+export const connectorActivityDays = { week: 7, month: 30, all: 90 } as const;
+export const connectorActivityPeriodSchema = z.enum(["week", "month", "all"]);
+export type ConnectorActivityPeriod = z.infer<typeof connectorActivityPeriodSchema>;
+
 export const connectorActivityQuerySchema = z.object({
+  // This week when left out.
+  period: connectorActivityPeriodSchema.optional(),
   // A department id, or "none" for agents without one.
   team: z.string().min(1).optional(),
   changes: z.stringbool().optional(),
@@ -204,7 +211,7 @@ export const connectorActivityQuerySchema = z.object({
 });
 export type ConnectorActivityQuery = z.infer<typeof connectorActivityQuerySchema>;
 
-// This week's calls, newest first; the counts ignore the filters, for the chips.
+// The period's calls, newest first; the counts ignore the team and changes filters, for the chips.
 export const connectorActivitySchema = z.object({
   calls: z.array(connectorCallSchema),
   total: z.number().int().nonnegative(),

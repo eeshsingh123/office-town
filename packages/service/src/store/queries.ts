@@ -634,7 +634,7 @@ export const queries = {
   pruneConnectorCalls: "DELETE FROM connector_calls WHERE at < ?",
   connectorCallById: `${CONNECTOR_CALL_SELECT} WHERE c.id = ?`,
   endConnectorCall: "UPDATE connector_calls SET outcome = ? WHERE id = ?",
-  // ?2 is the start of the week, ?3 the page's upper bound; NULL ?4 and ?5 mean no filter.
+  // ?2 is the start of the period, ?3 the page's upper bound; NULL ?4 and ?5 mean no filter.
   connectorCallsBefore: `${CONNECTOR_CALL_SELECT}
     WHERE c.connector_ref = ?1 AND c.at >= ?2 AND c.ref < ?3
       AND (?4 IS NULL OR coalesce(d.id, 'none') = ?4) AND (?5 IS NULL OR c.change = 1)

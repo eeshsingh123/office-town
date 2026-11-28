@@ -26,7 +26,7 @@ export const RELEASES: Release[] = [
       "Your data takes far less disk space: the raw copy of every line a provider printed is no longer kept, and only the newest backup from an update stays",
       "Searching Tasks stays quick with thousands of tasks, and agents no longer pause while you type",
       "The window stays smooth and light while agents stream, even on long tasks or when left open for days",
-      "What agents did in your apps stays in Connectors for 90 days, even after you delete the task",
+      "What agents did in your apps stays in Connectors for 90 days, even after you delete the task, and an app's Recent use can show the last 30 or 90 days, grouped by day",
       "Removing a place from Updates also takes it off every automation that sent there",
       "A department you removed no longer stops you from removing its workspace",
     ],
