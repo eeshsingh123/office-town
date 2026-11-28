@@ -44,9 +44,9 @@
   margin-top: 20px;
 }
 
-/* Sits a set distance below the page's tools, so it does not jump as the window grows. */
+/* The top is set to centre it on the page (EmptyState.tsx). */
 .page {
-  padding: 72px 24px;
+  padding: 72px 24px 24px;
 }
 
 .page .bubble {
