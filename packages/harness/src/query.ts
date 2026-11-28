@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
-import type { HarnessQuery } from "./adapter.ts";
+import type { HarnessQuery, ServedQuery } from "./adapter.ts";
 import type { Environment, ProcessExit } from "./environment/environment.ts";
 import { runProcess } from "./process-runner.ts";
 
@@ -49,6 +50,60 @@ export function runQuery<T>(
   options: { env?: Record<string, string>; timeoutMs: number },
 ): Promise<T> {
   return inQueryTurn(() => runQueryNow(environment, query, options));
+}
+
+const ASKS = 10;
+const ASK_SPACING_MS = 250;
+
+// Starts the private server, then asks it until it answers. Holds one query turn throughout.
+export function runServedQuery<T>(
+  environment: Environment,
+  query: ServedQuery<T>,
+  { timeoutMs }: { timeoutMs: number },
+): Promise<T> {
+  return inQueryTurn(async () => {
+    const env = { [query.password]: randomUUID() };
+    const address = Promise.withResolvers<string>();
+    const server = await runProcess(
+      environment,
+      { ...query.server, env: { ...query.server.env, ...env } },
+      {
+        onLine: (line) => {
+          const found = query.address(line);
+          if (found !== undefined) address.resolve(found);
+        },
+        onExit: (exit, stderrTail) => {
+          const detail = stderrTail.trim();
+          const code = exit.code ?? exit.signal;
+          address.reject(
+            new QueryError(`It stopped (${code}) before it started${detail ? `: ${detail}` : "."}`),
+          );
+        },
+      },
+    );
+    const deadline = Date.now() + timeoutMs;
+    try {
+      const url = await Promise.race([
+        address.promise,
+        delay(timeoutMs, undefined, { ref: false }),
+      ]);
+      if (url === undefined) throw new QueryError("It did not start in time.");
+      const ask = { command: query.ask(url), read: (output: string[]) => query.read(output) };
+      for (let asked = 1; ; asked += 1) {
+        const left = deadline - Date.now();
+        if (left <= 0) throw new QueryError("It did not answer in time.");
+        try {
+          return await runQueryNow(environment, ask, { env, timeoutMs: left });
+        } catch (error) {
+          if (!(error instanceof QueryError) || asked === ASKS) throw error;
+        }
+        await delay(ASK_SPACING_MS);
+      }
+    } finally {
+      server.closeInput();
+      await server.killTree();
+    }
+  });
 }
 
 async function runQueryNow<T>(
