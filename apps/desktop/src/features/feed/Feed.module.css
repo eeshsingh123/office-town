@@ -38,6 +38,11 @@
   gap: 14px;
 }
 
+/* Names its post for the scroll place, with no box of its own. */
+.slot {
+  display: contents;
+}
+
 /* New posts wait above while the list is scrolled: faces of who posted, then a count. */
 .pillRow {
   position: sticky;

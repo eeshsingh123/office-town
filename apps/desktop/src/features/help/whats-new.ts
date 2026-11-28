@@ -16,6 +16,7 @@ export const RELEASES: Release[] = [
     changes: [
       "A result that made a page, site or image shows its picture on its Feed post. Click it to open it in Outputs",
       "Feed marks where it starts with Latest at the top, instead of a You're caught up line that could land between posts",
+      "Coming back to Feed from a task or an output lands on the post you left, not at the top",
       "Empty pages show their message in the middle of the page",
     ],
   },
