@@ -478,9 +478,11 @@
   font-size: var(--size-meta);
 }
 
+/* As wide as the chat's card: pictures are taken 480 px wide, so wider would blur them. */
 .media {
   display: block;
   width: 100%;
+  max-width: 360px;
   aspect-ratio: 16 / 10;
   padding: 0;
   overflow: hidden;
