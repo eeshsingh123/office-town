@@ -114,7 +114,7 @@ describe("store", () => {
   });
 
   // The search counts what the app does not follow live, with the Tasks page's status rule.
-  it("searches every task, then deletes a finished one with its sessions, events, lines and files", async () => {
+  it("searches every task, then deletes a finished one with its sessions, events and files", async () => {
     const finished = store.createTask("Draft the launch post");
     startSession(finished.id).emit({
       type: "session.ended",
@@ -129,7 +129,10 @@ describe("store", () => {
       type: "action.ended",
       payload: { actionId: "read-1", outcome: "completed", result: "x".repeat(20_000) },
     });
-    for (let line = 0; line < 6000; line += 1) store.appendHarnessLine(session.id, "in", "{}");
+    // More than one delete chunk, so the delete lets live updates through between them.
+    for (let reply = 0; reply < 2500; reply += 1) {
+      session.emit({ type: "message", payload: { role: "assistant", text: "x".repeat(100) } });
+    }
     await expect(store.deleteTask(task.id)).rejects.toThrow(TaskActiveError);
     const search = (text: string, tab: "all" | "review" | "ended" = "all") =>
       store.searchTasks({ text, textTeams: [], tab, teams: [], limit: 1 });
@@ -151,7 +154,7 @@ describe("store", () => {
 
     expect(store.getTask(task.id)).toBeUndefined();
     expect(store.getSession(session.id)).toBeUndefined();
-    const events = store.readEvents({ after: 0, limit: 100 });
+    const events = store.readEvents({ after: 0, limit: 5000 });
     expect(events.filter(({ event }) => event.sessionId === session.id)).toEqual([]);
     expect(existsSync(join(directory, "results", session.id))).toBe(false);
     const after = await store.size();

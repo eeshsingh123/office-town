@@ -1,7 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import type { SessionOptions } from "@office-town/contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -57,7 +56,7 @@ afterEach(() => {
 });
 
 describe("session registry", () => {
-  it("stores every event before publishing it, and stores no text fragment or partial line", async () => {
+  it("stores every event before publishing it, and stores no text fragment", async () => {
     const registry = openRegistry();
     const storedWhenPublished: boolean[] = [];
     registry.subscribe(({ position, event }) => {
@@ -68,8 +67,6 @@ describe("session registry", () => {
 
     const record = await start(registry, "Write a report");
     const [session] = sessions;
-    session?.line('{"type":"stream_event"}', true);
-    session?.line('{"type":"assistant"}');
     session?.emit({ type: "message.delta", payload: { text: "Done" } });
     session?.emit({ type: "message", payload: { role: "assistant", text: "Done" } });
 
@@ -82,15 +79,6 @@ describe("session registry", () => {
       ["message", true],
     ]);
     expect(storedWhenPublished).toEqual([true, true, true]);
-    // The store holds its file alone, so the audit copy is read once it is closed.
-    await registry.close();
-    store.close();
-    const audit = new DatabaseSync(join(directory, "store.db"), { readOnly: true });
-    expect(audit.prepare("SELECT line FROM harness_lines").all()).toEqual([
-      { line: '{"type":"assistant"}' },
-    ]);
-    audit.close();
-    store = openStore(directory);
   });
 
   it("carries on in a new conversation on another account once the first is used up", async () => {

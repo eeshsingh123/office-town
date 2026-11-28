@@ -156,6 +156,7 @@ export function destinationRoutes(store: Store, { outbox, telegram }: Delivery):
         destinations.remove(id);
         outbox.secrets.remove(keysId(id));
         store.saveSettings(withoutPlace(store.readSettings(), id));
+        store.automations.dropPlace(id);
         return { status: 204 };
       },
     },

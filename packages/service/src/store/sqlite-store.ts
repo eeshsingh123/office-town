@@ -74,14 +74,14 @@ import {
 import { AttachmentFiles } from "./attachment-files.ts";
 import { AutomationEventsStore } from "./automation-events-store.ts";
 import { AutomationsStore } from "./automations-store.ts";
-import { openDatabase, readNumber, transaction } from "./database.ts";
+import { FREE_PAGES_KEPT, openDatabase, readNumber, transaction } from "./database.ts";
 import { DestinationsStore } from "./destinations-store.ts";
 import { FeedStore } from "./feed-store.ts";
 import { NoticesStore } from "./notices-store.ts";
 import { queries } from "./queries.ts";
 import { QueueStore } from "./queue-store.ts";
 import { RecoveryStore } from "./recovery-store.ts";
-import { fileSize, previewOutput, ResultFiles, utf8Prefix } from "./result-files.ts";
+import { fileSize, previewOutput, ResultFiles } from "./result-files.ts";
 import {
   type AgentChange,
   type AgentSessionQuery,
@@ -94,7 +94,6 @@ import {
   type EventQuery,
   InUseError,
   type LatestTurn,
-  type LineDirection,
   type MilestoneChange,
   NameTakenError,
   type NewAgentRecord,
@@ -127,8 +126,9 @@ import { matchTasks, type TaskFacts } from "./task-search.ts";
 // Deleting in chunks lets live updates through; one statement blocks for most of a second.
 const DELETE_CHUNK = 1000;
 const VACUUM_STEP_PAGES = 500;
-const LINE_CAP_BYTES = 64 * 1024;
 const USAGE_KEPT_MS = 30 * 24 * 60 * 60 * 1000;
+// A record of what agents did in the user's apps outlives their tasks, for a set time.
+const CALLS_KEPT_MS = 90 * 24 * 60 * 60 * 1000;
 // Published live and never kept: text fragments, and the size of a conversation during a turn.
 const UNSTORED = new Set<SessionEvent["type"]>([
   "message.delta",
@@ -986,6 +986,14 @@ class SqliteStore implements Store {
     );
   }
 
+  // A quit or crash between a task's creation and its first start leaves it at work with no
+  // agent, keeping its team busy; it goes, as a start that failed goes (task-start.ts).
+  async deleteUnstartedTasks(): Promise<void> {
+    for (const { id } of all<{ id: string }>(this.#statements.unstartedTasks)) {
+      await this.deleteTask(id);
+    }
+  }
+
   async deleteTask(id: string, keepUsage?: { agentId?: string }): Promise<void> {
     const task = this.#taskRow(id);
     if (one(this.#statements.unfinishedInTask, task.ref) !== undefined) {
@@ -1003,13 +1011,17 @@ class SqliteStore implements Store {
       const agents = all<{ ref: number }>(this.#statements.agentsOfTask, task.ref);
       for (const session of sessions) {
         await this.#deleteInChunks(this.#statements.deleteSessionEvents, session.ref);
-        await this.#deleteInChunks(this.#statements.deleteSessionHarnessLines, session.ref);
       }
       // Deleting a chief's goal clears its pieces' link to it, so they are published again.
       const children = all<{ id: string }>(this.#statements.childTasks, task.ref);
       const attachments = all<AttachmentRef>(this.#statements.attachmentsOnlyOfTask, task.ref);
       const outputs = all<{ id: string }>(this.#statements.outputIdsOfTask, task.ref);
+      const returning = all<{ id: string; ref: number; goalRef: number }>(
+        this.#statements.pieceMilestonesOnTask,
+        task.ref,
+      );
       transaction(this.#db, () => {
+        for (const row of returning) this.#statements.returnMilestone.run(row.goalRef, row.ref);
         this.#statements.deleteTask.run(task.ref);
         for (const attachment of attachments) {
           this.#statements.deleteAttachment.run(attachment.ref);
@@ -1021,6 +1033,7 @@ class SqliteStore implements Store {
       // Agents deleted with the task worked on nothing else, so the task's notice covers them.
       this.#publish({ type: "task.deleted", taskId: id });
       for (const child of children) this.#publishTask(child.id);
+      for (const row of returning) this.#publishMilestone(row.id);
       await Promise.all(sessions.map((session) => this.#results.remove(session.id)));
       await this.#removeCopies(attachments);
       await Promise.all(
@@ -1598,18 +1611,6 @@ class SqliteStore implements Store {
     return { position, event: stored };
   }
 
-  appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void {
-    const bytes = Buffer.byteLength(line);
-    const cut = bytes > LINE_CAP_BYTES;
-    this.#statements.insertHarnessLine.run(
-      this.#sessionRef(sessionId),
-      direction,
-      cut ? utf8Prefix(Buffer.from(line), LINE_CAP_BYTES) : line,
-      cut ? bytes : null,
-      Date.now(),
-    );
-  }
-
   readEvents({ after, limit, sessionId }: EventQuery): StoredEvent[] {
     const rows =
       sessionId === undefined
@@ -2006,8 +2007,16 @@ class SqliteStore implements Store {
         "You need at least one Scratch workspace, so this one can't be removed.",
       );
     }
+    const ref = this.#workspaceRow(id).ref;
+    const scratch = scratches.find((workspace) => workspace.id !== id);
     try {
-      this.#statements.deleteWorkspace.run(this.#workspaceRow(id).ref);
+      transaction(this.#db, () => {
+        this.#statements.releaseFromRemoved.run(ref);
+        if (scratch !== undefined) {
+          this.#statements.moveRemovedDepartments.run(ref, this.#workspaceRow(scratch.id).ref);
+        }
+        this.#statements.deleteWorkspace.run(ref);
+      });
     } catch (error) {
       if ((error as { errcode?: number }).errcode !== SQLITE_CONSTRAINT_FOREIGNKEY) throw error;
       throw new InUseError("A department works in this workspace, so it cannot be deleted.");
@@ -2272,10 +2281,13 @@ class SqliteStore implements Store {
     if (session === undefined) throw new RecordNotFoundError("session");
     const departmentId = this.getAgent(session.agentId)?.departmentId;
     const id = randomUUID();
+    this.#statements.pruneConnectorCalls.run(Date.now() - CALLS_KEPT_MS);
     this.#statements.insertConnectorCall.run(
       id,
       this.#connectorRow(call.connectorId).ref,
       this.#sessionRef(call.sessionId),
+      session.taskId,
+      session.agentId,
       departmentId === undefined ? null : this.#departmentRow(departmentId).ref,
       call.tool,
       inputText(call.input),
@@ -2572,9 +2584,14 @@ class SqliteStore implements Store {
     while (statement.run(sessionRef, DELETE_CHUNK).changes > 0) await yieldToEventLoop();
   }
 
+  returnFreeSpace(): Promise<void> {
+    return this.#returnFreeSpace(FREE_PAGES_KEPT);
+  }
+
   // Now, not when the app next closes.
-  async #returnFreeSpace(): Promise<void> {
+  async #returnFreeSpace(kept = 0): Promise<void> {
     const pages = readNumber(this.#db, "PRAGMA freelist_count");
+    if (pages <= kept) return;
     for (let freed = 0; freed < pages; freed += VACUUM_STEP_PAGES) {
       this.#db.exec(`PRAGMA incremental_vacuum(${VACUUM_STEP_PAGES})`);
       await yieldToEventLoop();

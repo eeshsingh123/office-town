@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { migrations } from "./migrations.ts";
 import { StoreFileError } from "./store.ts";
@@ -7,6 +8,9 @@ import { StoreFileError } from "./store.ts";
 const APPLICATION_ID = 0x4f54_4f57;
 
 const SQLITE_BUSY = 5;
+
+// Free pages past this go back to the disk, such as after a big prune.
+export const FREE_PAGES_KEPT = 1024;
 
 export function openDatabase(file: string): DatabaseSync {
   const db = new DatabaseSync(file);
@@ -22,6 +26,9 @@ export function openDatabase(file: string): DatabaseSync {
       PRAGMA foreign_keys = ON;
     `);
     migrate(db, file);
+    if (readNumber(db, "PRAGMA freelist_count") > FREE_PAGES_KEPT) {
+      db.exec("PRAGMA incremental_vacuum");
+    }
     db.exec("PRAGMA optimize = 0x10002");
   } catch (error) {
     db.close();
@@ -81,5 +88,14 @@ function migrate(db: DatabaseSync, file: string): void {
     }
   } finally {
     db.exec("PRAGMA foreign_keys = ON");
+  }
+  if (!fresh) removeOlderBackups(file, backup);
+}
+
+// Only the copy made before the latest change is kept, so backups never pile up.
+function removeOlderBackups(file: string, kept: string): void {
+  const prefix = `${basename(file)}.bak-v`;
+  for (const name of readdirSync(dirname(file))) {
+    if (name.startsWith(prefix) && name !== basename(kept)) rmSync(join(dirname(file), name));
   }
 }
