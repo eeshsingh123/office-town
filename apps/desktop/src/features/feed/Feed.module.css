@@ -650,29 +650,22 @@ strong.rowTitle {
   font-variant-numeric: tabular-nums;
 }
 
-.caught {
+/* Where the feed starts; it stays at the top, whatever arrives. */
+.latest {
   display: flex;
   margin: 0;
   align-items: center;
   gap: 12px;
-  padding: 6px 0;
-  color: var(--ok);
+  color: var(--text-3);
   font-size: var(--size-meta);
   font-weight: 600;
 }
 
-.caught::before,
-.caught::after {
+.latest::after {
   flex: 1;
   height: 1px;
   background: var(--border);
   content: "";
-}
-
-.caughtLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .state {

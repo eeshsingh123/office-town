@@ -2,7 +2,6 @@ import type { FeedPost, FeedShow } from "@office-town/contract";
 import {
   ArrowUp,
   CheckCheck,
-  CheckCircle2,
   Clock,
   CloudOff,
   Lightbulb,
@@ -12,7 +11,7 @@ import {
   PackageCheck,
   RotateCcw,
 } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
 import { forSession, useKept } from "../../store/kept.ts";
@@ -202,7 +201,7 @@ export function FeedView() {
   const feed = useApp((state) => state.feed);
   const departments = useApp((state) => state.departments);
   const now = useNow();
-  // When the user last looked, as it was on opening: newer posts sit above "You're caught up".
+  // When the user last looked, as it was on opening: posts from before it are dimmed.
   const [since] = useState(() => useApp.getState().feedSeenAt);
   const [openedAt] = useState(() => new Date().toISOString());
   const scroller = useRef<HTMLElement>(null);
@@ -260,7 +259,6 @@ export function FeedView() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((department) => ({ value: department.id, label: department.name })),
   ];
-  const caughtUpAt = since === undefined ? -1 : shown.findIndex((post) => post.createdAt <= since);
 
   let body: ReactNode;
   if (cursor.error !== undefined && all.length === 0) {
@@ -287,20 +285,16 @@ export function FeedView() {
     body = (
       <div className={styles.list}>
         <NewPostsPill posts={held} onShow={showHeld} />
-        {shown.map((post, index) => (
-          <Fragment key={post.id}>
-            {index === caughtUpAt ? <CaughtUp /> : null}
-            <FeedItem
-              post={post}
-              now={now}
-              older={since !== undefined && post.createdAt <= since}
-              arrived={post.createdAt > openedAt}
-            />
-          </Fragment>
+        <p className={styles.latest}>Latest</p>
+        {shown.map((post) => (
+          <FeedItem
+            key={post.id}
+            post={post}
+            now={now}
+            older={since !== undefined && post.createdAt <= since}
+            arrived={post.createdAt > openedAt}
+          />
         ))}
-        {caughtUpAt === -1 && since !== undefined && !cursor.more && shown.length > 0 ? (
-          <CaughtUp />
-        ) : null}
         <div ref={sentinel} className={styles.sentinel} aria-hidden />
         {cursor.loading ? (
           <p className={styles.loading}>
@@ -363,16 +357,5 @@ export function FeedView() {
         {body}
       </div>
     </section>
-  );
-}
-
-function CaughtUp() {
-  return (
-    <p className={styles.caught}>
-      <span className={styles.caughtLabel}>
-        <CheckCircle2 size={14} aria-hidden />
-        You're caught up
-      </span>
-    </p>
   );
 }
