@@ -4,8 +4,8 @@ Last updated: 2026-11-28
 
 ## State
 
-- Merged to `main`: M1 to M12, M15, M16 Feed with progress updates, the store audit (D-142) and empty states (PR #114 last).
-- Open: `fix/opencode-models`, awaiting review: OpenCode 2.4's model list (D-97) and provider names only in the model picker.
+- Merged to `main`: M1 to M12, M15, M16 Feed with progress updates, the store audit (D-142), empty states and OpenCode 2.4's model list (PR #115 last).
+- Open: `fix/feed-qol`, awaiting review: pictures on Feed result posts, Latest at the top of Feed, empty pages centred.
 - Next (owner, 2026-11-27): agent memory across tasks, which then feeds Feed suggestions (D-139). M13 and M14 wait until real users ask.
 - Parked: OpenCode's own automations. OpenCode 2.4's HTTP API lists, pauses, resumes and deletes them (`/api/experimental/automation`, via `opencode api --standalone`); its event stream has no automation events.
 - No CI until the public release (D-135); nothing tests the Mac now. Before the release, bring back CI and the Mac smoke job (`.github/workflows/ci.yml` in git history).
