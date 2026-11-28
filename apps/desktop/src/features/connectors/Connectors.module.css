@@ -380,12 +380,6 @@
   font-weight: 600;
 }
 
-.period {
-  font-size: var(--size-meta);
-  font-weight: 500;
-  color: var(--text-3);
-}
-
 .actRow {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;

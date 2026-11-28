@@ -249,7 +249,8 @@ The earlier conversation is in ${seen}. If a detail you need is missing here, se
 Say in a few lines where things stand. If you keep a todo list, write it again first from where you are, then carry on. ${CARRY_ON[role]}`;
   const origin: MessageOrigin = { kind: "handover", fromSessionId: old.id };
   const message: Message = { text: text.trimEnd(), origin };
-  const piece = store.workingDelegation(old.id);
+  // A Stop while the handover was written ends the work; nothing carries on.
+  if (stoppedMeanwhile(store, old.id)) return undefined;
   try {
     const next = await registry.start({
       taskId: old.taskId,
@@ -264,6 +265,11 @@ Say in a few lines where things stand. If you keep a todo list, write it again f
     if (next.status !== "starting" && next.status !== "running") {
       throw new Error("it ended at once");
     }
+    if (stoppedMeanwhile(store, old.id)) {
+      if (registry.isRunning(next.id)) await registry.stop(next.id);
+      return undefined;
+    }
+    const piece = store.workingDelegation(old.id);
     if (piece !== undefined) store.moveDelegation(piece.id, next.id);
     return next;
   } catch (error) {
@@ -274,6 +280,12 @@ Say in a few lines where things stand. If you keep a todo list, write it again f
     });
     return undefined;
   }
+}
+
+// Stopped by a person or a lead, or cut off by a quit; an idle stop or a crash still hands over.
+function stoppedMeanwhile(store: Store, sessionId: string): boolean {
+  const status = store.getSession(sessionId)?.status;
+  return status === "stopped" || status === "interrupted";
 }
 
 // Whether the user asked for it: the last word from a person, past the task itself, results and

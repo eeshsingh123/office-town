@@ -37,6 +37,11 @@ const queries = {
     INSERT INTO automations (id, name, enabled, fields, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?)`,
   update: "UPDATE automations SET name = ?, enabled = ?, fields = ?, updated_at = ? WHERE id = ?",
+  dropPlace: `
+    UPDATE automations SET fields = json_set(fields, '$.rules.sendTo', (
+      SELECT json_group_array(value) FROM json_each(fields, '$.rules.sendTo') WHERE value <> ?1))
+    WHERE EXISTS (SELECT 1 FROM json_each(fields, '$.rules.sendTo') WHERE value = ?1)
+    RETURNING id`,
   setPaused: "UPDATE automations SET paused = ? WHERE id = ?",
   setNextRun: "UPDATE automations SET next_run_at = ? WHERE id = ?",
   setFailures: "UPDATE automations SET failures = ? WHERE id = ?",
@@ -231,6 +236,12 @@ export class AutomationsStore {
       this.#setFiles(id, files);
     });
     return this.#published(id);
+  }
+
+  // A removed place leaves every automation's list, as it leaves Settings.
+  dropPlace(destinationId: string): void {
+    const rows = this.#statements.dropPlace.all(destinationId) as { id: string }[];
+    for (const { id } of rows) this.#published(id);
   }
 
   setEnabled(id: string, enabled: boolean): AutomationRecord {

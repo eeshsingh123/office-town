@@ -217,5 +217,9 @@ export function cleanUpWorktrees(context: TeamContext): void {
       .then(() => removeMergedWorktrees(context, taskId))
       .catch((error: unknown) => console.error("Could not clean up worktrees.", error));
     checking.set(taskId, next);
+    // Only the latest check of a task is kept, and only while it runs.
+    void next.then(() => {
+      if (checking.get(taskId) === next) checking.delete(taskId);
+    });
   });
 }

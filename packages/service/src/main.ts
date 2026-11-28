@@ -105,6 +105,7 @@ const store = openStore(dataFolder);
 const taskStates = new TaskStates(store);
 // Files picked but never sent are kept a day, in case the message is still being written.
 await store.deleteUnsentAttachments(new Date(Date.now() - 24 * 60 * 60 * 1000));
+await store.deleteUnstartedTasks();
 const toolServer = await startToolServer(store);
 const readCatalog = cachedCatalogs();
 const registry = new SessionRegistry(store, {
@@ -240,6 +241,13 @@ void statuses.checkAll();
 prices.load(dataFolder).catch((error: unknown) => {
   process.stderr.write(`Could not read API prices: ${String(error)}\n`);
 });
+// What the hourly prunes free goes back to the disk while the app stays open for days.
+const freeSpace = setInterval(() => {
+  store.returnFreeSpace().catch((error: unknown) => {
+    console.error("Could not return free space to the disk.", error);
+  });
+}, 60 * 60_000);
+freeSpace.unref();
 const ready: CoreReady = { url: server.url, token };
 // Stdout carries only this line, for whoever started the core; logs go to stderr.
 process.stdout.write(`${JSON.stringify(ready)}\n`);
@@ -248,6 +256,7 @@ let closing = false;
 async function shutdown(): Promise<void> {
   if (closing) return;
   closing = true;
+  clearInterval(freeSpace);
   statuses.stop();
   stopQueries();
   stopIdle();

@@ -20,6 +20,7 @@ interface SessionScan {
 }
 
 interface TaskScan {
+  sessionIds: Set<string>;
   // By canonical path; the latest change wins.
   changed: Map<string, ChangedFile>;
   seen: Map<string, SpottedSite>;
@@ -49,12 +50,18 @@ export class TaskFiles {
 
   constructor(store: Store) {
     this.#store = store;
+    // A deleted task's lists are never read again, so they do not stay in memory.
+    store.subscribe((change) => {
+      if (change.type !== "task.deleted") return;
+      for (const id of this.#tasks.get(change.taskId)?.sessionIds ?? []) this.#sessions.delete(id);
+      this.#tasks.delete(change.taskId);
+    });
   }
 
   read(taskId: string): TaskFileFacts {
     let task = this.#tasks.get(taskId);
     if (task === undefined) {
-      task = { changed: new Map(), seen: new Map(), commands: new Map() };
+      task = { sessionIds: new Set(), changed: new Map(), seen: new Map(), commands: new Map() };
       this.#tasks.set(taskId, task);
     }
     for (const session of this.#store.listSessions(taskId)) this.#scan(session, task);
@@ -70,6 +77,7 @@ export class TaskFiles {
     if (scan === undefined) {
       scan = { after: 0, pending: new Map() };
       this.#sessions.set(session.id, scan);
+      task.sessionIds.add(session.id);
     }
     for (;;) {
       const page = this.#store.readEvents({

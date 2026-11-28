@@ -752,6 +752,43 @@ function addAutomationDelivery(db: DatabaseSync): void {
   `);
 }
 
+// A call outlives its task and session (kept 90 days), so it names them by id too.
+function keepConnectorCalls(db: DatabaseSync): void {
+  if (hasColumn(db, "connector_calls", "task_id")) return;
+  db.exec(`
+  CREATE TABLE connector_calls_kept (
+    ref            INTEGER PRIMARY KEY,
+    id             TEXT NOT NULL UNIQUE,
+    connector_ref  INTEGER NOT NULL REFERENCES connectors (ref) ON DELETE CASCADE,
+    session_ref    INTEGER REFERENCES sessions (ref) ON DELETE SET NULL,
+    task_id        TEXT NOT NULL,
+    agent_id       TEXT NOT NULL,
+    department_ref INTEGER REFERENCES departments (ref) ON DELETE SET NULL,
+    tool           TEXT NOT NULL,
+    input          TEXT NOT NULL,
+    change         INTEGER NOT NULL,
+    outcome        TEXT NOT NULL CHECK (outcome IN ('done', 'refused', 'failed', 'asked')),
+    at             INTEGER NOT NULL
+  ) STRICT;
+
+  INSERT INTO connector_calls_kept
+  SELECT c.ref, c.id, c.connector_ref, c.session_ref, t.id, ag.id, c.department_ref, c.tool, c.input, c.change,
+    c.outcome, c.at
+  FROM connector_calls c
+  JOIN sessions s ON s.ref = c.session_ref
+  JOIN tasks t ON t.ref = s.task_ref
+  JOIN agents ag ON ag.ref = s.agent_ref;
+
+  DROP TABLE connector_calls;
+  ALTER TABLE connector_calls_kept RENAME TO connector_calls;
+
+  CREATE INDEX connector_calls_by_connector ON connector_calls (connector_ref, at);
+  CREATE INDEX connector_calls_by_session ON connector_calls (session_ref);
+  CREATE INDEX connector_calls_by_department ON connector_calls (department_ref);
+  CREATE INDEX connector_calls_by_time ON connector_calls (at);
+  `);
+}
+
 export const migrations: readonly Migration[] = [
   `
   CREATE TABLE tasks (
@@ -1244,4 +1281,13 @@ export const migrations: readonly Migration[] = [
   -- A task's newest mark, read at each update, without a sort.
   CREATE INDEX IF NOT EXISTS progress_marks_by_task ON progress_marks (task_ref, ref);
   `,
+  `
+  -- Raw CLI lines are no longer kept: nothing read them, and the CLIs keep their own records.
+  DROP TABLE IF EXISTS harness_lines;
+  -- A task's sessions by agent, for its lead's latest status in the task search.
+  CREATE INDEX IF NOT EXISTS sessions_by_task_agent ON sessions (task_ref, agent_ref);
+  -- The last 30 days of tasks, for the same request asked on different days (D-139).
+  CREATE INDEX IF NOT EXISTS tasks_by_created ON tasks (created_at);
+  `,
+  keepConnectorCalls,
 ];

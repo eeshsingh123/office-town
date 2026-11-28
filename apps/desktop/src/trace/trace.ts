@@ -145,14 +145,21 @@ export function emptyTrace(sessionId: string): Trace {
 export const requestKey = (requestId: string) => `request:${requestId}`;
 
 // Changed items are replaced, so a view of an unchanged item can skip drawing it.
+// Text fragments touch only the text being streamed, so a batch of them copies nothing else:
+// a long trace streams without being copied on every frame.
+const TEXT_ONLY = new Set<SessionEvent["type"]>(["message.delta", "reasoning.delta"]);
+
 export function applyEvents(trace: Trace, events: readonly StreamedEvent[]): Trace {
-  const next: Trace = {
-    ...trace,
-    items: new Map(trace.items),
-    order: [...trace.order],
-    streaming: { ...trace.streaming },
-    userMessageIds: [...trace.userMessageIds],
-  };
+  const textOnly = events.every(({ event }) => TEXT_ONLY.has(event.type));
+  const next: Trace = textOnly
+    ? { ...trace, streaming: { ...trace.streaming } }
+    : {
+        ...trace,
+        items: new Map(trace.items),
+        order: [...trace.order],
+        streaming: { ...trace.streaming },
+        userMessageIds: [...trace.userMessageIds],
+      };
   for (const { position, event } of events) {
     if (position !== undefined) {
       if (position <= next.position) continue;

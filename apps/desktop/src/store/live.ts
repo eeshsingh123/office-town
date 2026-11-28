@@ -472,4 +472,6 @@ function flush(): void {
     if (trace !== undefined) traces[sessionId] = applyEvents(trace, batch);
   }
   useApp.setState({ ...state, ...applyToRecords(state, events), traces });
+  // A window left on Home or in the tray for days keeps only the traces a screen shows.
+  if (events.some(({ event }) => event.type === "session.ended")) dropEndedTraces();
 }

@@ -275,8 +275,6 @@ export interface LatestTurn {
 
 export type ChangeListener = (change: Change) => void;
 
-export type LineDirection = "in" | "out";
-
 // Synchronous on purpose: an in-process SQLite write takes microseconds (D-15).
 export interface Store {
   // Kept in files of their own over the same database (D-30).
@@ -321,6 +319,10 @@ export interface Store {
   // An agent that worked on no other task is deleted with it. With `keepUsage`, Usage still
   // counts its tokens, under `agentId` when one is given, else under the agent that spent them.
   deleteTask(id: string, keepUsage?: { agentId?: string }): Promise<void>;
+  // At launch: tasks a quit cut off between their creation and their first start.
+  deleteUnstartedTasks(): Promise<void>;
+  // What prunes freed goes back to the disk, a step at a time, once it is worth it.
+  returnFreeSpace(): Promise<void>;
   createSession(session: NewSession): SessionRecord;
   getSession(id: string): SessionRecord | undefined;
   listSessions(taskId: string): SessionRecord[];
@@ -387,8 +389,6 @@ export interface Store {
   updatePiece(id: string, change: PieceChange): PlanPiece;
   // Nothing is returned for a text fragment, which is never stored.
   append(event: SessionEvent): StoredEvent | undefined;
-  // Lines over 64 KiB are cut: the events already hold the text.
-  appendHarnessLine(sessionId: string, direction: LineDirection, line: string): void;
   readEvents(query: EventQuery): StoredEvent[];
   listLimits(): AccountLimits[];
   // The latest an account's plan usage was read, such as when the user refreshes it.

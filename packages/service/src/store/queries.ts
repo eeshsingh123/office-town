@@ -131,12 +131,9 @@ const CONNECTOR_SELECT = `
 
 const CONNECTOR_CALL_SELECT = `
   SELECT c.ref AS position, c.id, (SELECT id FROM connectors WHERE ref = c.connector_ref) AS connectorId,
-    ag.id AS agentId, t.id AS taskId, d.id AS departmentId, c.tool, c.input, c.change, c.outcome,
-    c.at
+    c.agent_id AS agentId, c.task_id AS taskId, d.id AS departmentId, c.tool, c.input, c.change,
+    c.outcome, c.at
   FROM connector_calls c
-  JOIN sessions s ON s.ref = c.session_ref
-  JOIN agents ag ON ag.ref = s.agent_ref
-  JOIN tasks t ON t.ref = s.task_ref
   LEFT JOIN departments d ON d.ref = c.department_ref`;
 
 // The store test checks that none reads a whole table, except those marked as reading a small one.
@@ -168,8 +165,9 @@ export const queries = {
       w.id AS workspaceId, w.name AS workspaceName, t.title,
       t.origin ->> '$.automationId' AS automationId, t.origin ->> '$.name' AS automationName,
       CASE WHEN ?1 THEN t.prompt END AS prompt,
-      CASE WHEN ?1 THEN (SELECT group_concat(a.name, ' ') FROM agents a WHERE a.ref IN
-        (SELECT s.agent_ref FROM sessions s WHERE s.task_ref = t.ref)) END AS agentNames
+      CASE WHEN ?1 THEN (SELECT replace(group_concat(DISTINCT a.name), ',', ' ')
+        FROM sessions s JOIN agents a ON a.ref = s.agent_ref WHERE s.task_ref = t.ref)
+      END AS agentNames
     FROM tasks t
     LEFT JOIN agents l ON l.ref = t.lead_ref
     LEFT JOIN departments d ON d.ref = t.department_ref
@@ -183,6 +181,9 @@ export const queries = {
     SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' AND state <> 'queued' LIMIT 1`,
   unendedTaskOfLead: "SELECT id FROM tasks WHERE lead_ref = ? AND state <> 'ended' LIMIT 1",
   oldestQueuedTask: "SELECT id FROM tasks WHERE state = 'queued' ORDER BY ref LIMIT 1",
+  unstartedTasks: `
+    SELECT id FROM tasks WHERE state <> 'ended' AND state <> 'queued'
+      AND NOT EXISTS (SELECT 1 FROM sessions WHERE task_ref = tasks.ref)`,
   // Leaving "ended" clears the review.
   setTaskState: `
     UPDATE tasks SET state = ?1, reviewed_at = iif(?1 = 'ended', reviewed_at, NULL)
@@ -291,6 +292,17 @@ export const queries = {
       changed_by = ?, told_agent = ?, delivery = ?, updated_at = ?
     WHERE ref = ?`,
   deleteMilestone: "DELETE FROM milestones WHERE ref = ?",
+  // A piece's milestones on a task being deleted, such as one whose start failed.
+  pieceMilestonesOnTask: `
+    SELECT m.id, m.ref, p.task_ref AS goalRef FROM milestones m
+    JOIN plan_pieces p ON p.ref = m.piece_ref
+    WHERE m.task_ref = ?1 AND p.task_ref <> ?1`,
+  // Back to the goal, under a new number only if the goal took its number meanwhile.
+  returnMilestone: `
+    UPDATE milestones SET task_ref = ?1, delegation_ref = NULL, number = CASE
+      WHEN EXISTS (SELECT 1 FROM milestones o WHERE o.task_ref = ?1 AND o.number = milestones.number)
+      THEN (SELECT MAX(o.number) + 1 FROM milestones o WHERE o.task_ref = ?1) ELSE number END
+    WHERE ref = ?2`,
   assignMilestone: "UPDATE milestones SET delegation_ref = ? WHERE id = ?",
   moveMilestonesOfPiece: "UPDATE milestones SET task_ref = ? WHERE piece_ref = ?",
   moveMilestonesOfDelegation: "UPDATE milestones SET delegation_ref = ? WHERE delegation_ref = ?",
@@ -518,9 +530,9 @@ export const queries = {
     WHERE s.options ->> '$.harness' = ? AND s.harness_session_id IS NOT NULL
       AND s.status NOT IN ('starting', 'running') AND s.ended_at >= ?
       AND coalesce((SELECT max(position) FROM events WHERE session_ref = s.ref
-                    AND type = 'turn.ended'), 0)
+                    AND type IN ('turn.ended', 'usage.recounted') AND type = 'turn.ended'), 0)
         > coalesce((SELECT max(position) FROM events WHERE session_ref = s.ref
-                    AND type = 'usage.recounted'), 0)
+                    AND type IN ('turn.ended', 'usage.recounted') AND type = 'usage.recounted'), 0)
     ORDER BY s.ended_at`,
   lastSequence: "SELECT coalesce(max(sequence), 0) AS sequence FROM events WHERE session_ref = ?",
   insertAccount: `
@@ -544,6 +556,12 @@ export const queries = {
   openTasksOfWorkspace: "SELECT id FROM tasks WHERE workspace_ref = ? AND state <> 'ended'",
   workspaceUsed: "UPDATE workspaces SET used_at = ? WHERE ref = ?",
   deleteWorkspace: "DELETE FROM workspaces WHERE ref = ?",
+  // A removed department keeps its tasks' history, never a hold on a workspace.
+  releaseFromRemoved: `
+    DELETE FROM department_workspaces WHERE workspace_ref = ?1
+      AND department_ref IN (SELECT ref FROM departments WHERE removed_at IS NOT NULL)`,
+  moveRemovedDepartments: `
+    UPDATE departments SET workspace_ref = ?2 WHERE workspace_ref = ?1 AND removed_at IS NOT NULL`,
 
   insertAttachment: `
     INSERT INTO attachments (id, kind, name, path, bytes, mime_type, sha256, created_at)
@@ -610,11 +628,13 @@ export const queries = {
   deleteConnector: "DELETE FROM connectors WHERE ref = ?",
   insertConnectorCall: `
     INSERT INTO connector_calls
-      (id, connector_ref, session_ref, department_ref, tool, input, change, outcome, at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, connector_ref, session_ref, task_id, agent_id, department_ref, tool, input, change,
+       outcome, at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  pruneConnectorCalls: "DELETE FROM connector_calls WHERE at < ?",
   connectorCallById: `${CONNECTOR_CALL_SELECT} WHERE c.id = ?`,
   endConnectorCall: "UPDATE connector_calls SET outcome = ? WHERE id = ?",
-  // ?2 is the start of the week, ?3 the page's upper bound; NULL ?4 and ?5 mean no filter.
+  // ?2 is the start of the period, ?3 the page's upper bound; NULL ?4 and ?5 mean no filter.
   connectorCallsBefore: `${CONNECTOR_CALL_SELECT}
     WHERE c.connector_ref = ?1 AND c.at >= ?2 AND c.ref < ?3
       AND (?4 IS NULL OR coalesce(d.id, 'none') = ?4) AND (?5 IS NULL OR c.change = 1)
@@ -630,11 +650,4 @@ export const queries = {
   saveSetting: `
     INSERT INTO settings (key, value) VALUES (?, ?)
     ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
-
-  insertHarnessLine: `
-    INSERT INTO harness_lines (session_ref, direction, line, full_bytes, timestamp)
-    VALUES (?, ?, ?, ?, ?)`,
-  deleteSessionHarnessLines: `
-    DELETE FROM harness_lines WHERE position IN
-      (SELECT position FROM harness_lines WHERE session_ref = ? LIMIT ?)`,
 } as const;

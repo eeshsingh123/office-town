@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../../store/app-store.ts";
-import { buildItems, type Item } from "./task-list.ts";
+import { type BuiltRows, buildRows, type Item } from "./task-list.ts";
 
 export function useNow(): number {
   const [now, setNow] = useState(Date.now);
@@ -21,9 +21,10 @@ export function useTaskItems(now: number): Item[] {
   const waiting = useApp((state) => state.waiting);
   const traces = useApp((state) => state.traces);
   const chiefId = useApp((state) => state.chiefId);
-  return useMemo(
-    () =>
-      buildItems({ tasks, sessions, agents, departments, pieces, waiting, traces, chiefId }, now),
-    [tasks, sessions, agents, departments, pieces, waiting, traces, chiefId, now],
-  );
+  const built = useRef<BuiltRows>(undefined);
+  return useMemo(() => {
+    const known = { tasks, sessions, agents, departments, pieces, waiting, traces, chiefId };
+    built.current = buildRows(known, now, built.current);
+    return [...built.current.rows.values()];
+  }, [tasks, sessions, agents, departments, pieces, waiting, traces, chiefId, now]);
 }

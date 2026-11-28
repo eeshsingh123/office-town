@@ -292,9 +292,10 @@ export const api = {
     ),
   connectorActivity: (
     connectorId: string,
-    { team, changes, before }: ConnectorActivityQuery,
+    { period, team, changes, before }: ConnectorActivityQuery,
   ): Promise<ConnectorActivity> => {
     const query = new URLSearchParams({
+      ...(period === undefined ? {} : { period }),
       ...(team === undefined ? {} : { team }),
       ...(changes === true ? { changes: "true" } : {}),
       ...(before === undefined ? {} : { before: String(before) }),

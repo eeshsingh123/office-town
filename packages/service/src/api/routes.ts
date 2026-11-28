@@ -454,11 +454,12 @@ export function apiRoutes(
       method: "PUT",
       path: "/agents/:id",
       reply: async ({ param, body }) => {
-        const agent = store.getAgent(param("id"));
-        if (agent === undefined) throw new RecordNotFoundError("agent");
         const { colour, purpose, settings, autonomy } = agentProfileRequestSchema.parse(
           await body(),
         );
+        // Read after the body, so a change made meanwhile is not written back.
+        const agent = store.getAgent(param("id"));
+        if (agent === undefined) throw new RecordNotFoundError("agent");
         const saved = store.updateAgent(agent.id, {
           ...agent,
           colour,

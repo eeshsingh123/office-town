@@ -17,7 +17,6 @@ import type {
 } from "@office-town/contract";
 import {
   createSession as createHarnessSession,
-  type HarnessLine,
   type LaunchExtras,
   type Session,
   SessionStateError,
@@ -534,6 +533,8 @@ ${text}`,
   async release(sessionId: string, to = sessionId): Promise<void> {
     const held = this.#held.get(sessionId) ?? [];
     this.#held.delete(sessionId);
+    // Stopped meanwhile: its work ended, so nothing more goes to it.
+    if (!this.#live.has(to)) return;
     for (const message of held) await this.tell(to, message);
   }
 
@@ -622,13 +623,9 @@ ${text}`,
     this.#store.createSession(record);
     const ready = Promise.withResolvers<void>();
     const stopEvents = session.subscribe((event) => this.#record(live, event));
-    const stopLines = session.subscribeLines((line) => this.#recordLine(live, line));
     const live: LiveSession = {
       session,
-      stopListening: () => {
-        stopEvents();
-        stopLines();
-      },
+      stopListening: stopEvents,
       lastSequence: 0,
       recorded: true,
       conversation: record.options.resumeSessionId,
@@ -833,18 +830,10 @@ ${text}`,
     }
   }
 
-  #recordLine(live: LiveSession, line: HarnessLine): void {
-    if (!live.recorded || line.partial) return;
-    try {
-      this.#store.appendHarnessLine(live.session.id, line.direction, line.text);
-    } catch (error) {
-      this.#stopUnrecorded(live, error);
-    }
-  }
-
   #forget(sessionId: string): void {
     this.#live.get(sessionId)?.ended.resolve();
     this.#live.delete(sessionId);
+    this.#held.delete(sessionId);
     this.#tools?.revoke(sessionId);
     for (const key of this.#asked.keys()) {
       if (key.startsWith(askedKey(sessionId, ""))) this.#asked.delete(key);
