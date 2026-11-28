@@ -8,7 +8,7 @@ import {
   providerOf,
 } from "@office-town/contract";
 import { Globe, KeyRound, Monitor, Power, SquareArrowOutUpRight, Unplug } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
 import { knowAgents } from "../../store/live.ts";
@@ -20,7 +20,7 @@ import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Count } from "../../ui/Count.tsx";
 import { Crumbs } from "../../ui/Crumbs.tsx";
-import { ago, clockTime, taskName } from "../../ui/format.ts";
+import { ago, sinceTime, taskName } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { showToast } from "../../ui/Toast.tsx";
 import { AudienceMenu, useHolders } from "../library/GivenToMenu.tsx";
@@ -213,7 +213,7 @@ function CallRow({ call }: { call: ConnectorCall }) {
         </span>
         <span className={styles.when}>
           <span className={styles.badge}>{outcome}</span>
-          {clockTime(call.at)}
+          {sinceTime(call.at)}
         </span>
       </button>
     </li>
@@ -304,23 +304,6 @@ function useActivity(routes: ConnectorRecord[], { period, team, changes }: Filte
   return { activity, more };
 }
 
-// "Today", "Yesterday", a weekday in the past week, then "12 Nov" ("12 Nov 2025" in another year).
-function dayOf(iso: string, now = new Date()): string {
-  const at = new Date(iso);
-  const midnight = (date: Date) =>
-    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const days = Math.round((midnight(now) - midnight(at)) / 86_400_000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 7) return at.toLocaleDateString([], { weekday: "long" });
-  return at.toLocaleDateString([], {
-    day: "numeric",
-    month: "short",
-    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-  });
-}
-
-// Grouped under a heading per day, so a long stretch reads as a timeline.
 function RecentUse({
   activity,
   more,
@@ -334,21 +317,11 @@ function RecentUse({
   if (activity.calls.length === 0) {
     return <p className={styles.empty}>Not used {within(period)}.</p>;
   }
-  const calls = activity.calls.slice(0, shown);
   return (
     <ul className={styles.list} aria-label="Recent use">
-      {calls.map((call, index) => {
-        const day = dayOf(call.at);
-        const previous = calls[index - 1];
-        return (
-          <Fragment key={call.id}>
-            {previous !== undefined && dayOf(previous.at) === day ? null : (
-              <li className={styles.day}>{day}</li>
-            )}
-            <CallRow call={call} />
-          </Fragment>
-        );
-      })}
+      {activity.calls.slice(0, shown).map((call) => (
+        <CallRow key={call.id} call={call} />
+      ))}
       {hasMore ? (
         <li className={styles.more}>
           <Button

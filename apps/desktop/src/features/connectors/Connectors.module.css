@@ -380,19 +380,6 @@
   font-weight: 600;
 }
 
-/* A day's heading in Recent use. */
-.day {
-  padding: 10px 20px;
-  border-top: 1px solid var(--border);
-  font-size: var(--size-meta);
-  font-weight: 600;
-  color: var(--text-3);
-}
-
-.list > li.day:first-child {
-  border-top: 0;
-}
-
 .actRow {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) auto;
