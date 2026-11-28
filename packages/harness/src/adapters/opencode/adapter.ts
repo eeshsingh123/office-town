@@ -123,6 +123,9 @@ function buildCommand2(options: LaunchOptions): HarnessCommand {
   const blocked = blockedOf(options);
   const direct = configuredServers(options);
   const config = {
+    // OpenCode 2.4's automations run later in whatever OpenCode is open, unseen by the app, which
+    // has automations of its own. Releases before 2.4 ignore the setting.
+    automations: false,
     permission: {
       ...permissionsOf(options),
       question: "allow",

@@ -16,6 +16,7 @@ export const RELEASES: Release[] = [
     changes: [
       "The model picker lists OpenCode's models again with OpenCode 2.4, which had left the list empty",
       "The model picker shows each provider by name only, without notes or usage under it",
+      "OpenCode agents can no longer set up OpenCode's own automations, which would run outside Office Town. Use Automations instead",
     ],
   },
   {
