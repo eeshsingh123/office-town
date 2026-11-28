@@ -87,13 +87,25 @@ export function reportResults(
   };
 
   // A worker whose process ended goes on in a new session, so its piece moves there too.
-  const retry = async (delegation: DelegationRecord, sessionId: string, message: Message) => {
+  const retry = async (
+    delegation: DelegationRecord,
+    sessionId: string,
+    message: Message,
+    failure: string,
+  ) => {
     const session = store.getSession(sessionId);
     if (session !== undefined && isOpen(session)) {
       await registry.tell(sessionId, message);
       return;
     }
     const resumed = await registry.resume(sessionId, message);
+    // A Stop during the resume already ended the piece.
+    if (store.workingDelegation(sessionId)?.id !== delegation.id) return;
+    // A start that failed ended the new session before the piece could follow it.
+    if (!isOpen(resumed)) {
+      finish(delegation, "failed", failure);
+      return;
+    }
     const { taskId, workerAgentId, brief } = delegation;
     const moved = store.createDelegation({
       taskId,
@@ -115,7 +127,7 @@ export function reportResults(
       return;
     }
     recovery.markDelegationRetried(delegation.id);
-    retry(delegation, sessionId, tryAgain(seen?.lastError)).catch(() => {
+    retry(delegation, sessionId, tryAgain(seen?.lastError), failure).catch(() => {
       finish(delegation, "failed", failure);
     });
   };

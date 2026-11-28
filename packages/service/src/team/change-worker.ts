@@ -57,7 +57,10 @@ export async function moveDepartment(
   const department = store.getDepartment(departmentId);
   if (department === undefined) throw new RecordNotFoundError("department");
   const members = store.listMembers(departmentId);
-  for (const agent of members) {
+  for (const member of members) {
+    // Read again: an earlier member's stop gave the user time to edit this one.
+    const agent = store.getAgent(member.id);
+    if (agent === undefined) continue;
     const { accountId, ...settings } = changed(agent, model, effort);
     // An account belongs to its AI app.
     const account =
@@ -105,13 +108,21 @@ export function changeWorker(context: TeamContext) {
       if (worker === undefined) throw new ToolError(`${agent} is not on your team.`);
       const { harness, environment } = worker.settings;
       await checkedSettings(context, { harness, model, effort }, environment);
+      // Read again when it applies: the user may have edited the worker while the ask waited.
       const apply = async () => {
-        const settings = changed(worker, model, effort);
-        store.updateAgent(worker.id, { ...worker, settings });
-        await applyModelChange(context, worker.id);
+        const current = store.getAgent(worker.id);
+        const same =
+          current !== undefined &&
+          current.settings.harness === harness &&
+          JSON.stringify(current.settings.environment) === JSON.stringify(environment);
+        if (!same) return false;
+        store.updateAgent(current.id, { ...current, settings: changed(current, model, effort) });
+        await applyModelChange(context, current.id);
+        return true;
       };
       if (levelOf(store, caller.agentId) !== "supervised") {
-        await apply();
+        if (!(await apply()))
+          throw new ToolError(`${worker.name} was changed meanwhile; try again.`);
         return `${worker.name} now runs on ${model}. Call resume_work to have it carry on.`;
       }
       const requestId = `${CORE_ASKS.change}${randomUUID()}`;
@@ -143,15 +154,17 @@ export function changeWorker(context: TeamContext) {
               },
             },
             afterwards: async () => {
-              if (approved) await apply();
-              const text = approved
+              const moved = approved && (await apply());
+              const text = moved
                 ? `The user approved: ${worker.name} now runs on ${model}. Call resume_work to have it carry on.`
-                : `The user kept ${worker.name} on its model.`;
+                : approved
+                  ? `The user approved, but ${worker.name} was changed meanwhile, so it keeps its model.`
+                  : `The user kept ${worker.name} on its model.`;
               await registry.tell(caller.sessionId, {
                 text,
                 origin: {
                   kind: "notice",
-                  summary: approved ? "You changed the model" : "You kept the model",
+                  summary: moved ? "You changed the model" : "You kept the model",
                 },
               });
             },
