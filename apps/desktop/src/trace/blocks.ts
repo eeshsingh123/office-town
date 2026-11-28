@@ -12,12 +12,12 @@ export type TraceBlock =
   | { kind: "item"; id: string }
   | { kind: "actions"; ids: string[]; stepId: string | undefined; showsStep: boolean };
 
-const cache = new WeakMap<Trace, TraceBlock[]>();
+const cache = new WeakMap<Trace["items"], { order: string[]; blocks: TraceBlock[] }>();
 
-// A trace is replaced on every change, never edited, so its blocks are worked out once.
+// Items and order are replaced on every change, never edited, so their blocks are worked out once.
 export function toBlocks(trace: Trace): TraceBlock[] {
-  const cached = cache.get(trace);
-  if (cached !== undefined) return cached;
+  const cached = cache.get(trace.items);
+  if (cached !== undefined && cached.order === trace.order) return cached.blocks;
   const blocks: TraceBlock[] = [];
   let shownStep: string | undefined;
   // A result an agent showed stands alone with its card, never folded into a run (M8), and so
@@ -42,7 +42,7 @@ export function toBlocks(trace: Trace): TraceBlock[] {
     shownStep = stepId ?? shownStep;
     shut = alone;
   }
-  cache.set(trace, blocks);
+  cache.set(trace.items, { order: trace.order, blocks });
   return blocks;
 }
 

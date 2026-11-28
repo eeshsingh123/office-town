@@ -1,7 +1,7 @@
 import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
 import { ChevronRight } from "lucide-react";
 import { Tooltip } from "radix-ui";
-import { useEffect, useId, useMemo, useState } from "react";
+import { type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -68,8 +68,6 @@ function useConversation(agentId: string) {
       .sort((a, b) => latest(a).localeCompare(latest(b)));
   }, [loaded, live]);
 
-  useTraces(goals.flatMap((goal) => goal.sessions.map((session) => session.id)));
-
   return { goals, more: next !== undefined, loading, error, loadEarlier: () => read(next) };
 }
 
@@ -106,6 +104,22 @@ function dayAndTime(iso: string): string {
 
 const MESSAGES = new Set(["user", "agent", "passed"]);
 
+// A folded goal reads its chat only once its header scrolls into view, for its message count,
+// so a long history is not read whole when the tab opens.
+function useSeen(target: RefObject<HTMLElement | null>, already: boolean): boolean {
+  const [seen, setSeen] = useState(already);
+  useEffect(() => {
+    const element = target.current;
+    if (seen || element === null) return;
+    const watch = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) setSeen(true);
+    });
+    watch.observe(element);
+    return () => watch.disconnect();
+  }, [seen, target]);
+  return seen;
+}
+
 // One header per goal (D-88). An open goal's header stays in view while its chat scrolls.
 function GoalChat({
   goal,
@@ -124,6 +138,9 @@ function GoalChat({
   open: boolean;
   onToggle: () => void;
 }) {
+  const head = useRef<HTMLElement>(null);
+  const seen = useSeen(head, open);
+  useTraces(open || seen ? goal.sessions.map((session) => session.id) : []);
   const traces = useApp(
     useShallow((state) => goal.sessions.map((session) => state.traces[session.id])),
   );
@@ -147,6 +164,7 @@ function GoalChat({
   const messages = items.filter((item) => MESSAGES.has(item.kind)).length;
   return (
     <section
+      ref={head}
       aria-label={name}
       className={`${styles.goal} ${current && open ? styles.current : styles.card} ${open ? styles.opened : ""}`}
     >
@@ -164,7 +182,7 @@ function GoalChat({
               <span className={styles.goalMeta}>
                 {dayAndTime(start)}
                 {task?.parentTaskId === undefined ? "" : ` · from ${chiefName}`}
-                {open ? "" : ` · ${messages} ${messages === 1 ? "message" : "messages"}`}
+                {open || waiting ? "" : ` · ${messages} ${messages === 1 ? "message" : "messages"}`}
               </span>
             </span>
             {/* The panel's own status already speaks for the latest goal. */}

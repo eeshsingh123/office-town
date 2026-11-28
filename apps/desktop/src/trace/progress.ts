@@ -40,7 +40,8 @@ export const liveStateOf = (state: AgentState | undefined): LiveState =>
 const RECENT = 3;
 // Past this, an agent has stopped keeping its plan, so the step it names is no longer true.
 const STALE_PLAN_ACTIONS = 25;
-const cache = new WeakMap<Trace, Progress>();
+// By the items, which a batch of text fragments leaves as they were.
+const cache = new WeakMap<Trace["items"], { trace: Trace; progress: Progress }>();
 
 export function planIsStale(trace: Trace): boolean {
   return (
@@ -50,8 +51,14 @@ export function planIsStale(trace: Trace): boolean {
 }
 
 export function progressOf(trace: Trace): Progress {
-  const cached = cache.get(trace);
-  if (cached !== undefined) return cached;
+  const cached = cache.get(trace.items);
+  if (
+    cached !== undefined &&
+    cached.trace.plan === trace.plan &&
+    cached.trace.actionsSincePlan === trace.actionsSincePlan
+  ) {
+    return cached.progress;
+  }
   const actions = [...trace.items.values()].filter((item) => item.kind === "action");
   const index = trace.plan.findIndex((step) => step.status === "in_progress");
   const stepIndex =
@@ -66,7 +73,7 @@ export function progressOf(trace: Trace): Progress {
     ...(step === undefined ? {} : { step: { number: stepIndex + 1, title: step.title } }),
     ...(current === undefined ? {} : { current }),
   };
-  cache.set(trace, progress);
+  cache.set(trace.items, { trace, progress });
   return progress;
 }
 

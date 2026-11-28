@@ -77,11 +77,12 @@ type Known = Pick<
 >;
 
 const OPEN_PIECE = new Set<PlanPiece["status"]>(["waiting", "queued", "working"]);
-const activityCache = new WeakMap<Trace, string>();
+// By the items, which a batch of text fragments leaves as they were.
+const activityCache = new WeakMap<Trace["items"], string>();
 
 // The newest moment anything happened in a trace.
 function lastActivity(trace: Trace): string {
-  const cached = activityCache.get(trace);
+  const cached = activityCache.get(trace.items);
   if (cached !== undefined) return cached;
   let latest = "";
   for (const item of trace.items.values()) {
@@ -93,7 +94,7 @@ function lastActivity(trace: Trace): string {
           : "";
     if (at > latest) latest = at;
   }
-  activityCache.set(trace, latest);
+  activityCache.set(trace.items, latest);
   return latest;
 }
 
@@ -253,12 +254,45 @@ function pieceItem(piece: PlanPiece, known: Known, goal: TaskRecord): Item {
   };
 }
 
-// Every loaded task as a row; a chief's goal carries its parts, planned ones included.
-export function buildItems(known: Known, now: number): Item[] {
+// The last rows built, so the next build keeps every row whose inputs did not change.
+export interface BuiltRows {
+  known: Known;
+  now: number;
+  rows: Map<string, Item>;
+}
+
+// What a task's row reads beyond its own records; when one changes, every row is built again.
+const SHARED = ["agents", "departments", "pieces", "waiting", "chiefId"] as const;
+
+function unchanged(taskId: string, known: Known, now: number, before: BuiltRows): boolean {
+  const was = before.known;
+  if (now !== before.now || SHARED.some((key) => known[key] !== was[key])) return false;
+  const entry = known.tasks[taskId];
+  if (entry === undefined || entry !== was.tasks[taskId]) return false;
+  return entry.sessionIds.every(
+    (id) => known.sessions[id] === was.sessions[id] && known.traces[id] === was.traces[id],
+  );
+}
+
+// Every loaded task as a row; a chief's goal carries its parts, planned ones included. A row whose
+// inputs are unchanged is the same object as before, so a long list redraws only what changed.
+export function buildRows(known: Known, now: number, before?: BuiltRows): BuiltRows {
+  const rows = new Map<string, Item>();
+  for (const item of buildItems(known, now, before)) rows.set(item.id, item);
+  return { known, now, rows };
+}
+
+export function buildItems(known: Known, now: number, before?: BuiltRows): Item[] {
   const waiting = new Set(Object.values(known.waiting).map(({ event }) => event.sessionId));
+  // A goal's row is filled in from its parts below, so it is always built anew.
+  const goals = new Set(Object.values(known.pieces).map((piece) => piece.taskId));
   const items = new Map<string, Item>();
   for (const { task } of Object.values(known.tasks)) {
-    items.set(task.id, taskItem(task, known, waiting, now));
+    const kept =
+      before === undefined || goals.has(task.id) || !unchanged(task.id, known, now, before)
+        ? undefined
+        : before.rows.get(task.id);
+    items.set(task.id, kept ?? taskItem(task, known, waiting, now));
   }
   for (const goal of items.values()) {
     if (goal.task === undefined) continue;

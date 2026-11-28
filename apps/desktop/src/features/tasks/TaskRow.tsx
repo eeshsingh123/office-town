@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react";
+import { memo } from "react";
 import type { Agent } from "../../store/agents.ts";
 import { navigate } from "../../store/app-store.ts";
 import { ContextMenu, MoreMenu } from "../../ui/ActionMenu.tsx";
@@ -125,7 +126,17 @@ interface TaskRowProps {
   now: number;
 }
 
-export function TaskRow(props: TaskRowProps) {
+// A row whose item and team read the same is not drawn again, so a long list stays still while
+// one agent works (its item is the same object until its own records change).
+export const TaskRow = memo(TaskRowView, (before, after) => {
+  const { team: was, ...rest } = before;
+  const { team: is, ...next } = after;
+  const sameTeam = was.key === is.key && was.name === is.name && was.colour === is.colour;
+  const keys = new Set([...Object.keys(rest), ...Object.keys(next)]) as Set<keyof typeof rest>;
+  return sameTeam && [...keys].every((key) => rest[key] === next[key]);
+});
+
+function TaskRowView(props: TaskRowProps) {
   const { item, team, byTeam, goalTitle, nested = false, expanded, onToggleParts, now } = props;
   const task = item.task;
   const goal = item.progress?.unit === "parts";
