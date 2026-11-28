@@ -1,5 +1,13 @@
 import type { Audience, CatalogEntry, ConnectorRecord } from "@office-town/contract";
-import { ChevronDown, ChevronRight, ExternalLink, Plus, Power } from "lucide-react";
+import {
+  CheckCheck,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Plug,
+  Plus,
+  Power,
+} from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api/client.ts";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -9,6 +17,7 @@ import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
 import { Count } from "../../ui/Count.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import { ago } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
@@ -453,24 +462,13 @@ export function ConnectorsView(props: ConnectorsViewProps) {
         )}
 
         {mine.length === 0 ? null : shown.length === 0 ? (
-          <div className={styles.emptyBox}>
-            <p className={styles.emptyTitle}>
-              {narrowing
-                ? "No app matches."
-                : filters.tab === "needs"
-                  ? "No app needs you."
-                  : "No app is turned off."}
-            </p>
-            {narrowing ? (
-              <button
-                type="button"
-                className={styles.textLink}
-                onClick={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
-              >
-                Clear filters
-              </button>
-            ) : null}
-          </div>
+          narrowing ? (
+            <NoMatch title="No app matches these filters" />
+          ) : filters.tab === "needs" ? (
+            <EmptyState icon={CheckCheck} title="No app needs you" tone="good" />
+          ) : (
+            <EmptyState icon={Plug} title="No app is turned off" />
+          )
         ) : (
           <div className={styles.listBlock}>
             <div className={styles.listHead} aria-hidden>

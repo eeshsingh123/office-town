@@ -1,5 +1,5 @@
 import type { AgentRecord, SessionRecord, TaskRecord } from "@office-town/contract";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MessageCircle } from "lucide-react";
 import { Tooltip } from "radix-ui";
 import { type RefObject, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -8,6 +8,7 @@ import { useApp } from "../../store/app-store.ts";
 import { useTraces } from "../../store/live.ts";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { EmptyState } from "../../ui/EmptyState.tsx";
 import { clockTime, taskName } from "../../ui/format.ts";
 import { useFollow } from "../task/follow.ts";
 import { TaskStatusOf } from "../tasks/TaskStatusIcon.tsx";
@@ -260,7 +261,9 @@ export function ChatTab({ agentId, named }: { agentId: string; named: boolean })
             {error}
           </p>
         )}
-        {!loading && goals.length === 0 ? <p className={styles.quiet}>No messages yet.</p> : null}
+        {!loading && goals.length === 0 ? (
+          <EmptyState icon={MessageCircle} title="No messages yet" size="panel" />
+        ) : null}
         {goals.map((goal) => {
           const current = goal.taskId === latestGoal;
           const open = folding.get(goal.taskId) ?? current;

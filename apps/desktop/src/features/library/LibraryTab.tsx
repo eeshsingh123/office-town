@@ -1,5 +1,5 @@
 import type { AttachmentKind, LibraryAudience, LibraryItem } from "@office-town/contract";
-import { Check, ChevronDown, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Check, ChevronDown, FileText, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { type DragEvent, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
@@ -7,6 +7,7 @@ import { shell } from "../../shell.ts";
 import { useApp } from "../../store/app-store.ts";
 import { ContextMenu, type MenuContent, MoreMenu } from "../../ui/ActionMenu.tsx";
 import { Button } from "../../ui/Button.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import form from "../../ui/Form.module.css";
 import { ago } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
@@ -315,16 +316,14 @@ export function LibraryTab({ workspaceId }: { workspaceId: string }) {
 
       {items.length === 0 ? (
         <div className={styles.empty}>
-          <strong>No files yet</strong>
-          <p className={form.hint}>
-            Drop files or folders here. Agents get them as reference in every task.
-          </p>
+          <EmptyState
+            icon={FileText}
+            title="No files yet"
+            hint="Drop files or folders here. Agents get them as reference in every task."
+          />
         </div>
       ) : shown.length === 0 ? (
-        <div className={styles.empty}>
-          <strong>Nothing matches</strong>
-          <p className={form.hint}>Try a different word, or show all.</p>
-        </div>
+        <NoMatch title="Nothing matches" hint="Try a different word, or show all." />
       ) : (
         <div className={styles.table}>
           <div className={styles.head} aria-hidden>

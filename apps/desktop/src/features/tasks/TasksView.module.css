@@ -61,32 +61,6 @@
   flex: 1 0 0;
 }
 
-.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font-size: var(--size-meta);
-  cursor: pointer;
-}
-
-.empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 48px 16px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-card);
-  color: var(--text-3);
-}
-
-.emptyTitle {
-  margin: 0;
-  font-weight: 600;
-  color: var(--text);
-}
-
 /* One block per team, status or day. */
 .groups {
   display: flex;

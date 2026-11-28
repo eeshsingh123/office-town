@@ -5,7 +5,7 @@ import type {
   OutputRecord,
   SpottedSite,
 } from "@office-town/contract";
-import { ChevronDown, FileText, Globe } from "lucide-react";
+import { ChevronDown, FileText, Globe, Package } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -14,6 +14,7 @@ import { ContextMenu } from "../../ui/ActionMenu.tsx";
 import { Avatar } from "../../ui/Avatar.tsx";
 import { ConfirmDialog } from "../../ui/ConfirmDialog.tsx";
 import { Count } from "../../ui/Count.tsx";
+import { EmptyState } from "../../ui/EmptyState.tsx";
 import { ago } from "../../ui/format.ts";
 import { fileMenu } from "../attachments/file-menu.ts";
 import { fileName, KIND_LABELS, latestDocument, shownPath, viewKindOf } from "./kinds.ts";
@@ -105,7 +106,12 @@ export function OutputsPane({
   ) {
     return (
       <div className={styles.empty}>
-        <strong>No outputs yet</strong>
+        <EmptyState
+          icon={Package}
+          title="No outputs yet"
+          hint="Files and results this task makes show up here."
+          size="panel"
+        />
       </div>
     );
   }

@@ -1,5 +1,17 @@
 import type { FeedPost, FeedShow } from "@office-town/contract";
-import { ArrowUp, CheckCircle2, LoaderCircle } from "lucide-react";
+import {
+  ArrowUp,
+  CheckCheck,
+  CheckCircle2,
+  Clock,
+  CloudOff,
+  Lightbulb,
+  LoaderCircle,
+  type LucideIcon,
+  Newspaper,
+  PackageCheck,
+  RotateCcw,
+} from "lucide-react";
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client.ts";
 import { useApp } from "../../store/app-store.ts";
@@ -7,13 +19,13 @@ import { forSession, useKept } from "../../store/kept.ts";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import { Fact, Facts } from "../../ui/Facts.tsx";
 import { sinceTime } from "../../ui/format.ts";
 import page from "../../ui/Page.module.css";
 import { PageHeader } from "../../ui/PageHeader.tsx";
 import { SearchBox } from "../../ui/SearchBox.tsx";
 import { TabRow } from "../../ui/TabRow.tsx";
-import { startNewTask } from "../new-task/start-new-task.ts";
 import styles from "./Feed.module.css";
 import { FeedItem, useAuthor } from "./FeedItem.tsx";
 import {
@@ -32,6 +44,31 @@ const SHOW: { value: FeedShow; label: string }[] = [
   { value: "automations", label: "Automations" },
   { value: "suggested", label: "Suggested" },
 ];
+
+// An empty tab with no search or department is not a failed search: say what lands there.
+const EMPTY_TAB: Record<
+  FeedShow,
+  { icon: LucideIcon; title: string; hint: string; tone?: "good" }
+> = {
+  all: { icon: Newspaper, title: "No posts yet", hint: "Posts appear here as your agents work." },
+  "needs-you": {
+    icon: CheckCheck,
+    title: "You're caught up",
+    hint: "Questions and approvals from your agents show up here.",
+    tone: "good",
+  },
+  results: { icon: PackageCheck, title: "No results yet", hint: "Finished work shows up here." },
+  automations: {
+    icon: Clock,
+    title: "No automation posts yet",
+    hint: "Posts from automation runs show up here.",
+  },
+  suggested: {
+    icon: Lightbulb,
+    title: "No suggestions yet",
+    hint: "Ideas your agents spot while they work show up here.",
+  },
+};
 
 const FILTER = forSession<FeedFilter>("feed.filter", NO_FILTER);
 // Scrolled further than this, new posts wait behind the pill instead of moving the list.
@@ -228,10 +265,12 @@ export function FeedView() {
   let body: ReactNode;
   if (cursor.error !== undefined && all.length === 0) {
     body = (
-      <div className={styles.state}>
-        <p>{cursor.error}</p>
-        <Button onClick={again}>Try again</Button>
-      </div>
+      <EmptyState icon={CloudOff} title="Posts could not load" hint={cursor.error} tone="bad">
+        <Button onClick={again}>
+          <RotateCcw size={14} aria-hidden />
+          Try again
+        </Button>
+      </EmptyState>
     );
   } else if (all.length === 0 && cursor.loading) {
     body = (
@@ -240,22 +279,10 @@ export function FeedView() {
         Reading posts
       </p>
     );
-  } else if (all.length === 0 && filtering) {
-    body = (
-      <div className={styles.state}>
-        <p>Nothing matches these filters.</p>
-        <Button onClick={() => setFilter(NO_FILTER)}>Clear filters</Button>
-      </div>
-    );
+  } else if (all.length === 0 && (filter.departmentId !== undefined || filter.search !== "")) {
+    body = <NoMatch />;
   } else if (all.length === 0) {
-    body = (
-      <div className={styles.state}>
-        <p>Nothing here yet. Posts appear here as your agents work.</p>
-        <Button variant="primary" onClick={() => startNewTask()}>
-          New task
-        </Button>
-      </div>
-    );
+    body = <EmptyState {...EMPTY_TAB[filter.show]} />;
   } else {
     body = (
       <div className={styles.list}>

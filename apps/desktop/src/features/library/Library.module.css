@@ -51,19 +51,10 @@
   padding-left: 18px;
 }
 
+/* The dashed edge says files can be dropped here. */
 .empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 48px 32px;
   border: 1.5px dashed var(--border-strong);
   border-radius: var(--radius-card);
-  text-align: center;
-}
-
-.empty p {
-  margin: 0;
 }
 
 .table {

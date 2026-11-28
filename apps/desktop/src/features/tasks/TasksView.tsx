@@ -1,4 +1,14 @@
-import { Check, ChevronDown, Database, Plus } from "lucide-react";
+import {
+  Check,
+  CheckCheck,
+  ChevronDown,
+  CloudOff,
+  Database,
+  ListChecks,
+  type LucideIcon,
+  Plus,
+  RotateCcw,
+} from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useMemo, useState } from "react";
 import { navigate, useApp } from "../../store/app-store.ts";
@@ -17,6 +27,7 @@ import { Avatar } from "../../ui/Avatar.tsx";
 import { Button } from "../../ui/Button.tsx";
 import { ChoiceMenu } from "../../ui/ChoiceMenu.tsx";
 import { ClearFilters } from "../../ui/ClearFilters.tsx";
+import { EmptyState, NoMatch } from "../../ui/EmptyState.tsx";
 import { Fact, Facts } from "../../ui/Facts.tsx";
 import { byteSize } from "../../ui/format.ts";
 import menu from "../../ui/Menu.module.css";
@@ -47,13 +58,13 @@ import { useNow, useTaskItems } from "./use-items.ts";
 import { useTaskMoves, useTaskSearch } from "./use-task-search.ts";
 
 // An empty tab with nothing filtered is good news, not a failed search.
-const EMPTY_TAB: Record<Tab, string> = {
-  all: "No tasks yet.",
-  needs: "Nothing needs you.",
-  active: "Nothing is in progress.",
-  review: "Nothing to review.",
-  done: "Nothing is done yet.",
-  ended: "Nothing failed or stopped.",
+const EMPTY_TAB: Record<Tab, { icon: LucideIcon; title: string; tone?: "good" }> = {
+  all: { icon: ListChecks, title: "No tasks yet" },
+  needs: { icon: CheckCheck, title: "No tasks are waiting for you", tone: "good" },
+  active: { icon: ListChecks, title: "Nothing is in progress" },
+  review: { icon: CheckCheck, title: "Nothing to review", tone: "good" },
+  done: { icon: ListChecks, title: "Nothing is done yet" },
+  ended: { icon: CheckCheck, title: "Nothing failed or stopped", tone: "good" },
 };
 
 const TABS: { value: Tab; label: string }[] = [
@@ -414,7 +425,7 @@ export function TasksView({ startedBy }: { startedBy?: string }) {
         <PageHeader
           id="tasks-title"
           title="Tasks"
-          lead={taskItems.length === 0 ? "No tasks yet." : (summary ?? "Nothing is working.")}
+          lead={taskItems.length === 0 ? undefined : (summary ?? "Nothing is working.")}
           actions={
             <Button variant="primary" onClick={() => startNewTask()}>
               <Plus size={14} aria-hidden />
@@ -497,31 +508,25 @@ export function TasksView({ startedBy }: { startedBy?: string }) {
         )}
 
         {failed ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Could not load all your tasks</p>
-            <button type="button" className={styles.link} onClick={retry}>
+          <EmptyState
+            icon={CloudOff}
+            title="Could not load all your tasks"
+            tone="bad"
+            size={groups.length === 0 ? "page" : "panel"}
+          >
+            <Button onClick={retry}>
+              <RotateCcw size={14} aria-hidden />
               Try again
-            </button>
-          </div>
-        ) : null}
-
-        {!failed && taskItems.length > 0 && found !== undefined && groups.length === 0 ? (
-          <div className={styles.empty}>
-            {narrowing ? (
-              <>
-                <p className={styles.emptyTitle}>No tasks match</p>
-                <button
-                  type="button"
-                  className={styles.link}
-                  onClick={() => setFilters({ ...NO_FILTERS, tab: filters.tab })}
-                >
-                  Clear filters
-                </button>
-              </>
-            ) : (
-              <p className={styles.emptyTitle}>{EMPTY_TAB[filters.tab]}</p>
-            )}
-          </div>
+            </Button>
+          </EmptyState>
+        ) : taskItems.length === 0 ? (
+          <EmptyState icon={ListChecks} title="No tasks yet" hint="Tasks you start show up here." />
+        ) : found !== undefined && groups.length === 0 ? (
+          narrowing ? (
+            <NoMatch title="No tasks match these filters" />
+          ) : (
+            <EmptyState {...EMPTY_TAB[filters.tab]} />
+          )
         ) : null}
 
         <div className={styles.groups}>
